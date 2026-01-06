@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Package, TrendingUp, TrendingDown, Search, 
-  ArrowUpDown, Filter, DollarSign, Percent
+  ArrowUpDown, Filter, DollarSign, Percent, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatVNDCompact, formatCurrency } from '@/lib/formatters';
-import { SKUMetrics } from '@/hooks/useWhatIfRealData';
+import { useWhatIfRealData, SKUMetrics } from '@/hooks/useWhatIfRealData';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis
@@ -24,12 +24,9 @@ interface SKUSimParams {
   volumeChange: number; // % change in volume
 }
 
-interface Props {
-  skuData: SKUMetrics[];
-  isLoading?: boolean;
-}
-
-export function SKUProfitabilityPanel({ skuData, isLoading }: Props) {
+export function SKUProfitabilityPanel() {
+  const { data, isLoading } = useWhatIfRealData();
+  const skuData = data?.bySKU || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'revenue' | 'profit' | 'margin' | 'quantity'>('revenue');
   const [selectedSKUs, setSelectedSKUs] = useState<Set<string>>(new Set());

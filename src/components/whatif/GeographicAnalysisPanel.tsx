@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   MapPin, TrendingUp, TrendingDown, DollarSign, 
-  Truck, Package, Percent, BarChart3
+  Truck, Package, Percent, BarChart3, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatVNDCompact } from '@/lib/formatters';
-import { GeographicMetrics } from '@/hooks/useWhatIfRealData';
+import { useWhatIfRealData, GeographicMetrics } from '@/hooks/useWhatIfRealData';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
@@ -40,18 +40,16 @@ interface GeoSimParams {
   shippingCostChange: number;
 }
 
-interface Props {
-  geoData: GeographicMetrics[];
-  isLoading?: boolean;
-}
-
 const REGION_COLORS = {
   north: '#3b82f6',
   central: '#22c55e', 
   south: '#f59e0b',
 };
 
-export function GeographicAnalysisPanel({ geoData, isLoading }: Props) {
+export function GeographicAnalysisPanel() {
+  const { data, isLoading } = useWhatIfRealData();
+  const geoData = data?.byGeography || [];
+  
   const [params, setParams] = useState<GeoSimParams>({
     northGrowth: 0,
     centralGrowth: 0,

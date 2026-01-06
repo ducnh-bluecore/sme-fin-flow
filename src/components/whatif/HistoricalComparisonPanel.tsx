@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Calendar, TrendingUp, TrendingDown, DollarSign, 
-  BarChart3, ArrowRight, Sparkles
+  BarChart3, ArrowRight, Sparkles, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatVNDCompact } from '@/lib/formatters';
-import { HistoricalMetrics } from '@/hooks/useWhatIfRealData';
+import { useWhatIfRealData, HistoricalMetrics } from '@/hooks/useWhatIfRealData';
 import { format, parseISO, addMonths } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -20,18 +20,16 @@ import {
   Tooltip, ResponsiveContainer, Legend, Area, AreaChart, ComposedChart, Bar
 } from 'recharts';
 
-interface Props {
-  historicalData: HistoricalMetrics[];
-  currentMetrics: {
-    totalRevenue: number;
-    totalNetProfit: number;
-    overallMargin: number;
-    monthlyGrowthRate: number;
+export function HistoricalComparisonPanel() {
+  const { data, isLoading } = useWhatIfRealData();
+  const historicalData = data?.byMonth || [];
+  const currentMetrics = {
+    totalRevenue: data?.totalRevenue || 0,
+    totalNetProfit: data?.totalNetProfit || 0,
+    overallMargin: data?.overallMargin || 0,
+    monthlyGrowthRate: data?.monthlyGrowthRate || 5,
   };
-  isLoading?: boolean;
-}
-
-export function HistoricalComparisonPanel({ historicalData, currentMetrics, isLoading }: Props) {
+  
   const [forecastMonths, setForecastMonths] = useState(3);
   const [growthScenario, setGrowthScenario] = useState<'pessimistic' | 'realistic' | 'optimistic'>('realistic');
   const [customGrowthRate, setCustomGrowthRate] = useState(currentMetrics.monthlyGrowthRate || 5);
