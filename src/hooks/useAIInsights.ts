@@ -1,0 +1,65 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveTenantId } from './useActiveTenantId';
+
+interface FinancialSummary {
+  totalCash: number;
+  totalAR: number;
+  totalOverdue: number;
+  overdueCount: number;
+  totalInvoices: number;
+  totalCustomers: number;
+  unmatchedTransactionsCount: number;
+  matchRate: string;
+  totalRevenue: number;
+  totalExpenses: number;
+  netIncome: number;
+}
+
+interface AIInsightsResponse {
+  analysis: string;
+  summary: FinancialSummary;
+  generatedAt: string;
+}
+
+export function useAIInsights(enabled: boolean = true) {
+  const { data: tenantId } = useActiveTenantId();
+  
+  return useQuery({
+    queryKey: ['ai-insights', tenantId],
+    queryFn: async (): Promise<AIInsightsResponse | null> => {
+      if (!tenantId) return null;
+
+      const { data, error } = await supabase.functions.invoke('analyze-financial-data');
+
+      if (error) {
+        console.error('AI insights error:', error);
+        throw error;
+      }
+
+      return data;
+    },
+    enabled: !!tenantId && enabled,
+    staleTime: 10 * 60 * 1000, // 10 minutes - increased for better caching
+    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    refetchInterval: false, // Disable auto-refresh to reduce API calls
+    retry: 1,
+  });
+}
+
+export function useRefreshAIInsights() {
+  const queryClient = useQueryClient();
+  const { data: tenantId } = useActiveTenantId();
+
+  return useMutation({
+    mutationFn: async (): Promise<AIInsightsResponse> => {
+      const { data, error } = await supabase.functions.invoke('analyze-financial-data');
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-insights', tenantId] });
+    }
+  });
+}

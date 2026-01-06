@@ -1,0 +1,213 @@
+import { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { Helmet } from 'react-helmet-async';
+import { Wallet, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock } from 'lucide-react';
+import { KPICard } from '@/components/dashboard/KPICard';
+import { CashForecastChart } from '@/components/dashboard/CashForecastChart';
+import { ARAgingChart } from '@/components/dashboard/ARAgingChart';
+import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
+import { OverdueInvoicesTable } from '@/components/dashboard/OverdueInvoicesTable';
+import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
+import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
+import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { formatVNDCompact } from '@/lib/formatters';
+import { useDashboardKPIs } from '@/hooks/useDashboardData';
+import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
+import { useCashRunway } from '@/hooks/useCashRunway';
+import { useDateRange } from '@/contexts/DateRangeContext';
+import { Skeleton } from '@/components/ui/skeleton';
+import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+
+function ChartErrorFallback() {
+  return (
+    <div className="data-card flex items-center justify-center h-64">
+      <div className="text-center space-y-2">
+        <AlertTriangle className="h-8 w-8 text-muted-foreground mx-auto" />
+        <p className="text-sm text-muted-foreground">Không thể tải biểu đồ</p>
+      </div>
+    </div>
+  );
+}
+
+export default function CFODashboard() {
+  const { dateRange, setDateRange, refreshAllData } = useDateRange();
+  const { data: kpis, isLoading } = useDashboardKPIs();
+  const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
+
+  const handleRefresh = useMemo(() => {
+    return () => {
+      refreshAllData();
+    };
+  }, [refreshAllData]);
+
+  // Enable realtime updates for dashboard data
+  useRealtimeDashboard();
+
+  // Format runway display
+  const formatRunway = () => {
+    if (!cashRunway?.hasEnoughData) return 'Chưa đủ dữ liệu';
+    if (cashRunway.runwayMonths === null) return 'N/A';
+    if (cashRunway.runwayMonths === Infinity) return '∞';
+    if (cashRunway.runwayMonths < 1) return `${cashRunway.runwayDays} ngày`;
+    return `${cashRunway.runwayMonths.toFixed(1)} tháng`;
+  };
+
+  const getRunwayVariant = () => {
+    if (!cashRunway?.hasEnoughData || cashRunway.runwayMonths === null) return 'default';
+    if (cashRunway.runwayMonths === Infinity) return 'success';
+    if (cashRunway.runwayMonths < 3) return 'danger';
+    if (cashRunway.runwayMonths < 6) return 'warning';
+    return 'success';
+  };
+
+  return (
+    <>
+      <Helmet>
+        <title>Tổng quan CFO | Bluecore Finance</title>
+        <meta name="description" content="Dashboard tài chính cho CFO - Thanh khoản, tiền mặt, công nợ và dự báo" />
+      </Helmet>
+
+      <div className="space-y-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+        >
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              Thanh khoản & Tiền mặt
+            </h1>
+            <p className="text-muted-foreground">Liquidity & Cash Overview</p>
+          </div>
+          <div className="flex gap-2">
+            <QuickDateSelector value={dateRange} onChange={setDateRange} />
+            <motion.button
+              type="button"
+              onClick={handleRefresh}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm shadow-glow"
+              aria-label="Cập nhật dữ liệu dashboard"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Cập nhật dữ liệu
+            </motion.button>
+          </div>
+        </motion.div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {isLoading || isLoadingRunway ? (
+            <>
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </>
+          ) : (
+            <>
+              <KPICard
+                title="Tiền mặt hôm nay"
+                value={formatVNDCompact(kpis?.cashToday || 0)}
+                trend={{ value: 5.2, label: 'vs hôm qua' }}
+                icon={Wallet}
+                variant="success"
+              />
+              <KPICard
+                title="Cash Runway"
+                value={formatRunway()}
+                trend={cashRunway?.hasEnoughData ? { 
+                  value: cashRunway.avgMonthlyBurn > 0 ? -Math.round(cashRunway.avgMonthlyBurn / 1000000) : 0, 
+                  label: 'burn/tháng (triệu)' 
+                } : undefined}
+                icon={Clock}
+                variant={getRunwayVariant()}
+              />
+              <KPICard
+                title="Tiền mặt 7 ngày tới"
+                value={formatVNDCompact(kpis?.cash7d || 0)}
+                trend={{ value: 12.3 }}
+                icon={ArrowUpRight}
+              />
+              <KPICard
+                title="Tổng AR quá hạn"
+                value={formatVNDCompact(kpis?.overdueAR || 0)}
+                trend={{ value: -8.5 }}
+                icon={ArrowDownRight}
+                variant="warning"
+              />
+              <KPICard
+                title="Cash Conversion Cycle"
+                value={`${kpis?.ccc || 0} ngày`}
+                trend={{ value: -3 }}
+                icon={RefreshCw}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Secondary KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="data-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">DSO</p>
+            <p className="text-2xl font-bold text-foreground">{kpis?.dso || 0}</p>
+            <p className="text-xs text-muted-foreground">ngày</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="data-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Gross Margin</p>
+            <p className="text-2xl font-bold text-success">{kpis?.grossMargin || 0}%</p>
+            <p className="text-xs text-muted-foreground">tháng này</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="data-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Auto-match Rate</p>
+            <p className="text-2xl font-bold text-primary">{kpis?.autoMatchRate || 0}%</p>
+            <p className="text-xs text-muted-foreground">đối soát</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="data-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">EBITDA</p>
+            <p className="text-2xl font-bold text-foreground">{formatVNDCompact(kpis?.ebitda || 0)}</p>
+            <p className="text-xs text-muted-foreground">tháng này</p>
+          </motion.div>
+        </div>
+
+        {/* AI Insights Panel */}
+        <ErrorBoundary fallback={<ChartErrorFallback />}>
+          <AIInsightsPanel />
+        </ErrorBoundary>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <ErrorBoundary fallback={<ChartErrorFallback />}>
+              <CashForecastChart />
+            </ErrorBoundary>
+          </div>
+          <ErrorBoundary fallback={<ChartErrorFallback />}>
+            <ARAgingChart />
+          </ErrorBoundary>
+        </div>
+
+        {/* Bottom Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <ErrorBoundary fallback={<ChartErrorFallback />}>
+            <OverdueInvoicesTable limit={5} />
+          </ErrorBoundary>
+          <ErrorBoundary fallback={<ChartErrorFallback />}>
+            <ScenarioPlanner />
+          </ErrorBoundary>
+          <ErrorBoundary fallback={<ChartErrorFallback />}>
+            <AlertsPanel />
+          </ErrorBoundary>
+        </div>
+
+        {/* AI Usage Panel - Bottom */}
+        <ErrorBoundary fallback={<ChartErrorFallback />}>
+          <AIUsagePanel />
+        </ErrorBoundary>
+      </div>
+    </>
+  );
+}
