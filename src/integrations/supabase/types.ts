@@ -3438,6 +3438,53 @@ export type Database = {
           },
         ]
       }
+      inventory_levels: {
+        Row: {
+          created_at: string
+          id: string
+          last_updated: string
+          location: string | null
+          product_name: string | null
+          quantity_on_hand: number
+          sku: string
+          tenant_id: string
+          unit_cost: number | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_updated?: string
+          location?: string | null
+          product_name?: string | null
+          quantity_on_hand?: number
+          sku: string
+          tenant_id: string
+          unit_cost?: number | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_updated?: string
+          location?: string | null
+          product_name?: string | null
+          quantity_on_hand?: number
+          sku?: string
+          tenant_id?: string
+          unit_cost?: number | null
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_levels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           amount: number
@@ -3864,6 +3911,59 @@ export type Database = {
           },
           {
             foreignKeyName: "journal_entry_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_expenses: {
+        Row: {
+          amount: number
+          campaign_id: string | null
+          campaign_name: string | null
+          channel: string
+          clicks: number | null
+          conversions: number | null
+          created_at: string
+          expense_date: string
+          id: string
+          impressions: number | null
+          raw_data: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          amount?: number
+          campaign_id?: string | null
+          campaign_name?: string | null
+          channel: string
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          expense_date: string
+          id?: string
+          impressions?: number | null
+          raw_data?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          campaign_id?: string | null
+          campaign_name?: string | null
+          channel?: string
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          expense_date?: string
+          id?: string
+          impressions?: number | null
+          raw_data?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_expenses_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
