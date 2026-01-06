@@ -2,3 +2,6 @@ project_id = "bwelonzvndchpjnfvawt"
 
 [functions.bigquery-realtime]
 verify_jwt = false
+
+[functions.scheduled-bigquery-sync]
+verify_jwt = false
