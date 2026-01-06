@@ -529,6 +529,177 @@ export type Database = {
           },
         ]
       }
+      bigquery_data_models: {
+        Row: {
+          bigquery_dataset: string
+          bigquery_table: string
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          last_sync_at: string | null
+          mapping_config: Json | null
+          model_label: string
+          model_name: string
+          primary_key_field: string
+          sync_frequency_hours: number | null
+          target_table: string | null
+          tenant_id: string
+          timestamp_field: string | null
+          updated_at: string
+        }
+        Insert: {
+          bigquery_dataset: string
+          bigquery_table: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          mapping_config?: Json | null
+          model_label: string
+          model_name: string
+          primary_key_field: string
+          sync_frequency_hours?: number | null
+          target_table?: string | null
+          tenant_id: string
+          timestamp_field?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bigquery_dataset?: string
+          bigquery_table?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_sync_at?: string | null
+          mapping_config?: Json | null
+          model_label?: string
+          model_name?: string
+          primary_key_field?: string
+          sync_frequency_hours?: number | null
+          target_table?: string | null
+          tenant_id?: string
+          timestamp_field?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_data_models_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bigquery_query_cache: {
+        Row: {
+          cached_at: string
+          date_range_end: string | null
+          date_range_start: string | null
+          expires_at: string
+          id: string
+          is_valid: boolean | null
+          query_hash: string
+          query_type: string
+          result_data: Json
+          tenant_id: string
+        }
+        Insert: {
+          cached_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          expires_at: string
+          id?: string
+          is_valid?: boolean | null
+          query_hash: string
+          query_type: string
+          result_data: Json
+          tenant_id: string
+        }
+        Update: {
+          cached_at?: string
+          date_range_end?: string | null
+          date_range_start?: string | null
+          expires_at?: string
+          id?: string
+          is_valid?: boolean | null
+          query_hash?: string
+          query_type?: string
+          result_data?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_query_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bigquery_sync_watermarks: {
+        Row: {
+          channel: string | null
+          created_at: string
+          data_model: string
+          dataset_id: string
+          error_message: string | null
+          id: string
+          last_record_id: string | null
+          last_record_timestamp: string | null
+          last_sync_at: string | null
+          sync_status: string | null
+          table_id: string
+          tenant_id: string
+          total_records_synced: number | null
+          updated_at: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          data_model: string
+          dataset_id: string
+          error_message?: string | null
+          id?: string
+          last_record_id?: string | null
+          last_record_timestamp?: string | null
+          last_sync_at?: string | null
+          sync_status?: string | null
+          table_id: string
+          tenant_id: string
+          total_records_synced?: number | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          data_model?: string
+          dataset_id?: string
+          error_message?: string | null
+          id?: string
+          last_record_id?: string | null
+          last_record_timestamp?: string | null
+          last_sync_at?: string | null
+          sync_status?: string | null
+          table_id?: string
+          tenant_id?: string
+          total_records_synced?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_sync_watermarks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bill_items: {
         Row: {
           amount: number
