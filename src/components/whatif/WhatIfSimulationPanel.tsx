@@ -17,6 +17,9 @@ import {
   Star,
   Trash2,
   Check,
+  Boxes,
+  MapPin,
+  History,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -57,6 +60,9 @@ import { MonthlyProfitTrendChart } from './MonthlyProfitTrendChart';
 import { WhatIfChatbot } from './WhatIfChatbot';
 import { NoDataOverlay, SIMPLE_SIMULATION_REQUIREMENTS } from './NoDataOverlay';
 import { RetailScenarioPanel } from './RetailScenarioPanel';
+import { SKUProfitabilityPanel } from './SKUProfitabilityPanel';
+import { GeographicAnalysisPanel } from './GeographicAnalysisPanel';
+import { HistoricalComparisonPanel } from './HistoricalComparisonPanel';
 
 interface SimulationParams {
   revenueChange: number;
@@ -142,7 +148,7 @@ export function WhatIfSimulationPanel() {
   const deleteScenario = useDeleteWhatIfScenario();
   const updateScenario = useUpdateWhatIfScenario();
   
-  const [mode, setMode] = useState<'simple' | 'retail'>('simple');
+  const [mode, setMode] = useState<'simple' | 'retail' | 'sku' | 'geo' | 'history'>('simple');
   const [params, setParams] = useState<SimulationParams>({
     revenueChange: 0,
     cogsChange: 0,
@@ -465,14 +471,26 @@ export function WhatIfSimulationPanel() {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <TabsList className="grid grid-cols-2 w-[200px]">
-            <TabsTrigger value="simple" className="text-xs">
+          <TabsList className="grid grid-cols-5 w-auto">
+            <TabsTrigger value="simple" className="text-xs px-3">
               <Settings2 className="w-3 h-3 mr-1" />
               Cơ bản
             </TabsTrigger>
-            <TabsTrigger value="retail" className="text-xs">
+            <TabsTrigger value="retail" className="text-xs px-3">
               <Store className="w-3 h-3 mr-1" />
               Bán lẻ
+            </TabsTrigger>
+            <TabsTrigger value="sku" className="text-xs px-3">
+              <Boxes className="w-3 h-3 mr-1" />
+              SKU
+            </TabsTrigger>
+            <TabsTrigger value="geo" className="text-xs px-3">
+              <MapPin className="w-3 h-3 mr-1" />
+              Vùng miền
+            </TabsTrigger>
+            <TabsTrigger value="history" className="text-xs px-3">
+              <History className="w-3 h-3 mr-1" />
+              So sánh
             </TabsTrigger>
           </TabsList>
         </div>
@@ -733,6 +751,21 @@ export function WhatIfSimulationPanel() {
         {/* Retail Mode Content */}
         <TabsContent value="retail" className="mt-0">
           <RetailScenarioPanel />
+        </TabsContent>
+
+        {/* SKU Profitability Mode */}
+        <TabsContent value="sku" className="mt-0">
+          <SKUProfitabilityPanel />
+        </TabsContent>
+
+        {/* Geographic Analysis Mode */}
+        <TabsContent value="geo" className="mt-0">
+          <GeographicAnalysisPanel />
+        </TabsContent>
+
+        {/* Historical Comparison Mode */}
+        <TabsContent value="history" className="mt-0">
+          <HistoricalComparisonPanel />
         </TabsContent>
       </Tabs>
     </div>
