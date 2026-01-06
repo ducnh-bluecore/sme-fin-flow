@@ -1,9 +1,12 @@
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Database, ArrowLeft, HardDrive, RefreshCw } from 'lucide-react';
+import { ArrowLeft, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BigQueryConfigPanel } from '@/components/connectors/BigQueryConfigPanel';
+import { BigQueryRealtimeDashboard } from '@/components/warehouse/BigQueryRealtimeDashboard';
+import { DataModelManager } from '@/components/warehouse/DataModelManager';
 
 export default function DataWarehousePage() {
   return (
@@ -36,14 +39,26 @@ export default function DataWarehousePage() {
           </div>
         </motion.div>
 
-        {/* BigQuery Config Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <BigQueryConfigPanel />
-        </motion.div>
+        {/* Tabs */}
+        <Tabs defaultValue="realtime" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="realtime">Real-time Analytics</TabsTrigger>
+            <TabsTrigger value="models">Data Models</TabsTrigger>
+            <TabsTrigger value="config">Cấu hình</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="realtime">
+            <BigQueryRealtimeDashboard />
+          </TabsContent>
+
+          <TabsContent value="models">
+            <DataModelManager />
+          </TabsContent>
+
+          <TabsContent value="config">
+            <BigQueryConfigPanel />
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );

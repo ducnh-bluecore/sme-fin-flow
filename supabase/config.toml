@@ -1,1 +1,4 @@
 project_id = "bwelonzvndchpjnfvawt"
+
+[functions.bigquery-realtime]
+verify_jwt = false
