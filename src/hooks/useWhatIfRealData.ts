@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
-import { useDateRange } from '@/contexts/DateRangeContext';
+import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { startOfMonth, subMonths, format } from 'date-fns';
 
 export interface ChannelMetrics {
@@ -91,13 +91,13 @@ export interface WhatIfRealData {
 
 export function useWhatIfRealData() {
   const { data: tenantId } = useActiveTenantId();
-  const { dateRange } = useDateRange();
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
-    queryKey: ['whatif-real-data', tenantId, dateRange?.from?.toString(), dateRange?.to?.toString()],
+    queryKey: ['whatif-real-data', tenantId, startDateStr, endDateStr],
     queryFn: async (): Promise<WhatIfRealData> => {
-      const fromDate = dateRange?.from ? format(new Date(dateRange.from), 'yyyy-MM-dd') : format(subMonths(new Date(), 6), 'yyyy-MM-dd');
-      const toDate = dateRange?.to ? format(new Date(dateRange.to), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+      const fromDate = startDateStr || format(subMonths(new Date(), 6), 'yyyy-MM-dd');
+      const toDate = endDateStr || format(new Date(), 'yyyy-MM-dd');
       
       // Fetch all required data in parallel
       const [ordersResult, itemsResult, historicalResult] = await Promise.all([
