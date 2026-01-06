@@ -99,10 +99,9 @@ export function useWhatIfRealData() {
       const fromDate = startDateStr || format(subMonths(new Date(), 6), 'yyyy-MM-dd');
       const toDate = endDateStr || format(new Date(), 'yyyy-MM-dd');
       
-      // Fetch all required data in parallel
-      const [ordersResult, itemsResult, historicalResult] = await Promise.all([
-        // Current period orders with channel breakdown
-        supabase
+      // Build query - if no tenantId, fetch all for demo purposes
+      const buildOrderQuery = () => {
+        let query = supabase
           .from('external_orders')
           .select(`
             id, channel, order_date, status,
@@ -111,13 +110,18 @@ export function useWhatIfRealData() {
             shipping_fee, shipping_fee_paid, voucher_seller, voucher_platform,
             province_code, province_name, total_quantity
           `)
-          .eq('tenant_id', tenantId)
           .gte('order_date', fromDate)
           .lte('order_date', toDate)
-          .neq('status', 'cancelled'),
-          
-        // SKU-level data
-        supabase
+          .neq('status', 'cancelled');
+        
+        if (tenantId) {
+          query = query.eq('tenant_id', tenantId);
+        }
+        return query;
+      };
+
+      const buildItemsQuery = () => {
+        let query = supabase
           .from('external_order_items')
           .select(`
             sku, product_name, category, quantity,
@@ -125,19 +129,36 @@ export function useWhatIfRealData() {
             gross_profit, margin_percent, is_returned, return_quantity,
             external_orders!inner(channel, order_date, status, tenant_id)
           `)
-          .eq('external_orders.tenant_id', tenantId)
           .gte('external_orders.order_date', fromDate)
           .lte('external_orders.order_date', toDate)
-          .neq('external_orders.status', 'cancelled'),
-          
-        // Historical data (previous 12 months for comparison)
-        supabase
+          .neq('external_orders.status', 'cancelled');
+        
+        if (tenantId) {
+          query = query.eq('external_orders.tenant_id', tenantId);
+        }
+        return query;
+      };
+
+      const buildHistoricalQuery = () => {
+        let query = supabase
           .from('external_orders')
           .select('order_date, net_revenue, net_profit, cost_of_goods, commission_fee, platform_fee, payment_fee, status')
-          .eq('tenant_id', tenantId)
           .gte('order_date', format(subMonths(new Date(fromDate), 6), 'yyyy-MM-dd'))
           .lte('order_date', toDate)
-          .neq('status', 'cancelled'),
+          .neq('status', 'cancelled');
+        
+        if (tenantId) {
+          query = query.eq('tenant_id', tenantId);
+        }
+        return query;
+      };
+      
+      // Fetch all required data in parallel
+      const [ordersResult, itemsResult, historicalResult] = await Promise.all([
+        buildOrderQuery(),
+          
+        buildItemsQuery(),
+        buildHistoricalQuery(),
       ]);
 
       const orders = ordersResult.data || [];
@@ -345,7 +366,7 @@ export function useWhatIfRealData() {
         dataRange: { from: fromDate, to: toDate },
       };
     },
-    enabled: !!tenantId,
+    enabled: true, // Allow fetching even without tenantId for demo
     staleTime: 300000, // 5 minutes
   });
 }
