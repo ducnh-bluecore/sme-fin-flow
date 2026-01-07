@@ -100,6 +100,7 @@ const vi: Record<string, string> = {
   'nav.api': 'API',
 
   'nav.integrationGuide': 'Hướng dẫn tích hợp',
+  'nav.formulas': 'Công thức tính',
   'nav.superAdmin': 'Super Admin',
   'nav.tenantManagement': 'Quản lý Tenants',
   'nav.userManagement': 'Quản lý Users',
@@ -229,6 +230,7 @@ const en: Record<string, string> = {
   'nav.api': 'API',
 
   'nav.integrationGuide': 'Integration Guide',
+  'nav.formulas': 'Formulas',
   'nav.superAdmin': 'Super Admin',
   'nav.tenantManagement': 'Tenant Management',
   'nav.userManagement': 'User Management',

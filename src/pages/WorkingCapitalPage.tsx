@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Wallet, TrendingUp, TrendingDown, Target, 
   ArrowRight, Clock, DollarSign, AlertCircle,
-  CheckCircle, MinusCircle
+  CheckCircle, MinusCircle, Info, ChevronDown
 } from 'lucide-react';
 import { useWorkingCapitalSummary } from '@/hooks/useWorkingCapital';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
@@ -32,6 +33,7 @@ import { vi } from 'date-fns/locale';
 
 export default function WorkingCapitalPage() {
   const { data: summary, isLoading } = useWorkingCapitalSummary();
+  const [showFormulas, setShowFormulas] = useState(false);
   
   const current = summary?.current;
   const cccData = [
@@ -97,6 +99,51 @@ export default function WorkingCapitalPage() {
           title="Tối ưu vốn lưu động"
           subtitle="Phân tích và tối ưu chu kỳ tiền mặt (Cash Conversion Cycle)"
         />
+
+        {/* Formula Reference */}
+        <Collapsible open={showFormulas} onOpenChange={setShowFormulas}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Info className="h-4 w-4" />
+              Công thức tính
+              <ChevronDown className={`h-4 w-4 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3">
+            <Card className="bg-muted/30">
+              <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="font-medium text-blue-500">DSO (Days Sales Outstanding)</p>
+                  <p className="text-muted-foreground font-mono text-xs">= (Phải thu / Doanh thu) × Số ngày</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Số ngày thu tiền từ khách hàng
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-orange-500">DIO (Days Inventory Outstanding)</p>
+                  <p className="text-muted-foreground font-mono text-xs">= (Tồn kho / COGS) × Số ngày</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Số ngày tồn kho trước khi bán
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-purple-500">DPO (Days Payable Outstanding)</p>
+                  <p className="text-muted-foreground font-mono text-xs">= (Phải trả / Mua hàng) × Số ngày</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Số ngày thanh toán cho NCC
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-primary">CCC (Cash Conversion Cycle)</p>
+                  <p className="text-muted-foreground font-mono text-xs">= DSO + DIO - DPO</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Hiện tại: {current?.dso_days || 0} + {current?.dio_days || 0} - {current?.dpo_days || 0} = {current?.ccc_days || 0} ngày
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Summary KPIs */}
         <div className="grid gap-4 md:grid-cols-5">
