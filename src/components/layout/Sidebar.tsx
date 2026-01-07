@@ -364,16 +364,70 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         {/* Bottom Section */}
         <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
           {bottomNavItems.map((item) => (
-            <NavLink
-              key={item.labelKey}
-              to={item.href!}
-              className={({ isActive }) =>
-                cn('nav-item', isActive && 'active')
-              }
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="text-sm">{t(item.labelKey)}</span>
-            </NavLink>
+            item.children ? (
+              <div key={item.labelKey}>
+                <button
+                  onClick={() => toggleExpand(item.labelKey)}
+                  className={cn(
+                    'nav-item w-full justify-between',
+                    hasActiveChild(item.children) && 'text-sidebar-accent-foreground'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-sm">{t(item.labelKey)}</span>
+                  </div>
+                  {expandedItems.includes(item.labelKey) ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {expandedItems.includes(item.labelKey) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="ml-8 mt-1 space-y-1 border-l border-sidebar-border pl-4">
+                        {item.children.map((child) => (
+                          <NavLink
+                            key={child.href}
+                            to={child.href}
+                            end
+                            className={({ isActive }) =>
+                              cn(
+                                'block py-2 px-3 rounded-md text-sm transition-colors',
+                                isActive
+                                  ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+                                  : 'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent'
+                              )
+                            }
+                          >
+                            {t(child.labelKey)}
+                          </NavLink>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <NavLink
+                key={item.labelKey}
+                to={item.href!}
+                end={item.href === '/settings'}
+                className={({ isActive }) =>
+                  cn('nav-item', isActive && 'active')
+                }
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="text-sm">{t(item.labelKey)}</span>
+              </NavLink>
+            )
           ))}
           <button 
             onClick={handleSignOut}
