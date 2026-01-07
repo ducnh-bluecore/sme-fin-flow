@@ -3259,6 +3259,113 @@ export type Database = {
           },
         ]
       }
+      formula_settings: {
+        Row: {
+          ar_bucket_1: number | null
+          ar_bucket_2: number | null
+          ar_bucket_3: number | null
+          ar_bucket_4: number | null
+          cash_reserve_percentage: number | null
+          channel_commission_rates: Json | null
+          corporate_tax_rate: number | null
+          created_at: string
+          custom_parameters: Json | null
+          default_depreciation_years: number | null
+          default_payment_terms_ap: number | null
+          default_payment_terms_ar: number | null
+          dio_calculation_days: number | null
+          dpo_calculation_days: number | null
+          dso_calculation_days: number | null
+          fiscal_year_days: number | null
+          fiscal_year_start_month: number | null
+          forecast_collection_rate: number | null
+          forecast_confidence_level: number | null
+          forecast_default_growth_rate: number | null
+          id: string
+          min_cash_runway_months: number | null
+          safe_cash_runway_months: number | null
+          target_collection_rate: number | null
+          target_dso: number | null
+          target_gross_margin: number | null
+          target_net_margin: number | null
+          tenant_id: string
+          updated_at: string
+          vat_rate: number | null
+        }
+        Insert: {
+          ar_bucket_1?: number | null
+          ar_bucket_2?: number | null
+          ar_bucket_3?: number | null
+          ar_bucket_4?: number | null
+          cash_reserve_percentage?: number | null
+          channel_commission_rates?: Json | null
+          corporate_tax_rate?: number | null
+          created_at?: string
+          custom_parameters?: Json | null
+          default_depreciation_years?: number | null
+          default_payment_terms_ap?: number | null
+          default_payment_terms_ar?: number | null
+          dio_calculation_days?: number | null
+          dpo_calculation_days?: number | null
+          dso_calculation_days?: number | null
+          fiscal_year_days?: number | null
+          fiscal_year_start_month?: number | null
+          forecast_collection_rate?: number | null
+          forecast_confidence_level?: number | null
+          forecast_default_growth_rate?: number | null
+          id?: string
+          min_cash_runway_months?: number | null
+          safe_cash_runway_months?: number | null
+          target_collection_rate?: number | null
+          target_dso?: number | null
+          target_gross_margin?: number | null
+          target_net_margin?: number | null
+          tenant_id: string
+          updated_at?: string
+          vat_rate?: number | null
+        }
+        Update: {
+          ar_bucket_1?: number | null
+          ar_bucket_2?: number | null
+          ar_bucket_3?: number | null
+          ar_bucket_4?: number | null
+          cash_reserve_percentage?: number | null
+          channel_commission_rates?: Json | null
+          corporate_tax_rate?: number | null
+          created_at?: string
+          custom_parameters?: Json | null
+          default_depreciation_years?: number | null
+          default_payment_terms_ap?: number | null
+          default_payment_terms_ar?: number | null
+          dio_calculation_days?: number | null
+          dpo_calculation_days?: number | null
+          dso_calculation_days?: number | null
+          fiscal_year_days?: number | null
+          fiscal_year_start_month?: number | null
+          forecast_collection_rate?: number | null
+          forecast_confidence_level?: number | null
+          forecast_default_growth_rate?: number | null
+          id?: string
+          min_cash_runway_months?: number | null
+          safe_cash_runway_months?: number | null
+          target_collection_rate?: number | null
+          target_dso?: number | null
+          target_gross_margin?: number | null
+          target_net_margin?: number | null
+          tenant_id?: string
+          updated_at?: string
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formula_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gl_account_defaults: {
         Row: {
           accounts_payable_id: string | null

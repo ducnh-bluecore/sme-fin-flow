@@ -101,6 +101,8 @@ const vi: Record<string, string> = {
 
   'nav.integrationGuide': 'Hướng dẫn tích hợp',
   'nav.formulas': 'Công thức tính',
+  'nav.formulasOverview': 'Tổng hợp công thức',
+  'nav.formulaSettings': 'Cài đặt tham số',
   'nav.superAdmin': 'Super Admin',
   'nav.tenantManagement': 'Quản lý Tenants',
   'nav.userManagement': 'Quản lý Users',
@@ -231,6 +233,8 @@ const en: Record<string, string> = {
 
   'nav.integrationGuide': 'Integration Guide',
   'nav.formulas': 'Formulas',
+  'nav.formulasOverview': 'Formula Overview',
+  'nav.formulaSettings': 'Formula Settings',
   'nav.superAdmin': 'Super Admin',
   'nav.tenantManagement': 'Tenant Management',
   'nav.userManagement': 'User Management',
