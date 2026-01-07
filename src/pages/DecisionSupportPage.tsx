@@ -73,7 +73,8 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       inputs: { makeData, buyData },
       outputs: { makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings },
     });
-  }, [onContextChange, makeData, buyData, makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [makeData, buyData, makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings]);
 
   const comparisonData = Array.from({ length: 10 }, (_, i) => {
     const vol = (i + 1) * 2000;
@@ -197,7 +198,8 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       inputs: params,
       outputs: { contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety },
     });
-  }, [onContextChange, params, contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety]);
 
   const chartData = Array.from({ length: 10 }, (_, i) => {
     const vol = (i + 1) * 10000;
@@ -286,10 +288,7 @@ export default function DecisionSupportPage() {
   const [activeTab, setActiveTab] = useState('make-vs-buy');
   const [advisorContext, setAdvisorContext] = useState<AdvisorContext>({});
 
-  // reset context when switching tool to avoid stale numbers
-  useEffect(() => {
-    setAdvisorContext({ analysisType: activeTab });
-  }, [activeTab]);
+  // Don't reset context when switching tabs - let components populate their own context
 
   return (
     <>

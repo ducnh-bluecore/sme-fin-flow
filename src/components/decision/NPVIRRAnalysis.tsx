@@ -65,7 +65,8 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
       inputs: { initialInvestment, discountRate, cashFlows },
       outputs: { npv, irr, totalCashFlows, profitabilityIndex },
     });
-  }, [onContextChange, initialInvestment, discountRate, cashFlows, npv, irr, totalCashFlows, profitabilityIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialInvestment, discountRate, cashFlows, npv, irr, totalCashFlows, profitabilityIndex]);
 
   // Generate NPV profile data
   const npvProfileData = Array.from({ length: 25 }, (_, i) => {

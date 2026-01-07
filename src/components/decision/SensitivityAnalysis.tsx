@@ -106,7 +106,8 @@ export function SensitivityAnalysis({ onContextChange }: { onContextChange?: (ct
         sensitivityCoeffs,
       },
     });
-  }, [onContextChange, baseCase, variations, baseProfit, sensitivityCoeffs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseCase, variations, baseProfit, sensitivityCoeffs]);
 
   const handleSave = () => {
     saveAnalysis.mutate({
