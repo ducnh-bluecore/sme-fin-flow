@@ -2199,6 +2199,68 @@ export type Database = {
           },
         ]
       }
+      decision_analyses: {
+        Row: {
+          ai_insights: string | null
+          analysis_type: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          parameters: Json
+          recommendation: string | null
+          results: Json
+          status: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_insights?: string | null
+          analysis_type: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          parameters?: Json
+          recommendation?: string | null
+          results?: Json
+          status?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_insights?: string | null
+          analysis_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          parameters?: Json
+          recommendation?: string | null
+          results?: Json
+          status?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_analyses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       depreciation_schedules: {
         Row: {
           accumulated_amount: number

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { motion } from 'framer-motion';
 import { 
   Scale, 
   Calculator, 
@@ -8,23 +7,32 @@ import {
   GitCompare,
   Target,
   DollarSign,
-  ArrowRight,
-  CheckCircle2,
-  XCircle,
-  Minus,
-  Sliders,
-  BarChart3,
+  Clock,
+  Activity,
+  Bot,
+  FileText,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+// Analysis Components
+import { DecisionAdvisorChat } from '@/components/decision/DecisionAdvisorChat';
+import { ROIAnalysis } from '@/components/decision/ROIAnalysis';
+import { NPVIRRAnalysis } from '@/components/decision/NPVIRRAnalysis';
+import { PaybackAnalysis } from '@/components/decision/PaybackAnalysis';
+import { SensitivityAnalysis } from '@/components/decision/SensitivityAnalysis';
+import { SavedAnalysesList } from '@/components/decision/SavedAnalysesList';
+
+// Keep original components inline for now
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { PageHeader } from '@/components/shared/PageHeader';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { formatVNDCompact, formatVND } from '@/lib/formatters';
+import { CheckCircle2 } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -59,7 +67,6 @@ function MakeVsBuyAnalysis() {
   const recommendation = makeTotalCost < buyTotalCost ? 'make' : 'buy';
   const savings = Math.abs(makeTotalCost - buyTotalCost);
 
-  // Generate comparison data
   const comparisonData = Array.from({ length: 10 }, (_, i) => {
     const vol = (i + 1) * 2000;
     return {
@@ -72,7 +79,6 @@ function MakeVsBuyAnalysis() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Make Option */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -83,27 +89,15 @@ function MakeVsBuyAnalysis() {
           <CardContent className="space-y-4">
             <div>
               <Label>Chi phí cố định (VND)</Label>
-              <Input 
-                type="number"
-                value={makeData.fixedCost}
-                onChange={(e) => setMakeData({ ...makeData, fixedCost: Number(e.target.value) })}
-              />
+              <Input type="number" value={makeData.fixedCost} onChange={(e) => setMakeData({ ...makeData, fixedCost: Number(e.target.value) })} />
             </div>
             <div>
               <Label>Chi phí biến đổi/đơn vị (VND)</Label>
-              <Input 
-                type="number"
-                value={makeData.variableCostPerUnit}
-                onChange={(e) => setMakeData({ ...makeData, variableCostPerUnit: Number(e.target.value) })}
-              />
+              <Input type="number" value={makeData.variableCostPerUnit} onChange={(e) => setMakeData({ ...makeData, variableCostPerUnit: Number(e.target.value) })} />
             </div>
             <div>
               <Label>Sản lượng dự kiến</Label>
-              <Input 
-                type="number"
-                value={makeData.volume}
-                onChange={(e) => setMakeData({ ...makeData, volume: Number(e.target.value) })}
-              />
+              <Input type="number" value={makeData.volume} onChange={(e) => setMakeData({ ...makeData, volume: Number(e.target.value) })} />
             </div>
             <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
               <p className="text-sm text-muted-foreground">Tổng chi phí</p>
@@ -112,7 +106,6 @@ function MakeVsBuyAnalysis() {
           </CardContent>
         </Card>
 
-        {/* Buy Option */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -123,21 +116,13 @@ function MakeVsBuyAnalysis() {
           <CardContent className="space-y-4">
             <div>
               <Label>Giá mua/đơn vị (VND)</Label>
-              <Input 
-                type="number"
-                value={buyData.pricePerUnit}
-                onChange={(e) => setBuyData({ ...buyData, pricePerUnit: Number(e.target.value) })}
-              />
+              <Input type="number" value={buyData.pricePerUnit} onChange={(e) => setBuyData({ ...buyData, pricePerUnit: Number(e.target.value) })} />
             </div>
             <div>
               <Label>Sản lượng dự kiến</Label>
-              <Input 
-                type="number"
-                value={buyData.volume}
-                onChange={(e) => setBuyData({ ...buyData, volume: Number(e.target.value) })}
-              />
+              <Input type="number" value={buyData.volume} onChange={(e) => setBuyData({ ...buyData, volume: Number(e.target.value) })} />
             </div>
-            <div className="h-[72px]" /> {/* Spacer */}
+            <div className="h-[72px]" />
             <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
               <p className="text-sm text-muted-foreground">Tổng chi phí</p>
               <p className="text-2xl font-bold text-green-500">{formatVNDCompact(buyTotalCost)}</p>
@@ -146,16 +131,13 @@ function MakeVsBuyAnalysis() {
         </Card>
       </div>
 
-      {/* Recommendation */}
       <Card className={recommendation === 'make' ? 'border-blue-500/50' : 'border-green-500/50'}>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold">Khuyến nghị: {recommendation === 'make' ? 'TỰ SẢN XUẤT' : 'THUÊ NGOÀI'}</h3>
               <p className="text-muted-foreground">Tiết kiệm: {formatVNDCompact(savings)}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Break-even point: {breakEvenVolume.toLocaleString()} đơn vị
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Break-even point: {breakEvenVolume.toLocaleString()} đơn vị</p>
             </div>
             <div className={`w-16 h-16 rounded-full flex items-center justify-center ${recommendation === 'make' ? 'bg-blue-500/20' : 'bg-green-500/20'}`}>
               <CheckCircle2 className={`h-8 w-8 ${recommendation === 'make' ? 'text-blue-500' : 'text-green-500'}`} />
@@ -164,11 +146,8 @@ function MakeVsBuyAnalysis() {
         </CardContent>
       </Card>
 
-      {/* Chart */}
       <Card>
-        <CardHeader>
-          <CardTitle>Biểu đồ so sánh chi phí theo sản lượng</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Biểu đồ so sánh chi phí theo sản lượng</CardTitle></CardHeader>
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -210,7 +189,6 @@ function BreakEvenAnalysis() {
       volume: vol,
       revenue: vol * params.sellingPrice,
       totalCost: params.fixedCosts + (vol * params.variableCost),
-      profit: (vol * params.sellingPrice) - params.fixedCosts - (vol * params.variableCost),
     };
   });
 
@@ -218,98 +196,54 @@ function BreakEvenAnalysis() {
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Đơn vị)</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Đơn vị)</CardTitle></CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{breakEvenUnits.toLocaleString()}</div>
             <p className="text-sm text-muted-foreground">đơn vị sản phẩm</p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Doanh thu)</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Doanh thu)</CardTitle></CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{formatVNDCompact(breakEvenRevenue)}</div>
             <p className="text-sm text-muted-foreground">doanh thu tối thiểu</p>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Margin of Safety</CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Margin of Safety</CardTitle></CardHeader>
           <CardContent>
-            <div className={`text-3xl font-bold ${marginOfSafety > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {marginOfSafety.toFixed(1)}%
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {marginOfSafety > 0 ? 'Trên break-even' : 'Dưới break-even'}
-            </p>
+            <div className={`text-3xl font-bold ${marginOfSafety > 0 ? 'text-green-500' : 'text-red-500'}`}>{marginOfSafety.toFixed(1)}%</div>
+            <p className="text-sm text-muted-foreground">{marginOfSafety > 0 ? 'Trên break-even' : 'Dưới break-even'}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Điều chỉnh tham số</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Điều chỉnh tham số</CardTitle></CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <Label>Chi phí cố định: {formatVNDCompact(params.fixedCosts)}</Label>
-              <Slider
-                value={[params.fixedCosts]}
-                onValueChange={([v]) => setParams({ ...params, fixedCosts: v })}
-                min={500000000}
-                max={5000000000}
-                step={100000000}
-                className="mt-2"
-              />
+              <Slider value={[params.fixedCosts]} onValueChange={([v]) => setParams({ ...params, fixedCosts: v })} min={500000000} max={5000000000} step={100000000} className="mt-2" />
             </div>
             <div>
               <Label>Giá bán: {formatVND(params.sellingPrice)}</Label>
-              <Slider
-                value={[params.sellingPrice]}
-                onValueChange={([v]) => setParams({ ...params, sellingPrice: v })}
-                min={100000}
-                max={300000}
-                step={5000}
-                className="mt-2"
-              />
+              <Slider value={[params.sellingPrice]} onValueChange={([v]) => setParams({ ...params, sellingPrice: v })} min={100000} max={300000} step={5000} className="mt-2" />
             </div>
             <div>
               <Label>Chi phí biến đổi: {formatVND(params.variableCost)}</Label>
-              <Slider
-                value={[params.variableCost]}
-                onValueChange={([v]) => setParams({ ...params, variableCost: v })}
-                min={50000}
-                max={150000}
-                step={5000}
-                className="mt-2"
-              />
+              <Slider value={[params.variableCost]} onValueChange={([v]) => setParams({ ...params, variableCost: v })} min={50000} max={150000} step={5000} className="mt-2" />
             </div>
             <div>
               <Label>Sản lượng hiện tại: {params.currentVolume.toLocaleString()}</Label>
-              <Slider
-                value={[params.currentVolume]}
-                onValueChange={([v]) => setParams({ ...params, currentVolume: v })}
-                min={10000}
-                max={100000}
-                step={5000}
-                className="mt-2"
-              />
+              <Slider value={[params.currentVolume]} onValueChange={([v]) => setParams({ ...params, currentVolume: v })} min={10000} max={100000} step={5000} className="mt-2" />
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Biểu đồ Break-even</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Biểu đồ Break-even</CardTitle></CardHeader>
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -331,121 +265,6 @@ function BreakEvenAnalysis() {
   );
 }
 
-// Scenario Comparison Component
-function ScenarioComparison() {
-  const scenarios = [
-    {
-      name: 'Kịch bản cơ sở',
-      revenue: 50000000000,
-      grossMargin: 28,
-      netIncome: 3500000000,
-      cashFlow: 2800000000,
-    },
-    {
-      name: 'Mở rộng kênh online',
-      revenue: 62000000000,
-      grossMargin: 25,
-      netIncome: 4200000000,
-      cashFlow: 3500000000,
-    },
-    {
-      name: 'Tối ưu chi phí',
-      revenue: 48000000000,
-      grossMargin: 32,
-      netIncome: 4800000000,
-      cashFlow: 4200000000,
-    },
-  ];
-
-  const comparisonMetrics = [
-    { key: 'revenue', label: 'Doanh thu', format: formatVNDCompact },
-    { key: 'grossMargin', label: 'Gross Margin', format: (v: number) => `${v}%` },
-    { key: 'netIncome', label: 'Lợi nhuận ròng', format: formatVNDCompact },
-    { key: 'cashFlow', label: 'Cash Flow', format: formatVNDCompact },
-  ];
-
-  const chartData = scenarios.map((s) => ({
-    name: s.name,
-    'Doanh thu': s.revenue / 1000000000,
-    'Lợi nhuận': s.netIncome / 1000000000,
-    'Cash Flow': s.cashFlow / 1000000000,
-  }));
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitCompare className="h-5 w-5 text-primary" />
-            So sánh kịch bản
-          </CardTitle>
-          <CardDescription>Đánh giá và so sánh các phương án chiến lược</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4">Chỉ số</th>
-                  {scenarios.map((s) => (
-                    <th key={s.name} className="text-right py-3 px-4">{s.name}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonMetrics.map((metric) => (
-                  <tr key={metric.key} className="border-b">
-                    <td className="py-3 px-4 font-medium">{metric.label}</td>
-                    {scenarios.map((s) => {
-                      const value = s[metric.key as keyof typeof s] as number;
-                      const baseValue = scenarios[0][metric.key as keyof typeof scenarios[0]] as number;
-                      const diff = ((value - baseValue) / baseValue) * 100;
-                      const isBase = s === scenarios[0];
-                      
-                      return (
-                        <td key={s.name} className="text-right py-3 px-4">
-                          <span className="font-medium">{metric.format(value)}</span>
-                          {!isBase && (
-                            <span className={`text-xs ml-2 ${diff >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>So sánh trực quan (tỷ VND)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Doanh thu" fill="hsl(var(--primary))" />
-                <Bar dataKey="Lợi nhuận" fill="hsl(var(--chart-2))" />
-                <Bar dataKey="Cash Flow" fill="hsl(var(--chart-3))" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function DecisionSupportPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('make-vs-buy');
@@ -459,37 +278,67 @@ export default function DecisionSupportPage() {
       <div className="space-y-6">
         <PageHeader
           title={t('nav.decisionSupport')}
-          subtitle="Công cụ hỗ trợ ra quyết định cho CFO"
+          subtitle="Công cụ hỗ trợ ra quyết định cho CFO với AI"
         />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="make-vs-buy" className="flex items-center gap-2">
-              <Scale className="h-4 w-4" />
-              Make vs Buy
-            </TabsTrigger>
-            <TabsTrigger value="break-even" className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Break-even Analysis
-            </TabsTrigger>
-            <TabsTrigger value="scenario" className="flex items-center gap-2">
-              <GitCompare className="h-4 w-4" />
-              Scenario Comparison
-            </TabsTrigger>
-          </TabsList>
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          <div className="xl:col-span-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="flex-wrap h-auto">
+                <TabsTrigger value="make-vs-buy" className="flex items-center gap-2">
+                  <Scale className="h-4 w-4" />
+                  Make vs Buy
+                </TabsTrigger>
+                <TabsTrigger value="break-even" className="flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Break-even
+                </TabsTrigger>
+                <TabsTrigger value="roi" className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  ROI
+                </TabsTrigger>
+                <TabsTrigger value="npv-irr" className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  NPV/IRR
+                </TabsTrigger>
+                <TabsTrigger value="payback" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Payback
+                </TabsTrigger>
+                <TabsTrigger value="sensitivity" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Sensitivity
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="make-vs-buy" className="mt-4">
-            <MakeVsBuyAnalysis />
-          </TabsContent>
+              <TabsContent value="make-vs-buy" className="mt-6">
+                <MakeVsBuyAnalysis />
+              </TabsContent>
+              <TabsContent value="break-even" className="mt-6">
+                <BreakEvenAnalysis />
+              </TabsContent>
+              <TabsContent value="roi" className="mt-6">
+                <ROIAnalysis />
+              </TabsContent>
+              <TabsContent value="npv-irr" className="mt-6">
+                <NPVIRRAnalysis />
+              </TabsContent>
+              <TabsContent value="payback" className="mt-6">
+                <PaybackAnalysis />
+              </TabsContent>
+              <TabsContent value="sensitivity" className="mt-6">
+                <SensitivityAnalysis />
+              </TabsContent>
+            </Tabs>
+          </div>
 
-          <TabsContent value="break-even" className="mt-4">
-            <BreakEvenAnalysis />
-          </TabsContent>
-
-          <TabsContent value="scenario" className="mt-4">
-            <ScenarioComparison />
-          </TabsContent>
-        </Tabs>
+          <div className="space-y-6">
+            <div className="h-[500px]">
+              <DecisionAdvisorChat analysisType={activeTab} />
+            </div>
+            <SavedAnalysesList />
+          </div>
+        </div>
       </div>
     </>
   );
