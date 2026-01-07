@@ -142,7 +142,10 @@ const superAdminItems: NavItem = {
 
 const bottomNavItems: NavItem[] = [
   { labelKey: 'nav.integrationGuide', icon: BookOpen, href: '/data-guide' },
-  { labelKey: 'nav.formulas', icon: PenSquare, href: '/formulas' },
+  { labelKey: 'nav.formulas', icon: PenSquare, children: [
+    { labelKey: 'nav.formulasOverview', href: '/formulas' },
+    { labelKey: 'nav.formulaSettings', href: '/formula-settings' },
+  ]},
   { labelKey: 'common.settings', icon: Settings, href: '/settings' },
   { labelKey: 'common.help', icon: HelpCircle, href: '/help' },
 ];
