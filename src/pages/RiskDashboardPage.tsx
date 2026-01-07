@@ -43,6 +43,7 @@ import {
   Radar,
   Legend,
 } from 'recharts';
+import { StressTestingPanel } from '@/components/risk/StressTestingPanel';
 
 // Risk Score Card
 function RiskScoreCard({ 
@@ -493,7 +494,7 @@ export default function RiskDashboardPage() {
           </TabsContent>
 
           <TabsContent value="stress" className="mt-4">
-            <StressTestPanel />
+            <StressTestingPanel />
           </TabsContent>
         </Tabs>
       </div>
