@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, Calculator, Save, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,9 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-export function PaybackAnalysis() {
+type AdvisorContext = Record<string, any>;
+
+export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
   
   const [params, setParams] = useState({
@@ -65,6 +67,19 @@ export function PaybackAnalysis() {
   });
 
   const isWithinTarget = simplePayback <= params.targetPayback;
+
+  useEffect(() => {
+    onContextChange?.({
+      analysisType: 'payback',
+      inputs: params,
+      outputs: {
+        simplePayback,
+        discountedPayback,
+        discountRate: discountRate * 100,
+        isWithinTarget,
+      },
+    });
+  }, [onContextChange, params, simplePayback, discountedPayback, isWithinTarget]);
 
   const handleSave = () => {
     saveAnalysis.mutate({

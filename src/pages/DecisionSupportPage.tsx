@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { 
   Scale, 
@@ -34,8 +34,6 @@ import { Slider } from '@/components/ui/slider';
 import { formatVNDCompact, formatVND } from '@/lib/formatters';
 import { CheckCircle2 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -47,8 +45,10 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+type AdvisorContext = Record<string, any>;
+
 // Make vs Buy Analysis Component
-function MakeVsBuyAnalysis() {
+function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const [makeData, setMakeData] = useState({
     fixedCost: 500000000,
     variableCostPerUnit: 45000,
@@ -66,6 +66,14 @@ function MakeVsBuyAnalysis() {
   
   const recommendation = makeTotalCost < buyTotalCost ? 'make' : 'buy';
   const savings = Math.abs(makeTotalCost - buyTotalCost);
+
+  useEffect(() => {
+    onContextChange?.({
+      analysisType: 'make-vs-buy',
+      inputs: { makeData, buyData },
+      outputs: { makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings },
+    });
+  }, [onContextChange, makeData, buyData, makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings]);
 
   const comparisonData = Array.from({ length: 10 }, (_, i) => {
     const vol = (i + 1) * 2000;
@@ -170,7 +178,7 @@ function MakeVsBuyAnalysis() {
 }
 
 // Break-even Analysis Component
-function BreakEvenAnalysis() {
+function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const [params, setParams] = useState({
     fixedCosts: 2000000000,
     sellingPrice: 150000,
@@ -182,6 +190,14 @@ function BreakEvenAnalysis() {
   const breakEvenUnits = Math.ceil(params.fixedCosts / contributionMargin);
   const breakEvenRevenue = breakEvenUnits * params.sellingPrice;
   const marginOfSafety = ((params.currentVolume - breakEvenUnits) / params.currentVolume) * 100;
+
+  useEffect(() => {
+    onContextChange?.({
+      analysisType: 'break-even',
+      inputs: params,
+      outputs: { contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety },
+    });
+  }, [onContextChange, params, contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety]);
 
   const chartData = Array.from({ length: 10 }, (_, i) => {
     const vol = (i + 1) * 10000;
@@ -268,6 +284,12 @@ function BreakEvenAnalysis() {
 export default function DecisionSupportPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('make-vs-buy');
+  const [advisorContext, setAdvisorContext] = useState<AdvisorContext>({});
+
+  // reset context when switching tool to avoid stale numbers
+  useEffect(() => {
+    setAdvisorContext({ analysisType: activeTab });
+  }, [activeTab]);
 
   return (
     <>
@@ -312,29 +334,29 @@ export default function DecisionSupportPage() {
               </TabsList>
 
               <TabsContent value="make-vs-buy" className="mt-6">
-                <MakeVsBuyAnalysis />
+                <MakeVsBuyAnalysis onContextChange={setAdvisorContext} />
               </TabsContent>
               <TabsContent value="break-even" className="mt-6">
-                <BreakEvenAnalysis />
+                <BreakEvenAnalysis onContextChange={setAdvisorContext} />
               </TabsContent>
               <TabsContent value="roi" className="mt-6">
-                <ROIAnalysis />
+                <ROIAnalysis onContextChange={setAdvisorContext} />
               </TabsContent>
               <TabsContent value="npv-irr" className="mt-6">
-                <NPVIRRAnalysis />
+                <NPVIRRAnalysis onContextChange={setAdvisorContext} />
               </TabsContent>
               <TabsContent value="payback" className="mt-6">
-                <PaybackAnalysis />
+                <PaybackAnalysis onContextChange={setAdvisorContext} />
               </TabsContent>
               <TabsContent value="sensitivity" className="mt-6">
-                <SensitivityAnalysis />
+                <SensitivityAnalysis onContextChange={setAdvisorContext} />
               </TabsContent>
             </Tabs>
           </div>
 
           <div className="space-y-6">
             <div className="h-[500px]">
-              <DecisionAdvisorChat analysisType={activeTab} />
+              <DecisionAdvisorChat analysisType={activeTab} context={advisorContext} />
             </div>
             <SavedAnalysesList />
           </div>

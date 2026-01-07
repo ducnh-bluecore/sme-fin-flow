@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, Calculator, Save, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,9 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-export function ROIAnalysis() {
+type AdvisorContext = Record<string, any>;
+
+export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
   
   const [params, setParams] = useState({
@@ -34,6 +36,19 @@ export function ROIAnalysis() {
   const netProfit = totalReturns - params.initialInvestment;
   const roi = (netProfit / params.initialInvestment) * 100;
   const annualizedROI = Math.pow(1 + roi / 100, 1 / 5) - 1;
+
+  useEffect(() => {
+    onContextChange?.({
+      analysisType: 'roi',
+      inputs: params,
+      outputs: {
+        totalReturns,
+        netProfit,
+        roi,
+        annualizedROI: annualizedROI * 100,
+      },
+    });
+  }, [onContextChange, params, totalReturns, netProfit, roi, annualizedROI]);
 
   const chartData = [
     { year: 'Năm 1', return: params.year1Return, cumulative: params.year1Return - params.initialInvestment },

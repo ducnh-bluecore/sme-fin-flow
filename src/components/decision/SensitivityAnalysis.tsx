@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Activity, Save, HelpCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -20,9 +20,11 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+type AdvisorContext = Record<string, any>;
+
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
 
-export function SensitivityAnalysis() {
+export function SensitivityAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
   
   const [baseCase, setBaseCase] = useState({
@@ -94,6 +96,17 @@ export function SensitivityAnalysis() {
       { variable: 'OPEX', coefficient: -opexImpact, direction: 'negative' },
     ].sort((a, b) => Math.abs(b.coefficient) - Math.abs(a.coefficient));
   }, [baseCase, baseProfit]);
+
+  useEffect(() => {
+    onContextChange?.({
+      analysisType: 'sensitivity',
+      inputs: { baseCase, variations },
+      outputs: {
+        baseProfit,
+        sensitivityCoeffs,
+      },
+    });
+  }, [onContextChange, baseCase, variations, baseProfit, sensitivityCoeffs]);
 
   const handleSave = () => {
     saveAnalysis.mutate({
