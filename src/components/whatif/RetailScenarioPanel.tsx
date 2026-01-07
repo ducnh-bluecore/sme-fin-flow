@@ -102,11 +102,12 @@ function calculateRetailScenario(
     params.costs.generalMarketingCost.otherAds
   ) / 100 * totalProjectedRevenue;
   
-  // Overhead costs
-  const overheadCost = 
-    (params.overhead.numberOfStores * params.overhead.offlineStaffPerStore * params.overhead.avgStaffCost) +
-    params.overhead.warehouseRent +
-    params.overhead.techInfraCost;
+  // === NEW: Offline rent cost (per store) ===
+  const offlineRentCost = params.overhead.numberOfStores * params.costs.offlineRentCost;
+  
+  // Overhead costs (staff + warehouse + tech)
+  const staffCost = params.overhead.numberOfStores * params.overhead.offlineStaffPerStore * params.overhead.avgStaffCost;
+  const overheadCost = staffCost + params.overhead.warehouseRent + params.overhead.techInfraCost + offlineRentCost;
   
   // Operating costs
   const totalOrders = totalProjectedRevenue / params.operations.avgOrderValue;
@@ -115,22 +116,47 @@ function calculateRetailScenario(
   const returnCost = totalOrders * params.operations.returnRate / 100 * 
     params.operations.avgOrderValue * params.operations.returnCostPercent / 100;
   
-  const grossProfit = totalProjectedRevenue - totalCogs;
-  const operatingProfit = grossProfit - totalCommission - totalAdsCost - generalMarketing - 
-    overheadCost - shippingCost - packagingCost - returnCost;
+  // === NEW: Customer Acquisition Cost ===
+  // Estimate new customers based on conversion rate and repeat purchase rate
+  // Total customers = totalOrders / (1 + repeatPurchaseRate * averageRepeatOrders)
+  // Simplified: newCustomers ≈ totalOrders * (1 - repeatPurchaseRate/100)
+  const repeatRate = params.operations.repeatPurchaseRate / 100;
+  const newCustomers = totalOrders * (1 - repeatRate);
+  const customerAcquisitionCost = newCustomers * params.operations.customerAcquisitionCost;
   
-  const grossMargin = totalProjectedRevenue > 0 ? (grossProfit / totalProjectedRevenue) * 100 : 0;
-  const operatingMargin = totalProjectedRevenue > 0 ? (operatingProfit / totalProjectedRevenue) * 100 : 0;
+  // === NEW: Expansion costs & revenue (if enabled) ===
+  let expansionCost = 0;
+  let expansionRevenue = 0;
+  if (params.expansion.enableExpansion) {
+    const newStores = Math.max(0, params.expansion.targetStores - params.overhead.numberOfStores);
+    // Setup cost for new stores
+    expansionCost = newStores * params.expansion.setupCostPerStore;
+    // Revenue from new stores (prorated by ramp-up and timeline)
+    // Assume we're calculating for 12 months, with stores ramping up
+    const avgMonthsOperating = Math.max(0, 12 - params.expansion.expansionMonths / 2);
+    const rampUpFactor = Math.max(0.5, 1 - (params.expansion.rampUpMonths / 12));
+    expansionRevenue = newStores * params.expansion.revenuePerStore * (avgMonthsOperating / 12) * rampUpFactor;
+  }
+  
+  // Adjust projected revenue with expansion
+  const totalProjectedRevenueWithExpansion = totalProjectedRevenue + expansionRevenue;
+  
+  const grossProfit = totalProjectedRevenueWithExpansion - totalCogs - (expansionRevenue * params.costs.cogsRate / 100);
+  const operatingProfit = grossProfit - totalCommission - totalAdsCost - generalMarketing - 
+    overheadCost - shippingCost - packagingCost - returnCost - customerAcquisitionCost - expansionCost;
+  
+  const grossMargin = totalProjectedRevenueWithExpansion > 0 ? (grossProfit / totalProjectedRevenueWithExpansion) * 100 : 0;
+  const operatingMargin = totalProjectedRevenueWithExpansion > 0 ? (operatingProfit / totalProjectedRevenueWithExpansion) * 100 : 0;
   
   return {
     channels,
     summary: {
       totalBaseRevenue,
-      totalProjectedRevenue,
+      totalProjectedRevenue: totalProjectedRevenueWithExpansion,
       revenueGrowth: totalBaseRevenue > 0 
-        ? ((totalProjectedRevenue - totalBaseRevenue) / totalBaseRevenue) * 100 
+        ? ((totalProjectedRevenueWithExpansion - totalBaseRevenue) / totalBaseRevenue) * 100 
         : 0,
-      totalCogs,
+      totalCogs: totalCogs + (expansionRevenue * params.costs.cogsRate / 100),
       grossProfit,
       grossMargin,
       totalFees: totalCommission + totalAdsCost + generalMarketing,
@@ -138,6 +164,11 @@ function calculateRetailScenario(
       operatingMargin,
       overheadCost,
       totalOrders,
+      // NEW: expose additional metrics
+      customerAcquisitionCost,
+      expansionCost,
+      expansionRevenue,
+      newCustomers,
     }
   };
 }
