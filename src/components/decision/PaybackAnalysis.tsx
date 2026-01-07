@@ -79,7 +79,8 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
         isWithinTarget,
       },
     });
-  }, [onContextChange, params, simplePayback, discountedPayback, isWithinTarget]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, simplePayback, discountedPayback, isWithinTarget]);
 
   const handleSave = () => {
     saveAnalysis.mutate({

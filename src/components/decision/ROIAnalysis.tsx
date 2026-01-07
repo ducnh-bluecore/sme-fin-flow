@@ -48,7 +48,8 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
         annualizedROI: annualizedROI * 100,
       },
     });
-  }, [onContextChange, params, totalReturns, netProfit, roi, annualizedROI]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, totalReturns, netProfit, roi, annualizedROI]);
 
   const chartData = [
     { year: 'Năm 1', return: params.year1Return, cumulative: params.year1Return - params.initialInvestment },
