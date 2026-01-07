@@ -25,6 +25,10 @@ import {
   BookOpen,
   PenSquare,
   Crown,
+  Target,
+  Briefcase,
+  AlertTriangle,
+  Scale,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
@@ -49,6 +53,16 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.cashForecast', href: '/cash-forecast' },
       { labelKey: 'nav.workingCapital', href: '/working-capital' },
       { labelKey: 'nav.cashConversion', href: '/cash-conversion-cycle' },
+    ],
+  },
+  {
+    labelKey: 'nav.strategyDecision',
+    icon: Target,
+    children: [
+      { labelKey: 'nav.executiveSummary', href: '/executive-summary' },
+      { labelKey: 'nav.capitalAllocation', href: '/capital-allocation' },
+      { labelKey: 'nav.riskDashboard', href: '/risk-dashboard' },
+      { labelKey: 'nav.decisionSupport', href: '/decision-support' },
     ],
   },
   {
