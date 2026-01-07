@@ -197,8 +197,17 @@ export function WhatIfSimulationPanel() {
 
   // Calculate projected values
   const projectedValues = useMemo(() => {
-    const revenueMultiplier = 1 + params.revenueChange / 100;
-    const cogsMultiplier = 1 + params.cogsChange / 100;
+    // Revenue can be changed directly OR through price/volume changes.
+    // We treat price & volume as multiplicative drivers of revenue.
+    const revenueMultiplier =
+      (1 + params.revenueChange / 100) *
+      (1 + params.priceChange / 100) *
+      (1 + params.volumeChange / 100);
+
+    // COGS typically scales with volume (not price).
+    const cogsMultiplier =
+      (1 + params.cogsChange / 100) * (1 + params.volumeChange / 100);
+
     const opexMultiplier = 1 + params.opexChange / 100;
 
     const projectedRevenue = baseValues.revenue * revenueMultiplier;
@@ -206,8 +215,8 @@ export function WhatIfSimulationPanel() {
     const projectedOpex = baseValues.opex * opexMultiplier;
     const projectedGrossProfit = projectedRevenue - projectedCogs;
     const projectedEbitda = projectedGrossProfit - projectedOpex;
-    const projectedGrossMargin = projectedRevenue > 0 
-      ? (projectedGrossProfit / projectedRevenue) * 100 
+    const projectedGrossMargin = projectedRevenue > 0
+      ? (projectedGrossProfit / projectedRevenue) * 100
       : 0;
 
     return {
@@ -216,9 +225,11 @@ export function WhatIfSimulationPanel() {
       opex: projectedOpex,
       ebitda: projectedEbitda,
       grossMargin: projectedGrossMargin,
-      revenueChange: ((projectedRevenue / baseValues.revenue) - 1) * 100,
-      ebitdaChange: baseValues.ebitda !== 0 
-        ? ((projectedEbitda / baseValues.ebitda) - 1) * 100 
+      revenueChange: baseValues.revenue > 0
+        ? ((projectedRevenue / baseValues.revenue) - 1) * 100
+        : 0,
+      ebitdaChange: baseValues.ebitda !== 0
+        ? ((projectedEbitda / baseValues.ebitda) - 1) * 100
         : projectedEbitda > 0 ? 100 : -100,
       grossMarginChange: projectedGrossMargin - baseValues.grossMargin,
     };
