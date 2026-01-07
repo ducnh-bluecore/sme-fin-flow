@@ -12,8 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Activity, Play, Plus, Trash2, AlertTriangle, TrendingDown, 
-  BarChart3, Percent, DollarSign, RefreshCw, Save, Loader2
+  BarChart3, Percent, DollarSign, RefreshCw, Save, Loader2, Info, HelpCircle
 } from 'lucide-react';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { 
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, ReferenceLine, Cell
@@ -450,6 +451,28 @@ export function StressTestingPanel() {
   );
 }
 
+// Formula explanation component
+function FormulaTooltip({ title, formula, explanation }: { title: string; formula: string; explanation: string }) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        <button className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-80" side="top">
+        <div className="space-y-2">
+          <h4 className="font-semibold text-sm">{title}</h4>
+          <div className="p-2 bg-muted rounded-md font-mono text-xs">
+            {formula}
+          </div>
+          <p className="text-xs text-muted-foreground">{explanation}</p>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 function SimulationResults({ 
   output, 
   onSave, 
@@ -463,12 +486,59 @@ function SimulationResults({
 
   return (
     <div className="space-y-6">
+      {/* Formula Legend */}
+      <Card className="p-4 bg-muted/30">
+        <div className="flex items-center gap-2 mb-3">
+          <Info className="h-4 w-4 text-primary" />
+          <h4 className="font-medium">Công thức tính toán</h4>
+        </div>
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="space-y-2">
+            <div className="p-2 rounded bg-background">
+              <p className="font-medium text-foreground">Monte Carlo Simulation</p>
+              <p className="font-mono text-muted-foreground mt-1">
+                V<sub>i</sub> = V<sub>0</sub> × ∏(1 + Impact<sub>j</sub> × Bernoulli(p<sub>j</sub>))
+              </p>
+              <p className="text-muted-foreground mt-1">Mỗi lần chạy, kiểm tra xác suất xảy ra của từng kịch bản</p>
+            </div>
+            <div className="p-2 rounded bg-background">
+              <p className="font-medium text-foreground">Tác động thực tế (với biến động)</p>
+              <p className="font-mono text-muted-foreground mt-1">
+                Impact<sub>actual</sub> = Normal(μ=Impact, σ=Volatility)
+              </p>
+              <p className="text-muted-foreground mt-1">Phân phối chuẩn với trung bình = tác động, độ lệch = biến động</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="p-2 rounded bg-background">
+              <p className="font-medium text-foreground">Value at Risk (VaR 95%)</p>
+              <p className="font-mono text-muted-foreground mt-1">
+                VaR<sub>95</sub> = V<sub>0</sub> - Percentile<sub>5%</sub>(Results)
+              </p>
+              <p className="text-muted-foreground mt-1">Tổn thất tối đa với 95% độ tin cậy</p>
+            </div>
+            <div className="p-2 rounded bg-background">
+              <p className="font-medium text-foreground">Tổn thất kỳ vọng</p>
+              <p className="font-mono text-muted-foreground mt-1">
+                E[Loss] = Σ(V<sub>0</sub> - V<sub>i</sub>) / n, ∀V<sub>i</sub> {"<"} V<sub>0</sub>
+              </p>
+              <p className="text-muted-foreground mt-1">Trung bình tổn thất của các trường hợp lỗ</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Key Metrics */}
       <div className="grid grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <DollarSign className="h-4 w-4" />
             <span className="text-sm">Base Case</span>
+            <FormulaTooltip 
+              title="Base Case (Giá trị gốc)"
+              formula="V₀ = EBITDA hoặc Cash hiện tại"
+              explanation="Giá trị ban đầu trước khi áp dụng các kịch bản rủi ro. Lấy từ dữ liệu thực tế của doanh nghiệp."
+            />
           </div>
           <p className="text-xl font-bold">{formatVNDCompact(baseCase)}</p>
         </Card>
@@ -476,6 +546,11 @@ function SimulationResults({
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <TrendingDown className="h-4 w-4" />
             <span className="text-sm">Stressed Case</span>
+            <FormulaTooltip 
+              title="Stressed Case (Kịch bản căng thẳng)"
+              formula="V_stressed = V₀ × ∏(1 + Impact_i × Probability_i)"
+              explanation="Giá trị kỳ vọng sau khi tính trọng số xác suất của tất cả các kịch bản. Đây là ước tính 'trung bình' của tác động."
+            />
           </div>
           <p className="text-xl font-bold text-orange-500">{formatVNDCompact(stressedCase)}</p>
           <p className="text-xs text-muted-foreground">
@@ -486,6 +561,11 @@ function SimulationResults({
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <BarChart3 className="h-4 w-4" />
             <span className="text-sm">Mean (Kỳ vọng)</span>
+            <FormulaTooltip 
+              title="Mean - Giá trị kỳ vọng Monte Carlo"
+              formula="μ = (1/n) × Σ V_i"
+              explanation="Trung bình của tất cả kết quả mô phỏng. Đây là kết quả 'trung bình' sau khi chạy hàng ngàn lần mô phỏng."
+            />
           </div>
           <p className="text-xl font-bold">{formatVNDCompact(results.mean)}</p>
           <p className="text-xs text-muted-foreground">
@@ -496,15 +576,27 @@ function SimulationResults({
           <div className="flex items-center gap-2 text-red-500 mb-2">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm">VaR 95%</span>
+            <FormulaTooltip 
+              title="Value at Risk 95%"
+              formula="VaR₉₅ = V₀ - Percentile₅(Results)"
+              explanation="Với 95% độ tin cậy, tổn thất sẽ không vượt quá giá trị này. 5% trường hợp còn lại có thể tệ hơn."
+            />
           </div>
           <p className="text-xl font-bold text-red-500">{formatVNDCompact(results.var95)}</p>
           <p className="text-xs text-muted-foreground">Rủi ro tối đa 95%</p>
         </Card>
       </div>
 
-      {/* Percentiles */}
+      {/* Percentiles with formula */}
       <Card className="p-4">
-        <h4 className="font-medium mb-4">Phân vị kết quả</h4>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-medium">Phân vị kết quả</h4>
+          <FormulaTooltip 
+            title="Percentiles (Phân vị)"
+            formula="P_k = Value tại vị trí (k/100) × n"
+            explanation="Phân vị cho biết % kết quả nằm dưới giá trị đó. VD: P25 = 25% kết quả thấp hơn giá trị này."
+          />
+        </div>
         <div className="relative h-8 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 rounded-full overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-between px-2 text-xs text-white font-medium">
             <span>P5: {formatVNDCompact(results.p5)}</span>
@@ -515,27 +607,48 @@ function SimulationResults({
           </div>
         </div>
         <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-          <span>Worst Case</span>
-          <span>Best Case</span>
+          <span>Worst Case (5% xấu nhất)</span>
+          <span>Best Case (5% tốt nhất)</span>
         </div>
       </Card>
 
       {/* Risk Metrics */}
       <div className="grid grid-cols-3 gap-4">
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Tổn thất kỳ vọng</p>
+          <div className="flex items-center gap-1 mb-1">
+            <p className="text-sm text-muted-foreground">Tổn thất kỳ vọng</p>
+            <FormulaTooltip 
+              title="Expected Loss (Tổn thất kỳ vọng)"
+              formula="E[Loss] = Σ(V₀ - V_i) / n, ∀ V_i < V₀"
+              explanation="Trung bình số tiền mất đi trong các trường hợp thua lỗ. Chỉ tính những mô phỏng có kết quả thấp hơn giá trị gốc."
+            />
+          </div>
           <p className="text-2xl font-bold text-red-500">
             {formatVNDCompact(riskMetrics.expectedLoss)}
           </p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Tổn thất tối đa</p>
+          <div className="flex items-center gap-1 mb-1">
+            <p className="text-sm text-muted-foreground">Tổn thất tối đa</p>
+            <FormulaTooltip 
+              title="Maximum Loss (Tổn thất tối đa)"
+              formula="Max Loss = V₀ - min(V_i)"
+              explanation="Khoảng cách từ giá trị gốc đến kết quả tệ nhất trong tất cả các mô phỏng."
+            />
+          </div>
           <p className="text-2xl font-bold text-red-500">
             {formatVNDCompact(riskMetrics.maxLoss)}
           </p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Xác suất thua lỗ</p>
+          <div className="flex items-center gap-1 mb-1">
+            <p className="text-sm text-muted-foreground">Xác suất thua lỗ</p>
+            <FormulaTooltip 
+              title="Probability of Loss (Xác suất thua lỗ)"
+              formula="P(Loss) = count(V_i < V₀) / n"
+              explanation="Tỷ lệ các mô phỏng có kết quả thấp hơn giá trị gốc. Cho biết khả năng xảy ra thua lỗ."
+            />
+          </div>
           <p className="text-2xl font-bold text-orange-500">
             {(riskMetrics.probabilityOfLoss * 100).toFixed(1)}%
           </p>
@@ -544,7 +657,14 @@ function SimulationResults({
 
       {/* Scenario Impacts */}
       <Card className="p-4">
-        <h4 className="font-medium mb-4">Tác động từng kịch bản (kỳ vọng)</h4>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-medium">Tác động từng kịch bản (kỳ vọng)</h4>
+          <FormulaTooltip 
+            title="Expected Scenario Impact"
+            formula="E[Impact_i] = V₀ × (Impact%_i / 100) × Probability_i"
+            explanation="Tác động kỳ vọng = Giá trị gốc × Mức tác động × Xác suất xảy ra. Đây là 'trọng số' đóng góp của mỗi kịch bản."
+          />
+        </div>
         <div className="space-y-2">
           {scenarioImpacts.map((s, i) => (
             <div key={i} className="flex items-center justify-between">
@@ -595,6 +715,34 @@ function DistributionChart({
 
   return (
     <div className="space-y-4">
+      {/* Distribution Formula Explanation */}
+      <Card className="p-4 bg-muted/30">
+        <div className="flex items-center gap-2 mb-3">
+          <Info className="h-4 w-4 text-primary" />
+          <h4 className="font-medium text-sm">Cách đọc biểu đồ phân phối</h4>
+        </div>
+        <div className="grid grid-cols-3 gap-4 text-xs">
+          <div className="p-2 rounded bg-background">
+            <p className="font-medium">Histogram</p>
+            <p className="text-muted-foreground mt-1">
+              Trục X = Giá trị kết quả, Trục Y = Số lần xuất hiện trong {output.results.distribution.reduce((a,b) => a+b, 0).toLocaleString()} mô phỏng
+            </p>
+          </div>
+          <div className="p-2 rounded bg-background">
+            <p className="font-medium">Vùng đỏ (thua lỗ)</p>
+            <p className="text-muted-foreground mt-1">
+              Kết quả {"<"} Base Case = Thua lỗ so với giá trị gốc
+            </p>
+          </div>
+          <div className="p-2 rounded bg-background">
+            <p className="font-medium">Vùng xanh (có lãi)</p>
+            <p className="text-muted-foreground mt-1">
+              Kết quả ≥ Base Case = Giữ nguyên hoặc tăng giá trị
+            </p>
+          </div>
+        </div>
+      </Card>
+
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
@@ -609,14 +757,15 @@ function DistributionChart({
               content={({ active, payload }) => {
                 if (active && payload?.[0]) {
                   const data = payload[0].payload;
+                  const percentage = ((data.count / output.results.distribution.reduce((a: number, b: number) => a + b, 0)) * 100).toFixed(2);
                   return (
                     <div className="bg-popover border rounded-lg p-3 shadow-lg">
                       <p className="font-medium">{data.label}</p>
                       <p className="text-sm text-muted-foreground">
-                        Tần suất: {data.count.toLocaleString()} lần
+                        Tần suất: {data.count.toLocaleString()} lần ({percentage}%)
                       </p>
                       <p className={`text-sm ${data.isLoss ? 'text-red-500' : 'text-green-500'}`}>
-                        {data.isLoss ? 'Thua lỗ' : 'Có lãi'}
+                        {data.isLoss ? '📉 Thua lỗ so với Base' : '📈 Giữ/Tăng giá trị'}
                       </p>
                     </div>
                   );
@@ -645,13 +794,27 @@ function DistributionChart({
 
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-          <p className="text-muted-foreground">Vùng thua lỗ</p>
+          <div className="flex items-center gap-2">
+            <p className="text-muted-foreground">Vùng thua lỗ</p>
+            <FormulaTooltip 
+              title="Xác suất thua lỗ"
+              formula="P(Loss) = Diện tích vùng đỏ / Tổng diện tích"
+              explanation="Tỷ lệ phần trăm các kết quả mô phỏng thấp hơn giá trị gốc."
+            />
+          </div>
           <p className="text-lg font-bold text-red-500">
             {(output.riskMetrics.probabilityOfLoss * 100).toFixed(1)}% khả năng
           </p>
         </div>
         <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-          <p className="text-muted-foreground">Vùng có lãi</p>
+          <div className="flex items-center gap-2">
+            <p className="text-muted-foreground">Vùng có lãi</p>
+            <FormulaTooltip 
+              title="Xác suất có lãi/giữ nguyên"
+              formula="P(Gain) = 1 - P(Loss)"
+              explanation="Tỷ lệ phần trăm các kết quả mô phỏng bằng hoặc cao hơn giá trị gốc."
+            />
+          </div>
           <p className="text-lg font-bold text-green-500">
             {((1 - output.riskMetrics.probabilityOfLoss) * 100).toFixed(1)}% khả năng
           </p>
