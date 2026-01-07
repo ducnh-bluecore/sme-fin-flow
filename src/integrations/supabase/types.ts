@@ -3259,6 +3259,68 @@ export type Database = {
           },
         ]
       }
+      formula_definitions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          example: string | null
+          formula: string
+          formula_key: string
+          id: string
+          is_active: boolean | null
+          is_system: boolean | null
+          name_en: string
+          name_vi: string
+          tenant_id: string | null
+          updated_at: string
+          usage_locations: string[] | null
+          variables: Json | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          example?: string | null
+          formula: string
+          formula_key: string
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name_en: string
+          name_vi: string
+          tenant_id?: string | null
+          updated_at?: string
+          usage_locations?: string[] | null
+          variables?: Json | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          example?: string | null
+          formula?: string
+          formula_key?: string
+          id?: string
+          is_active?: boolean | null
+          is_system?: boolean | null
+          name_en?: string
+          name_vi?: string
+          tenant_id?: string | null
+          updated_at?: string
+          usage_locations?: string[] | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formula_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       formula_settings: {
         Row: {
           ar_bucket_1: number | null
