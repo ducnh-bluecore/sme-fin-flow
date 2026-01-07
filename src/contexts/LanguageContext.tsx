@@ -58,6 +58,12 @@ const vi: Record<string, string> = {
   'nav.workingCapital': 'Tối ưu vốn lưu động',
   'nav.cashConversion': 'Cash Conversion Cycle',
 
+  'nav.strategyDecision': 'Chiến lược & Quyết định',
+  'nav.executiveSummary': 'Executive Summary',
+  'nav.capitalAllocation': 'Phân bổ vốn',
+  'nav.riskDashboard': 'Risk Dashboard',
+  'nav.decisionSupport': 'Hỗ trợ quyết định',
+
   'nav.financialReports': 'Báo cáo tài chính',
   'nav.plReport': 'Báo cáo P&L',
   'nav.analysis': 'Phân tích tổng hợp',
@@ -189,6 +195,12 @@ const en: Record<string, string> = {
   'nav.cashForecast': 'Cash Flow Forecast',
   'nav.workingCapital': 'Working Capital Optimization',
   'nav.cashConversion': 'Cash Conversion Cycle',
+
+  'nav.strategyDecision': 'Strategy & Decision',
+  'nav.executiveSummary': 'Executive Summary',
+  'nav.capitalAllocation': 'Capital Allocation',
+  'nav.riskDashboard': 'Risk Dashboard',
+  'nav.decisionSupport': 'Decision Support',
 
   'nav.financialReports': 'Financial Reports',
   'nav.plReport': 'P&L Report',

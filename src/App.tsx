@@ -74,6 +74,12 @@ const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
 const FormulasPage = lazy(() => import("./pages/FormulasPage"));
 const FormulaSettingsPage = lazy(() => import("./pages/FormulaSettingsPage"));
 
+// Strategy & Decision pages
+const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
+const CapitalAllocationPage = lazy(() => import("./pages/CapitalAllocationPage"));
+const DecisionSupportPage = lazy(() => import("./pages/DecisionSupportPage"));
+const RiskDashboardPage = lazy(() => import("./pages/RiskDashboardPage"));
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -164,6 +170,10 @@ const AppRoutes = () => {
         <Route path="/variance-analysis" element={<VarianceAnalysisPage />} />
         <Route path="/board-reports" element={<BoardReportsPage />} />
         <Route path="/strategic-initiatives" element={<StrategicInitiativesPage />} />
+        <Route path="/executive-summary" element={<ExecutiveSummaryPage />} />
+        <Route path="/capital-allocation" element={<CapitalAllocationPage />} />
+        <Route path="/decision-support" element={<DecisionSupportPage />} />
+        <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
         <Route path="/rbac" element={<RBACPage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/api" element={<APIPage />} />

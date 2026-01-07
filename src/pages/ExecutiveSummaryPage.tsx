@@ -22,7 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useDashboardKPIs } from '@/hooks/useDashboardCache';
+import { useDashboardKPICache } from '@/hooks/useDashboardCache';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { formatVNDCompact } from '@/lib/formatters';
 
@@ -223,7 +223,7 @@ function RiskAlertCard({
 
 export default function ExecutiveSummaryPage() {
   const { t } = useLanguage();
-  const { data: kpiData, isLoading } = useDashboardKPIs();
+  const { data: kpiData, isLoading } = useDashboardKPICache();
   const { data: runwayData } = useCashRunway();
 
   // Calculate health score based on KPIs
@@ -232,7 +232,7 @@ export default function ExecutiveSummaryPage() {
     let score = 70;
     if (kpiData.dso && kpiData.dso < 45) score += 10;
     if (kpiData.grossMargin && kpiData.grossMargin > 30) score += 10;
-    if (runwayData?.months && runwayData.months > 6) score += 10;
+    if (runwayData?.runwayMonths && runwayData.runwayMonths > 6) score += 10;
     return Math.min(score, 100);
   };
 
@@ -272,7 +272,7 @@ export default function ExecutiveSummaryPage() {
 
   // Sample risk alerts
   const riskAlerts = [
-    { title: 'Cash Runway thấp', severity: 'warning' as const, description: 'Dự kiến hết tiền trong 4.5 tháng nếu không có biện pháp', metric: `Runway: ${runwayData?.months?.toFixed(1) || '4.5'} tháng` },
+    { title: 'Cash Runway thấp', severity: 'warning' as const, description: 'Dự kiến hết tiền trong 4.5 tháng nếu không có biện pháp', metric: `Runway: ${runwayData?.runwayMonths?.toFixed(1) || '4.5'} tháng` },
     { title: 'DSO tăng', severity: 'warning' as const, description: 'DSO tăng 8 ngày so với tháng trước', metric: `DSO: ${kpiData?.dso || 52} ngày` },
     { title: 'Top 3 khách hàng chiếm 45% AR', severity: 'info' as const, description: 'Rủi ro tập trung cao, cần đa dạng hóa', metric: 'Concentration: 45%' },
   ];
@@ -301,7 +301,7 @@ export default function ExecutiveSummaryPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatVNDCompact(kpiData?.totalRevenue || 15200000000)}</div>
+              <div className="text-2xl font-bold">{formatVNDCompact(15200000000)}</div>
               <div className="flex items-center gap-1 text-sm text-green-500 mt-1">
                 <TrendingUp className="h-4 w-4" />
                 +12.5% vs LM
@@ -340,7 +340,7 @@ export default function ExecutiveSummaryPage() {
               <div className="text-2xl font-bold">{formatVNDCompact(kpiData?.cashToday || 3200000000)}</div>
               <div className="flex items-center gap-1 text-sm text-yellow-500 mt-1">
                 <Activity className="h-4 w-4" />
-                Runway: {runwayData?.months?.toFixed(1) || '4.5'} tháng
+                Runway: {runwayData?.runwayMonths?.toFixed(1) || '4.5'} tháng
               </div>
               <Progress value={45} className="mt-3 h-2" />
               <p className="text-xs text-muted-foreground mt-1">Min threshold: 2 tỷ</p>

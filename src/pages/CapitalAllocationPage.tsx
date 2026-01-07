@@ -455,7 +455,7 @@ export default function CapitalAllocationPage() {
                       <span className="font-bold text-primary text-xl">11.8%</span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Dự án cần ROI > 11.8% để tạo giá trị
+                      Dự án cần ROI {'>'} 11.8% để tạo giá trị
                     </p>
                   </div>
                 </CardContent>
