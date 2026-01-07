@@ -48,6 +48,7 @@ import { cn } from '@/lib/utils';
 import { formatVNDCompact } from '@/lib/formatters';
 import { useKPIData } from '@/hooks/useKPIData';
 import { useWhatIfDefaults } from '@/hooks/useWhatIfDefaults';
+import { useWhatIfRealData } from '@/hooks/useWhatIfRealData';
 import { 
   useWhatIfScenarios, 
   useSaveWhatIfScenario, 
@@ -143,6 +144,7 @@ function SliderInput({
 export function WhatIfSimulationPanel() {
   const { data: kpiData, isLoading: kpiLoading } = useKPIData();
   const { data: defaults, isLoading: defaultsLoading } = useWhatIfDefaults();
+  const { data: realData, isLoading: realLoading } = useWhatIfRealData();
   const { data: savedScenarios = [], isLoading: scenariosLoading } = useWhatIfScenarios();
   const saveScenario = useSaveWhatIfScenario();
   const deleteScenario = useDeleteWhatIfScenario();
@@ -160,29 +162,38 @@ export function WhatIfSimulationPanel() {
   const [scenarioName, setScenarioName] = useState('');
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
 
-  // Check if we have real data
-  const hasData = useMemo(() => {
-    return kpiData && (kpiData.totalRevenue > 0 || kpiData.ebitda !== 0);
-  }, [kpiData]);
-
-  // Base values from KPI data
+  // Base values (prefer KPI cache; fallback to real orders data if KPI cache isn't built yet)
   const baseValues = useMemo(() => {
-    const revenue = kpiData?.totalRevenue || 0;
-    const grossMargin = kpiData?.grossMargin || 35;
-    const cogs = revenue * (1 - grossMargin / 100);
-    const ebitda = kpiData?.ebitda || 0;
-    // Calculate OPEX from revenue and ebitda: EBITDA = GrossProfit - OPEX
-    const grossProfit = revenue * (grossMargin / 100);
-    const opex = grossProfit - ebitda;
-    
+    const kpiHasRevenue = (kpiData?.totalRevenue || 0) > 0;
+    const sourceRevenue = kpiHasRevenue ? (kpiData?.totalRevenue || 0) : (realData?.totalRevenue || 0);
+
+    // Prefer KPI gross margin when available; otherwise compute from order data
+    const sourceGrossMargin = kpiHasRevenue
+      ? (kpiData?.grossMargin || 35)
+      : (sourceRevenue > 0
+          ? (((sourceRevenue - (realData?.totalCogs || 0)) / sourceRevenue) * 100)
+          : 0);
+
+    const cogs = kpiHasRevenue
+      ? sourceRevenue * (1 - sourceGrossMargin / 100)
+      : (realData?.totalCogs || 0);
+
+    // For demo / order-based fallback: approximate EBITDA with net profit
+    const ebitda = kpiHasRevenue ? (kpiData?.ebitda || 0) : (realData?.totalNetProfit || 0);
+
+    // Estimate OPEX: EBITDA = (Revenue - COGS - Fees) - OPEX
+    const fees = kpiHasRevenue ? 0 : (realData?.totalFees || 0);
+    const grossProfitAfterFees = sourceRevenue - cogs - fees;
+    const opex = grossProfitAfterFees - ebitda;
+
     return {
-      revenue,
+      revenue: sourceRevenue,
       cogs,
-      opex: opex > 0 ? opex : revenue * 0.25,
+      opex: opex > 0 ? opex : sourceRevenue * 0.25,
       ebitda,
-      grossMargin,
+      grossMargin: sourceGrossMargin,
     };
-  }, [kpiData]);
+  }, [kpiData, realData]);
 
   // Calculate projected values
   const projectedValues = useMemo(() => {
@@ -284,7 +295,9 @@ export function WhatIfSimulationPanel() {
     });
   };
 
-  const isLoading = kpiLoading || defaultsLoading;
+  const hasData = useMemo(() => baseValues.revenue > 0, [baseValues.revenue]);
+
+  const isLoading = kpiLoading || defaultsLoading || realLoading;
 
   if (isLoading) {
     return (
@@ -298,10 +311,11 @@ export function WhatIfSimulationPanel() {
   }
 
   const dataRequirements = SIMPLE_SIMULATION_REQUIREMENTS({
-    hasRevenue: (kpiData?.totalRevenue || 0) > 0,
+    hasRevenue: baseValues.revenue > 0,
     hasCOGS: baseValues.cogs > 0,
     hasOPEX: baseValues.opex > 0,
-    hasCash: (kpiData?.cashToday || 0) > 0,
+    // Simple mode doesn't actually use cash for calculations; allow demo simulation when revenue exists
+    hasCash: (kpiData?.cashToday || 0) > 0 || baseValues.revenue > 0,
   });
 
   return (
