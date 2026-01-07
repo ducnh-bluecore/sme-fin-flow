@@ -18,7 +18,10 @@ import {
   Building2,
   Layers,
   PiggyBank,
-  Activity
+  Activity,
+  Dices,
+  AlertTriangle,
+  BarChart2
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -396,6 +399,175 @@ const formulas: Formula[] = [
     usedIn: ['Retail Scenario', 'What-If Simulation'],
     category: 'simulation',
   },
+
+  // Monte Carlo Simulation
+  {
+    id: 'monte-carlo',
+    name: 'Monte Carlo Simulation',
+    nameVi: 'Mô phỏng Monte Carlo',
+    formula: 'Value_i = BaseValue × (1 + Impact × RandomFactor_i)',
+    description: 'Chạy N lần mô phỏng với các yếu tố ngẫu nhiên để ước tính phân phối kết quả có thể xảy ra.',
+    variables: [
+      { name: 'BaseValue', meaning: 'Giá trị cơ sở (EBITDA, Cash, Revenue)' },
+      { name: 'Impact', meaning: 'Mức độ tác động (-1 đến 1)' },
+      { name: 'RandomFactor', meaning: 'Hệ số ngẫu nhiên từ phân phối chuẩn' },
+      { name: 'N', meaning: 'Số lần mô phỏng (thường 1000-10000)' },
+    ],
+    example: 'Base = 1,000M, Impact = -20%, Random = 0.8 → Value = 1,000 × (1 + (-0.2) × 0.8) = 840M',
+    usedIn: ['Stress Testing', 'Risk Dashboard'],
+    category: 'monte-carlo',
+  },
+  {
+    id: 'normal-distribution',
+    name: 'Normal Distribution (Box-Muller)',
+    nameVi: 'Phân phối chuẩn (Box-Muller)',
+    formula: 'Z = √(-2 × ln(U1)) × cos(2π × U2)',
+    description: 'Tạo số ngẫu nhiên theo phân phối chuẩn từ 2 số ngẫu nhiên đều.',
+    variables: [
+      { name: 'U1, U2', meaning: 'Số ngẫu nhiên đều trong (0,1)' },
+      { name: 'Z', meaning: 'Số ngẫu nhiên chuẩn N(0,1)' },
+    ],
+    example: 'U1 = 0.3, U2 = 0.7 → Z = √(-2 × ln(0.3)) × cos(2π × 0.7) ≈ 0.52',
+    usedIn: ['Monte Carlo Simulation'],
+    category: 'monte-carlo',
+  },
+
+  // Risk Metrics
+  {
+    id: 'value-at-risk',
+    name: 'Value at Risk (VaR)',
+    nameVi: 'Giá trị rủi ro (VaR)',
+    formula: 'VaR = BaseValue - Percentile(Results, α)',
+    description: 'Khoản lỗ tối đa có thể xảy ra với độ tin cậy (1-α)%.',
+    variables: [
+      { name: 'BaseValue', meaning: 'Giá trị cơ sở' },
+      { name: 'Results', meaning: 'Mảng kết quả mô phỏng' },
+      { name: 'α', meaning: 'Mức ý nghĩa (thường 5% hoặc 1%)' },
+    ],
+    example: 'Base = 1,000M, P5 = 750M → VaR(95%) = 1,000 - 750 = 250M',
+    usedIn: ['Stress Testing', 'Risk Dashboard'],
+    category: 'risk-metrics',
+  },
+  {
+    id: 'expected-shortfall',
+    name: 'Expected Shortfall (CVaR)',
+    nameVi: 'Kỳ vọng thiếu hụt (CVaR)',
+    formula: 'ES = E[Loss | Loss > VaR] = Mean(Results < Percentile_α)',
+    description: 'Kỳ vọng lỗ trong trường hợp xấu nhất vượt quá VaR.',
+    variables: [
+      { name: 'Results', meaning: 'Các kết quả dưới ngưỡng VaR' },
+      { name: 'ES', meaning: 'Giá trị kỳ vọng thiếu hụt' },
+    ],
+    example: 'Các giá trị < P5: [700, 720, 680, 750] → ES = Mean = 712.5M',
+    usedIn: ['Stress Testing', 'Risk Dashboard'],
+    category: 'risk-metrics',
+  },
+  {
+    id: 'expected-loss',
+    name: 'Expected Loss',
+    nameVi: 'Kỳ vọng tổn thất',
+    formula: 'EL = |Impact| × Probability × BaseValue',
+    description: 'Tổn thất kỳ vọng dựa trên xác suất và mức độ tác động.',
+    variables: [
+      { name: 'Impact', meaning: 'Mức độ tác động (%)' },
+      { name: 'Probability', meaning: 'Xác suất xảy ra (%)' },
+      { name: 'BaseValue', meaning: 'Giá trị cơ sở' },
+    ],
+    example: 'Impact = 20%, Prob = 30%, Base = 1,000M → EL = 0.2 × 0.3 × 1,000 = 60M',
+    usedIn: ['Stress Testing', 'Risk Dashboard'],
+    category: 'risk-metrics',
+  },
+  {
+    id: 'cash-impact',
+    name: 'Cash Impact',
+    nameVi: 'Tác động dòng tiền',
+    formula: 'CashImpact = CurrentCash × Impact%',
+    description: 'Ước tính tác động trực tiếp lên dòng tiền hiện tại.',
+    variables: [
+      { name: 'CurrentCash', meaning: 'Tiền mặt hiện tại' },
+      { name: 'Impact%', meaning: 'Phần trăm tác động' },
+    ],
+    example: 'Cash = 500M, Impact = -15% → CashImpact = 500 × (-0.15) = -75M',
+    usedIn: ['Stress Testing', 'Cash Forecast'],
+    category: 'risk-metrics',
+  },
+
+  // Statistical Measures
+  {
+    id: 'percentile',
+    name: 'Percentile',
+    nameVi: 'Phân vị',
+    formula: 'P_k = Value tại vị trí (k/100) × (n-1)',
+    description: 'Giá trị mà k% dữ liệu nằm dưới nó.',
+    variables: [
+      { name: 'k', meaning: 'Phân vị cần tìm (5, 25, 50, 75, 95)' },
+      { name: 'n', meaning: 'Số lượng mẫu' },
+      { name: 'Values', meaning: 'Mảng giá trị đã sắp xếp' },
+    ],
+    example: 'Data sorted: [100, 200, 300, 400, 500], P50 = Value tại (50/100)×4 = 2 → 300',
+    usedIn: ['Monte Carlo Simulation', 'Statistics'],
+    category: 'statistics',
+  },
+  {
+    id: 'standard-deviation',
+    name: 'Standard Deviation',
+    nameVi: 'Độ lệch chuẩn',
+    formula: 'σ = √(Σ(xi - μ)² / n)',
+    description: 'Đo lường mức độ phân tán của dữ liệu quanh giá trị trung bình.',
+    variables: [
+      { name: 'xi', meaning: 'Các giá trị trong mẫu' },
+      { name: 'μ', meaning: 'Giá trị trung bình' },
+      { name: 'n', meaning: 'Số lượng mẫu' },
+    ],
+    example: 'Data: [100, 200, 300], μ = 200, σ = √((100-200)² + (200-200)² + (300-200)²)/3 = 81.6',
+    usedIn: ['Monte Carlo Simulation', 'Variance Analysis'],
+    category: 'statistics',
+  },
+  {
+    id: 'confidence-interval',
+    name: 'Confidence Interval',
+    nameVi: 'Khoảng tin cậy',
+    formula: 'CI = [P_α/2, P_(1-α/2)]',
+    description: 'Khoảng giá trị chứa kết quả thực với độ tin cậy (1-α)%.',
+    variables: [
+      { name: 'P', meaning: 'Phân vị' },
+      { name: 'α', meaning: 'Mức ý nghĩa' },
+    ],
+    example: 'CI 90% = [P5, P95] = [750M, 1,200M]',
+    usedIn: ['Monte Carlo Simulation', 'Forecasting'],
+    category: 'statistics',
+  },
+
+  // Scenario Analysis
+  {
+    id: 'scenario-impact',
+    name: 'Scenario Impact',
+    nameVi: 'Tác động kịch bản',
+    formula: 'ScenarioValue = Σ(Factor_i × Weight_i × BaseValue)',
+    description: 'Tổng hợp tác động từ nhiều yếu tố trong một kịch bản.',
+    variables: [
+      { name: 'Factor_i', meaning: 'Mức độ tác động của yếu tố i' },
+      { name: 'Weight_i', meaning: 'Trọng số của yếu tố i' },
+      { name: 'BaseValue', meaning: 'Giá trị cơ sở' },
+    ],
+    example: 'Revenue -10% (w=0.5), Cost +5% (w=0.3), FX -3% (w=0.2) → Total = -10×0.5 + 5×0.3 + (-3)×0.2 = -4.1%',
+    usedIn: ['Stress Testing', 'What-If Simulation'],
+    category: 'scenario',
+  },
+  {
+    id: 'probability-weighted',
+    name: 'Probability Weighted Value',
+    nameVi: 'Giá trị theo xác suất',
+    formula: 'PWV = Σ(Scenario_i × Probability_i)',
+    description: 'Giá trị kỳ vọng dựa trên xác suất của các kịch bản.',
+    variables: [
+      { name: 'Scenario_i', meaning: 'Giá trị của kịch bản i' },
+      { name: 'Probability_i', meaning: 'Xác suất của kịch bản i' },
+    ],
+    example: 'Best: 1,200M (20%), Base: 1,000M (50%), Worst: 700M (30%) → PWV = 1,200×0.2 + 1,000×0.5 + 700×0.3 = 950M',
+    usedIn: ['Stress Testing', 'Forecasting'],
+    category: 'scenario',
+  },
 ];
 
 const categories = [
@@ -406,6 +578,10 @@ const categories = [
   { id: 'channel', label: 'Kênh bán', icon: ShoppingCart },
   { id: 'cash-flow', label: 'Dòng tiền', icon: DollarSign },
   { id: 'simulation', label: 'Mô phỏng', icon: Target },
+  { id: 'monte-carlo', label: 'Monte Carlo', icon: Dices },
+  { id: 'risk-metrics', label: 'Rủi ro', icon: AlertTriangle },
+  { id: 'statistics', label: 'Thống kê', icon: BarChart2 },
+  { id: 'scenario', label: 'Kịch bản', icon: Layers },
 ];
 
 export default function FormulasPage() {
