@@ -71,6 +71,7 @@ const DataWarehousePage = lazy(() => import("./pages/DataWarehousePage"));
 const ScenarioHubPage = lazy(() => import("./pages/ScenarioHubPage"));
 const ScenarioPage = lazy(() => import("./pages/ScenarioPage"));
 const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
+const FormulasPage = lazy(() => import("./pages/FormulasPage"));
 
 const queryClient = new QueryClient();
 
@@ -168,6 +169,7 @@ const AppRoutes = () => {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/data-guide" element={<DataEntryGuidePage />} />
+        <Route path="/formulas" element={<FormulasPage />} />
         <Route path="/tenant" element={<TenantManagementPage />} />
         <Route path="/tenant/members" element={<TenantMembersPage />} />
         <Route path="/tenant/settings" element={<TenantSettingsPage />} />
