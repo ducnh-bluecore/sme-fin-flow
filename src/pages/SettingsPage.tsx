@@ -158,15 +158,15 @@ export default function SettingsPage() {
         </motion.div>
 
         <Tabs defaultValue="tenant" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-8 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="tenant">Công ty</TabsTrigger>
-            <TabsTrigger value="formulas">Công thức</TabsTrigger>
-            <TabsTrigger value="profile">Hồ sơ</TabsTrigger>
-            <TabsTrigger value="notifications">Thông báo</TabsTrigger>
-            <TabsTrigger value="appearance">Giao diện</TabsTrigger>
-            <TabsTrigger value="security">Bảo mật</TabsTrigger>
-            <TabsTrigger value="api">API Keys</TabsTrigger>
-            <TabsTrigger value="system">Hệ thống</TabsTrigger>
+          <TabsList className="flex flex-wrap gap-1 h-auto p-1">
+            <TabsTrigger value="tenant" className="text-xs sm:text-sm">Công ty</TabsTrigger>
+            <TabsTrigger value="formulas" className="text-xs sm:text-sm">Công thức</TabsTrigger>
+            <TabsTrigger value="profile" className="text-xs sm:text-sm">Hồ sơ</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs sm:text-sm">Thông báo</TabsTrigger>
+            <TabsTrigger value="appearance" className="text-xs sm:text-sm">Giao diện</TabsTrigger>
+            <TabsTrigger value="security" className="text-xs sm:text-sm">Bảo mật</TabsTrigger>
+            <TabsTrigger value="api" className="text-xs sm:text-sm">API Keys</TabsTrigger>
+            <TabsTrigger value="system" className="text-xs sm:text-sm">Hệ thống</TabsTrigger>
           </TabsList>
 
           {/* Tenant Settings Tab */}
