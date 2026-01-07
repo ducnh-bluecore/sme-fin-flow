@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calculator, TrendingUp, Save, HelpCircle, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,9 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-export function NPVIRRAnalysis() {
+type AdvisorContext = Record<string, any>;
+
+export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
   
   const [initialInvestment, setInitialInvestment] = useState(2000000000);
@@ -56,6 +58,14 @@ export function NPVIRRAnalysis() {
   const irr = calculateIRR();
   const totalCashFlows = cashFlows.reduce((a, b) => a + b, 0);
   const profitabilityIndex = (npv + initialInvestment) / initialInvestment;
+
+  useEffect(() => {
+    onContextChange?.({
+      analysisType: 'npv-irr',
+      inputs: { initialInvestment, discountRate, cashFlows },
+      outputs: { npv, irr, totalCashFlows, profitabilityIndex },
+    });
+  }, [onContextChange, initialInvestment, discountRate, cashFlows, npv, irr, totalCashFlows, profitabilityIndex]);
 
   // Generate NPV profile data
   const npvProfileData = Array.from({ length: 25 }, (_, i) => {
