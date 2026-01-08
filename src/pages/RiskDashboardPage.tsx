@@ -16,12 +16,18 @@ import {
   XCircle,
   Clock,
   RefreshCw,
+  FileText,
+  Download,
+  Printer,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatVNDCompact } from '@/lib/formatters';
@@ -44,6 +50,8 @@ import {
   Legend,
 } from 'recharts';
 import { StressTestingPanel } from '@/components/risk/StressTestingPanel';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 // Risk Score Card
 function RiskScoreCard({ 
@@ -388,9 +396,209 @@ function RiskRadar() {
   );
 }
 
+// Risk Report Dialog Component
+function RiskReportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const reportDate = format(new Date(), 'dd/MM/yyyy', { locale: vi });
+  
+  const riskSummary = {
+    overallScore: 59,
+    riskLevel: 'Trung bình',
+    trend: 'Tăng nhẹ so với tháng trước (+3 điểm)',
+  };
+
+  const detailedRisks = [
+    {
+      category: 'Rủi ro thanh khoản',
+      score: 65,
+      status: 'Cảnh báo',
+      details: 'Cash runway hiện tại: 4.2 tháng. Dòng tiền từ hoạt động kinh doanh giảm 15% so với cùng kỳ.',
+      recommendations: [
+        'Đẩy mạnh thu hồi công nợ quá hạn',
+        'Đàm phán gia hạn thanh toán với nhà cung cấp',
+        'Xem xét hạn mức tín dụng ngân hàng',
+      ],
+    },
+    {
+      category: 'Rủi ro tín dụng',
+      score: 45,
+      status: 'Ổn định',
+      details: 'Tỷ lệ nợ xấu: 2.3%. AR quá hạn > 90 ngày: 1.2 tỷ VND (chiếm 3.5% tổng AR).',
+      recommendations: [
+        'Tiếp tục theo dõi khách hàng có lịch sử thanh toán chậm',
+        'Cập nhật chính sách tín dụng cho khách hàng mới',
+      ],
+    },
+    {
+      category: 'Rủi ro tập trung',
+      score: 72,
+      status: 'Cao',
+      details: 'Top 3 khách hàng chiếm 50% doanh thu. Supplier A chiếm 35% tổng chi phí mua hàng.',
+      recommendations: [
+        'Mở rộng danh sách khách hàng tiềm năng',
+        'Tìm kiếm nhà cung cấp thay thế cho Supplier A',
+        'Xây dựng kế hoạch dự phòng nếu mất top customer',
+      ],
+    },
+    {
+      category: 'Rủi ro lãi suất',
+      score: 55,
+      status: 'Trung bình',
+      details: 'Tổng dư nợ vay: 25 tỷ VND. Đã hedge 60% với lãi suất cố định. 40% còn lại theo lãi suất thả nổi.',
+      recommendations: [
+        'Xem xét chuyển đổi thêm sang lãi suất cố định',
+        'Theo dõi xu hướng lãi suất thị trường',
+      ],
+    },
+    {
+      category: 'Rủi ro tỷ giá',
+      score: 48,
+      status: 'Ổn định',
+      details: 'Doanh thu USD chiếm 30%. Chi phí nhập khẩu USD chiếm 45%. Natural hedge: +15% exposure.',
+      recommendations: [
+        'Duy trì natural hedge hiện tại',
+        'Xem xét forward contract nếu USD biến động mạnh',
+      ],
+    },
+  ];
+
+  const actionItems = [
+    { priority: 'Cao', action: 'Lập kế hoạch đa dạng hóa nhà cung cấp', deadline: '15/02/2026', owner: 'Phòng Mua hàng' },
+    { priority: 'Cao', action: 'Thu hồi AR quá hạn > 60 ngày', deadline: '31/01/2026', owner: 'Phòng Kế toán' },
+    { priority: 'Trung bình', action: 'Đánh giá lại hạn mức tín dụng khách hàng', deadline: '28/02/2026', owner: 'Phòng Tín dụng' },
+    { priority: 'Trung bình', action: 'Chuẩn bị phương án hedge lãi suất', deadline: '15/02/2026', owner: 'CFO' },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Báo cáo Rủi ro Chi tiết
+          </DialogTitle>
+          <DialogDescription>
+            Ngày lập: {reportDate}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <ScrollArea className="h-[70vh] pr-4">
+          <div className="space-y-6">
+            {/* Summary Section */}
+            <Card className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Tổng quan Rủi ro</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-yellow-500">{riskSummary.overallScore}</div>
+                    <p className="text-sm text-muted-foreground">Điểm rủi ro tổng thể</p>
+                  </div>
+                  <div className="text-center">
+                    <Badge className="bg-yellow-500/20 text-yellow-600 text-lg py-1 px-3">
+                      {riskSummary.riskLevel}
+                    </Badge>
+                    <p className="text-sm text-muted-foreground mt-1">Mức độ rủi ro</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-medium text-orange-500">{riskSummary.trend}</p>
+                    <p className="text-sm text-muted-foreground">Xu hướng</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* Detailed Risks */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Phân tích Chi tiết theo Loại Rủi ro</h3>
+              <div className="space-y-4">
+                {detailedRisks.map((risk, index) => (
+                  <Card key={index}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">{risk.category}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold">{risk.score}/100</span>
+                          <Badge variant={
+                            risk.status === 'Cao' ? 'destructive' : 
+                            risk.status === 'Cảnh báo' ? 'default' : 
+                            'secondary'
+                          }>
+                            {risk.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground">{risk.details}</p>
+                      <div>
+                        <p className="text-sm font-medium mb-1">Khuyến nghị:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          {risk.recommendations.map((rec, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Action Items */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Hành động Cần thực hiện</h3>
+              <div className="rounded-lg border">
+                <div className="grid grid-cols-4 gap-4 p-3 bg-muted/50 font-medium text-sm">
+                  <div>Ưu tiên</div>
+                  <div>Hành động</div>
+                  <div>Hạn chót</div>
+                  <div>Phụ trách</div>
+                </div>
+                {actionItems.map((item, index) => (
+                  <div key={index} className="grid grid-cols-4 gap-4 p-3 border-t text-sm">
+                    <div>
+                      <Badge variant={item.priority === 'Cao' ? 'destructive' : 'secondary'}>
+                        {item.priority}
+                      </Badge>
+                    </div>
+                    <div>{item.action}</div>
+                    <div>{item.deadline}</div>
+                    <div className="text-muted-foreground">{item.owner}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" size="sm">
+                <Printer className="h-4 w-4 mr-2" />
+                In báo cáo
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Xuất PDF
+              </Button>
+            </div>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function RiskDashboardPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   const riskScores = [
     {
@@ -437,12 +645,14 @@ export default function RiskDashboardPage() {
         <title>Risk Dashboard | Bluecore FDP</title>
       </Helmet>
 
+      <RiskReportDialog open={showReportDialog} onOpenChange={setShowReportDialog} />
+
       <div className="space-y-6">
         <PageHeader
           title={t('nav.riskDashboard')}
           subtitle="Giám sát và quản lý rủi ro tài chính toàn diện"
           actions={
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setShowReportDialog(true)}>
               <Eye className="h-4 w-4 mr-2" />
               Xem báo cáo chi tiết
             </Button>
