@@ -200,6 +200,7 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       </Button>
     </div>
   );
+}
 
 // Break-even Analysis Component
 function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
