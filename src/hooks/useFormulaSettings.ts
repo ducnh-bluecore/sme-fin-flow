@@ -52,6 +52,30 @@ export interface FormulaSettings {
   vat_rate: number;
   corporate_tax_rate: number;
   
+  // Cash Flow Direct Parameters
+  operating_cash_ratio_target: number;
+  cash_burn_rate_warning: number;
+  cash_burn_rate_critical: number;
+  minimum_operating_cash: number;
+  investing_budget_percentage: number;
+  financing_debt_ratio_max: number;
+  
+  // Inventory Aging Parameters
+  inventory_slow_moving_days: number;
+  inventory_dead_stock_days: number;
+  inventory_target_turnover: number;
+  inventory_holding_cost_rate: number;
+  
+  // Promotion ROI Parameters
+  promotion_min_roi: number;
+  promotion_target_roas: number;
+  promotion_max_discount_rate: number;
+  
+  // Supplier Payment Parameters
+  supplier_early_payment_threshold: number;
+  supplier_concentration_warning: number;
+  supplier_payment_compliance_target: number;
+  
   // Custom Parameters
   custom_parameters: Record<string, any>;
   
@@ -94,6 +118,26 @@ const defaultSettings: Omit<FormulaSettings, 'id' | 'tenant_id' | 'created_at' |
   default_depreciation_years: 5,
   vat_rate: 10,
   corporate_tax_rate: 20,
+  // Cash Flow Direct
+  operating_cash_ratio_target: 1.0,
+  cash_burn_rate_warning: 15,
+  cash_burn_rate_critical: 25,
+  minimum_operating_cash: 500000000,
+  investing_budget_percentage: 10,
+  financing_debt_ratio_max: 60,
+  // Inventory Aging
+  inventory_slow_moving_days: 90,
+  inventory_dead_stock_days: 180,
+  inventory_target_turnover: 6,
+  inventory_holding_cost_rate: 25,
+  // Promotion ROI
+  promotion_min_roi: 200,
+  promotion_target_roas: 4,
+  promotion_max_discount_rate: 50,
+  // Supplier Payment
+  supplier_early_payment_threshold: 2,
+  supplier_concentration_warning: 30,
+  supplier_payment_compliance_target: 95,
   custom_parameters: {},
 };
 
