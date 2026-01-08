@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BigQueryConfigPanel } from '@/components/connectors/BigQueryConfigPanel';
 import { BigQueryRealtimeDashboard } from '@/components/warehouse/BigQueryRealtimeDashboard';
 import { DataModelManager } from '@/components/warehouse/DataModelManager';
+import { BigQuerySchemaManager } from '@/components/warehouse/BigQuerySchemaManager';
 
 export default function DataWarehousePage() {
   return (
@@ -43,12 +44,17 @@ export default function DataWarehousePage() {
         <Tabs defaultValue="realtime" className="space-y-6">
           <TabsList>
             <TabsTrigger value="realtime">Real-time Analytics</TabsTrigger>
+            <TabsTrigger value="schema">Schema Mapping</TabsTrigger>
             <TabsTrigger value="models">Data Models</TabsTrigger>
-            <TabsTrigger value="config">Cấu hình</TabsTrigger>
+            <TabsTrigger value="config">Kết nối</TabsTrigger>
           </TabsList>
 
           <TabsContent value="realtime">
             <BigQueryRealtimeDashboard />
+          </TabsContent>
+
+          <TabsContent value="schema">
+            <BigQuerySchemaManager />
           </TabsContent>
 
           <TabsContent value="models">
