@@ -11,10 +11,8 @@ const corsHeaders = {
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   
-  // Import the private key using jose
   const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
   
-  // Create and sign the JWT
   const jwt = await new SignJWT({
     iss: serviceAccount.client_email,
     scope: 'https://www.googleapis.com/auth/bigquery.readonly',
@@ -25,7 +23,6 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
     .sign(privateKey);
 
-  // Exchange JWT for access token
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -40,8 +37,8 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return tokenData.access_token;
 }
 
-// Execute BigQuery query
-async function queryBigQuery(accessToken: string, projectId: string, query: string): Promise<any[]> {
+// Execute BigQuery query - returns null if table doesn't exist or no permission
+async function queryBigQuery(accessToken: string, projectId: string, query: string): Promise<any[] | null> {
   const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   
   const response = await fetch(url, {
@@ -60,6 +57,11 @@ async function queryBigQuery(accessToken: string, projectId: string, query: stri
   const data = await response.json();
   
   if (data.error) {
+    // Return null for permission/not found errors instead of throwing
+    if (data.error.code === 403 || data.error.code === 404) {
+      console.warn(`Query skipped (${data.error.code}): ${data.error.message}`);
+      return null;
+    }
     throw new Error(`BigQuery error: ${JSON.stringify(data.error)}`);
   }
 
@@ -78,7 +80,7 @@ async function queryBigQuery(accessToken: string, projectId: string, query: stri
   });
 }
 
-// Generate SHA-256 hash for query caching (MD5 not supported in Deno edge runtime)
+// Generate SHA-256 hash for query caching
 async function hashQuery(query: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(query);
@@ -87,50 +89,21 @@ async function hashQuery(query: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
-// Pre-defined query templates for common analytics
-const QUERY_TEMPLATES: Record<string, (params: any) => string> = {
-  // Daily revenue across all channels
-  daily_revenue: (p) => `
-    SELECT 
-      DATE(create_time) as date,
-      'shopee' as channel,
-      COUNT(*) as order_count,
-      SUM(CAST(total_amount AS FLOAT64)) as revenue,
-      SUM(CAST(seller_income AS FLOAT64)) as net_revenue
-    FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
-    WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-    
-    UNION ALL
-    
-    SELECT 
-      DATE(createdAt) as date,
-      'lazada' as channel,
-      COUNT(*) as order_count,
-      SUM(CAST(price AS FLOAT64)) as revenue,
-      SUM(CAST(sellerRevenue AS FLOAT64)) as net_revenue
-    FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
-    WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-    
-    UNION ALL
-    
-    SELECT 
-      DATE(create_time) as date,
-      'tiktok' as channel,
-      COUNT(*) as order_count,
-      SUM(CAST(payment_info.total_amount AS FLOAT64)) as revenue,
-      SUM(CAST(payment_info.seller_revenue AS FLOAT64)) as net_revenue
-    FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
-    WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-    
-    ORDER BY date DESC, channel
-  `,
-  
-  // Channel comparison summary
-  channel_summary: (p) => `
-    WITH shopee AS (
+// Channel-specific query builders
+const CHANNEL_QUERIES = {
+  shopee: {
+    daily_revenue: (p: any) => `
+      SELECT 
+        DATE(create_time) as date,
+        'shopee' as channel,
+        COUNT(*) as order_count,
+        SUM(CAST(total_amount AS FLOAT64)) as revenue,
+        SUM(CAST(seller_income AS FLOAT64)) as net_revenue
+      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+    `,
+    channel_summary: (p: any) => `
       SELECT 
         'shopee' as channel,
         COUNT(*) as total_orders,
@@ -139,8 +112,54 @@ const QUERY_TEMPLATES: Record<string, (params: any) => string> = {
         AVG(CAST(total_amount AS FLOAT64)) as avg_order_value
       FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
       WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    ),
-    lazada AS (
+    `,
+    order_status: (p: any) => `
+      SELECT 
+        'shopee' as channel,
+        order_status as status,
+        COUNT(*) as count
+      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+    `,
+    hourly_trend: (p: any) => `
+      SELECT 
+        EXTRACT(HOUR FROM create_time) as hour,
+        'shopee' as channel,
+        COUNT(*) as orders,
+        SUM(CAST(total_amount AS FLOAT64)) as revenue
+      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+      WHERE DATE(create_time) = CURRENT_DATE()
+      GROUP BY 1, 2
+      ORDER BY hour
+    `,
+    top_products: (p: any) => `
+      SELECT 
+        item_name as product_name,
+        item_sku as sku,
+        SUM(CAST(item_count AS INT64)) as quantity_sold,
+        SUM(CAST(item_price AS FLOAT64) * CAST(item_count AS INT64)) as revenue
+      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`,
+      UNNEST(items) as item
+      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+      ORDER BY quantity_sold DESC
+      LIMIT 20
+    `,
+  },
+  lazada: {
+    daily_revenue: (p: any) => `
+      SELECT 
+        DATE(createdAt) as date,
+        'lazada' as channel,
+        COUNT(*) as order_count,
+        SUM(CAST(price AS FLOAT64)) as revenue,
+        SUM(CAST(sellerRevenue AS FLOAT64)) as net_revenue
+      FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
+      WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+    `,
+    channel_summary: (p: any) => `
       SELECT 
         'lazada' as channel,
         COUNT(*) as total_orders,
@@ -149,8 +168,30 @@ const QUERY_TEMPLATES: Record<string, (params: any) => string> = {
         AVG(CAST(price AS FLOAT64)) as avg_order_value
       FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
       WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    ),
-    tiktok AS (
+    `,
+    order_status: (p: any) => `
+      SELECT 
+        'lazada' as channel,
+        status,
+        COUNT(*) as count
+      FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
+      WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+    `,
+  },
+  tiktok: {
+    daily_revenue: (p: any) => `
+      SELECT 
+        DATE(create_time) as date,
+        'tiktok' as channel,
+        COUNT(*) as order_count,
+        SUM(CAST(payment_info.total_amount AS FLOAT64)) as revenue,
+        SUM(CAST(payment_info.seller_revenue AS FLOAT64)) as net_revenue
+      FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
+      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+    `,
+    channel_summary: (p: any) => `
       SELECT 
         'tiktok' as channel,
         COUNT(*) as total_orders,
@@ -159,73 +200,51 @@ const QUERY_TEMPLATES: Record<string, (params: any) => string> = {
         AVG(CAST(payment_info.total_amount AS FLOAT64)) as avg_order_value
       FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
       WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    )
-    SELECT * FROM shopee
-    UNION ALL
-    SELECT * FROM lazada
-    UNION ALL
-    SELECT * FROM tiktok
-  `,
-  
-  // Order status breakdown
-  order_status: (p) => `
-    SELECT 
-      'shopee' as channel,
-      order_status as status,
-      COUNT(*) as count
-    FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
-    WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-    
-    UNION ALL
-    
-    SELECT 
-      'lazada' as channel,
-      status,
-      COUNT(*) as count
-    FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
-    WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-    
-    UNION ALL
-    
-    SELECT 
-      'tiktok' as channel,
-      order_status as status,
-      COUNT(*) as count
-    FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
-    WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-  `,
-
-  // Hourly trend for today
-  hourly_trend: (p) => `
-    SELECT 
-      EXTRACT(HOUR FROM create_time) as hour,
-      'shopee' as channel,
-      COUNT(*) as orders,
-      SUM(CAST(total_amount AS FLOAT64)) as revenue
-    FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
-    WHERE DATE(create_time) = CURRENT_DATE()
-    GROUP BY 1, 2
-    ORDER BY hour
-  `,
-
-  // Top products
-  top_products: (p) => `
-    SELECT 
-      item_name as product_name,
-      item_sku as sku,
-      SUM(CAST(item_count AS INT64)) as quantity_sold,
-      SUM(CAST(item_price AS FLOAT64) * CAST(item_count AS INT64)) as revenue
-    FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`,
-    UNNEST(items) as item
-    WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    GROUP BY 1, 2
-    ORDER BY quantity_sold DESC
-    LIMIT 20
-  `,
+    `,
+    order_status: (p: any) => `
+      SELECT 
+        'tiktok' as channel,
+        order_status as status,
+        COUNT(*) as count
+      FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
+      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      GROUP BY 1, 2
+    `,
+  },
 };
+
+// Query each channel separately and combine results
+async function queryAllChannels(
+  accessToken: string, 
+  projectId: string, 
+  queryType: string, 
+  params: any
+): Promise<{ data: any[], channels_queried: string[], channels_failed: string[] }> {
+  const results: any[] = [];
+  const channelsQueried: string[] = [];
+  const channelsFailed: string[] = [];
+  
+  for (const [channel, queries] of Object.entries(CHANNEL_QUERIES)) {
+    const queryFn = (queries as any)[queryType];
+    if (!queryFn) continue;
+    
+    const query = queryFn(params);
+    console.log(`Querying ${channel}...`);
+    
+    const channelResults = await queryBigQuery(accessToken, projectId, query);
+    
+    if (channelResults === null) {
+      console.warn(`Channel ${channel} skipped - no access or table not found`);
+      channelsFailed.push(channel);
+    } else {
+      results.push(...channelResults);
+      channelsQueried.push(channel);
+      console.log(`${channel}: ${channelResults.length} rows`);
+    }
+  }
+  
+  return { data: results, channels_queried: channelsQueried, channels_failed: channelsFailed };
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -235,10 +254,10 @@ serve(async (req) => {
   try {
     const { 
       tenant_id,
-      query_type, // 'daily_revenue', 'channel_summary', 'order_status', 'hourly_trend', 'top_products', 'custom'
+      query_type,
       start_date,
       end_date,
-      custom_query, // For advanced users
+      custom_query,
       use_cache = true,
       cache_ttl_minutes = 15,
       project_id: customProjectId,
@@ -250,7 +269,6 @@ serve(async (req) => {
       throw new Error('tenant_id is required');
     }
 
-    // Get service account from environment
     const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
       throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured. Please add your Google Cloud service account credentials.');
@@ -265,28 +283,20 @@ serve(async (req) => {
     
     const projectId = customProjectId || serviceAccount.project_id || 'bluecore-dcp';
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Build query
-    let query: string;
-    if (query_type === 'custom' && custom_query) {
-      query = custom_query;
-    } else if (QUERY_TEMPLATES[query_type]) {
-      query = QUERY_TEMPLATES[query_type]({
-        project_id: projectId,
-        start_date: start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        end_date: end_date || new Date().toISOString().split('T')[0],
-      });
-    } else {
-      throw new Error(`Unknown query_type: ${query_type}. Available types: daily_revenue, channel_summary, order_status, hourly_trend, top_products, custom`);
-    }
+    const params = {
+      project_id: projectId,
+      start_date: start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      end_date: end_date || new Date().toISOString().split('T')[0],
+    };
 
     // Check cache if enabled
+    const cacheKey = `${query_type}_${params.start_date}_${params.end_date}_${tenant_id}`;
     if (use_cache && query_type !== 'custom') {
-      const queryHash = await hashQuery(query + tenant_id);
+      const queryHash = await hashQuery(cacheKey);
       
       const { data: cached } = await supabase
         .from('bigquery_query_cache')
@@ -312,19 +322,33 @@ serve(async (req) => {
       }
     }
 
-    // Execute query on BigQuery
     console.log('Getting access token...');
     const accessToken = await getAccessToken(serviceAccount);
-    console.log('Access token obtained, executing BigQuery query...');
-    
-    const startTime = Date.now();
-    const rows = await queryBigQuery(accessToken, projectId, query);
-    const queryTime = Date.now() - startTime;
-    console.log(`Query executed in ${queryTime}ms, returned ${rows.length} rows`);
+    console.log('Access token obtained');
+
+    let rows: any[];
+    let channelsQueried: string[] = [];
+    let channelsFailed: string[] = [];
+
+    if (query_type === 'custom' && custom_query) {
+      // Custom query - execute directly
+      const result = await queryBigQuery(accessToken, projectId, custom_query);
+      rows = result || [];
+    } else if (['daily_revenue', 'channel_summary', 'order_status', 'hourly_trend', 'top_products'].includes(query_type)) {
+      // Query each channel separately
+      const startTime = Date.now();
+      const result = await queryAllChannels(accessToken, projectId, query_type, params);
+      rows = result.data;
+      channelsQueried = result.channels_queried;
+      channelsFailed = result.channels_failed;
+      console.log(`All channels queried in ${Date.now() - startTime}ms`);
+    } else {
+      throw new Error(`Unknown query_type: ${query_type}. Available types: daily_revenue, channel_summary, order_status, hourly_trend, top_products, custom`);
+    }
 
     // Cache results if enabled
-    if (use_cache && query_type !== 'custom') {
-      const queryHash = await hashQuery(query + tenant_id);
+    if (use_cache && query_type !== 'custom' && rows.length > 0) {
+      const queryHash = await hashQuery(cacheKey);
       const expiresAt = new Date(Date.now() + cache_ttl_minutes * 60 * 1000);
 
       await supabase
@@ -349,8 +373,9 @@ serve(async (req) => {
         success: true, 
         data: rows,
         cached: false,
-        query_time_ms: queryTime,
         row_count: rows.length,
+        channels_queried: channelsQueried,
+        channels_failed: channelsFailed,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
