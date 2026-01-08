@@ -299,7 +299,55 @@ function mapSettlementData(row: any, channel: string, integrationId: string, ten
   };
 }
 
-// Map product data
+// Map product data to external_products schema
+function mapExternalProduct(row: any, tenantId: string, integrationId: string, channel: string): any {
+  return {
+    tenant_id: tenantId,
+    integration_id: integrationId,
+    external_product_id: String(row.item_id || row.product_id || row.id || row.sku),
+    external_sku: row.sku || row.model_sku || row.variation_sku || row.seller_sku,
+    name: row.name || row.product_name || row.item_name || 'Unknown',
+    description: row.description || row.item_description,
+    category: row.category_name || row.category || row.primary_category,
+    brand: row.brand || row.brand_name,
+    selling_price: parseFloat(row.price || row.selling_price || row.current_price || 0),
+    cost_price: parseFloat(row.cogs || row.cost || row.unit_cost || 0),
+    compare_at_price: parseFloat(row.original_price || row.compare_at_price || 0),
+    stock_quantity: parseInt(row.stock || row.quantity || row.available_stock || 0),
+    available_quantity: parseInt(row.available_quantity || row.sellable_quantity || row.stock || 0),
+    weight: parseFloat(row.weight || 0),
+    status: row.status || row.item_status || 'active',
+    images: row.images ? (typeof row.images === 'string' ? JSON.parse(row.images) : row.images) : null,
+    variants: row.variants ? (typeof row.variants === 'string' ? JSON.parse(row.variants) : row.variants) : null,
+    last_synced_at: new Date().toISOString(),
+  };
+}
+
+// Map customer data
+function mapCustomerData(row: any, tenantId: string): any {
+  const fullName = row.name || row.full_name || 
+    `${row.first_name || ''} ${row.last_name || ''}`.trim() ||
+    row.billing_address_name || 'Unknown';
+    
+  return {
+    tenant_id: tenantId,
+    name: fullName,
+    email: row.email || row.customer_email,
+    phone: row.phone || row.mobile || row.billing_address_phone,
+    address: row.address || row.address1 || row.billing_address_address1,
+    city: row.city || row.billing_address_city,
+    province: row.province || row.state || row.billing_address_province,
+    country: row.country || row.billing_address_country || 'Vietnam',
+    tax_code: row.tax_code || row.tax_id,
+    notes: row.note || row.notes,
+    status: row.status || 'active',
+    total_orders: parseInt(row.orders_count || row.total_orders || 0),
+    total_spent: parseFloat(row.total_spent || row.lifetime_value || 0),
+    created_at: row.created_at || row.created_on || new Date().toISOString(),
+  };
+}
+
+// Map product data for product_master (legacy)
 function mapProductData(row: any, tenantId: string, integrationId: string, channel: string): any {
   const unitCost = parseFloat(row.cogs || row.cost || row.unit_cost || 0);
   const sellingPrice = parseFloat(row.price || row.selling_price || row.current_price || 0);
@@ -368,20 +416,24 @@ const CHANNEL_QUERIES: Record<string, {
   dataset: string; 
   orderTable: string; 
   orderIdField: string;
+  orderItemsTable?: string;
   settlementTable?: string;
   productTable?: string;
+  customerTable?: string;
 }> = {
   shopee: {
     dataset: 'bluecoredcp_shopee',
     orderTable: 'shopee_Orders',
     orderIdField: 'order_sn',
-    settlementTable: 'shopee_Settlements',
+    orderItemsTable: 'shopee_OrderItems',
+    settlementTable: 'shopee_Payments',
     productTable: 'shopee_Products',
   },
   lazada: {
     dataset: 'bluecoredcp_lazada',
     orderTable: 'lazada_Orders',
     orderIdField: 'orderNumber',
+    orderItemsTable: 'lazada_OrderItems',
     settlementTable: 'lazada_FinanceTransactionDetails',
     productTable: 'lazada_Products',
   },
@@ -395,14 +447,17 @@ const CHANNEL_QUERIES: Record<string, {
   tiki: {
     dataset: 'bluecoredcp_tiki',
     orderTable: 'tiki_Orders',
-    orderIdField: 'order_code',
+    orderIdField: 'code',
+    orderItemsTable: 'tiki_OrderItems',
     productTable: 'tiki_Products',
   },
   sapo: {
     dataset: 'bluecoredcp_sapo',
     orderTable: 'sapo_Orders',
     orderIdField: 'id',
+    orderItemsTable: 'sapo_OrdersLineItems',
     productTable: 'sapo_Products',
+    customerTable: 'sapo_Customers',
   },
   sapogo: {
     dataset: 'bluecoredcp_sapogo',
@@ -412,9 +467,11 @@ const CHANNEL_QUERIES: Record<string, {
   },
   shopify: {
     dataset: 'bluecoredcp_shopify',
-    orderTable: 'shopify_OrderSummary',
-    orderIdField: 'OrderId',
-    productTable: 'shopify_Products',
+    orderTable: 'shopify_Order',
+    orderIdField: 'id',
+    orderItemsTable: 'shopify_OrderLineItem',
+    productTable: 'shopify_Product',
+    customerTable: 'shopify_Customer',
   },
 };
 
@@ -434,13 +491,14 @@ serve(async (req) => {
       days_back = 30,
       service_account_key,
       project_id,
-      action = 'sync', // 'sync', 'count', 'sync_settlements', 'sync_products'
+      action = 'sync', // 'sync', 'count', 'sync_all'
       batch_size = 2000,
       offset = 0,
       single_channel,
       sync_items = true, // Also sync order items
       sync_settlements = false, // Sync settlement data
       sync_products = false, // Sync product catalog
+      sync_customers = false, // Sync customers
     } = await req.json();
 
     console.log('Sync BigQuery started:', { 
@@ -756,10 +814,10 @@ serve(async (req) => {
           }
         }
 
-        // Sync products if enabled
+        // Sync products if enabled - to external_products table
         if (sync_products && channelConfig.productTable && offset === 0) {
           try {
-            console.log(`Syncing ${channel} products...`);
+            console.log(`Syncing ${channel} products to external_products...`);
             const productQuery = `
               SELECT * 
               FROM \`${project_id}.${channelConfig.dataset}.${channelConfig.productTable}\`
@@ -769,27 +827,66 @@ serve(async (req) => {
             
             if (productRows.length > 0) {
               const mappedProducts = productRows.map(row => 
-                mapProductData(row, tenant_id, integration_id, channel)
+                mapExternalProduct(row, tenant_id, integration_id, channel)
               );
               
-              // Upsert products with SKU as conflict key
+              // Upsert to external_products
               for (let i = 0; i < mappedProducts.length; i += 100) {
                 const batch = mappedProducts.slice(i, i + 100);
                 const { error } = await supabase
-                  .from('product_master')
+                  .from('external_products')
                   .upsert(batch, { 
-                    onConflict: 'tenant_id,sku',
+                    onConflict: 'tenant_id,integration_id,external_product_id',
                     ignoreDuplicates: false 
                   });
 
                 if (!error) {
                   channelProductsSynced += batch.length;
+                } else {
+                  console.error(`Error upserting products:`, error.message);
                 }
               }
               console.log(`${channel}: Synced ${channelProductsSynced} products`);
             }
           } catch (e: any) {
             console.error(`Error syncing ${channel} products:`, e.message);
+          }
+        }
+
+        // Sync customers if enabled
+        if (sync_customers && channelConfig.customerTable && offset === 0) {
+          try {
+            console.log(`Syncing ${channel} customers...`);
+            const customerQuery = `
+              SELECT * 
+              FROM \`${project_id}.${channelConfig.dataset}.${channelConfig.customerTable}\`
+              LIMIT 10000
+            `;
+            const customerRows = await queryBigQuery(accessToken, project_id, customerQuery);
+            
+            if (customerRows.length > 0) {
+              const mappedCustomers = customerRows.map(row => 
+                mapCustomerData(row, tenant_id)
+              );
+              
+              // Upsert customers - use phone or email as conflict key
+              for (let i = 0; i < mappedCustomers.length; i += 100) {
+                const batch = mappedCustomers.slice(i, i + 100);
+                const { error } = await supabase
+                  .from('customers')
+                  .upsert(batch, { 
+                    onConflict: 'tenant_id,phone',
+                    ignoreDuplicates: true 
+                  });
+
+                if (error) {
+                  console.error(`Error upserting customers:`, error.message);
+                }
+              }
+              console.log(`${channel}: Synced ${customerRows.length} customers`);
+            }
+          } catch (e: any) {
+            console.error(`Error syncing ${channel} customers:`, e.message);
           }
         }
 

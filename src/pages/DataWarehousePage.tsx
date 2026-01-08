@@ -8,6 +8,7 @@ import { BigQueryConfigPanel } from '@/components/connectors/BigQueryConfigPanel
 import { BigQueryRealtimeDashboard } from '@/components/warehouse/BigQueryRealtimeDashboard';
 import { DataModelManager } from '@/components/warehouse/DataModelManager';
 import { BigQuerySchemaManager } from '@/components/warehouse/BigQuerySchemaManager';
+import { BigQuerySyncManager } from '@/components/warehouse/BigQuerySyncManager';
 
 export default function DataWarehousePage() {
   return (
@@ -41,13 +42,18 @@ export default function DataWarehousePage() {
         </motion.div>
 
         {/* Tabs */}
-        <Tabs defaultValue="realtime" className="space-y-6">
+        <Tabs defaultValue="sync" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="sync">Data Sync</TabsTrigger>
             <TabsTrigger value="realtime">Real-time Analytics</TabsTrigger>
             <TabsTrigger value="schema">Schema Mapping</TabsTrigger>
             <TabsTrigger value="models">Data Models</TabsTrigger>
             <TabsTrigger value="config">Kết nối</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="sync">
+            <BigQuerySyncManager />
+          </TabsContent>
 
           <TabsContent value="realtime">
             <BigQueryRealtimeDashboard />
