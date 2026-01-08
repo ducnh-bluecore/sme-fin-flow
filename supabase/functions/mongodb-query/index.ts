@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { MongoClient } from "https://deno.land/x/mongo@v0.32.0/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +6,22 @@ const corsHeaders = {
 };
 
 const mongoUri = Deno.env.get('MONGODB_URI');
+
+// Parse MongoDB URI to extract connection details
+function parseMongoUri(uri: string) {
+  try {
+    const url = new URL(uri);
+    return {
+      host: url.hostname,
+      username: url.username,
+      password: url.password,
+      database: url.pathname.slice(1).split('?')[0] || 'test',
+      params: url.search
+    };
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -22,103 +37,136 @@ serve(async (req) => {
     );
   }
 
-  let client: MongoClient | null = null;
-
   try {
     const { action, database, collection, query, data, options } = await req.json();
     
     console.log(`MongoDB request: action=${action}, database=${database}, collection=${collection}`);
 
-    // Connect to MongoDB
-    client = new MongoClient();
-    await client.connect(mongoUri);
-    console.log('Connected to MongoDB successfully');
+    // Parse the URI to get connection info
+    const connInfo = parseMongoUri(mongoUri);
+    if (!connInfo) {
+      throw new Error('Invalid MongoDB URI format');
+    }
 
-    const db = client.database(database || 'test');
-    const coll = db.collection(collection);
+    const dbName = database || connInfo.database || 'test';
 
-    let result;
+    // For ping action, just verify the URI is valid
+    if (action === 'ping') {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          data: { 
+            status: 'uri_configured', 
+            database: dbName,
+            host: connInfo.host,
+            timestamp: new Date().toISOString(),
+            message: 'MongoDB URI is configured. Note: Direct TCP connections are limited in Edge Runtime. Consider using MongoDB Data API for full functionality.'
+          } 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // For other actions, we need MongoDB Data API
+    // Check if Data API credentials are available
+    const dataApiKey = Deno.env.get('MONGODB_DATA_API_KEY');
+    const appId = Deno.env.get('MONGODB_APP_ID');
+
+    if (!dataApiKey || !appId) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'MongoDB Data API not configured',
+          message: 'Direct MongoDB driver connections are not supported in Edge Runtime. Please configure MONGODB_DATA_API_KEY and MONGODB_APP_ID for full functionality.',
+          uri_status: 'configured',
+          host: connInfo.host
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use MongoDB Data API
+    const dataApiUrl = `https://data.mongodb-api.com/app/${appId}/endpoint/data/v1/action`;
+    
+    let apiAction: string;
+    let body: Record<string, unknown> = {
+      dataSource: 'Cluster0', // Default cluster name, can be configured
+      database: dbName,
+      collection: collection,
+    };
 
     switch (action) {
       case 'find':
-        // Find documents
-        result = await coll.find(query || {}, options || {}).toArray();
-        console.log(`Found ${result.length} documents`);
+        apiAction = 'find';
+        body.filter = query || {};
+        if (options?.limit) body.limit = options.limit;
+        if (options?.skip) body.skip = options.skip;
+        if (options?.sort) body.sort = options.sort;
         break;
 
       case 'findOne':
-        // Find one document
-        result = await coll.findOne(query || {});
-        console.log(`FindOne result: ${result ? 'found' : 'not found'}`);
+        apiAction = 'findOne';
+        body.filter = query || {};
         break;
 
       case 'insertOne':
-        // Insert one document
-        result = await coll.insertOne(data);
-        console.log(`Inserted document with id: ${result}`);
+        apiAction = 'insertOne';
+        body.document = data;
         break;
 
       case 'insertMany':
-        // Insert many documents
-        result = await coll.insertMany(data);
-        console.log(`Inserted ${result.insertedCount} documents`);
+        apiAction = 'insertMany';
+        body.documents = data;
         break;
 
       case 'updateOne':
-        // Update one document
-        result = await coll.updateOne(query || {}, { $set: data });
-        console.log(`Updated ${result.modifiedCount} document(s)`);
+        apiAction = 'updateOne';
+        body.filter = query || {};
+        body.update = { $set: data };
         break;
 
       case 'updateMany':
-        // Update many documents
-        result = await coll.updateMany(query || {}, { $set: data });
-        console.log(`Updated ${result.modifiedCount} document(s)`);
+        apiAction = 'updateMany';
+        body.filter = query || {};
+        body.update = { $set: data };
         break;
 
       case 'deleteOne':
-        // Delete one document
-        result = await coll.deleteOne(query || {});
-        console.log(`Deleted ${result} document(s)`);
+        apiAction = 'deleteOne';
+        body.filter = query || {};
         break;
 
       case 'deleteMany':
-        // Delete many documents
-        result = await coll.deleteMany(query || {});
-        console.log(`Deleted ${result} document(s)`);
-        break;
-
-      case 'count':
-        // Count documents
-        result = await coll.countDocuments(query || {});
-        console.log(`Count: ${result}`);
+        apiAction = 'deleteMany';
+        body.filter = query || {};
         break;
 
       case 'aggregate':
-        // Aggregation pipeline
-        result = await coll.aggregate(query || []).toArray();
-        console.log(`Aggregation returned ${result.length} documents`);
-        break;
-
-      case 'listCollections':
-        // List all collections in database
-        const collections = await db.listCollectionNames();
-        result = collections;
-        console.log(`Found ${collections.length} collections`);
-        break;
-
-      case 'ping':
-        // Test connection
-        result = { status: 'connected', timestamp: new Date().toISOString() };
-        console.log('Ping successful');
+        apiAction = 'aggregate';
+        body.pipeline = query || [];
         break;
 
       default:
         throw new Error(`Unknown action: ${action}`);
     }
 
+    const response = await fetch(`${dataApiUrl}/${apiAction}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': dataApiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Data API request failed');
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: result }),
+      JSON.stringify({ success: true, data: result.documents || result.document || result }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -133,14 +181,5 @@ serve(async (req) => {
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } finally {
-    if (client) {
-      try {
-        client.close();
-        console.log('MongoDB connection closed');
-      } catch (e) {
-        console.error('Error closing MongoDB connection:', e);
-      }
-    }
   }
 });
