@@ -30,7 +30,8 @@ import {
   X,
   FileUp,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Banknote
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseFile, validateHeaders, type ParsedData } from '@/lib/fileParser';
@@ -205,6 +206,66 @@ const importTemplates = [
     sampleData: [
       ['2026-01-15', '500000000', '150000000', '80000000', '570000000', 'weekly', 'Dự báo tuần 3'],
       ['2026-01-22', '570000000', '200000000', '120000000', '650000000', 'weekly', 'Dự báo tuần 4'],
+    ]
+  },
+  {
+    id: 'cash_flow_direct',
+    name: 'Dòng tiền trực tiếp',
+    description: 'Mẫu import báo cáo lưu chuyển tiền tệ theo phương pháp trực tiếp',
+    icon: Banknote,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-600/10',
+    columns: [
+      'period_start', 'period_end', 'period_type', 'is_actual',
+      'cash_from_customers', 'cash_from_interest_received', 'cash_from_other_operating',
+      'cash_to_suppliers', 'cash_to_employees', 'cash_for_rent', 'cash_for_utilities', 'cash_for_taxes', 'cash_for_interest_paid', 'cash_for_other_operating',
+      'cash_from_asset_sales', 'cash_for_asset_purchases', 'cash_for_investments',
+      'cash_from_loans', 'cash_from_equity', 'cash_for_loan_repayments', 'cash_for_dividends',
+      'opening_cash_balance', 'notes'
+    ],
+    sampleData: [
+      ['2025-12-01', '2025-12-31', 'monthly', 'true', '850000000', '5000000', '10000000', '320000000', '180000000', '45000000', '12000000', '35000000', '8000000', '15000000', '0', '50000000', '0', '0', '0', '25000000', '0', '500000000', 'Báo cáo tháng 12/2025'],
+      ['2026-01-01', '2026-01-31', 'monthly', 'false', '920000000', '6000000', '12000000', '350000000', '185000000', '45000000', '13000000', '40000000', '9000000', '18000000', '20000000', '80000000', '0', '100000000', '0', '30000000', '0', '698000000', 'Dự báo tháng 01/2026'],
+    ]
+  },
+  {
+    id: 'inventory_items',
+    name: 'Tồn kho sản phẩm',
+    description: 'Mẫu import danh sách hàng tồn kho để phân tích tuổi tồn',
+    icon: Table,
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
+    columns: ['sku', 'product_name', 'category', 'quantity_on_hand', 'unit_cost', 'last_received_date', 'last_sold_date', 'warehouse_location', 'reorder_point', 'notes'],
+    sampleData: [
+      ['SKU001', 'Áo thun nam basic', 'Thời trang', '150', '85000', '2025-11-15', '2026-01-05', 'Kho A1', '50', 'Bán chạy'],
+      ['SKU002', 'Giày thể thao nữ', 'Giày dép', '45', '320000', '2025-08-20', '2025-10-10', 'Kho B2', '20', 'Tồn kho lâu'],
+      ['SKU003', 'Túi xách da', 'Phụ kiện', '12', '450000', '2025-05-01', '2025-06-15', 'Kho C1', '10', 'Hàng tồn >6 tháng'],
+    ]
+  },
+  {
+    id: 'promotions',
+    name: 'Chương trình khuyến mãi',
+    description: 'Mẫu import danh sách khuyến mãi và đánh giá ROI',
+    icon: FileSpreadsheet,
+    color: 'text-pink-500',
+    bg: 'bg-pink-500/10',
+    columns: ['name', 'description', 'promotion_type', 'discount_type', 'discount_value', 'start_date', 'end_date', 'budget', 'target_revenue', 'status', 'channels', 'notes'],
+    sampleData: [
+      ['Flash Sale 12.12', 'Giảm giá cuối năm', 'flash_sale', 'percentage', '30', '2025-12-12', '2025-12-12', '50000000', '200000000', 'completed', 'shopee,lazada,tiktok', 'Chiến dịch thành công'],
+      ['Tết 2026', 'Khuyến mãi Tết Nguyên Đán', 'seasonal', 'percentage', '20', '2026-01-15', '2026-02-15', '100000000', '500000000', 'active', 'all', 'Chiến dịch đang chạy'],
+    ]
+  },
+  {
+    id: 'supplier_payments',
+    name: 'Lịch thanh toán NCC',
+    description: 'Mẫu import lịch thanh toán nhà cung cấp',
+    icon: Table,
+    color: 'text-violet-500',
+    bg: 'bg-violet-500/10',
+    columns: ['vendor_name', 'bill_number', 'bill_date', 'due_date', 'total_amount', 'paid_amount', 'payment_status', 'payment_priority', 'bank_account', 'notes'],
+    sampleData: [
+      ['NCC Vải ABC', 'BILL-2025-089', '2025-12-15', '2026-01-15', '85000000', '0', 'pending', 'high', 'VCB-123456', 'Thanh toán đúng hạn để giữ ưu đãi'],
+      ['NCC Phụ kiện XYZ', 'BILL-2025-092', '2025-12-20', '2026-02-20', '32000000', '10000000', 'partial', 'medium', 'TCB-789012', 'Đã thanh toán 30%'],
     ]
   },
   {
