@@ -39,6 +39,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useKPIData } from '@/hooks/useKPIData';
 import { useAutoMatch } from '@/hooks/useReconciliation';
 import { useBankAccounts, useBankTransactions } from '@/hooks/useBankData';
+import { 
+  useEcommerceOrders, 
+  useShippingOrders, 
+  useMarkOrderReconciled,
+  type EcommerceOrder,
+  type ShippingOrder 
+} from '@/hooks/useEcommerceReconciliation';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { formatCurrency, formatDate } from '@/lib/formatters';
@@ -71,6 +78,8 @@ const ecommercePlatforms = [
   { id: 'shopee', name: 'Shopee', logo: '🛒', color: 'bg-orange-500' },
   { id: 'tiktok', name: 'TikTok Shop', logo: '🎵', color: 'bg-black' },
   { id: 'lazada', name: 'Lazada', logo: '🛍️', color: 'bg-blue-600' },
+  { id: 'tiki', name: 'Tiki', logo: '🔵', color: 'bg-blue-400' },
+  { id: 'other', name: 'Khác', logo: '📦', color: 'bg-gray-500' },
 ];
 
 const shippingCarriers = [
@@ -80,372 +89,9 @@ const shippingCarriers = [
   { id: 'viettel', name: 'Viettel Post', logo: '📮' },
   { id: 'vnpost', name: 'VNPost', logo: '✉️' },
   { id: 'ninja', name: 'Ninja Van', logo: '🥷' },
+  { id: 'other', name: 'Khác', logo: '📦' },
 ];
 
-// Mock e-commerce orders
-const mockEcommerceOrders = [
-  { 
-    id: '1', 
-    platform: 'shopee', 
-    trackingCode: 'SPEVN240115001', 
-    orderId: 'DH-2024-0001',
-    platformOrderId: '240115ABCDE001',
-    orderDate: '2024-01-15',
-    deliveredDate: '2024-01-17',
-    customerName: 'Nguyễn Văn A',
-    customerPhone: '0901234567',
-    customerAddress: '123 Nguyễn Huệ, Q.1, TP.HCM',
-    walletAmount: 850000, 
-    estimatedAmount: 875000,
-    variance: -25000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    items: [
-      { id: '1', name: 'Áo thun nam', sku: 'ATN-001', quantity: 2, price: 299000 },
-      { id: '2', name: 'Quần jean', sku: 'QJ-002', quantity: 1, price: 450000 },
-    ],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-17T14:30:00', status: 'delivered', description: 'Đã giao hàng thành công', location: 'Q.1, TP.HCM' },
-      { id: '2', timestamp: '2024-01-17T08:00:00', status: 'out_for_delivery', description: 'Đang giao hàng', location: 'Bưu cục Q.1' },
-      { id: '3', timestamp: '2024-01-16T15:00:00', status: 'in_transit', description: 'Đang vận chuyển đến điểm giao', location: 'Kho HCM' },
-      { id: '4', timestamp: '2024-01-15T18:00:00', status: 'picked_up', description: 'Đã lấy hàng', location: 'Kho người bán' },
-      { id: '5', timestamp: '2024-01-15T10:00:00', status: 'confirmed', description: 'Đơn hàng đã được xác nhận' },
-    ],
-  },
-  { 
-    id: '2', 
-    platform: 'shopee', 
-    trackingCode: 'SPEVN240115002', 
-    orderId: 'DH-2024-0002',
-    platformOrderId: '240115ABCDE002',
-    orderDate: '2024-01-15',
-    deliveredDate: '2024-01-17',
-    customerName: 'Trần Thị B',
-    customerPhone: '0912345678',
-    customerAddress: '456 Lê Lợi, Q.3, TP.HCM',
-    walletAmount: 1200000, 
-    estimatedAmount: 1200000,
-    variance: 0,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    items: [{ id: '1', name: 'Váy đầm nữ', sku: 'VDN-003', quantity: 2, price: 600000 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-17T16:00:00', status: 'delivered', description: 'Đã giao hàng thành công', location: 'Q.3, TP.HCM' },
-      { id: '2', timestamp: '2024-01-16T10:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-      { id: '3', timestamp: '2024-01-15T14:00:00', status: 'picked_up', description: 'Đã lấy hàng' },
-    ],
-  },
-  { 
-    id: '3', 
-    platform: 'tiktok', 
-    trackingCode: 'TIKVN240114001', 
-    orderId: 'DH-2024-0003',
-    platformOrderId: 'TT240114001',
-    orderDate: '2024-01-14',
-    deliveredDate: '2024-01-16',
-    customerName: 'Lê Văn C',
-    customerPhone: '0923456789',
-    customerAddress: '789 Điện Biên Phủ, Q.Bình Thạnh, TP.HCM',
-    walletAmount: 650000, 
-    estimatedAmount: 650000,
-    variance: 0,
-    orderStatus: 'delivered',
-    reconcileStatus: 'reconciled',
-    isProcessed: true,
-    items: [{ id: '1', name: 'Phụ kiện điện thoại', sku: 'PKDT-001', quantity: 3, price: 216666 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-16T11:00:00', status: 'delivered', description: 'Đã giao hàng thành công' },
-      { id: '2', timestamp: '2024-01-15T08:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-      { id: '3', timestamp: '2024-01-14T16:00:00', status: 'picked_up', description: 'Đã lấy hàng' },
-    ],
-  },
-  { 
-    id: '4', 
-    platform: 'tiktok', 
-    trackingCode: 'TIKVN240114002', 
-    orderId: 'DH-2024-0004',
-    platformOrderId: 'TT240114002',
-    orderDate: '2024-01-14',
-    deliveredDate: '2024-01-16',
-    customerName: 'Phạm Thị D',
-    customerPhone: '0934567890',
-    customerAddress: '321 Võ Văn Tần, Q.3, TP.HCM',
-    walletAmount: 980000, 
-    estimatedAmount: 1000000,
-    variance: -20000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    items: [{ id: '1', name: 'Mỹ phẩm chăm sóc da', sku: 'MP-001', quantity: 1, price: 980000 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-16T15:00:00', status: 'delivered', description: 'Đã giao hàng thành công' },
-      { id: '2', timestamp: '2024-01-15T12:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-    ],
-  },
-  { 
-    id: '5', 
-    platform: 'lazada', 
-    trackingCode: 'LAZVN240113001', 
-    orderId: 'DH-2024-0005',
-    platformOrderId: 'LZD240113001',
-    orderDate: '2024-01-13',
-    deliveredDate: '2024-01-15',
-    customerName: 'Hoàng Văn E',
-    customerPhone: '0945678901',
-    customerAddress: '654 Cách Mạng Tháng 8, Q.10, TP.HCM',
-    walletAmount: 2100000, 
-    estimatedAmount: 2100000,
-    variance: 0,
-    orderStatus: 'delivered',
-    reconcileStatus: 'reconciled',
-    isProcessed: true,
-    items: [{ id: '1', name: 'Laptop Stand', sku: 'LS-001', quantity: 1, price: 2100000 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-15T10:00:00', status: 'delivered', description: 'Đã giao hàng thành công' },
-      { id: '2', timestamp: '2024-01-14T14:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-    ],
-  },
-  { 
-    id: '6', 
-    platform: 'lazada', 
-    trackingCode: 'LAZVN240113002', 
-    orderId: 'DH-2024-0006',
-    platformOrderId: 'LZD240113002',
-    orderDate: '2024-01-13',
-    deliveredDate: '2024-01-15',
-    customerName: 'Vũ Thị F',
-    customerPhone: '0956789012',
-    customerAddress: '987 Hai Bà Trưng, Q.1, TP.HCM',
-    walletAmount: 450000, 
-    estimatedAmount: 465000,
-    variance: -15000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    items: [{ id: '1', name: 'Túi xách nữ', sku: 'TXN-001', quantity: 1, price: 450000 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-15T14:00:00', status: 'delivered', description: 'Đã giao hàng thành công' },
-    ],
-  },
-  { 
-    id: '7', 
-    platform: 'shopee', 
-    trackingCode: 'SPEVN240112001', 
-    orderId: 'DH-2024-0007',
-    platformOrderId: '240112FGHIJ001',
-    orderDate: '2024-01-12',
-    deliveredDate: '2024-01-14',
-    customerName: 'Đỗ Văn G',
-    customerPhone: '0967890123',
-    customerAddress: '159 Trần Hưng Đạo, Q.5, TP.HCM',
-    walletAmount: 1850000, 
-    estimatedAmount: 1850000,
-    variance: 0,
-    orderStatus: 'delivered',
-    reconcileStatus: 'reconciled',
-    isProcessed: true,
-    items: [{ id: '1', name: 'Giày thể thao nam', sku: 'GTT-001', quantity: 1, price: 1850000 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-14T09:00:00', status: 'delivered', description: 'Đã giao hàng thành công' },
-    ],
-  },
-  { 
-    id: '8', 
-    platform: 'tiktok', 
-    trackingCode: 'TIKVN240112001', 
-    orderId: 'DH-2024-0008',
-    platformOrderId: 'TT240112001',
-    orderDate: '2024-01-12',
-    deliveredDate: '2024-01-14',
-    customerName: 'Ngô Thị H',
-    customerPhone: '0978901234',
-    customerAddress: '753 Nguyễn Trãi, Q.5, TP.HCM',
-    walletAmount: 720000, 
-    estimatedAmount: 720000,
-    variance: 0,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    items: [{ id: '1', name: 'Đồ gia dụng', sku: 'DGD-001', quantity: 2, price: 360000 }],
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-14T16:00:00', status: 'delivered', description: 'Đã giao hàng thành công' },
-    ],
-  },
-];
-
-// Mock shipping orders
-const mockShippingOrders = [
-  { 
-    id: '1', 
-    carrier: 'ghn', 
-    trackingCode: 'GHN240115001', 
-    orderId: 'DH-2024-0001',
-    orderDate: '2024-01-15',
-    deliveredDate: '2024-01-17',
-    customerName: 'Nguyễn Văn A',
-    customerPhone: '0901234567',
-    customerAddress: '123 Nguyễn Huệ, Q.1, TP.HCM',
-    codAmount: 850000, 
-    shippingFee: 32000,
-    netAmount: 818000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-17T14:30:00', status: 'delivered', description: 'Giao hàng thành công', location: 'Q.1, TP.HCM' },
-      { id: '2', timestamp: '2024-01-17T08:00:00', status: 'out_for_delivery', description: 'Shipper đang giao hàng', location: 'Bưu cục Q.1' },
-      { id: '3', timestamp: '2024-01-16T15:00:00', status: 'in_transit', description: 'Đang trung chuyển', location: 'Kho HCM' },
-      { id: '4', timestamp: '2024-01-15T18:00:00', status: 'picked_up', description: 'Đã lấy hàng', location: 'Kho người bán' },
-      { id: '5', timestamp: '2024-01-15T10:00:00', status: 'created', description: 'Tạo đơn hàng' },
-    ],
-  },
-  { 
-    id: '2', 
-    carrier: 'ghn', 
-    trackingCode: 'GHN240115002', 
-    orderId: 'DH-2024-0002',
-    orderDate: '2024-01-15',
-    deliveredDate: '2024-01-17',
-    customerName: 'Trần Thị B',
-    customerPhone: '0912345678',
-    customerAddress: '456 Lê Lợi, Q.3, TP.HCM',
-    codAmount: 1200000, 
-    shippingFee: 35000,
-    netAmount: 1165000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-17T16:00:00', status: 'delivered', description: 'Giao hàng thành công', location: 'Q.3, TP.HCM' },
-      { id: '2', timestamp: '2024-01-16T10:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-      { id: '3', timestamp: '2024-01-15T14:00:00', status: 'picked_up', description: 'Đã lấy hàng' },
-    ],
-  },
-  { 
-    id: '3', 
-    carrier: 'ghtk', 
-    trackingCode: 'GHTK240114001', 
-    orderId: 'DH-2024-0003',
-    orderDate: '2024-01-14',
-    deliveredDate: '2024-01-16',
-    customerName: 'Lê Văn C',
-    customerPhone: '0923456789',
-    customerAddress: '789 Điện Biên Phủ, Q.Bình Thạnh, TP.HCM',
-    codAmount: 650000, 
-    shippingFee: 28000,
-    netAmount: 622000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'reconciled',
-    isProcessed: true,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-16T11:00:00', status: 'delivered', description: 'Giao hàng thành công' },
-      { id: '2', timestamp: '2024-01-15T08:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-    ],
-  },
-  { 
-    id: '4', 
-    carrier: 'jt', 
-    trackingCode: 'JT240114001', 
-    orderId: 'DH-2024-0004',
-    orderDate: '2024-01-14',
-    deliveredDate: '2024-01-16',
-    customerName: 'Phạm Thị D',
-    customerPhone: '0934567890',
-    customerAddress: '321 Võ Văn Tần, Q.3, TP.HCM',
-    codAmount: 980000, 
-    shippingFee: 30000,
-    netAmount: 950000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-16T15:00:00', status: 'delivered', description: 'Giao hàng thành công' },
-      { id: '2', timestamp: '2024-01-15T12:00:00', status: 'in_transit', description: 'Đang vận chuyển' },
-    ],
-  },
-  { 
-    id: '5', 
-    carrier: 'viettel', 
-    trackingCode: 'VTP240113001', 
-    orderId: 'DH-2024-0005',
-    orderDate: '2024-01-13',
-    deliveredDate: '2024-01-15',
-    customerName: 'Hoàng Văn E',
-    customerPhone: '0945678901',
-    customerAddress: '654 Cách Mạng Tháng 8, Q.10, TP.HCM',
-    codAmount: 2100000, 
-    shippingFee: 45000,
-    netAmount: 2055000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'reconciled',
-    isProcessed: true,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-15T10:00:00', status: 'delivered', description: 'Giao hàng thành công' },
-    ],
-  },
-  { 
-    id: '6', 
-    carrier: 'ninja', 
-    trackingCode: 'NJV240113001', 
-    orderId: 'DH-2024-0006',
-    orderDate: '2024-01-13',
-    deliveredDate: '2024-01-15',
-    customerName: 'Vũ Thị F',
-    customerPhone: '0956789012',
-    customerAddress: '987 Hai Bà Trưng, Q.1, TP.HCM',
-    codAmount: 450000, 
-    shippingFee: 25000,
-    netAmount: 425000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-15T14:00:00', status: 'delivered', description: 'Giao hàng thành công' },
-    ],
-  },
-  { 
-    id: '7', 
-    carrier: 'ghn', 
-    trackingCode: 'GHN240112001', 
-    orderId: 'DH-2024-0007',
-    orderDate: '2024-01-12',
-    deliveredDate: '2024-01-14',
-    customerName: 'Đỗ Văn G',
-    customerPhone: '0967890123',
-    customerAddress: '159 Trần Hưng Đạo, Q.5, TP.HCM',
-    codAmount: 1850000, 
-    shippingFee: 40000,
-    netAmount: 1810000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'reconciled',
-    isProcessed: true,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-14T09:00:00', status: 'delivered', description: 'Giao hàng thành công' },
-    ],
-  },
-  { 
-    id: '8', 
-    carrier: 'ghtk', 
-    trackingCode: 'GHTK240112001', 
-    orderId: 'DH-2024-0008',
-    orderDate: '2024-01-12',
-    deliveredDate: '2024-01-14',
-    customerName: 'Ngô Thị H',
-    customerPhone: '0978901234',
-    customerAddress: '753 Nguyễn Trãi, Q.5, TP.HCM',
-    codAmount: 720000, 
-    shippingFee: 30000,
-    netAmount: 690000,
-    orderStatus: 'delivered',
-    reconcileStatus: 'pending',
-    isProcessed: false,
-    deliveryEvents: [
-      { id: '1', timestamp: '2024-01-14T16:00:00', status: 'delivered', description: 'Giao hàng thành công' },
-    ],
-  },
-];
 
 export default function ReconciliationHubPage() {
   const [activeTab, setActiveTab] = useState('3way');
@@ -458,9 +104,10 @@ export default function ReconciliationHubPage() {
   const [orderDetailOpen, setOrderDetailOpen] = useState(false);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<OrderDetailData | null>(null);
   
-  // State for orders (mock data - in production would come from database)
-  const [ecommerceOrders, setEcommerceOrders] = useState(mockEcommerceOrders);
-  const [shippingOrders, setShippingOrders] = useState(mockShippingOrders);
+  // Fetch real data from database
+  const { data: ecommerceOrders = [], isLoading: loadingEcommerce } = useEcommerceOrders();
+  const { data: shippingOrders = [], isLoading: loadingShipping } = useShippingOrders();
+  const markReconciled = useMarkOrderReconciled();
   
   const { dateRange } = useDateRange();
   const { data: kpiData, isLoading: kpiLoading } = useKPIData(dateRange);
@@ -535,17 +182,9 @@ export default function ReconciliationHubPage() {
       return;
     }
 
-    if (type === 'ecommerce') {
-      setEcommerceOrders(prev => 
-        prev.map(o => ids.includes(o.id) ? { ...o, isProcessed: true, reconcileStatus: 'reconciled' as const } : o)
-      );
-    } else {
-      setShippingOrders(prev => 
-        prev.map(o => ids.includes(o.id) ? { ...o, isProcessed: true, reconcileStatus: 'reconciled' as const } : o)
-      );
-    }
+    // Use mutation to update in database
+    markReconciled.mutate({ orderIds: ids, type });
     setSelectedItems([]);
-    toast.success(`Đã đánh dấu ${ids.length} đơn hàng là đã đối soát`);
   };
 
   const toggleSelectItem = (id: string) => {
@@ -571,7 +210,7 @@ export default function ReconciliationHubPage() {
     return shippingCarriers.find(c => c.id === carrierId) || { name: carrierId, logo: '🚚' };
   };
 
-  const handleViewEcommerceOrder = (order: typeof mockEcommerceOrders[0]) => {
+  const handleViewEcommerceOrder = (order: EcommerceOrder) => {
     const platform = getPlatformInfo(order.platform);
     setSelectedOrderDetail({
       type: 'ecommerce',
@@ -597,7 +236,7 @@ export default function ReconciliationHubPage() {
     setOrderDetailOpen(true);
   };
 
-  const handleViewShippingOrder = (order: typeof mockShippingOrders[0]) => {
+  const handleViewShippingOrder = (order: ShippingOrder) => {
     const carrier = getCarrierInfo(order.carrier);
     setSelectedOrderDetail({
       type: 'shipping',
