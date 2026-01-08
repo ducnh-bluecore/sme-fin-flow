@@ -80,6 +80,12 @@ const CapitalAllocationPage = lazy(() => import("./pages/CapitalAllocationPage")
 const DecisionSupportPage = lazy(() => import("./pages/DecisionSupportPage"));
 const RiskDashboardPage = lazy(() => import("./pages/RiskDashboardPage"));
 
+// New retail CFO modules
+const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
+const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
+const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
+const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -174,6 +180,10 @@ const AppRoutes = () => {
         <Route path="/capital-allocation" element={<CapitalAllocationPage />} />
         <Route path="/decision-support" element={<DecisionSupportPage />} />
         <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
+        <Route path="/inventory-aging" element={<InventoryAgingPage />} />
+        <Route path="/promotion-roi" element={<PromotionROIPage />} />
+        <Route path="/supplier-payments" element={<SupplierPaymentsPage />} />
+        <Route path="/cash-flow-direct" element={<CashFlowDirectPage />} />
         <Route path="/rbac" element={<RBACPage />} />
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/api" element={<APIPage />} />

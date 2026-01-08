@@ -55,8 +55,13 @@ const vi: Record<string, string> = {
   'nav.cfoOverview': 'Tổng quan CFO',
   'nav.dashboard': 'Dashboard',
   'nav.cashForecast': 'Cash Flow Forecast',
+  'nav.cashFlowDirect': 'Dòng tiền trực tiếp',
   'nav.workingCapital': 'Tối ưu vốn lưu động',
   'nav.cashConversion': 'Cash Conversion Cycle',
+  'nav.retailOps': 'Vận hành bán lẻ',
+  'nav.inventoryAging': 'Tuổi tồn kho',
+  'nav.promotionROI': 'ROI Khuyến mãi',
+  'nav.supplierPayments': 'Thanh toán NCC',
 
   'nav.strategyDecision': 'Chiến lược & Quyết định',
   'nav.executiveSummary': 'Executive Summary',

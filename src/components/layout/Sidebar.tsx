@@ -29,6 +29,9 @@ import {
   Briefcase,
   AlertTriangle,
   Scale,
+  Package,
+  Percent,
+  Banknote,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
@@ -51,6 +54,7 @@ const navItems: NavItem[] = [
     children: [
       { labelKey: 'nav.dashboard', href: '/' },
       { labelKey: 'nav.cashForecast', href: '/cash-forecast' },
+      { labelKey: 'nav.cashFlowDirect', href: '/cash-flow-direct' },
       { labelKey: 'nav.workingCapital', href: '/working-capital' },
       { labelKey: 'nav.cashConversion', href: '/cash-conversion-cycle' },
     ],
@@ -94,6 +98,15 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.apOverview', href: '/bills' },
       { labelKey: 'nav.creditDebitNotes', href: '/credit-debit-notes' },
       { labelKey: 'nav.reconciliation', href: '/reconciliation' },
+    ],
+  },
+  {
+    labelKey: 'nav.retailOps',
+    icon: Package,
+    children: [
+      { labelKey: 'nav.inventoryAging', href: '/inventory-aging' },
+      { labelKey: 'nav.promotionROI', href: '/promotion-roi' },
+      { labelKey: 'nav.supplierPayments', href: '/supplier-payments' },
     ],
   },
   {
