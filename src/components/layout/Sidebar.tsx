@@ -52,7 +52,7 @@ const navItems: NavItem[] = [
     labelKey: 'nav.cfoOverview',
     icon: LayoutDashboard,
     children: [
-      { labelKey: 'nav.dashboard', href: '/' },
+      { labelKey: 'nav.dashboard', href: '/dashboard' },
       { labelKey: 'nav.cashForecast', href: '/cash-forecast' },
       { labelKey: 'nav.cashFlowDirect', href: '/cash-flow-direct' },
       { labelKey: 'nav.workingCapital', href: '/working-capital' },
