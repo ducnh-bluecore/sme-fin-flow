@@ -15,6 +15,12 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  Trash2,
+  Code,
+  Layers,
+  Zap,
+  Copy,
+  Info,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +30,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -75,6 +84,15 @@ interface AISuggestion {
   recommended_sync_query: string;
 }
 
+// Source configuration for multi-source models
+interface SourceConfig {
+  id: string;
+  dataset: string;
+  table: string;
+  channel?: string;
+  filter_condition?: string;
+}
+
 interface DataModelConfig {
   model_name: string;
   model_label: string;
@@ -86,7 +104,28 @@ interface DataModelConfig {
   target_table?: string;
   is_enabled: boolean;
   sync_frequency_hours: number;
+  // Extended config
+  sources?: SourceConfig[];
+  custom_query?: string;
+  field_mapping?: Record<string, string>;
+  sync_mode?: 'full' | 'incremental';
+  batch_size?: number;
 }
+
+// Available target tables in the system
+const TARGET_TABLES = [
+  { value: 'external_orders', label: 'Đơn hàng (external_orders)' },
+  { value: 'external_order_items', label: 'Chi tiết đơn (external_order_items)' },
+  { value: 'external_products', label: 'Sản phẩm (external_products)' },
+  { value: 'customers', label: 'Khách hàng (customers)' },
+  { value: 'channel_settlements', label: 'Thanh toán (channel_settlements)' },
+  { value: 'channel_fees', label: 'Phí kênh (channel_fees)' },
+  { value: 'inventory_items', label: 'Tồn kho (inventory_items)' },
+  { value: 'promotions', label: 'Khuyến mãi (promotions)' },
+  { value: 'invoices', label: 'Hóa đơn (invoices)' },
+  { value: 'bills', label: 'Chi phí (bills)' },
+  { value: 'bank_transactions', label: 'Giao dịch NH (bank_transactions)' },
+];
 
 const DEFAULT_MODELS: DataModelConfig[] = [
   {
@@ -639,160 +678,509 @@ export function DataModelManager() {
         )}
       </div>
 
-      {/* Edit Dialog */}
+      {/* Enhanced Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Database className="w-5 h-5" />
               {editingModel?.model_name ? 'Chỉnh sửa Data Model' : 'Thêm Data Model'}
             </DialogTitle>
             <DialogDescription>
-              Cấu hình kết nối và mapping từ BigQuery
+              Cấu hình kết nối và mapping dữ liệu từ BigQuery
             </DialogDescription>
           </DialogHeader>
 
           {editingModel && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tên Model</Label>
-                  <Input
-                    value={editingModel.model_name}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      model_name: e.target.value,
-                    })}
-                    placeholder="orders"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nhãn hiển thị</Label>
-                  <Input
-                    value={editingModel.model_label}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      model_label: e.target.value,
-                    })}
-                    placeholder="Đơn hàng"
-                  />
-                </div>
-              </div>
+            <Tabs defaultValue="basic" className="flex-1 overflow-hidden flex flex-col">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="basic" className="flex items-center gap-1">
+                  <Settings className="w-3 h-3" />
+                  Cơ bản
+                </TabsTrigger>
+                <TabsTrigger value="sources" className="flex items-center gap-1">
+                  <Layers className="w-3 h-3" />
+                  Nguồn dữ liệu
+                </TabsTrigger>
+                <TabsTrigger value="advanced" className="flex items-center gap-1">
+                  <Code className="w-3 h-3" />
+                  Nâng cao
+                </TabsTrigger>
+              </TabsList>
 
-              <div className="space-y-2">
-                <Label>Mô tả</Label>
-                <Input
-                  value={editingModel.description || ''}
-                  onChange={(e) => setEditingModel({
-                    ...editingModel,
-                    description: e.target.value,
-                  })}
-                  placeholder="Dữ liệu đơn hàng từ các kênh"
-                />
-              </div>
+              <ScrollArea className="flex-1 mt-4">
+                {/* Basic Tab */}
+                <TabsContent value="basic" className="space-y-4 mt-0 pr-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        Tên Model
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3 h-3 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>ID duy nhất, dùng snake_case</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </Label>
+                      <Input
+                        value={editingModel.model_name}
+                        onChange={(e) => setEditingModel({
+                          ...editingModel,
+                          model_name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+                        })}
+                        placeholder="orders"
+                        className="font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nhãn hiển thị</Label>
+                      <Input
+                        value={editingModel.model_label}
+                        onChange={(e) => setEditingModel({
+                          ...editingModel,
+                          model_label: e.target.value,
+                        })}
+                        placeholder="Đơn hàng"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>BigQuery Dataset</Label>
-                  <Input
-                    value={editingModel.bigquery_dataset}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      bigquery_dataset: e.target.value,
-                    })}
-                    placeholder="my_dataset"
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>BigQuery Table</Label>
-                  <Input
-                    value={editingModel.bigquery_table}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      bigquery_table: e.target.value,
-                    })}
-                    placeholder="my_table"
-                    className="font-mono text-sm"
-                  />
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label>Mô tả</Label>
+                    <Textarea
+                      value={editingModel.description || ''}
+                      onChange={(e) => setEditingModel({
+                        ...editingModel,
+                        description: e.target.value,
+                      })}
+                      placeholder="Dữ liệu đơn hàng từ các kênh e-commerce (Shopee, Lazada, TikTok...)"
+                      rows={2}
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Primary Key Field</Label>
-                  <Input
-                    value={editingModel.primary_key_field}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      primary_key_field: e.target.value,
-                    })}
-                    placeholder="order_id"
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Timestamp Field</Label>
-                  <Input
-                    value={editingModel.timestamp_field || ''}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      timestamp_field: e.target.value,
-                    })}
-                    placeholder="created_at"
-                    className="font-mono text-sm"
-                  />
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label>Target Table (Bảng đích)</Label>
+                    <Select
+                      value={editingModel.target_table || ''}
+                      onValueChange={(v) => setEditingModel({
+                        ...editingModel,
+                        target_table: v,
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn bảng đích..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TARGET_TABLES.map(t => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Target Table (Supabase)</Label>
-                  <Input
-                    value={editingModel.target_table || ''}
-                    onChange={(e) => setEditingModel({
-                      ...editingModel,
-                      target_table: e.target.value,
-                    })}
-                    placeholder="external_orders"
-                    className="font-mono text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tần suất sync (giờ)</Label>
-                  <Select
-                    value={String(editingModel.sync_frequency_hours)}
-                    onValueChange={(v) => setEditingModel({
-                      ...editingModel,
-                      sync_frequency_hours: parseInt(v),
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Mỗi giờ</SelectItem>
-                      <SelectItem value="6">Mỗi 6 giờ</SelectItem>
-                      <SelectItem value="12">Mỗi 12 giờ</SelectItem>
-                      <SelectItem value="24">Mỗi ngày</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Primary Key Field</Label>
+                      <Input
+                        value={editingModel.primary_key_field}
+                        onChange={(e) => setEditingModel({
+                          ...editingModel,
+                          primary_key_field: e.target.value,
+                        })}
+                        placeholder="order_id hoặc order_sn"
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Timestamp Field</Label>
+                      <Input
+                        value={editingModel.timestamp_field || ''}
+                        onChange={(e) => setEditingModel({
+                          ...editingModel,
+                          timestamp_field: e.target.value,
+                        })}
+                        placeholder="created_at hoặc create_time"
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tần suất sync</Label>
+                      <Select
+                        value={String(editingModel.sync_frequency_hours)}
+                        onValueChange={(v) => setEditingModel({
+                          ...editingModel,
+                          sync_frequency_hours: parseInt(v),
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Mỗi giờ</SelectItem>
+                          <SelectItem value="3">Mỗi 3 giờ</SelectItem>
+                          <SelectItem value="6">Mỗi 6 giờ</SelectItem>
+                          <SelectItem value="12">Mỗi 12 giờ</SelectItem>
+                          <SelectItem value="24">Mỗi ngày</SelectItem>
+                          <SelectItem value="168">Mỗi tuần</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sync Mode</Label>
+                      <Select
+                        value={editingModel.sync_mode || 'incremental'}
+                        onValueChange={(v) => setEditingModel({
+                          ...editingModel,
+                          sync_mode: v as 'full' | 'incremental',
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="incremental">
+                            <div className="flex items-center gap-2">
+                              <Zap className="w-3 h-3" />
+                              Incremental (nhanh)
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="full">
+                            <div className="flex items-center gap-2">
+                              <RefreshCw className="w-3 h-3" />
+                              Full sync (toàn bộ)
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div>
+                      <Label>Kích hoạt</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Bật/tắt đồng bộ dữ liệu cho model này
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingModel.is_enabled}
+                      onCheckedChange={(checked) => setEditingModel({
+                        ...editingModel,
+                        is_enabled: checked,
+                      })}
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Sources Tab */}
+                <TabsContent value="sources" className="space-y-4 mt-0 pr-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base">Nguồn dữ liệu BigQuery</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Có thể thêm nhiều bảng từ nhiều nguồn khác nhau
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newSource: SourceConfig = {
+                          id: crypto.randomUUID(),
+                          dataset: '',
+                          table: '',
+                          channel: '',
+                        };
+                        setEditingModel({
+                          ...editingModel,
+                          sources: [...(editingModel.sources || []), newSource],
+                        });
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Thêm nguồn
+                    </Button>
+                  </div>
+
+                  {/* Primary source (required) */}
+                  <Card className="p-4 border-primary/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Badge variant="default">Nguồn chính</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Dataset</Label>
+                        <Input
+                          value={editingModel.bigquery_dataset}
+                          onChange={(e) => setEditingModel({
+                            ...editingModel,
+                            bigquery_dataset: e.target.value,
+                          })}
+                          placeholder="menstaysimplicity_shopee"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Table</Label>
+                        <Input
+                          value={editingModel.bigquery_table}
+                          onChange={(e) => setEditingModel({
+                            ...editingModel,
+                            bigquery_table: e.target.value,
+                          })}
+                          placeholder="shopee_Orders"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* Additional sources */}
+                  {(editingModel.sources || []).map((source, index) => (
+                    <Card key={source.id} className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge variant="secondary">Nguồn #{index + 2}</Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingModel({
+                              ...editingModel,
+                              sources: editingModel.sources?.filter(s => s.id !== source.id),
+                            });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Dataset</Label>
+                          <Input
+                            value={source.dataset}
+                            onChange={(e) => {
+                              const updated = editingModel.sources?.map(s =>
+                                s.id === source.id ? { ...s, dataset: e.target.value } : s
+                              );
+                              setEditingModel({ ...editingModel, sources: updated });
+                            }}
+                            placeholder="dataset_name"
+                            className="font-mono text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Table</Label>
+                          <Input
+                            value={source.table}
+                            onChange={(e) => {
+                              const updated = editingModel.sources?.map(s =>
+                                s.id === source.id ? { ...s, table: e.target.value } : s
+                              );
+                              setEditingModel({ ...editingModel, sources: updated });
+                            }}
+                            placeholder="table_name"
+                            className="font-mono text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Channel</Label>
+                          <Input
+                            value={source.channel || ''}
+                            onChange={(e) => {
+                              const updated = editingModel.sources?.map(s =>
+                                s.id === source.id ? { ...s, channel: e.target.value } : s
+                              );
+                              setEditingModel({ ...editingModel, sources: updated });
+                            }}
+                            placeholder="lazada"
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        <Label className="text-xs">Filter Condition (optional)</Label>
+                        <Input
+                          value={source.filter_condition || ''}
+                          onChange={(e) => {
+                            const updated = editingModel.sources?.map(s =>
+                              s.id === source.id ? { ...s, filter_condition: e.target.value } : s
+                            );
+                            setEditingModel({ ...editingModel, sources: updated });
+                          }}
+                          placeholder="WHERE status = 'completed'"
+                          className="font-mono text-sm"
+                        />
+                      </div>
+                    </Card>
+                  ))}
+
+                  {(editingModel.sources || []).length === 0 && (
+                    <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg">
+                      <Layers className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Thêm nguồn dữ liệu bổ sung</p>
+                      <p className="text-xs">Ví dụ: lazada_Orders, tiktok_Orders...</p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Advanced Tab */}
+                <TabsContent value="advanced" className="space-y-4 mt-0 pr-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Code className="w-4 h-4" />
+                      Custom Query (SQL)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Viết query tùy chỉnh để lấy dữ liệu. Nếu để trống, hệ thống sẽ tự tạo query từ các nguồn đã cấu hình.
+                    </p>
+                    <Textarea
+                      value={editingModel.custom_query || ''}
+                      onChange={(e) => setEditingModel({
+                        ...editingModel,
+                        custom_query: e.target.value,
+                      })}
+                      placeholder={`SELECT * FROM \`project.dataset.table\`
+UNION ALL
+SELECT * FROM \`project.dataset.table2\`
+WHERE create_time > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)`}
+                      rows={6}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Batch Size</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Số records xử lý mỗi batch khi sync
+                    </p>
+                    <Select
+                      value={String(editingModel.batch_size || 1000)}
+                      onValueChange={(v) => setEditingModel({
+                        ...editingModel,
+                        batch_size: parseInt(v),
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="100">100 records</SelectItem>
+                        <SelectItem value="500">500 records</SelectItem>
+                        <SelectItem value="1000">1,000 records</SelectItem>
+                        <SelectItem value="5000">5,000 records</SelectItem>
+                        <SelectItem value="10000">10,000 records</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Field Mapping (JSON)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Mapping giữa field BigQuery và field target table
+                    </p>
+                    <Textarea
+                      value={editingModel.field_mapping ? JSON.stringify(editingModel.field_mapping, null, 2) : ''}
+                      onChange={(e) => {
+                        try {
+                          const mapping = e.target.value ? JSON.parse(e.target.value) : undefined;
+                          setEditingModel({
+                            ...editingModel,
+                            field_mapping: mapping,
+                          });
+                        } catch {
+                          // Invalid JSON, just update the raw value
+                        }
+                      }}
+                      placeholder={`{
+  "order_sn": "external_order_id",
+  "create_time": "order_date",
+  "buyer_user_name": "customer_name"
+}`}
+                      rows={5}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+
+                  {/* Generate Query Preview */}
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm">Query Preview</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const query = generateQueryPreview(editingModel);
+                          navigator.clipboard.writeText(query);
+                          toast.success('Đã copy query');
+                        }}
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                    <pre className="text-xs font-mono bg-background p-2 rounded overflow-x-auto">
+                      {generateQueryPreview(editingModel)}
+                    </pre>
+                  </div>
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Hủy
             </Button>
             <Button onClick={handleSaveModel} disabled={upsertModel.isPending}>
               {upsertModel.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Save className="w-4 h-4 mr-2" />
-              Lưu
+              Lưu cấu hình
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+// Helper function to generate query preview
+function generateQueryPreview(model: DataModelConfig): string {
+  if (model.custom_query) {
+    return model.custom_query;
+  }
+
+  const queries: string[] = [];
+  
+  // Primary source
+  if (model.bigquery_dataset && model.bigquery_table) {
+    queries.push(`SELECT * FROM \`${model.bigquery_dataset}.${model.bigquery_table}\``);
+  }
+  
+  // Additional sources
+  if (model.sources) {
+    for (const source of model.sources) {
+      if (source.dataset && source.table) {
+        let query = `SELECT * FROM \`${source.dataset}.${source.table}\``;
+        if (source.filter_condition) {
+          query += ` ${source.filter_condition}`;
+        }
+        queries.push(query);
+      }
+    }
+  }
+  
+  if (queries.length === 0) {
+    return '-- Chưa cấu hình nguồn dữ liệu';
+  }
+  
+  return queries.join('\nUNION ALL\n');
 }
