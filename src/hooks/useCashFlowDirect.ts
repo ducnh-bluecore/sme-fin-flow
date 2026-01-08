@@ -1,0 +1,240 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveTenantId } from './useActiveTenantId';
+import { toast } from 'sonner';
+
+export interface CashFlowDirect {
+  id: string;
+  tenant_id: string;
+  period_start: string;
+  period_end: string;
+  period_type: string;
+  
+  // Operating - Inflows
+  cash_from_customers: number;
+  cash_from_interest_received: number;
+  cash_from_other_operating: number;
+  
+  // Operating - Outflows
+  cash_to_suppliers: number;
+  cash_to_employees: number;
+  cash_for_rent: number;
+  cash_for_utilities: number;
+  cash_for_taxes: number;
+  cash_for_interest_paid: number;
+  cash_for_other_operating: number;
+  
+  // Computed
+  net_cash_operating: number;
+  
+  // Investing
+  cash_from_asset_sales: number;
+  cash_for_asset_purchases: number;
+  cash_for_investments: number;
+  net_cash_investing: number;
+  
+  // Financing
+  cash_from_loans: number;
+  cash_from_equity: number;
+  cash_for_loan_repayments: number;
+  cash_for_dividends: number;
+  net_cash_financing: number;
+  
+  // Summary
+  opening_cash_balance: number;
+  closing_cash_balance: number;
+  
+  notes: string | null;
+  is_actual: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CashFlowSummary {
+  totalInflows: number;
+  totalOutflows: number;
+  netChange: number;
+  operatingCashFlow: number;
+  investingCashFlow: number;
+  financingCashFlow: number;
+  cashConversionRatio: number;
+  burnRate: number; // monthly average outflow
+  runway: number; // months of cash remaining
+}
+
+export const useCashFlowDirect = (periodType?: string) => {
+  const { data: tenantId } = useActiveTenantId();
+
+  return useQuery({
+    queryKey: ['cash-flow-direct', tenantId, periodType],
+    queryFn: async () => {
+      if (!tenantId) return [];
+
+      let query = supabase
+        .from('cash_flow_direct' as any)
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (periodType) {
+        query = query.eq('period_type', periodType);
+      }
+
+      const { data, error } = await query.order('period_start', { ascending: false });
+
+      if (error) throw error;
+      return (data as unknown) as CashFlowDirect[];
+    },
+    enabled: !!tenantId,
+  });
+};
+
+export const useCashFlowAnalysis = () => {
+  const { data: cashFlows = [], isLoading, error } = useCashFlowDirect();
+
+  // Calculate summary from all periods
+  const summary: CashFlowSummary = cashFlows.reduce((acc, cf) => {
+    const inflows = cf.cash_from_customers + cf.cash_from_interest_received + cf.cash_from_other_operating +
+                    cf.cash_from_asset_sales + cf.cash_from_loans + cf.cash_from_equity;
+    
+    const outflows = cf.cash_to_suppliers + cf.cash_to_employees + cf.cash_for_rent + 
+                     cf.cash_for_utilities + cf.cash_for_taxes + cf.cash_for_interest_paid + 
+                     cf.cash_for_other_operating + cf.cash_for_asset_purchases + 
+                     cf.cash_for_investments + cf.cash_for_loan_repayments + cf.cash_for_dividends;
+
+    return {
+      totalInflows: acc.totalInflows + inflows,
+      totalOutflows: acc.totalOutflows + outflows,
+      netChange: acc.netChange + (inflows - outflows),
+      operatingCashFlow: acc.operatingCashFlow + cf.net_cash_operating,
+      investingCashFlow: acc.investingCashFlow + cf.net_cash_investing,
+      financingCashFlow: acc.financingCashFlow + cf.net_cash_financing,
+      cashConversionRatio: 0,
+      burnRate: 0,
+      runway: 0,
+    };
+  }, {
+    totalInflows: 0,
+    totalOutflows: 0,
+    netChange: 0,
+    operatingCashFlow: 0,
+    investingCashFlow: 0,
+    financingCashFlow: 0,
+    cashConversionRatio: 0,
+    burnRate: 0,
+    runway: 0,
+  });
+
+  // Calculate burn rate and runway
+  const monthlyFlows = cashFlows.filter(cf => cf.period_type === 'monthly');
+  if (monthlyFlows.length > 0) {
+    const avgMonthlyOutflow = monthlyFlows.reduce((sum, cf) => {
+      return sum + cf.cash_to_suppliers + cf.cash_to_employees + cf.cash_for_rent + 
+             cf.cash_for_utilities + cf.cash_for_taxes + cf.cash_for_interest_paid + 
+             cf.cash_for_other_operating;
+    }, 0) / monthlyFlows.length;
+
+    summary.burnRate = avgMonthlyOutflow;
+    
+    const latestClosingBalance = monthlyFlows[0]?.closing_cash_balance || 0;
+    summary.runway = avgMonthlyOutflow > 0 ? latestClosingBalance / avgMonthlyOutflow : 0;
+  }
+
+  // Cash conversion ratio (Operating CF / Net Income approximation)
+  if (summary.totalInflows > 0) {
+    summary.cashConversionRatio = (summary.operatingCashFlow / summary.totalInflows) * 100;
+  }
+
+  // Group by period for charts
+  const periodData = cashFlows.map(cf => ({
+    period: `${cf.period_start} - ${cf.period_end}`,
+    periodStart: cf.period_start,
+    operating: cf.net_cash_operating,
+    investing: cf.net_cash_investing,
+    financing: cf.net_cash_financing,
+    netChange: cf.net_cash_operating + cf.net_cash_investing + cf.net_cash_financing,
+    closingBalance: cf.closing_cash_balance,
+  }));
+
+  return {
+    cashFlows,
+    summary,
+    periodData,
+    isLoading,
+    error,
+  };
+};
+
+export const useCreateCashFlowDirect = () => {
+  const queryClient = useQueryClient();
+  const { data: tenantId } = useActiveTenantId();
+
+  return useMutation({
+    mutationFn: async (cashFlow: Omit<CashFlowDirect, 'id' | 'tenant_id' | 'net_cash_operating' | 'net_cash_investing' | 'net_cash_financing' | 'created_at' | 'updated_at'>) => {
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { data, error } = await supabase
+        .from('cash_flow_direct' as any)
+        .insert({ ...cashFlow, tenant_id: tenantId })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-flow-direct'] });
+      toast.success('Đã tạo báo cáo dòng tiền');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+};
+
+export const useUpdateCashFlowDirect = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<CashFlowDirect> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('cash_flow_direct')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-flow-direct'] });
+      toast.success('Đã cập nhật báo cáo');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+};
+
+export const useDeleteCashFlowDirect = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('cash_flow_direct')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-flow-direct'] });
+      toast.success('Đã xóa báo cáo');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+};
