@@ -593,6 +593,274 @@ export function useDataImport() {
     }
   });
 
+  const importBankCovenants = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          const { error } = await supabase.from('bank_covenants').insert({
+            tenant_id: tenantId,
+            lender_name: row.lender_name || row.LenderName || '',
+            covenant_name: row.covenant_name || row.CovenantName || '',
+            covenant_type: row.covenant_type || row.CovenantType || 'financial_ratio',
+            threshold_value: parseFloat(row.threshold_value || row.ThresholdValue || '0') || 0,
+            threshold_operator: row.threshold_operator || row.ThresholdOperator || '>=',
+            current_value: parseFloat(row.current_value || row.CurrentValue || '0') || null,
+            warning_threshold: parseFloat(row.warning_threshold || row.WarningThreshold || '0') || null,
+            measurement_frequency: row.measurement_frequency || row.MeasurementFrequency || 'quarterly',
+            next_measurement_date: row.next_measurement_date || row.NextMeasurementDate || null,
+            is_active: row.is_active?.toLowerCase() !== 'false',
+            notes: row.notes || row.Notes || null,
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${row.covenant_name}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.covenant_name}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-covenants'] });
+    }
+  });
+
+  const importScenarios = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          const { error } = await supabase.from('scenarios').insert({
+            tenant_id: tenantId,
+            name: row.name || row.Name || '',
+            description: row.description || row.Description || null,
+            scenario_type: row.scenario_type || row.ScenarioType || 'forecast',
+            base_year: parseInt(row.base_year || row.BaseYear || new Date().getFullYear().toString()),
+            forecast_months: parseInt(row.forecast_months || row.ForecastMonths || '12') || 12,
+            status: row.status || row.Status || 'draft',
+            assumptions: row.assumptions ? JSON.parse(row.assumptions) : null,
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${row.name}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.name}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scenarios'] });
+    }
+  });
+
+  const importStrategicInitiatives = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          const { error } = await supabase.from('strategic_initiatives').insert({
+            tenant_id: tenantId,
+            title: row.name || row.Name || row.title || row.Title || '',
+            description: row.description || row.Description || null,
+            category: row.category || row.Category || 'growth',
+            status: row.status || row.Status || 'planning',
+            priority: row.priority || row.Priority || 'medium',
+            start_date: row.start_date || row.StartDate || null,
+            end_date: row.target_date || row.TargetDate || row.end_date || row.EndDate || null,
+            budget: parseFloat(row.budget_allocated || row.BudgetAllocated || row.budget || row.Budget || '0') || null,
+            spent: parseFloat(row.budget_spent || row.BudgetSpent || row.spent || row.Spent || '0') || null,
+            progress: parseInt(row.progress_percent || row.ProgressPercent || row.progress || row.Progress || '0') || 0,
+            owner: row.owner_name || row.OwnerName || row.owner || row.Owner || null,
+            notes: row.expected_impact || row.ExpectedImpact || row.notes || row.Notes || null,
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${row.name || row.title}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.name || row.title}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['strategic-initiatives'] });
+    }
+  });
+
+  const importJournalEntries = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          const { error } = await supabase.from('journal_entries').insert({
+            tenant_id: tenantId,
+            entry_number: row.entry_number || row.EntryNumber || `JE-${Date.now()}`,
+            entry_date: row.entry_date || row.EntryDate || new Date().toISOString().split('T')[0],
+            description: row.description || row.Description || '',
+            reference: row.reference || row.Reference || null,
+            entry_type: row.entry_type || row.EntryType || 'standard',
+            status: row.status || row.Status || 'draft',
+            total_debit: parseFloat(row.total_debit || row.TotalDebit || '0') || 0,
+            total_credit: parseFloat(row.total_credit || row.TotalCredit || '0') || 0,
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${row.entry_number}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.entry_number}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
+    }
+  });
+
+  const importCreditNotes = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          // Try to find customer by name
+          let customerId: string | null = null;
+          const customerName = row.customer_name || row.CustomerName;
+          if (customerName) {
+            const { data: customer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('tenant_id', tenantId)
+              .eq('name', customerName)
+              .maybeSingle();
+            customerId = customer?.id || null;
+          }
+
+          const { error } = await supabase.from('credit_notes').insert({
+            tenant_id: tenantId,
+            credit_note_number: row.credit_note_number || row.CreditNoteNumber || `CN-${Date.now()}`,
+            credit_note_date: row.credit_note_date || row.CreditNoteDate || new Date().toISOString().split('T')[0],
+            customer_id: customerId,
+            reason: row.reason || row.Reason || 'Điều chỉnh',
+            description: row.description || row.Description || null,
+            subtotal: parseFloat(row.subtotal || row.Subtotal || '0') || 0,
+            vat_amount: parseFloat(row.vat_amount || row.VatAmount || '0') || 0,
+            total_amount: parseFloat(row.total_amount || row.TotalAmount || '0') || 0,
+            status: row.status || row.Status || 'draft',
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${row.credit_note_number}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.credit_note_number}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['credit-notes'] });
+    }
+  });
+
+  const importDebitNotes = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          // Try to find customer by name
+          let customerId: string | null = null;
+          const customerName = row.customer_name || row.CustomerName;
+          if (customerName) {
+            const { data: customer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('tenant_id', tenantId)
+              .eq('name', customerName)
+              .maybeSingle();
+            customerId = customer?.id || null;
+          }
+
+          const { error } = await supabase.from('debit_notes').insert({
+            tenant_id: tenantId,
+            debit_note_number: row.debit_note_number || row.DebitNoteNumber || `DN-${Date.now()}`,
+            debit_note_date: row.debit_note_date || row.DebitNoteDate || new Date().toISOString().split('T')[0],
+            customer_id: customerId,
+            reason: row.reason || row.Reason || 'Điều chỉnh',
+            description: row.description || row.Description || null,
+            subtotal: parseFloat(row.subtotal || row.Subtotal || '0') || 0,
+            vat_amount: parseFloat(row.vat_amount || row.VatAmount || '0') || 0,
+            total_amount: parseFloat(row.total_amount || row.TotalAmount || '0') || 0,
+            status: row.status || row.Status || 'draft',
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${row.debit_note_number}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.debit_note_number}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debit-notes'] });
+    }
+  });
+
   return {
     importCustomers,
     importVendors,
@@ -608,6 +876,12 @@ export function useDataImport() {
     importBudgets,
     importCashForecasts,
     importGLAccounts,
+    importBankCovenants,
+    importScenarios,
+    importStrategicInitiatives,
+    importJournalEntries,
+    importCreditNotes,
+    importDebitNotes,
     isReady: !!tenantId,
   };
 }
