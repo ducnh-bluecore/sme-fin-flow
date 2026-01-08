@@ -32,6 +32,8 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; variant:
 };
 
 function AnalysisDetailDialog({ analysis }: { analysis: DecisionAnalysis }) {
+  const canSubmitForApproval = analysis.status === 'draft' || analysis.status === 'completed' || analysis.status === 'rejected';
+  
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -44,11 +46,16 @@ function AnalysisDetailDialog({ analysis }: { analysis: DecisionAnalysis }) {
           <DialogTitle>{analysis.title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge>{analysisTypeLabels[analysis.analysis_type] || analysis.analysis_type}</Badge>
             <Badge variant={statusConfig[analysis.status]?.variant || 'secondary'}>
               {statusConfig[analysis.status]?.label || analysis.status}
             </Badge>
+            {canSubmitForApproval && (
+              <div className="ml-auto">
+                <SubmitForApprovalDialog analysis={analysis} />
+              </div>
+            )}
           </div>
 
           {analysis.description && (
