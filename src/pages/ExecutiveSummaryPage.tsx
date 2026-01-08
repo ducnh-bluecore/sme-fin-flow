@@ -29,6 +29,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardKPICache } from '@/hooks/useDashboardCache';
 import { useCashRunway } from '@/hooks/useCashRunway';
+import { useQuickWins } from '@/hooks/useQuickWins';
 import { formatVNDCompact } from '@/lib/formatters';
 import { PendingDecisionsPanel } from '@/components/executive/PendingDecisionsPanel';
 import {
@@ -262,19 +263,29 @@ function FinancialHealthRadar({ kpiData, runwayData }: { kpiData: any; runwayDat
 // Quick Win Card
 function QuickWinCard({ 
   title, 
+  description,
   savings, 
   effort, 
-  status 
+  status,
+  category,
 }: { 
-  title: string; 
+  title: string;
+  description?: string;
   savings: number; 
   effort: 'low' | 'medium' | 'high';
   status: 'pending' | 'in-progress' | 'done';
+  category: 'ar' | 'inventory' | 'fees' | 'cost' | 'revenue';
 }) {
   const effortColors = {
     low: 'text-green-500',
     medium: 'text-yellow-500',
     high: 'text-red-500',
+  };
+
+  const effortLabels = {
+    low: 'Dễ thực hiện',
+    medium: 'Trung bình',
+    high: 'Phức tạp',
   };
 
   const statusIcons = {
@@ -283,21 +294,36 @@ function QuickWinCard({
     done: <CheckCircle2 className="h-4 w-4 text-green-500" />,
   };
 
+  const categoryIcons = {
+    ar: <CreditCard className="h-5 w-5 text-primary" />,
+    inventory: <Package className="h-5 w-5 text-primary" />,
+    fees: <DollarSign className="h-5 w-5 text-primary" />,
+    cost: <TrendingDown className="h-5 w-5 text-primary" />,
+    revenue: <Users className="h-5 w-5 text-primary" />,
+  };
+
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+    <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-          <Zap className="h-5 w-5 text-primary" />
+          {categoryIcons[category]}
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm">{title}</h4>
+          {description && (
+            <p className="text-xs text-muted-foreground truncate">{description}</p>
+          )}
           <p className={`text-xs ${effortColors[effort]}`}>
-            Effort: {effort === 'low' ? 'Thấp' : effort === 'medium' ? 'Trung bình' : 'Cao'}
+            {effortLabels[effort]}
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span className="font-semibold text-green-500">+{formatVNDCompact(savings)}</span>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {savings > 0 ? (
+          <span className="font-semibold text-green-500">+{formatVNDCompact(savings)}</span>
+        ) : (
+          <span className="text-xs text-muted-foreground">Giảm rủi ro</span>
+        )}
         {statusIcons[status]}
       </div>
     </div>
@@ -348,6 +374,7 @@ export default function ExecutiveSummaryPage() {
   const { t } = useLanguage();
   const { data: kpiData, isLoading } = useDashboardKPICache();
   const { data: runwayData } = useCashRunway();
+  const { quickWins, totalPotentialSavings, isLoading: quickWinsLoading } = useQuickWins();
 
   // Calculate health score based on KPIs
   const calculateHealthScore = () => {
@@ -360,13 +387,6 @@ export default function ExecutiveSummaryPage() {
   };
 
   const healthScore = calculateHealthScore();
-
-  // Sample quick wins
-  const quickWins = [
-    { title: 'Thu hồi AR quá hạn > 60 ngày', savings: 850000000, effort: 'low' as const, status: 'in-progress' as const },
-    { title: 'Tối ưu inventory slow-moving', savings: 320000000, effort: 'medium' as const, status: 'pending' as const },
-    { title: 'Đàm phán giảm phí sàn TMĐT', savings: 150000000, effort: 'low' as const, status: 'done' as const },
-  ];
 
   // Sample risk alerts
   const riskAlerts = [
@@ -441,21 +461,44 @@ export default function ExecutiveSummaryPage() {
                 Quick Wins
               </CardTitle>
               <CardDescription>
-                Cơ hội tiết kiệm/tăng revenue nhanh
+                Cơ hội tiết kiệm/tăng revenue - tính từ dữ liệu thực
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {quickWins.map((win, index) => (
-                <QuickWinCard key={index} {...win} />
-              ))}
-              <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Tổng tiềm năng</span>
-                  <span className="text-lg font-bold text-green-500">
-                    +{formatVNDCompact(quickWins.reduce((sum, w) => sum + w.savings, 0))}
-                  </span>
+              {quickWinsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
+                  ))}
                 </div>
-              </div>
+              ) : quickWins.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-500" />
+                  <p>Tuyệt vời! Không có quick win cần xử lý</p>
+                </div>
+              ) : (
+                <>
+                  {quickWins.slice(0, 4).map((win) => (
+                    <QuickWinCard 
+                      key={win.id} 
+                      title={win.title}
+                      description={win.description}
+                      savings={win.savings}
+                      effort={win.effort}
+                      status={win.status}
+                      category={win.category}
+                    />
+                  ))}
+                  <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Tổng tiềm năng thu hồi</span>
+                      <span className="text-lg font-bold text-green-500">
+                        +{formatVNDCompact(totalPotentialSavings)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
