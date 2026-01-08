@@ -2207,10 +2207,16 @@ export type Database = {
           approved_by: string | null
           created_at: string
           created_by: string | null
+          deadline: string | null
           description: string | null
           id: string
+          impact: string | null
           parameters: Json
+          priority: string | null
           recommendation: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           results: Json
           status: string | null
           tenant_id: string
@@ -2224,10 +2230,16 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           created_by?: string | null
+          deadline?: string | null
           description?: string | null
           id?: string
+          impact?: string | null
           parameters?: Json
+          priority?: string | null
           recommendation?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           results?: Json
           status?: string | null
           tenant_id: string
@@ -2241,10 +2253,16 @@ export type Database = {
           approved_by?: string | null
           created_at?: string
           created_by?: string | null
+          deadline?: string | null
           description?: string | null
           id?: string
+          impact?: string | null
           parameters?: Json
+          priority?: string | null
           recommendation?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           results?: Json
           status?: string | null
           tenant_id?: string

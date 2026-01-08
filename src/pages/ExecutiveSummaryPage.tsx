@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardKPICache } from '@/hooks/useDashboardCache';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { formatVNDCompact } from '@/lib/formatters';
+import { PendingDecisionsPanel } from '@/components/executive/PendingDecisionsPanel';
 import {
   RadarChart,
   PolarGrid,
@@ -258,52 +259,6 @@ function FinancialHealthRadar({ kpiData, runwayData }: { kpiData: any; runwayDat
   );
 }
 
-// Decision Card Component
-function DecisionCard({ 
-  title, 
-  description, 
-  priority, 
-  impact, 
-  deadline 
-}: { 
-  title: string; 
-  description: string; 
-  priority: 'high' | 'medium' | 'low';
-  impact: string;
-  deadline: string;
-}) {
-  const priorityColors = {
-    high: 'bg-red-500/10 text-red-500 border-red-500/20',
-    medium: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-    low: 'bg-green-500/10 text-green-500 border-green-500/20',
-  };
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow"
-    >
-      <div className="flex items-start justify-between mb-2">
-        <h4 className="font-medium">{title}</h4>
-        <Badge variant="outline" className={priorityColors[priority]}>
-          {priority === 'high' ? 'Ưu tiên cao' : priority === 'medium' ? 'Trung bình' : 'Thấp'}
-        </Badge>
-      </div>
-      <p className="text-sm text-muted-foreground mb-3">{description}</p>
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Target className="h-3 w-3" />
-          {impact}
-        </span>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {deadline}
-        </span>
-      </div>
-    </motion.div>
-  );
-}
-
 // Quick Win Card
 function QuickWinCard({ 
   title, 
@@ -406,31 +361,6 @@ export default function ExecutiveSummaryPage() {
 
   const healthScore = calculateHealthScore();
 
-  // Sample decisions data
-  const pendingDecisions = [
-    {
-      title: 'Phê duyệt đầu tư mở rộng kho Bình Dương',
-      description: 'Đề xuất CAPEX 5 tỷ VND cho kho mới, ROI dự kiến 25%',
-      priority: 'high' as const,
-      impact: 'Revenue +15%',
-      deadline: '15/01/2026',
-    },
-    {
-      title: 'Đàm phán lại điều khoản thanh toán với Supplier A',
-      description: 'Kéo dài Net 30 → Net 45 để cải thiện CCC',
-      priority: 'medium' as const,
-      impact: 'CCC -5 ngày',
-      deadline: '20/01/2026',
-    },
-    {
-      title: 'Đánh giá đóng kênh Lazada',
-      description: 'Margin âm 3 tháng liên tiếp, cần quyết định tiếp tục/dừng',
-      priority: 'high' as const,
-      impact: 'Margin +2%',
-      deadline: '10/01/2026',
-    },
-  ];
-
   // Sample quick wins
   const quickWins = [
     { title: 'Thu hồi AR quá hạn > 60 ngày', savings: 850000000, effort: 'low' as const, status: 'in-progress' as const },
@@ -500,26 +430,8 @@ export default function ExecutiveSummaryPage() {
 
         {/* Middle Row - Decisions & Quick Wins */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Pending Decisions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Quyết định cần đưa ra
-              </CardTitle>
-              <CardDescription>
-                {pendingDecisions.length} quyết định đang chờ phê duyệt
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {pendingDecisions.map((decision, index) => (
-                <DecisionCard key={index} {...decision} />
-              ))}
-              <Button variant="outline" className="w-full mt-2">
-                Xem tất cả quyết định
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Pending Decisions - Now uses real data from DB */}
+          <PendingDecisionsPanel />
 
           {/* Quick Wins */}
           <Card>

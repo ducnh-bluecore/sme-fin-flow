@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { FileText, Trash2, Eye, CheckCircle, Clock, Archive, Filter } from 'lucide-react';
+import { FileText, Trash2, Eye, CheckCircle, Clock, Archive, Filter, Send, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useDecisionAnalyses, DecisionAnalysis } from '@/hooks/useDecisionAnalyses';
 import { formatVNDCompact } from '@/lib/formatters';
+import { SubmitForApprovalDialog } from './SubmitForApprovalDialog';
 
 const analysisTypeLabels: Record<string, string> = {
   make_vs_buy: 'Make vs Buy',
@@ -21,10 +22,12 @@ const analysisTypeLabels: Record<string, string> = {
   scenario: 'Scenario',
 };
 
-const statusConfig: Record<string, { label: string; icon: typeof Clock; variant: 'default' | 'secondary' | 'outline' }> = {
+const statusConfig: Record<string, { label: string; icon: typeof Clock; variant: 'default' | 'secondary' | 'outline'; color?: string }> = {
   draft: { label: 'Nháp', icon: Clock, variant: 'secondary' },
   completed: { label: 'Hoàn thành', icon: CheckCircle, variant: 'default' },
-  approved: { label: 'Đã duyệt', icon: CheckCircle, variant: 'default' },
+  pending_approval: { label: 'Chờ duyệt', icon: Send, variant: 'outline', color: 'text-yellow-500' },
+  approved: { label: 'Đã duyệt', icon: CheckCircle, variant: 'default', color: 'text-green-500' },
+  rejected: { label: 'Từ chối', icon: XCircle, variant: 'outline', color: 'text-red-500' },
   archived: { label: 'Lưu trữ', icon: Archive, variant: 'outline' },
 };
 
@@ -139,6 +142,9 @@ export function SavedAnalysesList() {
             <div className="space-y-3">
               {analyses.map((analysis) => {
                 const StatusIcon = statusConfig[analysis.status]?.icon || Clock;
+                const statusColor = statusConfig[analysis.status]?.color;
+                const canSubmitForApproval = analysis.status === 'draft' || analysis.status === 'completed' || analysis.status === 'rejected';
+                
                 return (
                   <div
                     key={analysis.id}
@@ -146,15 +152,16 @@ export function SavedAnalysesList() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge variant="outline" className="text-xs">
                             {analysisTypeLabels[analysis.analysis_type] || analysis.analysis_type}
                           </Badge>
-                          <StatusIcon className={`h-3 w-3 ${
-                            analysis.status === 'completed' || analysis.status === 'approved' 
-                              ? 'text-green-500' 
-                              : 'text-muted-foreground'
-                          }`} />
+                          <div className="flex items-center gap-1">
+                            <StatusIcon className={`h-3 w-3 ${statusColor || 'text-muted-foreground'}`} />
+                            <span className={`text-xs ${statusColor || 'text-muted-foreground'}`}>
+                              {statusConfig[analysis.status]?.label || analysis.status}
+                            </span>
+                          </div>
                         </div>
                         <h4 className="font-medium text-sm truncate">{analysis.title}</h4>
                         {analysis.recommendation && (
@@ -166,7 +173,12 @@ export function SavedAnalysesList() {
                           {format(new Date(analysis.created_at), 'dd/MM/yyyy', { locale: vi })}
                         </p>
                       </div>
-                      <AnalysisDetailDialog analysis={analysis} />
+                      <div className="flex items-center gap-1">
+                        {canSubmitForApproval && (
+                          <SubmitForApprovalDialog analysis={analysis} />
+                        )}
+                        <AnalysisDetailDialog analysis={analysis} />
+                      </div>
                     </div>
                   </div>
                 );
