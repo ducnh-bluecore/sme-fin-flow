@@ -85,11 +85,12 @@ export function useRiskScores(): RiskSummary {
     // 3. Market Risk - based on channel concentration
     let marketScore = 50;
     if (channelData?.channel_metrics) {
-      const metrics = channelData.channel_metrics as Array<{ revenue?: number }>;
-      const totalRevenue = metrics.reduce((sum, m) => sum + (m.revenue || 0), 0);
+      const metricsObj = channelData.channel_metrics as Record<string, { revenue?: number }>;
+      const metricsArray = Object.values(metricsObj);
+      const totalRevenue = metricsArray.reduce((sum, m) => sum + (m.revenue || 0), 0);
       
-      if (totalRevenue > 0 && metrics.length > 0) {
-        const topChannelRevenue = Math.max(...metrics.map(m => m.revenue || 0));
+      if (totalRevenue > 0 && metricsArray.length > 0) {
+        const topChannelRevenue = Math.max(...metricsArray.map(m => m.revenue || 0));
         const concentration = (topChannelRevenue / totalRevenue) * 100;
         
         if (concentration <= 30) marketScore = 25;

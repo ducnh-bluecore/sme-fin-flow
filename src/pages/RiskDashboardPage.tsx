@@ -50,6 +50,7 @@ import {
   Legend,
 } from 'recharts';
 import { StressTestingPanel } from '@/components/risk/StressTestingPanel';
+import { useRiskScores } from '@/hooks/useRiskScores';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -336,14 +337,26 @@ function StressTestPanel() {
 
 // Risk Radar Component
 function RiskRadar() {
-  const riskData = [
-    { category: 'Thanh khoản', score: 65, fullMark: 100 },
-    { category: 'Tín dụng', score: 45, fullMark: 100 },
-    { category: 'Thị trường', score: 70, fullMark: 100 },
-    { category: 'Hoạt động', score: 55, fullMark: 100 },
-    { category: 'Tuân thủ', score: 30, fullMark: 100 },
-    { category: 'Chiến lược', score: 50, fullMark: 100 },
-  ];
+  const { riskScores, lowCount, mediumCount, highCount, criticalCount, isLoading } = useRiskScores();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            Risk Profile
+          </CardTitle>
+          <CardDescription>Đánh giá tổng thể các loại rủi ro</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px] flex items-center justify-center">
+            <p className="text-muted-foreground">Đang tải dữ liệu...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -357,7 +370,7 @@ function RiskRadar() {
       <CardContent>
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={riskData}>
+            <RadarChart data={riskScores}>
               <PolarGrid stroke="hsl(var(--border))" />
               <PolarAngleAxis dataKey="category" />
               <PolarRadiusAxis angle={30} domain={[0, 100]} />
@@ -369,26 +382,31 @@ function RiskRadar() {
                 fillOpacity={0.3} 
               />
               <Legend />
-              <Tooltip />
+              <Tooltip 
+                formatter={(value: number, name: string, props: { payload?: { details?: string } }) => [
+                  `${value}%`,
+                  props.payload?.details || name
+                ]}
+              />
             </RadarChart>
           </ResponsiveContainer>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <div className="p-2 rounded bg-green-500/10 text-center">
             <p className="text-xs text-muted-foreground">Thấp (0-40)</p>
-            <p className="font-medium text-green-500">2 chỉ số</p>
+            <p className="font-medium text-green-500">{lowCount} chỉ số</p>
           </div>
           <div className="p-2 rounded bg-yellow-500/10 text-center">
             <p className="text-xs text-muted-foreground">Trung bình (40-60)</p>
-            <p className="font-medium text-yellow-500">2 chỉ số</p>
+            <p className="font-medium text-yellow-500">{mediumCount} chỉ số</p>
           </div>
           <div className="p-2 rounded bg-orange-500/10 text-center">
             <p className="text-xs text-muted-foreground">Cao (60-80)</p>
-            <p className="font-medium text-orange-500">2 chỉ số</p>
+            <p className="font-medium text-orange-500">{highCount} chỉ số</p>
           </div>
           <div className="p-2 rounded bg-red-500/10 text-center">
             <p className="text-xs text-muted-foreground">Nghiêm trọng (80+)</p>
-            <p className="font-medium text-red-500">0 chỉ số</p>
+            <p className="font-medium text-red-500">{criticalCount} chỉ số</p>
           </div>
         </div>
       </CardContent>

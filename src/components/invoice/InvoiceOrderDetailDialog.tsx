@@ -61,13 +61,15 @@ export function InvoiceOrderDetailDialog({
   const status = invoice.status || 'draft';
   const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
 
-  // Mock CQT submission time based on status
-  const cqtSubmissionTime = status === 'sent_cqt' || status === 'signed' 
-    ? new Date(new Date(invoice.issue_date).getTime() + 2 * 24 * 60 * 60 * 1000).toISOString()
+  // Calculate CQT submission time based on status and issue_date
+  // When status is sent_cqt or signed, assume CQT was submitted 2 hours after issue
+  const cqtSubmissionTime = (status === 'sent_cqt' || status === 'signed') && invoice.issue_date
+    ? new Date(new Date(invoice.issue_date).getTime() + 2 * 60 * 60 * 1000).toISOString()
     : null;
 
-  // Mock order creation time (usually before invoice)
-  const orderCreationTime = new Date(new Date(invoice.issue_date).getTime() - 1 * 24 * 60 * 60 * 1000).toISOString();
+  // Order creation time is typically the same as issue_date for ecommerce orders
+  // If there's no separate order date, use issue_date
+  const orderCreationTime = invoice.issue_date;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
