@@ -221,6 +221,84 @@ const importTemplates = [
       ['131', 'Phải thu khách hàng', 'asset', '', 'true', 'Công nợ phải thu'],
     ]
   },
+  {
+    id: 'bank_covenants',
+    name: 'Điều khoản vay ngân hàng',
+    description: 'Mẫu import covenant với ngân hàng',
+    icon: FileText,
+    color: 'text-rose-500',
+    bg: 'bg-rose-500/10',
+    columns: ['lender_name', 'covenant_name', 'covenant_type', 'threshold_value', 'threshold_operator', 'current_value', 'warning_threshold', 'measurement_frequency', 'next_measurement_date', 'is_active', 'notes'],
+    sampleData: [
+      ['Vietcombank', 'Tỷ lệ nợ/EBITDA', 'financial_ratio', '3.0', '<=', '2.5', '2.8', 'quarterly', '2026-03-31', 'true', 'Covenant khoản vay dài hạn'],
+      ['Techcombank', 'Tỷ lệ thanh toán nhanh', 'financial_ratio', '1.2', '>=', '1.5', '1.3', 'quarterly', '2026-03-31', 'true', 'Quick ratio'],
+    ]
+  },
+  {
+    id: 'scenarios',
+    name: 'Kịch bản tài chính',
+    description: 'Mẫu import kịch bản dự báo',
+    icon: FileSpreadsheet,
+    color: 'text-fuchsia-500',
+    bg: 'bg-fuchsia-500/10',
+    columns: ['name', 'description', 'scenario_type', 'base_year', 'forecast_months', 'status'],
+    sampleData: [
+      ['Kịch bản cơ sở 2026', 'Dự báo dựa trên xu hướng hiện tại', 'forecast', '2026', '12', 'active'],
+      ['Kịch bản tăng trưởng', 'Dự báo tăng trưởng 20% doanh thu', 'optimistic', '2026', '12', 'draft'],
+    ]
+  },
+  {
+    id: 'strategic_initiatives',
+    name: 'Sáng kiến chiến lược',
+    description: 'Mẫu import các dự án chiến lược',
+    icon: FileText,
+    color: 'text-sky-500',
+    bg: 'bg-sky-500/10',
+    columns: ['title', 'description', 'category', 'status', 'priority', 'start_date', 'end_date', 'budget', 'spent', 'progress', 'owner', 'notes'],
+    sampleData: [
+      ['Mở rộng kênh online', 'Phát triển kênh bán hàng trực tuyến mới', 'growth', 'in_progress', 'high', '2026-01-01', '2026-06-30', '500000000', '150000000', '30', 'Nguyễn Văn A', 'Tăng 30% doanh thu online'],
+      ['Tối ưu chi phí vận hành', 'Cắt giảm chi phí logistics', 'efficiency', 'planning', 'medium', '2026-02-01', '2026-12-31', '200000000', '0', '0', 'Trần Thị B', 'Tiết kiệm 15% chi phí'],
+    ]
+  },
+  {
+    id: 'journal_entries',
+    name: 'Bút toán kế toán',
+    description: 'Mẫu import bút toán ghi sổ',
+    icon: Table,
+    color: 'text-gray-500',
+    bg: 'bg-gray-500/10',
+    columns: ['entry_number', 'entry_date', 'description', 'reference', 'entry_type', 'status', 'total_debit', 'total_credit'],
+    sampleData: [
+      ['JE-2026-001', '2026-01-15', 'Ghi nhận doanh thu tháng 1', 'INV-001', 'standard', 'posted', '110000000', '110000000'],
+      ['JE-2026-002', '2026-01-20', 'Trích khấu hao TSCĐ', '', 'adjusting', 'draft', '15000000', '15000000'],
+    ]
+  },
+  {
+    id: 'credit_notes',
+    name: 'Phiếu giảm giá (Credit Note)',
+    description: 'Mẫu import phiếu điều chỉnh giảm',
+    icon: FileText,
+    color: 'text-lime-500',
+    bg: 'bg-lime-500/10',
+    columns: ['credit_note_number', 'credit_note_date', 'customer_name', 'reason', 'description', 'subtotal', 'vat_amount', 'total_amount', 'status'],
+    sampleData: [
+      ['CN-2026-001', '2026-01-18', 'Công ty ABC', 'Hàng lỗi', 'Giảm giá sản phẩm lỗi', '5000000', '500000', '5500000', 'approved'],
+      ['CN-2026-002', '2026-01-20', 'Công ty XYZ', 'Chiết khấu', 'Chiết khấu thanh toán sớm', '2000000', '200000', '2200000', 'draft'],
+    ]
+  },
+  {
+    id: 'debit_notes',
+    name: 'Phiếu tăng giá (Debit Note)',
+    description: 'Mẫu import phiếu điều chỉnh tăng',
+    icon: FileText,
+    color: 'text-orange-600',
+    bg: 'bg-orange-600/10',
+    columns: ['debit_note_number', 'debit_note_date', 'customer_name', 'reason', 'description', 'subtotal', 'vat_amount', 'total_amount', 'status'],
+    sampleData: [
+      ['DN-2026-001', '2026-01-19', 'Công ty ABC', 'Phí vận chuyển', 'Phụ thu phí ship đặc biệt', '500000', '50000', '550000', 'approved'],
+      ['DN-2026-002', '2026-01-21', 'Công ty XYZ', 'Điều chỉnh giá', 'Điều chỉnh tăng giá sản phẩm', '1000000', '100000', '1100000', 'draft'],
+    ]
+  },
 ];
 
 interface FileImportDialogProps {
@@ -427,6 +505,24 @@ export function FileImportDialog({ open, onOpenChange, onImportComplete }: FileI
             break;
           case 'gl_accounts':
             result = await dataImport.importGLAccounts.mutateAsync(rows);
+            break;
+          case 'bank_covenants':
+            result = await dataImport.importBankCovenants.mutateAsync(rows);
+            break;
+          case 'scenarios':
+            result = await dataImport.importScenarios.mutateAsync(rows);
+            break;
+          case 'strategic_initiatives':
+            result = await dataImport.importStrategicInitiatives.mutateAsync(rows);
+            break;
+          case 'journal_entries':
+            result = await dataImport.importJournalEntries.mutateAsync(rows);
+            break;
+          case 'credit_notes':
+            result = await dataImport.importCreditNotes.mutateAsync(rows);
+            break;
+          case 'debit_notes':
+            result = await dataImport.importDebitNotes.mutateAsync(rows);
             break;
           default:
             result = { success: 0, failed: rows.length, errors: [`Không hỗ trợ loại dữ liệu: ${templateId}`] };
