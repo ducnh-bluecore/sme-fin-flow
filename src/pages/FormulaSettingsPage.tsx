@@ -17,6 +17,10 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Banknote,
+  Package,
+  Tag,
+  Truck,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -517,6 +521,195 @@ export default function FormulaSettingsPage() {
                 min={0}
                 max={100}
                 step={1}
+              />
+            </div>
+          </SettingsSection>
+
+          {/* Cash Flow Direct Parameters */}
+          <SettingsSection
+            title="Dòng tiền Trực tiếp"
+            description="Tham số cho báo cáo và phân tích dòng tiền trực tiếp"
+            icon={<Banknote className="w-5 h-5 text-primary" />}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <InputWithTooltip
+                label="Operating Cash Ratio Target"
+                tooltip="Tỷ lệ dòng tiền hoạt động mục tiêu (≥1.0 là lành mạnh)"
+                value={formData.operating_cash_ratio_target || 1.0}
+                onChange={(v) => updateField('operating_cash_ratio_target', Number(v))}
+                min={0.5}
+                max={3}
+                step={0.1}
+              />
+              <InputWithTooltip
+                label="Burn Rate Warning"
+                tooltip="Tỷ lệ burn rate cảnh báo (% doanh thu)"
+                value={formData.cash_burn_rate_warning || 15}
+                onChange={(v) => updateField('cash_burn_rate_warning', Number(v))}
+                suffix="%"
+                min={5}
+                max={50}
+              />
+              <InputWithTooltip
+                label="Burn Rate Critical"
+                tooltip="Tỷ lệ burn rate nghiêm trọng (% doanh thu)"
+                value={formData.cash_burn_rate_critical || 25}
+                onChange={(v) => updateField('cash_burn_rate_critical', Number(v))}
+                suffix="%"
+                min={10}
+                max={80}
+              />
+              <InputWithTooltip
+                label="Minimum Operating Cash"
+                tooltip="Số tiền tối thiểu cần giữ cho hoạt động"
+                value={formData.minimum_operating_cash || 500000000}
+                onChange={(v) => updateField('minimum_operating_cash', Number(v))}
+                suffix="VND"
+                min={0}
+                step={100000000}
+              />
+              <InputWithTooltip
+                label="Investing Budget %"
+                tooltip="Tỷ lệ ngân sách cho hoạt động đầu tư"
+                value={formData.investing_budget_percentage || 10}
+                onChange={(v) => updateField('investing_budget_percentage', Number(v))}
+                suffix="%"
+                min={0}
+                max={50}
+              />
+              <InputWithTooltip
+                label="Max Debt Ratio"
+                tooltip="Tỷ lệ nợ tối đa cho hoạt động tài chính"
+                value={formData.financing_debt_ratio_max || 60}
+                onChange={(v) => updateField('financing_debt_ratio_max', Number(v))}
+                suffix="%"
+                min={0}
+                max={100}
+              />
+            </div>
+          </SettingsSection>
+
+          {/* Inventory Aging Parameters */}
+          <SettingsSection
+            title="Tuổi tồn kho"
+            description="Tham số phân tích và quản lý tồn kho"
+            icon={<Package className="w-5 h-5 text-primary" />}
+            defaultOpen={false}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <InputWithTooltip
+                label="Slow Moving Days"
+                tooltip="Số ngày xác định hàng tồn chậm luân chuyển"
+                value={formData.inventory_slow_moving_days || 90}
+                onChange={(v) => updateField('inventory_slow_moving_days', Number(v))}
+                suffix="ngày"
+                min={30}
+                max={180}
+              />
+              <InputWithTooltip
+                label="Dead Stock Days"
+                tooltip="Số ngày xác định hàng tồn không luân chuyển"
+                value={formData.inventory_dead_stock_days || 180}
+                onChange={(v) => updateField('inventory_dead_stock_days', Number(v))}
+                suffix="ngày"
+                min={60}
+                max={365}
+              />
+              <InputWithTooltip
+                label="Target Turnover"
+                tooltip="Vòng quay tồn kho mục tiêu (lần/năm)"
+                value={formData.inventory_target_turnover || 6}
+                onChange={(v) => updateField('inventory_target_turnover', Number(v))}
+                suffix="lần"
+                min={1}
+                max={24}
+              />
+              <InputWithTooltip
+                label="Holding Cost Rate"
+                tooltip="Chi phí lưu kho hàng năm (% giá trị)"
+                value={formData.inventory_holding_cost_rate || 25}
+                onChange={(v) => updateField('inventory_holding_cost_rate', Number(v))}
+                suffix="%"
+                min={5}
+                max={50}
+              />
+            </div>
+          </SettingsSection>
+
+          {/* Promotion ROI Parameters */}
+          <SettingsSection
+            title="ROI Khuyến mãi"
+            description="Tham số đánh giá hiệu quả chương trình khuyến mãi"
+            icon={<Tag className="w-5 h-5 text-primary" />}
+            defaultOpen={false}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <InputWithTooltip
+                label="Min ROI"
+                tooltip="ROI tối thiểu chấp nhận được cho khuyến mãi"
+                value={formData.promotion_min_roi || 200}
+                onChange={(v) => updateField('promotion_min_roi', Number(v))}
+                suffix="%"
+                min={50}
+                max={500}
+              />
+              <InputWithTooltip
+                label="Target ROAS"
+                tooltip="Return on Ad Spend mục tiêu (VD: 4 = 4đ revenue/1đ chi)"
+                value={formData.promotion_target_roas || 4}
+                onChange={(v) => updateField('promotion_target_roas', Number(v))}
+                suffix="x"
+                min={1}
+                max={20}
+                step={0.5}
+              />
+              <InputWithTooltip
+                label="Max Discount Rate"
+                tooltip="Tỷ lệ giảm giá tối đa cho phép"
+                value={formData.promotion_max_discount_rate || 50}
+                onChange={(v) => updateField('promotion_max_discount_rate', Number(v))}
+                suffix="%"
+                min={10}
+                max={90}
+              />
+            </div>
+          </SettingsSection>
+
+          {/* Supplier Payment Parameters */}
+          <SettingsSection
+            title="Thanh toán Nhà cung cấp"
+            description="Tham số quản lý thanh toán và quan hệ NCC"
+            icon={<Truck className="w-5 h-5 text-primary" />}
+            defaultOpen={false}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <InputWithTooltip
+                label="Early Payment Threshold"
+                tooltip="Ngưỡng chiết khấu thanh toán sớm có lợi (% APR)"
+                value={formData.supplier_early_payment_threshold || 2}
+                onChange={(v) => updateField('supplier_early_payment_threshold', Number(v))}
+                suffix="%"
+                min={0.5}
+                max={10}
+                step={0.5}
+              />
+              <InputWithTooltip
+                label="Concentration Warning"
+                tooltip="Cảnh báo khi 1 NCC chiếm % mua hàng"
+                value={formData.supplier_concentration_warning || 30}
+                onChange={(v) => updateField('supplier_concentration_warning', Number(v))}
+                suffix="%"
+                min={10}
+                max={60}
+              />
+              <InputWithTooltip
+                label="Payment Compliance Target"
+                tooltip="Tỷ lệ thanh toán đúng hạn mục tiêu"
+                value={formData.supplier_payment_compliance_target || 95}
+                onChange={(v) => updateField('supplier_payment_compliance_target', Number(v))}
+                suffix="%"
+                min={80}
+                max={100}
               />
             </div>
           </SettingsSection>

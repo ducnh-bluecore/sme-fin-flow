@@ -3594,6 +3594,8 @@ export type Database = {
           ar_bucket_2: number | null
           ar_bucket_3: number | null
           ar_bucket_4: number | null
+          cash_burn_rate_critical: number | null
+          cash_burn_rate_warning: number | null
           cash_reserve_percentage: number | null
           channel_commission_rates: Json | null
           corporate_tax_rate: number | null
@@ -3605,14 +3607,28 @@ export type Database = {
           dio_calculation_days: number | null
           dpo_calculation_days: number | null
           dso_calculation_days: number | null
+          financing_debt_ratio_max: number | null
           fiscal_year_days: number | null
           fiscal_year_start_month: number | null
           forecast_collection_rate: number | null
           forecast_confidence_level: number | null
           forecast_default_growth_rate: number | null
           id: string
+          inventory_dead_stock_days: number | null
+          inventory_holding_cost_rate: number | null
+          inventory_slow_moving_days: number | null
+          inventory_target_turnover: number | null
+          investing_budget_percentage: number | null
           min_cash_runway_months: number | null
+          minimum_operating_cash: number | null
+          operating_cash_ratio_target: number | null
+          promotion_max_discount_rate: number | null
+          promotion_min_roi: number | null
+          promotion_target_roas: number | null
           safe_cash_runway_months: number | null
+          supplier_concentration_warning: number | null
+          supplier_early_payment_threshold: number | null
+          supplier_payment_compliance_target: number | null
           target_collection_rate: number | null
           target_dso: number | null
           target_gross_margin: number | null
@@ -3626,6 +3642,8 @@ export type Database = {
           ar_bucket_2?: number | null
           ar_bucket_3?: number | null
           ar_bucket_4?: number | null
+          cash_burn_rate_critical?: number | null
+          cash_burn_rate_warning?: number | null
           cash_reserve_percentage?: number | null
           channel_commission_rates?: Json | null
           corporate_tax_rate?: number | null
@@ -3637,14 +3655,28 @@ export type Database = {
           dio_calculation_days?: number | null
           dpo_calculation_days?: number | null
           dso_calculation_days?: number | null
+          financing_debt_ratio_max?: number | null
           fiscal_year_days?: number | null
           fiscal_year_start_month?: number | null
           forecast_collection_rate?: number | null
           forecast_confidence_level?: number | null
           forecast_default_growth_rate?: number | null
           id?: string
+          inventory_dead_stock_days?: number | null
+          inventory_holding_cost_rate?: number | null
+          inventory_slow_moving_days?: number | null
+          inventory_target_turnover?: number | null
+          investing_budget_percentage?: number | null
           min_cash_runway_months?: number | null
+          minimum_operating_cash?: number | null
+          operating_cash_ratio_target?: number | null
+          promotion_max_discount_rate?: number | null
+          promotion_min_roi?: number | null
+          promotion_target_roas?: number | null
           safe_cash_runway_months?: number | null
+          supplier_concentration_warning?: number | null
+          supplier_early_payment_threshold?: number | null
+          supplier_payment_compliance_target?: number | null
           target_collection_rate?: number | null
           target_dso?: number | null
           target_gross_margin?: number | null
@@ -3658,6 +3690,8 @@ export type Database = {
           ar_bucket_2?: number | null
           ar_bucket_3?: number | null
           ar_bucket_4?: number | null
+          cash_burn_rate_critical?: number | null
+          cash_burn_rate_warning?: number | null
           cash_reserve_percentage?: number | null
           channel_commission_rates?: Json | null
           corporate_tax_rate?: number | null
@@ -3669,14 +3703,28 @@ export type Database = {
           dio_calculation_days?: number | null
           dpo_calculation_days?: number | null
           dso_calculation_days?: number | null
+          financing_debt_ratio_max?: number | null
           fiscal_year_days?: number | null
           fiscal_year_start_month?: number | null
           forecast_collection_rate?: number | null
           forecast_confidence_level?: number | null
           forecast_default_growth_rate?: number | null
           id?: string
+          inventory_dead_stock_days?: number | null
+          inventory_holding_cost_rate?: number | null
+          inventory_slow_moving_days?: number | null
+          inventory_target_turnover?: number | null
+          investing_budget_percentage?: number | null
           min_cash_runway_months?: number | null
+          minimum_operating_cash?: number | null
+          operating_cash_ratio_target?: number | null
+          promotion_max_discount_rate?: number | null
+          promotion_min_roi?: number | null
+          promotion_target_roas?: number | null
           safe_cash_runway_months?: number | null
+          supplier_concentration_warning?: number | null
+          supplier_early_payment_threshold?: number | null
+          supplier_payment_compliance_target?: number | null
           target_collection_rate?: number | null
           target_dso?: number | null
           target_gross_margin?: number | null
