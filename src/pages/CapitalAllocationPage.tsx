@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { 
@@ -16,6 +16,7 @@ import {
   XCircle,
   AlertTriangle,
   DollarSign,
+  Package,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +32,11 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatVNDCompact } from '@/lib/formatters';
+import { useCapexProjects } from '@/hooks/useCapexProjects';
+import { useInvestments } from '@/hooks/useInvestments';
 import {
   BarChart,
   Bar,
@@ -47,89 +51,100 @@ import {
   Legend,
 } from 'recharts';
 
-// Sample CAPEX data
-const capexProjects = [
-  {
-    id: 1,
-    name: 'Mở rộng kho Bình Dương',
-    category: 'Infrastructure',
-    budget: 5000000000,
-    spent: 1200000000,
-    status: 'in-progress',
-    roi: 25,
-    paybackMonths: 24,
-    startDate: '2025-11-01',
-    endDate: '2026-06-30',
-  },
-  {
-    id: 2,
-    name: 'Nâng cấp hệ thống ERP',
-    category: 'Technology',
-    budget: 2000000000,
-    spent: 2000000000,
-    status: 'completed',
-    roi: 35,
-    paybackMonths: 18,
-    startDate: '2025-06-01',
-    endDate: '2025-12-31',
-  },
-  {
-    id: 3,
-    name: 'Máy móc sản xuất mới',
-    category: 'Equipment',
-    budget: 3500000000,
-    spent: 0,
-    status: 'pending',
-    roi: 20,
-    paybackMonths: 30,
-    startDate: '2026-02-01',
-    endDate: '2026-08-31',
-  },
-  {
-    id: 4,
-    name: 'Showroom Hà Nội',
-    category: 'Infrastructure',
-    budget: 1500000000,
-    spent: 800000000,
-    status: 'in-progress',
-    roi: 18,
-    paybackMonths: 36,
-    startDate: '2025-10-01',
-    endDate: '2026-03-31',
-  },
-];
+const categoryColors: Record<string, string> = {
+  infrastructure: '#3b82f6',
+  technology: '#10b981',
+  equipment: '#f59e0b',
+  other: '#8b5cf6',
+};
 
-// Investment portfolio data
-const investmentPortfolio = [
-  { name: 'Tiền gửi ngân hàng', value: 5000000000, return: 6.5, type: 'deposit' },
-  { name: 'Trái phiếu doanh nghiệp', value: 2000000000, return: 9.2, type: 'bond' },
-  { name: 'Quỹ đầu tư', value: 1500000000, return: 12.5, type: 'fund' },
-  { name: 'Đầu tư startup', value: 500000000, return: -5, type: 'venture' },
-];
+const categoryLabels: Record<string, string> = {
+  infrastructure: 'Cơ sở hạ tầng',
+  technology: 'Công nghệ',
+  equipment: 'Thiết bị',
+  other: 'Khác',
+};
 
-// Allocation by category
-const allocationByCategory = [
-  { name: 'Infrastructure', value: 6500000000, color: '#3b82f6' },
-  { name: 'Technology', value: 2000000000, color: '#10b981' },
-  { name: 'Equipment', value: 3500000000, color: '#f59e0b' },
-  { name: 'Working Capital', value: 3000000000, color: '#8b5cf6' },
-];
-
-// ROI comparison data
-const roiComparison = [
-  { project: 'Kho BD', planned: 25, actual: 28 },
-  { project: 'ERP', planned: 35, actual: 32 },
-  { project: 'Máy móc', planned: 20, actual: 0 },
-  { project: 'Showroom', planned: 18, actual: 15 },
-];
+const investmentTypeLabels: Record<string, string> = {
+  deposit: 'Tiền gửi',
+  bond: 'Trái phiếu',
+  fund: 'Quỹ đầu tư',
+  stock: 'Cổ phiếu',
+  venture: 'Startup/VC',
+  other: 'Khác',
+};
 
 export default function CapitalAllocationPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
+  
+  const { data: capexProjects, isLoading: capexLoading } = useCapexProjects();
+  const { data: investments, isLoading: investmentsLoading } = useInvestments();
 
-  const totalBudget = capexProjects.reduce((sum, p) => sum + p.budget, 0);
-  const totalSpent = capexProjects.reduce((sum, p) => sum + p.spent, 0);
-  const totalInvestments = investmentPortfolio.reduce((sum, i) => sum + i.value, 0);
+  const isLoading = capexLoading || investmentsLoading;
+
+  // Calculate totals from real data
+  const { totalBudget, totalSpent, avgRoi, avgPayback } = useMemo(() => {
+    if (!capexProjects || capexProjects.length === 0) {
+      return { totalBudget: 0, totalSpent: 0, avgRoi: 0, avgPayback: 0 };
+    }
+    
+    const budget = capexProjects.reduce((sum, p) => sum + (p.budget || 0), 0);
+    const spent = capexProjects.reduce((sum, p) => sum + (p.spent || 0), 0);
+    
+    const projectsWithRoi = capexProjects.filter(p => p.expected_roi != null);
+    const roi = projectsWithRoi.length > 0 
+      ? projectsWithRoi.reduce((sum, p) => sum + (p.expected_roi || 0), 0) / projectsWithRoi.length 
+      : 0;
+    
+    const projectsWithPayback = capexProjects.filter(p => p.payback_months != null);
+    const payback = projectsWithPayback.length > 0
+      ? projectsWithPayback.reduce((sum, p) => sum + (p.payback_months || 0), 0) / projectsWithPayback.length
+      : 0;
+
+    return { totalBudget: budget, totalSpent: spent, avgRoi: roi, avgPayback: payback };
+  }, [capexProjects]);
+
+  const { totalInvestments, totalReturn, ytdReturn } = useMemo(() => {
+    if (!investments || investments.length === 0) {
+      return { totalInvestments: 0, totalReturn: 0, ytdReturn: 0 };
+    }
+    
+    const total = investments.reduce((sum, i) => sum + (i.current_value || 0), 0);
+    const principal = investments.reduce((sum, i) => sum + (i.principal_amount || 0), 0);
+    const returnAmount = total - principal;
+    const returnPct = principal > 0 ? (returnAmount / principal) * 100 : 0;
+
+    return { totalInvestments: total, totalReturn: returnAmount, ytdReturn: returnPct };
+  }, [investments]);
+
+  // Allocation by category for pie chart
+  const allocationByCategory = useMemo(() => {
+    if (!capexProjects || capexProjects.length === 0) return [];
+    
+    const categoryTotals: Record<string, number> = {};
+    capexProjects.forEach(p => {
+      const cat = p.category || 'other';
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + (p.budget || 0);
+    });
+    
+    return Object.entries(categoryTotals).map(([name, value]) => ({
+      name: categoryLabels[name] || name,
+      value,
+      color: categoryColors[name] || '#8b5cf6',
+    }));
+  }, [capexProjects]);
+
+  // ROI comparison data
+  const roiComparison = useMemo(() => {
+    if (!capexProjects || capexProjects.length === 0) return [];
+    
+    return capexProjects.slice(0, 6).map(p => ({
+      project: p.name.length > 12 ? p.name.substring(0, 12) + '...' : p.name,
+      planned: p.expected_roi || 0,
+      actual: p.actual_roi || 0,
+    }));
+  }, [capexProjects]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -137,12 +152,19 @@ export default function CapitalAllocationPage() {
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />Hoàn thành</Badge>;
       case 'in-progress':
         return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20"><Clock className="h-3 w-3 mr-1" />Đang thực hiện</Badge>;
+      case 'approved':
+        return <Badge className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />Đã duyệt</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"><AlertTriangle className="h-3 w-3 mr-1" />Chờ duyệt</Badge>;
+      case 'cancelled':
+        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20"><XCircle className="h-3 w-3 mr-1" />Đã hủy</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  const hasCapexData = capexProjects && capexProjects.length > 0;
+  const hasInvestmentData = investments && investments.length > 0;
 
   return (
     <>
@@ -172,11 +194,23 @@ export default function CapitalAllocationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatVNDCompact(totalBudget)}</div>
-              <Progress value={(totalSpent / totalBudget) * 100} className="mt-2 h-2" />
-              <p className="text-xs text-muted-foreground mt-1">
-                Đã chi: {formatVNDCompact(totalSpent)} ({((totalSpent / totalBudget) * 100).toFixed(0)}%)
-              </p>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {hasCapexData ? formatVNDCompact(totalBudget) : '—'}
+                  </div>
+                  {hasCapexData && totalBudget > 0 && (
+                    <>
+                      <Progress value={(totalSpent / totalBudget) * 100} className="mt-2 h-2" />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Đã chi: {formatVNDCompact(totalSpent)} ({((totalSpent / totalBudget) * 100).toFixed(0)}%)
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -188,11 +222,21 @@ export default function CapitalAllocationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatVNDCompact(totalInvestments)}</div>
-              <div className="flex items-center gap-1 text-sm text-green-500 mt-1">
-                <TrendingUp className="h-4 w-4" />
-                +8.2% YTD
-              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {hasInvestmentData ? formatVNDCompact(totalInvestments) : '—'}
+                  </div>
+                  {hasInvestmentData && (
+                    <div className={`flex items-center gap-1 text-sm mt-1 ${ytdReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {ytdReturn >= 0 ? <TrendingUp className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                      {ytdReturn >= 0 ? '+' : ''}{ytdReturn.toFixed(1)}% YTD
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -204,11 +248,21 @@ export default function CapitalAllocationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24.5%</div>
-              <div className="flex items-center gap-1 text-sm text-green-500 mt-1">
-                <ArrowUpRight className="h-4 w-4" />
-                Trên target 20%
-              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {hasCapexData && avgRoi > 0 ? `${avgRoi.toFixed(1)}%` : '—'}
+                  </div>
+                  {hasCapexData && avgRoi > 0 && (
+                    <div className={`flex items-center gap-1 text-sm mt-1 ${avgRoi >= 20 ? 'text-green-500' : 'text-yellow-500'}`}>
+                      {avgRoi >= 20 ? <ArrowUpRight className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      {avgRoi >= 20 ? 'Trên target 20%' : 'Dưới target 20%'}
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -220,11 +274,21 @@ export default function CapitalAllocationPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">27 tháng</div>
-              <div className="flex items-center gap-1 text-sm text-yellow-500 mt-1">
-                <AlertTriangle className="h-4 w-4" />
-                Target: 24 tháng
-              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {hasCapexData && avgPayback > 0 ? `${Math.round(avgPayback)} tháng` : '—'}
+                  </div>
+                  {hasCapexData && avgPayback > 0 && (
+                    <div className={`flex items-center gap-1 text-sm mt-1 ${avgPayback <= 24 ? 'text-green-500' : 'text-yellow-500'}`}>
+                      {avgPayback <= 24 ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      Target: 24 tháng
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -249,27 +313,38 @@ export default function CapitalAllocationPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RePieChart>
-                        <Pie
-                          data={allocationByCategory}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {allocationByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => formatVNDCompact(value as number)} />
-                        <Legend />
-                      </RePieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {isLoading ? (
+                    <Skeleton className="h-[300px] w-full" />
+                  ) : allocationByCategory.length > 0 ? (
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RePieChart>
+                          <Pie
+                            data={allocationByCategory}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {allocationByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => formatVNDCompact(value as number)} />
+                          <Legend />
+                        </RePieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Chưa có dự án CAPEX</p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -282,19 +357,30 @@ export default function CapitalAllocationPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={roiComparison}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="project" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="planned" name="Kế hoạch" fill="hsl(var(--primary))" />
-                        <Bar dataKey="actual" name="Thực tế" fill="hsl(var(--chart-2))" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {isLoading ? (
+                    <Skeleton className="h-[300px] w-full" />
+                  ) : roiComparison.length > 0 ? (
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={roiComparison}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="project" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="planned" name="Kế hoạch" fill="hsl(var(--primary))" />
+                          <Bar dataKey="actual" name="Thực tế" fill="hsl(var(--chart-2))" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                      <div className="text-center">
+                        <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Chưa có dữ liệu ROI</p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -307,101 +393,148 @@ export default function CapitalAllocationPage() {
                 <CardDescription>Theo dõi tiến độ và ngân sách các dự án đầu tư</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Dự án</TableHead>
-                      <TableHead>Danh mục</TableHead>
-                      <TableHead>Ngân sách</TableHead>
-                      <TableHead>Đã chi</TableHead>
-                      <TableHead>Tiến độ</TableHead>
-                      <TableHead>ROI</TableHead>
-                      <TableHead>Payback</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {capexProjects.map((project) => (
-                      <TableRow key={project.id}>
-                        <TableCell className="font-medium">{project.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{project.category}</Badge>
-                        </TableCell>
-                        <TableCell>{formatVNDCompact(project.budget)}</TableCell>
-                        <TableCell>{formatVNDCompact(project.spent)}</TableCell>
-                        <TableCell>
-                          <div className="w-full">
-                            <Progress 
-                              value={(project.spent / project.budget) * 100} 
-                              className="h-2"
-                            />
-                            <span className="text-xs text-muted-foreground">
-                              {((project.spent / project.budget) * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium text-green-500">{project.roi}%</TableCell>
-                        <TableCell>{project.paybackMonths} tháng</TableCell>
-                        <TableCell>{getStatusBadge(project.status)}</TableCell>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+                  </div>
+                ) : hasCapexData ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Dự án</TableHead>
+                        <TableHead>Danh mục</TableHead>
+                        <TableHead>Ngân sách</TableHead>
+                        <TableHead>Đã chi</TableHead>
+                        <TableHead>Tiến độ</TableHead>
+                        <TableHead>ROI</TableHead>
+                        <TableHead>Payback</TableHead>
+                        <TableHead>Trạng thái</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {capexProjects?.map((project) => (
+                        <TableRow key={project.id}>
+                          <TableCell className="font-medium">{project.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{categoryLabels[project.category] || project.category}</Badge>
+                          </TableCell>
+                          <TableCell>{formatVNDCompact(project.budget)}</TableCell>
+                          <TableCell>{formatVNDCompact(project.spent)}</TableCell>
+                          <TableCell>
+                            <div className="w-full">
+                              <Progress 
+                                value={project.budget > 0 ? (project.spent / project.budget) * 100 : 0} 
+                                className="h-2"
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {project.budget > 0 ? ((project.spent / project.budget) * 100).toFixed(0) : 0}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium text-green-500">
+                            {project.expected_roi != null ? `${project.expected_roi}%` : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {project.payback_months != null ? `${project.payback_months} tháng` : '—'}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(project.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium">Chưa có dự án CAPEX</p>
+                    <p className="text-sm">Nhấn "Thêm dự án CAPEX" để tạo dự án mới</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="investments" className="mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Danh mục đầu tư tài chính</CardTitle>
-                <CardDescription>Theo dõi hiệu suất các khoản đầu tư</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Danh mục đầu tư tài chính</CardTitle>
+                  <CardDescription>Theo dõi hiệu suất các khoản đầu tư</CardDescription>
+                </div>
+                <Button variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Thêm khoản đầu tư
+                </Button>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Khoản đầu tư</TableHead>
-                      <TableHead>Loại</TableHead>
-                      <TableHead>Giá trị</TableHead>
-                      <TableHead>Lợi nhuận</TableHead>
-                      <TableHead>Hiệu suất</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {investmentPortfolio.map((investment, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{investment.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{investment.type}</Badge>
-                        </TableCell>
-                        <TableCell>{formatVNDCompact(investment.value)}</TableCell>
-                        <TableCell>
-                          {formatVNDCompact(investment.value * (investment.return / 100))}
-                        </TableCell>
-                        <TableCell>
-                          <div className={`flex items-center gap-1 font-medium ${investment.return >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {investment.return >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                            {investment.return >= 0 ? '+' : ''}{investment.return}%
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+                  </div>
+                ) : hasInvestmentData ? (
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Khoản đầu tư</TableHead>
+                          <TableHead>Loại</TableHead>
+                          <TableHead>Vốn gốc</TableHead>
+                          <TableHead>Giá trị hiện tại</TableHead>
+                          <TableHead>Lợi nhuận</TableHead>
+                          <TableHead>Hiệu suất</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {investments?.map((investment) => {
+                          const profit = (investment.current_value || 0) - (investment.principal_amount || 0);
+                          const returnPct = investment.principal_amount > 0 
+                            ? (profit / investment.principal_amount) * 100 
+                            : 0;
+                          
+                          return (
+                            <TableRow key={investment.id}>
+                              <TableCell className="font-medium">{investment.name}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {investmentTypeLabels[investment.investment_type] || investment.investment_type}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{formatVNDCompact(investment.principal_amount)}</TableCell>
+                              <TableCell>{formatVNDCompact(investment.current_value)}</TableCell>
+                              <TableCell className={profit >= 0 ? 'text-green-500' : 'text-red-500'}>
+                                {profit >= 0 ? '+' : ''}{formatVNDCompact(profit)}
+                              </TableCell>
+                              <TableCell>
+                                <div className={`flex items-center gap-1 font-medium ${returnPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                  {returnPct >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                                  {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
 
-                <div className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/20">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Tổng danh mục đầu tư</span>
-                    <div className="text-right">
-                      <div className="text-xl font-bold">{formatVNDCompact(totalInvestments)}</div>
-                      <div className="text-sm text-green-500 flex items-center gap-1">
-                        <ArrowUpRight className="h-4 w-4" />
-                        Lợi nhuận: +{formatVNDCompact(totalInvestments * 0.082)}
+                    <div className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/20">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Tổng danh mục đầu tư</span>
+                        <div className="text-right">
+                          <div className="text-xl font-bold">{formatVNDCompact(totalInvestments)}</div>
+                          <div className={`text-sm flex items-center gap-1 ${totalReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {totalReturn >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                            Lợi nhuận: {totalReturn >= 0 ? '+' : ''}{formatVNDCompact(totalReturn)}
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  </>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Building2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium">Chưa có khoản đầu tư</p>
+                    <p className="text-sm">Nhấn "Thêm khoản đầu tư" để tạo mới</p>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
