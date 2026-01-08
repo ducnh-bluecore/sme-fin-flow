@@ -9,9 +9,12 @@ import {
   RefreshCw,
   Link2,
   Loader2,
-  Trash2,
-  Edit,
   Save,
+  Sparkles,
+  Wand2,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +31,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -35,8 +39,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { useBigQueryDataModels, useUpsertDataModel, useSyncWatermarks } from '@/hooks/useBigQueryRealtime';
+import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+interface AISuggestion {
+  bigquery_dataset: string;
+  bigquery_table: string;
+  target_table: string | null;
+  confidence: number;
+  reason: string;
+  field_mapping: Record<string, string>;
+  primary_key_field: string | null;
+  timestamp_field: string | null;
+  model_name: string;
+  model_label: string;
+  description: string;
+  row_count: number;
+  schema_fields: Array<{ name: string; type: string; mode: string }>;
+}
 
 interface DataModelConfig {
   model_name: string;
@@ -115,12 +143,19 @@ const DEFAULT_MODELS: DataModelConfig[] = [
 ];
 
 export function DataModelManager() {
-  const { data: models, isLoading } = useBigQueryDataModels();
+  const { data: models, isLoading, refetch } = useBigQueryDataModels();
   const { data: watermarks } = useSyncWatermarks();
   const upsertModel = useUpsertDataModel();
+  const tenantId = useActiveTenantId();
   
   const [editingModel, setEditingModel] = useState<DataModelConfig | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // AI Suggestions state
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
 
   // Merge default models with saved configs
   const displayModels = DEFAULT_MODELS.map(defaultModel => {
@@ -134,6 +169,70 @@ export function DataModelManager() {
     }
     return defaultModel;
   });
+
+  // Fetch AI suggestions
+  const handleFetchSuggestions = async () => {
+    setIsLoadingSuggestions(true);
+    setShowSuggestions(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-data-models', {
+        body: {}
+      });
+      
+      if (error) throw error;
+      
+      if (data.success && data.suggestions) {
+        setSuggestions(data.suggestions);
+        toast.success(`Đã phân tích ${data.total_analyzed} bảng từ BigQuery`);
+      } else {
+        throw new Error(data.error || 'Failed to get suggestions');
+      }
+    } catch (error: any) {
+      console.error('Error fetching suggestions:', error);
+      toast.error('Lỗi: ' + (error.message || 'Không thể lấy đề xuất'));
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  // Add suggestion as data model
+  const handleAddSuggestion = async (suggestion: AISuggestion) => {
+    if (!tenantId) return;
+    
+    try {
+      await upsertModel.mutateAsync({
+        model_name: suggestion.model_name,
+        model_label: suggestion.model_label,
+        description: suggestion.description,
+        bigquery_dataset: suggestion.bigquery_dataset,
+        bigquery_table: suggestion.bigquery_table,
+        primary_key_field: suggestion.primary_key_field || 'id',
+        timestamp_field: suggestion.timestamp_field || undefined,
+        target_table: suggestion.target_table || undefined,
+        is_enabled: false,
+        sync_frequency_hours: 24,
+      });
+      
+      // Remove from suggestions
+      setSuggestions(prev => prev.filter(s => s.model_name !== suggestion.model_name));
+      toast.success(`Đã thêm "${suggestion.model_label}" vào Data Models`);
+    } catch (error: any) {
+      toast.error('Lỗi: ' + error.message);
+    }
+  };
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 70) return 'text-green-500';
+    if (confidence >= 40) return 'text-yellow-500';
+    return 'text-orange-500';
+  };
+
+  const getConfidenceBadge = (confidence: number) => {
+    if (confidence >= 70) return { variant: 'default' as const, label: 'Cao' };
+    if (confidence >= 40) return { variant: 'secondary' as const, label: 'Trung bình' };
+    return { variant: 'outline' as const, label: 'Thấp' };
+  };
 
   const handleEditModel = (model: DataModelConfig) => {
     setEditingModel({ ...model });
@@ -162,7 +261,7 @@ export function DataModelManager() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <Database className="w-5 h-5 text-primary" />
@@ -174,25 +273,194 @@ export function DataModelManager() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => {
-          setEditingModel({
-            model_name: '',
-            model_label: '',
-            description: '',
-            bigquery_dataset: '',
-            bigquery_table: '',
-            primary_key_field: '',
-            timestamp_field: '',
-            target_table: '',
-            is_enabled: false,
-            sync_frequency_hours: 24,
-          });
-          setIsDialogOpen(true);
-        }}>
-          <Plus className="w-4 h-4 mr-2" />
-          Thêm Model
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleFetchSuggestions}
+            disabled={isLoadingSuggestions}
+            className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-violet-500/30 hover:border-violet-500/50"
+          >
+            {isLoadingSuggestions ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 mr-2 text-violet-500" />
+            )}
+            AI Đề xuất
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            setEditingModel({
+              model_name: '',
+              model_label: '',
+              description: '',
+              bigquery_dataset: '',
+              bigquery_table: '',
+              primary_key_field: '',
+              timestamp_field: '',
+              target_table: '',
+              is_enabled: false,
+              sync_frequency_hours: 24,
+            });
+            setIsDialogOpen(true);
+          }}>
+            <Plus className="w-4 h-4 mr-2" />
+            Thêm Model
+          </Button>
+        </div>
       </div>
+
+      {/* AI Suggestions Panel */}
+      {showSuggestions && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="overflow-hidden"
+        >
+          <Card className="p-4 border-violet-500/30 bg-gradient-to-br from-violet-500/5 to-purple-500/5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-5 h-5 text-violet-500" />
+                <h4 className="font-semibold">AI Đề xuất Data Models</h4>
+                {suggestions.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {suggestions.length} đề xuất
+                  </Badge>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowSuggestions(false)}>
+                <XCircle className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {isLoadingSuggestions ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-500 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  Đang phân tích schema BigQuery...
+                </p>
+              </div>
+            ) : suggestions.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Database className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>Không tìm thấy bảng phù hợp</p>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-[400px]">
+                <div className="space-y-3">
+                  {suggestions.map((suggestion) => {
+                    const badge = getConfidenceBadge(suggestion.confidence);
+                    const isExpanded = expandedSuggestion === suggestion.model_name;
+                    
+                    return (
+                      <Collapsible
+                        key={suggestion.model_name}
+                        open={isExpanded}
+                        onOpenChange={() => setExpandedSuggestion(
+                          isExpanded ? null : suggestion.model_name
+                        )}
+                      >
+                        <Card className="p-3 bg-background/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium truncate">
+                                  {suggestion.bigquery_table}
+                                </span>
+                                <Badge variant={badge.variant} className="text-xs">
+                                  {suggestion.confidence}% {badge.label}
+                                </Badge>
+                                {suggestion.target_table && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span className="font-mono">{suggestion.target_table}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                {suggestion.bigquery_dataset} • {suggestion.row_count.toLocaleString()} records
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-2">
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </CollapsibleTrigger>
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddSuggestion(suggestion)}
+                                disabled={upsertModel.isPending}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Thêm
+                              </Button>
+                            </div>
+                          </div>
+
+                          <CollapsibleContent>
+                            <div className="mt-3 pt-3 border-t space-y-3">
+                              <div>
+                                <p className="text-xs font-medium mb-1">Lý do đề xuất:</p>
+                                <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <span className="text-muted-foreground">Primary Key:</span>
+                                  <span className="ml-1 font-mono">
+                                    {suggestion.primary_key_field || 'N/A'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Timestamp:</span>
+                                  <span className="ml-1 font-mono">
+                                    {suggestion.timestamp_field || 'N/A'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {suggestion.schema_fields && (
+                                <div>
+                                  <p className="text-xs font-medium mb-1">
+                                    Schema ({suggestion.schema_fields.length} fields):
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {suggestion.schema_fields.slice(0, 8).map((field) => (
+                                      <Badge 
+                                        key={field.name} 
+                                        variant="outline" 
+                                        className="text-xs font-mono"
+                                      >
+                                        {field.name}
+                                        <span className="ml-1 text-muted-foreground">
+                                          ({field.type})
+                                        </span>
+                                      </Badge>
+                                    ))}
+                                    {suggestion.schema_fields.length > 8 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        +{suggestion.schema_fields.length - 8} more
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+          </Card>
+        </motion.div>
+      )}
 
       {/* Model Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
