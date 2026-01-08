@@ -57,7 +57,6 @@ async function queryBigQuery(accessToken: string, projectId: string, query: stri
   const data = await response.json();
   
   if (data.error) {
-    // Return null for permission/not found errors instead of throwing
     if (data.error.code === 403 || data.error.code === 404) {
       console.warn(`Query skipped (${data.error.code}): ${data.error.message}`);
       return null;
@@ -89,7 +88,10 @@ async function hashQuery(query: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
-// Channel-specific query builders
+// Updated dataset names for bluecoredcp service account
+const DATASET_PREFIX = 'bluecoredcp';
+
+// Channel-specific query builders with correct dataset and field names
 const CHANNEL_QUERIES = {
   shopee: {
     daily_revenue: (p: any) => `
@@ -98,8 +100,8 @@ const CHANNEL_QUERIES = {
         'shopee' as channel,
         COUNT(*) as order_count,
         SUM(CAST(total_amount AS FLOAT64)) as revenue,
-        SUM(CAST(seller_income AS FLOAT64)) as net_revenue
-      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+        SUM(CAST(IFNULL(seller_income, total_amount) AS FLOAT64)) as net_revenue
+      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
       WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
       GROUP BY 1, 2
     `,
@@ -108,9 +110,9 @@ const CHANNEL_QUERIES = {
         'shopee' as channel,
         COUNT(*) as total_orders,
         SUM(CAST(total_amount AS FLOAT64)) as gross_revenue,
-        SUM(CAST(seller_income AS FLOAT64)) as net_revenue,
+        SUM(CAST(IFNULL(seller_income, total_amount) AS FLOAT64)) as net_revenue,
         AVG(CAST(total_amount AS FLOAT64)) as avg_order_value
-      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
       WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
     `,
     order_status: (p: any) => `
@@ -118,7 +120,7 @@ const CHANNEL_QUERIES = {
         'shopee' as channel,
         order_status as status,
         COUNT(*) as count
-      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
       WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
       GROUP BY 1, 2
     `,
@@ -128,20 +130,20 @@ const CHANNEL_QUERIES = {
         'shopee' as channel,
         COUNT(*) as orders,
         SUM(CAST(total_amount AS FLOAT64)) as revenue
-      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`
+      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
       WHERE DATE(create_time) = CURRENT_DATE()
       GROUP BY 1, 2
       ORDER BY hour
     `,
     top_products: (p: any) => `
       SELECT 
-        item_name as product_name,
-        item_sku as sku,
-        SUM(CAST(item_count AS INT64)) as quantity_sold,
-        SUM(CAST(item_price AS FLOAT64) * CAST(item_count AS INT64)) as revenue
-      FROM \`${p.project_id}.menstaysimplicity_shopee.shopee_Orders\`,
-      UNNEST(items) as item
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
+        i.item_name as product_name,
+        i.item_sku as sku,
+        SUM(CAST(i.model_quantity_purchased AS INT64)) as quantity_sold,
+        SUM(CAST(i.model_discounted_price AS FLOAT64) * CAST(i.model_quantity_purchased AS INT64)) as revenue
+      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\` o
+      JOIN \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_OrderItems\` i ON o.order_sn = i.order_sn
+      WHERE DATE(o.create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
       GROUP BY 1, 2
       ORDER BY quantity_sold DESC
       LIMIT 20
@@ -150,13 +152,13 @@ const CHANNEL_QUERIES = {
   lazada: {
     daily_revenue: (p: any) => `
       SELECT 
-        DATE(createdAt) as date,
+        DATE(created_at) as date,
         'lazada' as channel,
         COUNT(*) as order_count,
         SUM(CAST(price AS FLOAT64)) as revenue,
-        SUM(CAST(sellerRevenue AS FLOAT64)) as net_revenue
-      FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
-      WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
+        SUM(CAST(price AS FLOAT64)) as net_revenue
+      FROM \`${p.project_id}.${DATASET_PREFIX}_lazada.lazada_Orders\`
+      WHERE DATE(created_at) BETWEEN '${p.start_date}' AND '${p.end_date}'
       GROUP BY 1, 2
     `,
     channel_summary: (p: any) => `
@@ -164,53 +166,23 @@ const CHANNEL_QUERIES = {
         'lazada' as channel,
         COUNT(*) as total_orders,
         SUM(CAST(price AS FLOAT64)) as gross_revenue,
-        SUM(CAST(sellerRevenue AS FLOAT64)) as net_revenue,
+        SUM(CAST(price AS FLOAT64)) as net_revenue,
         AVG(CAST(price AS FLOAT64)) as avg_order_value
-      FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
-      WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      FROM \`${p.project_id}.${DATASET_PREFIX}_lazada.lazada_Orders\`
+      WHERE DATE(created_at) BETWEEN '${p.start_date}' AND '${p.end_date}'
     `,
     order_status: (p: any) => `
       SELECT 
         'lazada' as channel,
-        status,
+        statuses_0 as status,
         COUNT(*) as count
-      FROM \`${p.project_id}.menstaysimplicity_lazada.lazada_Orders\`
-      WHERE DATE(createdAt) BETWEEN '${p.start_date}' AND '${p.end_date}'
+      FROM \`${p.project_id}.${DATASET_PREFIX}_lazada.lazada_Orders\`
+      WHERE DATE(created_at) BETWEEN '${p.start_date}' AND '${p.end_date}'
       GROUP BY 1, 2
     `,
   },
-  tiktok: {
-    daily_revenue: (p: any) => `
-      SELECT 
-        DATE(create_time) as date,
-        'tiktok' as channel,
-        COUNT(*) as order_count,
-        SUM(CAST(payment_info.total_amount AS FLOAT64)) as revenue,
-        SUM(CAST(payment_info.seller_revenue AS FLOAT64)) as net_revenue
-      FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-    `,
-    channel_summary: (p: any) => `
-      SELECT 
-        'tiktok' as channel,
-        COUNT(*) as total_orders,
-        SUM(CAST(payment_info.total_amount AS FLOAT64)) as gross_revenue,
-        SUM(CAST(payment_info.seller_revenue AS FLOAT64)) as net_revenue,
-        AVG(CAST(payment_info.total_amount AS FLOAT64)) as avg_order_value
-      FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    `,
-    order_status: (p: any) => `
-      SELECT 
-        'tiktok' as channel,
-        order_status as status,
-        COUNT(*) as count
-      FROM \`${p.project_id}.menstaysimplicity_tiktokshop.tiktok_Orders\`
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-    `,
-  },
+  // TikTok Shop - currently no Orders table available
+  // tiktok: { ... }
 };
 
 // Query each channel separately and combine results
@@ -331,11 +303,9 @@ serve(async (req) => {
     let channelsFailed: string[] = [];
 
     if (query_type === 'custom' && custom_query) {
-      // Custom query - execute directly
       const result = await queryBigQuery(accessToken, projectId, custom_query);
       rows = result || [];
     } else if (['daily_revenue', 'channel_summary', 'order_status', 'hourly_trend', 'top_products'].includes(query_type)) {
-      // Query each channel separately
       const startTime = Date.now();
       const result = await queryAllChannels(accessToken, projectId, query_type, params);
       rows = result.data;
