@@ -11,6 +11,7 @@ import {
   Activity,
   Bot,
   FileText,
+  Save,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -23,6 +24,7 @@ import { NPVIRRAnalysis } from '@/components/decision/NPVIRRAnalysis';
 import { PaybackAnalysis } from '@/components/decision/PaybackAnalysis';
 import { SensitivityAnalysis } from '@/components/decision/SensitivityAnalysis';
 import { SavedAnalysesList } from '@/components/decision/SavedAnalysesList';
+import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
 
 // Keep original components inline for now
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +51,8 @@ type AdvisorContext = Record<string, any>;
 
 // Make vs Buy Analysis Component
 function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
+  const saveAnalysis = useSaveDecisionAnalysis();
+  
   const [makeData, setMakeData] = useState({
     fixedCost: 500000000,
     variableCostPerUnit: 45000,
@@ -84,6 +88,21 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       buy: buyData.pricePerUnit * vol,
     };
   });
+
+  const handleSave = () => {
+    saveAnalysis.mutate({
+      analysis_type: 'make_vs_buy',
+      title: `Make vs Buy - ${new Date().toLocaleDateString('vi-VN')}`,
+      description: `So sánh tự sản xuất vs thuê ngoài với sản lượng ${makeData.volume.toLocaleString()} đơn vị`,
+      parameters: { makeData, buyData },
+      results: { makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings },
+      recommendation: recommendation === 'make' ? 'Tự sản xuất' : 'Thuê ngoài',
+      ai_insights: null,
+      status: 'completed',
+      approved_by: null,
+      approved_at: null,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -174,12 +193,18 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
           </div>
         </CardContent>
       </Card>
+
+      <Button onClick={handleSave} className="w-full" disabled={saveAnalysis.isPending}>
+        <Save className="h-4 w-4 mr-2" />
+        Lưu phân tích
+      </Button>
     </div>
   );
-}
 
 // Break-even Analysis Component
 function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
+  const saveAnalysis = useSaveDecisionAnalysis();
+  
   const [params, setParams] = useState({
     fixedCosts: 2000000000,
     sellingPrice: 150000,
@@ -209,6 +234,21 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       totalCost: params.fixedCosts + (vol * params.variableCost),
     };
   });
+
+  const handleSave = () => {
+    saveAnalysis.mutate({
+      analysis_type: 'break_even',
+      title: `Break-even Analysis - ${new Date().toLocaleDateString('vi-VN')}`,
+      description: `Phân tích hòa vốn với chi phí cố định ${formatVNDCompact(params.fixedCosts)}`,
+      parameters: params,
+      results: { contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety },
+      recommendation: marginOfSafety > 0 ? 'Trên điểm hòa vốn' : 'Dưới điểm hòa vốn',
+      ai_insights: null,
+      status: 'completed',
+      approved_by: null,
+      approved_at: null,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -279,6 +319,11 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
           </div>
         </CardContent>
       </Card>
+
+      <Button onClick={handleSave} className="w-full" disabled={saveAnalysis.isPending}>
+        <Save className="h-4 w-4 mr-2" />
+        Lưu phân tích
+      </Button>
     </div>
   );
 }
