@@ -1174,6 +1174,119 @@ export type Database = {
           },
         ]
       }
+      cash_flow_direct: {
+        Row: {
+          cash_for_asset_purchases: number | null
+          cash_for_dividends: number | null
+          cash_for_interest_paid: number | null
+          cash_for_investments: number | null
+          cash_for_loan_repayments: number | null
+          cash_for_other_operating: number | null
+          cash_for_rent: number | null
+          cash_for_taxes: number | null
+          cash_for_utilities: number | null
+          cash_from_asset_sales: number | null
+          cash_from_customers: number | null
+          cash_from_equity: number | null
+          cash_from_interest_received: number | null
+          cash_from_loans: number | null
+          cash_from_other_operating: number | null
+          cash_to_employees: number | null
+          cash_to_suppliers: number | null
+          closing_cash_balance: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_actual: boolean | null
+          net_cash_financing: number | null
+          net_cash_investing: number | null
+          net_cash_operating: number | null
+          notes: string | null
+          opening_cash_balance: number | null
+          period_end: string
+          period_start: string
+          period_type: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cash_for_asset_purchases?: number | null
+          cash_for_dividends?: number | null
+          cash_for_interest_paid?: number | null
+          cash_for_investments?: number | null
+          cash_for_loan_repayments?: number | null
+          cash_for_other_operating?: number | null
+          cash_for_rent?: number | null
+          cash_for_taxes?: number | null
+          cash_for_utilities?: number | null
+          cash_from_asset_sales?: number | null
+          cash_from_customers?: number | null
+          cash_from_equity?: number | null
+          cash_from_interest_received?: number | null
+          cash_from_loans?: number | null
+          cash_from_other_operating?: number | null
+          cash_to_employees?: number | null
+          cash_to_suppliers?: number | null
+          closing_cash_balance?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_actual?: boolean | null
+          net_cash_financing?: number | null
+          net_cash_investing?: number | null
+          net_cash_operating?: number | null
+          notes?: string | null
+          opening_cash_balance?: number | null
+          period_end: string
+          period_start: string
+          period_type?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cash_for_asset_purchases?: number | null
+          cash_for_dividends?: number | null
+          cash_for_interest_paid?: number | null
+          cash_for_investments?: number | null
+          cash_for_loan_repayments?: number | null
+          cash_for_other_operating?: number | null
+          cash_for_rent?: number | null
+          cash_for_taxes?: number | null
+          cash_for_utilities?: number | null
+          cash_from_asset_sales?: number | null
+          cash_from_customers?: number | null
+          cash_from_equity?: number | null
+          cash_from_interest_received?: number | null
+          cash_from_loans?: number | null
+          cash_from_other_operating?: number | null
+          cash_to_employees?: number | null
+          cash_to_suppliers?: number | null
+          closing_cash_balance?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_actual?: boolean | null
+          net_cash_financing?: number | null
+          net_cash_investing?: number | null
+          net_cash_operating?: number | null
+          notes?: string | null
+          opening_cash_balance?: number | null
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_flow_direct_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_forecasts: {
         Row: {
           closing_balance: number
@@ -3905,6 +4018,81 @@ export type Database = {
           },
         ]
       }
+      inventory_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          last_sold_date: string | null
+          notes: string | null
+          product_name: string
+          quantity: number
+          received_date: string
+          reorder_point: number | null
+          sku: string
+          status: string | null
+          supplier_id: string | null
+          tenant_id: string
+          total_value: number | null
+          unit_cost: number
+          updated_at: string
+          warehouse_location: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          last_sold_date?: string | null
+          notes?: string | null
+          product_name: string
+          quantity?: number
+          received_date: string
+          reorder_point?: number | null
+          sku: string
+          status?: string | null
+          supplier_id?: string | null
+          tenant_id: string
+          total_value?: number | null
+          unit_cost?: number
+          updated_at?: string
+          warehouse_location?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          last_sold_date?: string | null
+          notes?: string | null
+          product_name?: string
+          quantity?: number
+          received_date?: string
+          reorder_point?: number | null
+          sku?: string
+          status?: string | null
+          supplier_id?: string | null
+          tenant_id?: string
+          total_value?: number | null
+          unit_cost?: number
+          updated_at?: string
+          warehouse_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_levels: {
         Row: {
           created_at: string
@@ -5214,6 +5402,155 @@ export type Database = {
           },
         ]
       }
+      promotion_performance: {
+        Row: {
+          avg_order_value: number | null
+          cogs: number | null
+          created_at: string
+          discount_given: number | null
+          gross_profit: number | null
+          gross_revenue: number | null
+          id: string
+          net_revenue: number | null
+          new_customers: number | null
+          orders_count: number | null
+          performance_date: string
+          promotion_id: string
+          repeat_customers: number | null
+          tenant_id: string
+        }
+        Insert: {
+          avg_order_value?: number | null
+          cogs?: number | null
+          created_at?: string
+          discount_given?: number | null
+          gross_profit?: number | null
+          gross_revenue?: number | null
+          id?: string
+          net_revenue?: number | null
+          new_customers?: number | null
+          orders_count?: number | null
+          performance_date: string
+          promotion_id: string
+          repeat_customers?: number | null
+          tenant_id: string
+        }
+        Update: {
+          avg_order_value?: number | null
+          cogs?: number | null
+          created_at?: string
+          discount_given?: number | null
+          gross_profit?: number | null
+          gross_revenue?: number | null
+          id?: string
+          net_revenue?: number | null
+          new_customers?: number | null
+          orders_count?: number | null
+          performance_date?: string
+          promotion_id?: string
+          repeat_customers?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_performance_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_performance_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotions: {
+        Row: {
+          actual_orders: number | null
+          actual_revenue: number | null
+          actual_spend: number | null
+          budget: number | null
+          channel: string | null
+          created_at: string
+          created_by: string | null
+          discount_value: number | null
+          end_date: string
+          id: string
+          max_discount: number | null
+          min_order_value: number | null
+          notes: string | null
+          promotion_code: string | null
+          promotion_name: string
+          promotion_type: string
+          start_date: string
+          status: string | null
+          target_orders: number | null
+          target_revenue: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actual_orders?: number | null
+          actual_revenue?: number | null
+          actual_spend?: number | null
+          budget?: number | null
+          channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          discount_value?: number | null
+          end_date: string
+          id?: string
+          max_discount?: number | null
+          min_order_value?: number | null
+          notes?: string | null
+          promotion_code?: string | null
+          promotion_name: string
+          promotion_type: string
+          start_date: string
+          status?: string | null
+          target_orders?: number | null
+          target_revenue?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actual_orders?: number | null
+          actual_revenue?: number | null
+          actual_spend?: number | null
+          budget?: number | null
+          channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          discount_value?: number | null
+          end_date?: string
+          id?: string
+          max_discount?: number | null
+          min_order_value?: number | null
+          notes?: string | null
+          promotion_code?: string | null
+          promotion_name?: string
+          promotion_type?: string
+          start_date?: string
+          status?: string | null
+          target_orders?: number | null
+          target_revenue?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_templates: {
         Row: {
           auto_post: boolean | null
@@ -5727,6 +6064,104 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_payment_schedules: {
+        Row: {
+          bill_id: string | null
+          cash_available_on_early_date: number | null
+          created_at: string
+          due_date: string
+          early_payment_date: string | null
+          early_payment_discount_amount: number | null
+          early_payment_discount_percent: number | null
+          id: string
+          net_amount_if_early: number | null
+          net_benefit: number | null
+          notes: string | null
+          opportunity_cost: number | null
+          original_amount: number
+          paid_amount: number | null
+          paid_date: string | null
+          payment_status: string | null
+          recommended_action: string | null
+          tenant_id: string
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          bill_id?: string | null
+          cash_available_on_early_date?: number | null
+          created_at?: string
+          due_date: string
+          early_payment_date?: string | null
+          early_payment_discount_amount?: number | null
+          early_payment_discount_percent?: number | null
+          id?: string
+          net_amount_if_early?: number | null
+          net_benefit?: number | null
+          notes?: string | null
+          opportunity_cost?: number | null
+          original_amount: number
+          paid_amount?: number | null
+          paid_date?: string | null
+          payment_status?: string | null
+          recommended_action?: string | null
+          tenant_id: string
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          bill_id?: string | null
+          cash_available_on_early_date?: number | null
+          created_at?: string
+          due_date?: string
+          early_payment_date?: string | null
+          early_payment_discount_amount?: number | null
+          early_payment_discount_percent?: number | null
+          id?: string
+          net_amount_if_early?: number | null
+          net_benefit?: number | null
+          notes?: string | null
+          opportunity_cost?: number | null
+          original_amount?: number
+          paid_amount?: number | null
+          paid_date?: string | null
+          payment_status?: string | null
+          recommended_action?: string | null
+          tenant_id?: string
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_payment_schedules_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_aging"
+            referencedColumns: ["bill_id"]
+          },
+          {
+            foreignKeyName: "supplier_payment_schedules_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_payment_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_payment_schedules_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
