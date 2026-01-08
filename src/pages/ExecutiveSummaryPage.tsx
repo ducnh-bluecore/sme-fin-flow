@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardKPICache } from '@/hooks/useDashboardCache';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useQuickWins } from '@/hooks/useQuickWins';
+import { useRiskAlerts } from '@/hooks/useRiskAlerts';
 import { formatVNDCompact } from '@/lib/formatters';
 import { PendingDecisionsPanel } from '@/components/executive/PendingDecisionsPanel';
 import {
@@ -375,6 +376,7 @@ export default function ExecutiveSummaryPage() {
   const { data: kpiData, isLoading } = useDashboardKPICache();
   const { data: runwayData } = useCashRunway();
   const { quickWins, totalPotentialSavings, isLoading: quickWinsLoading } = useQuickWins();
+  const { data: riskAlerts, isLoading: riskAlertsLoading } = useRiskAlerts();
 
   // Calculate health score based on KPIs
   const calculateHealthScore = () => {
@@ -387,13 +389,6 @@ export default function ExecutiveSummaryPage() {
   };
 
   const healthScore = calculateHealthScore();
-
-  // Sample risk alerts
-  const riskAlerts = [
-    { title: 'Cash Runway thấp', severity: 'warning' as const, description: 'Dự kiến hết tiền trong 4.5 tháng nếu không có biện pháp', metric: `Runway: ${runwayData?.runwayMonths?.toFixed(1) || '4.5'} tháng` },
-    { title: 'DSO tăng', severity: 'warning' as const, description: 'DSO tăng 8 ngày so với tháng trước', metric: `DSO: ${kpiData?.dso || 52} ngày` },
-    { title: 'Top 3 khách hàng chiếm 45% AR', severity: 'info' as const, description: 'Rủi ro tập trung cao, cần đa dạng hóa', metric: 'Concentration: 45%' },
-  ];
 
   return (
     <>
@@ -515,11 +510,24 @@ export default function ExecutiveSummaryPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {riskAlerts.map((alert, index) => (
-                <RiskAlertCard key={index} {...alert} />
-              ))}
-            </div>
+            {riskAlertsLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 bg-muted/50 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : riskAlerts && riskAlerts.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {riskAlerts.slice(0, 6).map((alert) => (
+                  <RiskAlertCard key={alert.id} {...alert} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-500" />
+                <p>Không có cảnh báo rủi ro nào</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
