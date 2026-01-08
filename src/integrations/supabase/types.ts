@@ -1100,6 +1100,80 @@ export type Database = {
           },
         ]
       }
+      capex_projects: {
+        Row: {
+          actual_roi: number | null
+          approved_at: string | null
+          approved_by: string | null
+          budget: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          expected_roi: number | null
+          id: string
+          name: string
+          notes: string | null
+          payback_months: number | null
+          spent: number
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actual_roi?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          budget?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          expected_roi?: number | null
+          id?: string
+          name: string
+          notes?: string | null
+          payback_months?: number | null
+          spent?: number
+          start_date?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actual_roi?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          budget?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          expected_roi?: number | null
+          id?: string
+          name?: string
+          notes?: string | null
+          payback_months?: number | null
+          spent?: number
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capex_projects_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_forecasts: {
         Row: {
           closing_balance: number
@@ -3871,6 +3945,77 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "inventory_levels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      investments: {
+        Row: {
+          account_number: string | null
+          actual_return: number | null
+          created_at: string
+          created_by: string | null
+          current_value: number
+          description: string | null
+          expected_return: number | null
+          id: string
+          institution: string | null
+          investment_type: string
+          maturity_date: string | null
+          name: string
+          notes: string | null
+          principal_amount: number
+          risk_level: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          actual_return?: number | null
+          created_at?: string
+          created_by?: string | null
+          current_value?: number
+          description?: string | null
+          expected_return?: number | null
+          id?: string
+          institution?: string | null
+          investment_type?: string
+          maturity_date?: string | null
+          name: string
+          notes?: string | null
+          principal_amount?: number
+          risk_level?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          actual_return?: number | null
+          created_at?: string
+          created_by?: string | null
+          current_value?: number
+          description?: string | null
+          expected_return?: number | null
+          id?: string
+          institution?: string | null
+          investment_type?: string
+          maturity_date?: string | null
+          name?: string
+          notes?: string | null
+          principal_amount?: number
+          risk_level?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investments_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
