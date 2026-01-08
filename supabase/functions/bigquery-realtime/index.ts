@@ -7,10 +7,70 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate JWT for BigQuery API authentication using jose library
+interface ChannelConfig {
+  enabled: boolean;
+  dataset: string;
+  orders_table: string;
+  order_items_table: string;
+  date_field: string;
+  amount_field: string;
+  net_amount_field: string;
+  status_field: string;
+  order_id_field: string;
+}
+
+interface BigQueryConfig {
+  project_id: string;
+  dataset_prefix: string;
+  channels: Record<string, ChannelConfig>;
+  cache_ttl_minutes: number;
+}
+
+// Default config if none exists in database
+const DEFAULT_CONFIG: BigQueryConfig = {
+  project_id: 'bluecore-dcp',
+  dataset_prefix: 'bluecoredcp',
+  cache_ttl_minutes: 15,
+  channels: {
+    shopee: {
+      enabled: true,
+      dataset: 'bluecoredcp_shopee',
+      orders_table: 'shopee_Orders',
+      order_items_table: 'shopee_OrderItems',
+      date_field: 'create_time',
+      amount_field: 'total_amount',
+      net_amount_field: 'seller_income',
+      status_field: 'order_status',
+      order_id_field: 'order_sn'
+    },
+    lazada: {
+      enabled: true,
+      dataset: 'bluecoredcp_lazada',
+      orders_table: 'lazada_Orders',
+      order_items_table: 'lazada_OrderItems',
+      date_field: 'created_at',
+      amount_field: 'price',
+      net_amount_field: 'price',
+      status_field: 'statuses_0',
+      order_id_field: 'order_id'
+    },
+    tiktok: {
+      enabled: false,
+      dataset: 'bluecoredcp_tiktokshop',
+      orders_table: 'tiktok_Orders',
+      order_items_table: 'tiktok_OrderItems',
+      date_field: 'create_time',
+      amount_field: 'total_amount',
+      net_amount_field: 'seller_revenue',
+      status_field: 'order_status',
+      order_id_field: 'order_id'
+    }
+  }
+};
+
+// Generate JWT for BigQuery API authentication
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  
   const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
   
   const jwt = await new SignJWT({
@@ -88,121 +148,111 @@ async function hashQuery(query: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
-// Updated dataset names for bluecoredcp service account
-const DATASET_PREFIX = 'bluecoredcp';
+// Build dynamic query based on channel config
+function buildQuery(
+  queryType: string, 
+  channel: string, 
+  config: ChannelConfig, 
+  projectId: string, 
+  startDate: string, 
+  endDate: string
+): string | null {
+  const { dataset, orders_table, order_items_table, date_field, amount_field, net_amount_field, status_field, order_id_field } = config;
+  const fullTable = `\`${projectId}.${dataset}.${orders_table}\``;
+  const itemsTable = `\`${projectId}.${dataset}.${order_items_table}\``;
 
-// Channel-specific query builders with correct dataset and field names
-const CHANNEL_QUERIES = {
-  shopee: {
-    daily_revenue: (p: any) => `
-      SELECT 
-        DATE(create_time) as date,
-        'shopee' as channel,
-        COUNT(*) as order_count,
-        SUM(CAST(total_amount AS FLOAT64)) as revenue,
-        SUM(CAST(IFNULL(seller_income, total_amount) AS FLOAT64)) as net_revenue
-      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-    `,
-    channel_summary: (p: any) => `
-      SELECT 
-        'shopee' as channel,
-        COUNT(*) as total_orders,
-        SUM(CAST(total_amount AS FLOAT64)) as gross_revenue,
-        SUM(CAST(IFNULL(seller_income, total_amount) AS FLOAT64)) as net_revenue,
-        AVG(CAST(total_amount AS FLOAT64)) as avg_order_value
-      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    `,
-    order_status: (p: any) => `
-      SELECT 
-        'shopee' as channel,
-        order_status as status,
-        COUNT(*) as count
-      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
-      WHERE DATE(create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-    `,
-    hourly_trend: (p: any) => `
-      SELECT 
-        EXTRACT(HOUR FROM create_time) as hour,
-        'shopee' as channel,
-        COUNT(*) as orders,
-        SUM(CAST(total_amount AS FLOAT64)) as revenue
-      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\`
-      WHERE DATE(create_time) = CURRENT_DATE()
-      GROUP BY 1, 2
-      ORDER BY hour
-    `,
-    top_products: (p: any) => `
-      SELECT 
-        i.item_name as product_name,
-        i.item_sku as sku,
-        SUM(CAST(i.model_quantity_purchased AS INT64)) as quantity_sold,
-        SUM(CAST(i.model_discounted_price AS FLOAT64) * CAST(i.model_quantity_purchased AS INT64)) as revenue
-      FROM \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_Orders\` o
-      JOIN \`${p.project_id}.${DATASET_PREFIX}_shopee.shopee_OrderItems\` i ON o.order_sn = i.order_sn
-      WHERE DATE(o.create_time) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-      ORDER BY quantity_sold DESC
-      LIMIT 20
-    `,
-  },
-  lazada: {
-    daily_revenue: (p: any) => `
-      SELECT 
-        DATE(created_at) as date,
-        'lazada' as channel,
-        COUNT(*) as order_count,
-        SUM(CAST(price AS FLOAT64)) as revenue,
-        SUM(CAST(price AS FLOAT64)) as net_revenue
-      FROM \`${p.project_id}.${DATASET_PREFIX}_lazada.lazada_Orders\`
-      WHERE DATE(created_at) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-    `,
-    channel_summary: (p: any) => `
-      SELECT 
-        'lazada' as channel,
-        COUNT(*) as total_orders,
-        SUM(CAST(price AS FLOAT64)) as gross_revenue,
-        SUM(CAST(price AS FLOAT64)) as net_revenue,
-        AVG(CAST(price AS FLOAT64)) as avg_order_value
-      FROM \`${p.project_id}.${DATASET_PREFIX}_lazada.lazada_Orders\`
-      WHERE DATE(created_at) BETWEEN '${p.start_date}' AND '${p.end_date}'
-    `,
-    order_status: (p: any) => `
-      SELECT 
-        'lazada' as channel,
-        statuses_0 as status,
-        COUNT(*) as count
-      FROM \`${p.project_id}.${DATASET_PREFIX}_lazada.lazada_Orders\`
-      WHERE DATE(created_at) BETWEEN '${p.start_date}' AND '${p.end_date}'
-      GROUP BY 1, 2
-    `,
-  },
-  // TikTok Shop - currently no Orders table available
-  // tiktok: { ... }
-};
+  switch (queryType) {
+    case 'daily_revenue':
+      return `
+        SELECT 
+          DATE(${date_field}) as date,
+          '${channel}' as channel,
+          COUNT(*) as order_count,
+          SUM(CAST(${amount_field} AS FLOAT64)) as revenue,
+          SUM(CAST(IFNULL(${net_amount_field}, ${amount_field}) AS FLOAT64)) as net_revenue
+        FROM ${fullTable}
+        WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
+        GROUP BY 1, 2
+      `;
+    
+    case 'channel_summary':
+      return `
+        SELECT 
+          '${channel}' as channel,
+          COUNT(*) as total_orders,
+          SUM(CAST(${amount_field} AS FLOAT64)) as gross_revenue,
+          SUM(CAST(IFNULL(${net_amount_field}, ${amount_field}) AS FLOAT64)) as net_revenue,
+          AVG(CAST(${amount_field} AS FLOAT64)) as avg_order_value
+        FROM ${fullTable}
+        WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
+      `;
+    
+    case 'order_status':
+      return `
+        SELECT 
+          '${channel}' as channel,
+          ${status_field} as status,
+          COUNT(*) as count
+        FROM ${fullTable}
+        WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
+        GROUP BY 1, 2
+      `;
+    
+    case 'hourly_trend':
+      return `
+        SELECT 
+          EXTRACT(HOUR FROM ${date_field}) as hour,
+          '${channel}' as channel,
+          COUNT(*) as orders,
+          SUM(CAST(${amount_field} AS FLOAT64)) as revenue
+        FROM ${fullTable}
+        WHERE DATE(${date_field}) = CURRENT_DATE()
+        GROUP BY 1, 2
+        ORDER BY hour
+      `;
+    
+    case 'top_products':
+      // This requires order items table - may not work for all channels
+      return `
+        SELECT 
+          '${channel}' as channel,
+          COUNT(*) as order_count,
+          SUM(CAST(${amount_field} AS FLOAT64)) as revenue
+        FROM ${fullTable}
+        WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
+      `;
+    
+    default:
+      return null;
+  }
+}
 
 // Query each channel separately and combine results
 async function queryAllChannels(
   accessToken: string, 
   projectId: string, 
   queryType: string, 
-  params: any
+  config: BigQueryConfig,
+  startDate: string,
+  endDate: string
 ): Promise<{ data: any[], channels_queried: string[], channels_failed: string[] }> {
   const results: any[] = [];
   const channelsQueried: string[] = [];
   const channelsFailed: string[] = [];
   
-  for (const [channel, queries] of Object.entries(CHANNEL_QUERIES)) {
-    const queryFn = (queries as any)[queryType];
-    if (!queryFn) continue;
+  for (const [channel, channelConfig] of Object.entries(config.channels)) {
+    if (!channelConfig.enabled) {
+      console.log(`Channel ${channel} is disabled, skipping`);
+      continue;
+    }
     
-    const query = queryFn(params);
+    const query = buildQuery(queryType, channel, channelConfig, projectId, startDate, endDate);
+    if (!query) {
+      console.log(`No query template for ${queryType} on ${channel}`);
+      continue;
+    }
+    
     console.log(`Querying ${channel}...`);
-    
     const channelResults = await queryBigQuery(accessToken, projectId, query);
     
     if (channelResults === null) {
@@ -231,8 +281,6 @@ serve(async (req) => {
       end_date,
       custom_query,
       use_cache = true,
-      cache_ttl_minutes = 15,
-      project_id: customProjectId,
     } = await req.json();
 
     console.log('BigQuery Realtime query:', { tenant_id, query_type, start_date, end_date, use_cache });
@@ -241,32 +289,46 @@ serve(async (req) => {
       throw new Error('tenant_id is required');
     }
 
+    // Get service account
     const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured. Please add your Google Cloud service account credentials.');
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
     }
     
-    let serviceAccount;
-    try {
-      serviceAccount = JSON.parse(serviceAccountJson);
-    } catch (e) {
-      throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON format. Please ensure it is valid JSON.');
-    }
-    
-    const projectId = customProjectId || serviceAccount.project_id || 'bluecore-dcp';
+    const serviceAccount = JSON.parse(serviceAccountJson);
 
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const params = {
-      project_id: projectId,
-      start_date: start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      end_date: end_date || new Date().toISOString().split('T')[0],
-    };
+    // Fetch tenant's BigQuery config from database
+    let config: BigQueryConfig = DEFAULT_CONFIG;
+    const { data: dbConfig } = await supabase
+      .from('bigquery_configs')
+      .select('*')
+      .eq('tenant_id', tenant_id)
+      .eq('is_active', true)
+      .single();
+    
+    if (dbConfig) {
+      console.log('Using tenant-specific BigQuery config');
+      config = {
+        project_id: dbConfig.project_id || DEFAULT_CONFIG.project_id,
+        dataset_prefix: dbConfig.dataset_prefix || DEFAULT_CONFIG.dataset_prefix,
+        channels: dbConfig.channels || DEFAULT_CONFIG.channels,
+        cache_ttl_minutes: dbConfig.cache_ttl_minutes || DEFAULT_CONFIG.cache_ttl_minutes,
+      };
+    } else {
+      console.log('Using default BigQuery config');
+    }
 
-    // Check cache if enabled
-    const cacheKey = `${query_type}_${params.start_date}_${params.end_date}_${tenant_id}`;
+    const projectId = config.project_id;
+    const startDateStr = start_date || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const endDateStr = end_date || new Date().toISOString().split('T')[0];
+
+    // Check cache
+    const cacheKey = `${query_type}_${startDateStr}_${endDateStr}_${tenant_id}`;
     if (use_cache && query_type !== 'custom') {
       const queryHash = await hashQuery(cacheKey);
       
@@ -307,19 +369,19 @@ serve(async (req) => {
       rows = result || [];
     } else if (['daily_revenue', 'channel_summary', 'order_status', 'hourly_trend', 'top_products'].includes(query_type)) {
       const startTime = Date.now();
-      const result = await queryAllChannels(accessToken, projectId, query_type, params);
+      const result = await queryAllChannels(accessToken, projectId, query_type, config, startDateStr, endDateStr);
       rows = result.data;
       channelsQueried = result.channels_queried;
       channelsFailed = result.channels_failed;
       console.log(`All channels queried in ${Date.now() - startTime}ms`);
     } else {
-      throw new Error(`Unknown query_type: ${query_type}. Available types: daily_revenue, channel_summary, order_status, hourly_trend, top_products, custom`);
+      throw new Error(`Unknown query_type: ${query_type}`);
     }
 
-    // Cache results if enabled
+    // Cache results
     if (use_cache && query_type !== 'custom' && rows.length > 0) {
       const queryHash = await hashQuery(cacheKey);
-      const expiresAt = new Date(Date.now() + cache_ttl_minutes * 60 * 1000);
+      const expiresAt = new Date(Date.now() + config.cache_ttl_minutes * 60 * 1000);
 
       await supabase
         .from('bigquery_query_cache')
@@ -346,6 +408,10 @@ serve(async (req) => {
         row_count: rows.length,
         channels_queried: channelsQueried,
         channels_failed: channelsFailed,
+        config_used: {
+          project_id: projectId,
+          channels: Object.keys(config.channels).filter(c => config.channels[c].enabled)
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

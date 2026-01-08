@@ -529,6 +529,53 @@ export type Database = {
           },
         ]
       }
+      bigquery_configs: {
+        Row: {
+          cache_ttl_minutes: number | null
+          channels: Json
+          created_at: string
+          custom_mappings: Json | null
+          dataset_prefix: string
+          id: string
+          is_active: boolean | null
+          project_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          cache_ttl_minutes?: number | null
+          channels?: Json
+          created_at?: string
+          custom_mappings?: Json | null
+          dataset_prefix?: string
+          id?: string
+          is_active?: boolean | null
+          project_id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          cache_ttl_minutes?: number | null
+          channels?: Json
+          created_at?: string
+          custom_mappings?: Json | null
+          dataset_prefix?: string
+          id?: string
+          is_active?: boolean | null
+          project_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bigquery_data_models: {
         Row: {
           bigquery_dataset: string
