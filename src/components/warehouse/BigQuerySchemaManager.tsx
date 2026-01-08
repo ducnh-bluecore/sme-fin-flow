@@ -71,11 +71,11 @@ interface BigQueryConfigData {
 const DEFAULT_CHANNELS: Record<string, ChannelConfig> = {
   shopee: {
     dataset: 'bluecoredcp_shopee',
-    table: 'Orders',
+    table: 'shopee_Orders',
     enabled: true,
     field_mappings: {
-      order_id: 'order_id',
-      order_date: 'order_complete_time',
+      order_id: 'order_sn',
+      order_date: 'create_time',
       status: 'order_status',
       total_amount: 'total_amount',
       customer_name: 'buyer_username',
@@ -84,15 +84,41 @@ const DEFAULT_CHANNELS: Record<string, ChannelConfig> = {
   },
   lazada: {
     dataset: 'bluecoredcp_lazada',
-    table: 'Orders',
+    table: 'lazada_Orders',
     enabled: true,
     field_mappings: {
       order_id: 'orderNumber',
       order_date: 'created_at',
       status: 'statuses_0',
       total_amount: 'price',
-      customer_name: 'customerName',
+      customer_name: 'customer_first_name',
       product_name: 'name',
+    },
+  },
+  sapo: {
+    dataset: 'bluecoredcp_sapo',
+    table: 'sapo_Orders',
+    enabled: true,
+    field_mappings: {
+      order_id: 'id',
+      order_date: 'created_on',
+      status: 'status',
+      total_amount: 'total_price',
+      customer_name: 'billing_address_name',
+      product_name: 'product_name',
+    },
+  },
+  tiki: {
+    dataset: 'bluecoredcp_tiki',
+    table: 'tiki_Orders',
+    enabled: false,
+    field_mappings: {
+      order_id: 'code',
+      order_date: 'created_at',
+      status: 'status',
+      total_amount: 'grand_total',
+      customer_name: 'customer_full_name',
+      product_name: 'product_name',
     },
   },
   tiktok: {
@@ -108,17 +134,17 @@ const DEFAULT_CHANNELS: Record<string, ChannelConfig> = {
       product_name: 'sku_name',
     },
   },
-  tiki: {
-    dataset: 'bluecoredcp_tiki',
-    table: 'Orders',
+  shopify: {
+    dataset: 'bluecoredcp_shopify',
+    table: 'shopify_Order',
     enabled: false,
     field_mappings: {
-      order_id: 'order_id',
+      order_id: 'id',
       order_date: 'created_at',
-      status: 'status',
-      total_amount: 'grand_total',
-      customer_name: 'customer_name',
-      product_name: 'product_name',
+      status: 'financial_status',
+      total_amount: 'total_price',
+      customer_name: 'customer_first_name',
+      product_name: 'name',
     },
   },
 };
