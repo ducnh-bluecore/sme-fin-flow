@@ -50,20 +50,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-interface AISuggestion {
-  bigquery_dataset: string;
-  bigquery_table: string;
-  target_table: string | null;
-  confidence: number;
-  reason: string;
-  field_mapping: Record<string, string>;
+// Updated interface for grouped suggestions (multiple sources per model)
+interface SourceTable {
+  dataset: string;
+  table: string;
+  channel: string;
+  row_count: number;
+  schema_fields: Array<{ name: string; type: string; mode: string }>;
   primary_key_field: string | null;
   timestamp_field: string | null;
+  match_score: number;
+  match_reason: string;
+}
+
+interface AISuggestion {
   model_name: string;
   model_label: string;
   description: string;
-  row_count: number;
-  schema_fields: Array<{ name: string; type: string; mode: string }>;
+  target_table: string;
+  sources: SourceTable[];
+  total_rows: number;
+  confidence: number;
+  channels: string[];
+  recommended_sync_query: string;
 }
 
 interface DataModelConfig {
@@ -196,19 +205,24 @@ export function DataModelManager() {
     }
   };
 
-  // Add suggestion as data model
+  // Add suggestion as data model (using first source as primary)
   const handleAddSuggestion = async (suggestion: AISuggestion) => {
     if (!tenantId) return;
     
     try {
+      const primarySource = suggestion.sources[0];
+      if (!primarySource) {
+        throw new Error('No source tables found');
+      }
+      
       await upsertModel.mutateAsync({
         model_name: suggestion.model_name,
         model_label: suggestion.model_label,
         description: suggestion.description,
-        bigquery_dataset: suggestion.bigquery_dataset,
-        bigquery_table: suggestion.bigquery_table,
-        primary_key_field: suggestion.primary_key_field || 'id',
-        timestamp_field: suggestion.timestamp_field || undefined,
+        bigquery_dataset: primarySource.dataset,
+        bigquery_table: primarySource.table,
+        primary_key_field: primarySource.primary_key_field || 'id',
+        timestamp_field: primarySource.timestamp_field || undefined,
         target_table: suggestion.target_table || undefined,
         is_enabled: false,
         sync_frequency_hours: 24,
@@ -216,7 +230,7 @@ export function DataModelManager() {
       
       // Remove from suggestions
       setSuggestions(prev => prev.filter(s => s.model_name !== suggestion.model_name));
-      toast.success(`Đã thêm "${suggestion.model_label}" vào Data Models`);
+      toast.success(`Đã thêm "${suggestion.model_label}" với ${suggestion.sources.length} nguồn`);
     } catch (error: any) {
       toast.error('Lỗi: ' + error.message);
     }
@@ -350,6 +364,7 @@ export function DataModelManager() {
                   {suggestions.map((suggestion) => {
                     const badge = getConfidenceBadge(suggestion.confidence);
                     const isExpanded = expandedSuggestion === suggestion.model_name;
+                    const primarySource = suggestion.sources[0];
                     
                     return (
                       <Collapsible
@@ -363,22 +378,26 @@ export function DataModelManager() {
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium truncate">
-                                  {suggestion.bigquery_table}
+                                <span className="font-medium">
+                                  {suggestion.model_label}
                                 </span>
                                 <Badge variant={badge.variant} className="text-xs">
                                   {suggestion.confidence}% {badge.label}
                                 </Badge>
-                                {suggestion.target_table && (
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <ArrowRight className="w-3 h-3" />
-                                    <span className="font-mono">{suggestion.target_table}</span>
-                                  </div>
-                                )}
+                                <Badge variant="outline" className="text-xs">
+                                  {suggestion.sources.length} nguồn
+                                </Badge>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-1 truncate">
-                                {suggestion.bigquery_dataset} • {suggestion.row_count.toLocaleString()} records
-                              </p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {suggestion.channels.map(ch => (
+                                  <Badge key={ch} variant="secondary" className="text-xs capitalize">
+                                    {ch}
+                                  </Badge>
+                                ))}
+                                <span className="text-xs text-muted-foreground">
+                                  • {suggestion.total_rows.toLocaleString()} records
+                                </span>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 ml-2">
                               <CollapsibleTrigger asChild>
@@ -402,34 +421,70 @@ export function DataModelManager() {
                           </div>
 
                           <CollapsibleContent>
-                            <div className="mt-3 pt-3 border-t space-y-3">
-                              <div>
-                                <p className="text-xs font-medium mb-1">Lý do đề xuất:</p>
-                                <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
+                            <div className="mt-3 pt-3 border-t space-y-4">
+                              {/* Target table */}
+                              <div className="flex items-center gap-2">
+                                <ArrowRight className="w-4 h-4 text-primary" />
+                                <span className="text-sm">Target:</span>
+                                <Badge variant="default" className="font-mono">
+                                  {suggestion.target_table}
+                                </Badge>
                               </div>
-                              
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div>
-                                  <span className="text-muted-foreground">Primary Key:</span>
-                                  <span className="ml-1 font-mono">
-                                    {suggestion.primary_key_field || 'N/A'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Timestamp:</span>
-                                  <span className="ml-1 font-mono">
-                                    {suggestion.timestamp_field || 'N/A'}
-                                  </span>
+
+                              {/* Source tables */}
+                              <div>
+                                <p className="text-xs font-medium mb-2">
+                                  Các bảng nguồn ({suggestion.sources.length}):
+                                </p>
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                  {suggestion.sources.map((source, idx) => (
+                                    <div 
+                                      key={`${source.dataset}.${source.table}`}
+                                      className="p-2 rounded bg-muted/50 text-xs"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-mono font-medium">
+                                          {source.dataset}.{source.table}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="outline" className="capitalize">
+                                            {source.channel}
+                                          </Badge>
+                                          <span className="text-muted-foreground">
+                                            {source.row_count.toLocaleString()} rows
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <p className="text-muted-foreground mt-1">
+                                        {source.match_reason}
+                                      </p>
+                                      <div className="flex gap-4 mt-1 text-muted-foreground">
+                                        <span>PK: <code>{source.primary_key_field || 'N/A'}</code></span>
+                                        <span>Time: <code>{source.timestamp_field || 'N/A'}</code></span>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
 
-                              {suggestion.schema_fields && (
+                              {/* Recommended query preview */}
+                              {suggestion.recommended_sync_query && (
+                                <div>
+                                  <p className="text-xs font-medium mb-1">Query đề xuất:</p>
+                                  <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-24">
+                                    {suggestion.recommended_sync_query}
+                                  </pre>
+                                </div>
+                              )}
+
+                              {/* First source schema preview */}
+                              {primarySource?.schema_fields && (
                                 <div>
                                   <p className="text-xs font-medium mb-1">
-                                    Schema ({suggestion.schema_fields.length} fields):
+                                    Schema mẫu ({primarySource.schema_fields.length} fields):
                                   </p>
                                   <div className="flex flex-wrap gap-1">
-                                    {suggestion.schema_fields.slice(0, 8).map((field) => (
+                                    {primarySource.schema_fields.slice(0, 8).map((field) => (
                                       <Badge 
                                         key={field.name} 
                                         variant="outline" 
@@ -441,9 +496,9 @@ export function DataModelManager() {
                                         </span>
                                       </Badge>
                                     ))}
-                                    {suggestion.schema_fields.length > 8 && (
+                                    {primarySource.schema_fields.length > 8 && (
                                       <Badge variant="outline" className="text-xs">
-                                        +{suggestion.schema_fields.length - 8} more
+                                        +{primarySource.schema_fields.length - 8} more
                                       </Badge>
                                     )}
                                   </div>
