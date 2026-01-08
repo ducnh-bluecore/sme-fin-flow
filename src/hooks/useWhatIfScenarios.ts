@@ -99,9 +99,12 @@ export function useWhatIfScenarios() {
   return useQuery({
     queryKey: ['what-if-scenarios', tenantId],
     queryFn: async () => {
+      if (!tenantId) return [];
+      
       const { data, error } = await supabase
         .from('what_if_scenarios')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
