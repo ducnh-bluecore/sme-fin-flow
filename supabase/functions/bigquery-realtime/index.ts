@@ -1,53 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SignJWT, importPKCS8 } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate JWT for BigQuery API authentication
+// Generate JWT for BigQuery API authentication using jose library
 async function getAccessToken(serviceAccount: any): Promise<string> {
-  const header = { alg: 'RS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
-  const payload = {
+  
+  // Import the private key using jose
+  const privateKey = await importPKCS8(serviceAccount.private_key, 'RS256');
+  
+  // Create and sign the JWT
+  const jwt = await new SignJWT({
     iss: serviceAccount.client_email,
     scope: 'https://www.googleapis.com/auth/bigquery.readonly',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now,
-  };
+  })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .sign(privateKey);
 
-  const encoder = new TextEncoder();
-  const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const signInput = `${headerB64}.${payloadB64}`;
-
-  const pemContents = serviceAccount.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\n/g, '');
-  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    binaryKey,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    encoder.encode(signInput)
-  );
-
-  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-  const jwt = `${signInput}.${signatureB64}`;
-
+  // Exchange JWT for access token
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -56,6 +34,7 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
   const tokenData = await tokenResponse.json();
   if (!tokenData.access_token) {
+    console.error('Token response:', tokenData);
     throw new Error('Failed to get access token: ' + JSON.stringify(tokenData));
   }
   return tokenData.access_token;
@@ -99,13 +78,13 @@ async function queryBigQuery(accessToken: string, projectId: string, query: stri
   });
 }
 
-// Generate MD5 hash for query caching
+// Generate SHA-256 hash for query caching (MD5 not supported in Deno edge runtime)
 async function hashQuery(query: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(query);
-  const hashBuffer = await crypto.subtle.digest('MD5', data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
 // Pre-defined query templates for common analytics
@@ -274,10 +253,16 @@ serve(async (req) => {
     // Get service account from environment
     const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured. Please add your Google Cloud service account credentials.');
     }
     
-    const serviceAccount = JSON.parse(serviceAccountJson);
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(serviceAccountJson);
+    } catch (e) {
+      throw new Error('Invalid GOOGLE_SERVICE_ACCOUNT_JSON format. Please ensure it is valid JSON.');
+    }
+    
     const projectId = customProjectId || serviceAccount.project_id || 'bluecore-dcp';
 
     // Initialize Supabase client
@@ -296,7 +281,7 @@ serve(async (req) => {
         end_date: end_date || new Date().toISOString().split('T')[0],
       });
     } else {
-      throw new Error(`Unknown query_type: ${query_type}`);
+      throw new Error(`Unknown query_type: ${query_type}. Available types: daily_revenue, channel_summary, order_status, hourly_trend, top_products, custom`);
     }
 
     // Check cache if enabled
@@ -328,8 +313,9 @@ serve(async (req) => {
     }
 
     // Execute query on BigQuery
+    console.log('Getting access token...');
     const accessToken = await getAccessToken(serviceAccount);
-    console.log('Executing BigQuery query...');
+    console.log('Access token obtained, executing BigQuery query...');
     
     const startTime = Date.now();
     const rows = await queryBigQuery(accessToken, projectId, query);
