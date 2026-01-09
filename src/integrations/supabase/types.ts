@@ -2080,6 +2080,7 @@ export type Database = {
           customer_type: string | null
           district: string | null
           email: string | null
+          external_customer_id: string | null
           gl_receivable_account_id: string | null
           id: string
           name: string
@@ -2104,6 +2105,7 @@ export type Database = {
           customer_type?: string | null
           district?: string | null
           email?: string | null
+          external_customer_id?: string | null
           gl_receivable_account_id?: string | null
           id?: string
           name: string
@@ -2128,6 +2130,7 @@ export type Database = {
           customer_type?: string | null
           district?: string | null
           email?: string | null
+          external_customer_id?: string | null
           gl_receivable_account_id?: string | null
           id?: string
           name?: string
