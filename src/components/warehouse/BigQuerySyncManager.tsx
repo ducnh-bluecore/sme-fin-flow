@@ -133,9 +133,6 @@ export function BigQuerySyncManager() {
   const syncMutation = useMutation({
     mutationFn: async () => {
       const config = getBigQueryConfig();
-      if (!config?.serviceAccountKey || !config?.projectId) {
-        throw new Error('Vui lòng cấu hình BigQuery trước');
-      }
 
       // Get or create integration
       let { data: integration } = await supabase
@@ -154,7 +151,7 @@ export function BigQuerySyncManager() {
             connector_type: 'bigquery' as any,
             connector_name: 'Google BigQuery',
             status: 'active',
-            settings: { project_id: config.projectId },
+            settings: { project_id: config?.projectId },
             created_by: userData.user?.id,
           })
           .select('id')
@@ -165,14 +162,15 @@ export function BigQuerySyncManager() {
 
       setSyncProgress(10);
 
-      // Sync all data
+      // Sync all data - service account key will be read from env secret
       const { data, error } = await supabase.functions.invoke('sync-bigquery', {
         body: {
           integration_id: integration.id,
           tenant_id: tenantId,
-          service_account_key: config.serviceAccountKey,
-          project_id: config.projectId,
-          channels: ['shopee', 'lazada', 'sapo', 'tiki', 'shopify'],
+          // Only pass from localStorage if available (optional now)
+          ...(config?.serviceAccountKey && { service_account_key: config.serviceAccountKey }),
+          ...(config?.projectId && { project_id: config.projectId }),
+          channels: ['shopee', 'lazada', 'sapo', 'sapogo', 'tiki', 'shopify'],
           batch_size: 5000,
           ...syncOptions,
         },
