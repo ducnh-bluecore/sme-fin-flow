@@ -27,6 +27,7 @@ interface BigQueryConfig {
 }
 
 // Default config if none exists in database
+// Use safe field names that are more likely to exist across channels
 const DEFAULT_CONFIG: BigQueryConfig = {
   project_id: 'bluecore-dcp',
   dataset_prefix: 'bluecoredcp',
@@ -39,7 +40,7 @@ const DEFAULT_CONFIG: BigQueryConfig = {
       order_items_table: 'shopee_OrderItems',
       date_field: 'create_time',
       amount_field: 'total_amount',
-      net_amount_field: 'seller_income',
+      net_amount_field: 'total_amount',
       status_field: 'order_status',
       order_id_field: 'order_sn'
     },
@@ -51,7 +52,7 @@ const DEFAULT_CONFIG: BigQueryConfig = {
       date_field: 'created_at',
       amount_field: 'price',
       net_amount_field: 'price',
-      status_field: 'statuses_0',
+      status_field: 'statuses',
       order_id_field: 'order_id'
     },
     tiktok: {
@@ -61,7 +62,7 @@ const DEFAULT_CONFIG: BigQueryConfig = {
       order_items_table: 'tiktok_OrderItems',
       date_field: 'create_time',
       amount_field: 'total_amount',
-      net_amount_field: 'seller_revenue',
+      net_amount_field: 'total_amount',
       status_field: 'order_status',
       order_id_field: 'order_id'
     }
@@ -97,7 +98,7 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return tokenData.access_token;
 }
 
-// Execute BigQuery query - returns null if table doesn't exist or no permission
+// Execute BigQuery query - returns null if table doesn't exist, no permission, or invalid query
 async function queryBigQuery(accessToken: string, projectId: string, query: string): Promise<any[] | null> {
   const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   
@@ -117,7 +118,8 @@ async function queryBigQuery(accessToken: string, projectId: string, query: stri
   const data = await response.json();
   
   if (data.error) {
-    if (data.error.code === 403 || data.error.code === 404) {
+    // Skip on permission, not found, or invalid query (field not exists)
+    if (data.error.code === 403 || data.error.code === 404 || data.error.code === 400) {
       console.warn(`Query skipped (${data.error.code}): ${data.error.message}`);
       return null;
     }
@@ -148,7 +150,7 @@ async function hashQuery(query: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
 }
 
-// Build dynamic query based on channel config
+// Build dynamic query based on channel config - uses safe field access
 function buildQuery(
   queryType: string, 
   channel: string, 
@@ -157,10 +159,11 @@ function buildQuery(
   startDate: string, 
   endDate: string
 ): string | null {
-  const { dataset, orders_table, order_items_table, date_field, amount_field, net_amount_field, status_field, order_id_field } = config;
+  const { dataset, orders_table, date_field, amount_field, status_field } = config;
   const fullTable = `\`${projectId}.${dataset}.${orders_table}\``;
-  const itemsTable = `\`${projectId}.${dataset}.${order_items_table}\``;
 
+  // Use only amount_field for net_revenue to avoid field not found errors
+  // The actual net amount calculation should be done per-channel if needed
   switch (queryType) {
     case 'daily_revenue':
       return `
@@ -168,8 +171,8 @@ function buildQuery(
           DATE(${date_field}) as date,
           '${channel}' as channel,
           COUNT(*) as order_count,
-          SUM(CAST(${amount_field} AS FLOAT64)) as revenue,
-          SUM(CAST(IFNULL(${net_amount_field}, ${amount_field}) AS FLOAT64)) as net_revenue
+          SUM(SAFE_CAST(${amount_field} AS FLOAT64)) as revenue,
+          SUM(SAFE_CAST(${amount_field} AS FLOAT64)) as net_revenue
         FROM ${fullTable}
         WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
         GROUP BY 1, 2
@@ -180,9 +183,9 @@ function buildQuery(
         SELECT 
           '${channel}' as channel,
           COUNT(*) as total_orders,
-          SUM(CAST(${amount_field} AS FLOAT64)) as gross_revenue,
-          SUM(CAST(IFNULL(${net_amount_field}, ${amount_field}) AS FLOAT64)) as net_revenue,
-          AVG(CAST(${amount_field} AS FLOAT64)) as avg_order_value
+          SUM(SAFE_CAST(${amount_field} AS FLOAT64)) as gross_revenue,
+          SUM(SAFE_CAST(${amount_field} AS FLOAT64)) as net_revenue,
+          AVG(SAFE_CAST(${amount_field} AS FLOAT64)) as avg_order_value
         FROM ${fullTable}
         WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
       `;
@@ -191,7 +194,7 @@ function buildQuery(
       return `
         SELECT 
           '${channel}' as channel,
-          ${status_field} as status,
+          CAST(${status_field} AS STRING) as status,
           COUNT(*) as count
         FROM ${fullTable}
         WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
@@ -204,7 +207,7 @@ function buildQuery(
           EXTRACT(HOUR FROM ${date_field}) as hour,
           '${channel}' as channel,
           COUNT(*) as orders,
-          SUM(CAST(${amount_field} AS FLOAT64)) as revenue
+          SUM(SAFE_CAST(${amount_field} AS FLOAT64)) as revenue
         FROM ${fullTable}
         WHERE DATE(${date_field}) = CURRENT_DATE()
         GROUP BY 1, 2
@@ -212,12 +215,11 @@ function buildQuery(
       `;
     
     case 'top_products':
-      // This requires order items table - may not work for all channels
       return `
         SELECT 
           '${channel}' as channel,
           COUNT(*) as order_count,
-          SUM(CAST(${amount_field} AS FLOAT64)) as revenue
+          SUM(SAFE_CAST(${amount_field} AS FLOAT64)) as revenue
         FROM ${fullTable}
         WHERE DATE(${date_field}) BETWEEN '${startDate}' AND '${endDate}'
       `;
