@@ -233,47 +233,40 @@ export default function DataHubPage() {
               const bigqueryConnector = integrations.find(c => c.connector_type === 'bigquery');
               return (
                 <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-info/5">
-                  <CardHeader className="pb-3">
+                  <CardContent className="py-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          <HardDrive className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">Data Warehouse (BigQuery)</CardTitle>
-                          <CardDescription>Đồng bộ dữ liệu từ Google BigQuery</CardDescription>
-                        </div>
-                      </div>
-                      {bigqueryConnector ? (
-                        <Badge className={cn('text-xs', statusConfig[bigqueryConnector.status as keyof typeof statusConfig]?.color || statusConfig.inactive.color)}>
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Đã kết nối
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          Chưa kết nối
-                        </Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {bigqueryConnector ? (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-xl bg-white shadow-sm">
                           <img 
                             src={connectorLogos.bigquery}
                             alt="BigQuery"
-                            className="w-10 h-10 object-contain"
+                            className="w-8 h-8 object-contain"
                           />
-                          <div>
-                            <p className="font-medium">{bigqueryConnector.connector_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              Project: {(bigqueryConnector.settings as any)?.project_id || 'N/A'}
-                              {bigqueryConnector.last_sync_at && ` • Đồng bộ lần cuối: ${formatDate(bigqueryConnector.last_sync_at)}`}
-                            </p>
-                          </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold">Data Warehouse (BigQuery)</p>
+                            {bigqueryConnector ? (
+                              <Badge className="text-xs bg-success/10 text-success">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Đã kết nối
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                Chưa kết nối
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {bigqueryConnector 
+                              ? `Project: ${(bigqueryConnector.settings as any)?.project_id || 'N/A'}${bigqueryConnector.last_sync_at ? ` • Đồng bộ: ${formatDate(bigqueryConnector.last_sync_at)}` : ''}`
+                              : 'Kết nối với Google BigQuery để đồng bộ dữ liệu'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {bigqueryConnector && (
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -282,27 +275,24 @@ export default function DataHubPage() {
                             <RefreshCw className="w-4 h-4 mr-1" />
                             Đồng bộ
                           </Button>
-                          <Link to="/data-warehouse">
-                            <Button variant="ghost" size="sm">
-                              <ExternalLink className="w-4 h-4 mr-1" />
-                              Cấu hình
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                          Kết nối với Google BigQuery để đồng bộ dữ liệu từ Data Warehouse
-                        </p>
+                        )}
                         <Link to="/data-warehouse">
-                          <Button size="sm">
-                            <Plug className="w-4 h-4 mr-2" />
-                            Kết nối BigQuery
+                          <Button variant={bigqueryConnector ? "ghost" : "default"} size="sm">
+                            {bigqueryConnector ? (
+                              <>
+                                <Settings className="w-4 h-4 mr-1" />
+                                Cấu hình
+                              </>
+                            ) : (
+                              <>
+                                <Plug className="w-4 h-4 mr-1" />
+                                Kết nối
+                              </>
+                            )}
                           </Button>
                         </Link>
                       </div>
-                    )}
+                    </div>
                   </CardContent>
                 </Card>
               );
