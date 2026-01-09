@@ -431,8 +431,9 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         product_name: row.name || row.product_name || row.item_name,
         quantity: parseInt(row.quantity || row.qty || 1),
         unit_price: parseFloat(row.price || row.item_price || row.unit_price || 0),
-        total_price: parseFloat(row.total || row.subtotal || row.amount || 0),
-        cost_price: parseFloat(row.cogs || row.cost || 0),
+        total_amount: parseFloat(row.total || row.subtotal || row.amount || 0),
+        unit_cogs: parseFloat(row.cogs || row.cost || row.cost_price || 0),
+        total_cogs: parseFloat(row.total_cogs || 0),
         last_synced_at: new Date().toISOString(),
       };
       
@@ -453,10 +454,12 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
       };
       
     case 'customers':
+      // Generate UUID for customers since BigQuery IDs are not UUID format
+      const customerId = crypto.randomUUID();
       const fullName = row.name || row.full_name || 
         `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown';
       return {
-        id: row[model.primary_key_field] || row.id,
+        id: customerId,
         tenant_id: tenantId,
         name: fullName,
         email: row.email,
@@ -469,6 +472,8 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         country: row.country || 'Vietnam',
         notes: row.note || row.notes,
         status: row.status || 'active',
+        // Store original BigQuery ID in notes for reference
+        external_customer_id: String(row[model.primary_key_field] || row.id || ''),
       };
       
     case 'channel_settlements':
@@ -869,24 +874,36 @@ serve(async (req) => {
             'external_orders': 'tenant_id,integration_id,external_order_id',
             'external_order_items': 'tenant_id,external_order_id,item_id',
             'external_products': 'integration_id,external_product_id',
-            'customers': 'id',
+            'customers': 'tenant_id,email',
             'channel_settlements': 'tenant_id,integration_id,settlement_id',
             'channel_fees': 'id',
             'bank_transactions': 'id',
-            'promotions': 'id',
+            'promotions': 'tenant_id,promotion_code',
           };
           
           const onConflict = conflictKeys[targetTable] || 'id';
           let modelSynced = 0;
           let modelErrors = 0;
           
+          // Dedupe mapped data based on conflict key to avoid "cannot affect row a second time" error
+          const dedupeKey = onConflict.split(',');
+          const seen = new Set<string>();
+          const dedupedData = mappedData.filter(item => {
+            const key = dedupeKey.map(k => String(item[k] || '')).join('|');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          
+          console.log(`${modelKey}: Deduped ${mappedData.length} → ${dedupedData.length} records`);
+          
           // Upsert in batches
-          for (let i = 0; i < mappedData.length; i += 100) {
-            const batch = mappedData.slice(i, i + 100);
+          for (let i = 0; i < dedupedData.length; i += 100) {
+            const batch = dedupedData.slice(i, i + 100);
             try {
               const { error } = await supabase
                 .from(targetTable)
-                .upsert(batch, { onConflict, ignoreDuplicates: false });
+                .upsert(batch, { onConflict, ignoreDuplicates: true });
               
               if (error) {
                 console.error(`Error upserting ${modelKey} batch:`, error.message);
