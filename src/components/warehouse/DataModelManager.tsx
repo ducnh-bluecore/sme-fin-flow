@@ -205,18 +205,40 @@ export function DataModelManager() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
 
-  // Merge default models with saved configs
-  const displayModels = DEFAULT_MODELS.map(defaultModel => {
-    const savedModel = models?.find(m => m.model_name === defaultModel.model_name);
-    if (savedModel) {
-      return {
-        ...defaultModel,
-        ...savedModel,
-        is_enabled: savedModel.is_enabled ?? defaultModel.is_enabled,
-      };
-    }
-    return defaultModel;
-  });
+  // Merge default models with saved configs, plus include any models from DB not in defaults
+  const displayModels = (() => {
+    // Start with default models merged with any saved overrides
+    const mergedDefaults = DEFAULT_MODELS.map(defaultModel => {
+      const savedModel = models?.find(m => m.model_name === defaultModel.model_name);
+      if (savedModel) {
+        return {
+          ...defaultModel,
+          ...savedModel,
+          is_enabled: savedModel.is_enabled ?? defaultModel.is_enabled,
+        };
+      }
+      return defaultModel;
+    });
+    
+    // Add any saved models that are NOT in the default list (e.g., AI suggestions)
+    const defaultModelNames = DEFAULT_MODELS.map(m => m.model_name);
+    const additionalModels = (models || [])
+      .filter(m => !defaultModelNames.includes(m.model_name))
+      .map(m => ({
+        model_name: m.model_name,
+        model_label: m.model_label,
+        description: m.description || '',
+        bigquery_dataset: m.bigquery_dataset,
+        bigquery_table: m.bigquery_table,
+        primary_key_field: m.primary_key_field,
+        timestamp_field: m.timestamp_field || '',
+        target_table: m.target_table || '',
+        is_enabled: m.is_enabled ?? false,
+        sync_frequency_hours: m.sync_frequency_hours || 24,
+      }));
+    
+    return [...mergedDefaults, ...additionalModels];
+  })();
 
   // Fetch AI suggestions
   const handleFetchSuggestions = async () => {
