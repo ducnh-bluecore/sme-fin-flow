@@ -56,6 +56,7 @@ const APIPage = lazy(() => import("./pages/APIPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const HelpPage = lazy(() => import("./pages/HelpPage"));
 const DataEntryGuidePage = lazy(() => import("./pages/DataEntryGuidePage"));
+const UserGuidePage = lazy(() => import("./pages/UserGuidePage"));
 const TenantManagementPage = lazy(() => import("./pages/TenantManagementPage"));
 const TenantMembersPage = lazy(() => import("./pages/TenantMembersPage"));
 const TenantSettingsPage = lazy(() => import("./pages/TenantSettingsPage"));
@@ -189,6 +190,7 @@ const AppRoutes = () => {
         <Route path="/api" element={<APIPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/help" element={<HelpPage />} />
+        <Route path="/user-guide" element={<UserGuidePage />} />
         <Route path="/data-guide" element={<DataEntryGuidePage />} />
         <Route path="/formulas" element={<FormulasPage />} />
         <Route path="/formula-settings" element={<FormulaSettingsPage />} />
