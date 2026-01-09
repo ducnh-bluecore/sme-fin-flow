@@ -9,6 +9,7 @@ import { BigQueryRealtimeDashboard } from '@/components/warehouse/BigQueryRealti
 import { DataModelManager } from '@/components/warehouse/DataModelManager';
 import { BigQuerySchemaManager } from '@/components/warehouse/BigQuerySchemaManager';
 import { BigQuerySyncManager } from '@/components/warehouse/BigQuerySyncManager';
+import { SyncProgressProvider } from '@/contexts/SyncProgressContext';
 
 export default function DataWarehousePage() {
   return (
@@ -42,35 +43,37 @@ export default function DataWarehousePage() {
         </motion.div>
 
         {/* Tabs */}
-        <Tabs defaultValue="sync" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="sync">Data Sync</TabsTrigger>
-            <TabsTrigger value="realtime">Real-time Analytics</TabsTrigger>
-            <TabsTrigger value="schema">Schema Mapping</TabsTrigger>
-            <TabsTrigger value="models">Data Models</TabsTrigger>
-            <TabsTrigger value="config">Kết nối</TabsTrigger>
-          </TabsList>
+        <SyncProgressProvider>
+          <Tabs defaultValue="sync" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="sync">Data Sync</TabsTrigger>
+              <TabsTrigger value="realtime">Real-time Analytics</TabsTrigger>
+              <TabsTrigger value="schema">Schema Mapping</TabsTrigger>
+              <TabsTrigger value="models">Data Models</TabsTrigger>
+              <TabsTrigger value="config">Kết nối</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="sync">
-            <BigQuerySyncManager />
-          </TabsContent>
+            <TabsContent value="sync" forceMount className="data-[state=inactive]:hidden">
+              <BigQuerySyncManager />
+            </TabsContent>
 
-          <TabsContent value="realtime">
-            <BigQueryRealtimeDashboard />
-          </TabsContent>
+            <TabsContent value="realtime">
+              <BigQueryRealtimeDashboard />
+            </TabsContent>
 
-          <TabsContent value="schema">
-            <BigQuerySchemaManager />
-          </TabsContent>
+            <TabsContent value="schema">
+              <BigQuerySchemaManager />
+            </TabsContent>
 
-          <TabsContent value="models">
-            <DataModelManager />
-          </TabsContent>
+            <TabsContent value="models">
+              <DataModelManager />
+            </TabsContent>
 
-          <TabsContent value="config">
-            <BigQueryConfigPanel />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="config">
+              <BigQueryConfigPanel />
+            </TabsContent>
+          </Tabs>
+        </SyncProgressProvider>
       </div>
     </>
   );
