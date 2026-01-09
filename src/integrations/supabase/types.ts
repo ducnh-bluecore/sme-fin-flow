@@ -2083,6 +2083,7 @@ export type Database = {
           gl_receivable_account_id: string | null
           id: string
           name: string
+          notes: string | null
           payment_term_id: string | null
           payment_terms: number | null
           phone: string | null
@@ -2106,6 +2107,7 @@ export type Database = {
           gl_receivable_account_id?: string | null
           id?: string
           name: string
+          notes?: string | null
           payment_term_id?: string | null
           payment_terms?: number | null
           phone?: string | null
@@ -2129,6 +2131,7 @@ export type Database = {
           gl_receivable_account_id?: string | null
           id?: string
           name?: string
+          notes?: string | null
           payment_term_id?: string | null
           payment_terms?: number | null
           phone?: string | null
@@ -3069,6 +3072,7 @@ export type Database = {
           return_reason: string | null
           seller_income: number | null
           seller_note: string | null
+          service_fee: number | null
           shipped_at: string | null
           shipping_address: Json | null
           shipping_carrier: string | null
@@ -3081,6 +3085,7 @@ export type Database = {
           subtotal: number | null
           tenant_id: string
           total_amount: number | null
+          total_fees: number | null
           total_quantity: number | null
           tracking_number: string | null
           updated_at: string | null
@@ -3133,6 +3138,7 @@ export type Database = {
           return_reason?: string | null
           seller_income?: number | null
           seller_note?: string | null
+          service_fee?: number | null
           shipped_at?: string | null
           shipping_address?: Json | null
           shipping_carrier?: string | null
@@ -3145,6 +3151,7 @@ export type Database = {
           subtotal?: number | null
           tenant_id: string
           total_amount?: number | null
+          total_fees?: number | null
           total_quantity?: number | null
           tracking_number?: string | null
           updated_at?: string | null
@@ -3197,6 +3204,7 @@ export type Database = {
           return_reason?: string | null
           seller_income?: number | null
           seller_note?: string | null
+          service_fee?: number | null
           shipped_at?: string | null
           shipping_address?: Json | null
           shipping_carrier?: string | null
@@ -3209,6 +3217,7 @@ export type Database = {
           subtotal?: number | null
           tenant_id?: string
           total_amount?: number | null
+          total_fees?: number | null
           total_quantity?: number | null
           tracking_number?: string | null
           updated_at?: string | null
