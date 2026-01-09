@@ -65,6 +65,8 @@ import { cn } from '@/lib/utils';
 import { useScenarios, useCreateScenario, useUpdateScenario, useDeleteScenario, useSetPrimaryScenario, usePrimaryScenario } from '@/hooks/useScenarioData';
 import { useMonteCarloResults, useSaveMonteCarloResult, useDeleteMonteCarloResult } from '@/hooks/useMonteCarloData';
 import { useKPIData } from '@/hooks/useKPIData';
+import { useWhatIfScenarios, WhatIfScenario } from '@/hooks/useWhatIfScenarios';
+import { Download } from 'lucide-react';
 // Monthly plans hooks moved to MonthlyPlanSection component
 import {
   Dialog,
@@ -266,6 +268,10 @@ export default function ScenarioPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // What-If scenarios hook
+  const { data: whatIfScenarios } = useWhatIfScenarios();
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  
   const [localScenarios, setLocalScenarios] = useState<ScenarioParams[]>([]);
   const [expandedScenario, setExpandedScenario] = useState<string | null>(null);
   const [editingScenario, setEditingScenario] = useState<string | null>(null);
@@ -369,6 +375,22 @@ export default function ScenarioPage() {
 
   const handleSetPrimary = async (id: string) => {
     await setPrimaryScenarioMutation.mutateAsync(id);
+  };
+
+  // Import What-If scenario as financial scenario
+  const handleImportWhatIfScenario = async (whatIfScenario: WhatIfScenario) => {
+    await createScenario.mutateAsync({
+      name: `[What-If] ${whatIfScenario.name}`,
+      description: whatIfScenario.description || `Imported từ What-If: ${whatIfScenario.name}`,
+      revenue_change: whatIfScenario.params.revenueChange || 0,
+      cost_change: whatIfScenario.params.cogsChange || 0,
+      base_revenue: currentKPIs.revenue,
+      base_costs: currentKPIs.revenue * 0.7,
+      calculated_ebitda: whatIfScenario.results?.ebitda || null,
+      created_by: user?.id || null,
+      is_primary: null,
+    });
+    setIsImportDialogOpen(false);
   };
 
   // Save Monte Carlo result to database
@@ -1066,7 +1088,83 @@ export default function ScenarioPage() {
               <p className="text-muted-foreground">Scenario Planning & What-If Analysis</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Import from What-If Dialog */}
+            <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={!whatIfScenarios || whatIfScenarios.length === 0}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Import từ What-If
+                  {whatIfScenarios && whatIfScenarios.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {whatIfScenarios.length}
+                    </Badge>
+                  )}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    Import kịch bản từ What-If
+                  </DialogTitle>
+                  <DialogDescription>
+                    Chọn kịch bản What-If đã lưu để sử dụng làm kế hoạch tài chính
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 py-4">
+                  {whatIfScenarios && whatIfScenarios.length > 0 ? (
+                    whatIfScenarios.map((scenario) => (
+                      <div
+                        key={scenario.id}
+                        className="p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer group"
+                        onClick={() => handleImportWhatIfScenario(scenario)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold">{scenario.name}</h4>
+                              {scenario.is_favorite && (
+                                <Star className="w-4 h-4 text-warning fill-warning" />
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {scenario.control_mode === 'retail' ? 'Bán lẻ' : 'Cơ bản'}
+                              </Badge>
+                            </div>
+                            {scenario.description && (
+                              <p className="text-sm text-muted-foreground mb-2">{scenario.description}</p>
+                            )}
+                            <div className="flex gap-4 text-xs text-muted-foreground">
+                              <span>Doanh thu: {scenario.params.revenueChange >= 0 ? '+' : ''}{scenario.params.revenueChange}%</span>
+                              <span>COGS: {scenario.params.cogsChange >= 0 ? '+' : ''}{scenario.params.cogsChange}%</span>
+                              <span>OPEX: {scenario.params.opexChange >= 0 ? '+' : ''}{scenario.params.opexChange}%</span>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Import
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Chưa có kịch bản What-If nào được lưu.</p>
+                      <p className="text-sm mt-1">Vào tab What-If để tạo và lưu kịch bản mới.</p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
