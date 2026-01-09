@@ -513,20 +513,25 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         reference: row.reference || row.ref_no || String(row[model.primary_key_field] || row.id || ''),
       };
       
-    case 'promotions':
+    case 'promotions': {
       // Map to promotions table - exclude OrgId and other non-existent columns
+      // NOTE: promotions.end_date is NOT NULL in DB, so always provide a value.
+      const startDate = row.start_date || row.start_time || new Date().toISOString();
+      const endDate = row.end_date || row.end_time || startDate;
       return {
         tenant_id: tenantId,
         promotion_name: row.promotion_name || row.name || row.title || 'Unknown Promotion',
         promotion_code: row.promotion_code || row.code || row.promo_code || String(row[model.primary_key_field] || crypto.randomUUID()),
         promotion_type: row.promotion_type || row.type || 'discount',
         channel: row.channel || 'all',
-        start_date: row.start_date || row.start_time || new Date().toISOString(),
-        end_date: row.end_date || row.end_time,
+        start_date: startDate,
+        end_date: endDate,
         discount_value: parseFloat(row.discount_value || row.discount_amount || row.value || 0),
         status: row.status || 'active',
         notes: row.notes || row.description,
       };
+    }
+
       
     default:
       // Generic mapping - just add tenant_id and filter out invalid columns
