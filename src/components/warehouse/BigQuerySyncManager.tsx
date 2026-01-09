@@ -127,15 +127,14 @@ export function BigQuerySyncManager() {
     },
   });
 
-  // Sync mutation with progress simulation
+  // Sync mutation - reads from Data Models instead of hardcoded channels
   const syncMutation = useMutation({
     mutationFn: async () => {
       const config = getBigQueryConfig();
-      const channels = ['shopee', 'lazada', 'sapo', 'tiki', 'shopify'];
 
       setIsLoading(true);
       setProgress(5);
-      setCurrentStep('Đang kết nối BigQuery...');
+      setCurrentStep('Đang đọc cấu hình Data Models...');
 
       // Simulate progress while waiting for the actual sync
       let progressValue = 5;
@@ -147,34 +146,25 @@ export function BigQuerySyncManager() {
         if (progressValue < 20) {
           setCurrentStep('Đang kết nối BigQuery...');
         } else if (progressValue < 40) {
-          setCurrentStep('Đang đồng bộ orders...');
-          updateChannel('shopee', { status: 'syncing' });
-        } else if (progressValue < 55) {
-          updateChannel('shopee', { status: 'completed' });
-          updateChannel('lazada', { status: 'syncing' });
-          setCurrentStep('Đang đồng bộ Lazada...');
-        } else if (progressValue < 70) {
-          updateChannel('lazada', { status: 'completed' });
-          updateChannel('sapo', { status: 'syncing' });
-          setCurrentStep('Đang đồng bộ Sapo...');
+          setCurrentStep('Đang đồng bộ từ Data Models...');
+        } else if (progressValue < 60) {
+          setCurrentStep('Đang xử lý Orders...');
+        } else if (progressValue < 75) {
+          setCurrentStep('Đang xử lý Products...');
         } else {
-          updateChannel('sapo', { status: 'completed' });
-          updateChannel('tiki', { status: 'syncing' });
           setCurrentStep('Đang hoàn tất...');
         }
       }, 500);
 
       try {
-        // Sync all data - edge function will handle integration creation with service role
+        // Use sync_from_models action to read from Data Models config
         const { data, error } = await supabase.functions.invoke('sync-bigquery', {
           body: {
             tenant_id: tenantId,
-            // Only pass from localStorage if available (optional now)
+            action: 'sync_from_models', // NEW: Read from Data Models
             ...(config?.serviceAccountKey && { service_account_key: config.serviceAccountKey }),
             ...(config?.projectId && { project_id: config.projectId }),
-            channels,
             batch_size: 5000,
-            ...syncOptions,
           },
         });
 
@@ -184,9 +174,6 @@ export function BigQuerySyncManager() {
 
         if (error) throw error;
         if (!data?.success) throw new Error(data?.error || 'Sync failed');
-        
-        // Mark all channels as completed
-        channels.forEach(ch => updateChannel(ch, { status: 'completed' }));
         
         return data.data as SyncResult;
       } catch (err) {

@@ -379,6 +379,141 @@ function mapProductData(row: any, tenantId: string, integrationId: string, chann
   };
 }
 
+// Generic data mapper for Data Model sync
+function mapGenericData(row: any, tenantId: string, integrationId: string, targetTable: string, model: any): any | null {
+  const mappingConfig = model.mapping_config || {};
+  
+  // Base fields that are common
+  const baseData: any = {
+    tenant_id: tenantId,
+  };
+  
+  // Add integration_id for tables that need it
+  if (['external_orders', 'external_order_items', 'external_products', 'channel_settlements', 'channel_fees'].includes(targetTable)) {
+    baseData.integration_id = integrationId;
+  }
+  
+  // Target-specific mapping
+  switch (targetTable) {
+    case 'external_orders':
+      return {
+        ...baseData,
+        external_order_id: String(row[model.primary_key_field] || row.order_id || row.order_sn || row.id || row.code),
+        order_number: row.order_number || row.order_id || row.order_sn || row.code,
+        channel: row.channel || model.bigquery_dataset.split('_')[1] || 'unknown',
+        order_date: row[model.timestamp_field] || row.create_time || row.created_at || row.created_on,
+        status: mapOrderStatus(row.order_status || row.status || 'pending', ''),
+        customer_name: row.buyer_username || row.customer_name || row.recipient_name,
+        customer_phone: row.recipient_phone || row.phone,
+        total_amount: parseFloat(row.total_amount || row.total_paid_amount || row.escrow_amount || 0),
+        subtotal: parseFloat(row.subtotal || row.items_total || 0),
+        shipping_fee: parseFloat(row.shipping_fee || row.buyer_paid_shipping_fee || 0),
+        platform_fee: parseFloat(row.platform_fee || row.transaction_fee || 0),
+        commission_fee: parseFloat(row.commission_fee || row.commission || 0),
+        payment_fee: parseFloat(row.payment_fee || 0),
+        service_fee: parseFloat(row.service_fee || 0),
+        total_fees: parseFloat(row.total_fees || 0),
+        seller_income: parseFloat(row.seller_income || row.escrow_amount || row.actual_amount || 0),
+        cost_of_goods: parseFloat(row.cogs || row.cost_of_goods || 0),
+        payment_method: row.payment_method || row.payment_type,
+        shop_id: row.shop_id || row.organization_id,
+        shop_name: row.shop_name || row.organization_name,
+        raw_data: row,
+        last_synced_at: new Date().toISOString(),
+      };
+      
+    case 'external_order_items':
+      return {
+        ...baseData,
+        external_order_id: String(row.order_id || row.order_sn || row[model.primary_key_field]),
+        item_id: String(row.item_id || row.sku || row.id || `${row.order_id}-item`),
+        sku: row.sku || row.model_sku || row.seller_sku,
+        product_name: row.name || row.product_name || row.item_name,
+        quantity: parseInt(row.quantity || row.qty || 1),
+        unit_price: parseFloat(row.price || row.item_price || row.unit_price || 0),
+        total_price: parseFloat(row.total || row.subtotal || row.amount || 0),
+        cost_price: parseFloat(row.cogs || row.cost || 0),
+        last_synced_at: new Date().toISOString(),
+      };
+      
+    case 'external_products':
+      return {
+        ...baseData,
+        external_product_id: String(row[model.primary_key_field] || row.item_id || row.product_id || row.id),
+        external_sku: row.sku || row.model_sku || row.seller_sku,
+        name: row.name || row.product_name || row.item_name || 'Unknown',
+        description: row.description,
+        category: row.category || row.category_name,
+        brand: row.brand || row.brand_name,
+        selling_price: parseFloat(row.price || row.selling_price || 0),
+        cost_price: parseFloat(row.cogs || row.cost || row.unit_cost || 0),
+        stock_quantity: parseInt(row.stock || row.quantity || row.available_stock || 0),
+        status: row.status || 'active',
+        last_synced_at: new Date().toISOString(),
+      };
+      
+    case 'customers':
+      const fullName = row.name || row.full_name || 
+        `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'Unknown';
+      return {
+        id: row[model.primary_key_field] || row.id,
+        tenant_id: tenantId,
+        name: fullName,
+        email: row.email,
+        phone: row.phone || row.mobile,
+        address: row.address || row.address1,
+        city: row.city,
+        district: row.district,
+        ward: row.ward,
+        province: row.province || row.state,
+        country: row.country || 'Vietnam',
+        notes: row.note || row.notes,
+        status: row.status || 'active',
+      };
+      
+    case 'channel_settlements':
+      return {
+        ...baseData,
+        settlement_id: String(row[model.primary_key_field] || row.transaction_id || row.id),
+        period_start: row.period_start || row.start_date || new Date().toISOString(),
+        period_end: row.period_end || row.end_date || new Date().toISOString(),
+        gross_sales: parseFloat(row.gross_sales || row.total_sales || 0),
+        total_commission: parseFloat(row.commission || row.total_commission || 0),
+        total_fees: parseFloat(row.total_fees || row.fees || 0),
+        net_amount: parseFloat(row.net_amount || row.payout_amount || 0),
+        status: row.status || 'pending',
+      };
+      
+    case 'channel_fees':
+      return {
+        ...baseData,
+        fee_type: row.fee_type || row.type || 'platform',
+        fee_date: row.fee_date || row.created_at || new Date().toISOString(),
+        amount: parseFloat(row.amount || row.fee_amount || 0),
+        description: row.description || row.fee_name,
+      };
+      
+    case 'bank_transactions':
+      return {
+        id: row[model.primary_key_field] || row.id,
+        tenant_id: tenantId,
+        transaction_date: row.transaction_date || row.date || row[model.timestamp_field],
+        amount: parseFloat(row.amount || row.value || 0),
+        transaction_type: row.transaction_type || row.type || 'credit',
+        description: row.description || row.memo || row.note,
+        reference: row.reference || row.ref_no,
+      };
+      
+    default:
+      // Generic mapping - just add tenant_id and use raw data
+      return {
+        ...baseData,
+        ...row,
+        last_synced_at: new Date().toISOString(),
+      };
+  }
+}
+
 // Map channel-specific status to unified status
 function mapOrderStatus(status: string, channel: string): string {
   if (!status) return 'pending';
@@ -575,14 +710,14 @@ serve(async (req) => {
       tenant_id, 
       channels = ['shopee', 'lazada', 'tiktok', 'tiki', 'sapo', 'sapogo', 'shopify'],
       days_back = 30,
-      action = 'sync', // 'sync', 'count', 'sync_all'
+      action = 'sync', // 'sync', 'count', 'sync_from_models'
       batch_size = 2000,
       offset = 0,
       single_channel,
-      sync_items = true, // Also sync order items
-      sync_settlements = false, // Sync settlement data
-      sync_products = false, // Sync product catalog
-      sync_customers = false, // Sync customers
+      sync_items = true,
+      sync_settlements = false,
+      sync_products = false,
+      sync_customers = false,
       // New params from DataModelManager
       model_name,
       dataset,
@@ -617,30 +752,214 @@ serve(async (req) => {
     console.log('Sync BigQuery started:', { 
       integration_id, 
       tenant_id, 
-      channels: single_channel ? [single_channel] : channels, 
-      days_back, 
       action,
       batch_size,
       offset,
-      sync_items,
-      sync_settlements,
-      sync_products,
-      model_name,
-      dataset,
-      table,
     });
 
     if (!tenant_id) {
       throw new Error('Missing tenant_id');
     }
 
-    // Create alias for backward compatibility
     const project_id = projectId;
-
     const accessToken = await getAccessToken(serviceAccount);
     console.log('Got BigQuery access token');
 
-    // Handle model-based sync (from DataModelManager)
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    supabase = createClient(supabaseUrl, supabaseKey);
+
+    // ========== NEW: Sync from Data Models ==========
+    if (action === 'sync_from_models') {
+      console.log('Syncing from Data Models configuration...');
+      
+      // Fetch enabled data models for this tenant
+      const { data: dataModels, error: modelsError } = await supabase
+        .from('bigquery_data_models')
+        .select('*')
+        .eq('tenant_id', tenant_id)
+        .eq('is_enabled', true);
+      
+      if (modelsError) {
+        throw new Error('Failed to fetch data models: ' + modelsError.message);
+      }
+      
+      if (!dataModels || dataModels.length === 0) {
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: 'No enabled data models found',
+            data: { models_synced: 0 }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`Found ${dataModels.length} enabled data models`);
+      
+      // Get or create integration_id
+      let effectiveIntegrationId = integration_id;
+      if (!effectiveIntegrationId) {
+        const { data: existing } = await supabase
+          .from('connector_integrations')
+          .select('id')
+          .eq('tenant_id', tenant_id)
+          .eq('connector_type', 'bigquery')
+          .maybeSingle();
+        
+        if (existing) {
+          effectiveIntegrationId = existing.id;
+        } else {
+          const { data: newInt } = await supabase
+            .from('connector_integrations')
+            .insert({
+              tenant_id,
+              connector_type: 'bigquery',
+              connector_name: 'Google BigQuery',
+              status: 'active',
+              settings: { project_id },
+            })
+            .select('id')
+            .single();
+          if (newInt) effectiveIntegrationId = newInt.id;
+        }
+      }
+      
+      const results: Record<string, { synced: number; errors: number; message?: string }> = {};
+      let totalSynced = 0;
+      let totalErrors = 0;
+      
+      for (const model of dataModels) {
+        const modelKey = model.model_name;
+        console.log(`Syncing model: ${model.model_label} (${model.bigquery_dataset}.${model.bigquery_table} → ${model.target_table})`);
+        
+        try {
+          // Build query
+          let query = `SELECT * FROM \`${project_id}.${model.bigquery_dataset}.${model.bigquery_table}\``;
+          if (model.timestamp_field) {
+            query += ` ORDER BY ${model.timestamp_field} DESC`;
+          }
+          query += ` LIMIT ${batch_size}`;
+          
+          const rows = await queryBigQuery(accessToken, project_id, query);
+          console.log(`${modelKey}: Fetched ${rows.length} rows`);
+          
+          if (rows.length === 0) {
+            results[modelKey] = { synced: 0, errors: 0, message: 'No data found' };
+            continue;
+          }
+          
+          // Map data based on target table
+          let mappedData: any[] = [];
+          const targetTable = model.target_table || 'external_orders';
+          
+          for (const row of rows) {
+            const mapped = mapGenericData(row, tenant_id, effectiveIntegrationId, targetTable, model);
+            if (mapped) mappedData.push(mapped);
+          }
+          
+          if (mappedData.length === 0) {
+            results[modelKey] = { synced: 0, errors: 0, message: 'No mappable data' };
+            continue;
+          }
+          
+          // Determine conflict key based on target table
+          const conflictKeys: Record<string, string> = {
+            'external_orders': 'tenant_id,integration_id,external_order_id',
+            'external_order_items': 'tenant_id,external_order_id,item_id',
+            'external_products': 'integration_id,external_product_id',
+            'customers': 'id',
+            'channel_settlements': 'tenant_id,integration_id,settlement_id',
+            'channel_fees': 'id',
+            'bank_transactions': 'id',
+            'promotions': 'id',
+          };
+          
+          const onConflict = conflictKeys[targetTable] || 'id';
+          let modelSynced = 0;
+          let modelErrors = 0;
+          
+          // Upsert in batches
+          for (let i = 0; i < mappedData.length; i += 100) {
+            const batch = mappedData.slice(i, i + 100);
+            try {
+              const { error } = await supabase
+                .from(targetTable)
+                .upsert(batch, { onConflict, ignoreDuplicates: false });
+              
+              if (error) {
+                console.error(`Error upserting ${modelKey} batch:`, error.message);
+                modelErrors += batch.length;
+              } else {
+                modelSynced += batch.length;
+              }
+            } catch (e: any) {
+              console.error(`Exception ${modelKey} batch:`, e?.message);
+              modelErrors += batch.length;
+            }
+          }
+          
+          // Update watermark
+          await supabase.from('bigquery_sync_watermarks').upsert({
+            tenant_id,
+            data_model: model.model_name,
+            dataset_id: model.bigquery_dataset,
+            table_id: model.bigquery_table,
+            sync_status: modelErrors > 0 ? 'partial' : 'completed',
+            last_sync_at: new Date().toISOString(),
+            total_records_synced: modelSynced,
+            error_message: modelErrors > 0 ? `${modelErrors} records failed` : null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'tenant_id,data_model' });
+          
+          // Update model last_sync_at
+          await supabase.from('bigquery_data_models').update({
+            last_sync_at: new Date().toISOString()
+          }).eq('id', model.id);
+          
+          results[modelKey] = { synced: modelSynced, errors: modelErrors };
+          totalSynced += modelSynced;
+          totalErrors += modelErrors;
+          
+          console.log(`${modelKey}: Synced=${modelSynced}, Errors=${modelErrors}`);
+          
+        } catch (e: any) {
+          console.error(`Error syncing model ${modelKey}:`, e.message);
+          results[modelKey] = { synced: 0, errors: 1, message: e.message };
+          totalErrors++;
+        }
+      }
+      
+      // Update integration
+      if (effectiveIntegrationId) {
+        await supabase.from('connector_integrations').update({
+          last_sync_at: new Date().toISOString(),
+          status: 'active'
+        }).eq('id', effectiveIntegrationId);
+      }
+      
+      console.log('Sync from models completed:', { totalSynced, totalErrors, modelsCount: dataModels.length });
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            total_orders_synced: totalSynced,
+            total_items_synced: 0,
+            total_products_synced: 0,
+            total_settlements_synced: 0,
+            total_fetched: totalSynced + totalErrors,
+            total_errors: totalErrors,
+            has_more: false,
+            models: results,
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle model-based sync (from DataModelManager single model)
     if (model_name && dataset && table) {
       return await handleModelSync({
         tenant_id,
@@ -727,10 +1046,12 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client for sync
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    supabase = createClient(supabaseUrl, supabaseKey);
+    // Initialize Supabase client for legacy sync (already initialized for sync_from_models)
+    if (!supabase) {
+      const sbUrl = Deno.env.get('SUPABASE_URL')!;
+      const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      supabase = createClient(sbUrl, sbKey);
+    }
 
     const channelsToSync = single_channel ? [single_channel] : channels;
 
