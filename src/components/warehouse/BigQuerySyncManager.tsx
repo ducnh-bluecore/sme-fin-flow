@@ -12,6 +12,8 @@ import {
   FileText,
   ShoppingCart,
   TrendingUp,
+  AlertCircle,
+  Circle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,7 +52,7 @@ interface CountResult {
 export function BigQuerySyncManager() {
   const { data: tenantId } = useActiveTenantId();
   const queryClient = useQueryClient();
-  const { syncState, setIsLoading, setProgress, setLastResult } = useSyncProgress();
+  const { syncState, setIsLoading, setProgress, setCurrentStep, updateChannel, setLastResult } = useSyncProgress();
   
   const [syncOptions, setSyncOptions] = useState<SyncOptions>({
     sync_items: true,
@@ -125,33 +127,72 @@ export function BigQuerySyncManager() {
     },
   });
 
-  // Sync mutation
+  // Sync mutation with progress simulation
   const syncMutation = useMutation({
     mutationFn: async () => {
       const config = getBigQueryConfig();
+      const channels = ['shopee', 'lazada', 'sapo', 'tiki', 'shopify'];
 
       setIsLoading(true);
-      setProgress(10);
+      setProgress(5);
+      setCurrentStep('Đang kết nối BigQuery...');
 
-      // Sync all data - edge function will handle integration creation with service role
-      const { data, error } = await supabase.functions.invoke('sync-bigquery', {
-        body: {
-          tenant_id: tenantId,
-          // Only pass from localStorage if available (optional now)
-          ...(config?.serviceAccountKey && { service_account_key: config.serviceAccountKey }),
-          ...(config?.projectId && { project_id: config.projectId }),
-          channels: ['shopee', 'lazada', 'sapo', 'sapogo', 'tiki', 'shopify'],
-          batch_size: 5000,
-          ...syncOptions,
-        },
-      });
+      // Simulate progress while waiting for the actual sync
+      let progressValue = 5;
+      const progressInterval = setInterval(() => {
+        progressValue = Math.min(progressValue + 2, 85);
+        setProgress(progressValue);
+        
+        // Update current step based on progress
+        if (progressValue < 20) {
+          setCurrentStep('Đang kết nối BigQuery...');
+        } else if (progressValue < 40) {
+          setCurrentStep('Đang đồng bộ orders...');
+          updateChannel('shopee', { status: 'syncing' });
+        } else if (progressValue < 55) {
+          updateChannel('shopee', { status: 'completed' });
+          updateChannel('lazada', { status: 'syncing' });
+          setCurrentStep('Đang đồng bộ Lazada...');
+        } else if (progressValue < 70) {
+          updateChannel('lazada', { status: 'completed' });
+          updateChannel('sapo', { status: 'syncing' });
+          setCurrentStep('Đang đồng bộ Sapo...');
+        } else {
+          updateChannel('sapo', { status: 'completed' });
+          updateChannel('tiki', { status: 'syncing' });
+          setCurrentStep('Đang hoàn tất...');
+        }
+      }, 500);
 
-      setProgress(90);
+      try {
+        // Sync all data - edge function will handle integration creation with service role
+        const { data, error } = await supabase.functions.invoke('sync-bigquery', {
+          body: {
+            tenant_id: tenantId,
+            // Only pass from localStorage if available (optional now)
+            ...(config?.serviceAccountKey && { service_account_key: config.serviceAccountKey }),
+            ...(config?.projectId && { project_id: config.projectId }),
+            channels,
+            batch_size: 5000,
+            ...syncOptions,
+          },
+        });
 
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Sync failed');
-      
-      return data.data as SyncResult;
+        clearInterval(progressInterval);
+        setProgress(95);
+        setCurrentStep('Đang xử lý kết quả...');
+
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.error || 'Sync failed');
+        
+        // Mark all channels as completed
+        channels.forEach(ch => updateChannel(ch, { status: 'completed' }));
+        
+        return data.data as SyncResult;
+      } catch (err) {
+        clearInterval(progressInterval);
+        throw err;
+      }
     },
     onSuccess: (result) => {
       setLastResult(result);
@@ -168,6 +209,7 @@ export function BigQuerySyncManager() {
       toast.error('Lỗi sync: ' + error.message);
       setIsLoading(false);
       setProgress(0);
+      setCurrentStep('');
     },
   });
 
@@ -311,12 +353,38 @@ export function BigQuerySyncManager() {
 
       {/* Sync Progress */}
       {(syncMutation.isPending || syncState.isLoading) && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">Đang sync...</span>
-            <span className="text-sm font-medium">{syncState.progress}%</span>
+        <div className="mb-6 p-4 bg-muted/30 rounded-lg border">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm font-medium">{syncState.currentStep || 'Đang sync...'}</span>
+            </div>
+            <span className="text-sm font-bold text-primary">{syncState.progress}%</span>
           </div>
-          <Progress value={syncState.progress} className="h-2" />
+          <Progress value={syncState.progress} className="h-2 mb-4" />
+          
+          {/* Channel Status */}
+          <div className="grid grid-cols-5 gap-2">
+            {syncState.channels.map((channel) => (
+              <div 
+                key={channel.name} 
+                className={`text-center p-2 rounded-lg transition-colors ${
+                  channel.status === 'syncing' ? 'bg-primary/10 border border-primary/30' :
+                  channel.status === 'completed' ? 'bg-success/10' :
+                  channel.status === 'error' ? 'bg-destructive/10' :
+                  'bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-center mb-1">
+                  {channel.status === 'syncing' && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                  {channel.status === 'completed' && <CheckCircle2 className="w-3 h-3 text-success" />}
+                  {channel.status === 'error' && <AlertCircle className="w-3 h-3 text-destructive" />}
+                  {channel.status === 'pending' && <Circle className="w-3 h-3 text-muted-foreground" />}
+                </div>
+                <p className="text-xs font-medium capitalize">{channel.name}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

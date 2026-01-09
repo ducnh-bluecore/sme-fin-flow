@@ -3010,6 +3010,7 @@ export type Database = {
       }
       external_orders: {
         Row: {
+          actual_shipping_fee: number | null
           buyer_id: string | null
           buyer_note: string | null
           buyer_username: string | null
@@ -3073,6 +3074,7 @@ export type Database = {
           voucher_seller: number | null
         }
         Insert: {
+          actual_shipping_fee?: number | null
           buyer_id?: string | null
           buyer_note?: string | null
           buyer_username?: string | null
@@ -3136,6 +3138,7 @@ export type Database = {
           voucher_seller?: number | null
         }
         Update: {
+          actual_shipping_fee?: number | null
           buyer_id?: string | null
           buyer_note?: string | null
           buyer_username?: string | null
