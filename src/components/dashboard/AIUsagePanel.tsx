@@ -50,6 +50,29 @@ export function AIUsagePanel() {
     return tokens.toString();
   };
 
+  // Show empty state if no data
+  if (stats.requestCount === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Cpu className="h-5 w-5" />
+            Chi phí API OpenAI (30 ngày)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+          <Cpu className="h-10 w-10 text-muted-foreground/50 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            Chưa có dữ liệu sử dụng API trong 30 ngày qua
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Dữ liệu sẽ hiển thị khi sử dụng các tính năng AI
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -151,12 +174,6 @@ export function AIUsagePanel() {
               </ResponsiveContainer>
             </div>
           </div>
-        )}
-
-        {stats.requestCount === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            Chưa có dữ liệu sử dụng API trong 30 ngày qua
-          </p>
         )}
       </CardContent>
     </Card>
