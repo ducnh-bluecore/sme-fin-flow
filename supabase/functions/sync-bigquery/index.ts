@@ -735,13 +735,49 @@ serve(async (req) => {
 
     const channelsToSync = single_channel ? [single_channel] : channels;
 
+    // Get or create integration_id if not provided
+    let effectiveIntegrationId = integration_id;
+    if (!effectiveIntegrationId) {
+      // Try to find existing BigQuery integration
+      const { data: existing } = await supabase
+        .from('connector_integrations')
+        .select('id')
+        .eq('tenant_id', tenant_id)
+        .eq('connector_type', 'bigquery')
+        .single();
+      
+      if (existing) {
+        effectiveIntegrationId = existing.id;
+      } else {
+        // Create new integration with service role (bypasses RLS)
+        const { data: newIntegration, error: createError } = await supabase
+          .from('connector_integrations')
+          .insert({
+            tenant_id,
+            connector_type: 'bigquery',
+            connector_name: 'Google BigQuery',
+            status: 'active',
+            settings: { project_id },
+          })
+          .select('id')
+          .single();
+        
+        if (createError) {
+          console.error('Error creating integration:', createError);
+        } else {
+          effectiveIntegrationId = newIntegration.id;
+          console.log('Created BigQuery integration:', effectiveIntegrationId);
+        }
+      }
+    }
+
     // Create sync log for first batch
-    if (offset === 0) {
+    if (offset === 0 && effectiveIntegrationId) {
       const { data: syncLog, error: logError } = await supabase
         .from('sync_logs')
         .insert({
           tenant_id,
-          integration_id,
+          integration_id: effectiveIntegrationId,
           connector_type: 'bigquery',
           connector_name: 'BigQuery',
           sync_type: 'manual',
@@ -822,7 +858,7 @@ serve(async (req) => {
 
         if (rows.length > 0) {
           // Map orders
-          const mappedOrders = rows.map(row => mapOrderData(row, channel, integration_id, tenant_id));
+          const mappedOrders = rows.map(row => mapOrderData(row, channel, effectiveIntegrationId || 'default', tenant_id));
           
           // Prepare order items if sync_items is enabled
           const allOrderItems: any[] = [];
@@ -836,7 +872,7 @@ serve(async (req) => {
                 items = [];
               }
               if (items.length > 0) {
-                const mappedItems = mapOrderItems(orderId, items, tenant_id, integration_id, channel);
+                const mappedItems = mapOrderItems(orderId, items, tenant_id, effectiveIntegrationId || 'default', channel);
                 allOrderItems.push(...mappedItems);
               }
             });
@@ -920,7 +956,7 @@ serve(async (req) => {
             
             if (settlementRows.length > 0) {
               const mappedSettlements = settlementRows.map(row => 
-                mapSettlementData(row, channel, integration_id, tenant_id)
+                mapSettlementData(row, channel, effectiveIntegrationId || 'default', tenant_id)
               );
               
               const { error } = await supabase
@@ -955,7 +991,7 @@ serve(async (req) => {
             
             if (productRows.length > 0) {
               const mappedProducts = productRows.map(row => 
-                mapExternalProduct(row, tenant_id, integration_id, channel)
+                mapExternalProduct(row, tenant_id, effectiveIntegrationId || 'default', channel)
               );
               
               // Upsert to external_products
@@ -1079,7 +1115,7 @@ serve(async (req) => {
     }
 
     // Update integration last_sync_at
-    if (integration_id) {
+    if (effectiveIntegrationId) {
       await supabase
         .from('connector_integrations')
         .update({ 
@@ -1087,7 +1123,7 @@ serve(async (req) => {
           status: 'active',
           error_message: null
         })
-        .eq('id', integration_id);
+        .eq('id', effectiveIntegrationId);
     }
 
     console.log('Sync batch completed:', { 

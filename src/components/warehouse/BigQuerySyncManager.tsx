@@ -134,38 +134,11 @@ export function BigQuerySyncManager() {
     mutationFn: async () => {
       const config = getBigQueryConfig();
 
-      // Get or create integration
-      let { data: integration } = await supabase
-        .from('connector_integrations')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('connector_type', 'bigquery' as any)
-        .single();
-
-      if (!integration) {
-        const { data: userData } = await supabase.auth.getUser();
-        const { data: newIntegration, error } = await supabase
-          .from('connector_integrations')
-          .insert({
-            tenant_id: tenantId,
-            connector_type: 'bigquery' as any,
-            connector_name: 'Google BigQuery',
-            status: 'active',
-            settings: { project_id: config?.projectId },
-            created_by: userData.user?.id,
-          })
-          .select('id')
-          .single();
-        if (error) throw error;
-        integration = newIntegration;
-      }
-
       setSyncProgress(10);
 
-      // Sync all data - service account key will be read from env secret
+      // Sync all data - edge function will handle integration creation with service role
       const { data, error } = await supabase.functions.invoke('sync-bigquery', {
         body: {
-          integration_id: integration.id,
           tenant_id: tenantId,
           // Only pass from localStorage if available (optional now)
           ...(config?.serviceAccountKey && { service_account_key: config.serviceAccountKey }),
