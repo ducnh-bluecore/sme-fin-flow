@@ -2072,10 +2072,12 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          city: string | null
           created_at: string
           credit_limit: number | null
           currency_code: string | null
           customer_type: string | null
+          district: string | null
           email: string | null
           gl_receivable_account_id: string | null
           id: string
@@ -2087,13 +2089,16 @@ export type Database = {
           tax_code: string | null
           tenant_id: string | null
           updated_at: string
+          ward: string | null
         }
         Insert: {
           address?: string | null
+          city?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string | null
           customer_type?: string | null
+          district?: string | null
           email?: string | null
           gl_receivable_account_id?: string | null
           id?: string
@@ -2105,13 +2110,16 @@ export type Database = {
           tax_code?: string | null
           tenant_id?: string | null
           updated_at?: string
+          ward?: string | null
         }
         Update: {
           address?: string | null
+          city?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string | null
           customer_type?: string | null
+          district?: string | null
           email?: string | null
           gl_receivable_account_id?: string | null
           id?: string
@@ -2123,6 +2131,7 @@ export type Database = {
           tax_code?: string | null
           tenant_id?: string | null
           updated_at?: string
+          ward?: string | null
         }
         Relationships: [
           {
