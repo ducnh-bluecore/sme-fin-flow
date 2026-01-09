@@ -823,6 +823,142 @@ Thiết lập ngưỡng an toàn tại **Alerts** → **Cash Alert Config**.`,
       },
     ],
   },
+  {
+    id: "risk-dashboard",
+    title: "Quản lý Rủi ro & Stress Testing",
+    icon: <Shield className="h-6 w-6" />,
+    description: "Hướng dẫn sử dụng Risk Dashboard, theo dõi các loại rủi ro và chạy mô phỏng Monte Carlo",
+    videoPlaceholder: "Video hướng dẫn Risk Dashboard sẽ được cập nhật",
+    steps: [
+      {
+        title: "Truy cập Risk Dashboard",
+        description: "Vào menu **Rủi ro** → **Risk Dashboard**. Trang này hiển thị tổng quan 6 loại rủi ro chính của doanh nghiệp.",
+      },
+      {
+        title: "Hiểu 6 loại rủi ro",
+        description: `Hệ thống phân tích và chấm điểm 6 loại rủi ro:
+
+**1. Liquidity Risk (Rủi ro thanh khoản)**: Cash runway, Current ratio
+- Đỏ: Cash runway < 3 tháng
+
+**2. Credit Risk (Rủi ro tín dụng)**: AR quá hạn, Customer concentration  
+- Đỏ: AR overdue > 30% hoặc top 1 customer > 40%
+
+**3. Market Risk (Rủi ro thị trường)**: Biến động doanh thu, Channel concentration
+- Đỏ: Revenue volatility > 25%
+
+**4. Operational Risk (Rủi ro vận hành)**: Inventory aging, Supplier dependency
+- Đỏ: Slow-moving inventory > 20%
+
+**5. Compliance Risk (Rủi ro tuân thủ)**: Covenant status, Tax compliance
+- Đỏ: Có covenant vi phạm
+
+**6. Strategic Risk (Rủi ro chiến lược)**: Gross margin trend, Market share`,
+        tip: "Hover vào từng loại rủi ro để xem chi tiết các chỉ số thành phần."
+      },
+      {
+        title: "Xem Risk Score tổng hợp",
+        description: `Risk Score tổng hợp (0-100) được tính từ trung bình có trọng số 6 loại rủi ro:
+- **0-25**: Rủi ro thấp (Xanh)
+- **26-50**: Rủi ro trung bình (Vàng)  
+- **51-75**: Rủi ro cao (Cam)
+- **76-100**: Rủi ro rất cao (Đỏ)`,
+      },
+      {
+        title: "Sử dụng Stress Testing",
+        description: `Chạy stress test để xem công ty chịu được shock thế nào:
+1. Chọn loại stress test: Revenue drop, Cost spike, AR delay
+2. Điều chỉnh mức độ shock (VD: -20% revenue)
+3. Xem kết quả: Cash runway còn bao lâu, tháng nào hết tiền
+4. So sánh Base case vs Stressed case`,
+        tip: "Chạy stress test định kỳ hàng quý để chuẩn bị contingency plan."
+      },
+      {
+        title: "Monte Carlo Simulation",
+        description: `Mô phỏng Monte Carlo chạy hàng nghìn kịch bản ngẫu nhiên:
+1. Click **Run Monte Carlo**
+2. Chọn số lần mô phỏng (1,000 - 10,000)
+3. Xem phân phối xác suất kết quả EBITDA
+4. Các percentile quan trọng: P10 (pessimistic), P50 (most likely), P90 (optimistic)`,
+        tip: "P10 là kịch bản xấu nhất có 10% xác suất xảy ra - dùng để lập kế hoạch dự phòng."
+      },
+      {
+        title: "Thiết lập cảnh báo rủi ro",
+        description: `Cấu hình tự động thông báo khi rủi ro vượt ngưỡng:
+1. Vào **Alerts** → **Risk Alerts**
+2. Bật/tắt từng loại cảnh báo
+3. Thiết lập ngưỡng (VD: Cash runway < 4 tháng → Cảnh báo)
+4. Chọn kênh nhận: Email, Slack, Push notification`,
+      },
+    ],
+  },
+  {
+    id: "channel-analytics",
+    title: "Phân tích Kênh bán hàng",
+    icon: <BarChart3 className="h-6 w-6" />,
+    description: "Hướng dẫn phân tích hiệu quả từng kênh bán hàng và tối ưu chi phí",
+    videoPlaceholder: "Video hướng dẫn Channel Analytics sẽ được cập nhật",
+    steps: [
+      {
+        title: "Kết nối các kênh bán hàng",
+        description: `Trước tiên cần kết nối dữ liệu từ các kênh:
+1. Vào **Data Hub** → **Add Connector**
+2. Chọn kênh: Shopee, Lazada, TikTok Shop, Website, Offline
+3. Authorize và đồng bộ dữ liệu
+4. Hệ thống tự động import: Orders, Fees, Settlements`,
+        tip: "Kết nối càng nhiều kênh, báo cáo tổng hợp càng chính xác."
+      },
+      {
+        title: "Xem Channel Analytics",
+        description: `Vào **Doanh thu** → **Channel Analytics**:
+- **Overview**: Doanh thu tổng và % contribution từng kênh
+- **Fee Breakdown**: Chi phí theo loại (Commission, Payment, Shipping, Ads)
+- **Trend Chart**: Xu hướng doanh thu theo thời gian
+
+Biểu đồ hình tròn cho thấy kênh nào đóng góp nhiều nhất.`,
+      },
+      {
+        title: "Phân tích chi phí từng kênh",
+        description: `Click vào từng kênh để xem chi tiết chi phí:
+- **Commission Fee**: Phí hoa hồng sàn (thường 3-15%)
+- **Payment Fee**: Phí thanh toán (COD, e-wallet)
+- **Shipping Fee**: Chi phí vận chuyển (nếu bạn chịu)
+- **Ads Fee**: Chi phí quảng cáo trên sàn
+- **Voucher**: Voucher do bạn tài trợ
+- **Other Deductions**: Các khoản trừ khác`,
+        tip: "Commission rate khác nhau theo category sản phẩm. Kiểm tra xem bạn có đang bán category phí cao không."
+      },
+      {
+        title: "So sánh Gross Margin by Channel",
+        description: `Tab **Channel P&L** hiển thị lãi gộp thực sự từng kênh:
+
+**Gross Margin = (Revenue - COGS - Channel Fees) / Revenue**
+
+Ví dụ:
+- Shopee: Revenue 100tr, COGS 60tr, Fees 15tr → GM = 25%
+- Website: Revenue 50tr, COGS 30tr, Fees 2tr → GM = 36%
+
+→ Website margin cao hơn dù doanh thu thấp hơn.`,
+        tip: "Kênh có GM < 15% cần xem xét giảm chi phí hoặc tăng giá."
+      },
+      {
+        title: "Tối ưu Channel Mix",
+        description: `Dựa trên phân tích, đưa ra quyết định:
+1. **Tăng đầu tư**: Kênh GM cao, có tiềm năng tăng trưởng
+2. **Tối ưu chi phí**: Kênh GM thấp, đàm phán lại commission
+3. **Giảm/dừng**: Kênh lỗ liên tục, không có giá trị branding
+
+Dùng **What-If** để mô phỏng: "Nếu tăng budget Shopee 30%, GMV tăng bao nhiêu?"`,
+      },
+      {
+        title: "Báo cáo All-Channels P&L",
+        description: `Vào **Channel P&L** để xem báo cáo tổng hợp:
+- P&L từng kênh cạnh nhau để so sánh
+- Breakdown: Revenue → COGS → Gross Profit → Channel Fees → Net Contribution
+- Export Excel để báo cáo Ban lãnh đạo`,
+      },
+    ],
+  },
 ];
 
 const useCases: UseCase[] = [
@@ -969,6 +1105,114 @@ const useCases: UseCase[] = [
       },
     ],
     keyMetrics: ["Shipping Cost per Order", "DSO (Days Sales Outstanding)", "Inventory Value by Category", "Seasonal Revenue Index", "Warehouse Utilization"],
+  },
+  {
+    id: "fnb-retail",
+    businessType: "F&B - Đồ uống & Thực phẩm",
+    icon: <Store className="h-6 w-6" />,
+    description: "Quán cà phê, trà sữa, nhà hàng, đồ ăn nhanh, thực phẩm đóng gói. Bán qua cửa hàng, delivery apps (GrabFood, ShopeeFood, GoFood), và online.",
+    challenges: [
+      "Nguyên liệu dễ hỏng, cần quản lý stock chặt chẽ theo ngày",
+      "Chi phí delivery app cao (20-30% commission), ăn mòn lợi nhuận",
+      "Doanh thu biến động theo giờ trong ngày, khó dự báo",
+      "Cash flow hàng ngày từ nhiều nguồn: Tiền mặt, App, Momo, Card",
+      "Seasonal peaks (Tết, mùa hè, lễ hội) cần chuẩn bị nhân sự và nguyên liệu",
+    ],
+    solutions: [
+      {
+        feature: "Channel Analytics",
+        benefit: "Phân tích lãi lỗ thực sự từng kênh: Dine-in vs Takeaway vs GrabFood vs ShopeeFood"
+      },
+      {
+        feature: "Cash Flow Direct",
+        benefit: "Theo dõi dòng tiền hàng ngày từ tất cả nguồn, đối soát với POS/App"
+      },
+      {
+        feature: "Inventory Aging",
+        benefit: "Cảnh báo nguyên liệu sắp hết hạn, giảm waste và improve food cost"
+      },
+      {
+        feature: "Cash Forecast",
+        benefit: "Dự báo cash flow theo pattern hàng tuần, chuẩn bị tiền mặt đủ cho peak hours"
+      },
+      {
+        feature: "Unit Economics",
+        benefit: "Tính cost-per-drink/dish chính xác bao gồm delivery fee, packaging"
+      },
+    ],
+    keyMetrics: ["Food Cost %", "Beverage Cost %", "Revenue per Seat/Hour", "Delivery Commission Rate", "Waste Rate"],
+  },
+  {
+    id: "pharmacy-health",
+    businessType: "Nhà thuốc & Sản phẩm Sức khỏe",
+    icon: <Building2 className="h-6 w-6" />,
+    description: "Nhà thuốc, cửa hàng thực phẩm chức năng, thiết bị y tế. Bán tại quầy, online, và qua các sàn TMĐT. Hàng hóa cần quản lý hạn dùng và nguồn gốc.",
+    challenges: [
+      "Quản lý hạn sử dụng (expiry date) bắt buộc theo quy định dược",
+      "Nhiều SKU từ nhiều nhà cung cấp, khó quản lý giá nhập và margin",
+      "Thanh toán BHYT cần đối soát phức tạp",
+      "Tồn kho thuốc theo mùa (cúm mùa đông, dị ứng mùa xuân...)",
+      "Chi phí nhân viên dược sĩ cao, cần tối ưu hiệu quả bán hàng",
+    ],
+    solutions: [
+      {
+        feature: "Inventory Aging",
+        benefit: "Quản lý expiry date, cảnh báo trước 3-6 tháng để promotion giải phóng"
+      },
+      {
+        feature: "Channel P&L",
+        benefit: "Phân tích lợi nhuận: Bán trực tiếp vs Online vs Sỉ cho phòng khám"
+      },
+      {
+        feature: "Working Capital",
+        benefit: "Tối ưu DIO cho thuốc, giảm vốn kẹt trong tồn kho slow-moving"
+      },
+      {
+        feature: "Cash Conversion Cycle",
+        benefit: "Quản lý công nợ nhà cung cấp dược phẩm, tận dụng payment terms"
+      },
+      {
+        feature: "Promotion ROI",
+        benefit: "Đánh giá hiệu quả các chương trình khuyến mãi theo category (OTC, TPCN, Mỹ phẩm)"
+      },
+    ],
+    keyMetrics: ["Inventory Turnover by Category", "Expiry Loss Rate", "Gross Margin by Supplier", "Prescription vs OTC Ratio", "Average Basket Size"],
+  },
+  {
+    id: "furniture-homeware",
+    businessType: "Nội thất & Đồ gia dụng",
+    icon: <Factory className="h-6 w-6" />,
+    description: "Bán nội thất, đồ trang trí, đồ gia dụng. Sản phẩm giá trị cao, chu kỳ bán chậm, chi phí vận chuyển/lắp đặt lớn.",
+    challenges: [
+      "Sản phẩm giá trị cao, tồn kho lớn chiếm dụng vốn nhiều",
+      "Chu kỳ bán hàng dài (khách xem showroom → quyết định → mua)",
+      "Chi phí vận chuyển và lắp đặt cao, khó tính vào giá bán",
+      "Tỷ lệ đổi trả do sản phẩm không vừa không gian",
+      "Seasonal (nhà mới, cưới hỏi, Tết) cần dự trữ hàng trước",
+    ],
+    solutions: [
+      {
+        feature: "Cash Forecast",
+        benefit: "Dự báo dòng tiền với chu kỳ dài, tính cả đặt cọc và thanh toán khi giao"
+      },
+      {
+        feature: "Unit Economics",
+        benefit: "Tính full cost mỗi đơn hàng: Giá vốn + Vận chuyển + Lắp đặt + Bảo hành"
+      },
+      {
+        feature: "Working Capital",
+        benefit: "Quản lý vốn lưu động với hàng tồn giá trị cao, tối ưu DIO"
+      },
+      {
+        feature: "What-If Simulation",
+        benefit: "Mô phỏng kịch bản: Nhập thêm container vs Made-to-order"
+      },
+      {
+        feature: "Scenario Planning",
+        benefit: "Lập kế hoạch nhập hàng theo mùa cao điểm (Tết, mùa cưới)"
+      },
+    ],
+    keyMetrics: ["Inventory Days", "Revenue per Sqm Showroom", "Installation Cost Ratio", "Return Rate", "Deposit-to-Delivery Conversion"],
   },
 ];
 
