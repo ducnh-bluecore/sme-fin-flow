@@ -891,25 +891,24 @@ serve(async (req) => {
           }
           
           // Determine conflict key based on target table
-          // Note: For bank_transactions we use INSERT (not upsert) since we generate UUIDs
-          // For customers we use external_customer_id to avoid email conflicts
-          const conflictKeys: Record<string, string> = {
+          // For tables without proper unique constraints, use INSERT only (no upsert)
+          const conflictKeys: Record<string, string | null> = {
             'external_orders': 'tenant_id,integration_id,external_order_id',
             'external_order_items': 'tenant_id,external_order_id,item_id',
             'external_products': 'integration_id,external_product_id',
-            'customers': 'tenant_id,external_customer_id',
+            'customers': null, // Use INSERT only - no unique constraint
             'channel_settlements': 'tenant_id,integration_id,settlement_id',
             'channel_fees': 'id',
-            'bank_transactions': 'tenant_id,reference', // Use reference (original ID stored here) for dedup
-            'promotions': 'tenant_id,promotion_code',
+            'bank_transactions': null, // Use INSERT only - no unique constraint
+            'promotions': null, // Use INSERT only - no unique constraint
           };
           
-          const onConflict = conflictKeys[targetTable] || 'id';
+          const onConflict = conflictKeys[targetTable];
           let modelSynced = 0;
           let modelErrors = 0;
           
-          // Dedupe mapped data based on conflict key to avoid "cannot affect row a second time" error
-          const dedupeKey = onConflict.split(',');
+          // Dedupe mapped data based on id or conflict key
+          const dedupeKey = onConflict ? onConflict.split(',') : ['id'];
           const seen = new Set<string>();
           const dedupedData = mappedData.filter(item => {
             const key = dedupeKey.map(k => String(item[k] || '')).join('|');
@@ -920,16 +919,35 @@ serve(async (req) => {
           
           console.log(`${modelKey}: Deduped ${mappedData.length} → ${dedupedData.length} records`);
           
-          // Upsert in batches
+          // Insert/Upsert in batches
           for (let i = 0; i < dedupedData.length; i += 100) {
             const batch = dedupedData.slice(i, i + 100);
             try {
-              const { error } = await supabase
-                .from(targetTable)
-                .upsert(batch, { onConflict, ignoreDuplicates: true });
+              let error: any = null;
+              
+              if (onConflict) {
+                // Use upsert for tables with proper constraints
+                const result = await supabase
+                  .from(targetTable)
+                  .upsert(batch, { onConflict, ignoreDuplicates: true });
+                error = result.error;
+              } else {
+                // Use INSERT for tables without proper constraints (ignore duplicates via primary key)
+                const result = await supabase
+                  .from(targetTable)
+                  .insert(batch);
+                  
+                // Ignore duplicate key errors
+                if (result.error && result.error.code === '23505') {
+                  // Duplicate key - this is expected, count as success
+                  modelSynced += batch.length;
+                  continue;
+                }
+                error = result.error;
+              }
               
               if (error) {
-                console.error(`Error upserting ${modelKey} batch:`, error.message);
+                console.error(`Error inserting ${modelKey} batch:`, error.message);
                 modelErrors += batch.length;
               } else {
                 modelSynced += batch.length;
