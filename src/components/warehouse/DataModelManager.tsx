@@ -143,19 +143,28 @@ export function DataModelManager() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
 
-  // Display all models from database
-  const displayModels: DataModelConfig[] = (models || []).map(m => ({
-    model_name: m.model_name,
-    model_label: m.model_label,
-    description: m.description || '',
-    bigquery_dataset: m.bigquery_dataset,
-    bigquery_table: m.bigquery_table,
-    primary_key_field: m.primary_key_field,
-    timestamp_field: m.timestamp_field || '',
-    target_table: m.target_table || '',
-    is_enabled: m.is_enabled ?? false,
-    sync_frequency_hours: m.sync_frequency_hours || 24,
-  }));
+  // Display all models from database - restore sources from mapping_config
+  const displayModels: DataModelConfig[] = (models || []).map(m => {
+    const mappingConfig = m.mapping_config as Record<string, any> | null;
+    return {
+      model_name: m.model_name,
+      model_label: m.model_label,
+      description: m.description || '',
+      bigquery_dataset: m.bigquery_dataset,
+      bigquery_table: m.bigquery_table,
+      primary_key_field: m.primary_key_field,
+      timestamp_field: m.timestamp_field || '',
+      target_table: m.target_table || '',
+      is_enabled: m.is_enabled ?? false,
+      sync_frequency_hours: m.sync_frequency_hours || 24,
+      // Restore extended config from mapping_config
+      sources: mappingConfig?.sources || [],
+      custom_query: mappingConfig?.custom_query || '',
+      field_mapping: mappingConfig?.field_mapping || {},
+      sync_mode: mappingConfig?.sync_mode || 'incremental',
+      batch_size: mappingConfig?.batch_size || 100,
+    };
+  });
 
   // Fetch AI suggestions
   const handleFetchSuggestions = async () => {
@@ -183,7 +192,7 @@ export function DataModelManager() {
     }
   };
 
-  // Add suggestion as data model (using first source as primary)
+  // Add suggestion as data model (save ALL sources to mapping_config)
   const handleAddSuggestion = async (suggestion: AISuggestion) => {
     if (!tenantId) return;
     
@@ -192,6 +201,14 @@ export function DataModelManager() {
       if (!primarySource) {
         throw new Error('No source tables found');
       }
+      
+      // Convert additional sources to SourceConfig format
+      const additionalSources: SourceConfig[] = suggestion.sources.slice(1).map(src => ({
+        id: crypto.randomUUID(),
+        dataset: src.dataset,
+        table: src.table,
+        channel: src.channel || '',
+      }));
       
       await upsertModel.mutateAsync({
         model_name: suggestion.model_name,
@@ -204,6 +221,11 @@ export function DataModelManager() {
         target_table: suggestion.target_table || undefined,
         is_enabled: false,
         sync_frequency_hours: 24,
+        // Save all additional sources in mapping_config
+        mapping_config: {
+          sources: additionalSources,
+          primary_channel: primarySource.channel || '',
+        },
       });
       
       // Remove from suggestions
@@ -276,7 +298,29 @@ export function DataModelManager() {
   const handleSaveModel = async () => {
     if (!editingModel) return;
     
-    await upsertModel.mutateAsync(editingModel);
+    // Save sources and advanced config to mapping_config
+    const mappingConfig = {
+      sources: editingModel.sources || [],
+      custom_query: editingModel.custom_query || '',
+      field_mapping: editingModel.field_mapping || {},
+      sync_mode: editingModel.sync_mode || 'incremental',
+      batch_size: editingModel.batch_size || 100,
+    };
+    
+    await upsertModel.mutateAsync({
+      model_name: editingModel.model_name,
+      model_label: editingModel.model_label,
+      description: editingModel.description,
+      bigquery_dataset: editingModel.bigquery_dataset,
+      bigquery_table: editingModel.bigquery_table,
+      primary_key_field: editingModel.primary_key_field,
+      timestamp_field: editingModel.timestamp_field || undefined,
+      target_table: editingModel.target_table || undefined,
+      is_enabled: editingModel.is_enabled,
+      sync_frequency_hours: editingModel.sync_frequency_hours,
+      mapping_config: mappingConfig,
+    });
+    
     setIsDialogOpen(false);
     setEditingModel(null);
   };
