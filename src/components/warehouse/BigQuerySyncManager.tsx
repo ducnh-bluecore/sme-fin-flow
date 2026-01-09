@@ -4,9 +4,7 @@ import { motion } from 'framer-motion';
 import {
   RefreshCw,
   Play,
-  Pause,
   CheckCircle2,
-  AlertCircle,
   Loader2,
   Database,
   Package,
@@ -17,13 +15,13 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useSyncProgress } from '@/contexts/SyncProgressContext';
 import { toast } from 'sonner';
 
 interface SyncOptions {
@@ -52,6 +50,7 @@ interface CountResult {
 export function BigQuerySyncManager() {
   const { data: tenantId } = useActiveTenantId();
   const queryClient = useQueryClient();
+  const { syncState, setIsLoading, setProgress, setLastResult } = useSyncProgress();
   
   const [syncOptions, setSyncOptions] = useState<SyncOptions>({
     sync_items: true,
@@ -59,9 +58,6 @@ export function BigQuerySyncManager() {
     sync_settlements: true,
     sync_customers: true,
   });
-  
-  const [syncProgress, setSyncProgress] = useState(0);
-  const [lastResult, setLastResult] = useState<SyncResult | null>(null);
 
   // Get BigQuery config from localStorage
   const getBigQueryConfig = () => {
@@ -134,7 +130,8 @@ export function BigQuerySyncManager() {
     mutationFn: async () => {
       const config = getBigQueryConfig();
 
-      setSyncProgress(10);
+      setIsLoading(true);
+      setProgress(10);
 
       // Sync all data - edge function will handle integration creation with service role
       const { data, error } = await supabase.functions.invoke('sync-bigquery', {
@@ -149,12 +146,11 @@ export function BigQuerySyncManager() {
         },
       });
 
-      setSyncProgress(90);
+      setProgress(90);
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Sync failed');
       
-      setSyncProgress(100);
       return data.data as SyncResult;
     },
     onSuccess: (result) => {
@@ -170,7 +166,8 @@ export function BigQuerySyncManager() {
     },
     onError: (error) => {
       toast.error('Lỗi sync: ' + error.message);
-      setSyncProgress(0);
+      setIsLoading(false);
+      setProgress(0);
     },
   });
 
@@ -313,13 +310,13 @@ export function BigQuerySyncManager() {
       </div>
 
       {/* Sync Progress */}
-      {syncMutation.isPending && (
+      {(syncMutation.isPending || syncState.isLoading) && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">Đang sync...</span>
-            <span className="text-sm font-medium">{syncProgress}%</span>
+            <span className="text-sm font-medium">{syncState.progress}%</span>
           </div>
-          <Progress value={syncProgress} className="h-2" />
+          <Progress value={syncState.progress} className="h-2" />
         </div>
       )}
 
@@ -352,7 +349,7 @@ export function BigQuerySyncManager() {
       )}
 
       {/* Last Sync Result */}
-      {lastResult && (
+      {syncState.lastResult && (
         <div className="p-4 bg-green-500/10 rounded-lg">
           <h4 className="font-medium mb-3 flex items-center gap-2 text-green-700">
             <CheckCircle2 className="w-4 h-4" />
@@ -361,24 +358,24 @@ export function BigQuerySyncManager() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Orders</p>
-              <p className="font-bold">{lastResult.total_orders_synced.toLocaleString()}</p>
+              <p className="font-bold">{syncState.lastResult.total_orders_synced.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Items</p>
-              <p className="font-bold">{lastResult.total_items_synced.toLocaleString()}</p>
+              <p className="font-bold">{syncState.lastResult.total_items_synced.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Products</p>
-              <p className="font-bold">{lastResult.total_products_synced.toLocaleString()}</p>
+              <p className="font-bold">{syncState.lastResult.total_products_synced.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Settlements</p>
-              <p className="font-bold">{lastResult.total_settlements_synced.toLocaleString()}</p>
+              <p className="font-bold">{syncState.lastResult.total_settlements_synced.toLocaleString()}</p>
             </div>
           </div>
-          {lastResult.total_errors > 0 && (
+          {syncState.lastResult.total_errors > 0 && (
             <p className="mt-2 text-sm text-orange-600">
-              ⚠️ {lastResult.total_errors} errors
+              ⚠️ {syncState.lastResult.total_errors} errors
             </p>
           )}
         </div>
