@@ -160,8 +160,8 @@ function mapOrderData(row: any, channel: string, integrationId: string, tenantId
     
     // Location
     province_code: row.province_code || row.provinceCode || row.region || row.state,
-    district_code: row.district_code || row.districtCode || row.city,
-    ward_code: row.ward_code || row.wardCode,
+    district_name: row.district_name || row.district || row.city,
+    province_name: row.province_name || row.province || row.state,
     
     // Shop/Organization
     shop_id: shopId,
@@ -185,13 +185,12 @@ function mapOrderData(row: any, channel: string, integrationId: string, tenantId
     
     // Discounts
     voucher_discount: voucherDiscount,
-    coin_discount: coinDiscount,
-    seller_discount: parseFloat(row.seller_discount || row.seller_voucher || 0),
-    platform_discount: parseFloat(row.platform_discount || row.platform_voucher || 0),
+    voucher_seller: parseFloat(row.voucher_seller || row.seller_voucher || 0),
+    voucher_platform: parseFloat(row.voucher_platform || row.platform_voucher || 0),
     
     // Revenue & Profit
     seller_income: sellerIncome,
-    cogs: totalCogs,
+    cost_of_goods: totalCogs,
     net_revenue: netRevenue,
     gross_profit: grossProfit,
     net_profit: netProfit,
@@ -432,7 +431,7 @@ const CHANNEL_QUERIES: Record<string, {
   lazada: {
     dataset: 'bluecoredcp_lazada',
     orderTable: 'lazada_Orders',
-    orderIdField: 'orderNumber',
+    orderIdField: 'order_number',
     orderItemsTable: 'lazada_OrderItems',
     settlementTable: 'lazada_FinanceTransactionDetails',
     productTable: 'lazada_Products',
@@ -1000,7 +999,7 @@ serve(async (req) => {
                 const { error } = await supabase
                   .from('external_products')
                   .upsert(batch, { 
-                    onConflict: 'tenant_id,integration_id,external_product_id',
+                    onConflict: 'integration_id,external_product_id',
                     ignoreDuplicates: false 
                   });
 

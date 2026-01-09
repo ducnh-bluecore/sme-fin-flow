@@ -2073,6 +2073,7 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          country: string | null
           created_at: string
           credit_limit: number | null
           currency_code: string | null
@@ -2085,6 +2086,7 @@ export type Database = {
           payment_term_id: string | null
           payment_terms: number | null
           phone: string | null
+          province: string | null
           status: string | null
           tax_code: string | null
           tenant_id: string | null
@@ -2094,6 +2096,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string | null
@@ -2106,6 +2109,7 @@ export type Database = {
           payment_term_id?: string | null
           payment_terms?: number | null
           phone?: string | null
+          province?: string | null
           status?: string | null
           tax_code?: string | null
           tenant_id?: string | null
@@ -2115,6 +2119,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           credit_limit?: number | null
           currency_code?: string | null
@@ -2127,6 +2132,7 @@ export type Database = {
           payment_term_id?: string | null
           payment_terms?: number | null
           phone?: string | null
+          province?: string | null
           status?: string | null
           tax_code?: string | null
           tenant_id?: string | null
