@@ -423,6 +423,7 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
       };
       
     case 'external_order_items':
+      // Note: external_order_items table does NOT have last_synced_at
       return {
         ...baseData,
         external_order_id: String(row.order_id || row.order_sn || row[model.primary_key_field]),
@@ -434,7 +435,6 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         total_amount: parseFloat(row.total || row.subtotal || row.amount || 0),
         unit_cogs: parseFloat(row.cogs || row.cost || row.cost_price || 0),
         total_cogs: parseFloat(row.total_cogs || 0),
-        last_synced_at: new Date().toISOString(),
       };
       
     case 'external_products':
@@ -897,7 +897,8 @@ serve(async (req) => {
             'external_order_items': 'tenant_id,external_order_id,item_id',
             'external_products': 'integration_id,external_product_id',
             'customers': null, // Use INSERT only - no unique constraint
-            'channel_settlements': 'tenant_id,integration_id,settlement_id',
+            // channel_settlements has unique (integration_id, settlement_id)
+            'channel_settlements': 'integration_id,settlement_id',
             'channel_fees': 'id',
             'bank_transactions': null, // Use INSERT only - no unique constraint
             'promotions': null, // Use INSERT only - no unique constraint
