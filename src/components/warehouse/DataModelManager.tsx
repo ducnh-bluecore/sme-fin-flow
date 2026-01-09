@@ -345,9 +345,27 @@ export function DataModelManager() {
   };
 
   const handleToggleEnabled = async (model: DataModelConfig, enabled: boolean) => {
+    // Only send database fields, not extended config
+    const mappingConfig = {
+      sources: model.sources || [],
+      custom_query: model.custom_query || '',
+      field_mapping: model.field_mapping || {},
+      sync_mode: model.sync_mode || 'incremental',
+      batch_size: model.batch_size || 100,
+    };
+    
     await upsertModel.mutateAsync({
-      ...model,
+      model_name: model.model_name,
+      model_label: model.model_label,
+      description: model.description,
+      bigquery_dataset: model.bigquery_dataset,
+      bigquery_table: model.bigquery_table,
+      primary_key_field: model.primary_key_field,
+      timestamp_field: model.timestamp_field || undefined,
+      target_table: model.target_table || undefined,
       is_enabled: enabled,
+      sync_frequency_hours: model.sync_frequency_hours,
+      mapping_config: mappingConfig,
     });
   };
 
