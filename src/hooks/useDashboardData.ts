@@ -313,15 +313,17 @@ export function useAlerts() {
   });
 }
 
-// Fetch Overdue Invoices
+// Fetch Overdue Invoices - Note: No date range filter as overdue invoices may have old issue dates
 export function useOverdueInvoices(limit?: number) {
   const { data: tenantId } = useActiveTenantId();
+  const today = new Date().toISOString().split('T')[0];
 
   return useQuery({
-    queryKey: ['overdue-invoices', tenantId, limit],
+    queryKey: ['overdue-invoices', tenantId, limit, today],
     queryFn: async (): Promise<InvoiceWithCustomer[]> => {
       if (!tenantId) return [];
 
+      // Query invoices where status is overdue OR due_date is in the past AND not paid
       let query = supabase
         .from('invoices')
         .select(`
@@ -336,7 +338,8 @@ export function useOverdueInvoices(limit?: number) {
           customers (name)
         `)
         .eq('tenant_id', tenantId)
-        .or('status.eq.overdue,due_date.lt.' + new Date().toISOString().split('T')[0])
+        .neq('status', 'paid')
+        .or(`status.eq.overdue,due_date.lt.${today}`)
         .order('due_date', { ascending: true });
       
       if (limit) {
