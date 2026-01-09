@@ -889,6 +889,49 @@ serve(async (req) => {
             const mapped = mapGenericData(row, tenant_id, effectiveIntegrationId, targetTable, model);
             if (mapped) mappedData.push(mapped);
           }
+
+          // Special handling: external_order_items.external_order_id is a UUID FK to external_orders.id
+          // BigQuery provides an external order reference (string/number). We resolve it to the UUID.
+          if (targetTable === 'external_order_items' && mappedData.length > 0) {
+            const orderRefs = Array.from(
+              new Set(
+                mappedData
+                  .map((x) => String(x.external_order_id || ''))
+                  .filter((x) => x.length > 0)
+              )
+            );
+
+            if (orderRefs.length > 0) {
+              const { data: orders, error: ordersErr } = await supabase
+                .from('external_orders')
+                .select('id,external_order_id')
+                .eq('tenant_id', tenant_id)
+                .in('external_order_id', orderRefs);
+
+              if (ordersErr) {
+                throw new Error(`Failed to resolve external_order_items order ids: ${ordersErr.message}`);
+              }
+
+              const refToUuid = new Map<string, string>();
+              (orders || []).forEach((o: any) => refToUuid.set(String(o.external_order_id), o.id));
+
+              mappedData = mappedData
+                .map((item) => {
+                  const ref = String(item.external_order_id || '');
+                  const uuid = refToUuid.get(ref);
+                  if (!uuid) return null;
+                  return {
+                    ...item,
+                    external_order_id: uuid,
+                    raw_data: {
+                      ...(item.raw_data || {}),
+                      external_order_ref: ref,
+                    },
+                  };
+                })
+                .filter(Boolean);
+            }
+          }
           
           if (mappedData.length === 0) {
             results[modelKey] = { synced: 0, errors: 0, message: 'No mappable data' };
