@@ -129,12 +129,13 @@ const TARGET_TABLES = [
 
 export function DataModelManager() {
   const { data: models, isLoading, refetch } = useBigQueryDataModels();
-  const { data: watermarks } = useSyncWatermarks();
+  const { data: watermarks, refetch: refetchWatermarks } = useSyncWatermarks();
   const upsertModel = useUpsertDataModel();
-  const tenantId = useActiveTenantId();
+  const { data: tenantId } = useActiveTenantId();
   
   const [editingModel, setEditingModel] = useState<DataModelConfig | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [syncingModels, setSyncingModels] = useState<Set<string>>(new Set());
   
   // AI Suggestions state
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
@@ -210,6 +211,48 @@ export function DataModelManager() {
       toast.success(`Đã thêm "${suggestion.model_label}" với ${suggestion.sources.length} nguồn`);
     } catch (error: any) {
       toast.error('Lỗi: ' + error.message);
+    }
+  };
+
+  // Sync a specific data model
+  const handleSyncModel = async (model: DataModelConfig) => {
+    if (!tenantId) {
+      toast.error('Không có tenant ID');
+      return;
+    }
+    
+    setSyncingModels(prev => new Set(prev).add(model.model_name));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-bigquery', {
+        body: {
+          tenant_id: tenantId,
+          model_name: model.model_name,
+          dataset: model.bigquery_dataset,
+          table: model.bigquery_table,
+          target_table: model.target_table,
+          primary_key_field: model.primary_key_field,
+          timestamp_field: model.timestamp_field,
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast.success(`Đã sync ${data.records_synced || 0} records từ ${model.model_label}`);
+        refetchWatermarks();
+      } else {
+        throw new Error(data.error || 'Sync failed');
+      }
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast.error('Lỗi sync: ' + (error.message || 'Unknown error'));
+    } finally {
+      setSyncingModels(prev => {
+        const next = new Set(prev);
+        next.delete(model.model_name);
+        return next;
+      });
     }
   };
 
@@ -599,13 +642,14 @@ export function DataModelManager() {
                         variant="default"
                         size="sm"
                         className="flex-1"
-                        disabled={watermark?.sync_status === 'syncing'}
+                        disabled={syncingModels.has(model.model_name) || watermark?.sync_status === 'syncing'}
+                        onClick={() => handleSyncModel(model)}
                       >
                         <RefreshCw className={cn(
                           'w-3 h-3 mr-1',
-                          watermark?.sync_status === 'syncing' && 'animate-spin'
+                          (syncingModels.has(model.model_name) || watermark?.sync_status === 'syncing') && 'animate-spin'
                         )} />
-                        Sync
+                        {syncingModels.has(model.model_name) ? 'Đang sync...' : 'Sync'}
                       </Button>
                     )}
                   </div>
