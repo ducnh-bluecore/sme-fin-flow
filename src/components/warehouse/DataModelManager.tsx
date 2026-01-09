@@ -137,6 +137,18 @@ export function DataModelManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [syncingModels, setSyncingModels] = useState<Set<string>>(new Set());
   
+  // Sync result state
+  const [syncResult, setSyncResult] = useState<{
+    modelName: string;
+    modelLabel: string;
+    success: boolean;
+    recordsSynced?: number;
+    errors?: number;
+    errorMessages?: string[];
+    duration?: number;
+  } | null>(null);
+  const [showSyncResult, setShowSyncResult] = useState(false);
+  
   // AI Suggestions state
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -244,6 +256,7 @@ export function DataModelManager() {
     }
     
     setSyncingModels(prev => new Set(prev).add(model.model_name));
+    const startTime = Date.now();
     
     try {
       const { data, error } = await supabase.functions.invoke('sync-bigquery', {
@@ -260,15 +273,41 @@ export function DataModelManager() {
       
       if (error) throw error;
       
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      
       if (data.success) {
-        toast.success(`Đã sync ${data.records_synced || 0} records từ ${model.model_label}`);
+        setSyncResult({
+          modelName: model.model_name,
+          modelLabel: model.model_label,
+          success: true,
+          recordsSynced: data.records_synced || 0,
+          errors: data.errors || 0,
+          errorMessages: data.error_messages || [],
+          duration,
+        });
+        setShowSyncResult(true);
         refetchWatermarks();
       } else {
-        throw new Error(data.error || 'Sync failed');
+        setSyncResult({
+          modelName: model.model_name,
+          modelLabel: model.model_label,
+          success: false,
+          errorMessages: [data.error || 'Sync failed'],
+          duration,
+        });
+        setShowSyncResult(true);
       }
     } catch (error: any) {
       console.error('Sync error:', error);
-      toast.error('Lỗi sync: ' + (error.message || 'Unknown error'));
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      setSyncResult({
+        modelName: model.model_name,
+        modelLabel: model.model_label,
+        success: false,
+        errorMessages: [error.message || 'Unknown error'],
+        duration,
+      });
+      setShowSyncResult(true);
     } finally {
       setSyncingModels(prev => {
         const next = new Set(prev);
@@ -746,6 +785,69 @@ export function DataModelManager() {
           })
         )}
       </div>
+
+      {/* Sync Result Dialog */}
+      <Dialog open={showSyncResult} onOpenChange={setShowSyncResult}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {syncResult?.success ? (
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+              ) : (
+                <XCircle className="w-5 h-5 text-destructive" />
+              )}
+              Kết quả Sync: {syncResult?.modelLabel}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {syncResult?.success ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10">
+                  <span className="text-sm">Records đã sync</span>
+                  <span className="font-bold text-green-600">
+                    {(syncResult?.recordsSynced || 0).toLocaleString()}
+                  </span>
+                </div>
+                
+                {(syncResult?.errors || 0) > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10">
+                    <span className="text-sm">Lỗi</span>
+                    <span className="font-bold text-orange-600">
+                      {syncResult?.errors?.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
+                  <span className="text-sm">Thời gian</span>
+                  <span className="font-medium">{syncResult?.duration}s</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg bg-destructive/10">
+                  <p className="text-sm font-medium text-destructive mb-2">Lỗi xảy ra:</p>
+                  {syncResult?.errorMessages?.map((msg, i) => (
+                    <p key={i} className="text-sm text-muted-foreground">{msg}</p>
+                  ))}
+                </div>
+                
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
+                  <span className="text-sm">Thời gian</span>
+                  <span className="font-medium">{syncResult?.duration}s</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setShowSyncResult(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Enhanced Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
