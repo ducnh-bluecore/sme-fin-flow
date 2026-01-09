@@ -475,6 +475,92 @@ const CHANNEL_QUERIES: Record<string, {
   },
 };
 
+// Handle sync from DataModelManager (model-based sync)
+async function handleModelSync(params: {
+  tenant_id: string;
+  model_name: string;
+  dataset: string;
+  table: string;
+  target_table?: string;
+  primary_key_field: string;
+  timestamp_field?: string;
+  accessToken: string;
+  projectId: string;
+  batch_size: number;
+}): Promise<Response> {
+  const { tenant_id, model_name, dataset, table, target_table, primary_key_field, timestamp_field, accessToken, projectId, batch_size } = params;
+  
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  console.log(`Model sync: ${model_name} from ${dataset}.${table}`);
+
+  try {
+    // Update watermark to syncing
+    await supabase.from('bigquery_sync_watermarks').upsert({
+      tenant_id,
+      data_model: model_name,
+      dataset_id: dataset,
+      table_id: table,
+      sync_status: 'syncing',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id,data_model' });
+
+    // Build query
+    let query = `SELECT * FROM \`${projectId}.${dataset}.${table}\``;
+    if (timestamp_field) {
+      query += ` ORDER BY ${timestamp_field} DESC`;
+    }
+    query += ` LIMIT ${batch_size}`;
+
+    console.log('Query:', query);
+    const rows = await queryBigQuery(accessToken, projectId, query);
+    console.log(`Fetched ${rows.length} rows`);
+
+    // Update watermark with success
+    await supabase.from('bigquery_sync_watermarks').upsert({
+      tenant_id,
+      data_model: model_name,
+      dataset_id: dataset,
+      table_id: table,
+      sync_status: 'completed',
+      last_sync_at: new Date().toISOString(),
+      total_records_synced: rows.length,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id,data_model' });
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        records_synced: rows.length,
+        model_name,
+        dataset,
+        table,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error: any) {
+    console.error('Model sync error:', error);
+    
+    // Update watermark with error
+    await supabase.from('bigquery_sync_watermarks').upsert({
+      tenant_id,
+      data_model: model_name,
+      dataset_id: dataset,
+      table_id: table,
+      sync_status: 'failed',
+      error_message: error.message,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'tenant_id,data_model' });
+
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -484,13 +570,12 @@ serve(async (req) => {
   let supabase: any = null;
 
   try {
+    const body = await req.json();
     const { 
       integration_id, 
       tenant_id, 
       channels = ['shopee', 'lazada', 'tiktok', 'tiki', 'sapo', 'sapogo', 'shopify'],
       days_back = 30,
-      service_account_key,
-      project_id,
       action = 'sync', // 'sync', 'count', 'sync_all'
       batch_size = 2000,
       offset = 0,
@@ -499,7 +584,36 @@ serve(async (req) => {
       sync_settlements = false, // Sync settlement data
       sync_products = false, // Sync product catalog
       sync_customers = false, // Sync customers
-    } = await req.json();
+      // New params from DataModelManager
+      model_name,
+      dataset,
+      table,
+      target_table,
+      primary_key_field,
+      timestamp_field,
+    } = body;
+
+    // Get service account from environment or request body
+    let serviceAccountJson = body.service_account_key;
+    let projectId = body.project_id;
+    
+    // If not provided in body, try to get from environment
+    if (!serviceAccountJson) {
+      serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    }
+    
+    if (!serviceAccountJson) {
+      throw new Error('Missing service_account_key - please configure GOOGLE_SERVICE_ACCOUNT_JSON secret');
+    }
+    
+    const serviceAccount = typeof serviceAccountJson === 'string' 
+      ? JSON.parse(serviceAccountJson) 
+      : serviceAccountJson;
+    
+    // Get project_id from service account if not provided
+    if (!projectId) {
+      projectId = serviceAccount.project_id || 'bluecore-dcp';
+    }
 
     console.log('Sync BigQuery started:', { 
       integration_id, 
@@ -511,23 +625,37 @@ serve(async (req) => {
       offset,
       sync_items,
       sync_settlements,
-      sync_products
+      sync_products,
+      model_name,
+      dataset,
+      table,
     });
-
-    if (!service_account_key || !project_id) {
-      throw new Error('Missing service_account_key or project_id');
-    }
 
     if (!tenant_id) {
       throw new Error('Missing tenant_id');
     }
 
-    const serviceAccount = typeof service_account_key === 'string' 
-      ? JSON.parse(service_account_key) 
-      : service_account_key;
+    // Create alias for backward compatibility
+    const project_id = projectId;
 
     const accessToken = await getAccessToken(serviceAccount);
     console.log('Got BigQuery access token');
+
+    // Handle model-based sync (from DataModelManager)
+    if (model_name && dataset && table) {
+      return await handleModelSync({
+        tenant_id,
+        model_name,
+        dataset,
+        table,
+        target_table,
+        primary_key_field,
+        timestamp_field,
+        accessToken,
+        projectId,
+        batch_size,
+      });
+    }
 
     // If action is 'count', just count records without syncing
     if (action === 'count') {
