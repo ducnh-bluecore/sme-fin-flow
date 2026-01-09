@@ -388,8 +388,8 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
     tenant_id: tenantId,
   };
   
-  // Add integration_id for tables that need it
-  if (['external_orders', 'external_order_items', 'external_products', 'channel_settlements', 'channel_fees'].includes(targetTable)) {
+  // Add integration_id for tables that need it (external_order_items does NOT have integration_id column)
+  if (['external_orders', 'external_products', 'channel_settlements', 'channel_fees'].includes(targetTable)) {
     baseData.integration_id = integrationId;
   }
   
@@ -477,6 +477,7 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
       };
       
     case 'channel_settlements':
+      // Note: total_fees is a GENERATED column, do NOT include it
       return {
         ...baseData,
         settlement_id: String(row[model.primary_key_field] || row.transaction_id || row.id),
@@ -484,7 +485,9 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         period_end: row.period_end || row.end_date || new Date().toISOString(),
         gross_sales: parseFloat(row.gross_sales || row.total_sales || 0),
         total_commission: parseFloat(row.commission || row.total_commission || 0),
-        total_fees: parseFloat(row.total_fees || row.fees || 0),
+        total_service_fee: parseFloat(row.service_fee || row.seller_service_fee || 0),
+        total_payment_fee: parseFloat(row.payment_fee || row.payment_promotion || 0),
+        total_shipping_fee: parseFloat(row.shipping_fee || row.actual_shipping_fee || 0),
         net_amount: parseFloat(row.net_amount || row.payout_amount || 0),
         status: row.status || 'pending',
       };
@@ -499,21 +502,39 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
       };
       
     case 'bank_transactions':
+      // Generate UUID for bank_transactions since BigQuery IDs are not UUID format
       return {
-        id: row[model.primary_key_field] || row.id,
+        id: crypto.randomUUID(),
         tenant_id: tenantId,
-        transaction_date: row.transaction_date || row.date || row[model.timestamp_field],
+        transaction_date: row.transaction_date || row.date || row[model.timestamp_field] || new Date().toISOString(),
         amount: parseFloat(row.amount || row.value || 0),
         transaction_type: row.transaction_type || row.type || 'credit',
         description: row.description || row.memo || row.note,
-        reference: row.reference || row.ref_no,
+        reference: row.reference || row.ref_no || String(row[model.primary_key_field] || row.id || ''),
+      };
+      
+    case 'promotions':
+      // Map to promotions table - exclude OrgId and other non-existent columns
+      return {
+        tenant_id: tenantId,
+        promotion_name: row.promotion_name || row.name || row.title || 'Unknown Promotion',
+        promotion_code: row.promotion_code || row.code || row.promo_code || String(row[model.primary_key_field] || crypto.randomUUID()),
+        promotion_type: row.promotion_type || row.type || 'discount',
+        channel: row.channel || 'all',
+        start_date: row.start_date || row.start_time || new Date().toISOString(),
+        end_date: row.end_date || row.end_time,
+        discount_value: parseFloat(row.discount_value || row.discount_amount || row.value || 0),
+        status: row.status || 'active',
+        notes: row.notes || row.description,
       };
       
     default:
-      // Generic mapping - just add tenant_id and use raw data
+      // Generic mapping - just add tenant_id and filter out invalid columns
+      // Remove common BigQuery fields that don't exist in Supabase
+      const { OrgId, org_id, organization_id, ...cleanRow } = row;
       return {
         ...baseData,
-        ...row,
+        ...cleanRow,
         last_synced_at: new Date().toISOString(),
       };
   }
@@ -870,14 +891,16 @@ serve(async (req) => {
           }
           
           // Determine conflict key based on target table
+          // Note: For bank_transactions we use INSERT (not upsert) since we generate UUIDs
+          // For customers we use external_customer_id to avoid email conflicts
           const conflictKeys: Record<string, string> = {
             'external_orders': 'tenant_id,integration_id,external_order_id',
             'external_order_items': 'tenant_id,external_order_id,item_id',
             'external_products': 'integration_id,external_product_id',
-            'customers': 'tenant_id,email',
+            'customers': 'tenant_id,external_customer_id',
             'channel_settlements': 'tenant_id,integration_id,settlement_id',
             'channel_fees': 'id',
-            'bank_transactions': 'id',
+            'bank_transactions': 'tenant_id,reference', // Use reference (original ID stored here) for dedup
             'promotions': 'tenant_id,promotion_code',
           };
           
