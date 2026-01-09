@@ -109,9 +109,11 @@ export default function DataHubPage() {
   const errorConnectors = integrations.filter(c => c.status === 'error').length;
   const totalBankBalance = bankAccounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
 
+  // Filter out bigquery from other connectors list (shown separately above)
   const filteredConnectors = integrations.filter(c => 
-    c.connector_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.shop_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    c.connector_type !== 'bigquery' &&
+    (c.connector_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.shop_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleSync = async (id: string) => {
