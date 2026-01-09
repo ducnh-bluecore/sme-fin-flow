@@ -42,6 +42,11 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
+  
+  // Claude API Key
+  const [showClaudeKey, setShowClaudeKey] = useState(false);
+  const [claudeKey, setClaudeKey] = useState('');
+  const [claudeKeyStatus, setClaudeKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
 
   // Tenant Settings
   const { activeTenant, isOwner, isLoading: tenantLoading } = useTenantContext();
@@ -116,6 +121,62 @@ export default function SettingsPage() {
       return;
     }
     toast.success('API Key đã được lưu thành công!');
+  };
+
+  const handleTestClaudeKey = async () => {
+    if (!claudeKey.trim()) {
+      toast.error('Vui lòng nhập API Key');
+      return;
+    }
+    if (!claudeKey.startsWith('sk-ant-')) {
+      setClaudeKeyStatus('invalid');
+      toast.error('API Key không hợp lệ. Claude API Key phải bắt đầu bằng "sk-ant-"');
+      return;
+    }
+
+    setClaudeKeyStatus('testing');
+    
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 10,
+          messages: [{ role: 'user', content: 'Hi' }],
+        }),
+      });
+
+      if (response.ok || response.status === 200) {
+        setClaudeKeyStatus('valid');
+        toast.success('Claude API Key hợp lệ và hoạt động tốt!');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setClaudeKeyStatus('invalid');
+        if (response.status === 401) {
+          toast.error('API Key không hợp lệ hoặc đã hết hạn');
+        } else if (response.status === 429) {
+          toast.error('API Key đã vượt quá giới hạn request');
+        } else {
+          toast.error(errorData.error?.message || 'Không thể xác thực API Key');
+        }
+      }
+    } catch (error) {
+      setClaudeKeyStatus('invalid');
+      toast.error('Lỗi kết nối. Vui lòng kiểm tra lại.');
+    }
+  };
+
+  const handleSaveClaudeKey = async () => {
+    if (claudeKeyStatus !== 'valid') {
+      toast.error('Vui lòng test API Key trước khi lưu');
+      return;
+    }
+    toast.success('Claude API Key đã được lưu thành công!');
   };
 
   const handleSaveTenant = () => {
@@ -875,11 +936,94 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {/* Anthropic Claude API Key */}
+                <div className="p-4 rounded-lg border bg-muted/20">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h4 className="font-medium flex items-center gap-2">
+                        Anthropic Claude API Key
+                        {claudeKeyStatus === 'valid' && (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        )}
+                        {claudeKeyStatus === 'invalid' && (
+                          <AlertCircle className="w-4 h-4 text-destructive" />
+                        )}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        API Key để sử dụng các model Claude (Sonnet, Opus, Haiku)
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 max-w-lg">
+                    <div className="relative">
+                      <Label htmlFor="claude-key">API Key</Label>
+                      <div className="relative mt-1.5">
+                        <Input
+                          id="claude-key"
+                          type={showClaudeKey ? 'text' : 'password'}
+                          placeholder="sk-ant-..."
+                          value={claudeKey}
+                          onChange={(e) => {
+                            setClaudeKey(e.target.value);
+                            setClaudeKeyStatus('idle');
+                          }}
+                          className="pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowClaudeKey(!showClaudeKey)}
+                        >
+                          {showClaudeKey ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleTestClaudeKey}
+                        disabled={claudeKeyStatus === 'testing' || !claudeKey.trim()}
+                      >
+                        {claudeKeyStatus === 'testing' ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Zap className="w-4 h-4 mr-2" />
+                        )}
+                        {claudeKeyStatus === 'testing' ? 'Đang kiểm tra...' : 'Test API Key'}
+                      </Button>
+                      <Button 
+                        onClick={handleSaveClaudeKey}
+                        disabled={claudeKeyStatus !== 'valid'}
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Lưu API Key
+                      </Button>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                      <p className="font-medium mb-1">Lưu ý:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>API Key được mã hóa và lưu trữ an toàn</li>
+                        <li>Bạn có thể lấy API Key tại <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">console.anthropic.com</a></li>
+                        <li>Chi phí sử dụng API sẽ được tính vào tài khoản Anthropic của bạn</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Other API integrations placeholder */}
                 <div className="p-4 rounded-lg border border-dashed bg-muted/10">
                   <h4 className="font-medium text-muted-foreground">Các tích hợp khác</h4>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Sắp ra mắt: Google AI, Anthropic Claude, và các dịch vụ khác
+                    Sắp ra mắt: Google AI (Gemini), Cohere, và các dịch vụ khác
                   </p>
                 </div>
               </div>
