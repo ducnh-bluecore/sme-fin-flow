@@ -96,6 +96,13 @@ function CashForecastChartComponent({ dateRange: propDateRange }: CashForecastCh
 
   const data = useMemo<ChartPoint[]>(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Show 7 days of history + forecast days
+    const historyDays = 7;
+    const start = new Date(today);
+    start.setDate(start.getDate() - historyDays);
+    
     const end = new Date(today);
     end.setDate(end.getDate() + days);
 
@@ -103,12 +110,12 @@ function CashForecastChartComponent({ dateRange: propDateRange }: CashForecastCh
     const dbPoints = (forecasts || [])
       .filter((f) => {
         const d = new Date(f.forecast_date);
-        return !Number.isNaN(d.getTime()) && d >= today && d <= end;
+        return !Number.isNaN(d.getTime()) && d >= start && d <= end;
       })
       .map((item, index) => {
-        const type = (item.forecast_type === 'actual' || item.forecast_type === 'forecast')
-          ? (item.forecast_type as 'actual' | 'forecast')
-          : null;
+        // Map forecast_type correctly - weekly/daily types should be treated as forecast
+        const rawType = item.forecast_type;
+        const type: 'actual' | 'forecast' = rawType === 'actual' ? 'actual' : 'forecast';
 
         return {
           week: `T${index + 1}`,
