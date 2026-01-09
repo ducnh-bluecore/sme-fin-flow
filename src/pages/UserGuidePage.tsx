@@ -827,128 +827,148 @@ Thiết lập ngưỡng an toàn tại **Alerts** → **Cash Alert Config**.`,
 
 const useCases: UseCase[] = [
   {
-    id: "ecommerce",
-    businessType: "Doanh nghiệp E-commerce / Bán hàng Online",
+    id: "fashion-retail",
+    businessType: "Bán lẻ Thời trang (Quần áo, Giày dép, Phụ kiện)",
     icon: <ShoppingBag className="h-6 w-6" />,
-    description: "Bán hàng đa kênh trên Shopee, Lazada, TikTok Shop, Website riêng. Cần quản lý đơn hàng, đối soát với sàn, và phân tích lợi nhuận theo kênh.",
+    description: "Bán thời trang đa kênh: Cửa hàng, Shopee, Lazada, TikTok Shop, Instagram. Sản phẩm có nhiều size/màu, tồn kho theo mùa, tỷ lệ đổi trả cao.",
     challenges: [
-      "Đối soát settlement với các sàn TMĐT mất nhiều thời gian",
-      "Không biết kênh nào thực sự có lãi sau khi trừ phí",
-      "Khó dự báo dòng tiền do payout từ sàn không đều",
-      "Promotion ROI không rõ ràng",
+      "Tồn kho nhiều SKU (size, màu sắc), khó quản lý hàng tồn theo mùa",
+      "Tỷ lệ hoàn hàng/đổi size cao ảnh hưởng lợi nhuận thực",
+      "Chi phí Flash Sale, Voucher lớn nhưng chưa đo được ROI",
+      "Đối soát settlement phức tạp do nhiều mã giảm giá, freeship",
+      "Dòng tiền bị kẹt trong tồn kho end-of-season",
     ],
     solutions: [
-      {
-        feature: "Reconciliation Hub",
-        benefit: "Tự động đối soát đơn hàng và settlement, giảm 80% thời gian thủ công"
-      },
       {
         feature: "Channel P&L",
-        benefit: "Báo cáo lãi/lỗ theo từng kênh sau khi trừ tất cả phí"
+        benefit: "Báo cáo lãi/lỗ theo từng kênh sau khi trừ phí sàn, voucher, freeship - biết kênh nào thực sự có lãi"
       },
       {
-        feature: "Cash Forecast",
-        benefit: "Dự báo payout từ sàn dựa trên settlement cycle"
-      },
-      {
-        feature: "Promotion ROI",
-        benefit: "Đo lường hiệu quả từng chương trình khuyến mãi"
-      },
-    ],
-    keyMetrics: ["Gross Margin by Channel", "Settlement Accuracy", "Promotion ROI", "Cash Conversion Cycle"],
-  },
-  {
-    id: "manufacturing",
-    businessType: "Doanh nghiệp Sản xuất / Phân phối",
-    icon: <Factory className="h-6 w-6" />,
-    description: "Sản xuất hoặc phân phối sản phẩm cho đại lý, nhà bán lẻ. Công nợ lớn, inventory đáng kể, cần quản lý vốn lưu động chặt chẽ.",
-    challenges: [
-      "Công nợ khách hàng lớn, nhiều khách trả chậm",
-      "Tồn kho cao, dòng tiền bị kẹt trong hàng hóa",
-      "Cần theo dõi Covenant với ngân hàng",
-      "Chi phí sản xuất biến động, khó dự báo margin",
-    ],
-    solutions: [
-      {
-        feature: "AR Operations",
-        benefit: "Quản lý công nợ theo aging, tự động nhắc nợ"
+        feature: "Reconciliation Hub",
+        benefit: "Đối soát đơn hàng và settlement tự động, xử lý đúng các đơn hoàn/đổi trả"
       },
       {
         feature: "Inventory Aging",
-        benefit: "Phát hiện hàng tồn lâu, đề xuất giải phóng vốn"
+        benefit: "Phát hiện hàng tồn lâu theo mùa, đề xuất markdown/sale để giải phóng vốn"
       },
       {
-        feature: "Covenant Tracking",
-        benefit: "Theo dõi các chỉ số cam kết với ngân hàng real-time"
+        feature: "Promotion ROI",
+        benefit: "Đo lường hiệu quả từng chương trình Sale (11.11, 12.12, Black Friday...)"
       },
       {
-        feature: "Working Capital",
-        benefit: "Tối ưu CCC (Cash Conversion Cycle)"
+        feature: "What-If Simulation",
+        benefit: "Mô phỏng kịch bản discount khác nhau, tính toán điểm hòa vốn"
       },
     ],
-    keyMetrics: ["DSO", "DIO", "CCC", "Current Ratio", "Debt Covenant Compliance"],
+    keyMetrics: ["Gross Margin by Channel", "Return Rate", "Inventory Turnover", "Promotion ROI", "Sell-through Rate"],
   },
   {
-    id: "retail",
-    businessType: "Chuỗi Bán lẻ / F&B",
+    id: "cosmetics-beauty",
+    businessType: "Bán lẻ Mỹ phẩm & Làm đẹp",
     icon: <Store className="h-6 w-6" />,
-    description: "Có nhiều cửa hàng/chi nhánh, doanh thu hàng ngày, chi phí thuê mặt bằng và nhân sự lớn. Cần so sánh hiệu quả giữa các điểm bán.",
+    description: "Kinh doanh mỹ phẩm, skincare, makeup. Bán trên sàn TMĐT, livestream, và cửa hàng. Hàng có hạn sử dụng, cần quản lý batch/lot.",
     challenges: [
-      "Khó tổng hợp doanh thu từ nhiều cửa hàng",
-      "Chi phí cố định cao (thuê, lương), cần dự báo break-even",
-      "So sánh hiệu quả giữa các chi nhánh phức tạp",
-      "Dòng tiền dao động theo mùa/ngày lễ",
+      "Sản phẩm có hạn sử dụng (expiry date), cần quản lý theo batch/lot",
+      "Chi phí marketing (KOL, livestream, ads) lớn, chưa đo được hiệu quả",
+      "Gift/Sample đi kèm ảnh hưởng tính toán lợi nhuận",
+      "Khách hàng trung thành cần chương trình loyalty, nhưng chi phí cao",
+      "Seasonal demand (Tết, 20/10, Valentine) cần dự báo tồn kho tốt",
     ],
     solutions: [
       {
         feature: "Channel Analytics",
-        benefit: "Phân tích doanh thu, chi phí theo từng cửa hàng"
+        benefit: "Phân tích doanh thu/lợi nhuận theo từng kênh bán, bao gồm livestream"
       },
       {
-        feature: "Budget vs Actual",
-        benefit: "So sánh ngân sách vs thực tế theo chi nhánh"
-      },
-      {
-        feature: "Unit Economics",
-        benefit: "Tính break-even, contribution margin từng điểm bán"
-      },
-      {
-        feature: "Rolling Forecast",
-        benefit: "Dự báo cuốn chiếu có tính mùa vụ"
-      },
-    ],
-    keyMetrics: ["Revenue per Store", "Same-store Sales Growth", "Labor Cost %", "Gross Margin %"],
-  },
-  {
-    id: "services",
-    businessType: "Doanh nghiệp Dịch vụ / Agency",
-    icon: <Building2 className="h-6 w-6" />,
-    description: "Cung cấp dịch vụ tư vấn, marketing, IT... Doanh thu theo dự án/hợp đồng, chi phí chính là nhân sự. Công nợ theo tiến độ dự án.",
-    challenges: [
-      "Doanh thu không đều, phụ thuộc vào việc close deal",
-      "Công nợ theo milestone, khó dự báo khi nào thu được",
-      "Chi phí nhân sự cố định, revenue biến động",
-      "Cần đánh giá profitability từng dự án/khách hàng",
-    ],
-    solutions: [
-      {
-        feature: "Invoice Tracking",
-        benefit: "Theo dõi hóa đơn theo dự án, milestone"
+        feature: "Inventory Aging",
+        benefit: "Cảnh báo sản phẩm sắp hết hạn, đề xuất promotion trước khi expire"
       },
       {
         feature: "Cash Forecast",
-        benefit: "Dự báo dòng tiền dựa trên pipeline dự án"
+        benefit: "Dự báo dòng tiền có tính mùa vụ (Tết, 8/3, 20/10, Valentine)"
       },
       {
-        feature: "P&L Report",
-        benefit: "Phân tích margin theo dự án/khách hàng"
+        feature: "Promotion ROI",
+        benefit: "Đo lường ROI của KOL, livestream, gift-with-purchase campaigns"
       },
       {
-        feature: "Scenario Planning",
-        benefit: "Lập kịch bản theo số deal close được"
+        feature: "Unit Economics",
+        benefit: "Tính đúng lợi nhuận/đơn sau khi bao gồm chi phí sample, gift"
       },
     ],
-    keyMetrics: ["Revenue per Employee", "Project Profitability", "Client Concentration", "Cash Runway"],
+    keyMetrics: ["Customer Acquisition Cost", "Average Order Value", "Expiry Loss Rate", "Repeat Purchase Rate", "Channel Contribution Margin"],
+  },
+  {
+    id: "electronics-accessories",
+    businessType: "Bán lẻ Điện thoại, Phụ kiện & Điện tử",
+    icon: <Zap className="h-6 w-6" />,
+    description: "Kinh doanh điện thoại, tablet, phụ kiện (ốp, sạc, tai nghe), đồ điện tử. Margin mỏng, cạnh tranh giá cao, tồn kho nhanh lỗi thời.",
+    challenges: [
+      "Margin rất mỏng (5-15%), cần tính đúng mọi chi phí",
+      "Sản phẩm lỗi thời nhanh khi có model mới ra mắt",
+      "Bảo hành/đổi trả ảnh hưởng dòng tiền",
+      "Cạnh tranh giá khốc liệt trên các sàn TMĐT",
+      "Vốn lớn kẹt trong tồn kho điện thoại giá cao",
+    ],
+    solutions: [
+      {
+        feature: "Channel P&L",
+        benefit: "Tính chính xác profit margin từng kênh sau tất cả phí (commission, payment fee, shipping)"
+      },
+      {
+        feature: "Inventory Aging",
+        benefit: "Cảnh báo sớm hàng tồn kho, đề xuất giảm giá trước khi model mới ra mắt"
+      },
+      {
+        feature: "Working Capital",
+        benefit: "Tối ưu Cash Conversion Cycle, giảm vốn kẹt trong hàng tồn"
+      },
+      {
+        feature: "Cash Forecast",
+        benefit: "Dự báo dòng tiền, lên kế hoạch nhập hàng model mới"
+      },
+      {
+        feature: "What-If Simulation",
+        benefit: "Phân tích kịch bản giảm giá vs giữ margin khi cạnh tranh"
+      },
+    ],
+    keyMetrics: ["Net Profit Margin", "Inventory Turnover Days", "Warranty Return Rate", "Cash Conversion Cycle", "Price Competitiveness Index"],
+  },
+  {
+    id: "home-living",
+    businessType: "Bán lẻ Đồ gia dụng & Nội thất",
+    icon: <Building2 className="h-6 w-6" />,
+    description: "Kinh doanh đồ gia dụng, nội thất, decor. Sản phẩm đa dạng giá trị, shipping phức tạp, tồn kho lớn.",
+    challenges: [
+      "Chi phí vận chuyển cao với đồ nội thất cồng kềnh",
+      "Tồn kho lớn, chiếm diện tích kho bãi đáng kể",
+      "Công nợ với đại lý/showroom cần quản lý chặt",
+      "Doanh thu theo mùa (Tết, mùa cưới, mùa xây dựng)",
+      "Mix sản phẩm đa dạng từ giá rẻ đến cao cấp",
+    ],
+    solutions: [
+      {
+        feature: "AR Operations",
+        benefit: "Quản lý công nợ đại lý/showroom theo aging, tự động nhắc nợ"
+      },
+      {
+        feature: "Channel Analytics",
+        benefit: "Phân tích lợi nhuận theo kênh, bao gồm chi phí shipping"
+      },
+      {
+        feature: "Inventory Aging",
+        benefit: "Quản lý hàng tồn kho theo danh mục, xác định slow-moving items"
+      },
+      {
+        feature: "Rolling Forecast",
+        benefit: "Dự báo doanh thu có tính mùa vụ, lập kế hoạch nhập hàng"
+      },
+      {
+        feature: "Budget vs Actual",
+        benefit: "So sánh ngân sách với thực tế theo từng category sản phẩm"
+      },
+    ],
+    keyMetrics: ["Shipping Cost per Order", "DSO (Days Sales Outstanding)", "Inventory Value by Category", "Seasonal Revenue Index", "Warehouse Utilization"],
   },
 ];
 
