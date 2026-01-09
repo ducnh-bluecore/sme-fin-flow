@@ -127,69 +127,6 @@ const TARGET_TABLES = [
   { value: 'bank_transactions', label: 'Giao dịch NH (bank_transactions)' },
 ];
 
-const DEFAULT_MODELS: DataModelConfig[] = [
-  {
-    model_name: 'orders',
-    model_label: 'Đơn hàng',
-    description: 'Dữ liệu đơn hàng từ các kênh e-commerce',
-    bigquery_dataset: 'menstaysimplicity_shopee',
-    bigquery_table: 'shopee_Orders',
-    primary_key_field: 'order_sn',
-    timestamp_field: 'create_time',
-    target_table: 'external_orders',
-    is_enabled: true,
-    sync_frequency_hours: 1,
-  },
-  {
-    model_name: 'settlements',
-    model_label: 'Thanh toán',
-    description: 'Dữ liệu thanh toán và đối soát',
-    bigquery_dataset: 'menstaysimplicity_shopee',
-    bigquery_table: 'shopee_Settlements',
-    primary_key_field: 'settlement_id',
-    timestamp_field: 'settlement_date',
-    target_table: 'channel_settlements',
-    is_enabled: false,
-    sync_frequency_hours: 24,
-  },
-  {
-    model_name: 'cash_flow',
-    model_label: 'Dòng tiền',
-    description: 'Dữ liệu dòng tiền và thanh toán',
-    bigquery_dataset: 'finance',
-    bigquery_table: 'cash_flow',
-    primary_key_field: 'transaction_id',
-    timestamp_field: 'transaction_date',
-    target_table: 'bank_transactions',
-    is_enabled: false,
-    sync_frequency_hours: 6,
-  },
-  {
-    model_name: 'customers',
-    model_label: 'Khách hàng',
-    description: 'Dữ liệu khách hàng từ CDP',
-    bigquery_dataset: 'customer_data',
-    bigquery_table: 'customers',
-    primary_key_field: 'customer_id',
-    timestamp_field: 'updated_at',
-    target_table: 'customers',
-    is_enabled: false,
-    sync_frequency_hours: 24,
-  },
-  {
-    model_name: 'marketing',
-    model_label: 'Marketing',
-    description: 'Dữ liệu chi phí marketing từ các nền tảng',
-    bigquery_dataset: 'marketing_data',
-    bigquery_table: 'ad_spend',
-    primary_key_field: 'campaign_id',
-    timestamp_field: 'date',
-    target_table: 'marketing_expenses',
-    is_enabled: false,
-    sync_frequency_hours: 24,
-  },
-];
-
 export function DataModelManager() {
   const { data: models, isLoading, refetch } = useBigQueryDataModels();
   const { data: watermarks } = useSyncWatermarks();
@@ -205,40 +142,19 @@ export function DataModelManager() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
 
-  // Merge default models with saved configs, plus include any models from DB not in defaults
-  const displayModels = (() => {
-    // Start with default models merged with any saved overrides
-    const mergedDefaults = DEFAULT_MODELS.map(defaultModel => {
-      const savedModel = models?.find(m => m.model_name === defaultModel.model_name);
-      if (savedModel) {
-        return {
-          ...defaultModel,
-          ...savedModel,
-          is_enabled: savedModel.is_enabled ?? defaultModel.is_enabled,
-        };
-      }
-      return defaultModel;
-    });
-    
-    // Add any saved models that are NOT in the default list (e.g., AI suggestions)
-    const defaultModelNames = DEFAULT_MODELS.map(m => m.model_name);
-    const additionalModels = (models || [])
-      .filter(m => !defaultModelNames.includes(m.model_name))
-      .map(m => ({
-        model_name: m.model_name,
-        model_label: m.model_label,
-        description: m.description || '',
-        bigquery_dataset: m.bigquery_dataset,
-        bigquery_table: m.bigquery_table,
-        primary_key_field: m.primary_key_field,
-        timestamp_field: m.timestamp_field || '',
-        target_table: m.target_table || '',
-        is_enabled: m.is_enabled ?? false,
-        sync_frequency_hours: m.sync_frequency_hours || 24,
-      }));
-    
-    return [...mergedDefaults, ...additionalModels];
-  })();
+  // Display all models from database
+  const displayModels: DataModelConfig[] = (models || []).map(m => ({
+    model_name: m.model_name,
+    model_label: m.model_label,
+    description: m.description || '',
+    bigquery_dataset: m.bigquery_dataset,
+    bigquery_table: m.bigquery_table,
+    primary_key_field: m.primary_key_field,
+    timestamp_field: m.timestamp_field || '',
+    target_table: m.target_table || '',
+    is_enabled: m.is_enabled ?? false,
+    sync_frequency_hours: m.sync_frequency_hours || 24,
+  }));
 
   // Fetch AI suggestions
   const handleFetchSuggestions = async () => {
