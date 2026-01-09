@@ -59,6 +59,8 @@ export function BigQueryConfigPanel() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<{ total_synced: number; channels: Record<string, { synced: number; errors: number }> } | null>(null);
   const [countResult, setCountResult] = useState<{ total_count: number; channels: Record<string, { count: number; error?: string }> } | null>(null);
+  const [hasStoredSecret, setHasStoredSecret] = useState(false);
+  const [showKeyInput, setShowKeyInput] = useState(false);
 
   // Load saved config on mount
   useEffect(() => {
@@ -67,12 +69,56 @@ export function BigQueryConfigPanel() {
 
   const loadSavedConfig = async () => {
     try {
+      // Check localStorage for project_id (not the full key)
       const savedConfig = localStorage.getItem('bigquery_config');
       if (savedConfig) {
         const parsed = JSON.parse(savedConfig);
-        setConfig(parsed);
+        // Don't load the service account key from localStorage for security
+        setConfig({
+          projectId: parsed.projectId || '',
+          serviceAccountKey: '', // Never load from localStorage
+          selectedDatasets: parsed.selectedDatasets || [],
+          selectedTables: parsed.selectedTables || {},
+        });
         if (parsed.projectId) {
           setConnectionStatus('connected');
+        }
+        // If projectId exists, assume secret is stored in backend
+        if (parsed.projectId) {
+          setHasStoredSecret(true);
+        }
+      }
+
+      // Also check if there's an existing connector integration
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('active_tenant_id')
+          .eq('id', userData.user.id)
+          .maybeSingle();
+
+        if (profile?.active_tenant_id) {
+          const { data: integration } = await supabase
+            .from('connector_integrations')
+            .select('id, settings, status')
+            .eq('tenant_id', profile.active_tenant_id)
+            .eq('connector_type', 'bigquery' as any)
+            .maybeSingle();
+
+          if (integration) {
+            const settings = integration.settings as any;
+            if (settings?.project_id) {
+              setConfig(prev => ({
+                ...prev,
+                projectId: settings.project_id,
+              }));
+              setHasStoredSecret(true);
+              if (integration.status === 'active') {
+                setConnectionStatus('connected');
+              }
+            }
+          }
         }
       }
     } catch (error) {
@@ -153,8 +199,13 @@ export function BigQueryConfigPanel() {
   const handleSaveConfig = async () => {
     setIsSaving(true);
     try {
-      // Save to localStorage
-      localStorage.setItem('bigquery_config', JSON.stringify(config));
+      // Save to localStorage (without the service account key for security)
+      localStorage.setItem('bigquery_config', JSON.stringify({
+        projectId: config.projectId,
+        selectedDatasets: config.selectedDatasets,
+        selectedTables: config.selectedTables,
+        // Don't save serviceAccountKey to localStorage
+      }));
       
       // Also create/update connector_integration in database
       const { data: userData } = await supabase.auth.getUser();
@@ -172,7 +223,7 @@ export function BigQueryConfigPanel() {
             .select('id')
             .eq('tenant_id', profile.active_tenant_id)
             .eq('connector_type', 'bigquery' as any)
-            .single();
+            .maybeSingle();
 
           if (existing) {
             // Update existing
@@ -198,6 +249,12 @@ export function BigQueryConfigPanel() {
               });
           }
         }
+      }
+      
+      // Mark as having stored secret (the actual secret is in Cloud Secrets)
+      if (config.serviceAccountKey.trim()) {
+        setHasStoredSecret(true);
+        setShowKeyInput(false);
       }
       
       toast.success('Đã lưu cấu hình');
@@ -445,36 +502,71 @@ export function BigQueryConfigPanel() {
       </div>
 
       <div className="space-y-6">
-        {/* Service Account Key Input */}
+        {/* Service Account Key Section */}
         <div className="space-y-2">
-          <Label htmlFor="service-account-key">Service Account Key (JSON)</Label>
-          <Textarea
-            id="service-account-key"
-            placeholder='{"type": "service_account", "project_id": "...", "private_key_id": "...", ...}'
-            value={config.serviceAccountKey}
-            onChange={(e) => {
-              const value = e.target.value;
-              setConfig(prev => {
-                // Auto-extract project_id from JSON if valid
-                let projectId = prev.projectId;
-                try {
-                  if (value.trim()) {
-                    const parsed = JSON.parse(value);
-                    if (parsed.project_id) {
-                      projectId = parsed.project_id;
+          <Label>Service Account Key (JSON)</Label>
+          
+          {hasStoredSecret && !showKeyInput ? (
+            <div className="p-4 rounded-lg border bg-muted/30 space-y-3">
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="font-medium">Đã cấu hình Service Account Key</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Key được lưu trữ an toàn trong hệ thống. Project ID: <code className="bg-muted px-1 rounded">{config.projectId || 'chưa xác định'}</code>
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowKeyInput(true)}
+              >
+                <Settings className="w-3 h-3 mr-2" />
+                Cập nhật Key mới
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Textarea
+                id="service-account-key"
+                placeholder='{"type": "service_account", "project_id": "...", "private_key_id": "...", ...}'
+                value={config.serviceAccountKey}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setConfig(prev => {
+                    // Auto-extract project_id from JSON if valid
+                    let projectId = prev.projectId;
+                    try {
+                      if (value.trim()) {
+                        const parsed = JSON.parse(value);
+                        if (parsed.project_id) {
+                          projectId = parsed.project_id;
+                        }
+                      }
+                    } catch {
+                      // Invalid JSON, ignore
                     }
-                  }
-                } catch {
-                  // Invalid JSON, ignore
-                }
-                return { ...prev, serviceAccountKey: value, projectId };
-              });
-            }}
-            className="font-mono text-xs min-h-[120px]"
-          />
-          <p className="text-xs text-muted-foreground">
-            Dán nội dung file JSON Service Account từ Google Cloud Console
-          </p>
+                    return { ...prev, serviceAccountKey: value, projectId };
+                  });
+                }}
+                className="font-mono text-xs min-h-[120px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Dán nội dung file JSON Service Account từ Google Cloud Console
+              </p>
+              {hasStoredSecret && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setShowKeyInput(false);
+                    setConfig(prev => ({ ...prev, serviceAccountKey: '' }));
+                  }}
+                >
+                  Huỷ cập nhật
+                </Button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Project ID Input */}
@@ -491,7 +583,7 @@ export function BigQueryConfigPanel() {
             <Button 
               variant="outline" 
               onClick={handleTestConnection}
-              disabled={isTesting || !config.projectId.trim() || !config.serviceAccountKey.trim()}
+              disabled={isTesting || !config.projectId.trim() || (!config.serviceAccountKey.trim() && !hasStoredSecret)}
             >
               {isTesting ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -502,7 +594,9 @@ export function BigQueryConfigPanel() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Tự động điền từ Service Account JSON hoặc nhập thủ công
+            {hasStoredSecret 
+              ? 'Sử dụng Service Account Key đã lưu để test kết nối' 
+              : 'Tự động điền từ Service Account JSON hoặc nhập thủ công'}
           </p>
         </div>
 
