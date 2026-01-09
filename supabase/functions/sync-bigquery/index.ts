@@ -422,12 +422,26 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         last_synced_at: new Date().toISOString(),
       };
       
-    case 'external_order_items':
-      // Note: external_order_items table does NOT have last_synced_at
+    case 'external_order_items': {
+      // Note: external_order_items.external_order_id is a UUID FK (we resolve later in handleModelSync)
+      const orderRef =
+        row.order_id ||
+        row.orderId ||
+        row.orderID ||
+        row.order_number ||
+        row.orderNo ||
+        row.order_sn ||
+        row.order_code ||
+        row.code ||
+        row.OrderId ||
+        row.OrderID ||
+        row[model.primary_key_field];
+
       return {
         ...baseData,
-        external_order_id: String(row.order_id || row.order_sn || row[model.primary_key_field]),
-        item_id: String(row.item_id || row.sku || row.id || `${row.order_id}-item`),
+        // Temporarily store the external order reference (string/number). We'll convert to UUID later.
+        external_order_id: String(orderRef || ''),
+        item_id: String(row.item_id || row.itemId || row.sku || row.id || `${orderRef}-item`),
         sku: row.sku || row.model_sku || row.seller_sku,
         product_name: row.name || row.product_name || row.item_name,
         quantity: parseInt(row.quantity || row.qty || 1),
@@ -435,7 +449,9 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         total_amount: parseFloat(row.total || row.subtotal || row.amount || 0),
         unit_cogs: parseFloat(row.cogs || row.cost || row.cost_price || 0),
         total_cogs: parseFloat(row.total_cogs || 0),
+        raw_data: row,
       };
+    }
       
     case 'external_products':
       return {
@@ -901,6 +917,8 @@ serve(async (req) => {
               )
             );
 
+            console.log(`${modelKey}: external_order_items orderRefs unique=${orderRefs.length}`, orderRefs.slice(0, 5));
+
             if (orderRefs.length > 0) {
               const { data: orders, error: ordersErr } = await supabase
                 .from('external_orders')
@@ -911,6 +929,8 @@ serve(async (req) => {
               if (ordersErr) {
                 throw new Error(`Failed to resolve external_order_items order ids: ${ordersErr.message}`);
               }
+
+              console.log(`${modelKey}: matched external_orders=${orders?.length || 0}`);
 
               const refToUuid = new Map<string, string>();
               (orders || []).forEach((o: any) => refToUuid.set(String(o.external_order_id), o.id));
@@ -930,6 +950,8 @@ serve(async (req) => {
                   };
                 })
                 .filter(Boolean);
+
+              console.log(`${modelKey}: resolved items=${mappedData.length}`);
             }
           }
           
