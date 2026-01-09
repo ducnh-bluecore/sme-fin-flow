@@ -325,6 +325,25 @@ export function DataModelManager() {
     setEditingModel(null);
   };
 
+  const handleDeleteModel = async (modelName: string) => {
+    if (!tenantId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('bigquery_data_models')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('model_name', modelName);
+      
+      if (error) throw error;
+      
+      toast.success('Đã xóa data model');
+      refetch();
+    } catch (error: any) {
+      toast.error('Lỗi xóa: ' + error.message);
+    }
+  };
+
   const handleToggleEnabled = async (model: DataModelConfig, enabled: boolean) => {
     await upsertModel.mutateAsync({
       ...model,
@@ -681,21 +700,27 @@ export function DataModelManager() {
                       <Settings className="w-3 h-3 mr-1" />
                       Cấu hình
                     </Button>
-                    {model.is_enabled && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex-1"
-                        disabled={syncingModels.has(model.model_name) || watermark?.sync_status === 'syncing'}
-                        onClick={() => handleSyncModel(model)}
-                      >
-                        <RefreshCw className={cn(
-                          'w-3 h-3 mr-1',
-                          (syncingModels.has(model.model_name) || watermark?.sync_status === 'syncing') && 'animate-spin'
-                        )} />
-                        {syncingModels.has(model.model_name) ? 'Đang sync...' : 'Sync'}
-                      </Button>
-                    )}
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      disabled={!model.is_enabled || syncingModels.has(model.model_name) || watermark?.sync_status === 'syncing'}
+                      onClick={() => handleSyncModel(model)}
+                    >
+                      <RefreshCw className={cn(
+                        'w-3 h-3 mr-1',
+                        (syncingModels.has(model.model_name) || watermark?.sync_status === 'syncing') && 'animate-spin'
+                      )} />
+                      {syncingModels.has(model.model_name) ? 'Đang sync...' : 'Sync'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleDeleteModel(model.model_name)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </Card>
               </motion.div>
