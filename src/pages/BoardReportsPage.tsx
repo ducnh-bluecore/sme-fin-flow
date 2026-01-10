@@ -16,44 +16,46 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { useBoardReports, BoardReport, RiskItem, StrategicInitiative } from '@/hooks/useBoardReports';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   FileText, Plus, Calendar, CheckCircle, Clock, Eye, Download, TrendingUp, TrendingDown,
   DollarSign, AlertTriangle, Target, BarChart3, PieChart, Users, Trash2, Send, ArrowUpRight,
   ArrowDownRight, Wallet, CreditCard, Building2, Lightbulb, Shield, Activity, Banknote, CalendarRange
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subQuarters, subYears } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { vi, enUS } from 'date-fns/locale';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart as RechartsPieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart
 } from 'recharts';
 import { DateRange } from 'react-day-picker';
 
-const statusConfig = {
-  draft: { label: 'Nháp', variant: 'secondary' as const, icon: FileText, color: 'text-muted-foreground' },
-  pending_review: { label: 'Chờ duyệt', variant: 'outline' as const, icon: Clock, color: 'text-amber-500' },
-  approved: { label: 'Đã duyệt', variant: 'default' as const, icon: CheckCircle, color: 'text-green-500' },
-  published: { label: 'Đã xuất bản', variant: 'default' as const, icon: Eye, color: 'text-blue-500' },
-};
-
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
+const statusConfig = {
+  draft: { label: 'board.draft', variant: 'secondary' as const, icon: FileText, color: 'text-muted-foreground' },
+  pending_review: { label: 'board.pendingReview', variant: 'outline' as const, icon: Clock, color: 'text-amber-500' },
+  approved: { label: 'board.approved', variant: 'default' as const, icon: CheckCircle, color: 'text-green-500' },
+  published: { label: 'board.published', variant: 'default' as const, icon: Eye, color: 'text-blue-500' },
+};
+
 const riskSeverityConfig = {
-  low: { label: 'Thấp', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  medium: { label: 'Trung bình', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
-  high: { label: 'Cao', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-  critical: { label: 'Nghiêm trọng', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+  low: { label: 'risk.low', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  medium: { label: 'risk.medium', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
+  high: { label: 'risk.high', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+  critical: { label: 'risk.critical', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
 };
 
 const initiativeStatusConfig = {
-  planned: { label: 'Kế hoạch', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
-  in_progress: { label: 'Đang thực hiện', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  on_hold: { label: 'Tạm dừng', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
+  planned: { label: 'capital.pending', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
+  in_progress: { label: 'capital.inProgress', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  completed: { label: 'capital.completed', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  on_hold: { label: 'risk.warning', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
 };
 
 export default function BoardReportsPage() {
   const { reports, isLoading, generateReport, updateReport, approveReport, publishReport, deleteReport } = useBoardReports();
+  const { t, language } = useLanguage();
   const [selectedReport, setSelectedReport] = useState<BoardReport | null>(null);
   const [newReportType, setNewReportType] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -65,6 +67,8 @@ export default function BoardReportsPage() {
       to: endOfMonth(now)
     };
   });
+
+  const dateLocale = language === 'vi' ? vi : enUS;
 
   // Auto-update date range when report type changes
   const handleReportTypeChange = (type: 'monthly' | 'quarterly' | 'annual') => {
@@ -130,7 +134,7 @@ export default function BoardReportsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Báo cáo HĐQT" subtitle="Tạo và quản lý báo cáo cho Hội đồng Quản trị" />
+        <PageHeader title={t('board.title')} subtitle={t('board.subtitle')} />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-48" />
@@ -143,41 +147,41 @@ export default function BoardReportsPage() {
   return (
     <>
       <Helmet>
-        <title>Báo cáo HĐQT | CFO Dashboard</title>
-        <meta name="description" content="Tạo và quản lý báo cáo cho Hội đồng Quản trị" />
+        <title>{t('board.title')} | CFO Dashboard</title>
+        <meta name="description" content={t('board.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <PageHeader title="Báo cáo HĐQT" subtitle="Tạo và quản lý báo cáo cho Hội đồng Quản trị" />
+          <PageHeader title={t('board.title')} subtitle={t('board.subtitle')} />
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Tạo báo cáo mới
+                {t('board.createNew')}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Tạo báo cáo HĐQT mới</DialogTitle>
+                <DialogTitle>{t('board.createNewTitle')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Loại báo cáo</label>
+                  <label className="text-sm font-medium">{t('board.reportType')}</label>
                   <Select value={newReportType} onValueChange={(v) => handleReportTypeChange(v as typeof newReportType)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="monthly">Báo cáo tháng</SelectItem>
-                      <SelectItem value="quarterly">Báo cáo quý</SelectItem>
-                      <SelectItem value="annual">Báo cáo năm</SelectItem>
+                      <SelectItem value="monthly">{t('board.monthly')}</SelectItem>
+                      <SelectItem value="quarterly">{t('board.quarterly')}</SelectItem>
+                      <SelectItem value="annual">{t('board.annual')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Khoảng thời gian báo cáo</label>
+                  <label className="text-sm font-medium">{t('board.reportPeriod')}</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-full justify-start text-left font-normal">
@@ -185,13 +189,13 @@ export default function BoardReportsPage() {
                         {dateRange?.from ? (
                           dateRange.to ? (
                             <>
-                              {format(dateRange.from, 'dd/MM/yyyy', { locale: vi })} - {format(dateRange.to, 'dd/MM/yyyy', { locale: vi })}
+                              {format(dateRange.from, 'dd/MM/yyyy', { locale: dateLocale })} - {format(dateRange.to, 'dd/MM/yyyy', { locale: dateLocale })}
                             </>
                           ) : (
-                            format(dateRange.from, 'dd/MM/yyyy', { locale: vi })
+                            format(dateRange.from, 'dd/MM/yyyy', { locale: dateLocale })
                           )
                         ) : (
-                          'Chọn khoảng thời gian'
+                          t('board.selectPeriod')
                         )}
                       </Button>
                     </PopoverTrigger>
@@ -203,10 +207,10 @@ export default function BoardReportsPage() {
                         selected={dateRange}
                         onSelect={setDateRange}
                         numberOfMonths={2}
-                        locale={vi}
+                        locale={dateLocale}
                       />
                       <div className="p-3 border-t space-y-2">
-                        <p className="text-xs text-muted-foreground">Chọn nhanh:</p>
+                        <p className="text-xs text-muted-foreground">{t('board.quickSelect')}</p>
                         <div className="flex flex-wrap gap-2">
                           <Button 
                             size="sm" 
@@ -216,7 +220,7 @@ export default function BoardReportsPage() {
                               setDateRange({ from: startOfMonth(subMonths(now, 1)), to: endOfMonth(subMonths(now, 1)) });
                             }}
                           >
-                            Tháng trước
+                            {t('board.lastMonth')}
                           </Button>
                           <Button 
                             size="sm" 
@@ -226,7 +230,7 @@ export default function BoardReportsPage() {
                               setDateRange({ from: startOfQuarter(subQuarters(now, 1)), to: endOfQuarter(subQuarters(now, 1)) });
                             }}
                           >
-                            Quý trước
+                            {t('board.lastQuarter')}
                           </Button>
                           <Button 
                             size="sm" 
@@ -236,7 +240,7 @@ export default function BoardReportsPage() {
                               setDateRange({ from: startOfYear(subYears(now, 1)), to: endOfYear(subYears(now, 1)) });
                             }}
                           >
-                            Năm trước
+                            {t('board.lastYear')}
                           </Button>
                         </div>
                       </div>
@@ -245,16 +249,16 @@ export default function BoardReportsPage() {
                 </div>
 
                 <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium">Kỳ báo cáo: <span className="text-primary">{periodLabel || 'Chưa chọn'}</span></p>
+                  <p className="text-sm font-medium">{t('board.reportPeriod')}: <span className="text-primary">{periodLabel || '-'}</span></p>
                   {dateRange?.from && dateRange?.to && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Dữ liệu từ {format(dateRange.from, 'dd/MM/yyyy')} đến {format(dateRange.to, 'dd/MM/yyyy')}
+                      {format(dateRange.from, 'dd/MM/yyyy')} - {format(dateRange.to, 'dd/MM/yyyy')}
                     </p>
                   )}
                 </div>
 
                 <Button onClick={handleGenerateReport} disabled={!dateRange?.from || !dateRange?.to || isGenerating} className="w-full">
-                  {isGenerating ? 'Đang tạo báo cáo...' : 'Tạo báo cáo'}
+                  {isGenerating ? t('board.generating') : t('board.generate')}
                 </Button>
               </div>
             </DialogContent>
@@ -270,7 +274,7 @@ export default function BoardReportsPage() {
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng báo cáo</p>
+                  <p className="text-sm text-muted-foreground">{t('board.totalReports')}</p>
                   <p className="text-2xl font-bold">{reports?.length || 0}</p>
                 </div>
               </div>
@@ -283,7 +287,7 @@ export default function BoardReportsPage() {
                   <Clock className="h-5 w-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Chờ duyệt</p>
+                  <p className="text-sm text-muted-foreground">{t('board.pendingReview')}</p>
                   <p className="text-2xl font-bold">{reports?.filter(r => r.status === 'pending_review').length || 0}</p>
                 </div>
               </div>
@@ -296,7 +300,7 @@ export default function BoardReportsPage() {
                   <CheckCircle className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Đã duyệt</p>
+                  <p className="text-sm text-muted-foreground">{t('board.approved')}</p>
                   <p className="text-2xl font-bold">{reports?.filter(r => r.status === 'approved').length || 0}</p>
                 </div>
               </div>
@@ -309,7 +313,7 @@ export default function BoardReportsPage() {
                   <Eye className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Đã xuất bản</p>
+                  <p className="text-sm text-muted-foreground">{t('board.published')}</p>
                   <p className="text-2xl font-bold">{reports?.filter(r => r.status === 'published').length || 0}</p>
                 </div>
               </div>
@@ -340,7 +344,7 @@ export default function BoardReportsPage() {
                     </div>
                     <Badge variant={status.variant} className="flex items-center gap-1">
                       <StatusIcon className="h-3 w-3" />
-                      {status.label}
+                      {t(status.label)}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -349,12 +353,12 @@ export default function BoardReportsPage() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex items-center gap-1">
                         <TrendingUp className="h-3 w-3 text-green-500" />
-                        <span className="text-muted-foreground">Doanh thu:</span>
+                        <span className="text-muted-foreground">{t('board.revenue')}:</span>
                         <span className="font-medium">{formatCurrency(financials.total_revenue)}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <DollarSign className="h-3 w-3 text-blue-500" />
-                        <span className="text-muted-foreground">LN:</span>
+                        <span className="text-muted-foreground">{t('board.netIncome')}:</span>
                         <span className={`font-medium ${financials.net_income >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                           {formatCurrency(financials.net_income)}
                         </span>
@@ -362,10 +366,10 @@ export default function BoardReportsPage() {
                     </div>
                   )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Tạo: {format(new Date(report.created_at), 'dd/MM/yyyy', { locale: vi })}</span>
+                    <span>{t('board.created')}: {format(new Date(report.created_at), 'dd/MM/yyyy', { locale: dateLocale })}</span>
                     {report.approved_at && (
                       <span className="text-green-600">
-                        Duyệt: {format(new Date(report.approved_at), 'dd/MM/yyyy', { locale: vi })}
+                        {t('board.approved')}: {format(new Date(report.approved_at), 'dd/MM/yyyy', { locale: dateLocale })}
                       </span>
                     )}
                   </div>
@@ -378,9 +382,9 @@ export default function BoardReportsPage() {
             <Card className="col-span-full">
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground/50" />
-                <h3 className="mt-4 text-lg font-medium">Chưa có báo cáo</h3>
+                <h3 className="mt-4 text-lg font-medium">{t('board.noReports')}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Bắt đầu bằng cách tạo báo cáo HĐQT đầu tiên
+                  {t('board.createFirst')}
                 </p>
               </CardContent>
             </Card>
@@ -397,12 +401,12 @@ export default function BoardReportsPage() {
                     <div>
                       <DialogTitle className="text-xl">{selectedReport.report_title}</DialogTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Tạo: {format(new Date(selectedReport.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                        {t('board.created')}: {format(new Date(selectedReport.created_at), 'dd/MM/yyyy HH:mm', { locale: dateLocale })}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={statusConfig[selectedReport.status].variant} className="flex items-center gap-1">
-                        {statusConfig[selectedReport.status].label}
+                        {t(statusConfig[selectedReport.status].label)}
                       </Badge>
                       {selectedReport.status === 'draft' && (
                         <Button 
@@ -414,7 +418,7 @@ export default function BoardReportsPage() {
                           }}
                         >
                           <Send className="mr-2 h-4 w-4" />
-                          Gửi duyệt
+                          {t('board.submitReview')}
                         </Button>
                       )}
                       {selectedReport.status === 'pending_review' && (
@@ -426,7 +430,7 @@ export default function BoardReportsPage() {
                           }}
                         >
                           <CheckCircle className="mr-2 h-4 w-4" />
-                          Phê duyệt
+                          {t('board.approve')}
                         </Button>
                       )}
                       {selectedReport.status === 'approved' && (
@@ -438,12 +442,12 @@ export default function BoardReportsPage() {
                           }}
                         >
                           <Eye className="mr-2 h-4 w-4" />
-                          Xuất bản
+                          {t('board.publish')}
                         </Button>
                       )}
                       <Button size="sm" variant="outline">
                         <Download className="mr-2 h-4 w-4" />
-                        Xuất PDF
+                        {t('board.exportPdf')}
                       </Button>
                       <Button 
                         size="sm" 
@@ -462,12 +466,12 @@ export default function BoardReportsPage() {
                 <ScrollArea className="flex-1 -mx-6 px-6">
                   <Tabs defaultValue="summary" className="mt-4">
                     <TabsList className="grid w-full grid-cols-6">
-                      <TabsTrigger value="summary">Tóm tắt</TabsTrigger>
-                      <TabsTrigger value="financials">Tài chính</TabsTrigger>
-                      <TabsTrigger value="kpis">KPIs</TabsTrigger>
-                      <TabsTrigger value="cashflow">Dòng tiền</TabsTrigger>
-                      <TabsTrigger value="risks">Rủi ro</TabsTrigger>
-                      <TabsTrigger value="initiatives">Chiến lược</TabsTrigger>
+                      <TabsTrigger value="summary">{t('board.summary')}</TabsTrigger>
+                      <TabsTrigger value="financials">{t('board.financials')}</TabsTrigger>
+                      <TabsTrigger value="kpis">{t('board.kpis')}</TabsTrigger>
+                      <TabsTrigger value="cashflow">{t('board.cashflow')}</TabsTrigger>
+                      <TabsTrigger value="risks">{t('board.risks')}</TabsTrigger>
+                      <TabsTrigger value="initiatives">{t('board.initiatives')}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="summary" className="space-y-4 mt-4">
