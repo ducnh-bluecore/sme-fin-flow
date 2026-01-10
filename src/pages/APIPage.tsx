@@ -25,26 +25,28 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { toast } from 'sonner';
-
-const endpoints = [
-  { method: 'GET', path: '/api/v1/invoices', description: 'Lấy danh sách hóa đơn' },
-  { method: 'POST', path: '/api/v1/invoices', description: 'Tạo hóa đơn mới' },
-  { method: 'GET', path: '/api/v1/transactions', description: 'Lấy danh sách giao dịch' },
-  { method: 'GET', path: '/api/v1/reports/revenue', description: 'Báo cáo doanh thu' },
-  { method: 'GET', path: '/api/v1/alerts', description: 'Lấy danh sách cảnh báo' },
-  { method: 'POST', path: '/api/v1/webhooks', description: 'Đăng ký webhook' },
-];
-
-const exportFormats = [
-  { name: 'Excel (.xlsx)', icon: '📊', description: 'Xuất dữ liệu dạng Excel' },
-  { name: 'CSV', icon: '📄', description: 'Xuất dữ liệu dạng CSV' },
-  { name: 'PDF', icon: '📑', description: 'Xuất báo cáo PDF' },
-  { name: 'JSON', icon: '{ }', description: 'Xuất dữ liệu raw JSON' },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function APIPage() {
   const [showKey, setShowKey] = useState<string | null>(null);
   const { data: tenantId } = useActiveTenantId();
+  const { t } = useLanguage();
+
+  const endpoints = [
+    { method: 'GET', path: '/api/v1/invoices', description: t('api.getInvoices') },
+    { method: 'POST', path: '/api/v1/invoices', description: t('api.createInvoice') },
+    { method: 'GET', path: '/api/v1/transactions', description: t('api.getTransactions') },
+    { method: 'GET', path: '/api/v1/reports/revenue', description: t('api.revenueReport') },
+    { method: 'GET', path: '/api/v1/alerts', description: t('api.getAlerts') },
+    { method: 'POST', path: '/api/v1/webhooks', description: t('api.registerWebhook') },
+  ];
+
+  const exportFormats = [
+    { name: 'Excel (.xlsx)', icon: '📊', description: t('api.exportExcel') },
+    { name: 'CSV', icon: '📄', description: t('api.exportCsv') },
+    { name: 'PDF', icon: '📑', description: t('api.exportPdf') },
+    { name: 'JSON', icon: '{ }', description: t('api.exportJson') },
+  ];
 
   const { data: apiKeys = [], isLoading } = useQuery({
     queryKey: ['api-keys', tenantId],
@@ -66,14 +68,14 @@ export default function APIPage() {
 
   const handleCopyKey = (keyPrefix: string) => {
     navigator.clipboard.writeText(keyPrefix + '...');
-    toast.success('Đã copy API Key');
+    toast.success(t('api.keyCopied'));
   };
 
   return (
     <>
       <Helmet>
-        <title>API & Xuất dữ liệu | Bluecore Finance</title>
-        <meta name="description" content="Quản lý API keys và xuất dữ liệu" />
+        <title>{t('api.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('api.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -88,8 +90,8 @@ export default function APIPage() {
               <Plug className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">API & Xuất dữ liệu</h1>
-              <p className="text-muted-foreground">API Management & Data Export</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('api.title')}</h1>
+              <p className="text-muted-foreground">{t('api.subtitle')}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -99,7 +101,7 @@ export default function APIPage() {
             </Button>
             <Button size="sm">
               <Plus className="w-4 h-4 mr-2" />
-              Tạo API Key
+              {t('api.createKey')}
             </Button>
           </div>
         </motion.div>
@@ -110,7 +112,7 @@ export default function APIPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Key className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">API Keys</span>
+                <span className="text-sm text-muted-foreground">{t('api.apiKeys')}</span>
               </div>
               <p className="text-2xl font-bold">{isLoading ? '-' : apiKeys.length}</p>
             </Card>
@@ -119,7 +121,7 @@ export default function APIPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Activity className="w-5 h-5 text-success" />
-                <span className="text-sm text-muted-foreground">Requests tháng này</span>
+                <span className="text-sm text-muted-foreground">{t('api.requestsThisMonth')}</span>
               </div>
               <p className="text-2xl font-bold">{isLoading ? '-' : totalRequests.toLocaleString()}</p>
             </Card>
@@ -128,7 +130,7 @@ export default function APIPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Code className="w-5 h-5 text-info" />
-                <span className="text-sm text-muted-foreground">Endpoints</span>
+                <span className="text-sm text-muted-foreground">{t('api.endpoints')}</span>
               </div>
               <p className="text-2xl font-bold">{endpoints.length}</p>
             </Card>
@@ -142,14 +144,14 @@ export default function APIPage() {
           transition={{ delay: 0.2 }}
           className="data-card"
         >
-          <h3 className="font-semibold text-lg mb-4">API Keys</h3>
+          <h3 className="font-semibold text-lg mb-4">{t('api.apiKeys')}</h3>
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : apiKeys.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              Chưa có API key nào được tạo.
+              {t('api.noKeys')}
             </div>
           ) : (
             <div className="space-y-4">
@@ -170,7 +172,7 @@ export default function APIPage() {
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{apiKey.name}</h4>
                           <Badge variant={apiKey.status === 'active' ? 'default' : 'secondary'}>
-                            {apiKey.status === 'active' ? 'Hoạt động' : 'Tạm dừng'}
+                            {apiKey.status === 'active' ? t('api.active') : t('api.paused')}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
@@ -199,9 +201,9 @@ export default function APIPage() {
                     
                     <div className="flex items-center gap-6">
                       <div className="text-right text-sm">
-                        <p className="font-medium">{formatNumber(apiKey.requests_count || 0)} requests</p>
+                        <p className="font-medium">{formatNumber(apiKey.requests_count || 0)} {t('api.requests')}</p>
                         <p className="text-xs text-muted-foreground">
-                          Last used: {apiKey.last_used_at ? formatDateTime(apiKey.last_used_at) : 'N/A'}
+                          {t('api.lastUsed')}: {apiKey.last_used_at ? formatDateTime(apiKey.last_used_at) : 'N/A'}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -228,7 +230,7 @@ export default function APIPage() {
             transition={{ delay: 0.3 }}
             className="data-card"
           >
-            <h3 className="font-semibold text-lg mb-4">API Endpoints</h3>
+            <h3 className="font-semibold text-lg mb-4">API {t('api.endpoints')}</h3>
             <div className="space-y-3">
               {endpoints.map((endpoint, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
@@ -251,7 +253,7 @@ export default function APIPage() {
             transition={{ delay: 0.4 }}
             className="data-card"
           >
-            <h3 className="font-semibold text-lg mb-4">Xuất dữ liệu</h3>
+            <h3 className="font-semibold text-lg mb-4">{t('api.exportData')}</h3>
             <div className="grid grid-cols-2 gap-4">
               {exportFormats.map((format) => (
                 <Card key={format.name} className="p-4 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
@@ -262,7 +264,7 @@ export default function APIPage() {
                   <p className="text-xs text-muted-foreground">{format.description}</p>
                   <Button variant="outline" size="sm" className="w-full mt-3">
                     <Download className="w-3 h-3 mr-1" />
-                    Xuất
+                    {t('api.export')}
                   </Button>
                 </Card>
               ))}
