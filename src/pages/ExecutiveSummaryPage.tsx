@@ -20,12 +20,21 @@ import {
   Package,
   CreditCard,
   TrendingUp as Growth,
+  Calculator,
+  HelpCircle,
+  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { Separator } from '@/components/ui/separator';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useCashRunway } from '@/hooks/useCashRunway';
@@ -44,12 +53,130 @@ import {
   Legend,
 } from 'recharts';
 
+// Health Score Formula Definitions
+const HEALTH_FORMULAS: Record<string, {
+  formula: string;
+  title: string;
+  explanation: string;
+  example?: string;
+  thresholds: { good: string; warning: string; critical: string };
+}> = {
+  liquidity: {
+    formula: 'Score = min(100, Cash Runway (tháng) × 15)',
+    title: 'Điểm Thanh khoản',
+    explanation: 'Đánh giá khả năng duy trì hoạt động dựa trên số tháng có thể tồn tại với tiền mặt hiện có.',
+    example: 'VD: 6 tháng runway → 6 × 15 = 90 điểm',
+    thresholds: { good: '≥70 (≥4.7 tháng)', warning: '50-69 (3.3-4.6 tháng)', critical: '<50 (<3.3 tháng)' },
+  },
+  receivables: {
+    formula: 'Score = max(0, 100 - (DSO - 30) × 2)',
+    title: 'Điểm Công nợ phải thu',
+    explanation: 'Đánh giá hiệu quả thu hồi công nợ. DSO càng thấp, điểm càng cao.',
+    example: 'VD: DSO = 45 ngày → 100 - (45-30) × 2 = 70 điểm',
+    thresholds: { good: '≥70 (DSO ≤45)', warning: '50-69 (DSO 46-55)', critical: '<50 (DSO >55)' },
+  },
+  profitability: {
+    formula: 'Score = min(100, Gross Margin (%) × 2.5)',
+    title: 'Điểm Lợi nhuận',
+    explanation: 'Đánh giá khả năng sinh lời dựa trên biên lợi nhuận gộp.',
+    example: 'VD: Gross Margin = 35% → 35 × 2.5 = 87.5 điểm',
+    thresholds: { good: '≥70 (GM ≥28%)', warning: '50-69 (GM 20-27%)', critical: '<50 (GM <20%)' },
+  },
+  efficiency: {
+    formula: 'Score = max(0, 100 - CCC)',
+    title: 'Điểm Hiệu quả vốn lưu động',
+    explanation: 'Đánh giá chu kỳ chuyển đổi tiền mặt (Cash Conversion Cycle). CCC càng ngắn, vốn quay vòng càng nhanh.',
+    example: 'VD: CCC = 35 ngày → 100 - 35 = 65 điểm',
+    thresholds: { good: '≥70 (CCC ≤30)', warning: '50-69 (CCC 31-50)', critical: '<50 (CCC >50)' },
+  },
+  growth: {
+    formula: 'Score = Tốc độ tăng trưởng doanh thu YoY',
+    title: 'Điểm Tăng trưởng',
+    explanation: 'Đánh giá tốc độ tăng trưởng doanh thu so với cùng kỳ năm trước.',
+    example: 'VD: Revenue YoY +15% → ~75 điểm',
+    thresholds: { good: '≥70 (YoY ≥15%)', warning: '50-69 (YoY 5-14%)', critical: '<50 (YoY <5%)' },
+  },
+  stability: {
+    formula: 'Score = min(100, EBITDA Margin (%) × 4)',
+    title: 'Điểm Ổn định lợi nhuận',
+    explanation: 'Đánh giá khả năng tạo ra lợi nhuận hoạt động ổn định qua biên EBITDA.',
+    example: 'VD: EBITDA Margin = 18% → 18 × 4 = 72 điểm',
+    thresholds: { good: '≥70 (EBITDA ≥17.5%)', warning: '50-69 (EBITDA 12.5-17.4%)', critical: '<50 (EBITDA <12.5%)' },
+  },
+};
+
+// Formula Tooltip Component for Health Score
+function HealthFormulaTooltip({ 
+  formulaKey, 
+  children 
+}: { 
+  formulaKey: string; 
+  children: React.ReactNode;
+}) {
+  const formula = HEALTH_FORMULAS[formulaKey];
+  if (!formula) return <>{children}</>;
+
+  return (
+    <HoverCard openDelay={200}>
+      <HoverCardTrigger asChild>
+        <span className="inline-flex items-center gap-1 cursor-help">
+          {children}
+          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+        </span>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-80 p-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-primary" />
+            <span className="font-semibold text-sm">{formula.title}</span>
+          </div>
+          
+          <div className="bg-muted/50 rounded-lg p-3 font-mono text-xs whitespace-pre-line">
+            {formula.formula}
+          </div>
+          
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {formula.explanation}
+          </p>
+          
+          {formula.example && (
+            <p className="text-xs text-primary/80 italic">
+              {formula.example}
+            </p>
+          )}
+          
+          <Separator />
+          
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium">Ngưỡng đánh giá:</p>
+            <div className="grid gap-1 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-muted-foreground">Tốt: {formula.thresholds.good}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-muted-foreground">Cảnh báo: {formula.thresholds.warning}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-muted-foreground">Nguy hiểm: {formula.thresholds.critical}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 interface HealthDimension {
   dimension: string;
   score: number;
   fullMark: number;
   status: 'good' | 'warning' | 'critical';
   description: string;
+  formulaKey: string;
 }
 
 // Financial Health Radar Component
@@ -85,42 +212,48 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
         score: Math.round(liquidityScore), 
         fullMark: 100,
         status: liquidityScore >= 70 ? 'good' : liquidityScore >= 50 ? 'warning' : 'critical',
-        description: `Cash runway: ${runwayMonths.toFixed(1)} tháng`
+        description: `Cash runway: ${runwayMonths.toFixed(1)} tháng`,
+        formulaKey: 'liquidity',
       },
       { 
         dimension: 'Công nợ', 
         score: Math.round(receivablesScore), 
         fullMark: 100,
         status: receivablesScore >= 70 ? 'good' : receivablesScore >= 50 ? 'warning' : 'critical',
-        description: `DSO: ${dso} ngày`
+        description: `DSO: ${dso} ngày`,
+        formulaKey: 'receivables',
       },
       { 
         dimension: 'Lợi nhuận', 
         score: Math.round(profitabilityScore), 
         fullMark: 100,
         status: profitabilityScore >= 70 ? 'good' : profitabilityScore >= 50 ? 'warning' : 'critical',
-        description: `Gross Margin: ${grossMargin}%`
+        description: `Gross Margin: ${grossMargin}%`,
+        formulaKey: 'profitability',
       },
       { 
         dimension: 'Hiệu quả', 
         score: Math.round(efficiencyScore), 
         fullMark: 100,
         status: efficiencyScore >= 70 ? 'good' : efficiencyScore >= 50 ? 'warning' : 'critical',
-        description: `CCC: ${ccc} ngày`
+        description: `CCC: ${ccc} ngày`,
+        formulaKey: 'efficiency',
       },
       { 
         dimension: 'Tăng trưởng', 
         score: growthScore, 
         fullMark: 100,
         status: growthScore >= 70 ? 'good' : growthScore >= 50 ? 'warning' : 'critical',
-        description: 'Revenue YoY: +12%'
+        description: 'Revenue YoY: +12%',
+        formulaKey: 'growth',
       },
       { 
         dimension: 'Ổn định', 
         score: Math.round(stabilityScore), 
         fullMark: 100,
         status: stabilityScore >= 70 ? 'good' : stabilityScore >= 50 ? 'warning' : 'critical',
-        description: `EBITDA Margin: ${ebitdaMargin?.toFixed(1)}%`
+        description: `EBITDA Margin: ${ebitdaMargin?.toFixed(1)}%`,
+        formulaKey: 'stability',
       },
     ];
   };
@@ -220,7 +353,11 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
                 className={`p-3 rounded-lg border ${statusBg[dim.status]}`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">{dim.dimension}</span>
+                  <HealthFormulaTooltip formulaKey={dim.formulaKey}>
+                    <span className="text-sm font-medium hover:text-primary transition-colors">
+                      {dim.dimension}
+                    </span>
+                  </HealthFormulaTooltip>
                   <span className={`text-sm font-bold ${statusColors[dim.status]}`}>
                     {dim.score}
                   </span>
