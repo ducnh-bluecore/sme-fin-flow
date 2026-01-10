@@ -36,7 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useKPIData } from '@/hooks/useKPIData';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useAutoMatch } from '@/hooks/useReconciliation';
 import { useBankAccounts, useBankTransactions } from '@/hooks/useBankData';
 import { 
@@ -110,7 +110,7 @@ export default function ReconciliationHubPage() {
   const markReconciled = useMarkOrderReconciled();
   
   const { dateRange } = useDateRange();
-  const { data: kpiData, isLoading: kpiLoading } = useKPIData(dateRange);
+  const { data: metrics, isLoading: kpiLoading } = useCentralFinancialMetrics();
   const { invoices = [], transactions: bankTransactionsFromMatch = [], isMatching } = useAutoMatch();
   
   const { data: bankAccounts = [], isLoading: loadingAccounts } = useBankAccounts();
@@ -155,7 +155,7 @@ export default function ReconciliationHubPage() {
   const shippingReconciledCount = shippingOrders.filter(o => o.reconcileStatus === 'reconciled').length;
 
   // 3-way matching stats
-  const kpi = kpiData || { matchedRate: 0, pendingInvoices: 0 };
+  const kpi = { matchedRate: 0, pendingInvoices: 0 };
   const matchedTransactionsFromMatch = bankTransactionsFromMatch.filter(tx => tx.match_status === 'matched').length;
   const autoMatchRate = bankTransactionsFromMatch.length > 0 
     ? Math.round((matchedTransactionsFromMatch / bankTransactionsFromMatch.length) * 100) 

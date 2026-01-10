@@ -64,7 +64,7 @@ import { formatCurrency, formatVNDCompact } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useScenarios, useCreateScenario, useUpdateScenario, useDeleteScenario, useSetPrimaryScenario, usePrimaryScenario } from '@/hooks/useScenarioData';
 import { useMonteCarloResults, useSaveMonteCarloResult, useDeleteMonteCarloResult } from '@/hooks/useMonteCarloData';
-import { useKPIData } from '@/hooks/useKPIData';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useWhatIfScenarios, WhatIfScenario } from '@/hooks/useWhatIfScenarios';
 import { Download } from 'lucide-react';
 // Monthly plans hooks moved to MonthlyPlanSection component
@@ -254,7 +254,7 @@ function mapDbToUi(dbScenario: any, currentGrossMargin: number = 35): ScenarioPa
 export default function ScenarioPage() {
   const { user } = useAuth();
   const { data: dbScenarios, isLoading } = useScenarios();
-  const { data: kpiData } = useKPIData();
+  const { data: metrics } = useCentralFinancialMetrics();
   const { data: primaryScenario } = usePrimaryScenario();
   const createScenario = useCreateScenario();
   const updateScenarioMutation = useUpdateScenario();
@@ -291,22 +291,22 @@ export default function ScenarioPage() {
 
   // Check if we have real data
   const hasRealData = useMemo(() => {
-    return kpiData && (kpiData.totalRevenue > 0 || kpiData.cashToday > 0 || kpiData.ebitda !== 0);
-  }, [kpiData]);
+    return metrics && (metrics.totalRevenue > 0 || metrics.cashOnHand > 0 || metrics.ebitda !== 0);
+  }, [metrics]);
 
   // Calculate currentKPIs from real data - no fallbacks to fake data
   const currentKPIs = useMemo(() => ({
-    revenue: kpiData?.totalRevenue ? kpiData.totalRevenue / 12 : 0,
-    cashToday: kpiData?.cashToday || 0,
-    cash7d: kpiData?.cash7d || 0,
-    totalAR: kpiData?.totalAR || 0,
-    overdueAR: kpiData?.overdueAR || 0,
-    dso: kpiData?.dso || 0,
-    ccc: kpiData?.ccc || 0,
-    grossMargin: kpiData?.grossMargin || 0,
-    ebitda: kpiData?.ebitda || 0,
-    matchedRate: kpiData?.matchedRate || 0,
-  }), [kpiData]);
+    revenue: metrics?.totalRevenue ? metrics.totalRevenue / (metrics.daysInPeriod / 30) : 0,
+    cashToday: metrics?.cashOnHand || 0,
+    cash7d: (metrics?.cashOnHand || 0) + (metrics?.cashFlow || 0),
+    totalAR: metrics?.totalAR || 0,
+    overdueAR: metrics?.overdueAR || 0,
+    dso: metrics?.dso || 0,
+    ccc: metrics?.ccc || 0,
+    grossMargin: metrics?.grossMargin || 0,
+    ebitda: metrics?.ebitda || 0,
+    matchedRate: 0,
+  }), [metrics]);
 
   // Sync database scenarios to local state
   useEffect(() => {
