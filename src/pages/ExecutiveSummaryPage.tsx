@@ -180,7 +180,7 @@ interface HealthDimension {
 }
 
 // Financial Health Radar Component
-function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayData: any }) {
+function FinancialHealthRadar({ metrics, runwayData, t }: { metrics: any; runwayData: any; t: (key: string) => string }) {
   // Calculate individual health dimensions
   const calculateDimensions = (): HealthDimension[] => {
     // Liquidity Score (based on cash runway and current ratio)
@@ -208,23 +208,23 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
 
     return [
       { 
-        dimension: 'Thanh khoản', 
+        dimension: t('exec.dimLiquidity'), 
         score: Math.round(liquidityScore), 
         fullMark: 100,
         status: liquidityScore >= 70 ? 'good' : liquidityScore >= 50 ? 'warning' : 'critical',
-        description: `Cash runway: ${runwayMonths.toFixed(1)} tháng`,
+        description: `Cash runway: ${runwayMonths.toFixed(1)} ${t('exec.months')}`,
         formulaKey: 'liquidity',
       },
       { 
-        dimension: 'Công nợ', 
+        dimension: t('exec.dimReceivables'), 
         score: Math.round(receivablesScore), 
         fullMark: 100,
         status: receivablesScore >= 70 ? 'good' : receivablesScore >= 50 ? 'warning' : 'critical',
-        description: `DSO: ${dso} ngày`,
+        description: `DSO: ${dso} days`,
         formulaKey: 'receivables',
       },
       { 
-        dimension: 'Lợi nhuận', 
+        dimension: t('exec.dimProfitability'), 
         score: Math.round(profitabilityScore), 
         fullMark: 100,
         status: profitabilityScore >= 70 ? 'good' : profitabilityScore >= 50 ? 'warning' : 'critical',
@@ -232,15 +232,15 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
         formulaKey: 'profitability',
       },
       { 
-        dimension: 'Hiệu quả', 
+        dimension: t('exec.dimEfficiency'), 
         score: Math.round(efficiencyScore), 
         fullMark: 100,
         status: efficiencyScore >= 70 ? 'good' : efficiencyScore >= 50 ? 'warning' : 'critical',
-        description: `CCC: ${ccc} ngày`,
+        description: `CCC: ${ccc} days`,
         formulaKey: 'efficiency',
       },
       { 
-        dimension: 'Tăng trưởng', 
+        dimension: t('exec.dimGrowth'), 
         score: growthScore, 
         fullMark: 100,
         status: growthScore >= 70 ? 'good' : growthScore >= 50 ? 'warning' : 'critical',
@@ -248,7 +248,7 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
         formulaKey: 'growth',
       },
       { 
-        dimension: 'Ổn định', 
+        dimension: t('exec.dimStability'), 
         score: Math.round(stabilityScore), 
         fullMark: 100,
         status: stabilityScore >= 70 ? 'good' : stabilityScore >= 50 ? 'warning' : 'critical',
@@ -262,9 +262,9 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
   const overallScore = Math.round(dimensions.reduce((sum, d) => sum + d.score, 0) / dimensions.length);
   
   const getOverallStatus = () => {
-    if (overallScore >= 75) return { label: 'Tốt', color: 'text-green-500', bg: 'bg-green-500/10' };
-    if (overallScore >= 55) return { label: 'Trung bình', color: 'text-yellow-500', bg: 'bg-yellow-500/10' };
-    return { label: 'Cần cải thiện', color: 'text-red-500', bg: 'bg-red-500/10' };
+    if (overallScore >= 75) return { label: t('exec.statusGood'), color: 'text-green-500', bg: 'bg-green-500/10' };
+    if (overallScore >= 55) return { label: t('exec.statusWarning'), color: 'text-yellow-500', bg: 'bg-yellow-500/10' };
+    return { label: t('exec.statusCritical'), color: 'text-red-500', bg: 'bg-red-500/10' };
   };
 
   const status = getOverallStatus();
@@ -287,15 +287,15 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            Financial Health Score
+            {t('exec.healthScore')}
           </CardTitle>
           <div className={`px-3 py-1 rounded-full ${status.bg}`}>
             <span className={`text-sm font-semibold ${status.color}`}>
-              {overallScore} điểm - {status.label}
+              {overallScore} {t('exec.points')} - {status.label}
             </span>
           </div>
         </div>
-        <CardDescription>Đánh giá sức khỏe tài chính theo 6 chiều</CardDescription>
+        <CardDescription>{t('exec.healthDescription')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -329,7 +329,7 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
                         <div className="bg-popover border rounded-lg p-3 shadow-lg">
                           <p className="font-semibold">{data.dimension}</p>
                           <p className={`text-lg font-bold ${statusColors[data.status]}`}>
-                            {data.score} điểm
+                            {data.score} {t('exec.points')}
                           </p>
                           <p className="text-xs text-muted-foreground">{data.description}</p>
                         </div>
@@ -378,19 +378,19 @@ function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayDat
             <div className="text-2xl font-bold text-green-500">
               {dimensions.filter(d => d.status === 'good').length}
             </div>
-            <p className="text-xs text-muted-foreground">Chỉ số tốt</p>
+            <p className="text-xs text-muted-foreground">{t('exec.goodMetrics')}</p>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-500">
               {dimensions.filter(d => d.status === 'warning').length}
             </div>
-            <p className="text-xs text-muted-foreground">Cần theo dõi</p>
+            <p className="text-xs text-muted-foreground">{t('exec.needsMonitoring')}</p>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-red-500">
               {dimensions.filter(d => d.status === 'critical').length}
             </div>
-            <p className="text-xs text-muted-foreground">Cần cải thiện</p>
+            <p className="text-xs text-muted-foreground">{t('exec.needsImprovement')}</p>
           </div>
         </div>
       </CardContent>
@@ -406,6 +406,7 @@ function QuickWinCard({
   effort, 
   status,
   category,
+  t,
 }: { 
   title: string;
   description?: string;
@@ -413,6 +414,7 @@ function QuickWinCard({
   effort: 'low' | 'medium' | 'high';
   status: 'pending' | 'in-progress' | 'done';
   category: 'ar' | 'inventory' | 'fees' | 'cost' | 'revenue';
+  t: (key: string) => string;
 }) {
   const effortColors = {
     low: 'text-green-500',
@@ -421,9 +423,9 @@ function QuickWinCard({
   };
 
   const effortLabels = {
-    low: 'Dễ thực hiện',
-    medium: 'Trung bình',
-    high: 'Phức tạp',
+    low: t('exec.effortLow'),
+    medium: t('exec.effortMedium'),
+    high: t('exec.effortHigh'),
   };
 
   const statusIcons = {
@@ -460,7 +462,7 @@ function QuickWinCard({
         {savings > 0 ? (
           <span className="font-semibold text-green-500">+{formatVNDCompact(savings)}</span>
         ) : (
-          <span className="text-xs text-muted-foreground">Giảm rủi ro</span>
+          <span className="text-xs text-muted-foreground">{t('exec.reduceRisk')}</span>
         )}
         {statusIcons[status]}
       </div>
@@ -536,18 +538,18 @@ export default function ExecutiveSummaryPage() {
       <div className="space-y-6">
         <PageHeader
           title={t('nav.executiveSummary')}
-          subtitle="Tổng quan tài chính dành cho CEO/Board - cập nhật real-time"
+          subtitle={t('exec.subtitle')}
         />
 
         {/* Top Row - Health Score Radar & Key Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <FinancialHealthRadar metrics={metrics} runwayData={runwayData} />
+          <FinancialHealthRadar metrics={metrics} runwayData={runwayData} t={t} />
           
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
-                Revenue MTD
+                {t('exec.revenueMTD')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -557,7 +559,7 @@ export default function ExecutiveSummaryPage() {
                 +12.5% vs LM
               </div>
               <Progress value={78} className="mt-3 h-2" />
-              <p className="text-xs text-muted-foreground mt-1">78% target</p>
+              <p className="text-xs text-muted-foreground mt-1">78% {t('exec.target')}</p>
             </CardContent>
           </Card>
 
@@ -565,17 +567,17 @@ export default function ExecutiveSummaryPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Cash Position
+                {t('exec.cashPosition')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatVNDCompact(metrics?.cashOnHand || 0)}</div>
               <div className="flex items-center gap-1 text-sm text-yellow-500 mt-1">
                 <Activity className="h-4 w-4" />
-                Runway: {runwayData?.runwayMonths?.toFixed(1) || '4.5'} tháng
+                {t('exec.runway')}: {runwayData?.runwayMonths?.toFixed(1) || '4.5'} {t('exec.months')}
               </div>
               <Progress value={45} className="mt-3 h-2" />
-              <p className="text-xs text-muted-foreground mt-1">Min threshold: 2 tỷ</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('exec.minThreshold')}: 2 tỷ</p>
             </CardContent>
           </Card>
         </div>
@@ -590,10 +592,10 @@ export default function ExecutiveSummaryPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-yellow-500" />
-                Quick Wins
+                {t('exec.quickWins')}
               </CardTitle>
               <CardDescription>
-                Cơ hội tiết kiệm/tăng revenue - tính từ dữ liệu thực
+                {t('exec.quickWinsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -606,7 +608,7 @@ export default function ExecutiveSummaryPage() {
               ) : quickWins.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
                   <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-500" />
-                  <p>Tuyệt vời! Không có quick win cần xử lý</p>
+                  <p>{t('exec.noQuickWins')}</p>
                 </div>
               ) : (
                 <>
@@ -619,11 +621,12 @@ export default function ExecutiveSummaryPage() {
                       effort={win.effort}
                       status={win.status}
                       category={win.category}
+                      t={t}
                     />
                   ))}
                   <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Tổng tiềm năng thu hồi</span>
+                      <span className="text-sm font-medium">{t('exec.totalPotential')}</span>
                       <span className="text-lg font-bold text-green-500">
                         +{formatVNDCompact(totalPotentialSavings)}
                       </span>
@@ -640,10 +643,10 @@ export default function ExecutiveSummaryPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              Risk Alerts
+              {t('exec.riskAlerts')}
             </CardTitle>
             <CardDescription>
-              Các rủi ro tài chính cần lưu ý
+              {t('exec.riskAlertsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -662,7 +665,7 @@ export default function ExecutiveSummaryPage() {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-green-500" />
-                <p>Không có cảnh báo rủi ro nào</p>
+                <p>{t('exec.noRiskAlerts')}</p>
               </div>
             )}
           </CardContent>
