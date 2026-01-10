@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatCount, formatPercent } from '@/lib/formatters';
 import { useWhatIfRealData, GeographicMetrics } from '@/hooks/useWhatIfRealData';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -490,12 +490,12 @@ export function GeographicAnalysisPanel() {
                                 <span className="font-medium">{province.provinceName || province.provinceCode}</span>
                               </div>
                             </td>
-                            <td className="text-right p-2">{province.orders.toLocaleString()}</td>
+                            <td className="text-right p-2">{formatCount(province.orders)}</td>
                             <td className="text-right p-2 font-medium">{formatVNDCompact(province.revenue)}</td>
                             <td className="text-right p-2">{formatVNDCompact(province.avgOrderValue)}</td>
                             <td className="text-right p-2">
                               <Badge variant={province.margin >= 15 ? 'default' : province.margin >= 5 ? 'secondary' : 'destructive'}>
-                                {province.margin.toFixed(1)}%
+                                {formatPercent(province.margin)}
                               </Badge>
                             </td>
                           </tr>

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatDate } from '@/lib/formatters';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
 import {
   AreaChart,
@@ -85,7 +85,7 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
   const handleSave = () => {
     saveAnalysis.mutate({
       analysis_type: 'payback',
-      title: `Phân tích Payback - ${new Date().toLocaleDateString('vi-VN')}`,
+      title: `Phân tích Payback - ${formatDate(new Date())}`,
       description: `Đầu tư ${formatVNDCompact(params.initialInvestment)}`,
       parameters: params,
       results: { simplePayback, discountedPayback },

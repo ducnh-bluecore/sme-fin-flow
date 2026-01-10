@@ -45,7 +45,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, formatCount } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import {
   AreaChart,
@@ -382,7 +382,7 @@ export default function RevenuePage() {
                 {totalIntegratedRevenue > 0 ? formatCurrency(totalIntegratedRevenue) : '--'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {totalIntegratedOrders > 0 ? `${totalIntegratedOrders.toLocaleString()} đơn hàng` : 'Chưa có đơn hàng'}
+                {totalIntegratedOrders > 0 ? `${formatCount(totalIntegratedOrders)} đơn hàng` : 'Chưa có đơn hàng'}
               </p>
             </CardContent>
           </Card>
@@ -394,7 +394,7 @@ export default function RevenuePage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {revenues.length + totalIntegratedOrders > 0 ? (revenues.length + totalIntegratedOrders).toLocaleString() : '--'}
+                {revenues.length + totalIntegratedOrders > 0 ? formatCount(revenues.length + totalIntegratedOrders) : '--'}
               </div>
               <p className="text-xs text-muted-foreground">trong kỳ phân tích</p>
             </CardContent>

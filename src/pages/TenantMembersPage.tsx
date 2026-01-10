@@ -69,6 +69,7 @@ import {
   useRemoveMember,
 } from '@/hooks/useTenant';
 import { useToast } from '@/hooks/use-toast';
+import { formatDate } from '@/lib/formatters';
 
 const roleConfig = {
   owner: {
@@ -290,7 +291,7 @@ export default function TenantMembersPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {member.joined_at
-                          ? new Date(member.joined_at).toLocaleDateString('vi-VN')
+                          ? formatDate(member.joined_at)
                           : 'Chờ xác nhận'}
                       </TableCell>
                       <TableCell>

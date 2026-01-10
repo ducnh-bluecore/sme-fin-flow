@@ -195,3 +195,24 @@ export const formatDays = (value: number): string => {
   if (value == null || isNaN(value)) return '—';
   return `${Math.round(value)} ngày`;
 };
+
+/**
+ * Format count/quantity with thousand separators
+ * Example: 12345 → "12.345"
+ */
+export const formatCount = (value: number): string => {
+  if (value == null || isNaN(value)) return '—';
+  return new Intl.NumberFormat('vi-VN').format(Math.round(value));
+};
+
+/**
+ * Format ratio as percentage from decimal or whole number
+ * @param numerator - The numerator value
+ * @param denominator - The denominator value
+ * @param decimals - Number of decimal places (default: 1)
+ * Example: formatRatio(35, 100) → "35.0%"
+ */
+export const formatRatio = (numerator: number, denominator: number, decimals: number = 1): string => {
+  if (denominator == null || denominator === 0 || isNaN(numerator) || isNaN(denominator)) return '—';
+  return `${((numerator / denominator) * 100).toFixed(decimals)}%`;
+};

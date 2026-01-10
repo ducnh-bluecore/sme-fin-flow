@@ -60,7 +60,7 @@ import {
   PolarRadiusAxis,
   Radar,
 } from 'recharts';
-import { formatCurrency, formatVNDCompact } from '@/lib/formatters';
+import { formatCurrency, formatVNDCompact, formatDateTime, formatCount } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useScenarios, useCreateScenario, useUpdateScenario, useDeleteScenario, useSetPrimaryScenario, usePrimaryScenario } from '@/hooks/useScenarioData';
 import { useMonteCarloResults, useSaveMonteCarloResult, useDeleteMonteCarloResult } from '@/hooks/useMonteCarloData';
@@ -2267,10 +2267,10 @@ export default function ScenarioPage() {
                         >
                           <div className="flex-1">
                             <p className="text-sm font-medium">
-                              {new Date(result.created_at).toLocaleDateString('vi-VN')} {new Date(result.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {formatDateTime(result.created_at)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {result.simulation_count.toLocaleString()} mô phỏng • EBITDA TB: {formatVNDCompact(result.mean_ebitda || 0)}
+                              {formatCount(result.simulation_count)} mô phỏng • EBITDA TB: {formatVNDCompact(result.mean_ebitda || 0)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
