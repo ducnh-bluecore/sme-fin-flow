@@ -28,23 +28,8 @@ import { cn } from '@/lib/utils';
 import { useAuditLogs, useAuditLogStats } from '@/hooks/useAuditLogs';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
-
-const actionConfig: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  view: { label: 'Xem', icon: Eye, color: 'text-info', bg: 'bg-info/10' },
-  select: { label: 'Xem', icon: Eye, color: 'text-info', bg: 'bg-info/10' },
-  edit: { label: 'Sửa', icon: Edit, color: 'text-warning', bg: 'bg-warning/10' },
-  update: { label: 'Cập nhật', icon: Edit, color: 'text-warning', bg: 'bg-warning/10' },
-  create: { label: 'Tạo', icon: Plus, color: 'text-success', bg: 'bg-success/10' },
-  insert: { label: 'Tạo', icon: Plus, color: 'text-success', bg: 'bg-success/10' },
-  delete: { label: 'Xóa', icon: Trash2, color: 'text-destructive', bg: 'bg-destructive/10' },
-  login: { label: 'Đăng nhập', icon: LogIn, color: 'text-primary', bg: 'bg-primary/10' },
-  logout: { label: 'Đăng xuất', icon: LogOut, color: 'text-muted-foreground', bg: 'bg-muted' },
-  export: { label: 'Xuất', icon: Download, color: 'text-info', bg: 'bg-info/10' },
-  settings: { label: 'Cài đặt', icon: Settings, color: 'text-warning', bg: 'bg-warning/10' },
-};
-
-const defaultAction = { label: 'Khác', icon: FileText, color: 'text-muted-foreground', bg: 'bg-muted' };
+import { vi, enUS } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function AuditLogPage() {
   const { data: logs, isLoading: logsLoading } = useAuditLogs();
@@ -52,6 +37,23 @@ export default function AuditLogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
+  const { t, language } = useLanguage();
+
+  const actionConfig: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+    view: { label: t('auditLog.actionView'), icon: Eye, color: 'text-info', bg: 'bg-info/10' },
+    select: { label: t('auditLog.actionView'), icon: Eye, color: 'text-info', bg: 'bg-info/10' },
+    edit: { label: t('auditLog.actionEdit'), icon: Edit, color: 'text-warning', bg: 'bg-warning/10' },
+    update: { label: t('auditLog.actionUpdate'), icon: Edit, color: 'text-warning', bg: 'bg-warning/10' },
+    create: { label: t('auditLog.actionCreate'), icon: Plus, color: 'text-success', bg: 'bg-success/10' },
+    insert: { label: t('auditLog.actionCreate'), icon: Plus, color: 'text-success', bg: 'bg-success/10' },
+    delete: { label: t('auditLog.actionDelete'), icon: Trash2, color: 'text-destructive', bg: 'bg-destructive/10' },
+    login: { label: t('auditLog.actionLogin'), icon: LogIn, color: 'text-primary', bg: 'bg-primary/10' },
+    logout: { label: t('auditLog.actionLogout'), icon: LogOut, color: 'text-muted-foreground', bg: 'bg-muted' },
+    export: { label: t('auditLog.actionExport'), icon: Download, color: 'text-info', bg: 'bg-info/10' },
+    settings: { label: t('auditLog.actionSettings'), icon: Settings, color: 'text-warning', bg: 'bg-warning/10' },
+  };
+
+  const defaultAction = { label: t('auditLog.actionOther'), icon: FileText, color: 'text-muted-foreground', bg: 'bg-muted' };
 
   const filteredLogs = useMemo(() => {
     if (!logs) return [];
@@ -88,7 +90,7 @@ export default function AuditLogPage() {
     try {
       const date = new Date(timestamp);
       if (!isNaN(date.getTime())) {
-        return format(date, 'dd/MM/yyyy HH:mm:ss', { locale: vi });
+        return format(date, 'dd/MM/yyyy HH:mm:ss', { locale: language === 'vi' ? vi : enUS });
       }
       return timestamp;
     } catch {
@@ -104,8 +106,8 @@ export default function AuditLogPage() {
   return (
     <>
       <Helmet>
-        <title>Nhật ký hoạt động | Bluecore Finance</title>
-        <meta name="description" content="Theo dõi nhật ký hoạt động hệ thống" />
+        <title>{t('auditLog.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('auditLog.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -120,13 +122,13 @@ export default function AuditLogPage() {
               <ScrollText className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Nhật ký hoạt động</h1>
-              <p className="text-muted-foreground">Audit Log & Activity Tracking</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('auditLog.title')}</h1>
+              <p className="text-muted-foreground">{t('auditLog.subtitle')}</p>
             </div>
           </div>
           <Button variant="outline" size="sm">
             <Download className="w-4 h-4 mr-2" />
-            Xuất log
+            {t('auditLog.exportLog')}
           </Button>
         </motion.div>
 
@@ -136,7 +138,7 @@ export default function AuditLogPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Activity className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">Hoạt động hôm nay</span>
+                <span className="text-sm text-muted-foreground">{t('auditLog.activityToday')}</span>
               </div>
               {statsLoading ? (
                 <Skeleton className="h-8 w-16" />
@@ -149,7 +151,7 @@ export default function AuditLogPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <User className="w-5 h-5 text-info" />
-                <span className="text-sm text-muted-foreground">Người dùng hoạt động</span>
+                <span className="text-sm text-muted-foreground">{t('auditLog.activeUsers')}</span>
               </div>
               {statsLoading ? (
                 <Skeleton className="h-8 w-16" />
@@ -162,7 +164,7 @@ export default function AuditLogPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Trash2 className="w-5 h-5 text-destructive" />
-                <span className="text-sm text-muted-foreground">Thao tác quan trọng</span>
+                <span className="text-sm text-muted-foreground">{t('auditLog.criticalActions')}</span>
               </div>
               {statsLoading ? (
                 <Skeleton className="h-8 w-16" />
@@ -183,7 +185,7 @@ export default function AuditLogPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="Tìm kiếm..." 
+              placeholder={t('auditLog.search')} 
               className="pl-9" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -191,10 +193,10 @@ export default function AuditLogPage() {
           </div>
           <Select value={actionFilter} onValueChange={setActionFilter}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Hành động" />
+              <SelectValue placeholder={t('auditLog.action')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">{t('auditLog.all')}</SelectItem>
               {uniqueActions.map((action) => (
                 <SelectItem key={action} value={action}>
                   {getActionConfig(action).label}
@@ -204,10 +206,10 @@ export default function AuditLogPage() {
           </Select>
           <Select value={moduleFilter} onValueChange={setModuleFilter}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Module" />
+              <SelectValue placeholder={t('auditLog.module')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">{t('auditLog.all')}</SelectItem>
               {uniqueModules.map((module) => (
                 <SelectItem key={module} value={module.toLowerCase()}>
                   {module}
@@ -224,7 +226,7 @@ export default function AuditLogPage() {
             }}
           >
             <Filter className="w-4 h-4 mr-2" />
-            Xóa lọc
+            {t('auditLog.clearFilter')}
           </Button>
         </motion.div>
 
@@ -242,7 +244,7 @@ export default function AuditLogPage() {
           ) : filteredLogs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ScrollText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Không có nhật ký hoạt động nào</p>
+              <p>{t('auditLog.noLogs')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -265,7 +267,7 @@ export default function AuditLogPage() {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {log.action} {log.entity_type && `trên ${log.entity_type}`}
+                        {log.action} {log.entity_type && `${t('auditLog.on')} ${log.entity_type}`}
                         {log.entity_id && ` (ID: ${log.entity_id.slice(0, 8)}...)`}
                       </p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
