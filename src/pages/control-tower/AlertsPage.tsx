@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { 
@@ -13,95 +13,18 @@ import {
   DollarSign,
   Users,
   Filter,
-  Search
+  Search,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface Alert {
-  id: string;
-  type: 'critical' | 'warning' | 'info';
-  category: 'inventory' | 'sales' | 'operations' | 'finance' | 'hr';
-  title: string;
-  description: string;
-  location?: string;
-  value?: string;
-  threshold?: string;
-  time: string;
-  status: 'active' | 'acknowledged' | 'resolved';
-}
-
-const mockAlerts: Alert[] = [
-  {
-    id: '1',
-    type: 'critical',
-    category: 'inventory',
-    title: 'Hết hàng: iPhone 15 Pro Max 256GB',
-    description: 'SKU đã hết tại cửa hàng, cần nhập hàng khẩn cấp',
-    location: 'Cửa hàng Quận 1',
-    value: '0 units',
-    threshold: 'Min: 10 units',
-    time: '5 phút trước',
-    status: 'active'
-  },
-  {
-    id: '2',
-    type: 'critical',
-    category: 'sales',
-    title: 'Đơn hàng chậm giao quá 24h',
-    description: '15 đơn hàng đã quá thời hạn giao hàng cam kết',
-    value: '15 đơn',
-    time: '15 phút trước',
-    status: 'active'
-  },
-  {
-    id: '3',
-    type: 'warning',
-    category: 'sales',
-    title: 'Doanh thu giảm bất thường',
-    description: 'Doanh thu giảm 40% so với trung bình tuần',
-    location: 'Cửa hàng Quận 7',
-    value: '₫12.5M',
-    threshold: 'TB: ₫21M',
-    time: '1 giờ trước',
-    status: 'acknowledged'
-  },
-  {
-    id: '4',
-    type: 'warning',
-    category: 'inventory',
-    title: 'Tồn kho thấp: Samsung Galaxy S24',
-    description: 'Tồn kho đang ở mức cảnh báo, cần bổ sung',
-    location: 'Kho trung tâm',
-    value: '25 units',
-    threshold: 'Min: 50 units',
-    time: '2 giờ trước',
-    status: 'active'
-  },
-  {
-    id: '5',
-    type: 'warning',
-    category: 'finance',
-    title: 'Công nợ quá hạn',
-    description: 'Có 3 khoản công nợ khách hàng quá hạn 30 ngày',
-    value: '₫450M',
-    time: '3 giờ trước',
-    status: 'active'
-  },
-  {
-    id: '6',
-    type: 'info',
-    category: 'operations',
-    title: 'Bảo trì cửa hàng hoàn tất',
-    description: 'Cửa hàng đã hoàn tất bảo trì và hoạt động trở lại',
-    location: 'Cửa hàng Thủ Đức',
-    time: '5 giờ trước',
-    status: 'resolved'
-  },
-];
+import { useNotificationCenter, AlertInstance, categoryLabels } from '@/hooks/useNotificationCenter';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 const typeConfig = {
   critical: { 
@@ -127,19 +50,42 @@ const typeConfig = {
   },
 };
 
-const categoryConfig = {
-  inventory: { icon: Package, label: 'Tồn kho', color: 'text-amber-400' },
-  sales: { icon: TrendingDown, label: 'Bán hàng', color: 'text-purple-400' },
-  operations: { icon: Store, label: 'Vận hành', color: 'text-blue-400' },
-  finance: { icon: DollarSign, label: 'Tài chính', color: 'text-green-400' },
-  hr: { icon: Users, label: 'Nhân sự', color: 'text-cyan-400' },
+const categoryIcons: Record<string, React.ElementType> = {
+  inventory: Package,
+  sales: TrendingDown,
+  operations: Store,
+  finance: DollarSign,
+  hr: Users,
+  revenue: DollarSign,
+  ar: DollarSign,
+  cash_flow: DollarSign,
+  product: Package,
+  business: DollarSign,
+  store: Store,
+  cashflow: DollarSign,
+  kpi: TrendingDown,
+  customer: Users,
+  fulfillment: Package,
+  other: Bell,
 };
 
-function AlertCard({ alert }: { alert: Alert }) {
-  const typeConf = typeConfig[alert.type];
-  const catConf = categoryConfig[alert.category];
+function AlertCard({ alert, onAcknowledge, onResolve }: { 
+  alert: AlertInstance; 
+  onAcknowledge: (id: string) => void;
+  onResolve: (id: string) => void;
+}) {
+  const severity = alert.severity as keyof typeof typeConfig;
+  const typeConf = typeConfig[severity] || typeConfig.warning;
   const TypeIcon = typeConf.icon;
-  const CatIcon = catConf.icon;
+  const CatIcon = categoryIcons[alert.category] || Bell;
+
+  const timeAgo = useMemo(() => {
+    try {
+      return formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: vi });
+    } catch {
+      return alert.created_at;
+    }
+  }, [alert.created_at]);
 
   return (
     <motion.div
@@ -160,11 +106,13 @@ function AlertCard({ alert }: { alert: Alert }) {
                 </Badge>
                 <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30 flex items-center gap-1">
                   <CatIcon className="h-3 w-3" />
-                  {catConf.label}
+                  {categoryLabels[alert.category as keyof typeof categoryLabels] || alert.category}
                 </Badge>
               </div>
               <h3 className="text-sm font-medium text-slate-100">{alert.title}</h3>
-              <p className="text-xs text-slate-400 mt-1">{alert.description}</p>
+              {alert.message && (
+                <p className="text-xs text-slate-400 mt-1">{alert.message}</p>
+              )}
             </div>
             <div className="flex flex-col items-end gap-1">
               {alert.status === 'active' && (
@@ -187,35 +135,61 @@ function AlertCard({ alert }: { alert: Alert }) {
 
           {/* Details */}
           <div className="flex flex-wrap items-center gap-4 mt-3">
-            {alert.location && (
+            {alert.object_name && (
               <div className="flex items-center gap-1 text-xs text-slate-500">
                 <Store className="h-3 w-3" />
-                {alert.location}
+                {alert.object_name}
               </div>
             )}
-            {alert.value && (
+            {alert.current_value !== null && (
               <div className="text-xs">
-                <span className="text-slate-500">Hiện tại: </span>
-                <span className={typeConf.color}>{alert.value}</span>
+                <span className="text-slate-500">Giá trị: </span>
+                <span className={typeConf.color}>
+                  {typeof alert.current_value === 'number' 
+                    ? alert.current_value.toLocaleString('vi-VN') 
+                    : alert.current_value}
+                </span>
               </div>
             )}
-            {alert.threshold && (
-              <div className="text-xs text-slate-500">{alert.threshold}</div>
+            {alert.threshold_value !== null && (
+              <div className="text-xs text-slate-500">
+                Ngưỡng: {alert.threshold_value.toLocaleString('vi-VN')}
+              </div>
             )}
             <div className="flex items-center gap-1 text-xs text-slate-500">
               <Clock className="h-3 w-3" />
-              {alert.time}
+              {timeAgo}
             </div>
           </div>
 
           {/* Actions */}
           {alert.status === 'active' && (
             <div className="flex items-center gap-2 mt-3">
-              <Button size="sm" className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs">
+              <Button 
+                size="sm" 
+                className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
+                onClick={() => onResolve(alert.id)}
+              >
                 Xử lý ngay
               </Button>
-              <Button size="sm" variant="outline" className="h-7 border-slate-700 text-slate-300 text-xs">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-7 border-slate-700 text-slate-300 text-xs"
+                onClick={() => onAcknowledge(alert.id)}
+              >
                 Đánh dấu đã nhận
+              </Button>
+            </div>
+          )}
+          {alert.status === 'acknowledged' && (
+            <div className="flex items-center gap-2 mt-3">
+              <Button 
+                size="sm" 
+                className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
+                onClick={() => onResolve(alert.id)}
+              >
+                Đánh dấu đã xử lý
               </Button>
             </div>
           )}
@@ -227,11 +201,48 @@ function AlertCard({ alert }: { alert: Alert }) {
 
 export default function AlertsPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [alerts] = useState(mockAlerts);
+  const { 
+    instances, 
+    stats, 
+    isLoading, 
+    acknowledgeAlert,
+    resolveAlert,
+    refetchInstances 
+  } = useNotificationCenter();
 
-  const criticalCount = alerts.filter(a => a.type === 'critical' && a.status === 'active').length;
-  const warningCount = alerts.filter(a => a.type === 'warning' && a.status === 'active').length;
-  const activeCount = alerts.filter(a => a.status === 'active').length;
+  const handleAcknowledge = async (id: string) => {
+    await acknowledgeAlert.mutateAsync(id);
+  };
+
+  const handleResolve = async (id: string) => {
+    await resolveAlert.mutateAsync({ id });
+  };
+
+  const filteredAlerts = useMemo(() => {
+    if (!searchQuery) return instances;
+    const query = searchQuery.toLowerCase();
+    return instances.filter(a => 
+      a.title.toLowerCase().includes(query) ||
+      a.message?.toLowerCase().includes(query) ||
+      a.category.toLowerCase().includes(query)
+    );
+  }, [instances, searchQuery]);
+
+  const activeAlerts = filteredAlerts.filter(a => a.status === 'active');
+  const acknowledgedAlerts = filteredAlerts.filter(a => a.status === 'acknowledged');
+  const resolvedAlerts = filteredAlerts.filter(a => a.status === 'resolved');
+
+  const criticalCount = stats.bySeverity.critical || 0;
+  const warningCount = stats.bySeverity.warning || 0;
+  const infoCount = stats.bySeverity.info || 0;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -250,6 +261,15 @@ export default function AlertsPage() {
             <p className="text-slate-400 text-sm mt-1">Theo dõi và xử lý các cảnh báo vận hành</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchInstances()}
+              className="border-slate-700 text-slate-300"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Làm mới
+            </Button>
             {criticalCount > 0 && (
               <Badge className="bg-red-500/10 text-red-400 border border-red-500/30 animate-pulse">
                 {criticalCount} nghiêm trọng
@@ -293,7 +313,7 @@ export default function AlertsPage() {
                 <Clock className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-blue-400">{activeCount}</div>
+                <div className="text-2xl font-bold text-blue-400">{stats.active}</div>
                 <div className="text-xs text-slate-400">Chưa xử lý</div>
               </div>
             </div>
@@ -304,9 +324,7 @@ export default function AlertsPage() {
                 <CheckCircle className="h-5 w-5 text-emerald-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-emerald-400">
-                  {alerts.filter(a => a.status === 'resolved').length}
-                </div>
+                <div className="text-2xl font-bold text-emerald-400">{stats.resolved}</div>
                 <div className="text-xs text-slate-400">Đã xử lý</div>
               </div>
             </div>
@@ -338,41 +356,89 @@ export default function AlertsPage() {
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="bg-slate-900/50 border border-slate-800/50">
             <TabsTrigger value="active" className="data-[state=active]:bg-slate-800">
-              Đang xảy ra ({activeCount})
+              Đang xảy ra ({activeAlerts.length})
             </TabsTrigger>
             <TabsTrigger value="acknowledged" className="data-[state=active]:bg-slate-800">
-              Đã nhận
+              Đã nhận ({acknowledgedAlerts.length})
             </TabsTrigger>
             <TabsTrigger value="resolved" className="data-[state=active]:bg-slate-800">
-              Đã xử lý
+              Đã xử lý ({resolvedAlerts.length})
             </TabsTrigger>
             <TabsTrigger value="all" className="data-[state=active]:bg-slate-800">
-              Tất cả
+              Tất cả ({filteredAlerts.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="mt-4 space-y-3">
-            {alerts.filter(a => a.status === 'active').map(alert => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))}
+            {activeAlerts.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+                <p className="text-slate-400">Không có cảnh báo đang xảy ra</p>
+              </div>
+            ) : (
+              activeAlerts.map(alert => (
+                <AlertCard 
+                  key={alert.id} 
+                  alert={alert} 
+                  onAcknowledge={handleAcknowledge}
+                  onResolve={handleResolve}
+                />
+              ))
+            )}
           </TabsContent>
 
           <TabsContent value="acknowledged" className="mt-4 space-y-3">
-            {alerts.filter(a => a.status === 'acknowledged').map(alert => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))}
+            {acknowledgedAlerts.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400">Không có cảnh báo đã nhận</p>
+              </div>
+            ) : (
+              acknowledgedAlerts.map(alert => (
+                <AlertCard 
+                  key={alert.id} 
+                  alert={alert}
+                  onAcknowledge={handleAcknowledge}
+                  onResolve={handleResolve}
+                />
+              ))
+            )}
           </TabsContent>
 
           <TabsContent value="resolved" className="mt-4 space-y-3">
-            {alerts.filter(a => a.status === 'resolved').map(alert => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))}
+            {resolvedAlerts.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400">Không có cảnh báo đã xử lý</p>
+              </div>
+            ) : (
+              resolvedAlerts.map(alert => (
+                <AlertCard 
+                  key={alert.id} 
+                  alert={alert}
+                  onAcknowledge={handleAcknowledge}
+                  onResolve={handleResolve}
+                />
+              ))
+            )}
           </TabsContent>
 
           <TabsContent value="all" className="mt-4 space-y-3">
-            {alerts.map(alert => (
-              <AlertCard key={alert.id} alert={alert} />
-            ))}
+            {filteredAlerts.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400">Không có cảnh báo nào</p>
+              </div>
+            ) : (
+              filteredAlerts.map(alert => (
+                <AlertCard 
+                  key={alert.id} 
+                  alert={alert}
+                  onAcknowledge={handleAcknowledge}
+                  onResolve={handleResolve}
+                />
+              ))
+            )}
           </TabsContent>
         </Tabs>
       </div>

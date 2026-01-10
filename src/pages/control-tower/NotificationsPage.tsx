@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { 
@@ -15,7 +15,9 @@ import {
   Users,
   DollarSign,
   Trash2,
-  Settings
+  Settings,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { ExtendedAlertConfigDialog } from '@/components/alerts/ExtendedAlertConfigDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,30 +26,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useNotificationCenter, AlertInstance, categoryLabels } from '@/hooks/useNotificationCenter';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
-interface Notification {
-  id: string;
-  type: 'alert' | 'info' | 'success' | 'order' | 'inventory' | 'team' | 'finance';
-  title: string;
-  message: string;
-  time: string;
-  isRead: boolean;
-  department?: string;
-}
-
-const mockNotifications: Notification[] = [
-  { id: '1', type: 'alert', title: 'Hết hàng khẩn cấp', message: 'iPhone 15 Pro Max tại cửa hàng Quận 1 đã hết hàng. Cần nhập thêm ngay.', time: '5 phút trước', isRead: false, department: 'Kho' },
-  { id: '2', type: 'order', title: 'Đơn hàng mới', message: 'Có 15 đơn hàng mới cần xử lý từ Shopee.', time: '10 phút trước', isRead: false, department: 'Bán hàng' },
-  { id: '3', type: 'finance', title: 'Thanh toán thành công', message: 'Đã nhận thanh toán ₫125,000,000 từ khách hàng ABC Corp.', time: '30 phút trước', isRead: false, department: 'Kế toán' },
-  { id: '4', type: 'inventory', title: 'Hàng về kho', message: '500 units Samsung Galaxy S24 đã nhập kho thành công.', time: '1 giờ trước', isRead: true, department: 'Kho' },
-  { id: '5', type: 'team', title: 'Yêu cầu nghỉ phép', message: 'Nguyễn Văn A đã gửi yêu cầu nghỉ phép 3 ngày.', time: '2 giờ trước', isRead: true, department: 'HR' },
-  { id: '6', type: 'success', title: 'Mục tiêu đạt được', message: 'Cửa hàng Quận 3 đã hoàn thành 100% target tháng này!', time: '3 giờ trước', isRead: true, department: 'Bán hàng' },
-  { id: '7', type: 'info', title: 'Cập nhật hệ thống', message: 'Hệ thống sẽ bảo trì lúc 2:00 AM ngày mai.', time: '5 giờ trước', isRead: true, department: 'IT' },
-  { id: '8', type: 'alert', title: 'Cảnh báo doanh thu', message: 'Doanh thu cửa hàng Quận 7 giảm 40% so với tuần trước.', time: '1 ngày trước', isRead: true, department: 'Bán hàng' },
-];
-
-const typeConfig = {
+const typeConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string }> = {
   alert: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+  critical: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+  warning: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
   info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
   success: { icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
   order: { icon: ShoppingCart, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
@@ -57,19 +43,29 @@ const typeConfig = {
 };
 
 function NotificationItem({ notification, selected, onSelect }: { 
-  notification: Notification; 
+  notification: AlertInstance; 
   selected: boolean;
   onSelect: (id: string) => void;
 }) {
-  const config = typeConfig[notification.type];
+  const configKey = notification.severity || notification.category || 'info';
+  const config = typeConfig[configKey] || typeConfig.info;
   const Icon = config.icon;
+  const isRead = notification.status === 'resolved' || notification.status === 'acknowledged';
+
+  const timeAgo = useMemo(() => {
+    try {
+      return formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: vi });
+    } catch {
+      return notification.created_at;
+    }
+  }, [notification.created_at]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`p-4 rounded-lg border transition-all cursor-pointer ${
-        notification.isRead 
+        isRead 
           ? 'bg-slate-900/30 border-slate-800/50' 
           : `${config.bg} ${config.border}`
       } hover:border-slate-600/50`}
@@ -87,23 +83,23 @@ function NotificationItem({ notification, selected, onSelect }: {
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <h3 className={`text-sm font-medium ${notification.isRead ? 'text-slate-300' : 'text-slate-100'}`}>
+                <h3 className={`text-sm font-medium ${isRead ? 'text-slate-300' : 'text-slate-100'}`}>
                   {notification.title}
                 </h3>
-                {!notification.isRead && (
+                {!isRead && (
                   <span className="h-2 w-2 rounded-full bg-amber-400" />
                 )}
               </div>
-              <p className="text-sm text-slate-400 mt-1">{notification.message}</p>
+              {notification.message && (
+                <p className="text-sm text-slate-400 mt-1">{notification.message}</p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3 mt-2">
-            <span className="text-xs text-slate-500">{notification.time}</span>
-            {notification.department && (
-              <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30">
-                {notification.department}
-              </Badge>
-            )}
+            <span className="text-xs text-slate-500">{timeAgo}</span>
+            <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30">
+              {categoryLabels[notification.category as keyof typeof categoryLabels] || notification.category}
+            </Badge>
           </div>
         </div>
       </div>
@@ -112,12 +108,21 @@ function NotificationItem({ notification, selected, onSelect }: {
 }
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  
+  const { 
+    instances, 
+    stats,
+    isLoading, 
+    acknowledgeAlert,
+    resolveAlert,
+    bulkUpdateAlerts,
+    refetchInstances 
+  } = useNotificationCenter();
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = stats.active || 0;
 
   const handleSelect = (id: string) => {
     setSelectedIds(prev => 
@@ -126,29 +131,58 @@ export default function NotificationsPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === notifications.length) {
+    if (selectedIds.length === instances.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(notifications.map(n => n.id));
+      setSelectedIds(instances.map(n => n.id));
     }
   };
 
-  const handleMarkAsRead = () => {
-    setNotifications(prev => 
-      prev.map(n => selectedIds.includes(n.id) ? { ...n, isRead: true } : n)
+  const handleMarkAsRead = async () => {
+    if (selectedIds.length === 0) return;
+    await bulkUpdateAlerts.mutateAsync({
+      ids: selectedIds,
+      updates: {
+        status: 'acknowledged',
+        acknowledged_at: new Date().toISOString()
+      }
+    });
+    setSelectedIds([]);
+  };
+
+  const handleDelete = async () => {
+    if (selectedIds.length === 0) return;
+    await bulkUpdateAlerts.mutateAsync({
+      ids: selectedIds,
+      updates: {
+        status: 'resolved',
+        resolved_at: new Date().toISOString()
+      }
+    });
+    setSelectedIds([]);
+  };
+
+  const filteredNotifications = useMemo(() => {
+    if (!searchQuery) return instances;
+    const query = searchQuery.toLowerCase();
+    return instances.filter(n =>
+      n.title.toLowerCase().includes(query) ||
+      n.message?.toLowerCase().includes(query)
     );
-    setSelectedIds([]);
-  };
+  }, [instances, searchQuery]);
 
-  const handleDelete = () => {
-    setNotifications(prev => prev.filter(n => !selectedIds.includes(n.id)));
-    setSelectedIds([]);
-  };
-
-  const filteredNotifications = notifications.filter(n =>
-    n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    n.message.toLowerCase().includes(searchQuery.toLowerCase())
+  const unreadNotifications = filteredNotifications.filter(n => n.status === 'active');
+  const alertNotifications = filteredNotifications.filter(n => 
+    n.severity === 'critical' || n.severity === 'warning'
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -167,6 +201,15 @@ export default function NotificationsPage() {
             <p className="text-slate-400 text-sm mt-1">Quản lý tất cả thông báo và cảnh báo</p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchInstances()}
+              className="border-slate-700 text-slate-300"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Làm mới
+            </Button>
             {unreadCount > 0 && (
               <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 h-8 px-3">
                 {unreadCount} chưa đọc
@@ -216,6 +259,7 @@ export default function NotificationsPage() {
                   variant="ghost" 
                   size="sm" 
                   onClick={handleMarkAsRead}
+                  disabled={bulkUpdateAlerts.isPending}
                   className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                 >
                   <CheckCheck className="h-4 w-4 mr-2" />
@@ -225,6 +269,7 @@ export default function NotificationsPage() {
                   variant="ghost" 
                   size="sm" 
                   onClick={handleDelete}
+                  disabled={bulkUpdateAlerts.isPending}
                   className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -239,13 +284,13 @@ export default function NotificationsPage() {
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="bg-slate-900/50 border border-slate-800/50">
             <TabsTrigger value="all" className="data-[state=active]:bg-slate-800">
-              Tất cả ({notifications.length})
+              Tất cả ({filteredNotifications.length})
             </TabsTrigger>
             <TabsTrigger value="unread" className="data-[state=active]:bg-slate-800">
-              Chưa đọc ({unreadCount})
+              Chưa đọc ({unreadNotifications.length})
             </TabsTrigger>
             <TabsTrigger value="alerts" className="data-[state=active]:bg-slate-800">
-              Cảnh báo
+              Cảnh báo ({alertNotifications.length})
             </TabsTrigger>
           </TabsList>
 
@@ -254,7 +299,7 @@ export default function NotificationsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-3">
                   <Checkbox 
-                    checked={selectedIds.length === notifications.length && notifications.length > 0}
+                    checked={selectedIds.length === instances.length && instances.length > 0}
                     onCheckedChange={handleSelectAll}
                   />
                   <span className="text-sm text-slate-400">Chọn tất cả</span>
@@ -282,7 +327,7 @@ export default function NotificationsPage() {
           <TabsContent value="unread" className="mt-4">
             <Card className="bg-slate-900/50 border-slate-800/50">
               <CardContent className="p-4 space-y-3">
-                {filteredNotifications.filter(n => !n.isRead).map((notification) => (
+                {unreadNotifications.map((notification) => (
                   <NotificationItem 
                     key={notification.id} 
                     notification={notification}
@@ -290,7 +335,7 @@ export default function NotificationsPage() {
                     onSelect={handleSelect}
                   />
                 ))}
-                {filteredNotifications.filter(n => !n.isRead).length === 0 && (
+                {unreadNotifications.length === 0 && (
                   <div className="text-center py-12">
                     <Check className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
                     <p className="text-slate-400">Tất cả thông báo đã được đọc</p>
@@ -303,7 +348,7 @@ export default function NotificationsPage() {
           <TabsContent value="alerts" className="mt-4">
             <Card className="bg-slate-900/50 border-slate-800/50">
               <CardContent className="p-4 space-y-3">
-                {filteredNotifications.filter(n => n.type === 'alert').map((notification) => (
+                {alertNotifications.map((notification) => (
                   <NotificationItem 
                     key={notification.id} 
                     notification={notification}
@@ -311,6 +356,12 @@ export default function NotificationsPage() {
                     onSelect={handleSelect}
                   />
                 ))}
+                {alertNotifications.length === 0 && (
+                  <div className="text-center py-12">
+                    <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+                    <p className="text-slate-400">Không có cảnh báo nào</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
