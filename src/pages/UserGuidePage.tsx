@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface GuideSection {
   id: string;
@@ -1255,13 +1256,15 @@ const quickStartSteps = [
 ];
 
 export default function UserGuidePage() {
+  const { t } = useLanguage();
+
   return (
     <>
       <Helmet>
-        <title>Hướng dẫn sử dụng | CFO Dashboard</title>
+        <title>{t('userGuide.pageTitle')}</title>
         <meta
           name="description"
-          content="Hướng dẫn sử dụng chi tiết hệ thống CFO Dashboard - Quản lý tài chính doanh nghiệp"
+          content={t('userGuide.pageDesc')}
         />
       </Helmet>
 
@@ -1276,9 +1279,9 @@ export default function UserGuidePage() {
             <BookOpen className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Hướng dẫn sử dụng</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('userGuide.title')}</h1>
             <p className="text-muted-foreground">
-              Tài liệu hướng dẫn chi tiết các tính năng của hệ thống CFO Dashboard
+              {t('userGuide.subtitle')}
             </p>
           </div>
         </motion.div>
@@ -1287,23 +1290,23 @@ export default function UserGuidePage() {
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto lg:inline-flex">
             <TabsTrigger value="tutorials" className="gap-2">
               <PlayCircle className="h-4 w-4" />
-              Hướng dẫn chi tiết
+              {t('userGuide.tabTutorials')}
             </TabsTrigger>
             <TabsTrigger value="usecases" className="gap-2">
               <Lightbulb className="h-4 w-4" />
-              Use Cases
+              {t('userGuide.tabUseCases')}
             </TabsTrigger>
             <TabsTrigger value="overview" className="gap-2">
               <Eye className="h-4 w-4" />
-              Tổng quan
+              {t('userGuide.tabOverview')}
             </TabsTrigger>
             <TabsTrigger value="modules" className="gap-2">
               <Database className="h-4 w-4" />
-              Các module
+              {t('userGuide.tabModules')}
             </TabsTrigger>
             <TabsTrigger value="quickstart" className="gap-2">
               <Zap className="h-4 w-4" />
-              Bắt đầu nhanh
+              {t('userGuide.tabQuickStart')}
             </TabsTrigger>
           </TabsList>
 
@@ -1334,7 +1337,7 @@ export default function UserGuidePage() {
                             <div className="text-center">
                               <PlayCircle className="h-16 w-16 text-muted-foreground/50 mx-auto mb-2" />
                               <p className="text-muted-foreground text-sm">
-                                {tutorial.videoPlaceholder}
+                                {t('userGuide.videoPlaceholder')}
                               </p>
                             </div>
                           </div>
@@ -1346,7 +1349,7 @@ export default function UserGuidePage() {
                     <div className="space-y-4">
                       <h4 className="font-semibold flex items-center gap-2">
                         <MousePointerClick className="h-4 w-4 text-primary" />
-                        Các bước thực hiện
+                        {t('userGuide.steps')}
                       </h4>
                       <div className="space-y-4">
                         {tutorial.steps.map((step, idx) => (
@@ -1373,7 +1376,7 @@ export default function UserGuidePage() {
                                 <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
                                   <Lightbulb className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                                   <span className="text-amber-700 dark:text-amber-300">
-                                    <strong>Mẹo:</strong> {step.tip}
+                                    <strong>{t('userGuide.tip')}:</strong> {step.tip}
                                   </span>
                                 </div>
                               )}
@@ -1423,7 +1426,7 @@ export default function UserGuidePage() {
                     <div>
                       <h4 className="font-semibold text-destructive mb-3 flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4" />
-                        Thách thức thường gặp
+                        {t('userGuide.challenges')}
                       </h4>
                       <ul className="space-y-2">
                         {useCase.challenges.map((challenge, idx) => (
@@ -1439,7 +1442,7 @@ export default function UserGuidePage() {
                     <div>
                       <h4 className="font-semibold text-green-600 dark:text-green-400 mb-3 flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4" />
-                        Giải pháp từ CFO Dashboard
+                        {t('userGuide.howWeHelp')}
                       </h4>
                       <div className="grid gap-3 md:grid-cols-2">
                         {useCase.solutions.map((solution, idx) => (
@@ -1462,7 +1465,7 @@ export default function UserGuidePage() {
                     <div>
                       <h4 className="font-semibold mb-3 flex items-center gap-2">
                         <BarChart3 className="h-4 w-4 text-primary" />
-                        KPI quan trọng cần theo dõi
+                        {t('userGuide.keyMetrics')}
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {useCase.keyMetrics.map((metric, idx) => (
@@ -1503,14 +1506,14 @@ export default function UserGuidePage() {
                       <CardContent>
                         <p className="text-sm text-muted-foreground">{section.description}</p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          {section.pages.length} trang
+                          {section.pages.length} {t('userGuide.pages')}
                         </p>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
 
-                <h4 className="mt-6">Nguồn dữ liệu hỗ trợ:</h4>
+                <h4 className="mt-6">{t('userGuide.dataSources')}</h4>
                 <ul>
                   <li><strong>E-commerce:</strong> Shopee, Lazada, TikTok Shop, Sendo</li>
                   <li><strong>Kế toán:</strong> MISA, Fast Accounting, SAP</li>
@@ -1519,7 +1522,7 @@ export default function UserGuidePage() {
                   <li><strong>Data Warehouse:</strong> BigQuery</li>
                 </ul>
 
-                <h4>Các tính năng AI:</h4>
+                <h4>{t('userGuide.aiFeatures')}</h4>
                 <ul>
                   <li><strong>AI Insights:</strong> Phân tích tự động và đề xuất hành động</li>
                   <li><strong>Decision Advisor:</strong> Hỗ trợ ra quyết định đầu tư</li>
@@ -1574,7 +1577,7 @@ export default function UserGuidePage() {
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div>
-                              <h5 className="text-sm font-medium mb-2">Tính năng:</h5>
+                              <h5 className="text-sm font-medium mb-2">{t('userGuide.features')}:</h5>
                               <ul className="text-sm text-muted-foreground space-y-1">
                                 {page.features.map((feature, fIdx) => (
                                   <li key={fIdx} className="flex items-center gap-2">
@@ -1586,7 +1589,7 @@ export default function UserGuidePage() {
                             </div>
                             {page.dataSource && (
                               <div>
-                                <h5 className="text-sm font-medium mb-1">Nguồn dữ liệu:</h5>
+                                <h5 className="text-sm font-medium mb-1">{t('userGuide.dataSource')}:</h5>
                                 <p className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
                                   {page.dataSource}
                                 </p>
@@ -1608,10 +1611,10 @@ export default function UserGuidePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-amber-500" />
-                  Bắt đầu nhanh trong 5 bước
+                  {t('userGuide.quickStartTitle')}
                 </CardTitle>
                 <CardDescription>
-                  Hướng dẫn thiết lập hệ thống lần đầu
+                  {t('userGuide.quickStartDesc')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1627,7 +1630,7 @@ export default function UserGuidePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
-                            Bước {item.step}
+                            {t('userGuide.step')} {item.step}
                           </Badge>
                           <h4 className="font-semibold">{item.title}</h4>
                         </div>
@@ -1638,7 +1641,7 @@ export default function UserGuidePage() {
                           to={item.path}
                           className="inline-flex items-center gap-1 text-sm text-primary mt-2 hover:underline"
                         >
-                          Đi đến trang
+                          {t('userGuide.goToPage')}
                           <ArrowRight className="h-3 w-3" />
                         </Link>
                       </div>
@@ -1652,40 +1655,38 @@ export default function UserGuidePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-amber-500" />
-                  Lưu ý quan trọng
+                  {t('userGuide.importantNotes')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                   <h5 className="font-medium text-amber-600 dark:text-amber-400">
-                    Về dữ liệu
+                    {t('userGuide.aboutData')}
                   </h5>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Hệ thống cần có dữ liệu để hiển thị. Nếu các trang trống, hãy import dữ liệu
-                    hoặc kết nối nguồn dữ liệu tại Data Hub.
+                    {t('userGuide.aboutDataDesc')}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                   <h5 className="font-medium text-blue-600 dark:text-blue-400">
-                    Về quyền truy cập
+                    {t('userGuide.aboutAccess')}
                   </h5>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Một số tính năng yêu cầu quyền Admin hoặc Owner. Liên hệ quản trị viên nếu
-                    bạn không thể truy cập một số trang.
+                    {t('userGuide.aboutAccessDesc')}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
                   <h5 className="font-medium text-green-600 dark:text-green-400">
-                    Hỗ trợ
+                    {t('userGuide.support')}
                   </h5>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Truy cập trang Trợ giúp để xem FAQ hoặc liên hệ đội ngũ hỗ trợ.
+                    {t('userGuide.supportDesc')}
                   </p>
                   <Link
                     to="/help"
                     className="inline-flex items-center gap-1 text-sm text-primary mt-2 hover:underline"
                   >
-                    Đi đến Trợ giúp
+                    {t('userGuide.goToHelp')}
                     <ExternalLink className="h-3 w-3" />
                   </Link>
                 </div>
