@@ -10,39 +10,41 @@ import { formatCurrency } from '@/lib/formatters';
 import { LoadingState, EmptyState } from '@/components/shared';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { vi } from 'date-fns/locale';
-
-const getPaymentStatusBadge = (status: string, dueDate: string) => {
-  if (status !== 'pending') {
-    switch (status) {
-      case 'paid_early': return <Badge className="bg-green-500">Thanh toán sớm</Badge>;
-      case 'paid_on_time': return <Badge className="bg-blue-500">Đúng hạn</Badge>;
-      case 'paid_late': return <Badge className="bg-orange-500">Trễ hạn</Badge>;
-      default: return <Badge variant="outline">{status}</Badge>;
-    }
-  }
-  
-  const due = new Date(dueDate);
-  const today = new Date();
-  const daysUntilDue = differenceInDays(due, today);
-  
-  if (isPast(due)) return <Badge variant="destructive">Quá hạn {Math.abs(daysUntilDue)} ngày</Badge>;
-  if (daysUntilDue <= 7) return <Badge className="bg-orange-500">Còn {daysUntilDue} ngày</Badge>;
-  if (daysUntilDue <= 30) return <Badge className="bg-yellow-500">Còn {daysUntilDue} ngày</Badge>;
-  return <Badge variant="outline">Còn {daysUntilDue} ngày</Badge>;
-};
-
-const getRecommendationBadge = (action: string | null) => {
-  switch (action) {
-    case 'pay_early': return <Badge className="bg-green-500">Nên thanh toán sớm</Badge>;
-    case 'pay_on_due': return <Badge variant="secondary">Thanh toán đúng hạn</Badge>;
-    case 'negotiate': return <Badge className="bg-purple-500">Đàm phán</Badge>;
-    default: return null;
-  }
-};
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function SupplierPaymentsPage() {
   const { payments, pendingPayments, dueThisWeek, dueThisMonth, summary, isLoading } = usePaymentOptimization();
   const markAsPaid = useMarkAsPaid();
+  const { t } = useLanguage();
+
+  const getPaymentStatusBadge = (status: string, dueDate: string) => {
+    if (status !== 'pending') {
+      switch (status) {
+        case 'paid_early': return <Badge className="bg-green-500">{t('supplier.paidEarly')}</Badge>;
+        case 'paid_on_time': return <Badge className="bg-blue-500">{t('supplier.paidOnTime')}</Badge>;
+        case 'paid_late': return <Badge className="bg-orange-500">{t('supplier.paidLate')}</Badge>;
+        default: return <Badge variant="outline">{status}</Badge>;
+      }
+    }
+    
+    const due = new Date(dueDate);
+    const today = new Date();
+    const daysUntilDue = differenceInDays(due, today);
+    
+    if (isPast(due)) return <Badge variant="destructive">{t('supplier.overdueDays')} {Math.abs(daysUntilDue)} {t('inventory.days')}</Badge>;
+    if (daysUntilDue <= 7) return <Badge className="bg-orange-500">{t('supplier.daysLeft')} {daysUntilDue} {t('inventory.days')}</Badge>;
+    if (daysUntilDue <= 30) return <Badge className="bg-yellow-500">{t('supplier.daysLeft')} {daysUntilDue} {t('inventory.days')}</Badge>;
+    return <Badge variant="outline">{t('supplier.daysLeft')} {daysUntilDue} {t('inventory.days')}</Badge>;
+  };
+
+  const getRecommendationBadge = (action: string | null) => {
+    switch (action) {
+      case 'pay_early': return <Badge className="bg-green-500">{t('supplier.payEarly')}</Badge>;
+      case 'pay_on_due': return <Badge variant="secondary">{t('supplier.payOnDue')}</Badge>;
+      case 'negotiate': return <Badge className="bg-purple-500">{t('supplier.negotiate')}</Badge>;
+      default: return null;
+    }
+  };
 
   if (isLoading) return <LoadingState variant="page" />;
 
@@ -65,7 +67,7 @@ export default function SupplierPaymentsPage() {
   return (
     <>
       <Helmet>
-        <title>Tối ưu thanh toán NCC | Bluecore Finance</title>
+        <title>{t('supplier.title')} | Bluecore Finance</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -78,8 +80,8 @@ export default function SupplierPaymentsPage() {
             <CreditCard className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Tối ưu thanh toán NCC</h1>
-            <p className="text-muted-foreground">Supplier Payment Optimization</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('supplier.title')}</h1>
+            <p className="text-muted-foreground">{t('supplier.subtitle')}</p>
           </div>
         </motion.div>
 
@@ -90,7 +92,7 @@ export default function SupplierPaymentsPage() {
               <div className="flex items-center gap-3">
                 <CreditCard className="w-8 h-8 text-blue-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng phải trả</p>
+                  <p className="text-sm text-muted-foreground">{t('supplier.totalPayables')}</p>
                   <p className="text-2xl font-bold">{formatCurrency(summary.totalPayables)}</p>
                 </div>
               </div>
@@ -102,7 +104,7 @@ export default function SupplierPaymentsPage() {
               <div className="flex items-center gap-3">
                 <AlertCircle className={`w-8 h-8 ${summary.overduePayments.length > 0 ? 'text-red-500' : 'text-gray-400'}`} />
                 <div>
-                  <p className="text-sm text-muted-foreground">Quá hạn</p>
+                  <p className="text-sm text-muted-foreground">{t('supplier.overdue')}</p>
                   <p className="text-2xl font-bold">{summary.overduePayments.length}</p>
                   <p className="text-xs text-red-500">
                     {formatCurrency(summary.overduePayments.reduce((s, p) => s + p.original_amount, 0))}
@@ -117,7 +119,7 @@ export default function SupplierPaymentsPage() {
               <div className="flex items-center gap-3">
                 <Clock className="w-8 h-8 text-orange-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Đến hạn tuần này</p>
+                  <p className="text-sm text-muted-foreground">{t('supplier.dueThisWeek')}</p>
                   <p className="text-2xl font-bold">{formatCurrency(summary.totalDueThisWeek)}</p>
                 </div>
               </div>
@@ -129,10 +131,10 @@ export default function SupplierPaymentsPage() {
               <div className="flex items-center gap-3">
                 <TrendingDown className="w-8 h-8 text-green-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tiết kiệm tiềm năng</p>
+                  <p className="text-sm text-muted-foreground">{t('supplier.potentialSavings')}</p>
                   <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.potentialSavings)}</p>
                   <p className="text-xs text-muted-foreground">
-                    TB: {summary.averageDiscountRate.toFixed(2)}% chiết khấu
+                    {t('supplier.avgDiscount')} {summary.averageDiscountRate.toFixed(2)}%
                   </p>
                 </div>
               </div>
@@ -143,8 +145,8 @@ export default function SupplierPaymentsPage() {
         {payments.length === 0 ? (
           <EmptyState
             icon={CreditCard}
-            title="Chưa có lịch thanh toán"
-            description="Thêm lịch thanh toán nhà cung cấp để tối ưu dòng tiền"
+            title={t('supplier.noData')}
+            description={t('supplier.noDataDesc')}
           />
         ) : (
           <>
@@ -154,18 +156,18 @@ export default function SupplierPaymentsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-green-600">
                     <Percent className="w-5 h-5" />
-                    Đề xuất thanh toán sớm ({summary.recommendedEarlyPayments.length})
+                    {t('supplier.earlyPaymentRec')} ({summary.recommendedEarlyPayments.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nhà cung cấp</TableHead>
-                        <TableHead className="text-right">Số tiền</TableHead>
-                        <TableHead>Hạn thanh toán sớm</TableHead>
-                        <TableHead className="text-right">Chiết khấu</TableHead>
-                        <TableHead className="text-right">Tiết kiệm</TableHead>
+                        <TableHead>{t('supplier.vendorName')}</TableHead>
+                        <TableHead className="text-right">{t('supplier.amount')}</TableHead>
+                        <TableHead>{t('supplier.earlyDueDate')}</TableHead>
+                        <TableHead className="text-right">{t('supplier.discount')}</TableHead>
+                        <TableHead className="text-right">{t('supplier.savings')}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -196,7 +198,7 @@ export default function SupplierPaymentsPage() {
                               disabled={markAsPaid.isPending}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Thanh toán
+                              {t('supplier.pay')}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -213,17 +215,17 @@ export default function SupplierPaymentsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-red-600">
                     <AlertCircle className="w-5 h-5" />
-                    Thanh toán quá hạn ({summary.overduePayments.length})
+                    {t('supplier.overduePayments')} ({summary.overduePayments.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Nhà cung cấp</TableHead>
-                        <TableHead className="text-right">Số tiền</TableHead>
-                        <TableHead>Ngày đến hạn</TableHead>
-                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>{t('supplier.vendorName')}</TableHead>
+                        <TableHead className="text-right">{t('supplier.amount')}</TableHead>
+                        <TableHead>{t('supplier.dueDate')}</TableHead>
+                        <TableHead>{t('promo.status')}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -246,7 +248,7 @@ export default function SupplierPaymentsPage() {
                               disabled={markAsPaid.isPending}
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Thanh toán ngay
+                              {t('supplier.payNow')}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -260,18 +262,18 @@ export default function SupplierPaymentsPage() {
             {/* All Pending Payments */}
             <Card>
               <CardHeader>
-                <CardTitle>Tất cả thanh toán chờ xử lý</CardTitle>
+                <CardTitle>{t('supplier.allPending')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nhà cung cấp</TableHead>
-                      <TableHead className="text-right">Số tiền</TableHead>
-                      <TableHead>Ngày đến hạn</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead>Đề xuất</TableHead>
-                      <TableHead className="text-right">Chiết khấu sớm</TableHead>
+                      <TableHead>{t('supplier.vendorName')}</TableHead>
+                      <TableHead className="text-right">{t('supplier.amount')}</TableHead>
+                      <TableHead>{t('supplier.dueDate')}</TableHead>
+                      <TableHead>{t('promo.status')}</TableHead>
+                      <TableHead>{t('supplier.recommendation')}</TableHead>
+                      <TableHead className="text-right">{t('supplier.earlyDiscount')}</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -297,7 +299,7 @@ export default function SupplierPaymentsPage() {
                             onClick={() => handleMarkAsPaid(payment.id, payment.original_amount, payment.due_date)}
                             disabled={markAsPaid.isPending}
                           >
-                            Thanh toán
+                            {t('supplier.pay')}
                           </Button>
                         </TableCell>
                       </TableRow>

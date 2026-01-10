@@ -9,6 +9,7 @@ import { usePromotionROI } from '@/hooks/usePromotions';
 import { formatCurrency } from '@/lib/formatters';
 import { LoadingState, EmptyState } from '@/components/shared';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const getROIColor = (roi: number) => {
   if (roi >= 100) return 'text-green-600';
@@ -17,30 +18,31 @@ const getROIColor = (roi: number) => {
   return 'text-red-600';
 };
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'active': return <Badge className="bg-green-500">Đang chạy</Badge>;
-    case 'ended': return <Badge variant="secondary">Đã kết thúc</Badge>;
-    case 'draft': return <Badge variant="outline">Nháp</Badge>;
-    case 'cancelled': return <Badge variant="destructive">Đã hủy</Badge>;
-    default: return <Badge variant="outline">{status}</Badge>;
-  }
-};
-
-const getChannelBadge = (channel: string | null) => {
-  if (!channel) return null;
-  const colors: Record<string, string> = {
-    shopee: 'bg-orange-500',
-    lazada: 'bg-blue-500',
-    tiktok: 'bg-black',
-    website: 'bg-purple-500',
-    all: 'bg-gray-500',
-  };
-  return <Badge className={colors[channel] || 'bg-gray-500'}>{channel}</Badge>;
-};
-
 export default function PromotionROIPage() {
   const { promotions, roiData, summary, isLoading } = usePromotionROI();
+  const { t } = useLanguage();
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active': return <Badge className="bg-green-500">{t('promo.statusActive')}</Badge>;
+      case 'ended': return <Badge variant="secondary">{t('promo.statusEnded')}</Badge>;
+      case 'draft': return <Badge variant="outline">{t('promo.statusDraft')}</Badge>;
+      case 'cancelled': return <Badge variant="destructive">{t('promo.statusCancelled')}</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getChannelBadge = (channel: string | null) => {
+    if (!channel) return null;
+    const colors: Record<string, string> = {
+      shopee: 'bg-orange-500',
+      lazada: 'bg-blue-500',
+      tiktok: 'bg-black',
+      website: 'bg-purple-500',
+      all: 'bg-gray-500',
+    };
+    return <Badge className={colors[channel] || 'bg-gray-500'}>{channel}</Badge>;
+  };
 
   if (isLoading) return <LoadingState variant="page" />;
 
@@ -54,7 +56,7 @@ export default function PromotionROIPage() {
   return (
     <>
       <Helmet>
-        <title>ROI Khuyến mãi | Bluecore Finance</title>
+        <title>{t('promo.title')} | Bluecore Finance</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -67,8 +69,8 @@ export default function PromotionROIPage() {
             <Percent className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">ROI Khuyến mãi</h1>
-            <p className="text-muted-foreground">Promotion ROI Analysis</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('promo.title')}</h1>
+            <p className="text-muted-foreground">{t('promo.subtitle')}</p>
           </div>
         </motion.div>
 
@@ -79,9 +81,9 @@ export default function PromotionROIPage() {
               <div className="flex items-center gap-3">
                 <Target className="w-8 h-8 text-blue-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng chương trình</p>
+                  <p className="text-sm text-muted-foreground">{t('promo.totalPrograms')}</p>
                   <p className="text-2xl font-bold">{summary.totalPromotions}</p>
-                  <p className="text-xs text-green-600">{summary.activePromotions} đang chạy</p>
+                  <p className="text-xs text-green-600">{summary.activePromotions} {t('promo.running')}</p>
                 </div>
               </div>
             </CardContent>
@@ -92,7 +94,7 @@ export default function PromotionROIPage() {
               <div className="flex items-center gap-3">
                 <DollarSign className="w-8 h-8 text-red-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng chi phí</p>
+                  <p className="text-sm text-muted-foreground">{t('promo.totalCost')}</p>
                   <p className="text-2xl font-bold">{formatCurrency(summary.totalSpend)}</p>
                 </div>
               </div>
@@ -104,7 +106,7 @@ export default function PromotionROIPage() {
               <div className="flex items-center gap-3">
                 <TrendingUp className="w-8 h-8 text-green-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng doanh thu</p>
+                  <p className="text-sm text-muted-foreground">{t('promo.totalRevenue')}</p>
                   <p className="text-2xl font-bold">{formatCurrency(summary.totalRevenue)}</p>
                 </div>
               </div>
@@ -116,7 +118,7 @@ export default function PromotionROIPage() {
               <div className="flex items-center gap-3">
                 <Award className="w-8 h-8 text-yellow-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">ROI trung bình</p>
+                  <p className="text-sm text-muted-foreground">{t('promo.avgROI')}</p>
                   <p className={`text-2xl font-bold ${getROIColor(summary.avgROI)}`}>
                     {summary.avgROI.toFixed(1)}%
                   </p>
@@ -130,8 +132,8 @@ export default function PromotionROIPage() {
         {promotions.length === 0 ? (
           <EmptyState
             icon={Percent}
-            title="Chưa có dữ liệu khuyến mãi"
-            description="Tạo chương trình khuyến mãi để theo dõi hiệu quả"
+            title={t('promo.noData')}
+            description={t('promo.noDataDesc')}
           />
         ) : (
           <>
@@ -142,7 +144,7 @@ export default function PromotionROIPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-green-600 flex items-center gap-2">
                       <Award className="w-5 h-5" />
-                      Top Performer
+                      {t('promo.topPerformer')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -157,7 +159,7 @@ export default function PromotionROIPage() {
                         <p className="text-xl font-bold">{summary.topPerformer.roas.toFixed(2)}x</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Doanh thu</p>
+                        <p className="text-xs text-muted-foreground">{t('promo.revenue')}</p>
                         <p className="text-xl font-bold">{formatCurrency(summary.topPerformer.totalRevenue)}</p>
                       </div>
                     </div>
@@ -170,7 +172,7 @@ export default function PromotionROIPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-red-600 flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 rotate-180" />
-                      Cần cải thiện
+                      {t('promo.needsImprovement')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -185,7 +187,7 @@ export default function PromotionROIPage() {
                         <p className="text-xl font-bold">{summary.worstPerformer.roas.toFixed(2)}x</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Chi phí/đơn</p>
+                        <p className="text-xs text-muted-foreground">{t('promo.costPerOrder')}</p>
                         <p className="text-xl font-bold">{formatCurrency(summary.worstPerformer.costPerOrder)}</p>
                       </div>
                     </div>
@@ -198,7 +200,7 @@ export default function PromotionROIPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>ROI theo chương trình</CardTitle>
+                  <CardTitle>{t('promo.roiByProgram')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -214,7 +216,7 @@ export default function PromotionROIPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>ROAS vs Doanh thu</CardTitle>
+                  <CardTitle>{t('promo.roasVsRevenue')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -226,7 +228,7 @@ export default function PromotionROIPage() {
                       <Tooltip />
                       <Legend />
                       <Line yAxisId="left" type="monotone" dataKey="roas" name="ROAS" stroke="#3b82f6" strokeWidth={2} />
-                      <Line yAxisId="right" type="monotone" dataKey="revenue" name="Doanh thu (tr)" stroke="#10b981" strokeWidth={2} />
+                      <Line yAxisId="right" type="monotone" dataKey="revenue" name={t('promo.revenueMillion')} stroke="#10b981" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -236,20 +238,20 @@ export default function PromotionROIPage() {
             {/* Promotions Table */}
             <Card>
               <CardHeader>
-                <CardTitle>Chi tiết chương trình</CardTitle>
+                <CardTitle>{t('promo.programDetails')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tên chương trình</TableHead>
-                      <TableHead>Kênh</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead className="text-right">Chi phí</TableHead>
-                      <TableHead className="text-right">Doanh thu</TableHead>
+                      <TableHead>{t('promo.programName')}</TableHead>
+                      <TableHead>{t('promo.channel')}</TableHead>
+                      <TableHead>{t('promo.status')}</TableHead>
+                      <TableHead className="text-right">{t('promo.cost')}</TableHead>
+                      <TableHead className="text-right">{t('promo.revenue')}</TableHead>
                       <TableHead className="text-right">ROI</TableHead>
                       <TableHead className="text-right">ROAS</TableHead>
-                      <TableHead>Tiến độ</TableHead>
+                      <TableHead>{t('promo.progress')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
