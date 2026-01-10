@@ -105,8 +105,6 @@ const CTSettingsPage = lazy(() => import("./pages/control-tower/SettingsPage"));
 const MobileLayout = lazy(() => import("./pages/mobile/MobileLayout"));
 const MobileHomePage = lazy(() => import("./pages/mobile/MobileHomePage"));
 const MobileAlertsPage = lazy(() => import("./pages/mobile/MobileAlertsPage"));
-const MobileNotificationsPage = lazy(() => import("./pages/mobile/MobileNotificationsPage"));
-const MobileTasksPage = lazy(() => import("./pages/mobile/MobileTasksPage"));
 const MobileSettingsPage = lazy(() => import("./pages/mobile/MobileSettingsPage"));
 
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
@@ -151,8 +149,6 @@ const AppRoutes = () => {
       >
         <Route path="/mobile" element={<MobileHomePage />} />
         <Route path="/mobile/alerts" element={<MobileAlertsPage />} />
-        <Route path="/mobile/notifications" element={<MobileNotificationsPage />} />
-        <Route path="/mobile/tasks" element={<MobileTasksPage />} />
         <Route path="/mobile/settings" element={<MobileSettingsPage />} />
       </Route>
 
