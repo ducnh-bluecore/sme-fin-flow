@@ -12,7 +12,7 @@ import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact } from '@/lib/formatters';
-import { useDashboardKPIs } from '@/hooks/useDashboardData';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useDateRange } from '@/contexts/DateRangeContext';
@@ -33,7 +33,7 @@ function ChartErrorFallback() {
 
 export default function CFODashboard() {
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
-  const { data: kpis, isLoading } = useDashboardKPIs();
+  const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
 
   const handleRefresh = useMemo(() => {
@@ -115,7 +115,7 @@ export default function CFODashboard() {
             <>
               <KPICard
                 title="Tiền mặt hôm nay"
-                value={formatVNDCompact(kpis?.cashToday || 0)}
+                value={formatVNDCompact(metrics?.cashOnHand || 0)}
                 trend={{ value: 5.2, label: 'vs hôm qua' }}
                 icon={Wallet}
                 variant="success"
@@ -132,20 +132,20 @@ export default function CFODashboard() {
               />
               <KPICard
                 title="Tiền mặt 7 ngày tới"
-                value={formatVNDCompact(kpis?.cash7d || 0)}
+                value={formatVNDCompact((metrics?.cashOnHand || 0) + (metrics?.cashFlow || 0))}
                 trend={{ value: 12.3 }}
                 icon={ArrowUpRight}
               />
               <KPICard
                 title="Tổng AR quá hạn"
-                value={formatVNDCompact(kpis?.overdueAR || 0)}
+                value={formatVNDCompact(metrics?.overdueAR || 0)}
                 trend={{ value: -8.5 }}
                 icon={ArrowDownRight}
                 variant="warning"
               />
               <KPICard
                 title="Cash Conversion Cycle"
-                value={`${kpis?.ccc || 0} ngày`}
+                value={`${metrics?.ccc || 0} ngày`}
                 trend={{ value: -3 }}
                 icon={RefreshCw}
               />
@@ -157,23 +157,23 @@ export default function CFODashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="data-card text-center">
             <p className="text-xs text-muted-foreground mb-1">DSO</p>
-            <p className="text-2xl font-bold text-foreground">{kpis?.dso || 0}</p>
+            <p className="text-2xl font-bold text-foreground">{metrics?.dso || 0}</p>
             <p className="text-xs text-muted-foreground">ngày</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="data-card text-center">
             <p className="text-xs text-muted-foreground mb-1">Gross Margin</p>
-            <p className="text-2xl font-bold text-success">{kpis?.grossMargin || 0}%</p>
-            <p className="text-xs text-muted-foreground">tháng này</p>
+            <p className="text-2xl font-bold text-success">{metrics?.grossMargin?.toFixed(1) || 0}%</p>
+            <p className="text-xs text-muted-foreground">kỳ này</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">Auto-match Rate</p>
-            <p className="text-2xl font-bold text-primary">{kpis?.autoMatchRate || 0}%</p>
-            <p className="text-xs text-muted-foreground">đối soát</p>
+            <p className="text-xs text-muted-foreground mb-1">EBITDA Margin</p>
+            <p className="text-2xl font-bold text-primary">{metrics?.ebitdaMargin?.toFixed(1) || 0}%</p>
+            <p className="text-xs text-muted-foreground">kỳ này</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="data-card text-center">
             <p className="text-xs text-muted-foreground mb-1">EBITDA</p>
-            <p className="text-2xl font-bold text-foreground">{formatVNDCompact(kpis?.ebitda || 0)}</p>
-            <p className="text-xs text-muted-foreground">tháng này</p>
+            <p className="text-2xl font-bold text-foreground">{formatVNDCompact(metrics?.ebitda || 0)}</p>
+            <p className="text-xs text-muted-foreground">kỳ này</p>
           </motion.div>
         </div>
 

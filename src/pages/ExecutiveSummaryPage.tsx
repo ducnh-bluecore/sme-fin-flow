@@ -27,7 +27,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useDashboardKPICache } from '@/hooks/useDashboardCache';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useQuickWins } from '@/hooks/useQuickWins';
 import { useRiskAlerts } from '@/hooks/useRiskAlerts';
@@ -53,7 +53,7 @@ interface HealthDimension {
 }
 
 // Financial Health Radar Component
-function FinancialHealthRadar({ kpiData, runwayData }: { kpiData: any; runwayData: any }) {
+function FinancialHealthRadar({ metrics, runwayData }: { metrics: any; runwayData: any }) {
   // Calculate individual health dimensions
   const calculateDimensions = (): HealthDimension[] => {
     // Liquidity Score (based on cash runway and current ratio)
@@ -61,23 +61,23 @@ function FinancialHealthRadar({ kpiData, runwayData }: { kpiData: any; runwayDat
     const liquidityScore = Math.min(100, runwayMonths * 15); // 6+ months = 90+
     
     // Receivables Health (based on DSO)
-    const dso = kpiData?.dso || 45;
+    const dso = metrics?.dso || 45;
     const receivablesScore = Math.max(0, 100 - (dso - 30) * 2); // DSO 30 = 100, DSO 65 = 30
     
     // Profitability (based on gross margin)
-    const grossMargin = kpiData?.grossMargin || 28;
+    const grossMargin = metrics?.grossMargin || 28;
     const profitabilityScore = Math.min(100, grossMargin * 2.5); // 40% margin = 100
     
     // Efficiency (based on CCC)
-    const ccc = kpiData?.ccc || 45;
+    const ccc = metrics?.ccc || 45;
     const efficiencyScore = Math.max(0, 100 - ccc); // CCC 0 = 100, CCC 100 = 0
     
     // Growth (simulated - would come from revenue trends)
     const growthScore = 72; // Sample data
     
     // Stability (based on EBITDA margin)
-    const ebitda = kpiData?.ebitda || 15;
-    const stabilityScore = Math.min(100, ebitda * 4); // 25% EBITDA = 100
+    const ebitdaMargin = metrics?.ebitdaMargin || 15;
+    const stabilityScore = Math.min(100, ebitdaMargin * 4); // 25% EBITDA = 100
 
     return [
       { 
@@ -120,7 +120,7 @@ function FinancialHealthRadar({ kpiData, runwayData }: { kpiData: any; runwayDat
         score: Math.round(stabilityScore), 
         fullMark: 100,
         status: stabilityScore >= 70 ? 'good' : stabilityScore >= 50 ? 'warning' : 'critical',
-        description: `EBITDA: ${ebitda}%`
+        description: `EBITDA Margin: ${ebitdaMargin?.toFixed(1)}%`
       },
     ];
   };
@@ -373,17 +373,17 @@ function RiskAlertCard({
 
 export default function ExecutiveSummaryPage() {
   const { t } = useLanguage();
-  const { data: kpiData, isLoading } = useDashboardKPICache();
+  const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: runwayData } = useCashRunway();
   const { quickWins, totalPotentialSavings, isLoading: quickWinsLoading } = useQuickWins();
   const { data: riskAlerts, isLoading: riskAlertsLoading } = useRiskAlerts();
 
-  // Calculate health score based on KPIs
+  // Calculate health score based on central metrics
   const calculateHealthScore = () => {
-    if (!kpiData) return 72;
+    if (!metrics) return 72;
     let score = 70;
-    if (kpiData.dso && kpiData.dso < 45) score += 10;
-    if (kpiData.grossMargin && kpiData.grossMargin > 30) score += 10;
+    if (metrics.dso && metrics.dso < 45) score += 10;
+    if (metrics.grossMargin && metrics.grossMargin > 30) score += 10;
     if (runwayData?.runwayMonths && runwayData.runwayMonths > 6) score += 10;
     return Math.min(score, 100);
   };
@@ -404,7 +404,7 @@ export default function ExecutiveSummaryPage() {
 
         {/* Top Row - Health Score Radar & Key Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <FinancialHealthRadar kpiData={kpiData} runwayData={runwayData} />
+          <FinancialHealthRadar metrics={metrics} runwayData={runwayData} />
           
           <Card>
             <CardHeader className="pb-2">
@@ -432,7 +432,7 @@ export default function ExecutiveSummaryPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatVNDCompact(kpiData?.cashToday || 3200000000)}</div>
+              <div className="text-2xl font-bold">{formatVNDCompact(metrics?.cashOnHand || 0)}</div>
               <div className="flex items-center gap-1 text-sm text-yellow-500 mt-1">
                 <Activity className="h-4 w-4" />
                 Runway: {runwayData?.runwayMonths?.toFixed(1) || '4.5'} tháng

@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatVND, formatVNDCompact } from '@/lib/formatters';
-import { useKPIData, useCustomersData } from '@/hooks/useKPIData';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+import { useCustomersData } from '@/hooks/useKPIData';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -47,7 +48,7 @@ export default function AROperations() {
   // Date range filter
   const [dateRange, setDateRange] = useState('this_year');
   
-  const { data: kpiData, isLoading: kpiLoading } = useKPIData(dateRange);
+  const { data: metrics, isLoading: kpiLoading } = useCentralFinancialMetrics();
   const { data: customers = [], isLoading: customersLoading } = useCustomersData();
   
   // Add customer form state
@@ -117,11 +118,11 @@ export default function AROperations() {
     );
   }
 
-  const kpi = kpiData || {
-    totalAR: 0,
-    overdueAR: 0,
-    dso: 0,
-    pendingInvoices: 0
+  const kpi = {
+    totalAR: metrics?.totalAR || 0,
+    overdueAR: metrics?.overdueAR || 0,
+    dso: metrics?.dso || 0,
+    pendingInvoices: 0 // Giữ lại để tương thích
   };
 
   return (

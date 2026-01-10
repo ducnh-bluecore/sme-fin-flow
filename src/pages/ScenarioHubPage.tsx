@@ -22,7 +22,7 @@ import ScenarioPage from './ScenarioPage';
 import { WhatIfSimulationPanel } from '@/components/whatif/WhatIfSimulationPanel';
 import { useWhatIfScenarios, type WhatIfScenario } from '@/hooks/useWhatIfScenarios';
 import { useCreateScenario } from '@/hooks/useScenarioData';
-import { useKPIData } from '@/hooks/useKPIData';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ScenarioHubPage() {
@@ -30,15 +30,15 @@ export default function ScenarioHubPage() {
 
   // What-If -> Financial scenario import
   const { user } = useAuth();
-  const { data: kpiData } = useKPIData();
+  const { data: metrics } = useCentralFinancialMetrics();
   const { data: whatIfScenarios } = useWhatIfScenarios();
   const createScenario = useCreateScenario();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const currentBaseRevenue = useMemo(() => {
-    // Same convention used elsewhere: totalRevenue is annual -> divide by 12
-    return kpiData?.totalRevenue ? kpiData.totalRevenue / 12 : 0;
-  }, [kpiData]);
+    // Use central metrics: totalRevenue for the period -> estimate monthly
+    return metrics?.totalRevenue ? metrics.totalRevenue / (metrics.daysInPeriod / 30) : 0;
+  }, [metrics]);
 
   const handleImportWhatIfScenario = async (whatIfScenario: WhatIfScenario) => {
     await createScenario.mutateAsync({
