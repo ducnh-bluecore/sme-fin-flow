@@ -234,6 +234,9 @@ function runMonteCarloSimulation(
 
 // Map database scenario to UI format - needs currentGrossMargin for accurate defaults
 function mapDbToUi(dbScenario: any, currentGrossMargin: number = 35): ScenarioParams {
+  // Round grossMargin to 1 decimal for better UI display
+  const roundedGrossMargin = Math.round((currentGrossMargin || 35) * 10) / 10;
+  
   return {
     id: dbScenario.id,
     name: dbScenario.name,
@@ -242,7 +245,7 @@ function mapDbToUi(dbScenario: any, currentGrossMargin: number = 35): ScenarioPa
     revenueGrowth: dbScenario.revenue_change || 0,
     costChange: dbScenario.cost_change || 0,
     dsoTarget: 45,
-    grossMargin: currentGrossMargin, // Use current gross margin from KPI data
+    grossMargin: roundedGrossMargin, // Use current gross margin from KPI data, rounded
     opexChange: dbScenario.cost_change || 0,
     arDays: 52,
     apDays: 35,
@@ -759,13 +762,13 @@ export default function ScenarioPage() {
                               step={0.5}
                               className="flex-1"
                             />
-                            <span className="text-sm font-bold w-12 text-right text-info">
-                              {scenario.grossMargin}%
+                      <span className="text-sm font-bold w-14 text-right text-info">
+                              {scenario.grossMargin.toFixed(1)}%
                             </span>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-lg font-bold mt-1 text-info">{scenario.grossMargin}%</p>
+                        <p className="text-lg font-bold mt-1 text-info">{scenario.grossMargin.toFixed(1)}%</p>
                       )}
                     </div>
 
