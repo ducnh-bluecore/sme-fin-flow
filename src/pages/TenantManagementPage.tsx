@@ -13,29 +13,40 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useTenantMembers } from '@/hooks/useTenant';
-
-const menuItems = [
-  {
-    title: 'Quản lý thành viên',
-    description: 'Thêm, xóa và quản lý vai trò của thành viên trong công ty',
-    icon: Users,
-    href: '/tenant/members',
-    color: 'text-blue-500',
-  },
-  {
-    title: 'Cài đặt công ty',
-    description: 'Cập nhật thông tin cơ bản và cấu hình công ty',
-    icon: Settings,
-    href: '/tenant/settings',
-    color: 'text-emerald-500',
-  },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function TenantManagementPage() {
+  const { t } = useLanguage();
   const { activeTenant, isLoading, currentRole } = useTenantContext();
   const { data: members = [] } = useTenantMembers(activeTenant?.id);
   
   const activeMembers = members.filter(m => m.is_active);
+
+  const menuItems = [
+    {
+      title: t('tenant.manageMembers'),
+      description: t('tenant.manageMembersDesc'),
+      icon: Users,
+      href: '/tenant/members',
+      color: 'text-blue-500',
+    },
+    {
+      title: t('tenant.companySettings'),
+      description: t('tenant.companySettingsDesc'),
+      icon: Settings,
+      href: '/tenant/settings',
+      color: 'text-emerald-500',
+    },
+  ];
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'owner': return t('tenant.owner');
+      case 'admin': return t('tenant.admin');
+      case 'member': return t('tenant.member');
+      default: return t('tenant.viewer');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -49,7 +60,7 @@ export default function TenantManagementPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Building2 className="h-12 w-12 text-muted-foreground" />
-        <p className="text-muted-foreground">Chưa có công ty nào được chọn</p>
+        <p className="text-muted-foreground">{t('tenant.noCompany')}</p>
       </div>
     );
   }
@@ -57,8 +68,8 @@ export default function TenantManagementPage() {
   return (
     <>
       <Helmet>
-        <title>Quản lý công ty | {activeTenant.name}</title>
-        <meta name="description" content="Quản lý thông tin và thành viên công ty" />
+        <title>{t('tenant.title')} | {activeTenant.name}</title>
+        <meta name="description" content={t('tenant.metaDesc')} />
       </Helmet>
 
       <motion.div
@@ -84,7 +95,7 @@ export default function TenantManagementPage() {
                   </Badge>
                 </div>
                 <p className="text-muted-foreground">
-                  {activeMembers.length} thành viên · Vai trò của bạn: {currentRole === 'owner' ? 'Chủ sở hữu' : currentRole === 'admin' ? 'Quản trị viên' : currentRole === 'member' ? 'Thành viên' : 'Xem'}
+                  {activeMembers.length} {t('tenant.members')} · {t('tenant.yourRole')}: {getRoleLabel(currentRole || '')}
                 </p>
               </div>
             </div>
@@ -115,26 +126,26 @@ export default function TenantManagementPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Thành viên</CardDescription>
+              <CardDescription>{t('tenant.members')}</CardDescription>
               <CardTitle className="text-3xl">{activeMembers.length}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Gói dịch vụ</CardDescription>
+              <CardDescription>{t('tenant.plan')}</CardDescription>
               <CardTitle className="text-3xl capitalize">{activeTenant.plan || 'Free'}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Trạng thái</CardDescription>
+              <CardDescription>{t('tenant.status')}</CardDescription>
               <CardTitle className="text-3xl">
                 {activeTenant.is_active ? (
                   <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-                    Hoạt động
+                    {t('tenant.active')}
                   </Badge>
                 ) : (
-                  <Badge variant="destructive">Tạm dừng</Badge>
+                  <Badge variant="destructive">{t('tenant.paused')}</Badge>
                 )}
               </CardTitle>
             </CardHeader>

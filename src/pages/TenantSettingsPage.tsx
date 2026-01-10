@@ -16,8 +16,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useUpdateTenant } from '@/hooks/useTenant';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function TenantSettingsPage() {
+  const { t, language } = useLanguage();
   const { activeTenant, isOwner, isLoading: tenantLoading } = useTenantContext();
   const updateTenant = useUpdateTenant();
   const [name, setName] = useState('');
@@ -50,7 +52,7 @@ export default function TenantSettingsPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Building2 className="h-12 w-12 text-muted-foreground" />
-        <p className="text-muted-foreground">Chưa có công ty nào được chọn</p>
+        <p className="text-muted-foreground">{t('tenant.noCompany')}</p>
       </div>
     );
   }
@@ -58,8 +60,8 @@ export default function TenantSettingsPage() {
   return (
     <>
       <Helmet>
-        <title>Cài đặt công ty | {activeTenant.name}</title>
-        <meta name="description" content="Cài đặt thông tin công ty" />
+        <title>{t('tenant.settingsTitle')} | {activeTenant.name}</title>
+        <meta name="description" content={t('tenant.settingsMetaDesc')} />
       </Helmet>
 
       <motion.div
@@ -76,10 +78,10 @@ export default function TenantSettingsPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Settings className="h-6 w-6" />
-              Cài đặt công ty
+              {t('tenant.settingsTitle')}
             </h1>
             <p className="text-muted-foreground">
-              Cập nhật thông tin cơ bản của {activeTenant.name}
+              {t('tenant.companyInfoDesc').replace('công ty', activeTenant.name)}
             </p>
           </div>
         </div>
@@ -87,9 +89,9 @@ export default function TenantSettingsPage() {
         <div className="max-w-2xl">
           <Card>
             <CardHeader>
-              <CardTitle>Thông tin công ty</CardTitle>
+              <CardTitle>{t('tenant.companyInfo')}</CardTitle>
               <CardDescription>
-                Cập nhật thông tin cơ bản của công ty
+                {t('tenant.companyInfoDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -101,7 +103,7 @@ export default function TenantSettingsPage() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor="logo">URL Logo</Label>
+                  <Label htmlFor="logo">{t('tenant.logoUrl')}</Label>
                   <Input
                     id="logo"
                     placeholder="https://example.com/logo.png"
@@ -113,7 +115,7 @@ export default function TenantSettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Tên công ty</Label>
+                <Label htmlFor="name">{t('tenant.companyName')}</Label>
                 <Input
                   id="name"
                   value={name}
@@ -123,29 +125,29 @@ export default function TenantSettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Slug</Label>
+                <Label>{t('tenant.slug')}</Label>
                 <Input value={activeTenant.slug} disabled />
                 <p className="text-xs text-muted-foreground">
-                  Slug không thể thay đổi sau khi tạo
+                  {t('tenant.slugNote')}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Gói dịch vụ</Label>
+                <Label>{t('tenant.plan')}</Label>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="capitalize">
                     {activeTenant.plan || 'free'}
                   </Badge>
                   <Button variant="link" size="sm" className="text-primary">
-                    Nâng cấp
+                    {t('tenant.upgrade')}
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Ngày tạo</Label>
+                <Label>{t('tenant.createdAt')}</Label>
                 <p className="text-sm text-muted-foreground">
-                  {new Date(activeTenant.created_at).toLocaleDateString('vi-VN', {
+                  {new Date(activeTenant.created_at).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -162,13 +164,13 @@ export default function TenantSettingsPage() {
                   {updateTenant.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Lưu thay đổi
+                  {t('tenant.saveChanges')}
                 </Button>
               )}
 
               {!isOwner && (
                 <p className="text-sm text-muted-foreground">
-                  Chỉ chủ sở hữu mới có thể chỉnh sửa thông tin công ty
+                  {t('tenant.onlyOwnerCanEdit')}
                 </p>
               )}
             </CardContent>
