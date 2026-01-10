@@ -3,8 +3,11 @@ import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Users, TrendingUp, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
+  
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
@@ -34,33 +37,33 @@ export default function AdminDashboard() {
 
   const statsCards = [
     {
-      title: 'Tổng số Tenants',
+      title: t('admin.totalTenants'),
       value: stats?.totalTenants || 0,
-      description: 'Số công ty trong hệ thống',
+      description: t('admin.totalTenantsDesc'),
       icon: Building2,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
     },
     {
-      title: 'Tenants hoạt động',
+      title: t('admin.activeTenants'),
       value: stats?.activeTenants || 0,
-      description: 'Đang sử dụng dịch vụ',
+      description: t('admin.activeTenantsDesc'),
       icon: TrendingUp,
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
     },
     {
-      title: 'Tổng số Users',
+      title: t('admin.totalUsers'),
       value: stats?.totalUsers || 0,
-      description: 'Người dùng đã đăng ký',
+      description: t('admin.totalUsersDesc'),
       icon: Users,
       color: 'text-purple-500',
       bgColor: 'bg-purple-500/10',
     },
     {
-      title: 'Cảnh báo',
+      title: t('admin.alerts'),
       value: 0,
-      description: 'Vấn đề cần xử lý',
+      description: t('admin.alertsDesc'),
       icon: AlertCircle,
       color: 'text-orange-500',
       bgColor: 'bg-orange-500/10',
@@ -75,8 +78,8 @@ export default function AdminDashboard() {
 
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard Quản trị</h1>
-          <p className="text-muted-foreground">Tổng quan về toàn bộ platform</p>
+          <h1 className="text-2xl font-bold">{t('admin.dashboard.title')}</h1>
+          <p className="text-muted-foreground">{t('admin.dashboard.subtitle')}</p>
         </div>
 
         {/* Stats Grid */}
@@ -104,12 +107,12 @@ export default function AdminDashboard() {
         {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Hoạt động gần đây</CardTitle>
-            <CardDescription>Các sự kiện quan trọng trên platform</CardDescription>
+            <CardTitle>{t('admin.recentActivity')}</CardTitle>
+            <CardDescription>{t('admin.recentActivityDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-sm text-muted-foreground text-center py-8">
-              Chưa có hoạt động nào được ghi nhận
+              {t('admin.noActivity')}
             </div>
           </CardContent>
         </Card>

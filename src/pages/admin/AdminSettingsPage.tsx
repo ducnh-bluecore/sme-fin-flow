@@ -6,18 +6,21 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Settings, Globe, Mail, Shield, Database } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function AdminSettingsPage() {
+  const { t } = useLanguage();
+
   return (
     <>
       <Helmet>
-        <title>Cấu hình hệ thống | Super Admin</title>
+        <title>{t('admin.settings.title')} | Super Admin</title>
       </Helmet>
 
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Cấu hình hệ thống</h1>
-          <p className="text-muted-foreground">Thiết lập chung cho toàn bộ platform</p>
+          <h1 className="text-2xl font-bold">{t('admin.settings.title')}</h1>
+          <p className="text-muted-foreground">{t('admin.settings.subtitle')}</p>
         </div>
 
         <div className="grid gap-6">
@@ -26,17 +29,17 @@ export default function AdminSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5" />
-                Cài đặt chung
+                {t('admin.settings.general')}
               </CardTitle>
-              <CardDescription>Cấu hình cơ bản của platform</CardDescription>
+              <CardDescription>{t('admin.settings.generalDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
-                <Label htmlFor="platform-name">Tên Platform</Label>
+                <Label htmlFor="platform-name">{t('admin.settings.platformName')}</Label>
                 <Input id="platform-name" defaultValue="Bluecore Finance" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="support-email">Email hỗ trợ</Label>
+                <Label htmlFor="support-email">{t('admin.settings.supportEmail')}</Label>
                 <Input id="support-email" type="email" defaultValue="support@bluecore.vn" />
               </div>
             </CardContent>
@@ -47,16 +50,16 @@ export default function AdminSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="w-5 h-5" />
-                Cấu hình Email
+                {t('admin.settings.emailConfig')}
               </CardTitle>
-              <CardDescription>Thiết lập gửi email thông báo</CardDescription>
+              <CardDescription>{t('admin.settings.emailConfigDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Gửi email xác nhận đăng ký</Label>
+                  <Label>{t('admin.settings.confirmEmail')}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Yêu cầu xác nhận email khi đăng ký tài khoản mới
+                    {t('admin.settings.confirmEmailDesc')}
                   </p>
                 </div>
                 <Switch defaultChecked />
@@ -64,9 +67,9 @@ export default function AdminSettingsPage() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Thông báo tenant mới</Label>
+                  <Label>{t('admin.settings.newTenantNotify')}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Gửi email cho admin khi có tenant mới đăng ký
+                    {t('admin.settings.newTenantNotifyDesc')}
                   </p>
                 </div>
                 <Switch defaultChecked />
@@ -79,16 +82,16 @@ export default function AdminSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5" />
-                Bảo mật
+                {t('admin.settings.security')}
               </CardTitle>
-              <CardDescription>Cấu hình bảo mật platform</CardDescription>
+              <CardDescription>{t('admin.settings.securityDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Bắt buộc xác thực 2 yếu tố</Label>
+                  <Label>{t('admin.settings.require2FA')}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Yêu cầu tất cả admin phải bật 2FA
+                    {t('admin.settings.require2FADesc')}
                   </p>
                 </div>
                 <Switch />
@@ -96,9 +99,9 @@ export default function AdminSettingsPage() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Cho phép đăng ký mới</Label>
+                  <Label>{t('admin.settings.allowSignup')}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Cho phép người dùng mới tự đăng ký tài khoản
+                    {t('admin.settings.allowSignupDesc')}
                   </p>
                 </div>
                 <Switch defaultChecked />
@@ -111,28 +114,28 @@ export default function AdminSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="w-5 h-5" />
-                Database
+                {t('admin.settings.database')}
               </CardTitle>
-              <CardDescription>Thông tin database và backup</CardDescription>
+              <CardDescription>{t('admin.settings.databaseDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Backup tự động</Label>
-                  <p className="text-sm text-muted-foreground">Đang bật - Hàng ngày lúc 2:00 AM</p>
+                  <Label>{t('admin.settings.autoBackup')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('admin.settings.autoBackupStatus')}</p>
                 </div>
                 <Button variant="outline" size="sm">
-                  Cấu hình
+                  {t('admin.settings.configure')}
                 </Button>
               </div>
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Backup thủ công</Label>
-                  <p className="text-sm text-muted-foreground">Tạo backup ngay lập tức</p>
+                  <Label>{t('admin.settings.manualBackup')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('admin.settings.manualBackupDesc')}</p>
                 </div>
                 <Button variant="outline" size="sm">
-                  Tạo backup
+                  {t('admin.settings.createBackup')}
                 </Button>
               </div>
             </CardContent>
@@ -140,7 +143,7 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="flex justify-end">
-          <Button>Lưu thay đổi</Button>
+          <Button>{t('admin.settings.saveChanges')}</Button>
         </div>
       </div>
     </>
