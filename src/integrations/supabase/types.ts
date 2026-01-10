@@ -4745,6 +4745,7 @@ export type Database = {
           description: string | null
           id: string
           is_enabled: boolean | null
+          object_type: string | null
           priority: number | null
           rule_category: string
           rule_code: string
@@ -4763,6 +4764,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_enabled?: boolean | null
+          object_type?: string | null
           priority?: number | null
           rule_category: string
           rule_code: string
@@ -4781,6 +4783,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_enabled?: boolean | null
+          object_type?: string | null
           priority?: number | null
           rule_category?: string
           rule_code?: string
