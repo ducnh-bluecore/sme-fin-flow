@@ -140,6 +140,31 @@ export function useSetPrimaryScenario() {
   });
 }
 
+// Unset primary scenario
+export function useUnsetPrimaryScenario() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('scenarios')
+        .update({ is_primary: false })
+        .eq('id', id);
+
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scenarios'] });
+      queryClient.invalidateQueries({ queryKey: ['primary-scenario'] });
+      toast.success('Đã bỏ chọn kịch bản chính');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    }
+  });
+}
+
 // Get primary scenario
 export function usePrimaryScenario() {
   const { data: tenantId } = useActiveTenantId();
