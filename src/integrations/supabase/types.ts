@@ -61,6 +61,420 @@ export type Database = {
           },
         ]
       }
+      alert_data_sources: {
+        Row: {
+          connector_integration_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          next_sync_at: string | null
+          source_config: Json | null
+          source_name: string
+          source_type: string
+          sync_frequency_minutes: number | null
+          sync_status: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          connector_integration_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          next_sync_at?: string | null
+          source_config?: Json | null
+          source_name: string
+          source_type: string
+          sync_frequency_minutes?: number | null
+          sync_status?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          connector_integration_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          next_sync_at?: string | null
+          source_config?: Json | null
+          source_name?: string
+          source_type?: string
+          sync_frequency_minutes?: number | null
+          sync_status?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_data_sources_connector_integration_id_fkey"
+            columns: ["connector_integration_id"]
+            isOneToOne: false
+            referencedRelation: "connector_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_data_sources_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_instances: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          action_url: string | null
+          alert_config_id: string | null
+          alert_object_id: string | null
+          alert_type: string
+          category: string
+          change_percent: number | null
+          created_at: string
+          current_value: number | null
+          data_source_id: string | null
+          external_object_id: string | null
+          id: string
+          message: string | null
+          metadata: Json | null
+          metric_name: string | null
+          notification_channels: Json | null
+          notification_sent: boolean | null
+          object_name: string | null
+          object_type: string | null
+          priority: number | null
+          related_alerts: string[] | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          sent_at: string | null
+          sent_to: Json | null
+          severity: string
+          snoozed_until: string | null
+          status: string | null
+          tenant_id: string
+          threshold_operator: string | null
+          threshold_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_url?: string | null
+          alert_config_id?: string | null
+          alert_object_id?: string | null
+          alert_type: string
+          category: string
+          change_percent?: number | null
+          created_at?: string
+          current_value?: number | null
+          data_source_id?: string | null
+          external_object_id?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          metric_name?: string | null
+          notification_channels?: Json | null
+          notification_sent?: boolean | null
+          object_name?: string | null
+          object_type?: string | null
+          priority?: number | null
+          related_alerts?: string[] | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          sent_at?: string | null
+          sent_to?: Json | null
+          severity?: string
+          snoozed_until?: string | null
+          status?: string | null
+          tenant_id: string
+          threshold_operator?: string | null
+          threshold_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_url?: string | null
+          alert_config_id?: string | null
+          alert_object_id?: string | null
+          alert_type?: string
+          category?: string
+          change_percent?: number | null
+          created_at?: string
+          current_value?: number | null
+          data_source_id?: string | null
+          external_object_id?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          metric_name?: string | null
+          notification_channels?: Json | null
+          notification_sent?: boolean | null
+          object_name?: string | null
+          object_type?: string | null
+          priority?: number | null
+          related_alerts?: string[] | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          sent_at?: string | null
+          sent_to?: Json | null
+          severity?: string
+          snoozed_until?: string | null
+          status?: string | null
+          tenant_id?: string
+          threshold_operator?: string | null
+          threshold_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_instances_alert_config_id_fkey"
+            columns: ["alert_config_id"]
+            isOneToOne: false
+            referencedRelation: "extended_alert_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_instances_alert_object_id_fkey"
+            columns: ["alert_object_id"]
+            isOneToOne: false
+            referencedRelation: "alert_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_instances_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "alert_data_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_notification_logs: {
+        Row: {
+          alert_instance_id: string
+          channel: string
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          recipient: string
+          sent_at: string | null
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          alert_instance_id: string
+          channel: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient: string
+          sent_at?: string | null
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          alert_instance_id?: string
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient?: string
+          sent_at?: string | null
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_notification_logs_alert_instance_id_fkey"
+            columns: ["alert_instance_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_notification_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_object_metrics: {
+        Row: {
+          alert_object_id: string
+          change_percent: number | null
+          comparison_value: number | null
+          created_at: string
+          id: string
+          is_threshold_breached: boolean | null
+          metric_name: string
+          metric_period: string | null
+          metric_unit: string | null
+          metric_value: number | null
+          recorded_at: string
+          tenant_id: string
+          threshold_config_id: string | null
+        }
+        Insert: {
+          alert_object_id: string
+          change_percent?: number | null
+          comparison_value?: number | null
+          created_at?: string
+          id?: string
+          is_threshold_breached?: boolean | null
+          metric_name: string
+          metric_period?: string | null
+          metric_unit?: string | null
+          metric_value?: number | null
+          recorded_at?: string
+          tenant_id: string
+          threshold_config_id?: string | null
+        }
+        Update: {
+          alert_object_id?: string
+          change_percent?: number | null
+          comparison_value?: number | null
+          created_at?: string
+          id?: string
+          is_threshold_breached?: boolean | null
+          metric_name?: string
+          metric_period?: string | null
+          metric_unit?: string | null
+          metric_value?: number | null
+          recorded_at?: string
+          tenant_id?: string
+          threshold_config_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_object_metrics_alert_object_id_fkey"
+            columns: ["alert_object_id"]
+            isOneToOne: false
+            referencedRelation: "alert_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_object_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_object_metrics_threshold_config_id_fkey"
+            columns: ["threshold_config_id"]
+            isOneToOne: false
+            referencedRelation: "extended_alert_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_objects: {
+        Row: {
+          alert_status: string | null
+          created_at: string
+          current_metrics: Json | null
+          data_source_id: string | null
+          external_id: string | null
+          id: string
+          is_monitored: boolean | null
+          last_alert_at: string | null
+          metadata: Json | null
+          object_category: string | null
+          object_data: Json | null
+          object_name: string
+          object_type: string
+          previous_metrics: Json | null
+          synced_at: string | null
+          tenant_id: string
+          threshold_overrides: Json | null
+          updated_at: string
+        }
+        Insert: {
+          alert_status?: string | null
+          created_at?: string
+          current_metrics?: Json | null
+          data_source_id?: string | null
+          external_id?: string | null
+          id?: string
+          is_monitored?: boolean | null
+          last_alert_at?: string | null
+          metadata?: Json | null
+          object_category?: string | null
+          object_data?: Json | null
+          object_name: string
+          object_type: string
+          previous_metrics?: Json | null
+          synced_at?: string | null
+          tenant_id: string
+          threshold_overrides?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          alert_status?: string | null
+          created_at?: string
+          current_metrics?: Json | null
+          data_source_id?: string | null
+          external_id?: string | null
+          id?: string
+          is_monitored?: boolean | null
+          last_alert_at?: string | null
+          metadata?: Json | null
+          object_category?: string | null
+          object_data?: Json | null
+          object_name?: string
+          object_type?: string
+          previous_metrics?: Json | null
+          synced_at?: string | null
+          tenant_id?: string
+          threshold_overrides?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_objects_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "alert_data_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_objects_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_settings: {
         Row: {
           alert_configs: Json
