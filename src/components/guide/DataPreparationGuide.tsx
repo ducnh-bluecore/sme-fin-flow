@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Data entity templates with CSV examples
 const dataTemplates = [
@@ -644,10 +645,11 @@ const connectorCategories = [
 export function DataPreparationGuide() {
   const [selectedTemplate, setSelectedTemplate] = useState(dataTemplates[0]);
   const [activeMethod, setActiveMethod] = useState<"import" | "api">("import");
+  const { t, language } = useLanguage();
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`Đã sao chép ${label}`);
+    toast.success(t('guide.copiedSuccess'));
   };
 
   const downloadTemplate = (template: typeof dataTemplates[0]) => {
@@ -656,7 +658,7 @@ export function DataPreparationGuide() {
     link.href = URL.createObjectURL(blob);
     link.download = `template_${template.id}.csv`;
     link.click();
-    toast.success(`Đã tải template ${template.name}`);
+    toast.success(language === 'vi' ? `Đã tải template ${template.name}` : `Downloaded template ${template.name}`);
   };
 
   return (
@@ -664,10 +666,12 @@ export function DataPreparationGuide() {
       {/* Overview */}
       <Alert className="border-primary/50 bg-primary/5">
         <Info className="h-4 w-4" />
-        <AlertTitle>Chuẩn bị dữ liệu để bắt đầu</AlertTitle>
+        <AlertTitle>{language === 'vi' ? 'Chuẩn bị dữ liệu để bắt đầu' : 'Prepare data to get started'}</AlertTitle>
         <AlertDescription>
-          Hệ thống hỗ trợ 2 cách để đưa dữ liệu vào: <strong>Import file</strong> (CSV, Excel) hoặc <strong>Kết nối API</strong> trực tiếp với các hệ thống khác. 
-          Chọn phương thức phù hợp với nguồn dữ liệu của bạn.
+          {language === 'vi' 
+            ? <>Hệ thống hỗ trợ 2 cách để đưa dữ liệu vào: <strong>Import file</strong> (CSV, Excel) hoặc <strong>Kết nối API</strong> trực tiếp với các hệ thống khác. Chọn phương thức phù hợp với nguồn dữ liệu của bạn.</>
+            : <>The system supports 2 ways to import data: <strong>Import file</strong> (CSV, Excel) or <strong>API connection</strong> directly with other systems. Choose the method that fits your data source.</>
+          }
         </AlertDescription>
       </Alert>
 
@@ -677,15 +681,15 @@ export function DataPreparationGuide() {
           <TabsTrigger value="import" className="flex items-center gap-2 py-3">
             <Upload className="h-4 w-4" />
             <div className="text-left">
-              <div className="font-medium">Import File</div>
+              <div className="font-medium">{language === 'vi' ? 'Import File' : 'Import File'}</div>
               <div className="text-xs text-muted-foreground">CSV, Excel, JSON</div>
             </div>
           </TabsTrigger>
           <TabsTrigger value="api" className="flex items-center gap-2 py-3">
             <Link2 className="h-4 w-4" />
             <div className="text-left">
-              <div className="font-medium">Kết nối API</div>
-              <div className="text-xs text-muted-foreground">Đồng bộ tự động</div>
+              <div className="font-medium">{language === 'vi' ? 'Kết nối API' : 'Connect API'}</div>
+              <div className="text-xs text-muted-foreground">{language === 'vi' ? 'Đồng bộ tự động' : 'Auto sync'}</div>
             </div>
           </TabsTrigger>
         </TabsList>
@@ -699,7 +703,7 @@ export function DataPreparationGuide() {
                 <div className="flex items-center gap-3">
                   <FileSpreadsheet className="h-8 w-8 text-green-500" />
                   <div>
-                    <p className="font-medium text-green-700 dark:text-green-400">Định dạng hỗ trợ</p>
+                    <p className="font-medium text-green-700 dark:text-green-400">{language === 'vi' ? 'Định dạng hỗ trợ' : 'Supported Formats'}</p>
                     <p className="text-sm text-muted-foreground">CSV, XLSX, XLS, JSON</p>
                   </div>
                 </div>
@@ -710,8 +714,8 @@ export function DataPreparationGuide() {
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-8 w-8 text-blue-500" />
                   <div>
-                    <p className="font-medium text-blue-700 dark:text-blue-400">Tự động validate</p>
-                    <p className="text-sm text-muted-foreground">Kiểm tra lỗi trước import</p>
+                    <p className="font-medium text-blue-700 dark:text-blue-400">{language === 'vi' ? 'Tự động validate' : 'Auto Validate'}</p>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Kiểm tra lỗi trước import' : 'Check errors before import'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -721,8 +725,8 @@ export function DataPreparationGuide() {
                 <div className="flex items-center gap-3">
                   <Zap className="h-8 w-8 text-purple-500" />
                   <div>
-                    <p className="font-medium text-purple-700 dark:text-purple-400">Import hàng loạt</p>
-                    <p className="text-sm text-muted-foreground">Lên đến 10,000 dòng</p>
+                    <p className="font-medium text-purple-700 dark:text-purple-400">{language === 'vi' ? 'Import hàng loạt' : 'Bulk Import'}</p>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Lên đến 10,000 dòng' : 'Up to 10,000 rows'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -733,7 +737,7 @@ export function DataPreparationGuide() {
           <div className="grid lg:grid-cols-4 gap-6">
             {/* Template Selection Sidebar */}
             <div className="space-y-2">
-              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-3">Loại dữ liệu</h3>
+              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-3">{t('guide.dataTypes')}</h3>
               {dataTemplates.map((template) => (
                 <button
                   key={template.id}
@@ -764,7 +768,7 @@ export function DataPreparationGuide() {
                     </div>
                     <Button onClick={() => downloadTemplate(selectedTemplate)} className="gap-2">
                       <Download className="h-4 w-4" />
-                      Tải Template
+                      {t('guide.downloadTemplate')}
                     </Button>
                   </div>
                 </CardHeader>
@@ -773,7 +777,7 @@ export function DataPreparationGuide() {
                   <div className="space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Zap className="h-4 w-4 text-amber-500" />
-                      Tính năng sử dụng
+                      {t('guide.usedInFeatures')}
                     </h4>
                     <div className="grid sm:grid-cols-2 gap-2">
                       {selectedTemplate.usedFor.map((usage, idx) => (
@@ -793,7 +797,7 @@ export function DataPreparationGuide() {
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold flex items-center gap-2">
                         <FileSpreadsheet className="h-4 w-4 text-green-500" />
-                        Template CSV
+                        {t('guide.csvFormat')}
                       </h4>
                       <Button 
                         variant="ghost" 
@@ -801,7 +805,7 @@ export function DataPreparationGuide() {
                         onClick={() => copyToClipboard(selectedTemplate.csvSample, "CSV template")}
                       >
                         <Copy className="h-4 w-4 mr-1" />
-                        Sao chép
+                        {t('guide.copyToClipboard')}
                       </Button>
                     </div>
                     <pre className="p-4 bg-muted rounded-lg text-xs overflow-x-auto whitespace-pre">
@@ -813,16 +817,16 @@ export function DataPreparationGuide() {
                   <div className="space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Info className="h-4 w-4 text-blue-500" />
-                      Mô tả các cột
+                      {language === 'vi' ? 'Mô tả các cột' : 'Column Description'}
                     </h4>
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
                         <thead className="bg-muted">
                           <tr>
-                            <th className="text-left p-2 font-medium">Cột</th>
-                            <th className="text-left p-2 font-medium">Bắt buộc</th>
-                            <th className="text-left p-2 font-medium">Kiểu</th>
-                            <th className="text-left p-2 font-medium">Mô tả</th>
+                            <th className="text-left p-2 font-medium">{language === 'vi' ? 'Cột' : 'Column'}</th>
+                            <th className="text-left p-2 font-medium">{t('guide.required')}</th>
+                            <th className="text-left p-2 font-medium">{t('guide.fieldType')}</th>
+                            <th className="text-left p-2 font-medium">{t('guide.description')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -831,9 +835,9 @@ export function DataPreparationGuide() {
                               <td className="p-2 font-mono text-xs">{field.name}</td>
                               <td className="p-2">
                                 {field.required ? (
-                                  <Badge variant="destructive" className="text-xs">Bắt buộc</Badge>
+                                  <Badge variant="destructive" className="text-xs">{t('guide.requiredFields')}</Badge>
                                 ) : (
-                                  <Badge variant="secondary" className="text-xs">Tùy chọn</Badge>
+                                  <Badge variant="secondary" className="text-xs">{t('guide.optionalFields')}</Badge>
                                 )}
                               </td>
                               <td className="p-2">
@@ -853,7 +857,7 @@ export function DataPreparationGuide() {
                       <AccordionTrigger className="text-sm font-semibold">
                         <span className="flex items-center gap-2">
                           <Database className="h-4 w-4 text-purple-500" />
-                          Dữ liệu mẫu JSON (cho API)
+                          {t('guide.jsonFormat')} (API)
                         </span>
                       </AccordionTrigger>
                       <AccordionContent>
@@ -878,7 +882,7 @@ export function DataPreparationGuide() {
                       <AccordionTrigger className="text-sm font-semibold">
                         <span className="flex items-center gap-2">
                           <Settings2 className="h-4 w-4 text-orange-500" />
-                          Mapping từ các nguồn phổ biến
+                          {t('guide.fieldMapping')}
                         </span>
                       </AccordionTrigger>
                       <AccordionContent>
@@ -909,7 +913,7 @@ export function DataPreparationGuide() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <AlertCircle className="h-5 w-5 text-orange-500" />
-                    Quy tắc import
+                    {language === 'vi' ? 'Quy tắc import' : 'Import Rules'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -917,29 +921,29 @@ export function DataPreparationGuide() {
                     <div className="space-y-2">
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Dòng đầu tiên là header chứa tên cột
+                        {language === 'vi' ? 'Dòng đầu tiên là header chứa tên cột' : 'First row is header with column names'}
                       </p>
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Ngày tháng: <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DD</code> hoặc <code className="text-xs bg-muted px-1 rounded">DD/MM/YYYY</code>
+                        {language === 'vi' ? 'Ngày tháng:' : 'Date format:'} <code className="text-xs bg-muted px-1 rounded">YYYY-MM-DD</code> {language === 'vi' ? 'hoặc' : 'or'} <code className="text-xs bg-muted px-1 rounded">DD/MM/YYYY</code>
                       </p>
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Số tiền: không có dấu phân cách hàng nghìn
+                        {language === 'vi' ? 'Số tiền: không có dấu phân cách hàng nghìn' : 'Amount: no thousand separators'}
                       </p>
                     </div>
                     <div className="space-y-2">
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Encoding: UTF-8 (cho CSV)
+                        {language === 'vi' ? 'Encoding: UTF-8 (cho CSV)' : 'Encoding: UTF-8 (for CSV)'}
                       </p>
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Excel: Sheet đầu tiên được sử dụng
+                        {language === 'vi' ? 'Excel: Sheet đầu tiên được sử dụng' : 'Excel: First sheet is used'}
                       </p>
                       <p className="flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        Các cột * là bắt buộc
+                        {language === 'vi' ? 'Các cột * là bắt buộc' : '* columns are required'}
                       </p>
                     </div>
                   </div>
@@ -953,13 +957,13 @@ export function DataPreparationGuide() {
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-semibold text-lg">Sẵn sàng import dữ liệu?</h3>
-                  <p className="text-muted-foreground">Đã chuẩn bị xong file theo template, tiến hành import ngay</p>
+                  <h3 className="font-semibold text-lg">{language === 'vi' ? 'Sẵn sàng import dữ liệu?' : 'Ready to import data?'}</h3>
+                  <p className="text-muted-foreground">{language === 'vi' ? 'Đã chuẩn bị xong file theo template, tiến hành import ngay' : 'File prepared according to template, proceed to import now'}</p>
                 </div>
                 <Button asChild size="lg" className="gap-2">
                   <Link to="/data-hub">
                     <Upload className="h-4 w-4" />
-                    Đi đến Data Hub
+                    {t('guide.dataHub')}
                     <ExternalLink className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -977,8 +981,8 @@ export function DataPreparationGuide() {
                 <div className="flex items-center gap-3">
                   <Zap className="h-8 w-8 text-green-500" />
                   <div>
-                    <p className="font-medium text-green-700 dark:text-green-400">Tự động đồng bộ</p>
-                    <p className="text-sm text-muted-foreground">Dữ liệu cập nhật realtime</p>
+                    <p className="font-medium text-green-700 dark:text-green-400">{language === 'vi' ? 'Tự động đồng bộ' : 'Auto Sync'}</p>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Dữ liệu cập nhật realtime' : 'Data updates in realtime'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -988,8 +992,8 @@ export function DataPreparationGuide() {
                 <div className="flex items-center gap-3">
                   <Link2 className="h-8 w-8 text-blue-500" />
                   <div>
-                    <p className="font-medium text-blue-700 dark:text-blue-400">Kết nối 1 lần</p>
-                    <p className="text-sm text-muted-foreground">Thiết lập đơn giản</p>
+                    <p className="font-medium text-blue-700 dark:text-blue-400">{language === 'vi' ? 'Kết nối 1 lần' : 'One-time Setup'}</p>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Thiết lập đơn giản' : 'Simple configuration'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -999,8 +1003,8 @@ export function DataPreparationGuide() {
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-8 w-8 text-purple-500" />
                   <div>
-                    <p className="font-medium text-purple-700 dark:text-purple-400">Mapping tự động</p>
-                    <p className="text-sm text-muted-foreground">Không cần chuyển đổi thủ công</p>
+                    <p className="font-medium text-purple-700 dark:text-purple-400">{language === 'vi' ? 'Mapping tự động' : 'Auto Mapping'}</p>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Không cần chuyển đổi thủ công' : 'No manual conversion needed'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1033,9 +1037,9 @@ export function DataPreparationGuide() {
                           <div>
                             <p className="font-medium">{connector.name}</p>
                             {connector.status === "available" ? (
-                              <Badge className="text-xs bg-green-500">Sẵn sàng</Badge>
+                              <Badge className="text-xs bg-green-500">{language === 'vi' ? 'Sẵn sàng' : 'Available'}</Badge>
                             ) : (
-                              <Badge variant="secondary" className="text-xs">Sắp ra mắt</Badge>
+                              <Badge variant="secondary" className="text-xs">{language === 'vi' ? 'Sắp ra mắt' : 'Coming Soon'}</Badge>
                             )}
                           </div>
                         </div>
@@ -1057,7 +1061,7 @@ export function DataPreparationGuide() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings2 className="h-5 w-5 text-primary" />
-                Hướng dẫn kết nối API
+                {language === 'vi' ? 'Hướng dẫn kết nối API' : 'API Setup Guide'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1065,29 +1069,29 @@ export function DataPreparationGuide() {
                 <div className="flex items-start gap-4 p-4 border rounded-lg">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0">1</div>
                   <div>
-                    <h4 className="font-medium">Lấy thông tin API từ nguồn dữ liệu</h4>
-                    <p className="text-sm text-muted-foreground">Đăng nhập vào hệ thống gốc (Shopee Seller Center, MISA, ...) và tìm mục API/Tích hợp để lấy API Key hoặc Access Token</p>
+                    <h4 className="font-medium">{language === 'vi' ? 'Lấy thông tin API từ nguồn dữ liệu' : 'Get API credentials from data source'}</h4>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Đăng nhập vào hệ thống gốc (Shopee Seller Center, MISA, ...) và tìm mục API/Tích hợp để lấy API Key hoặc Access Token' : 'Log into the source system (Shopee Seller Center, MISA, ...) and find API/Integration section to get API Key or Access Token'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4 p-4 border rounded-lg">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0">2</div>
                   <div>
-                    <h4 className="font-medium">Thêm Connector trong hệ thống</h4>
-                    <p className="text-sm text-muted-foreground">Vào trang Data Hub → Thêm Connector → Chọn loại kết nối và nhập thông tin API</p>
+                    <h4 className="font-medium">{language === 'vi' ? 'Thêm Connector trong hệ thống' : 'Add Connector in the system'}</h4>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Vào trang Data Hub → Thêm Connector → Chọn loại kết nối và nhập thông tin API' : 'Go to Data Hub → Add Connector → Select connection type and enter API credentials'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4 p-4 border rounded-lg">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0">3</div>
                   <div>
-                    <h4 className="font-medium">Cấu hình đồng bộ</h4>
-                    <p className="text-sm text-muted-foreground">Chọn loại dữ liệu cần đồng bộ và tần suất cập nhật (realtime, hàng giờ, hàng ngày)</p>
+                    <h4 className="font-medium">{language === 'vi' ? 'Cấu hình đồng bộ' : 'Configure sync settings'}</h4>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Chọn loại dữ liệu cần đồng bộ và tần suất cập nhật (realtime, hàng giờ, hàng ngày)' : 'Select data types to sync and update frequency (realtime, hourly, daily)'}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4 p-4 border rounded-lg bg-green-500/5 border-green-500/20">
                   <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-600 font-bold flex-shrink-0">✓</div>
                   <div>
-                    <h4 className="font-medium text-green-700 dark:text-green-400">Hoàn tất</h4>
-                    <p className="text-sm text-muted-foreground">Dữ liệu sẽ tự động đồng bộ theo lịch đã thiết lập. Bạn có thể theo dõi trạng thái đồng bộ tại Data Hub</p>
+                    <h4 className="font-medium text-green-700 dark:text-green-400">{language === 'vi' ? 'Hoàn tất' : 'Done'}</h4>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Dữ liệu sẽ tự động đồng bộ theo lịch đã thiết lập. Bạn có thể theo dõi trạng thái đồng bộ tại Data Hub' : 'Data will sync automatically based on the schedule. You can monitor sync status in Data Hub'}</p>
                   </div>
                 </div>
               </div>
@@ -1099,13 +1103,13 @@ export function DataPreparationGuide() {
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-semibold text-lg">Bắt đầu kết nối dữ liệu?</h3>
-                  <p className="text-muted-foreground">Thiết lập connector để tự động đồng bộ dữ liệu từ các hệ thống</p>
+                  <h3 className="font-semibold text-lg">{language === 'vi' ? 'Bắt đầu kết nối dữ liệu?' : 'Start connecting data?'}</h3>
+                  <p className="text-muted-foreground">{language === 'vi' ? 'Thiết lập connector để tự động đồng bộ dữ liệu từ các hệ thống' : 'Set up connectors to automatically sync data from your systems'}</p>
                 </div>
                 <Button asChild size="lg" className="gap-2">
                   <Link to="/data-hub">
                     <Link2 className="h-4 w-4" />
-                    Đi đến Data Hub
+                    {t('guide.dataHub')}
                     <ExternalLink className="h-4 w-4" />
                   </Link>
                 </Button>
