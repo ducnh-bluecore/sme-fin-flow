@@ -45,7 +45,7 @@ export default function ScenarioHubPage() {
   const handleImportWhatIfScenario = async (whatIfScenario: WhatIfScenario) => {
     await createScenario.mutateAsync({
       name: `[What-If] ${whatIfScenario.name}`,
-      description: whatIfScenario.description || `Imported từ What-If: ${whatIfScenario.name}`,
+      description: whatIfScenario.description || `${t('scenario.importWhatIf')}: ${whatIfScenario.name}`,
       base_revenue: currentBaseRevenue,
       base_costs: currentBaseRevenue * 0.7,
       revenue_change: whatIfScenario.params?.revenueChange ?? 0,

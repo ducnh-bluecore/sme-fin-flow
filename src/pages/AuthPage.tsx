@@ -9,24 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthRedirect } from '@/hooks/useAuthRedirect';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { z } from 'zod';
 
-const loginSchema = z.object({
-  email: z.string().trim().email({ message: 'Email không hợp lệ' }),
-  password: z.string().min(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' }),
-});
-
-const signUpSchema = z.object({
-  fullName: z.string().trim().min(2, { message: 'Họ tên phải có ít nhất 2 ký tự' }),
-  email: z.string().trim().email({ message: 'Email không hợp lệ' }),
-  password: z.string().min(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' }),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Mật khẩu xác nhận không khớp',
-  path: ['confirmPassword'],
-});
-
 export default function AuthPage() {
+  const { t } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -42,6 +29,21 @@ export default function AuthPage() {
   const { toast } = useToast();
   const { user, signIn, signUp } = useAuth();
   const { redirectBasedOnRole } = useAuthRedirect();
+
+  const loginSchema = z.object({
+    email: z.string().trim().email({ message: t('auth.invalidEmail') }),
+    password: z.string().min(6, { message: t('auth.passwordMin') }),
+  });
+
+  const signUpSchema = z.object({
+    fullName: z.string().trim().min(2, { message: t('auth.fullNameMin') }),
+    email: z.string().trim().email({ message: t('auth.invalidEmail') }),
+    password: z.string().min(6, { message: t('auth.passwordMin') }),
+    confirmPassword: z.string(),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: t('auth.passwordMismatch'),
+    path: ['confirmPassword'],
+  });
 
   useEffect(() => {
     if (user) {
@@ -73,23 +75,22 @@ export default function AuthPage() {
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
             toast({
-              title: 'Đăng nhập thất bại',
-              description: 'Email hoặc mật khẩu không đúng',
+              title: t('auth.loginFailed'),
+              description: t('auth.invalidCredentials'),
               variant: 'destructive',
             });
           } else {
             toast({
-              title: 'Lỗi',
+              title: t('auth.error'),
               description: error.message,
               variant: 'destructive',
             });
           }
         } else {
           toast({
-            title: 'Đăng nhập thành công',
-            description: 'Chào mừng bạn quay trở lại!',
+            title: t('auth.loginSuccess'),
+            description: t('auth.welcomeBack'),
           });
-          // Redirect immediately after successful login
           if (data?.user) {
             redirectBasedOnRole(data.user.id);
           } else {
@@ -114,29 +115,28 @@ export default function AuthPage() {
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
-              title: 'Đăng ký thất bại',
-              description: 'Email này đã được đăng ký. Vui lòng đăng nhập.',
+              title: t('auth.signUpFailed'),
+              description: t('auth.emailExists'),
               variant: 'destructive',
             });
           } else {
             toast({
-              title: 'Lỗi',
+              title: t('auth.error'),
               description: error.message,
               variant: 'destructive',
             });
           }
         } else {
           toast({
-            title: 'Đăng ký thành công',
-            description: 'Chào mừng bạn đến với Bluecore Finance!',
+            title: t('auth.signUpSuccess'),
+            description: t('auth.welcomeNew'),
           });
-          // Redirect will happen via useEffect when user state updates
         }
       }
     } catch (error) {
       toast({
-        title: 'Lỗi',
-        description: 'Đã xảy ra lỗi. Vui lòng thử lại.',
+        title: t('auth.error'),
+        description: t('auth.errorGeneric'),
         variant: 'destructive',
       });
     } finally {
@@ -180,12 +180,10 @@ export default function AuthPage() {
             </motion.div>
             <div>
               <CardTitle className="text-2xl font-bold">
-                {isLogin ? 'Đăng nhập' : 'Đăng ký'}
+                {isLogin ? t('auth.title') : t('auth.signUpTitle')}
               </CardTitle>
               <CardDescription className="text-muted-foreground mt-2">
-                {isLogin 
-                  ? 'Đăng nhập vào tài khoản của bạn' 
-                  : 'Tạo tài khoản mới để bắt đầu'}
+                {isLogin ? t('auth.loginDesc') : t('auth.signUpDesc')}
               </CardDescription>
             </div>
           </CardHeader>
@@ -202,13 +200,13 @@ export default function AuthPage() {
                     transition={{ duration: 0.2 }}
                   >
                     <div className="space-y-2">
-                      <Label htmlFor="fullName">Họ và tên</Label>
+                      <Label htmlFor="fullName">{t('auth.fullName')}</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="fullName"
                           type="text"
-                          placeholder="Nhập họ và tên"
+                          placeholder={t('auth.fullNamePlaceholder')}
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           className={`pl-10 ${errors.fullName ? 'border-destructive' : ''}`}
@@ -223,7 +221,7 @@ export default function AuthPage() {
               </AnimatePresence>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('auth.email')}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -241,7 +239,7 @@ export default function AuthPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Mật khẩu</Label>
+                <Label htmlFor="password">{t('auth.password')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -275,7 +273,7 @@ export default function AuthPage() {
                     transition={{ duration: 0.2 }}
                   >
                     <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
+                      <Label htmlFor="confirmPassword">{t('auth.confirmPassword')}</Label>
                       <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -311,7 +309,7 @@ export default function AuthPage() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    {isLogin ? 'Đăng nhập' : 'Đăng ký'}
+                    {isLogin ? t('auth.signIn') : t('auth.signUp')}
                     <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -320,13 +318,13 @@ export default function AuthPage() {
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                {isLogin ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
+                {isLogin ? t('auth.noAccount') : t('auth.hasAccount')}
                 <button
                   type="button"
                   onClick={toggleMode}
                   className="ml-1 text-primary hover:underline font-medium"
                 >
-                  {isLogin ? 'Đăng ký ngay' : 'Đăng nhập'}
+                  {isLogin ? t('auth.signUpNow') : t('auth.loginNow')}
                 </button>
               </p>
             </div>
@@ -334,10 +332,10 @@ export default function AuthPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
-          Bằng việc tiếp tục, bạn đồng ý với{' '}
-          <a href="#" className="text-primary hover:underline">Điều khoản sử dụng</a>
-          {' '}và{' '}
-          <a href="#" className="text-primary hover:underline">Chính sách bảo mật</a>
+          {t('auth.terms')}{' '}
+          <a href="#" className="text-primary hover:underline">{t('auth.termsOfUse')}</a>
+          {' '}{t('auth.and')}{' '}
+          <a href="#" className="text-primary hover:underline">{t('auth.privacyPolicy')}</a>
         </p>
       </motion.div>
     </div>
