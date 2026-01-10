@@ -52,6 +52,7 @@ type AdvisorContext = Record<string, any>;
 // Make vs Buy Analysis Component
 function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
+  const { t } = useLanguage();
   
   const [makeData, setMakeData] = useState({
     fixedCost: 500000000,
@@ -93,10 +94,10 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
     saveAnalysis.mutate({
       analysis_type: 'make_vs_buy',
       title: `Make vs Buy - ${formatDate(new Date())}`,
-      description: `So sánh tự sản xuất vs thuê ngoài với sản lượng ${formatCount(makeData.volume)} đơn vị`,
+      description: `${t('decision.selfProduce')} vs ${t('decision.outsource')} - ${formatCount(makeData.volume)} ${t('decision.units')}`,
       parameters: { makeData, buyData },
       results: { makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings },
-      recommendation: recommendation === 'make' ? 'Tự sản xuất' : 'Thuê ngoài',
+      recommendation: recommendation === 'make' ? t('decision.selfProduce') : t('decision.outsource'),
       ai_insights: null,
       status: 'completed',
       approved_by: null,
@@ -111,24 +112,24 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scale className="h-5 w-5 text-blue-500" />
-              Tự sản xuất (Make)
+              {t('decision.selfProduce')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Chi phí cố định (VND)</Label>
+              <Label>{t('decision.fixedCost')}</Label>
               <Input type="number" value={makeData.fixedCost} onChange={(e) => setMakeData({ ...makeData, fixedCost: Number(e.target.value) })} />
             </div>
             <div>
-              <Label>Chi phí biến đổi/đơn vị (VND)</Label>
+              <Label>{t('decision.variableCost')}</Label>
               <Input type="number" value={makeData.variableCostPerUnit} onChange={(e) => setMakeData({ ...makeData, variableCostPerUnit: Number(e.target.value) })} />
             </div>
             <div>
-              <Label>Sản lượng dự kiến</Label>
+              <Label>{t('decision.volume')}</Label>
               <Input type="number" value={makeData.volume} onChange={(e) => setMakeData({ ...makeData, volume: Number(e.target.value) })} />
             </div>
             <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <p className="text-sm text-muted-foreground">Tổng chi phí</p>
+              <p className="text-sm text-muted-foreground">{t('decision.totalCost')}</p>
               <p className="text-2xl font-bold text-blue-500">{formatVNDCompact(makeTotalCost)}</p>
             </div>
           </CardContent>
@@ -138,21 +139,21 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-500" />
-              Thuê ngoài (Buy)
+              {t('decision.outsource')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Giá mua/đơn vị (VND)</Label>
+              <Label>{t('decision.pricePerUnit')}</Label>
               <Input type="number" value={buyData.pricePerUnit} onChange={(e) => setBuyData({ ...buyData, pricePerUnit: Number(e.target.value) })} />
             </div>
             <div>
-              <Label>Sản lượng dự kiến</Label>
+              <Label>{t('decision.volume')}</Label>
               <Input type="number" value={buyData.volume} onChange={(e) => setBuyData({ ...buyData, volume: Number(e.target.value) })} />
             </div>
             <div className="h-[72px]" />
             <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-              <p className="text-sm text-muted-foreground">Tổng chi phí</p>
+              <p className="text-sm text-muted-foreground">{t('decision.totalCost')}</p>
               <p className="text-2xl font-bold text-green-500">{formatVNDCompact(buyTotalCost)}</p>
             </div>
           </CardContent>
@@ -163,9 +164,9 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Khuyến nghị: {recommendation === 'make' ? 'TỰ SẢN XUẤT' : 'THUÊ NGOÀI'}</h3>
-              <p className="text-muted-foreground">Tiết kiệm: {formatVNDCompact(savings)}</p>
-              <p className="text-sm text-muted-foreground mt-1">Break-even point: {breakEvenVolume.toLocaleString()} đơn vị</p>
+              <h3 className="text-lg font-semibold">{t('decision.recommend')}: {recommendation === 'make' ? t('decision.selfProduce').toUpperCase() : t('decision.outsource').toUpperCase()}</h3>
+              <p className="text-muted-foreground">{t('decision.savings')}: {formatVNDCompact(savings)}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('decision.breakEvenPoint')}: {breakEvenVolume.toLocaleString()} {t('decision.units')}</p>
             </div>
             <div className={`w-16 h-16 rounded-full flex items-center justify-center ${recommendation === 'make' ? 'bg-blue-500/20' : 'bg-green-500/20'}`}>
               <CheckCircle2 className={`h-8 w-8 ${recommendation === 'make' ? 'text-blue-500' : 'text-green-500'}`} />
@@ -175,7 +176,7 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Biểu đồ so sánh chi phí theo sản lượng</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('decision.costComparison')}</CardTitle></CardHeader>
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -186,8 +187,8 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
                 <Tooltip formatter={(v) => formatVNDCompact(v as number)} />
                 <Legend />
                 <ReferenceLine x={breakEvenVolume} stroke="red" strokeDasharray="3 3" label="Break-even" />
-                <Line type="monotone" dataKey="make" name="Tự sản xuất" stroke="#3b82f6" strokeWidth={2} />
-                <Line type="monotone" dataKey="buy" name="Thuê ngoài" stroke="#10b981" strokeWidth={2} />
+                <Line type="monotone" dataKey="make" name={t('decision.selfProduce')} stroke="#3b82f6" strokeWidth={2} />
+                <Line type="monotone" dataKey="buy" name={t('decision.outsource')} stroke="#10b981" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -196,7 +197,7 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
 
       <Button onClick={handleSave} className="w-full" disabled={saveAnalysis.isPending}>
         <Save className="h-4 w-4 mr-2" />
-        Lưu phân tích
+        {t('decision.saveAnalysis')}
       </Button>
     </div>
   );
@@ -205,6 +206,7 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
 // Break-even Analysis Component
 function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
+  const { t } = useLanguage();
   
   const [params, setParams] = useState({
     fixedCosts: 2000000000,
@@ -240,10 +242,10 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
     saveAnalysis.mutate({
       analysis_type: 'break_even',
       title: `Break-even Analysis - ${formatDate(new Date())}`,
-      description: `Phân tích hòa vốn với chi phí cố định ${formatVNDCompact(params.fixedCosts)}`,
+      description: `${t('decision.breakEvenUnits')} - ${formatVNDCompact(params.fixedCosts)}`,
       parameters: params,
       results: { contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety },
-      recommendation: marginOfSafety > 0 ? 'Trên điểm hòa vốn' : 'Dưới điểm hòa vốn',
+      recommendation: marginOfSafety > 0 ? t('decision.aboveBreakeven') : t('decision.belowBreakeven'),
       ai_insights: null,
       status: 'completed',
       approved_by: null,
@@ -255,46 +257,46 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Đơn vị)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('decision.breakEvenUnits')}</CardTitle></CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{formatCount(breakEvenUnits)}</div>
-            <p className="text-sm text-muted-foreground">đơn vị sản phẩm</p>
+            <p className="text-sm text-muted-foreground">{t('decision.productUnits')}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Doanh thu)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('decision.breakEvenRevenue')}</CardTitle></CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{formatVNDCompact(breakEvenRevenue)}</div>
-            <p className="text-sm text-muted-foreground">doanh thu tối thiểu</p>
+            <p className="text-sm text-muted-foreground">{t('decision.minRevenue')}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Margin of Safety</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('decision.marginOfSafety')}</CardTitle></CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold ${marginOfSafety > 0 ? 'text-green-500' : 'text-red-500'}`}>{marginOfSafety.toFixed(1)}%</div>
-            <p className="text-sm text-muted-foreground">{marginOfSafety > 0 ? 'Trên break-even' : 'Dưới break-even'}</p>
+            <p className="text-sm text-muted-foreground">{marginOfSafety > 0 ? t('decision.aboveBreakeven') : t('decision.belowBreakeven')}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Điều chỉnh tham số</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('decision.adjustParams')}</CardTitle></CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label>Chi phí cố định: {formatVNDCompact(params.fixedCosts)}</Label>
+              <Label>{t('decision.fixedCost')}: {formatVNDCompact(params.fixedCosts)}</Label>
               <Slider value={[params.fixedCosts]} onValueChange={([v]) => setParams({ ...params, fixedCosts: v })} min={500000000} max={5000000000} step={100000000} className="mt-2" />
             </div>
             <div>
-              <Label>Giá bán: {formatVND(params.sellingPrice)}</Label>
+              <Label>{t('decision.sellingPrice')}: {formatVND(params.sellingPrice)}</Label>
               <Slider value={[params.sellingPrice]} onValueChange={([v]) => setParams({ ...params, sellingPrice: v })} min={100000} max={300000} step={5000} className="mt-2" />
             </div>
             <div>
-              <Label>Chi phí biến đổi: {formatVND(params.variableCost)}</Label>
+              <Label>{t('decision.variableCost')}: {formatVND(params.variableCost)}</Label>
               <Slider value={[params.variableCost]} onValueChange={([v]) => setParams({ ...params, variableCost: v })} min={50000} max={150000} step={5000} className="mt-2" />
             </div>
             <div>
-              <Label>Sản lượng hiện tại: {params.currentVolume.toLocaleString()}</Label>
+              <Label>{t('decision.currentVolume')}: {params.currentVolume.toLocaleString()}</Label>
               <Slider value={[params.currentVolume]} onValueChange={([v]) => setParams({ ...params, currentVolume: v })} min={10000} max={100000} step={5000} className="mt-2" />
             </div>
           </div>
@@ -302,7 +304,7 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Biểu đồ Break-even</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('decision.breakEvenChart')}</CardTitle></CardHeader>
         <CardContent>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -313,8 +315,8 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
                 <Tooltip formatter={(v) => formatVNDCompact(v as number)} />
                 <Legend />
                 <ReferenceLine x={breakEvenUnits} stroke="red" strokeDasharray="3 3" />
-                <Line type="monotone" dataKey="revenue" name="Doanh thu" stroke="#3b82f6" strokeWidth={2} />
-                <Line type="monotone" dataKey="totalCost" name="Tổng chi phí" stroke="#ef4444" strokeWidth={2} />
+                <Line type="monotone" dataKey="revenue" name={t('decision.revenue')} stroke="#3b82f6" strokeWidth={2} />
+                <Line type="monotone" dataKey="totalCost" name={t('decision.totalCost')} stroke="#ef4444" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -323,7 +325,7 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
 
       <Button onClick={handleSave} className="w-full" disabled={saveAnalysis.isPending}>
         <Save className="h-4 w-4 mr-2" />
-        Lưu phân tích
+        {t('decision.saveAnalysis')}
       </Button>
     </div>
   );
