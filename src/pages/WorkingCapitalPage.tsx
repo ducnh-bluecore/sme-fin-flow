@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useWorkingCapitalSummary } from '@/hooks/useWorkingCapital';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   BarChart,
   Bar,
@@ -36,6 +37,7 @@ import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 export default function WorkingCapitalPage() {
   const { data: summary, isLoading } = useWorkingCapitalSummary();
   const [showFormulas, setShowFormulas] = useState(false);
+  const { t } = useLanguage();
   
   const current = summary?.current;
   const cccData = [
@@ -49,19 +51,19 @@ export default function WorkingCapitalPage() {
       metric: 'DSO', 
       current: current?.dso_days || 0, 
       target: current?.target_dso || 30,
-      description: 'Ngày thu tiền bình quân'
+      description: t('workingCapital.dsoDesc')
     },
     { 
       metric: 'DIO', 
       current: current?.dio_days || 0, 
       target: current?.target_dio || 0,
-      description: 'Ngày tồn kho bình quân'
+      description: t('workingCapital.dioDesc')
     },
     { 
       metric: 'DPO', 
       current: current?.dpo_days || 0, 
       target: current?.target_dpo || 45,
-      description: 'Ngày thanh toán bình quân'
+      description: t('workingCapital.dpoDesc')
     },
   ];
 
@@ -85,22 +87,22 @@ export default function WorkingCapitalPage() {
   };
 
   const getTrendLabel = () => {
-    if (summary?.cccTrend === 'improving') return 'Đang cải thiện';
-    if (summary?.cccTrend === 'worsening') return 'Đang xấu đi';
-    return 'Ổn định';
+    if (summary?.cccTrend === 'improving') return t('workingCapital.improving');
+    if (summary?.cccTrend === 'worsening') return t('workingCapital.worsening');
+    return t('workingCapital.stable');
   };
 
   return (
     <>
       <Helmet>
-        <title>Tối ưu vốn lưu động | CFO Dashboard</title>
+        <title>{t('workingCapital.title')} | CFO Dashboard</title>
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <PageHeader 
-            title="Tối ưu vốn lưu động"
-            subtitle="Phân tích và tối ưu chu kỳ tiền mặt (Cash Conversion Cycle)"
+            title={t('workingCapital.title')}
+            subtitle={t('workingCapital.subtitle')}
           />
           <div className="flex flex-col items-end gap-2">
             <QuickDateSelector />
@@ -113,7 +115,7 @@ export default function WorkingCapitalPage() {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
               <Info className="h-4 w-4" />
-              Công thức tính
+              {t('workingCapital.formulas')}
               <ChevronDown className={`h-4 w-4 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
             </Button>
           </CollapsibleTrigger>
@@ -121,31 +123,31 @@ export default function WorkingCapitalPage() {
             <Card className="bg-muted/30">
               <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="font-medium text-blue-500">DSO (Days Sales Outstanding)</p>
-                  <p className="text-muted-foreground font-mono text-xs">= (Phải thu / Doanh thu) × Số ngày</p>
+                  <p className="font-medium text-blue-500">{t('workingCapital.dsoFull')}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{t('workingCapital.dsoFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Số ngày thu tiền từ khách hàng
+                    {t('workingCapital.dsoDesc')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-orange-500">DIO (Days Inventory Outstanding)</p>
-                  <p className="text-muted-foreground font-mono text-xs">= (Tồn kho / COGS) × Số ngày</p>
+                  <p className="font-medium text-orange-500">{t('workingCapital.dioFull')}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{t('workingCapital.dioFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Số ngày tồn kho trước khi bán
+                    {t('workingCapital.dioDesc')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-purple-500">DPO (Days Payable Outstanding)</p>
-                  <p className="text-muted-foreground font-mono text-xs">= (Phải trả / Mua hàng) × Số ngày</p>
+                  <p className="font-medium text-purple-500">{t('workingCapital.dpoFull')}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{t('workingCapital.dpoFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Số ngày thanh toán cho NCC
+                    {t('workingCapital.dpoDesc')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">CCC (Cash Conversion Cycle)</p>
-                  <p className="text-muted-foreground font-mono text-xs">= DSO + DIO - DPO</p>
+                  <p className="font-medium text-primary">{t('workingCapital.ccc')}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{t('workingCapital.cccFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Hiện tại: {current?.dso_days || 0} + {current?.dio_days || 0} - {current?.dpo_days || 0} = {current?.ccc_days || 0} ngày
+                    {t('workingCapital.current')}: {current?.dso_days || 0} + {current?.dio_days || 0} - {current?.dpo_days || 0} = {current?.ccc_days || 0} {t('workingCapital.days')}
                   </p>
                 </div>
               </CardContent>
@@ -159,7 +161,7 @@ export default function WorkingCapitalPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Clock className="h-4 w-4" />
-                DSO
+                {t('workingCapital.dso')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -167,9 +169,9 @@ export default function WorkingCapitalPage() {
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold">{current?.dso_days || 0} ngày</div>
+                  <div className="text-2xl font-bold">{current?.dso_days || 0} {t('workingCapital.days')}</div>
                   <p className="text-xs text-muted-foreground">
-                    Mục tiêu: {current?.target_dso || 30} ngày
+                    {t('workingCapital.target')}: {current?.target_dso || 30} {t('workingCapital.days')}
                   </p>
                 </>
               )}
@@ -180,7 +182,7 @@ export default function WorkingCapitalPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Wallet className="h-4 w-4" />
-                DIO
+                {t('workingCapital.dio')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -188,9 +190,9 @@ export default function WorkingCapitalPage() {
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold">{current?.dio_days || 0} ngày</div>
+                  <div className="text-2xl font-bold">{current?.dio_days || 0} {t('workingCapital.days')}</div>
                   <p className="text-xs text-muted-foreground">
-                    Ngày tồn kho
+                    {t('workingCapital.inventoryDays')}
                   </p>
                 </>
               )}
@@ -201,7 +203,7 @@ export default function WorkingCapitalPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <DollarSign className="h-4 w-4" />
-                DPO
+                {t('workingCapital.dpo')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -209,9 +211,9 @@ export default function WorkingCapitalPage() {
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold">{current?.dpo_days || 0} ngày</div>
+                  <div className="text-2xl font-bold">{current?.dpo_days || 0} {t('workingCapital.days')}</div>
                   <p className="text-xs text-muted-foreground">
-                    Mục tiêu: {current?.target_dpo || 45} ngày
+                    {t('workingCapital.target')}: {current?.target_dpo || 45} {t('workingCapital.days')}
                   </p>
                 </>
               )}
@@ -222,7 +224,7 @@ export default function WorkingCapitalPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Target className="h-4 w-4" />
-                CCC (Chu kỳ tiền mặt)
+                {t('workingCapital.ccc')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -231,7 +233,7 @@ export default function WorkingCapitalPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold flex items-center gap-2">
-                    {current?.ccc_days || 0} ngày
+                    {current?.ccc_days || 0} {t('workingCapital.days')}
                     {getTrendIcon()}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -246,7 +248,7 @@ export default function WorkingCapitalPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-1">
                 <TrendingUp className="h-4 w-4" />
-                Tiềm năng giải phóng vốn
+                {t('workingCapital.potentialRelease')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -258,7 +260,7 @@ export default function WorkingCapitalPage() {
                     {formatCurrency(summary?.totalPotentialCashRelease || 0)}
                   </div>
                   <p className="text-xs text-green-600 dark:text-green-500">
-                    Nếu đạt mục tiêu
+                    {t('workingCapital.ifTargetMet')}
                   </p>
                 </>
               )}
@@ -273,7 +275,7 @@ export default function WorkingCapitalPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5" />
-                Phân tích CCC
+                {t('workingCapital.cccAnalysis')}
               </CardTitle>
               <CardDescription>
                 DSO + DIO - DPO = CCC
@@ -291,12 +293,12 @@ export default function WorkingCapitalPage() {
                       <YAxis type="category" dataKey="metric" width={60} />
                       <Tooltip 
                         formatter={(value: number, name: string) => [
-                          `${value} ngày`,
-                          name === 'current' ? 'Hiện tại' : 'Mục tiêu'
+                          `${value} ${t('workingCapital.days')}`,
+                          name === 'current' ? t('workingCapital.current') : t('workingCapital.target')
                         ]}
                       />
                       <Legend 
-                        formatter={(value) => value === 'current' ? 'Hiện tại' : 'Mục tiêu'}
+                        formatter={(value) => value === 'current' ? t('workingCapital.current') : t('workingCapital.target')}
                       />
                       <Bar dataKey="current" fill="hsl(var(--primary))" name="current" />
                       <Bar dataKey="target" fill="hsl(var(--muted-foreground))" name="target" />
@@ -313,7 +315,7 @@ export default function WorkingCapitalPage() {
                   <span className="text-primary font-bold">{current?.dpo_days || 0}</span>
                   <span className="text-muted-foreground">=</span>
                   <span className="text-2xl font-bold text-primary">{current?.ccc_days || 0}</span>
-                  <span className="text-sm text-muted-foreground">ngày</span>
+                  <span className="text-sm text-muted-foreground">{t('workingCapital.days')}</span>
                 </div>
               </div>
             </CardContent>
@@ -324,16 +326,16 @@ export default function WorkingCapitalPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                Xu hướng CCC
+                {t('workingCapital.cccTrend')}
               </CardTitle>
               <CardDescription>
-                Diễn biến chu kỳ tiền mặt theo thời gian
+                {t('workingCapital.cccTrendDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading || trendData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  <p>Chưa có dữ liệu xu hướng</p>
+                  <p>{t('workingCapital.noTrendData')}</p>
                 </div>
               ) : (
                 <div className="h-[300px]">
@@ -343,7 +345,7 @@ export default function WorkingCapitalPage() {
                       <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip 
-                        formatter={(value: number) => [`${value} ngày`, '']}
+                        formatter={(value: number) => [`${value} ${t('workingCapital.days')}`, '']}
                       />
                       <Legend />
                       <Line 
@@ -380,14 +382,14 @@ export default function WorkingCapitalPage() {
         <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Phải thu khách hàng (AR)</CardTitle>
+              <CardTitle className="text-base">{t('workingCapital.ar')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {formatCurrency(current?.accounts_receivable || 0)}
               </div>
               <div className="mt-2 flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Vòng quay:</span>
+                <span className="text-muted-foreground">{t('workingCapital.turnover')}:</span>
                 <strong>{formatNumber(current?.ar_turnover || 0)}x</strong>
               </div>
             </CardContent>
@@ -395,14 +397,14 @@ export default function WorkingCapitalPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Tồn kho</CardTitle>
+              <CardTitle className="text-base">{t('workingCapital.inventory')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {formatCurrency(current?.inventory_value || 0)}
               </div>
               <div className="mt-2 flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Vòng quay:</span>
+                <span className="text-muted-foreground">{t('workingCapital.turnover')}:</span>
                 <strong>{formatNumber(current?.inventory_turnover || 0)}x</strong>
               </div>
             </CardContent>
@@ -410,14 +412,14 @@ export default function WorkingCapitalPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Phải trả nhà cung cấp (AP)</CardTitle>
+              <CardTitle className="text-base">{t('workingCapital.ap')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {formatCurrency(current?.accounts_payable || 0)}
               </div>
               <div className="mt-2 flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Vòng quay:</span>
+                <span className="text-muted-foreground">{t('workingCapital.turnover')}:</span>
                 <strong>{formatNumber(current?.ap_turnover || 0)}x</strong>
               </div>
             </CardContent>
@@ -429,10 +431,10 @@ export default function WorkingCapitalPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
-              Khuyến nghị tối ưu
+              {t('workingCapital.recommendations')}
             </CardTitle>
             <CardDescription>
-              Các hành động để cải thiện vốn lưu động
+              {t('workingCapital.recommendationsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>

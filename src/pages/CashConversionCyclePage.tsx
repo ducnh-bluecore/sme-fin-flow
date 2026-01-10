@@ -41,10 +41,12 @@ import { useCashConversionCycle } from '@/hooks/useCashConversionCycle';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function CashConversionCyclePage() {
   const { data, isLoading, error } = useCashConversionCycle();
   const [showFormulas, setShowFormulas] = useState(false);
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
@@ -60,7 +62,7 @@ export default function CashConversionCyclePage() {
   if (error || !data) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Không thể tải dữ liệu Cash Conversion Cycle
+        {t('ccc.loadError')}
       </div>
     );
   }
@@ -71,14 +73,14 @@ export default function CashConversionCyclePage() {
   return (
     <>
       <Helmet>
-        <title>Cash Conversion Cycle | CFO Dashboard</title>
+        <title>{t('ccc.title')} | CFO Dashboard</title>
       </Helmet>
 
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <PageHeader
-            title="Cash Conversion Cycle (CCC)"
-            subtitle="Phân tích vòng quay vốn lưu động: DSO + DIO - DPO"
+            title={t('ccc.title')}
+            subtitle={t('ccc.subtitle')}
           />
           <div className="flex flex-col items-end gap-2">
             <QuickDateSelector />
@@ -91,7 +93,7 @@ export default function CashConversionCyclePage() {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
               <Info className="h-4 w-4" />
-              Công thức tính
+              {t('ccc.formulas')}
               <ChevronDown className={`h-4 w-4 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
             </Button>
           </CollapsibleTrigger>
@@ -99,31 +101,31 @@ export default function CashConversionCyclePage() {
             <Card className="bg-muted/30">
               <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="font-medium text-blue-500">DSO (Days Sales Outstanding)</p>
-                  <p className="text-muted-foreground font-mono">= Phải thu / (Doanh thu / Số ngày)</p>
+                  <p className="font-medium text-blue-500">{t('workingCapital.dsoFull')}</p>
+                  <p className="text-muted-foreground font-mono">{t('workingCapital.dsoFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.avgAR)} / ({formatVNDCompact(data.rawData.totalSales)} / {data.rawData.daysInPeriod})
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-orange-500">DIO (Days Inventory Outstanding)</p>
-                  <p className="text-muted-foreground font-mono">= Tồn kho / (COGS / Số ngày)</p>
+                  <p className="font-medium text-orange-500">{t('workingCapital.dioFull')}</p>
+                  <p className="text-muted-foreground font-mono">{t('workingCapital.dioFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.avgInventory)} / ({formatVNDCompact(data.rawData.totalCogs)} / {data.rawData.daysInPeriod})
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-purple-500">DPO (Days Payable Outstanding)</p>
-                  <p className="text-muted-foreground font-mono">= Phải trả / (Mua hàng / Số ngày)</p>
+                  <p className="font-medium text-purple-500">{t('workingCapital.dpoFull')}</p>
+                  <p className="text-muted-foreground font-mono">{t('workingCapital.dpoFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.avgAP)} / ({formatVNDCompact(data.rawData.totalPurchases)} / {data.rawData.daysInPeriod})
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">CCC (Cash Conversion Cycle)</p>
-                  <p className="text-muted-foreground font-mono">= DSO + DIO - DPO</p>
+                  <p className="font-medium text-primary">{t('workingCapital.ccc')}</p>
+                  <p className="text-muted-foreground font-mono">{t('workingCapital.cccFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    = {data.dso} + {data.dio} - {data.dpo} = {data.ccc} ngày
+                    = {data.dso} + {data.dio} - {data.dpo} = {data.ccc} {t('workingCapital.days')}
                   </p>
                 </div>
               </CardContent>
@@ -144,10 +146,10 @@ export default function CashConversionCyclePage() {
                   <div className="text-center">
                     <div className="flex items-center gap-2 justify-center mb-2">
                       <CreditCard className="h-5 w-5 text-blue-500" />
-                      <span className="text-sm font-medium">DSO</span>
+                      <span className="text-sm font-medium">{t('workingCapital.dso')}</span>
                     </div>
                     <p className="text-3xl font-bold text-blue-500">{data.dso}</p>
-                    <p className="text-xs text-muted-foreground">ngày</p>
+                    <p className="text-xs text-muted-foreground">{t('workingCapital.days')}</p>
                   </div>
                   
                   <span className="text-2xl text-muted-foreground">+</span>
@@ -155,10 +157,10 @@ export default function CashConversionCyclePage() {
                   <div className="text-center">
                     <div className="flex items-center gap-2 justify-center mb-2">
                       <Package className="h-5 w-5 text-orange-500" />
-                      <span className="text-sm font-medium">DIO</span>
+                      <span className="text-sm font-medium">{t('workingCapital.dio')}</span>
                     </div>
                     <p className="text-3xl font-bold text-orange-500">{data.dio}</p>
-                    <p className="text-xs text-muted-foreground">ngày</p>
+                    <p className="text-xs text-muted-foreground">{t('workingCapital.days')}</p>
                   </div>
                   
                   <span className="text-2xl text-muted-foreground">−</span>
@@ -166,10 +168,10 @@ export default function CashConversionCyclePage() {
                   <div className="text-center">
                     <div className="flex items-center gap-2 justify-center mb-2">
                       <Wallet className="h-5 w-5 text-purple-500" />
-                      <span className="text-sm font-medium">DPO</span>
+                      <span className="text-sm font-medium">{t('workingCapital.dpo')}</span>
                     </div>
                     <p className="text-3xl font-bold text-purple-500">{data.dpo}</p>
-                    <p className="text-xs text-muted-foreground">ngày</p>
+                    <p className="text-xs text-muted-foreground">{t('workingCapital.days')}</p>
                   </div>
                   
                   <span className="text-2xl text-muted-foreground">=</span>
@@ -182,32 +184,32 @@ export default function CashConversionCyclePage() {
                     <p className={`text-4xl font-bold ${cccStatus === 'good' ? 'text-green-500' : cccStatus === 'warning' ? 'text-yellow-500' : 'text-red-500'}`}>
                       {data.ccc}
                     </p>
-                    <p className="text-xs text-muted-foreground">ngày</p>
+                    <p className="text-xs text-muted-foreground">{t('workingCapital.days')}</p>
                   </div>
                 </div>
 
                 {/* Benchmark Comparison */}
                 <div className="text-center md:text-right">
-                  <p className="text-sm text-muted-foreground mb-1">So với ngành</p>
+                  <p className="text-sm text-muted-foreground mb-1">{t('ccc.vsIndustry')}</p>
                   <div className="flex items-center gap-2 justify-center md:justify-end">
                     {cccImprovement <= 0 ? (
                       <>
                         <CheckCircle2 className="h-5 w-5 text-green-500" />
                         <span className="text-green-500 font-medium">
-                          Tốt hơn {Math.abs(cccImprovement)} ngày
+                          {t('ccc.betterBy')} {Math.abs(cccImprovement)} {t('workingCapital.days')}
                         </span>
                       </>
                     ) : (
                       <>
                         <AlertTriangle className="h-5 w-5 text-yellow-500" />
                         <span className="text-yellow-500 font-medium">
-                          Chậm hơn {cccImprovement} ngày
+                          {t('ccc.slowerBy')} {cccImprovement} {t('workingCapital.days')}
                         </span>
                       </>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Benchmark ngành: {data.industryBenchmark.ccc} ngày
+                    {t('ccc.industryBenchmark')}: {data.industryBenchmark.ccc} {t('workingCapital.days')}
                   </p>
                 </div>
               </div>
@@ -227,23 +229,23 @@ export default function CashConversionCyclePage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-blue-500" />
-                  <CardTitle className="text-sm">Days Sales Outstanding (DSO)</CardTitle>
+                  <CardTitle className="text-sm">{t('workingCapital.dsoFull')}</CardTitle>
                 </div>
-                <CardDescription>Thời gian thu hồi công nợ</CardDescription>
+                <CardDescription>{t('ccc.dsoDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-3">
                   <span className="text-3xl font-bold">{data.dso}</span>
-                  <span className="text-muted-foreground">ngày</span>
+                  <span className="text-muted-foreground">{t('workingCapital.days')}</span>
                   {data.dso <= data.industryBenchmark.dso ? (
                     <Badge className="bg-green-500/10 text-green-500">
                       <TrendingDown className="h-3 w-3 mr-1" />
-                      Tốt
+                      {t('ccc.good')}
                     </Badge>
                   ) : (
                     <Badge className="bg-yellow-500/10 text-yellow-500">
                       <TrendingUp className="h-3 w-3 mr-1" />
-                      Cao
+                      {t('ccc.high')}
                     </Badge>
                   )}
                 </div>
@@ -252,8 +254,8 @@ export default function CashConversionCyclePage() {
                   className="h-2 mb-2" 
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Phải thu: {formatVNDCompact(data.avgAR)}</span>
-                  <span>Benchmark: {data.industryBenchmark.dso}d</span>
+                  <span>{t('ccc.receivables')}: {formatVNDCompact(data.avgAR)}</span>
+                  <span>{t('ccc.benchmark')}: {data.industryBenchmark.dso}d</span>
                 </div>
               </CardContent>
             </Card>
@@ -269,23 +271,23 @@ export default function CashConversionCyclePage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-orange-500" />
-                  <CardTitle className="text-sm">Days Inventory Outstanding (DIO)</CardTitle>
+                  <CardTitle className="text-sm">{t('workingCapital.dioFull')}</CardTitle>
                 </div>
-                <CardDescription>Thời gian tồn kho</CardDescription>
+                <CardDescription>{t('ccc.dioDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-3">
                   <span className="text-3xl font-bold">{data.dio}</span>
-                  <span className="text-muted-foreground">ngày</span>
+                  <span className="text-muted-foreground">{t('workingCapital.days')}</span>
                   {data.dio <= data.industryBenchmark.dio ? (
                     <Badge className="bg-green-500/10 text-green-500">
                       <TrendingDown className="h-3 w-3 mr-1" />
-                      Tốt
+                      {t('ccc.good')}
                     </Badge>
                   ) : (
                     <Badge className="bg-yellow-500/10 text-yellow-500">
                       <TrendingUp className="h-3 w-3 mr-1" />
-                      Cao
+                      {t('ccc.high')}
                     </Badge>
                   )}
                 </div>
@@ -294,8 +296,8 @@ export default function CashConversionCyclePage() {
                   className="h-2 mb-2" 
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Tồn kho: {formatVNDCompact(data.avgInventory)}</span>
-                  <span>Benchmark: {data.industryBenchmark.dio}d</span>
+                  <span>{t('ccc.inventoryValue')}: {formatVNDCompact(data.avgInventory)}</span>
+                  <span>{t('ccc.benchmark')}: {data.industryBenchmark.dio}d</span>
                 </div>
               </CardContent>
             </Card>
@@ -311,23 +313,23 @@ export default function CashConversionCyclePage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-purple-500" />
-                  <CardTitle className="text-sm">Days Payable Outstanding (DPO)</CardTitle>
+                  <CardTitle className="text-sm">{t('workingCapital.dpoFull')}</CardTitle>
                 </div>
-                <CardDescription>Thời gian thanh toán NCC</CardDescription>
+                <CardDescription>{t('ccc.dpoDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-3">
                   <span className="text-3xl font-bold">{data.dpo}</span>
-                  <span className="text-muted-foreground">ngày</span>
+                  <span className="text-muted-foreground">{t('workingCapital.days')}</span>
                   {data.dpo >= data.industryBenchmark.dpo ? (
                     <Badge className="bg-green-500/10 text-green-500">
                       <TrendingUp className="h-3 w-3 mr-1" />
-                      Tốt
+                      {t('ccc.good')}
                     </Badge>
                   ) : (
                     <Badge className="bg-yellow-500/10 text-yellow-500">
                       <TrendingDown className="h-3 w-3 mr-1" />
-                      Thấp
+                      {t('ccc.low')}
                     </Badge>
                   )}
                 </div>
@@ -336,8 +338,8 @@ export default function CashConversionCyclePage() {
                   className="h-2 mb-2" 
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Phải trả: {formatVNDCompact(data.avgAP)}</span>
-                  <span>Benchmark: {data.industryBenchmark.dpo}d</span>
+                  <span>{t('ccc.payables')}: {formatVNDCompact(data.avgAP)}</span>
+                  <span>{t('ccc.benchmark')}: {data.industryBenchmark.dpo}d</span>
                 </div>
               </CardContent>
             </Card>
@@ -349,8 +351,8 @@ export default function CashConversionCyclePage() {
           {/* CCC Trend Chart */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Xu hướng CCC</CardTitle>
-              <CardDescription>Theo dõi các thành phần qua thời gian</CardDescription>
+              <CardTitle className="text-base">{t('ccc.trendTitle')}</CardTitle>
+              <CardDescription>{t('ccc.trendDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               {data.trends.length > 0 ? (
@@ -358,7 +360,7 @@ export default function CashConversionCyclePage() {
                   <ComposedChart data={data.trends}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis unit=" ngày" />
+                    <YAxis unit={` ${t('workingCapital.days')}`} />
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="dso" name="DSO" fill="hsl(210, 100%, 60%)" stackId="stack" />
@@ -376,13 +378,13 @@ export default function CashConversionCyclePage() {
                       y={data.industryBenchmark.ccc} 
                       stroke="hsl(var(--destructive))" 
                       strokeDasharray="5 5"
-                      label={{ value: 'Benchmark', position: 'right', fontSize: 10 }}
+                      label={{ value: t('ccc.benchmark'), position: 'right', fontSize: 10 }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-center text-muted-foreground py-12">
-                  Chưa có dữ liệu xu hướng
+                  {t('ccc.noTrendData')}
                 </p>
               )}
             </CardContent>
@@ -391,12 +393,12 @@ export default function CashConversionCyclePage() {
           {/* Working Capital Impact */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Tác động Working Capital</CardTitle>
-              <CardDescription>Vốn lưu động đang bị chiếm dụng</CardDescription>
+              <CardTitle className="text-base">{t('ccc.wcImpact')}</CardTitle>
+              <CardDescription>{t('ccc.wcImpactDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="p-4 rounded-lg bg-muted/50">
-                <p className="text-sm text-muted-foreground mb-2">Vốn đang bị kẹt</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('ccc.capitalTied')}</p>
                 <p className="text-3xl font-bold text-destructive">
                   {formatVNDCompact(data.workingCapitalTied)}
                 </p>
