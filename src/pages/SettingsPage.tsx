@@ -38,8 +38,10 @@ import { Badge } from '@/components/ui/badge';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useUpdateTenant } from '@/hooks/useTenant';
 import { useFormulaSettings, useUpdateFormulaSettings, FormulaSettings } from '@/hooks/useFormulaSettings';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function SettingsPage() {
+  const { t } = useLanguage();
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
@@ -199,8 +201,8 @@ export default function SettingsPage() {
   return (
     <>
       <Helmet>
-        <title>Cài đặt | Bluecore Finance</title>
-        <meta name="description" content="Cài đặt hệ thống" />
+        <title>{t('settings.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('settings.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -214,21 +216,21 @@ export default function SettingsPage() {
             <Settings className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Cài đặt</h1>
-            <p className="text-muted-foreground">System Settings</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('settings.title')}</h1>
+            <p className="text-muted-foreground">{t('settings.subtitle')}</p>
           </div>
         </motion.div>
 
         <Tabs defaultValue="tenant" className="space-y-6">
           <TabsList className="flex flex-wrap gap-1 h-auto p-1">
-            <TabsTrigger value="tenant" className="text-xs sm:text-sm">Công ty</TabsTrigger>
-            <TabsTrigger value="formulas" className="text-xs sm:text-sm">Công thức</TabsTrigger>
-            <TabsTrigger value="profile" className="text-xs sm:text-sm">Hồ sơ</TabsTrigger>
-            <TabsTrigger value="notifications" className="text-xs sm:text-sm">Thông báo</TabsTrigger>
-            <TabsTrigger value="appearance" className="text-xs sm:text-sm">Giao diện</TabsTrigger>
-            <TabsTrigger value="security" className="text-xs sm:text-sm">Bảo mật</TabsTrigger>
-            <TabsTrigger value="api" className="text-xs sm:text-sm">API Keys</TabsTrigger>
-            <TabsTrigger value="system" className="text-xs sm:text-sm">Hệ thống</TabsTrigger>
+            <TabsTrigger value="tenant" className="text-xs sm:text-sm">{t('settings.tabCompany')}</TabsTrigger>
+            <TabsTrigger value="formulas" className="text-xs sm:text-sm">{t('settings.tabFormulas')}</TabsTrigger>
+            <TabsTrigger value="profile" className="text-xs sm:text-sm">{t('settings.tabProfile')}</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs sm:text-sm">{t('settings.tabNotifications')}</TabsTrigger>
+            <TabsTrigger value="appearance" className="text-xs sm:text-sm">{t('settings.tabAppearance')}</TabsTrigger>
+            <TabsTrigger value="security" className="text-xs sm:text-sm">{t('settings.tabSecurity')}</TabsTrigger>
+            <TabsTrigger value="api" className="text-xs sm:text-sm">{t('settings.tabApi')}</TabsTrigger>
+            <TabsTrigger value="system" className="text-xs sm:text-sm">{t('settings.tabSystem')}</TabsTrigger>
           </TabsList>
 
           {/* Tenant Settings Tab */}
@@ -240,7 +242,7 @@ export default function SettingsPage() {
             >
               <h3 className="font-semibold text-lg mb-6 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-primary" />
-                Thông tin công ty
+                {t('settings.companyInfo')}
               </h3>
               
               {tenantLoading ? (
@@ -249,7 +251,7 @@ export default function SettingsPage() {
                 </div>
               ) : !activeTenant ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Chưa có công ty nào được chọn
+                  {t('settings.noCompanySelected')}
                 </div>
               ) : (
                 <div className="space-y-6 max-w-2xl">
@@ -261,7 +263,7 @@ export default function SettingsPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
-                      <Label htmlFor="logo">URL Logo</Label>
+                      <Label htmlFor="logo">{t('settings.logoUrl')}</Label>
                       <Input
                         id="logo"
                         placeholder="https://example.com/logo.png"
@@ -274,7 +276,7 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="tenantName">Tên công ty</Label>
+                      <Label htmlFor="tenantName">{t('settings.companyName')}</Label>
                       <Input
                         id="tenantName"
                         value={tenantName}
@@ -284,14 +286,14 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Slug</Label>
+                      <Label>{t('settings.slug')}</Label>
                       <Input value={activeTenant.slug} disabled />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Gói dịch vụ</Label>
+                      <Label>{t('settings.plan')}</Label>
                       <div className="flex items-center gap-2 mt-1.5">
                         <Badge variant="secondary" className="capitalize">
                           {activeTenant.plan || 'free'}
@@ -300,7 +302,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Ngày tạo</Label>
+                      <Label>{t('settings.createdAt')}</Label>
                       <p className="text-sm text-muted-foreground mt-1.5">
                         {formatDate(activeTenant.created_at)}
                       </p>
@@ -318,11 +320,11 @@ export default function SettingsPage() {
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       )}
                       <Save className="w-4 h-4 mr-2" />
-                      Lưu thay đổi
+                      {t('settings.saveChanges')}
                     </Button>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Chỉ chủ sở hữu mới có thể chỉnh sửa thông tin công ty
+                      {t('settings.onlyOwnerCanEdit')}
                     </p>
                   )}
                 </div>
@@ -339,7 +341,7 @@ export default function SettingsPage() {
             >
               <h3 className="font-semibold text-lg mb-6 flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-primary" />
-                Cài đặt công thức tính toán
+                {t('settings.formulaSettings')}
               </h3>
               
               {formulaLoading ? (
