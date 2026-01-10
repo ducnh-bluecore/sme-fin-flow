@@ -314,7 +314,7 @@ export default function StrategicInitiativesPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Sáng kiến chiến lược" subtitle="Quản lý các sáng kiến chiến lược của công ty" />
+        <PageHeader title={t('strategic.title')} subtitle={t('strategic.subtitle')} />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-64" />)}
         </div>
@@ -332,16 +332,16 @@ export default function StrategicInitiativesPage() {
   return (
     <>
       <Helmet>
-        <title>Sáng kiến chiến lược | CFO Dashboard</title>
-        <meta name="description" content="Quản lý các sáng kiến chiến lược của công ty" />
+        <title>{t('strategic.title')} | CFO Dashboard</title>
+        <meta name="description" content={t('strategic.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <PageHeader title="Sáng kiến chiến lược" subtitle="Quản lý các sáng kiến chiến lược của công ty" />
+          <PageHeader title={t('strategic.title')} subtitle={t('strategic.subtitle')} />
           <Button onClick={handleOpenCreate}>
             <Plus className="mr-2 h-4 w-4" />
-            Thêm sáng kiến
+            {t('strategic.addInitiative')}
           </Button>
         </div>
 
@@ -354,7 +354,7 @@ export default function StrategicInitiativesPage() {
                   <Target className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng sáng kiến</p>
+                  <p className="text-sm text-muted-foreground">{t('strategic.totalInitiatives')}</p>
                   <p className="text-2xl font-bold">{initiatives?.length || 0}</p>
                 </div>
               </div>
@@ -367,7 +367,7 @@ export default function StrategicInitiativesPage() {
                   <Clock className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Đang thực hiện</p>
+                  <p className="text-sm text-muted-foreground">{t('strategic.inProgress')}</p>
                   <p className="text-2xl font-bold">{inProgressCount}</p>
                 </div>
               </div>
@@ -380,7 +380,7 @@ export default function StrategicInitiativesPage() {
                   <TrendingUp className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Tiến độ TB</p>
+                  <p className="text-sm text-muted-foreground">{t('strategic.avgProgress')}</p>
                   <p className="text-2xl font-bold">{avgProgress.toFixed(0)}%</p>
                 </div>
               </div>
@@ -393,7 +393,7 @@ export default function StrategicInitiativesPage() {
                   <Settings2 className="h-5 w-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Ngân sách</p>
+                  <p className="text-sm text-muted-foreground">{t('strategic.budget')}</p>
                   <p className="text-lg font-bold">{formatCurrency(totalBudget)}</p>
                 </div>
               </div>
