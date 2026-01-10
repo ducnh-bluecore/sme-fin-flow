@@ -70,31 +70,10 @@ import {
 } from '@/hooks/useTenant';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate } from '@/lib/formatters';
-
-const roleConfig = {
-  owner: {
-    label: 'Chủ sở hữu',
-    icon: Crown,
-    color: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-  },
-  admin: {
-    label: 'Quản trị viên',
-    icon: Shield,
-    color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  },
-  member: {
-    label: 'Thành viên',
-    icon: UserCircle,
-    color: 'bg-green-500/10 text-green-500 border-green-500/20',
-  },
-  viewer: {
-    label: 'Xem',
-    icon: Eye,
-    color: 'bg-muted text-muted-foreground border-border',
-  },
-};
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function TenantMembersPage() {
+  const { t } = useLanguage();
   const { activeTenant, isAdmin, isLoading: tenantLoading } = useTenantContext();
   const { data: members = [], isLoading } = useTenantMembers(activeTenant?.id);
   const inviteToTenant = useInviteToTenant();
@@ -106,6 +85,29 @@ export default function TenantMembersPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'viewer'>('member');
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+
+  const roleConfig = {
+    owner: {
+      label: t('tenant.owner'),
+      icon: Crown,
+      color: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    },
+    admin: {
+      label: t('tenant.admin'),
+      icon: Shield,
+      color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    },
+    member: {
+      label: t('tenant.member'),
+      icon: UserCircle,
+      color: 'bg-green-500/10 text-green-500 border-green-500/20',
+    },
+    viewer: {
+      label: t('tenant.viewer'),
+      icon: Eye,
+      color: 'bg-muted text-muted-foreground border-border',
+    },
+  };
 
   const handleInvite = async () => {
     if (!activeTenant || !inviteEmail) return;
@@ -127,8 +129,8 @@ export default function TenantMembersPage() {
   const handleRemove = (memberId: string, memberRole: string, memberName: string) => {
     if (memberRole === 'owner') {
       toast({
-        title: 'Không thể xóa',
-        description: 'Không thể xóa chủ sở hữu khỏi công ty',
+        title: t('common.cancel'),
+        description: t('tenant.cannotRemoveOwner'),
         variant: 'destructive',
       });
       return;
@@ -148,7 +150,7 @@ export default function TenantMembersPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Users className="h-12 w-12 text-muted-foreground" />
-        <p className="text-muted-foreground">Chưa có công ty nào được chọn</p>
+        <p className="text-muted-foreground">{t('tenant.noCompany')}</p>
       </div>
     );
   }
@@ -156,8 +158,8 @@ export default function TenantMembersPage() {
   return (
     <>
       <Helmet>
-        <title>Quản lý thành viên | {activeTenant.name}</title>
-        <meta name="description" content="Quản lý thành viên trong công ty" />
+        <title>{t('tenant.membersTitle')} | {activeTenant.name}</title>
+        <meta name="description" content={t('tenant.membersMetaDesc')} />
       </Helmet>
 
       <motion.div
@@ -174,10 +176,10 @@ export default function TenantMembersPage() {
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="h-6 w-6" />
-              Quản lý thành viên
+              {t('tenant.membersTitle')}
             </h1>
             <p className="text-muted-foreground">
-              Quản lý thành viên trong {activeTenant.name}
+              {t('tenant.membersMetaDesc').replace('công ty', activeTenant.name)}
             </p>
           </div>
           {isAdmin && (
@@ -185,19 +187,19 @@ export default function TenantMembersPage() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
-                  Mời thành viên
+                  {t('tenant.inviteMember')}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Mời thành viên mới</DialogTitle>
+                  <DialogTitle>{t('tenant.inviteTitle')}</DialogTitle>
                   <DialogDescription>
-                    Gửi lời mời đến email của người bạn muốn thêm vào công ty
+                    {t('tenant.inviteDesc')}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('tenant.email')}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -207,28 +209,28 @@ export default function TenantMembersPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="role">Vai trò</Label>
+                    <Label htmlFor="role">{t('tenant.role')}</Label>
                     <Select value={inviteRole} onValueChange={(v: any) => setInviteRole(v)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Quản trị viên</SelectItem>
-                        <SelectItem value="member">Thành viên</SelectItem>
-                        <SelectItem value="viewer">Xem</SelectItem>
+                        <SelectItem value="admin">{t('tenant.admin')}</SelectItem>
+                        <SelectItem value="member">{t('tenant.member')}</SelectItem>
+                        <SelectItem value="viewer">{t('tenant.viewer')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
-                    Hủy
+                    {t('common.cancel')}
                   </Button>
                   <Button onClick={handleInvite} disabled={inviteToTenant.isPending}>
                     {inviteToTenant.isPending && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    Gửi lời mời
+                    {t('tenant.sendInvite')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -240,9 +242,9 @@ export default function TenantMembersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Thành viên</TableHead>
-                <TableHead>Vai trò</TableHead>
-                <TableHead>Tham gia</TableHead>
+                <TableHead>{t('tenant.member')}</TableHead>
+                <TableHead>{t('tenant.role')}</TableHead>
+                <TableHead>{t('tenant.joined')}</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -256,7 +258,7 @@ export default function TenantMembersPage() {
               ) : members.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    Chưa có thành viên nào
+                    {t('tenant.noMembers')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -292,7 +294,7 @@ export default function TenantMembersPage() {
                       <TableCell className="text-muted-foreground">
                         {member.joined_at
                           ? formatDate(member.joined_at)
-                          : 'Chờ xác nhận'}
+                          : t('tenant.pending')}
                       </TableCell>
                       <TableCell>
                         {isAdmin && member.role !== 'owner' && (
@@ -310,7 +312,7 @@ export default function TenantMembersPage() {
                                 })}
                               >
                                 <Shield className="mr-2 h-4 w-4" />
-                                Đặt làm Admin
+                                {t('tenant.setAsAdmin')}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => updateMemberRole.mutate({
@@ -319,7 +321,7 @@ export default function TenantMembersPage() {
                                 })}
                               >
                                 <UserCircle className="mr-2 h-4 w-4" />
-                                Đặt làm Member
+                                {t('tenant.setAsMember')}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => updateMemberRole.mutate({
@@ -328,7 +330,7 @@ export default function TenantMembersPage() {
                                 })}
                               >
                                 <Eye className="mr-2 h-4 w-4" />
-                                Đặt làm Viewer
+                                {t('tenant.setAsViewer')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -336,7 +338,7 @@ export default function TenantMembersPage() {
                                 onClick={() => handleRemove(member.id, member.role, memberName)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Xóa khỏi công ty
+                                {t('tenant.removeFromCompany')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -354,19 +356,18 @@ export default function TenantMembersPage() {
       <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa thành viên</AlertDialogTitle>
+            <AlertDialogTitle>{t('tenant.confirmRemoveTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa <strong>{memberToRemove?.name}</strong> khỏi công ty? 
-              Thành viên này sẽ không thể truy cập dữ liệu công ty nữa.
+              {t('tenant.confirmRemoveDesc')} <strong>{memberToRemove?.name}</strong> {t('tenant.confirmRemoveNote')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRemoveConfirm}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Xóa thành viên
+              {t('tenant.removeMember')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
