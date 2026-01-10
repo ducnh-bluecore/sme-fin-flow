@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { 
   Settings, Bell, Plus, Search, Filter, Trash2, Edit2,
   Mail, MessageSquare, Phone, AlertTriangle, AlertCircle, Info,
   Package, TrendingUp, Store, Wallet, Target, Users, Truck,
-  ToggleLeft, ToggleRight, Save, Loader2, User, ChevronDown
+  ToggleRight, Save, Loader2, ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,30 +17,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Slider } from '@/components/ui/slider';
-import { toast } from 'sonner';
 import { 
-  useExtendedAlertConfigs, 
-  useBulkUpdateAlertConfigs, 
-  useInitializeDefaultAlerts,
-  defaultExtendedAlerts,
-  categoryLabels, 
-  severityLabels, 
+  useNotificationCenter, 
+  AlertCategory, 
+  AlertSeverity, 
+  AlertConfig,
+  NotificationRecipient,
+  categoryLabels,
+  severityConfig,
   recipientRoleLabels,
-  AlertCategory,
-  AlertSeverity,
-  ExtendedAlertConfigInput
-} from '@/hooks/useExtendedAlertConfigs';
-import { 
-  useNotificationRecipients, 
-  useSaveNotificationRecipient, 
-  useDeleteNotificationRecipient,
-  NotificationRecipientInput
-} from '@/hooks/useNotificationRecipients';
-import { recipientRoles } from '@/types/alerts';
+} from '@/hooks/useNotificationCenter';
 
+// Icons mapping
 const categoryIcons: Record<AlertCategory, typeof Package> = {
   product: Package,
   business: TrendingUp,
@@ -62,67 +52,37 @@ export default function KPINotificationRulesPage() {
   const [activeTab, setActiveTab] = useState('rules');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [editingRecipient, setEditingRecipient] = useState<NotificationRecipientInput & { id?: string } | null>(null);
+  const [editingRecipient, setEditingRecipient] = useState<Partial<NotificationRecipient> & { name?: string; role?: string } | null>(null);
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['kpi', 'cashflow']);
+  const [localConfigs, setLocalConfigs] = useState<AlertConfig[]>([]);
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
 
-  // Data hooks
-  const { data: alertConfigs, isLoading: configsLoading } = useExtendedAlertConfigs();
-  const bulkUpdate = useBulkUpdateAlertConfigs();
-  const initDefaults = useInitializeDefaultAlerts();
-  
-  const { data: recipients, isLoading: recipientsLoading } = useNotificationRecipients();
-  const saveRecipient = useSaveNotificationRecipient();
-  const deleteRecipient = useDeleteNotificationRecipient();
+  // Use unified hook
+  const {
+    configs,
+    recipients,
+    stats,
+    isConfigsLoading,
+    isRecipientsLoading,
+    saveConfig,
+    saveRecipient,
+    deleteRecipient,
+    recipientRoleLabels: roleLabels,
+  } = useNotificationCenter();
 
-  const [localConfigs, setLocalConfigs] = useState<ExtendedAlertConfigInput[]>([]);
-
-  // Initialize local configs from server data
-  useState(() => {
-    if (alertConfigs && alertConfigs.length > 0) {
-      setLocalConfigs(alertConfigs.map(c => ({
-        category: c.category as AlertCategory,
-        alert_type: c.alert_type,
-        severity: c.severity as AlertSeverity,
-        enabled: c.enabled,
-        threshold_value: c.threshold_value,
-        threshold_unit: c.threshold_unit,
-        threshold_operator: c.threshold_operator,
-        title: c.title,
-        description: c.description,
-        recipient_role: c.recipient_role,
-        notify_email: c.notify_email,
-        notify_slack: c.notify_slack,
-        notify_push: c.notify_push,
-        notify_sms: c.notify_sms,
-        notify_immediately: c.notify_immediately,
-        notify_in_daily_digest: c.notify_in_daily_digest,
-      })));
+  // Sync local configs with server data
+  useEffect(() => {
+    if (configs.length > 0 && !hasLocalChanges) {
+      setLocalConfigs(configs);
     }
-  });
+  }, [configs, hasLocalChanges]);
 
-  // Use server data directly if no local changes
-  const configs = localConfigs.length > 0 ? localConfigs : (alertConfigs?.map(c => ({
-    category: c.category as AlertCategory,
-    alert_type: c.alert_type,
-    severity: c.severity as AlertSeverity,
-    enabled: c.enabled,
-    threshold_value: c.threshold_value,
-    threshold_unit: c.threshold_unit,
-    threshold_operator: c.threshold_operator,
-    title: c.title,
-    description: c.description,
-    recipient_role: c.recipient_role,
-    notify_email: c.notify_email,
-    notify_slack: c.notify_slack,
-    notify_push: c.notify_push,
-    notify_sms: c.notify_sms,
-    notify_immediately: c.notify_immediately,
-    notify_in_daily_digest: c.notify_in_daily_digest,
-  })) || defaultExtendedAlerts);
+  // Use local configs if available, otherwise server data
+  const displayConfigs = localConfigs.length > 0 ? localConfigs : configs;
 
   // Filter configs
-  const filteredConfigs = configs.filter(c => {
+  const filteredConfigs = displayConfigs.filter(c => {
     const matchSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        c.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCategory = categoryFilter === 'all' || c.category === categoryFilter;
@@ -131,33 +91,33 @@ export default function KPINotificationRulesPage() {
 
   // Group by category
   const groupedConfigs = filteredConfigs.reduce((acc, config) => {
-    if (!acc[config.category]) acc[config.category] = [];
-    acc[config.category].push(config);
+    const category = config.category as AlertCategory;
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(config);
     return acc;
-  }, {} as Record<AlertCategory, ExtendedAlertConfigInput[]>);
+  }, {} as Record<AlertCategory, AlertConfig[]>);
 
   const handleConfigChange = (category: AlertCategory, alertType: string, field: string, value: any) => {
     setLocalConfigs(prev => {
-      const existing = prev.length > 0 ? prev : configs;
+      const existing = prev.length > 0 ? prev : displayConfigs;
       return existing.map(c => 
         c.category === category && c.alert_type === alertType ? { ...c, [field]: value } : c
       );
     });
+    setHasLocalChanges(true);
   };
 
   const handleSaveConfigs = async () => {
     try {
-      await bulkUpdate.mutateAsync(localConfigs.length > 0 ? localConfigs : configs);
-      toast.success('Đã lưu cấu hình thành công');
-    } catch (error) {
-      // Error handled in hook
-    }
-  };
-
-  const handleInitDefaults = async () => {
-    try {
-      await initDefaults.mutateAsync();
-      toast.success('Đã khởi tạo cấu hình mặc định');
+      // Save all changed configs
+      const promises = localConfigs.map(config => 
+        saveConfig.mutateAsync({
+          ...config,
+          category: config.category as AlertCategory,
+        })
+      );
+      await Promise.all(promises);
+      setHasLocalChanges(false);
     } catch (error) {
       // Error handled in hook
     }
@@ -169,7 +129,7 @@ export default function KPINotificationRulesPage() {
     );
   };
 
-  const formatThreshold = (config: ExtendedAlertConfigInput) => {
+  const formatThreshold = (config: AlertConfig) => {
     if (!config.threshold_value) return '-';
     if (config.threshold_unit === 'amount') {
       return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(config.threshold_value);
@@ -183,11 +143,14 @@ export default function KPINotificationRulesPage() {
 
   const handleSaveRecipient = async () => {
     if (!editingRecipient?.name || !editingRecipient?.role) {
-      toast.error('Vui lòng nhập đầy đủ thông tin');
       return;
     }
     try {
-      await saveRecipient.mutateAsync(editingRecipient);
+      await saveRecipient.mutateAsync({
+        ...editingRecipient,
+        name: editingRecipient.name,
+        role: editingRecipient.role,
+      });
       setRecipientDialogOpen(false);
       setEditingRecipient(null);
     } catch (error) {
@@ -206,9 +169,10 @@ export default function KPINotificationRulesPage() {
     setRecipientDialogOpen(true);
   };
 
-  const enabledCount = configs.filter(c => c.enabled).length;
-  const criticalCount = configs.filter(c => c.enabled && c.severity === 'critical').length;
-  const warningCount = configs.filter(c => c.enabled && c.severity === 'warning').length;
+  // Computed stats
+  const enabledCount = displayConfigs.filter(c => c.enabled).length;
+  const criticalCount = displayConfigs.filter(c => c.enabled && c.severity === 'critical').length;
+  const warningCount = displayConfigs.filter(c => c.enabled && c.severity === 'warning').length;
 
   return (
     <>
@@ -232,8 +196,11 @@ export default function KPINotificationRulesPage() {
             <Badge variant="outline" className="border-primary/30 text-primary">
               {enabledCount} rules đang bật
             </Badge>
-            <Button onClick={handleSaveConfigs} disabled={bulkUpdate.isPending}>
-              {bulkUpdate.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            {hasLocalChanges && (
+              <Badge variant="secondary">Có thay đổi chưa lưu</Badge>
+            )}
+            <Button onClick={handleSaveConfigs} disabled={saveConfig.isPending || !hasLocalChanges}>
+              {saveConfig.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Lưu thay đổi
             </Button>
           </div>
@@ -248,7 +215,7 @@ export default function KPINotificationRulesPage() {
                   <Bell className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{configs.length}</p>
+                  <p className="text-2xl font-bold">{displayConfigs.length}</p>
                   <p className="text-xs text-muted-foreground">Tổng số rules</p>
                 </div>
               </div>
@@ -300,7 +267,7 @@ export default function KPINotificationRulesPage() {
           <TabsList>
             <TabsTrigger value="rules" className="gap-2">
               <Target className="h-4 w-4" />
-              Rules KPI ({configs.length})
+              Rules KPI ({displayConfigs.length})
             </TabsTrigger>
             <TabsTrigger value="recipients" className="gap-2">
               <Users className="h-4 w-4" />
@@ -335,23 +302,26 @@ export default function KPINotificationRulesPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {configs.length === 0 && (
-                    <Button onClick={handleInitDefaults} disabled={initDefaults.isPending}>
-                      {initDefaults.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      <Plus className="h-4 w-4 mr-2" />
-                      Khởi tạo mặc định
-                    </Button>
-                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Rules List */}
-            {configsLoading ? (
+            {isConfigsLoading ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                   <p className="text-muted-foreground mt-2">Đang tải...</p>
+                </CardContent>
+              </Card>
+            ) : displayConfigs.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">Chưa có rules nào được cấu hình</p>
+                  <p className="text-sm text-muted-foreground">
+                    Rules sẽ được tạo tự động khi bạn thiết lập các cảnh báo
+                  </p>
                 </CardContent>
               </Card>
             ) : (
@@ -387,8 +357,8 @@ export default function KPINotificationRulesPage() {
                           <CardContent className="pt-0">
                             <div className="space-y-3">
                               {categoryConfigs.map(config => {
-                                const SeverityIcon = severityIcons[config.severity];
-                                const sevConfig = severityLabels[config.severity];
+                                const SeverityIcon = severityIcons[config.severity as AlertSeverity];
+                                const sevConfig = severityConfig[config.severity as AlertSeverity];
                                 
                                 return (
                                   <motion.div
@@ -424,7 +394,7 @@ export default function KPINotificationRulesPage() {
                                             <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
                                               <span className="flex items-center gap-1">
                                                 <Users className="w-3 h-3" />
-                                                {recipientRoleLabels[config.recipient_role]}
+                                                {roleLabels[config.recipient_role] || config.recipient_role}
                                               </span>
                                               {config.notify_email && (
                                                 <span className="flex items-center gap-1">
@@ -484,7 +454,7 @@ export default function KPINotificationRulesPage() {
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              {Object.entries(recipientRoleLabels).map(([key, label]) => (
+                                              {Object.entries(roleLabels).map(([key, label]) => (
                                                 <SelectItem key={key} value={key}>{label}</SelectItem>
                                               ))}
                                             </SelectContent>
@@ -534,7 +504,7 @@ export default function KPINotificationRulesPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {recipientsLoading ? (
+                {isRecipientsLoading ? (
                   <div className="text-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                   </div>
@@ -558,7 +528,7 @@ export default function KPINotificationRulesPage() {
                           <TableCell>{recipient.phone || '-'}</TableCell>
                           <TableCell>
                             <Badge variant="outline">
-                              {recipientRoles.find(r => r.value === recipient.role)?.label || recipient.role}
+                              {roleLabels[recipient.role] || recipient.role}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -669,8 +639,8 @@ export default function KPINotificationRulesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {recipientRoles.map(role => (
-                    <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+                  {Object.entries(roleLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
