@@ -94,6 +94,12 @@ const CTTasksPage = lazy(() => import("./pages/control-tower/TasksPage"));
 const CTAlertsPage = lazy(() => import("./pages/control-tower/AlertsPage"));
 const CTAnalyticsPage = lazy(() => import("./pages/control-tower/AnalyticsPage"));
 const CTKPIRulesPage = lazy(() => import("./pages/control-tower/KPINotificationRulesPage"));
+const CTStoresPage = lazy(() => import("./pages/control-tower/StoresPage"));
+const CTInventoryPage = lazy(() => import("./pages/control-tower/InventoryPage"));
+const CTPerformancePage = lazy(() => import("./pages/control-tower/PerformancePage"));
+const CTTeamPage = lazy(() => import("./pages/control-tower/TeamPage"));
+const CTChatPage = lazy(() => import("./pages/control-tower/ChatPage"));
+const CTSettingsPage = lazy(() => import("./pages/control-tower/SettingsPage"));
 
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
 
@@ -141,6 +147,12 @@ const AppRoutes = () => {
         <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
         <Route path="/control-tower/analytics" element={<CTAnalyticsPage />} />
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
+        <Route path="/control-tower/stores" element={<CTStoresPage />} />
+        <Route path="/control-tower/inventory" element={<CTInventoryPage />} />
+        <Route path="/control-tower/performance" element={<CTPerformancePage />} />
+        <Route path="/control-tower/team" element={<CTTeamPage />} />
+        <Route path="/control-tower/chat" element={<CTChatPage />} />
+        <Route path="/control-tower/settings" element={<CTSettingsPage />} />
       </Route>
       
       {/* Super Admin Routes */}
