@@ -9,6 +9,7 @@ import {
   Download, RefreshCw, Link2, FileSpreadsheet, BarChart3,
   TrendingDown, TrendingUp
 } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +78,7 @@ const reasonColors: Record<string, string> = {
 };
 
 export default function CreditDebitNotesPage() {
+  const { t } = useLanguage();
   const { data: creditNotes, isLoading: creditLoading, refetch: refetchCredit } = useCreditNotes();
   const { data: debitNotes, isLoading: debitLoading, refetch: refetchDebit } = useDebitNotes();
   const { data: adjustments } = useInvoiceAdjustments();
@@ -191,7 +193,7 @@ export default function CreditDebitNotesPage() {
   return (
     <>
       <Helmet>
-        <title>Theo dõi Điều chỉnh | Bluecore Finance</title>
+        <title>{t('cdn.title')} | Bluecore Finance</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -203,24 +205,24 @@ export default function CreditDebitNotesPage() {
         >
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              Theo dõi Phiếu điều chỉnh
+              {t('cdn.title')}
             </h1>
-            <p className="text-muted-foreground">Phân tích Credit Notes & Debit Notes từ các nguồn đã tích hợp</p>
+            <p className="text-muted-foreground">{t('cdn.subtitle')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <QuickDateSelector showYears />
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Làm mới
+              {t('cdn.refresh')}
             </Button>
             <Button variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
-              Xuất Excel
+              {t('cdn.exportExcel')}
             </Button>
             <Link to="/connectors">
               <Button size="sm">
                 <Link2 className="w-4 h-4 mr-2" />
-                Kết nối nguồn
+                {t('cdn.connectSource')}
               </Button>
             </Link>
           </div>
