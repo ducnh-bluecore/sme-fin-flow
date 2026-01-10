@@ -16,7 +16,7 @@ import {
   TrendingUp, TrendingDown, ShoppingCart, DollarSign, 
   Package, Percent, Store, ArrowUpRight, ArrowDownRight, ExternalLink 
 } from 'lucide-react';
-import { formatCurrency, formatNumber } from '@/lib/formatters';
+import { formatCurrency, formatNumber, formatPercent, formatDateShort, formatDate } from '@/lib/formatters';
 import { 
   useChannelPerformance, 
   useDailyChannelRevenue, 
@@ -309,7 +309,7 @@ export default function ChannelAnalyticsPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {totals.grossRevenue > 0 
-                  ? `${((totals.fees / totals.grossRevenue) * 100).toFixed(1)}% doanh thu`
+                  ? `${formatPercent((totals.fees / totals.grossRevenue) * 100)} doanh thu`
                   : '0% doanh thu'}
               </p>
             </CardContent>
@@ -328,7 +328,7 @@ export default function ChannelAnalyticsPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {totals.grossRevenue > 0 
-                  ? `Margin: ${((totals.profit / totals.grossRevenue) * 100).toFixed(1)}%`
+                  ? `Margin: ${formatPercent((totals.profit / totals.grossRevenue) * 100)}`
                   : 'Margin: 0%'}
               </p>
             </CardContent>
@@ -358,7 +358,7 @@ export default function ChannelAnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis 
                         dataKey="date" 
-                        tickFormatter={(v) => new Date(v).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                        tickFormatter={(v) => formatDateShort(v)}
                         className="text-xs"
                       />
                       <YAxis 
@@ -367,7 +367,7 @@ export default function ChannelAnalyticsPage() {
                       />
                       <Tooltip 
                         formatter={(value: number) => formatCurrency(value)}
-                        labelFormatter={(label) => new Date(label).toLocaleDateString('vi-VN')}
+                        labelFormatter={(label) => formatDate(label)}
                       />
                       <Legend />
                       <Area 
@@ -407,7 +407,7 @@ export default function ChannelAnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name}: ${formatPercent(percent * 100)}`}
                       >
                         {revenueBySource.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -438,7 +438,7 @@ export default function ChannelAnalyticsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={90}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name}: ${formatPercent(percent * 100)}`}
                       >
                         {statusData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -463,13 +463,13 @@ export default function ChannelAnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis 
                       dataKey="date" 
-                      tickFormatter={(v) => new Date(v).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      tickFormatter={(v) => formatDateShort(v)}
                       className="text-xs"
                     />
                     <YAxis className="text-xs" />
                     <Tooltip 
                       formatter={(value: number) => formatNumber(value)}
-                      labelFormatter={(label) => new Date(label).toLocaleDateString('vi-VN')}
+                      labelFormatter={(label) => formatDate(label)}
                     />
                     <Line 
                       type="monotone" 
@@ -682,7 +682,7 @@ export default function ChannelAnalyticsPage() {
                             {s.settlement_number || s.settlement_id.slice(0, 12)}
                           </td>
                           <td className="py-3 px-4">
-                            {new Date(s.period_start).toLocaleDateString('vi-VN')} - {new Date(s.period_end).toLocaleDateString('vi-VN')}
+                            {formatDate(s.period_start)} - {formatDate(s.period_end)}
                           </td>
                           <td className="text-right py-3 px-4">
                             {formatCurrency(s.gross_sales || 0)}

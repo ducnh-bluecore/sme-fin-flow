@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatDate } from '@/lib/formatters';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
 import {
   LineChart,
@@ -96,7 +96,7 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
   const handleSave = () => {
     saveAnalysis.mutate({
       analysis_type: 'npv_irr',
-      title: `Phân tích NPV/IRR - ${new Date().toLocaleDateString('vi-VN')}`,
+      title: `Phân tích NPV/IRR - ${formatDate(new Date())}`,
       description: `Đầu tư ${formatVNDCompact(initialInvestment)}, ${cashFlows.length} năm`,
       parameters: { initialInvestment, discountRate, cashFlows },
       results: { npv, irr, profitabilityIndex, totalCashFlows },

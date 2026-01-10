@@ -69,36 +69,26 @@ export const CHART_CONFIG = {
   },
 };
 
-// Format helpers for charts
+// Format helpers for charts - delegates to centralized formatters
+// Import from @/lib/formatters for consistency
+import { formatVNDCompact, formatPercent, formatDate, formatDateShort, formatMonthYear } from '@/lib/formatters';
+
 export const chartFormatters = {
-  // Vietnamese currency
-  vnd: (value: number) => {
-    if (value >= 1_000_000_000) {
-      return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
-    }
-    if (value >= 1_000_000) {
-      return `${(value / 1_000_000).toFixed(1)} tr`;
-    }
-    if (value >= 1_000) {
-      return `${(value / 1_000).toFixed(0)} k`;
-    }
-    return value.toString();
-  },
+  // Vietnamese currency compact format
+  vnd: (value: number) => formatVNDCompact(value),
   
   // Percentage
-  percent: (value: number) => `${value.toFixed(1)}%`,
+  percent: (value: number) => formatPercent(value),
   
   // Number with comma
   number: (value: number) => new Intl.NumberFormat('vi-VN').format(value),
   
-  // Date formatting
-  date: (value: string) => {
-    const date = new Date(value);
-    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-  },
+  // Date formatting for charts
+  date: (value: string) => formatDateShort(value),
   
-  month: (value: string) => {
-    const date = new Date(value);
-    return date.toLocaleDateString('vi-VN', { month: 'short', year: 'numeric' });
-  },
+  // Month formatting for charts
+  month: (value: string) => formatMonthYear(value),
+  
+  // Millions format for Y-axis
+  millions: (value: number) => `${(value / 1_000_000).toFixed(0)}M`,
 };

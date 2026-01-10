@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatDate } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useUpdateTenant } from '@/hooks/useTenant';
@@ -301,11 +302,7 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label>Ngày tạo</Label>
                       <p className="text-sm text-muted-foreground mt-1.5">
-                        {new Date(activeTenant.created_at).toLocaleDateString('vi-VN', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
+                        {formatDate(activeTenant.created_at)}
                       </p>
                     </div>
                   </div>

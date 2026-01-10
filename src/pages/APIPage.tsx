@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { formatNumber, formatDateTime } from '@/lib/formatters';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
@@ -198,9 +199,9 @@ export default function APIPage() {
                     
                     <div className="flex items-center gap-6">
                       <div className="text-right text-sm">
-                        <p className="font-medium">{(apiKey.requests_count || 0).toLocaleString()} requests</p>
+                        <p className="font-medium">{formatNumber(apiKey.requests_count || 0)} requests</p>
                         <p className="text-xs text-muted-foreground">
-                          Last used: {apiKey.last_used_at ? new Date(apiKey.last_used_at).toLocaleString('vi-VN') : 'N/A'}
+                          Last used: {apiKey.last_used_at ? formatDateTime(apiKey.last_used_at) : 'N/A'}
                         </p>
                       </div>
                       <div className="flex gap-1">

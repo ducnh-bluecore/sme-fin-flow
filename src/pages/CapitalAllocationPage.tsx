@@ -34,7 +34,7 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatPercent } from '@/lib/formatters';
 import { useCapexProjects } from '@/hooks/useCapexProjects';
 import { useInvestments } from '@/hooks/useInvestments';
 import {
@@ -205,7 +205,7 @@ export default function CapitalAllocationPage() {
                     <>
                       <Progress value={(totalSpent / totalBudget) * 100} className="mt-2 h-2" />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Đã chi: {formatVNDCompact(totalSpent)} ({((totalSpent / totalBudget) * 100).toFixed(0)}%)
+                        Đã chi: {formatVNDCompact(totalSpent)} ({formatPercent((totalSpent / totalBudget) * 100)})
                       </p>
                     </>
                   )}
@@ -232,7 +232,7 @@ export default function CapitalAllocationPage() {
                   {hasInvestmentData && (
                     <div className={`flex items-center gap-1 text-sm mt-1 ${ytdReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                       {ytdReturn >= 0 ? <TrendingUp className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                      {ytdReturn >= 0 ? '+' : ''}{ytdReturn.toFixed(1)}% YTD
+                      {ytdReturn >= 0 ? '+' : ''}{formatPercent(ytdReturn)} YTD
                     </div>
                   )}
                 </>
@@ -253,7 +253,7 @@ export default function CapitalAllocationPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold">
-                    {hasCapexData && avgRoi > 0 ? `${avgRoi.toFixed(1)}%` : '—'}
+                    {hasCapexData && avgRoi > 0 ? formatPercent(avgRoi) : '—'}
                   </div>
                   {hasCapexData && avgRoi > 0 && (
                     <div className={`flex items-center gap-1 text-sm mt-1 ${avgRoi >= 20 ? 'text-green-500' : 'text-yellow-500'}`}>
@@ -326,7 +326,7 @@ export default function CapitalAllocationPage() {
                             cx="50%"
                             cy="50%"
                             outerRadius={100}
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }) => `${name}: ${formatPercent(percent * 100)}`}
                           >
                             {allocationByCategory.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -427,7 +427,7 @@ export default function CapitalAllocationPage() {
                                 className="h-2"
                               />
                               <span className="text-xs text-muted-foreground">
-                                {project.budget > 0 ? ((project.spent / project.budget) * 100).toFixed(0) : 0}%
+                                {project.budget > 0 ? formatPercent((project.spent / project.budget) * 100) : '0%'}
                               </span>
                             </div>
                           </TableCell>
@@ -506,7 +506,7 @@ export default function CapitalAllocationPage() {
                               <TableCell>
                                 <div className={`flex items-center gap-1 font-medium ${returnPct >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                   {returnPct >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                                  {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
+                                  {returnPct >= 0 ? '+' : ''}{formatPercent(returnPct)}
                                 </div>
                               </TableCell>
                             </TableRow>
