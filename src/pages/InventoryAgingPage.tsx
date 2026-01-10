@@ -9,11 +9,13 @@ import { useInventoryAging } from '@/hooks/useInventoryAging';
 import { formatCurrency } from '@/lib/formatters';
 import { LoadingState, EmptyState } from '@/components/shared';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const COLORS = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
 
 export default function InventoryAgingPage() {
   const { items, agingBuckets, summary, isLoading, error } = useInventoryAging();
+  const { t } = useLanguage();
 
   if (isLoading) return <LoadingState variant="page" />;
 
@@ -32,7 +34,7 @@ export default function InventoryAgingPage() {
   return (
     <>
       <Helmet>
-        <title>Phân tích tuổi tồn kho | Bluecore Finance</title>
+        <title>{t('inventory.title')} | Bluecore Finance</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -45,8 +47,8 @@ export default function InventoryAgingPage() {
             <Package className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Phân tích tuổi tồn kho</h1>
-            <p className="text-muted-foreground">Inventory Aging Analysis</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('inventory.title')}</h1>
+            <p className="text-muted-foreground">{t('inventory.subtitle')}</p>
           </div>
         </motion.div>
 
@@ -57,7 +59,7 @@ export default function InventoryAgingPage() {
               <div className="flex items-center gap-3">
                 <Package className="w-8 h-8 text-blue-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng SKU</p>
+                  <p className="text-sm text-muted-foreground">{t('inventory.totalSKU')}</p>
                   <p className="text-2xl font-bold">{summary.totalItems.toLocaleString()}</p>
                 </div>
               </div>
@@ -69,7 +71,7 @@ export default function InventoryAgingPage() {
               <div className="flex items-center gap-3">
                 <TrendingDown className="w-8 h-8 text-green-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng giá trị</p>
+                  <p className="text-sm text-muted-foreground">{t('inventory.totalValue')}</p>
                   <p className="text-2xl font-bold">{formatCurrency(summary.totalValue)}</p>
                 </div>
               </div>
@@ -81,8 +83,8 @@ export default function InventoryAgingPage() {
               <div className="flex items-center gap-3">
                 <Clock className="w-8 h-8 text-yellow-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tuổi TB</p>
-                  <p className="text-2xl font-bold">{Math.round(summary.avgAge)} ngày</p>
+                  <p className="text-sm text-muted-foreground">{t('inventory.avgAge')}</p>
+                  <p className="text-2xl font-bold">{Math.round(summary.avgAge)} {t('inventory.days')}</p>
                 </div>
               </div>
             </CardContent>
@@ -93,7 +95,7 @@ export default function InventoryAgingPage() {
               <div className="flex items-center gap-3">
                 <AlertTriangle className={`w-8 h-8 ${summary.slowMovingPercentage > 20 ? 'text-red-500' : 'text-orange-500'}`} />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tồn chậm (&gt;90 ngày)</p>
+                  <p className="text-sm text-muted-foreground">{t('inventory.slowMoving')}</p>
                   <p className="text-2xl font-bold">{summary.slowMovingPercentage.toFixed(1)}%</p>
                   <p className="text-xs text-muted-foreground">{formatCurrency(summary.slowMovingValue)}</p>
                 </div>
@@ -105,8 +107,8 @@ export default function InventoryAgingPage() {
         {items.length === 0 ? (
           <EmptyState
             icon={Package}
-            title="Chưa có dữ liệu tồn kho"
-            description="Import dữ liệu tồn kho để xem phân tích tuổi hàng"
+            title={t('inventory.noData')}
+            description={t('inventory.noDataDesc')}
           />
         ) : (
           <>
@@ -114,7 +116,7 @@ export default function InventoryAgingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Phân bổ giá trị theo tuổi</CardTitle>
+                  <CardTitle>{t('inventory.valueByAge')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -140,7 +142,7 @@ export default function InventoryAgingPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Số lượng & Giá trị theo bucket</CardTitle>
+                  <CardTitle>{t('inventory.qtyValueByBucket')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -150,8 +152,8 @@ export default function InventoryAgingPage() {
                       <YAxis yAxisId="right" orientation="right" />
                       <Tooltip />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="quantity" name="Số lượng" fill="#3b82f6" />
-                      <Bar yAxisId="right" dataKey="value" name="Giá trị (triệu)" fill="#10b981" />
+                      <Bar yAxisId="left" dataKey="quantity" name={t('inventory.quantity')} fill="#3b82f6" />
+                      <Bar yAxisId="right" dataKey="value" name={t('inventory.valueMillion')} fill="#10b981" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -161,7 +163,7 @@ export default function InventoryAgingPage() {
             {/* Aging Buckets Detail */}
             <Card>
               <CardHeader>
-                <CardTitle>Chi tiết theo nhóm tuổi</CardTitle>
+                <CardTitle>{t('inventory.detailByAge')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -196,19 +198,19 @@ export default function InventoryAgingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-orange-500" />
-                    Hàng tồn chậm (&gt;90 ngày)
+                    {t('inventory.slowMovingItems')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Tên sản phẩm</TableHead>
-                        <TableHead>Danh mục</TableHead>
-                        <TableHead className="text-right">Số lượng</TableHead>
-                        <TableHead className="text-right">Giá trị</TableHead>
-                        <TableHead className="text-right">Tuổi (ngày)</TableHead>
+                        <TableHead>{t('inventory.sku')}</TableHead>
+                        <TableHead>{t('inventory.productName')}</TableHead>
+                        <TableHead>{t('inventory.category')}</TableHead>
+                        <TableHead className="text-right">{t('inventory.quantity')}</TableHead>
+                        <TableHead className="text-right">{t('inventory.value')}</TableHead>
+                        <TableHead className="text-right">{t('inventory.ageDays')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
