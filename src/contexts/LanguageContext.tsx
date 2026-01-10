@@ -1078,6 +1078,23 @@ const vi: Record<string, string> = {
   'warehouse.tabSchema': 'Schema Mapping',
   'warehouse.tabModels': 'Data Models',
   'warehouse.tabConfig': 'Kết nối',
+
+  // NotFound page
+  'notFound.title': '404',
+  'notFound.message': 'Oops! Trang không tồn tại',
+  'notFound.returnHome': 'Quay về trang chủ',
+
+  // Portal page
+  'portal.tagline': 'Bluecore Data Ecosystem',
+  'portal.title1': 'Data Driven',
+  'portal.title2': 'Platform',
+  'portal.subtitle': 'Hệ sinh thái dữ liệu doanh nghiệp tích hợp',
+  'portal.clickToAccess': 'Click để truy cập',
+  'portal.active': 'Active',
+  'portal.comingSoon': 'Coming Soon',
+  'portal.coreSystem': 'Core System',
+  'portal.accessFinance': 'Truy cập Finance Platform',
+  'portal.poweredBy': 'Powered by Bluecore Data Architecture v2.0',
 };
 
 // English translations
@@ -2144,6 +2161,23 @@ const en: Record<string, string> = {
   'warehouse.tabSchema': 'Schema Mapping',
   'warehouse.tabModels': 'Data Models',
   'warehouse.tabConfig': 'Connection',
+
+  // NotFound page
+  'notFound.title': '404',
+  'notFound.message': 'Oops! Page not found',
+  'notFound.returnHome': 'Return to Home',
+
+  // Portal page
+  'portal.tagline': 'Bluecore Data Ecosystem',
+  'portal.title1': 'Data Driven',
+  'portal.title2': 'Platform',
+  'portal.subtitle': 'Integrated enterprise data ecosystem',
+  'portal.clickToAccess': 'Click to access',
+  'portal.active': 'Active',
+  'portal.comingSoon': 'Coming Soon',
+  'portal.coreSystem': 'Core System',
+  'portal.accessFinance': 'Access Finance Platform',
+  'portal.poweredBy': 'Powered by Bluecore Data Architecture v2.0',
 };
 
 const translations: Record<Language, Record<string, string>> = { vi, en };

@@ -10,11 +10,11 @@ import {
   ExternalLink,
   ArrowRight,
   Zap,
-  Info
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SystemCard {
   id: string;
@@ -31,68 +31,17 @@ interface SystemCard {
   externalUrl?: string;
 }
 
-const allSystems: SystemCard[] = [
-  {
-    id: 'cdp',
-    name: 'Customer Data Platform',
-    shortName: 'CDP',
-    description: 'Web App - Nền tảng hợp nhất dữ liệu khách hàng 360°',
-    detailDescription: 'Thu thập, hợp nhất và phân tích dữ liệu khách hàng từ tất cả các điểm chạm. Xây dựng hồ sơ khách hàng 360° để cá nhân hóa trải nghiệm, tối ưu chiến dịch marketing và tăng tỷ lệ chuyển đổi.',
-    features: ['Campaign Tracking', 'Email', 'Notification'],
-    icon: Users,
-    accentColor: '#5B9BD5',
-    glowColor: 'shadow-[0_0_20px_rgba(91,155,213,0.2)]',
-    status: 'active',
-    path: '/cdp'
-  },
-  {
-    id: 'marketing',
-    name: 'Marketing Data Platform',
-    shortName: 'MDP',
-    description: 'Web App - Nền tảng dữ liệu marketing tích hợp đa kênh',
-    detailDescription: 'Quản lý và phân tích dữ liệu marketing đa kênh bao gồm Google Ads, Facebook, TikTok, Email và các kênh khác. Đo lường ROI, tối ưu ngân sách và tự động hóa báo cáo hiệu suất chiến dịch.',
-    features: ['Marketing', 'Content', 'Product', 'Ads Platform'],
-    icon: Megaphone,
-    accentColor: '#8B7EC8',
-    glowColor: 'shadow-[0_0_20px_rgba(139,126,200,0.2)]',
-    status: 'coming-soon'
-  },
-  {
-    id: 'operations',
-    name: 'Operation System',
-    shortName: 'OPS',
-    description: 'Web App + Mobile App - Tối ưu hóa quy trình vận hành',
-    detailDescription: 'Số hóa và tự động hóa quy trình vận hành nội bộ. Quản lý công việc, theo dõi tiến độ, phân công nhiệm vụ và báo cáo KPI nhân sự. Hỗ trợ cả web và mobile app cho đội ngũ hiện trường.',
-    features: ['Workflow tự động', 'Quản lý tác vụ', 'Mobile App'],
-    icon: Wrench,
-    accentColor: '#D4A84B',
-    glowColor: 'shadow-[0_0_20px_rgba(212,168,75,0.2)]',
-    status: 'coming-soon'
-  },
-  {
-    id: 'fdp',
-    name: 'Finance',
-    shortName: 'FIN',
-    description: 'Web App - Nền tảng quản lý tài chính toàn diện',
-    detailDescription: 'Hệ thống quản lý tài chính doanh nghiệp toàn diện bao gồm báo cáo tài chính, dự báo dòng tiền, quản lý công nợ, phân tích chi phí và theo dõi ngân sách theo thời gian thực.',
-    features: ['Báo cáo tài chính', 'Dự báo dòng tiền', 'Phân tích chi phí'],
-    icon: BarChart3,
-    accentColor: '#4A9B7F',
-    glowColor: 'shadow-[0_0_20px_rgba(74,155,127,0.2)]',
-    status: 'active',
-    path: '/dashboard'
-  }
-];
-
 // System Card Component for radial layout
 function SystemCardComponent({ 
   system, 
   onClick, 
-  hoveredSystem 
+  hoveredSystem,
+  clickToAccessText
 }: { 
   system: SystemCard; 
   onClick: (system: SystemCard) => void; 
   hoveredSystem: string | null;
+  clickToAccessText: string;
 }) {
   return (
     <div className="relative">
@@ -199,7 +148,7 @@ function SystemCardComponent({
             {system.status === 'active' && (
               <div className="mt-2 flex items-center gap-1 text-[10px]" style={{ color: system.accentColor }}>
                 <ArrowRight className="h-3 w-3" />
-                <span>Click để truy cập</span>
+                <span>{clickToAccessText}</span>
               </div>
             )}
           </motion.div>
@@ -211,7 +160,77 @@ function SystemCardComponent({
 
 export default function PortalPage() {
   const navigate = useNavigate();
-  const [hoveredSystem, setHoveredSystem] = useState<string | null>(null);
+  const { t, language } = useLanguage();
+  const [hoveredSystem] = useState<string | null>(null);
+
+  const allSystems: SystemCard[] = [
+    {
+      id: 'cdp',
+      name: 'Customer Data Platform',
+      shortName: 'CDP',
+      description: language === 'vi' 
+        ? 'Web App - Nền tảng hợp nhất dữ liệu khách hàng 360°'
+        : 'Web App - Unified 360° customer data platform',
+      detailDescription: language === 'vi'
+        ? 'Thu thập, hợp nhất và phân tích dữ liệu khách hàng từ tất cả các điểm chạm. Xây dựng hồ sơ khách hàng 360° để cá nhân hóa trải nghiệm, tối ưu chiến dịch marketing và tăng tỷ lệ chuyển đổi.'
+        : 'Collect, unify and analyze customer data from all touchpoints. Build 360° customer profiles to personalize experiences, optimize marketing campaigns and increase conversion rates.',
+      features: ['Campaign Tracking', 'Email', 'Notification'],
+      icon: Users,
+      accentColor: '#5B9BD5',
+      glowColor: 'shadow-[0_0_20px_rgba(91,155,213,0.2)]',
+      status: 'active',
+      path: '/cdp'
+    },
+    {
+      id: 'marketing',
+      name: 'Marketing Data Platform',
+      shortName: 'MDP',
+      description: language === 'vi'
+        ? 'Web App - Nền tảng dữ liệu marketing tích hợp đa kênh'
+        : 'Web App - Multi-channel marketing data platform',
+      detailDescription: language === 'vi'
+        ? 'Quản lý và phân tích dữ liệu marketing đa kênh bao gồm Google Ads, Facebook, TikTok, Email và các kênh khác. Đo lường ROI, tối ưu ngân sách và tự động hóa báo cáo hiệu suất chiến dịch.'
+        : 'Manage and analyze multi-channel marketing data including Google Ads, Facebook, TikTok, Email and other channels. Measure ROI, optimize budget and automate campaign performance reports.',
+      features: ['Marketing', 'Content', 'Product', 'Ads Platform'],
+      icon: Megaphone,
+      accentColor: '#8B7EC8',
+      glowColor: 'shadow-[0_0_20px_rgba(139,126,200,0.2)]',
+      status: 'coming-soon'
+    },
+    {
+      id: 'operations',
+      name: 'Operation System',
+      shortName: 'OPS',
+      description: language === 'vi'
+        ? 'Web App + Mobile App - Tối ưu hóa quy trình vận hành'
+        : 'Web App + Mobile App - Optimize operational processes',
+      detailDescription: language === 'vi'
+        ? 'Số hóa và tự động hóa quy trình vận hành nội bộ. Quản lý công việc, theo dõi tiến độ, phân công nhiệm vụ và báo cáo KPI nhân sự. Hỗ trợ cả web và mobile app cho đội ngũ hiện trường.'
+        : 'Digitize and automate internal operational processes. Manage work, track progress, assign tasks and report HR KPIs. Support both web and mobile app for field teams.',
+      features: language === 'vi' ? ['Workflow tự động', 'Quản lý tác vụ', 'Mobile App'] : ['Auto Workflow', 'Task Management', 'Mobile App'],
+      icon: Wrench,
+      accentColor: '#D4A84B',
+      glowColor: 'shadow-[0_0_20px_rgba(212,168,75,0.2)]',
+      status: 'coming-soon'
+    },
+    {
+      id: 'fdp',
+      name: 'Finance',
+      shortName: 'FIN',
+      description: language === 'vi'
+        ? 'Web App - Nền tảng quản lý tài chính toàn diện'
+        : 'Web App - Comprehensive financial management platform',
+      detailDescription: language === 'vi'
+        ? 'Hệ thống quản lý tài chính doanh nghiệp toàn diện bao gồm báo cáo tài chính, dự báo dòng tiền, quản lý công nợ, phân tích chi phí và theo dõi ngân sách theo thời gian thực.'
+        : 'Comprehensive enterprise financial management system including financial reports, cash flow forecasting, debt management, cost analysis and real-time budget tracking.',
+      features: language === 'vi' ? ['Báo cáo tài chính', 'Dự báo dòng tiền', 'Phân tích chi phí'] : ['Financial Reports', 'Cash Flow Forecast', 'Cost Analysis'],
+      icon: BarChart3,
+      accentColor: '#4A9B7F',
+      glowColor: 'shadow-[0_0_20px_rgba(74,155,127,0.2)]',
+      status: 'active',
+      path: '/dashboard'
+    }
+  ];
 
   const handleCardClick = (system: SystemCard) => {
     if (system.status === 'active' && system.path) {
@@ -229,13 +248,12 @@ export default function PortalPage() {
     <>
       <Helmet>
         <title>Data Platform Portal | Unified Hub</title>
-        <meta name="description" content="Trung tâm điều hướng các hệ thống Data Platform" />
+        <meta name="description" content={t('portal.subtitle')} />
       </Helmet>
 
       <div className="min-h-screen bg-[#12141C] overflow-x-hidden font-[Arial,sans-serif]">
         {/* Tech Grid Background */}
         <div className="fixed inset-0 pointer-events-none">
-          {/* Subtle grid pattern */}
           <div 
             className="absolute inset-0 opacity-[0.02]"
             style={{
@@ -243,15 +261,12 @@ export default function PortalPage() {
               backgroundSize: '60px 60px'
             }}
           />
-          {/* Soft gradient overlays */}
           <div className="absolute top-0 left-1/4 w-1/2 h-1/2 bg-gradient-to-b from-slate-600/5 to-transparent rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-1/4 w-1/2 h-1/2 bg-gradient-to-t from-slate-700/5 to-transparent rounded-full blur-3xl" />
-          {/* Floating particles effect */}
           <div className="absolute top-20 left-10 w-2 h-2 bg-slate-500/20 rounded-full animate-pulse" />
           <div className="absolute top-40 right-20 w-1.5 h-1.5 bg-slate-400/15 rounded-full animate-pulse delay-300" />
           <div className="absolute bottom-32 left-1/3 w-1 h-1 bg-slate-500/20 rounded-full animate-pulse delay-500" />
           <div className="absolute top-1/2 right-1/4 w-2 h-2 bg-slate-400/10 rounded-full animate-pulse delay-700" />
-          {/* Subtle noise texture */}
           <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
         </div>
         
@@ -265,16 +280,16 @@ export default function PortalPage() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-slate-700/30 border border-slate-600/40 mb-6 backdrop-blur-sm">
               <Zap className="h-4 w-4 text-slate-400" />
-              <span className="text-sm text-slate-400 tracking-wide uppercase">Bluecore Data Ecosystem</span>
+              <span className="text-sm text-slate-400 tracking-wide uppercase">{t('portal.tagline')}</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-100 mb-4">
-              Data Driven
+              {t('portal.title1')}
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500">
-                Platform
+                {t('portal.title2')}
               </span>
             </h1>
             <p className="text-base text-slate-500 max-w-xl mx-auto">
-              Hệ sinh thái dữ liệu doanh nghiệp tích hợp
+              {t('portal.subtitle')}
             </p>
           </motion.div>
 
@@ -282,37 +297,29 @@ export default function PortalPage() {
           <div className="relative w-full max-w-5xl mx-auto px-4">
             {/* Top Row - CDP and MDP */}
             <div className="flex justify-between gap-4 mb-4">
-              {/* CDP - Top Left */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3, type: "spring", duration: 0.6 }}
                 className="w-[280px]"
-                onMouseEnter={() => setHoveredSystem('cdp')}
-                onMouseLeave={() => setHoveredSystem(null)}
               >
-                <SystemCardComponent system={allSystems[0]} onClick={handleCardClick} hoveredSystem={hoveredSystem} />
+                <SystemCardComponent system={allSystems[0]} onClick={handleCardClick} hoveredSystem={hoveredSystem} clickToAccessText={t('portal.clickToAccess')} />
               </motion.div>
 
-              {/* Spacer */}
               <div className="flex-1" />
 
-              {/* MDP - Top Right */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.4, type: "spring", duration: 0.6 }}
                 className="w-[280px]"
-                onMouseEnter={() => setHoveredSystem('marketing')}
-                onMouseLeave={() => setHoveredSystem(null)}
               >
-                <SystemCardComponent system={allSystems[1]} onClick={handleCardClick} hoveredSystem={hoveredSystem} />
+                <SystemCardComponent system={allSystems[1]} onClick={handleCardClick} hoveredSystem={hoveredSystem} clickToAccessText={t('portal.clickToAccess')} />
               </motion.div>
             </div>
 
             {/* Middle Row - Data Warehouse with Connection Lines */}
             <div className="relative flex items-center justify-center py-6">
-              {/* Connection Lines SVG */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
                 <defs>
                   <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -321,14 +328,12 @@ export default function PortalPage() {
                     <stop offset="100%" stopColor="rgba(100,116,139,0.15)" />
                   </linearGradient>
                 </defs>
-                {/* Diagonal lines to corners */}
                 <line x1="50%" y1="50%" x2="8%" y2="0%" stroke="url(#lineGradient)" strokeWidth="1" strokeDasharray="4 4" />
                 <line x1="50%" y1="50%" x2="92%" y2="0%" stroke="url(#lineGradient)" strokeWidth="1" strokeDasharray="4 4" />
                 <line x1="50%" y1="50%" x2="8%" y2="100%" stroke="url(#lineGradient)" strokeWidth="1" strokeDasharray="4 4" />
                 <line x1="50%" y1="50%" x2="92%" y2="100%" stroke="url(#lineGradient)" strokeWidth="1" strokeDasharray="4 4" />
               </svg>
 
-              {/* Core Data Warehouse - Center */}
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -354,7 +359,7 @@ export default function PortalPage() {
                     <p className="text-[10px] text-slate-400 mb-3 tracking-wide">BigQuery / Snowflake</p>
                     <Badge className="rounded-md bg-slate-600 text-slate-200 border-0 font-medium text-xs">
                       <ExternalLink className="h-3 w-3 mr-1" />
-                      Core System
+                      {t('portal.coreSystem')}
                     </Badge>
                   </div>
                 </Card>
@@ -363,31 +368,24 @@ export default function PortalPage() {
 
             {/* Bottom Row - OPS and FIN */}
             <div className="flex justify-between gap-4 mt-4">
-              {/* OPS - Bottom Left */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.5, type: "spring", duration: 0.6 }}
                 className="w-[280px]"
-                onMouseEnter={() => setHoveredSystem('operations')}
-                onMouseLeave={() => setHoveredSystem(null)}
               >
-                <SystemCardComponent system={allSystems[2]} onClick={handleCardClick} hoveredSystem={hoveredSystem} />
+                <SystemCardComponent system={allSystems[2]} onClick={handleCardClick} hoveredSystem={hoveredSystem} clickToAccessText={t('portal.clickToAccess')} />
               </motion.div>
 
-              {/* Spacer */}
               <div className="flex-1" />
 
-              {/* FIN - Bottom Right */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.6, type: "spring", duration: 0.6 }}
                 className="w-[280px]"
-                onMouseEnter={() => setHoveredSystem('fdp')}
-                onMouseLeave={() => setHoveredSystem(null)}
               >
-                <SystemCardComponent system={allSystems[3]} onClick={handleCardClick} hoveredSystem={hoveredSystem} />
+                <SystemCardComponent system={allSystems[3]} onClick={handleCardClick} hoveredSystem={hoveredSystem} clickToAccessText={t('portal.clickToAccess')} />
               </motion.div>
             </div>
           </div>
@@ -401,15 +399,15 @@ export default function PortalPage() {
           >
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <div className="w-3 h-3 rounded-full bg-[#4A9B7F]" />
-              <span>Active</span>
+              <span>{t('portal.active')}</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <div className="w-3 h-3 rounded-full bg-slate-600" />
-              <span>Coming Soon</span>
+              <span>{t('portal.comingSoon')}</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <div className="w-3 h-3 rounded-full bg-gradient-to-r from-slate-500 to-slate-600" />
-              <span>Core System</span>
+              <span>{t('portal.coreSystem')}</span>
             </div>
           </motion.div>
 
@@ -424,7 +422,7 @@ export default function PortalPage() {
               onClick={() => navigate('/')}
               className="inline-flex items-center gap-3 px-8 py-4 rounded-lg bg-slate-700 text-slate-100 font-medium tracking-wide shadow-lg hover:bg-slate-600 hover:shadow-xl transition-all hover:-translate-y-0.5 group border border-slate-600"
             >
-              <span>Access Finance Platform</span>
+              <span>{t('portal.accessFinance')}</span>
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </button>
           </motion.div>
@@ -437,7 +435,7 @@ export default function PortalPage() {
             className="mt-16 text-center opacity-50"
           >
             <p className="text-[10px] text-slate-600 tracking-wide">
-              Powered by Bluecore Data Architecture v2.0
+              {t('portal.poweredBy')}
             </p>
           </motion.div>
         </div>
