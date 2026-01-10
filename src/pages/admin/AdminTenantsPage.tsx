@@ -65,6 +65,7 @@ import { useImpersonation } from '@/hooks/useImpersonation';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const createTenantSchema = z.object({
   name: z.string().min(2, 'Tên công ty phải có ít nhất 2 ký tự').max(100),
@@ -94,6 +95,7 @@ interface TenantToEdit {
 }
 
 export default function AdminTenantsPage() {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -301,18 +303,18 @@ export default function AdminTenantsPage() {
   return (
     <>
       <Helmet>
-        <title>Quản lý Tenants | Super Admin</title>
+        <title>{t('admin.tenants.title')} | Super Admin</title>
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Quản lý Tenants</h1>
-            <p className="text-muted-foreground">Xem và quản lý tất cả công ty trong hệ thống</p>
+            <h1 className="text-2xl font-bold">{t('admin.tenants.title')}</h1>
+            <p className="text-muted-foreground">{t('admin.tenants.subtitle')}</p>
           </div>
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Tạo Tenant mới
+            {t('admin.tenants.createNew')}
           </Button>
         </div>
 
@@ -322,16 +324,16 @@ export default function AdminTenantsPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
-                  Danh sách Tenants
+                  {t('admin.tenants.list')}
                 </CardTitle>
                 <CardDescription>
-                  Tổng cộng {tenants?.length || 0} tenant
+                  {t('admin.tenants.total')} {tenants?.length || 0} {t('admin.tenants.tenant')}
                 </CardDescription>
               </div>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Tìm kiếm tenant..."
+                  placeholder={t('admin.tenants.search')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -341,17 +343,17 @@ export default function AdminTenantsPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Đang tải...</div>
+              <div className="text-center py-8 text-muted-foreground">{t('common.loading')}</div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tên công ty</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Gói dịch vụ</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thành viên</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead>{t('admin.tenants.companyName')}</TableHead>
+                    <TableHead>{t('admin.tenants.slug')}</TableHead>
+                    <TableHead>{t('admin.tenants.plan')}</TableHead>
+                    <TableHead>{t('admin.tenants.status')}</TableHead>
+                    <TableHead>{t('admin.tenants.members')}</TableHead>
+                    <TableHead>{t('admin.tenants.createdAt')}</TableHead>
                     <TableHead className="w-[70px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -367,7 +369,7 @@ export default function AdminTenantsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={tenant.is_active ? 'default' : 'secondary'}>
-                          {tenant.is_active ? 'Hoạt động' : 'Tạm dừng'}
+                          {tenant.is_active ? t('admin.tenants.active') : t('admin.tenants.paused')}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -391,15 +393,15 @@ export default function AdminTenantsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleImpersonate(tenant.id, tenant.name)}>
                               <Eye className="w-4 h-4 mr-2" />
-                              Vào xem
+                              {t('admin.tenants.view')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditClick(tenant)}>
                               <Edit className="w-4 h-4 mr-2" />
-                              Chỉnh sửa
+                              {t('admin.tenants.edit')}
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Users className="w-4 h-4 mr-2" />
-                              Xem thành viên
+                              {t('admin.tenants.viewMembers')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
@@ -407,7 +409,7 @@ export default function AdminTenantsPage() {
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Xóa tenant
+                              {t('admin.tenants.delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -425,9 +427,9 @@ export default function AdminTenantsPage() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Tạo Tenant mới</DialogTitle>
+            <DialogTitle>{t('admin.tenants.createTitle')}</DialogTitle>
             <DialogDescription>
-              Nhập thông tin để tạo công ty mới trong hệ thống
+              {t('admin.tenants.createDesc')}
             </DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
@@ -437,7 +439,7 @@ export default function AdminTenantsPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tên công ty</FormLabel>
+                    <FormLabel>{t('admin.tenants.companyName')}</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="Công ty ABC" 
@@ -458,12 +460,12 @@ export default function AdminTenantsPage() {
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Slug</FormLabel>
+                    <FormLabel>{t('admin.tenants.slug')}</FormLabel>
                     <FormControl>
                       <Input placeholder="cong-ty-abc" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Định danh duy nhất, chỉ chứa chữ thường, số và dấu gạch ngang
+                      {t('admin.tenants.slugDesc')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -474,7 +476,7 @@ export default function AdminTenantsPage() {
                 name="ownerEmail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Owner</FormLabel>
+                    <FormLabel>{t('admin.users.email')}</FormLabel>
                     <FormControl>
                       <Input 
                         type="email"
@@ -483,7 +485,7 @@ export default function AdminTenantsPage() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Tài khoản sẽ được tạo nếu email chưa tồn tại
+                      {t('admin.tenants.ownerEmailDesc')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -494,7 +496,7 @@ export default function AdminTenantsPage() {
                 name="plan"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Gói dịch vụ</FormLabel>
+                    <FormLabel>{t('admin.tenants.plan')}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>

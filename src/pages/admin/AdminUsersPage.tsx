@@ -44,6 +44,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Database } from '@/integrations/supabase/types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -55,6 +56,7 @@ const addAdminSchema = z.object({
 type AddAdminFormData = z.infer<typeof addAdminSchema>;
 
 export default function AdminUsersPage() {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -212,11 +214,11 @@ export default function AdminUsersPage() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
-        return <Badge className="bg-red-500">Super Admin</Badge>;
+        return <Badge className="bg-red-500">{t('admin.users.superAdmin')}</Badge>;
       case 'accountant':
-        return <Badge className="bg-blue-500">Kế toán</Badge>;
+        return <Badge className="bg-blue-500">{t('admin.users.accountant')}</Badge>;
       default:
-        return <Badge variant="secondary">Viewer</Badge>;
+        return <Badge variant="secondary">{t('admin.users.viewer')}</Badge>;
     }
   };
 
@@ -237,7 +239,7 @@ export default function AdminUsersPage() {
   };
 
   const handleRemoveAdmin = (userId: string) => {
-    if (confirm('Bạn có chắc muốn xóa quyền Platform Admin của user này?')) {
+    if (confirm(t('admin.users.confirmRemove'))) {
       removeAdminMutation.mutate(userId);
     }
   };
@@ -245,20 +247,20 @@ export default function AdminUsersPage() {
   return (
     <>
       <Helmet>
-        <title>Quản lý Platform Admins | Super Admin</title>
+        <title>{t('admin.users.title')} | Super Admin</title>
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Quản lý Platform Admins</h1>
+            <h1 className="text-2xl font-bold">{t('admin.users.title')}</h1>
             <p className="text-muted-foreground">
-              Quản lý các user có quyền truy cập Super Admin. Những user này có thể quản lý toàn bộ hệ thống.
+              {t('admin.users.subtitle')}
             </p>
           </div>
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Thêm Platform Admin
+            {t('admin.users.addAdmin')}
           </Button>
         </div>
 
@@ -268,22 +270,22 @@ export default function AdminUsersPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5" />
-                  Platform Admins
+                  {t('admin.users.platformAdmins')}
                 </CardTitle>
                 <CardDescription>
-                  {adminUsers?.length || 0} người dùng có quyền platform
+                  {adminUsers?.length || 0} {t('admin.users.usersWithPlatformAccess')}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-3">
                 <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Lọc theo role" />
+                    <SelectValue placeholder={t('admin.users.filterByRole')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="admin">Super Admin</SelectItem>
-                    <SelectItem value="accountant">Kế toán</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="all">{t('admin.users.allRoles')}</SelectItem>
+                    <SelectItem value="admin">{t('admin.users.superAdmin')}</SelectItem>
+                    <SelectItem value="accountant">{t('admin.users.accountant')}</SelectItem>
+                    <SelectItem value="viewer">{t('admin.users.viewer')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative w-64">
@@ -300,18 +302,18 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Đang tải...</div>
+              <div className="text-center py-8 text-muted-foreground">{t('common.loading')}</div>
             ) : filteredUsers?.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Chưa có Platform Admin nào
+                {t('admin.users.noAdmins')}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tên</TableHead>
-                    <TableHead>Platform Role</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead>{t('admin.users.name')}</TableHead>
+                    <TableHead>{t('admin.users.platformRole')}</TableHead>
+                    <TableHead>{t('admin.users.createdAt')}</TableHead>
                     <TableHead className="w-[70px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -320,7 +322,7 @@ export default function AdminUsersPage() {
                     <TableRow key={user.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{user.full_name || 'Chưa đặt tên'}</div>
+                          <div className="font-medium">{user.full_name || t('admin.users.noName')}</div>
                           <div className="text-sm text-muted-foreground">{user.id.slice(0, 8)}...</div>
                         </div>
                       </TableCell>
@@ -338,14 +340,14 @@ export default function AdminUsersPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleChangeRole(user)}>
                               <Shield className="w-4 h-4 mr-2" />
-                              Đổi Role
+                              {t('admin.users.changeRole')}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
                               onClick={() => handleRemoveAdmin(user.id)}
                             >
                               <ShieldOff className="w-4 h-4 mr-2" />
-                              Xóa quyền Platform
+                              {t('admin.users.removePlatformAccess')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -363,12 +365,12 @@ export default function AdminUsersPage() {
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Users className="w-4 h-4" />
-              Phân biệt loại Users
+              {t('admin.users.userTypes')}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <p><strong>Platform Admins:</strong> Được quản lý tại đây. Có quyền truy cập Super Admin panel, quản lý toàn bộ tenants và users.</p>
-            <p><strong>Tenant Users:</strong> Được quản lý trong từng Tenant. Chỉ có quyền truy cập vào tenant của họ, không thể truy cập Super Admin.</p>
+            <p><strong>Platform Admins:</strong> {t('admin.users.platformAdminsDesc')}</p>
+            <p><strong>Tenant Users:</strong> {t('admin.users.tenantUsersDesc')}</p>
           </CardContent>
         </Card>
       </div>
@@ -377,14 +379,14 @@ export default function AdminUsersPage() {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Thêm Platform Admin</DialogTitle>
+            <DialogTitle>{t('admin.users.addTitle')}</DialogTitle>
             <DialogDescription>
-              Thêm user hiện có vào danh sách Platform Admins. User phải đã đăng ký tài khoản.
+              {t('admin.users.addDesc')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={form.handleSubmit(handleAddAdmin)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('admin.users.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -396,7 +398,7 @@ export default function AdminUsersPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Platform Role</Label>
+              <Label htmlFor="role">{t('admin.users.platformRole')}</Label>
               <Select
                 value={form.watch('role')}
                 onValueChange={(value: AppRole) => form.setValue('role', value)}
@@ -405,18 +407,18 @@ export default function AdminUsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Super Admin</SelectItem>
-                  <SelectItem value="accountant">Kế toán</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="admin">{t('admin.users.superAdmin')}</SelectItem>
+                  <SelectItem value="accountant">{t('admin.users.accountant')}</SelectItem>
+                  <SelectItem value="viewer">{t('admin.users.viewer')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Hủy
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={addAdminMutation.isPending}>
-                {addAdminMutation.isPending ? 'Đang xử lý...' : 'Thêm'}
+                {addAdminMutation.isPending ? t('common.loading') : t('common.add')}
               </Button>
             </DialogFooter>
           </form>
@@ -427,32 +429,32 @@ export default function AdminUsersPage() {
       <Dialog open={isChangeRoleDialogOpen} onOpenChange={setIsChangeRoleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Đổi Platform Role</DialogTitle>
+            <DialogTitle>{t('admin.users.changeRoleTitle')}</DialogTitle>
             <DialogDescription>
-              Thay đổi role cho user: {selectedUser?.name}
+              {t('admin.users.changeRoleDesc')} {selectedUser?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Platform Role mới</Label>
+              <Label>{t('admin.users.newRole')}</Label>
               <Select value={newRole} onValueChange={(value: AppRole) => setNewRole(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Super Admin</SelectItem>
-                  <SelectItem value="accountant">Kế toán</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="admin">{t('admin.users.superAdmin')}</SelectItem>
+                  <SelectItem value="accountant">{t('admin.users.accountant')}</SelectItem>
+                  <SelectItem value="viewer">{t('admin.users.viewer')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsChangeRoleDialogOpen(false)}>
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleConfirmChangeRole} disabled={changeRoleMutation.isPending}>
-              {changeRoleMutation.isPending ? 'Đang xử lý...' : 'Lưu'}
+              {changeRoleMutation.isPending ? t('common.loading') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
