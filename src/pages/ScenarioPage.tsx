@@ -60,7 +60,7 @@ import {
   PolarRadiusAxis,
   Radar,
 } from 'recharts';
-import { formatCurrency, formatVNDCompact, formatDateTime, formatCount } from '@/lib/formatters';
+import { formatCurrency, formatVNDCompact, formatDateTime, formatCount, formatDays, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useScenarios, useCreateScenario, useUpdateScenario, useDeleteScenario, useSetPrimaryScenario, usePrimaryScenario } from '@/hooks/useScenarioData';
 import { useMonteCarloResults, useSaveMonteCarloResult, useDeleteMonteCarloResult } from '@/hooks/useMonteCarloData';
@@ -1603,15 +1603,15 @@ export default function ScenarioPage() {
             </div>
             <div className="text-center p-3 rounded-lg bg-warning/5">
               <p className="text-xs text-muted-foreground mb-1">DSO</p>
-              <p className="text-lg font-bold text-warning">{currentKPIs.dso} ngày</p>
+              <p className="text-lg font-bold text-warning">{formatDays(currentKPIs.dso)}</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted">
               <p className="text-xs text-muted-foreground mb-1">CCC</p>
-              <p className="text-lg font-bold">{currentKPIs.ccc} ngày</p>
+              <p className="text-lg font-bold">{formatDays(currentKPIs.ccc)}</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-success/5">
               <p className="text-xs text-muted-foreground mb-1">Gross Margin</p>
-              <p className="text-lg font-bold text-success">{currentKPIs.grossMargin}%</p>
+              <p className="text-lg font-bold text-success">{formatPercent(currentKPIs.grossMargin)}</p>
             </div>
           </div>
         </motion.div>
