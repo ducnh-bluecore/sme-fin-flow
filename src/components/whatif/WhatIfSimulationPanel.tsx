@@ -20,7 +20,10 @@ import {
   Boxes,
   MapPin,
   History,
+  Calculator,
+  HelpCircle,
 } from 'lucide-react';
+import { FormulaTooltip, FormulaRelationshipPanel, FormulaChip } from './FormulaTooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
@@ -83,6 +86,7 @@ interface SliderInputProps {
   unit?: string;
   icon?: React.ReactNode;
   description?: string;
+  formulaKey?: string;
 }
 
 function SliderInput({
@@ -95,6 +99,7 @@ function SliderInput({
   unit = '%',
   icon,
   description,
+  formulaKey,
 }: SliderInputProps) {
   const isPositive = value > 0;
   const isNegative = value < 0;
@@ -105,7 +110,14 @@ function SliderInput({
         <div className="flex items-center gap-2">
           {icon}
           <div>
-            <Label className="text-sm font-medium">{label}</Label>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium">{label}</Label>
+              {formulaKey && (
+                <FormulaTooltip formulaKey={formulaKey} variant="hovercard">
+                  <Calculator className="w-3.5 h-3.5 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+                </FormulaTooltip>
+              )}
+            </div>
             {description && (
               <p className="text-xs text-muted-foreground">{description}</p>
             )}
@@ -527,13 +539,21 @@ export function WhatIfSimulationPanel() {
             <NoDataOverlay requirements={dataRequirements} />
           )}
 
+          {/* Formula Relationship Panel */}
+          <FormulaRelationshipPanel />
+
           {/* KPI Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">Doanh thu</p>
+                <FormulaTooltip formulaKey="revenueChange" variant="hovercard" showIcon={false}>
+                  <p className="text-xs text-muted-foreground cursor-help hover:text-primary transition-colors flex items-center gap-1">
+                    Doanh thu
+                    <HelpCircle className="w-3 h-3" />
+                  </p>
+                </FormulaTooltip>
                 <p className="text-lg font-bold">{formatVNDCompact(projectedValues.revenue)}</p>
               </div>
               {projectedValues.revenueChange !== 0 && (
@@ -557,7 +577,12 @@ export function WhatIfSimulationPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">EBITDA</p>
+                <FormulaTooltip formulaKey="ebitda" variant="hovercard" showIcon={false}>
+                  <p className="text-xs text-muted-foreground cursor-help hover:text-primary transition-colors flex items-center gap-1">
+                    EBITDA
+                    <HelpCircle className="w-3 h-3" />
+                  </p>
+                </FormulaTooltip>
                 <p className="text-lg font-bold">{formatVNDCompact(projectedValues.ebitda)}</p>
               </div>
               {projectedValues.ebitdaChange !== 0 && isFinite(projectedValues.ebitdaChange) && (
@@ -581,7 +606,12 @@ export function WhatIfSimulationPanel() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">Gross Margin</p>
+                <FormulaTooltip formulaKey="grossMargin" variant="hovercard" showIcon={false}>
+                  <p className="text-xs text-muted-foreground cursor-help hover:text-primary transition-colors flex items-center gap-1">
+                    Gross Margin
+                    <HelpCircle className="w-3 h-3" />
+                  </p>
+                </FormulaTooltip>
                 <p className="text-lg font-bold">{projectedValues.grossMargin.toFixed(1)}%</p>
               </div>
               {projectedValues.grossMarginChange !== 0 && (
@@ -644,6 +674,7 @@ export function WhatIfSimulationPanel() {
               max={100}
               icon={<TrendingUp className="w-4 h-4 text-primary" />}
               description="Tăng/giảm doanh thu so với hiện tại"
+              formulaKey="revenueChange"
             />
             
             <Separator />
@@ -656,6 +687,7 @@ export function WhatIfSimulationPanel() {
               max={50}
               icon={<Package className="w-4 h-4 text-warning" />}
               description="Chi phí hàng bán"
+              formulaKey="cogsChange"
             />
             
             <Separator />
@@ -668,6 +700,7 @@ export function WhatIfSimulationPanel() {
               max={50}
               icon={<Wallet className="w-4 h-4 text-destructive" />}
               description="Chi phí vận hành"
+              formulaKey="opexChange"
             />
           </CardContent>
         </Card>
@@ -688,6 +721,7 @@ export function WhatIfSimulationPanel() {
               max={50}
               icon={<Percent className="w-4 h-4 text-success" />}
               description="Tăng/giảm giá bán trung bình"
+              formulaKey="priceChange"
             />
             
             <Separator />
@@ -700,6 +734,7 @@ export function WhatIfSimulationPanel() {
               max={100}
               icon={<Package className="w-4 h-4 text-primary" />}
               description="Số lượng sản phẩm bán ra"
+              formulaKey="volumeChange"
             />
             
             {/* Info Panel */}
