@@ -54,13 +54,17 @@ export function usePushSubscriptions() {
 
 export function useSubscribePush() {
   const queryClient = useQueryClient();
-  const tenantId = useActiveTenantId();
+  const { data: tenantId } = useActiveTenantId();
   const { user } = useAuth();
 
   return useMutation({
     mutationFn: async () => {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         throw new Error('Push notifications not supported');
+      }
+
+      if (!tenantId || !user?.id) {
+        throw new Error('Missing tenant or user');
       }
 
       const permission = await Notification.requestPermission();
@@ -86,21 +90,23 @@ export function useSubscribePush() {
         throw new Error('Invalid subscription');
       }
 
+      const insertData = {
+        tenant_id: tenantId,
+        user_id: user.id,
+        endpoint: subscriptionJson.endpoint,
+        p256dh_key: subscriptionJson.keys.p256dh,
+        auth_key: subscriptionJson.keys.auth,
+        is_active: true,
+        device_info: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          language: navigator.language,
+        },
+      };
+
       const { error } = await supabase
         .from('push_subscriptions')
-        .upsert({
-          tenant_id: tenantId,
-          user_id: user?.id,
-          endpoint: subscriptionJson.endpoint,
-          p256dh_key: subscriptionJson.keys.p256dh,
-          auth_key: subscriptionJson.keys.auth,
-          is_active: true,
-          device_info: {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            language: navigator.language,
-          },
-        }, { onConflict: 'user_id,endpoint' });
+        .upsert(insertData as never, { onConflict: 'user_id,endpoint' });
 
       if (error) throw error;
       return subscription;
