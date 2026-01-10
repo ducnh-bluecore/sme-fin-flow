@@ -40,6 +40,7 @@ import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useCashConversionCycle } from '@/hooks/useCashConversionCycle';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 
 export default function CashConversionCyclePage() {
   const { data, isLoading, error } = useCashConversionCycle();
@@ -79,7 +80,10 @@ export default function CashConversionCyclePage() {
             title="Cash Conversion Cycle (CCC)"
             subtitle="Phân tích vòng quay vốn lưu động: DSO + DIO - DPO"
           />
-          <QuickDateSelector />
+          <div className="flex flex-col items-end gap-2">
+            <QuickDateSelector />
+            <DateRangeIndicator variant="badge" />
+          </div>
         </div>
 
         {/* Formula Reference */}

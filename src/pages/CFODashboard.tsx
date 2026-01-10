@@ -18,6 +18,7 @@ import { useCashRunway } from '@/hooks/useCashRunway';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 
 function ChartErrorFallback() {
   return (
@@ -81,19 +82,22 @@ export default function CFODashboard() {
             </h1>
             <p className="text-muted-foreground">Liquidity & Cash Overview</p>
           </div>
-          <div className="flex gap-2">
-            <QuickDateSelector value={dateRange} onChange={setDateRange} />
-            <motion.button
-              type="button"
-              onClick={handleRefresh}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm shadow-glow"
-              aria-label="Cập nhật dữ liệu dashboard"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Cập nhật dữ liệu
-            </motion.button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <QuickDateSelector value={dateRange} onChange={setDateRange} />
+              <motion.button
+                type="button"
+                onClick={handleRefresh}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm shadow-glow"
+                aria-label="Cập nhật dữ liệu dashboard"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Cập nhật dữ liệu
+              </motion.button>
+            </div>
+            <DateRangeIndicator variant="compact" />
           </div>
         </motion.div>
 
