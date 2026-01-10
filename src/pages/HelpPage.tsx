@@ -6,7 +6,6 @@ import {
   MessageCircle,
   Video,
   FileText,
-  ExternalLink,
   Search,
   ChevronRight,
   Mail,
@@ -17,63 +16,66 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
-const helpCategories = [
-  { 
-    title: 'Bắt đầu', 
-    icon: Book, 
-    description: 'Hướng dẫn cơ bản cho người mới',
-    articles: 12,
-  },
-  { 
-    title: 'Dashboard & Báo cáo', 
-    icon: FileText, 
-    description: 'Cách xem và tùy chỉnh báo cáo',
-    articles: 8,
-  },
-  { 
-    title: 'Hóa đơn & Đối soát', 
-    icon: FileText, 
-    description: 'Quản lý hóa đơn và đối soát',
-    articles: 15,
-  },
-  { 
-    title: 'Video hướng dẫn', 
-    icon: Video, 
-    description: 'Xem video hướng dẫn chi tiết',
-    articles: 6,
-  },
-];
-
-const faqs = [
-  { 
-    question: 'Làm thế nào để kết nối tài khoản ngân hàng?',
-    answer: 'Truy cập menu Tích hợp dữ liệu > Kết nối ngân hàng, chọn ngân hàng của bạn và làm theo hướng dẫn xác thực. Hệ thống hỗ trợ hầu hết các ngân hàng lớn tại Việt Nam.',
-  },
-  { 
-    question: 'Tôi có thể xuất báo cáo theo định dạng nào?',
-    answer: 'Hệ thống hỗ trợ xuất báo cáo theo các định dạng: Excel (.xlsx), CSV, PDF và JSON. Bạn có thể tùy chỉnh các trường dữ liệu cần xuất.',
-  },
-  { 
-    question: 'Làm sao để thiết lập cảnh báo tự động?',
-    answer: 'Vào mục Cảnh báo > Cấu hình cảnh báo. Tại đây bạn có thể thiết lập các ngưỡng cảnh báo cho tiền mặt, công nợ quá hạn, và các chỉ số tài chính khác.',
-  },
-  { 
-    question: 'Hệ thống có hỗ trợ đa tiền tệ không?',
-    answer: 'Có, hệ thống hỗ trợ đa tiền tệ. Bạn có thể cấu hình tỷ giá chuyển đổi tự động hoặc nhập thủ công trong phần Cài đặt > Hệ thống.',
-  },
-  { 
-    question: 'Làm thế nào để phân quyền người dùng?',
-    answer: 'Truy cập Quản trị & Bảo mật > Phân quyền RBAC. Tại đây bạn có thể tạo các role với quyền hạn cụ thể và gán cho từng người dùng.',
-  },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function HelpPage() {
+  const { t, language } = useLanguage();
+
+  const helpCategories = [
+    { 
+      title: t('help.catGettingStarted'), 
+      icon: Book, 
+      description: t('help.catGettingStartedDesc'),
+      articles: 12,
+    },
+    { 
+      title: t('help.catDashboard'), 
+      icon: FileText, 
+      description: t('help.catDashboardDesc'),
+      articles: 8,
+    },
+    { 
+      title: t('help.catInvoice'), 
+      icon: FileText, 
+      description: t('help.catInvoiceDesc'),
+      articles: 15,
+    },
+    { 
+      title: t('help.catVideo'), 
+      icon: Video, 
+      description: t('help.catVideoDesc'),
+      articles: 6,
+    },
+  ];
+
+  const faqs = [
+    { 
+      question: t('help.faq1Q'),
+      answer: t('help.faq1A'),
+    },
+    { 
+      question: t('help.faq2Q'),
+      answer: t('help.faq2A'),
+    },
+    { 
+      question: t('help.faq3Q'),
+      answer: t('help.faq3A'),
+    },
+    { 
+      question: t('help.faq4Q'),
+      answer: t('help.faq4A'),
+    },
+    { 
+      question: t('help.faq5Q'),
+      answer: t('help.faq5A'),
+    },
+  ];
+
   return (
     <>
       <Helmet>
-        <title>Trợ giúp | Bluecore Finance</title>
-        <meta name="description" content="Trung tâm trợ giúp và hỗ trợ" />
+        <title>{t('help.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('help.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -86,13 +88,13 @@ export default function HelpPage() {
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <HelpCircle className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Trung tâm trợ giúp</h1>
-          <p className="text-muted-foreground mb-6">Tìm câu trả lời cho mọi thắc mắc của bạn</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{t('help.title')}</h1>
+          <p className="text-muted-foreground mb-6">{t('help.subtitle')}</p>
           
           <div className="max-w-xl mx-auto relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input 
-              placeholder="Tìm kiếm câu hỏi hoặc hướng dẫn..." 
+              placeholder={t('help.searchPlaceholder')} 
               className="pl-12 h-12 text-lg"
             />
           </div>
@@ -104,7 +106,7 @@ export default function HelpPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <h2 className="font-semibold text-lg mb-4">Danh mục hướng dẫn</h2>
+          <h2 className="font-semibold text-lg mb-4">{t('help.categories')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {helpCategories.map((category, index) => (
               <Card key={index} className="p-5 bg-card shadow-card hover:shadow-lg transition-shadow cursor-pointer">
@@ -114,7 +116,7 @@ export default function HelpPage() {
                 <h3 className="font-semibold mb-1">{category.title}</h3>
                 <p className="text-sm text-muted-foreground mb-3">{category.description}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{category.articles} bài viết</span>
+                  <span className="text-xs text-muted-foreground">{category.articles} {t('help.articles')}</span>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </div>
               </Card>
@@ -129,7 +131,7 @@ export default function HelpPage() {
           transition={{ delay: 0.2 }}
           className="data-card"
         >
-          <h2 className="font-semibold text-lg mb-4">Câu hỏi thường gặp</h2>
+          <h2 className="font-semibold text-lg mb-4">{t('help.faq')}</h2>
           <Accordion type="single" collapsible className="w-full">
             {faqs.map((faq, index) => (
               <AccordionItem key={index} value={`item-${index}`}>
@@ -148,7 +150,7 @@ export default function HelpPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <h2 className="font-semibold text-lg mb-4">Liên hệ hỗ trợ</h2>
+          <h2 className="font-semibold text-lg mb-4">{t('help.contactSupport')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-3">
@@ -156,11 +158,11 @@ export default function HelpPage() {
                   <MessageCircle className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h4 className="font-semibold">Chat trực tuyến</h4>
-                  <p className="text-xs text-muted-foreground">Phản hồi trong 5 phút</p>
+                  <h4 className="font-semibold">{t('help.liveChat')}</h4>
+                  <p className="text-xs text-muted-foreground">{t('help.responseTime')}</p>
                 </div>
               </div>
-              <Button className="w-full">Bắt đầu chat</Button>
+              <Button className="w-full">{t('help.startChat')}</Button>
             </Card>
             
             <Card className="p-5 bg-card shadow-card">
@@ -169,11 +171,11 @@ export default function HelpPage() {
                   <Mail className="w-5 h-5 text-info" />
                 </div>
                 <div>
-                  <h4 className="font-semibold">Email hỗ trợ</h4>
+                  <h4 className="font-semibold">{t('help.emailSupport')}</h4>
                   <p className="text-xs text-muted-foreground">support@bluecore.vn</p>
                 </div>
               </div>
-              <Button variant="outline" className="w-full">Gửi email</Button>
+              <Button variant="outline" className="w-full">{t('help.sendEmail')}</Button>
             </Card>
             
             <Card className="p-5 bg-card shadow-card">
@@ -182,13 +184,13 @@ export default function HelpPage() {
                   <Phone className="w-5 h-5 text-success" />
                 </div>
                 <div>
-                  <h4 className="font-semibold">Hotline</h4>
+                  <h4 className="font-semibold">{t('help.hotline')}</h4>
                   <p className="text-xs text-muted-foreground">1900-xxxx</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
-                <span>8:00 - 18:00, T2-T6</span>
+                <span>{t('help.workingHours')}</span>
               </div>
             </Card>
           </div>

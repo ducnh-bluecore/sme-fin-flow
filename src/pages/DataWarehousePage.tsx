@@ -10,13 +10,16 @@ import { DataModelManager } from '@/components/warehouse/DataModelManager';
 import { BigQuerySchemaManager } from '@/components/warehouse/BigQuerySchemaManager';
 import { BigQuerySyncManager } from '@/components/warehouse/BigQuerySyncManager';
 import { SyncProgressProvider } from '@/contexts/SyncProgressContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function DataWarehousePage() {
+  const { t } = useLanguage();
+
   return (
     <>
       <Helmet>
-        <title>Data Warehouse | Bluecore Finance</title>
-        <meta name="description" content="Cấu hình và đồng bộ dữ liệu từ Google BigQuery" />
+        <title>{t('warehouse.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('warehouse.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -36,8 +39,8 @@ export default function DataWarehousePage() {
               <HardDrive className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Data Warehouse</h1>
-              <p className="text-muted-foreground">Cấu hình và đồng bộ dữ liệu từ Google BigQuery</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('warehouse.title')}</h1>
+              <p className="text-muted-foreground">{t('warehouse.subtitle')}</p>
             </div>
           </div>
         </motion.div>
@@ -46,11 +49,11 @@ export default function DataWarehousePage() {
         <SyncProgressProvider>
           <Tabs defaultValue="sync" className="space-y-6">
             <TabsList>
-              <TabsTrigger value="sync">Data Sync</TabsTrigger>
-              <TabsTrigger value="realtime">Real-time Analytics</TabsTrigger>
-              <TabsTrigger value="schema">Schema Mapping</TabsTrigger>
-              <TabsTrigger value="models">Data Models</TabsTrigger>
-              <TabsTrigger value="config">Kết nối</TabsTrigger>
+              <TabsTrigger value="sync">{t('warehouse.tabSync')}</TabsTrigger>
+              <TabsTrigger value="realtime">{t('warehouse.tabRealtime')}</TabsTrigger>
+              <TabsTrigger value="schema">{t('warehouse.tabSchema')}</TabsTrigger>
+              <TabsTrigger value="models">{t('warehouse.tabModels')}</TabsTrigger>
+              <TabsTrigger value="config">{t('warehouse.tabConfig')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="sync" forceMount className="data-[state=inactive]:hidden">
