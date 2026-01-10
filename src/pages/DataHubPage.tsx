@@ -47,6 +47,7 @@ import { formatCurrency, formatDate } from '@/lib/formatters';
 import { useBankAccounts } from '@/hooks/useBankData';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const connectorLogos: Record<string, string> = {
   shopee: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Shopee_logo.svg/240px-Shopee_logo.svg.png',
@@ -57,13 +58,6 @@ const connectorLogos: Record<string, string> = {
   bigquery: 'https://www.vectorlogo.zone/logos/google_bigquery/google_bigquery-icon.svg',
   googlesheets: 'https://www.gstatic.com/images/branding/product/2x/sheets_2020q4_48dp.png',
   manual: 'https://cdn-icons-png.flaticon.com/512/4185/4185540.png',
-};
-
-const statusConfig = {
-  active: { label: 'Hoạt động', icon: CheckCircle2, color: 'text-success bg-success/10' },
-  inactive: { label: 'Tạm dừng', icon: Pause, color: 'text-muted-foreground bg-muted' },
-  error: { label: 'Lỗi', icon: AlertTriangle, color: 'text-destructive bg-destructive/10' },
-  syncing: { label: 'Đang đồng bộ', icon: RefreshCw, color: 'text-info bg-info/10' },
 };
 
 interface ImportJob {
@@ -78,6 +72,7 @@ interface ImportJob {
 }
 
 export default function DataHubPage() {
+  const { t, language } = useLanguage();
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [addConnectorOpen, setAddConnectorOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,6 +80,13 @@ export default function DataHubPage() {
 
   const { integrations = [], isLoading: loadingConnectors, syncIntegration, deleteIntegration } = useConnectorIntegrations();
   const { data: bankAccounts = [], isLoading: loadingBanks } = useBankAccounts();
+
+  const statusConfig = {
+    active: { label: t('dataHub.statusActive'), icon: CheckCircle2, color: 'text-success bg-success/10' },
+    inactive: { label: t('dataHub.statusPaused'), icon: Pause, color: 'text-muted-foreground bg-muted' },
+    error: { label: t('dataHub.statusError'), icon: AlertTriangle, color: 'text-destructive bg-destructive/10' },
+    syncing: { label: t('dataHub.statusSyncing'), icon: RefreshCw, color: 'text-info bg-info/10' },
+  };
 
   const { data: importJobs = [], isLoading: loadingJobs } = useQuery({
     queryKey: ['import-jobs', tenantId],
@@ -117,20 +119,20 @@ export default function DataHubPage() {
   );
 
   const handleSync = async (id: string) => {
-    toast.info('Đang đồng bộ...');
+    toast.info(t('dataHub.syncing'));
     await syncIntegration.mutateAsync(id);
   };
 
   const handleSyncAll = () => {
-    toast.info('Đang đồng bộ tất cả kết nối...');
+    toast.info(t('dataHub.syncing'));
     integrations.filter(i => i.status === 'active').forEach(i => syncIntegration.mutate(i.id));
   };
 
   return (
     <>
       <Helmet>
-        <title>Data Hub | Bluecore Finance</title>
-        <meta name="description" content="Trung tâm quản lý dữ liệu và kết nối" />
+        <title>{t('dataHub.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('dataHub.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -145,18 +147,18 @@ export default function DataHubPage() {
               <Database className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Data Hub</h1>
-              <p className="text-muted-foreground">Trung tâm quản lý dữ liệu và kết nối</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('dataHub.title')}</h1>
+              <p className="text-muted-foreground">{t('dataHub.subtitle')}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleSyncAll}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Đồng bộ tất cả
+              {t('dataHub.syncAll')}
             </Button>
             <Button size="sm" onClick={() => setAddConnectorOpen(true)}>
               <Plug className="w-4 h-4 mr-2" />
-              Thêm kết nối
+              {t('dataHub.addConnection')}
             </Button>
           </div>
         </motion.div>
@@ -171,7 +173,7 @@ export default function DataHubPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{totalRecords.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Tổng bản ghi</p>
+                  <p className="text-xs text-muted-foreground">{t('dataHub.totalRecords')}</p>
                 </div>
               </div>
             </CardContent>
@@ -184,7 +186,7 @@ export default function DataHubPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{activeConnectors}</p>
-                  <p className="text-xs text-muted-foreground">Kết nối hoạt động</p>
+                  <p className="text-xs text-muted-foreground">{t('dataHub.activeConnections')}</p>
                 </div>
               </div>
             </CardContent>
@@ -197,7 +199,7 @@ export default function DataHubPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{bankAccounts.length}</p>
-                  <p className="text-xs text-muted-foreground">Tài khoản ngân hàng</p>
+                  <p className="text-xs text-muted-foreground">{t('dataHub.bankAccounts')}</p>
                 </div>
               </div>
             </CardContent>
@@ -210,7 +212,7 @@ export default function DataHubPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{errorConnectors}</p>
-                  <p className="text-xs text-muted-foreground">Kết nối lỗi</p>
+                  <p className="text-xs text-muted-foreground">{t('dataHub.errorConnections')}</p>
                 </div>
               </div>
             </CardContent>
@@ -220,10 +222,10 @@ export default function DataHubPage() {
         {/* Main Tabs */}
         <Tabs defaultValue="connectors" className="space-y-4">
           <TabsList className="grid w-full max-w-lg grid-cols-4">
-            <TabsTrigger value="connectors">Kết nối</TabsTrigger>
-            <TabsTrigger value="banks">Ngân hàng</TabsTrigger>
-            <TabsTrigger value="import">Import</TabsTrigger>
-            <TabsTrigger value="status">Trạng thái</TabsTrigger>
+            <TabsTrigger value="connectors">{t('dataHub.tabConnections')}</TabsTrigger>
+            <TabsTrigger value="banks">{t('dataHub.tabBanks')}</TabsTrigger>
+            <TabsTrigger value="import">{t('dataHub.tabImport')}</TabsTrigger>
+            <TabsTrigger value="status">{t('dataHub.tabStatus')}</TabsTrigger>
           </TabsList>
 
           {/* Connectors Tab */}
@@ -249,18 +251,18 @@ export default function DataHubPage() {
                             {bigqueryConnector ? (
                               <Badge className="text-xs bg-success/10 text-success">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Đã kết nối
+                                {t('dataHub.connected')}
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-xs text-muted-foreground">
-                                Chưa kết nối
+                                {t('dataHub.notConnected')}
                               </Badge>
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
                             {bigqueryConnector 
-                              ? `Project: ${(bigqueryConnector.settings as any)?.project_id || 'N/A'}${bigqueryConnector.last_sync_at ? ` • Đồng bộ: ${formatDate(bigqueryConnector.last_sync_at)}` : ''}`
-                              : 'Kết nối với Google BigQuery để đồng bộ dữ liệu'
+                              ? `Project: ${(bigqueryConnector.settings as any)?.project_id || 'N/A'}${bigqueryConnector.last_sync_at ? ` • ${t('dataHub.lastSync')}: ${formatDate(bigqueryConnector.last_sync_at)}` : ''}`
+                              : t('dataHub.connectBigQuery')
                             }
                           </p>
                         </div>
@@ -273,7 +275,7 @@ export default function DataHubPage() {
                             onClick={() => handleSync(bigqueryConnector.id)}
                           >
                             <RefreshCw className="w-4 h-4 mr-1" />
-                            Đồng bộ
+                            {t('dataHub.sync')}
                           </Button>
                         )}
                         <Link to="/data-warehouse">
@@ -281,12 +283,12 @@ export default function DataHubPage() {
                             {bigqueryConnector ? (
                               <>
                                 <Settings className="w-4 h-4 mr-1" />
-                                Cấu hình
+                                {t('dataHub.config')}
                               </>
                             ) : (
                               <>
                                 <Plug className="w-4 h-4 mr-1" />
-                                Kết nối
+                                {t('dataHub.connect')}
                               </>
                             )}
                           </Button>
@@ -303,13 +305,13 @@ export default function DataHubPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Tìm kiếm kết nối..."
+                  placeholder={t('dataHub.searchConnections')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
-              <p className="text-sm text-muted-foreground">Các kết nối khác</p>
+              <p className="text-sm text-muted-foreground">{t('dataHub.otherConnections')}</p>
             </div>
 
             {loadingConnectors ? (
@@ -319,10 +321,10 @@ export default function DataHubPage() {
             ) : filteredConnectors.length === 0 ? (
               <Card className="p-12 text-center">
                 <WifiOff className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-muted-foreground mb-4">Chưa có kết nối nào</p>
+                <p className="text-muted-foreground mb-4">{t('dataHub.noConnections')}</p>
                 <Button onClick={() => setAddConnectorOpen(true)}>
                   <Plug className="w-4 h-4 mr-2" />
-                  Thêm kết nối đầu tiên
+                  {t('dataHub.addFirstConnection')}
                 </Button>
               </Card>
             ) : (
@@ -359,8 +361,8 @@ export default function DataHubPage() {
                           
                           <div className="text-xs text-muted-foreground mb-4">
                             {connector.last_sync_at 
-                              ? `Đồng bộ lần cuối: ${formatDate(connector.last_sync_at)}`
-                              : 'Chưa đồng bộ'}
+                              ? `${t('dataHub.lastSync')}: ${formatDate(connector.last_sync_at)}`
+                              : t('dataHub.notSynced')}
                           </div>
 
                           <div className="flex gap-2">
@@ -371,7 +373,7 @@ export default function DataHubPage() {
                               onClick={() => handleSync(connector.id)}
                             >
                               <RefreshCw className="w-4 h-4 mr-1" />
-                              Đồng bộ
+                              {t('dataHub.sync')}
                             </Button>
                             <Button variant="ghost" size="sm">
                               <MoreVertical className="w-4 h-4" />
@@ -389,11 +391,11 @@ export default function DataHubPage() {
           {/* Banks Tab */}
           <TabsContent value="banks" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Tài khoản ngân hàng đã kết nối</h3>
+              <h3 className="font-semibold">{t('dataHub.connectedBanks')}</h3>
               <Link to="/bank-connections">
                 <Button variant="outline" size="sm">
                   <Settings className="w-4 h-4 mr-2" />
-                  Quản lý
+                  {t('dataHub.manage')}
                 </Button>
               </Link>
             </div>
@@ -405,11 +407,11 @@ export default function DataHubPage() {
             ) : bankAccounts.length === 0 ? (
               <Card className="p-12 text-center">
                 <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-muted-foreground mb-4">Chưa kết nối tài khoản ngân hàng</p>
+                <p className="text-muted-foreground mb-4">{t('dataHub.noBankConnected')}</p>
                 <Link to="/bank-connections">
                   <Button>
                     <Building2 className="w-4 h-4 mr-2" />
-                    Kết nối ngân hàng
+                    {t('dataHub.connectBank')}
                   </Button>
                 </Link>
               </Card>
@@ -418,7 +420,7 @@ export default function DataHubPage() {
                 <Card className="p-4 bg-gradient-to-r from-primary/10 to-info/10 border-primary/20">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Tổng số dư</p>
+                      <p className="text-sm text-muted-foreground">{t('dataHub.totalBalance')}</p>
                       <p className="text-3xl font-bold text-primary">{formatCurrency(totalBankBalance)}</p>
                     </div>
                     <Building2 className="w-12 h-12 text-primary/30" />
@@ -438,8 +440,8 @@ export default function DataHubPage() {
                       <p className="text-2xl font-bold mb-2">{formatCurrency(account.current_balance || 0)}</p>
                       <p className="text-xs text-muted-foreground">
                         {account.last_sync_at 
-                          ? `Cập nhật: ${formatDate(account.last_sync_at)}`
-                          : 'Chưa đồng bộ'}
+                          ? `${t('dataHub.updated')}: ${formatDate(account.last_sync_at)}`
+                          : t('dataHub.notSynced')}
                       </p>
                     </Card>
                   ))}
@@ -451,10 +453,10 @@ export default function DataHubPage() {
           {/* Import Tab */}
           <TabsContent value="import" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Import dữ liệu từ file</h3>
+              <h3 className="font-semibold">{t('dataHub.importFromFile')}</h3>
               <Button size="sm" onClick={() => setImportDialogOpen(true)}>
                 <Upload className="w-4 h-4 mr-2" />
-                Import File
+                {t('dataHub.importFile')}
               </Button>
             </div>
 
@@ -469,8 +471,8 @@ export default function DataHubPage() {
                       <FileSpreadsheet className="w-6 h-6 text-emerald-500" />
                     </div>
                     <div>
-                      <p className="font-medium">Import Excel/CSV</p>
-                      <p className="text-sm text-muted-foreground">Tải lên file dữ liệu</p>
+                      <p className="font-medium">{t('dataHub.importExcelCsv')}</p>
+                      <p className="text-sm text-muted-foreground">{t('dataHub.uploadDataFile')}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -483,8 +485,8 @@ export default function DataHubPage() {
                         <Settings className="w-6 h-6 text-blue-500" />
                       </div>
                       <div>
-                        <p className="font-medium">Cấu hình ETL</p>
-                        <p className="text-sm text-muted-foreground">Quy tắc chuyển đổi dữ liệu</p>
+                        <p className="font-medium">{t('dataHub.configETL')}</p>
+                        <p className="text-sm text-muted-foreground">{t('dataHub.dataTransformRules')}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -497,8 +499,8 @@ export default function DataHubPage() {
                       <Play className="w-6 h-6 text-purple-500" />
                     </div>
                     <div>
-                      <p className="font-medium">Chạy đồng bộ</p>
-                      <p className="text-sm text-muted-foreground">Đồng bộ thủ công</p>
+                      <p className="font-medium">{t('dataHub.runSync')}</p>
+                      <p className="text-sm text-muted-foreground">{t('dataHub.manualSync')}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -508,7 +510,7 @@ export default function DataHubPage() {
             {/* Recent Import Jobs */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Lịch sử Import gần đây</CardTitle>
+                <CardTitle className="text-base">{t('dataHub.recentImportHistory')}</CardTitle>
               </CardHeader>
               <CardContent>
                 {loadingJobs ? (
@@ -517,7 +519,7 @@ export default function DataHubPage() {
                   </div>
                 ) : (importJobs as ImportJob[]).length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    Chưa có lịch sử import
+                    {t('dataHub.noImportHistory')}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -528,16 +530,16 @@ export default function DataHubPage() {
                           <div>
                             <p className="font-medium text-sm">{job.file_name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(job.created_at).toLocaleString('vi-VN')}
+                              {new Date(job.created_at).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US')}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-muted-foreground">
-                            {job.records_processed.toLocaleString()} bản ghi
+                            {job.records_processed.toLocaleString()} {t('dataHub.records')}
                           </span>
                           <Badge variant={job.status === 'completed' ? 'default' : 'secondary'}>
-                            {job.status === 'completed' ? 'Hoàn thành' : job.status}
+                            {job.status === 'completed' ? t('dataHub.completed') : job.status}
                           </Badge>
                         </div>
                       </div>
@@ -556,16 +558,16 @@ export default function DataHubPage() {
                   <Zap className="w-5 h-5 text-primary" />
                   ETL Pipeline Status
                 </CardTitle>
-                <CardDescription>Quy trình xử lý và nạp dữ liệu</CardDescription>
+                <CardDescription>{t('dataHub.pipelineStatus')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between py-6 overflow-x-auto">
                   {[
                     { icon: Upload, label: 'Upload', sub: 'CSV, Excel, JSON', count: importJobs.length },
-                    { icon: Filter, label: 'Validate', sub: 'Kiểm tra định dạng', count: totalRecords },
-                    { icon: RefreshCw, label: 'Transform', sub: 'Chuẩn hóa & Map', count: totalRecords },
-                    { icon: Download, label: 'Load', sub: 'Nạp vào hệ thống', count: totalRecords },
-                    { icon: Database, label: 'Analytics', sub: 'Sẵn sàng phân tích', count: activeConnectors },
+                    { icon: Filter, label: 'Validate', sub: t('dataHub.validateFormat'), count: totalRecords },
+                    { icon: RefreshCw, label: 'Transform', sub: t('dataHub.normalize'), count: totalRecords },
+                    { icon: Download, label: 'Load', sub: t('dataHub.loadToSystem'), count: totalRecords },
+                    { icon: Database, label: 'Analytics', sub: t('dataHub.readyForAnalytics'), count: activeConnectors },
                   ].map((step, idx) => (
                     <div key={step.label} className="flex items-center gap-4">
                       <div className="text-center min-w-[100px]">
@@ -590,7 +592,7 @@ export default function DataHubPage() {
             {/* Connection Health */}
             <Card>
               <CardHeader>
-                <CardTitle>Tình trạng kết nối</CardTitle>
+                <CardTitle>{t('dataHub.connectionHealth')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -619,7 +621,7 @@ export default function DataHubPage() {
                   
                   {integrations.length === 0 && (
                     <div className="text-center py-8 text-muted-foreground">
-                      Chưa có kết nối nào
+                      {t('dataHub.noConnections')}
                     </div>
                   )}
                 </div>
