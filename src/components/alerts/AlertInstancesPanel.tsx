@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Bell, AlertTriangle, CheckCircle, Clock, Filter,
-  Search, Eye, Check, X, Clock, Loader2, MoreHorizontal,
-  MessageSquare
+  Search, Eye, Check, X, Loader2, MoreHorizontal,
+  MessageSquare, AlarmClock
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -296,7 +296,7 @@ export function AlertInstancesPanel() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => openSnoozeDialog(alert.id)}>
-                                  <Snooze className="w-4 h-4 mr-2" />
+                                  <AlarmClock className="w-4 h-4 mr-2" />
                                   Tạm ẩn
                                 </DropdownMenuItem>
                                 {alert.action_url && (
