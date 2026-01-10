@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Import the existing page components
 import ScenarioPage from './ScenarioPage';
@@ -26,6 +27,7 @@ import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ScenarioHubPage() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('scenario');
 
   // What-If -> Financial scenario import
@@ -58,8 +60,8 @@ export default function ScenarioHubPage() {
   return (
     <>
       <Helmet>
-        <title>Kịch bản & Mô phỏng | Bluecore Finance</title>
-        <meta name="description" content="Lập kế hoạch kịch bản và phân tích What-If" />
+        <title>{t('scenario.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('scenario.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -78,8 +80,8 @@ export default function ScenarioHubPage() {
               )}
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Kịch bản & Mô phỏng</h1>
-              <p className="text-muted-foreground">Scenario Planning & What-If Analysis</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('scenario.title')}</h1>
+              <p className="text-muted-foreground">{t('scenario.subtitle')}</p>
             </div>
           </div>
 
@@ -87,7 +89,7 @@ export default function ScenarioHubPage() {
             <div className="flex items-center justify-end gap-2">
               <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
                 <Download className="mr-2 h-4 w-4" />
-                Import từ What-If
+                {t('scenario.importWhatIf')}
                 <Badge variant="secondary" className="ml-2">
                   {whatIfScenarios?.length || 0}
                 </Badge>
@@ -99,9 +101,9 @@ export default function ScenarioHubPage() {
         <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>Import từ What-If</DialogTitle>
+              <DialogTitle>{t('scenario.importWhatIf')}</DialogTitle>
               <DialogDescription>
-                Chọn 1 kịch bản What-If đã lưu để tạo "Kịch bản tài chính".
+                {t('scenario.selectWhatIf')}
               </DialogDescription>
             </DialogHeader>
 
@@ -124,7 +126,7 @@ export default function ScenarioHubPage() {
               ))}
 
               {(whatIfScenarios || []).length === 0 && (
-                <div className="text-sm text-muted-foreground">Chưa có kịch bản What-If nào.</div>
+                <div className="text-sm text-muted-foreground">{t('scenario.noWhatIf')}</div>
               )}
             </div>
           </DialogContent>
@@ -135,11 +137,11 @@ export default function ScenarioHubPage() {
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="scenario" className="flex items-center gap-2">
               <GitBranch className="w-4 h-4" />
-              Kịch bản tài chính
+              {t('scenario.financial')}
             </TabsTrigger>
             <TabsTrigger value="whatif" className="flex items-center gap-2">
               <FlaskConical className="w-4 h-4" />
-              What-If
+              {t('scenario.whatif')}
             </TabsTrigger>
           </TabsList>
 

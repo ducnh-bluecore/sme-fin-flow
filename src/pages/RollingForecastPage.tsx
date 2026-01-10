@@ -18,6 +18,7 @@ import {
   useGenerateRollingForecast 
 } from '@/hooks/useRollingForecast';
 import { formatCurrency, formatPercent } from '@/lib/formatters';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   LineChart,
   Line,
@@ -32,6 +33,7 @@ import {
 } from 'recharts';
 
 export default function RollingForecastPage() {
+  const { t } = useLanguage();
   const { data: forecasts, isLoading } = useRollingForecasts();
   const { data: summary } = useRollingForecastSummary();
   const generateForecast = useGenerateRollingForecast();
@@ -57,21 +59,21 @@ export default function RollingForecastPage() {
   return (
     <>
       <Helmet>
-        <title>Dự báo cuốn chiếu 18 tháng | CFO Dashboard</title>
+        <title>{t('forecast.title')} | CFO Dashboard</title>
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <PageHeader 
-            title="Dự báo cuốn chiếu"
-            subtitle="Rolling Forecast 18 tháng - Cập nhật liên tục dựa trên dữ liệu thực tế"
+            title={t('forecast.title')}
+            subtitle={t('forecast.subtitle')}
           />
           <Button 
             onClick={handleGenerate} 
             disabled={generateForecast.isPending}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${generateForecast.isPending ? 'animate-spin' : ''}`} />
-            {generateForecast.isPending ? 'Đang tạo...' : 'Tạo dự báo mới'}
+            {generateForecast.isPending ? t('forecast.generating') : t('forecast.generate')}
           </Button>
         </div>
 
@@ -80,7 +82,7 @@ export default function RollingForecastPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tổng doanh thu dự báo
+                {t('forecast.totalRevenue')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -92,7 +94,7 @@ export default function RollingForecastPage() {
                     {formatCurrency(summary?.byType['revenue']?.forecast || 0)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    18 tháng tới
+                    {t('forecast.next18mo')}
                   </p>
                 </>
               )}
@@ -102,7 +104,7 @@ export default function RollingForecastPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tổng chi phí dự báo
+                {t('forecast.totalExpense')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -114,7 +116,58 @@ export default function RollingForecastPage() {
                     {formatCurrency(summary?.byType['expense']?.forecast || 0)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    18 tháng tới
+                    {t('forecast.next18mo')}
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('forecast.varianceBudget')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <>
+                  <div className={`text-2xl font-bold flex items-center gap-2 ${
+                    (summary?.totalVariance || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {(summary?.totalVariance || 0) >= 0 ? (
+                      <ArrowUpRight className="h-5 w-5" />
+                    ) : (
+                      <ArrowDownRight className="h-5 w-5" />
+                    )}
+                    {formatCurrency(Math.abs(summary?.totalVariance || 0))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('forecast.vsInitialPlan')}
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('forecast.accuracy')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">
+                    {formatPercent(summary?.forecastAccuracy || 0)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('forecast.basedOnActual')}
                   </p>
                 </>
               )}
@@ -180,16 +233,16 @@ export default function RollingForecastPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
-                  Biểu đồ dự báo 18 tháng
+                  {t('forecast.chart18mo')}
                 </CardTitle>
                 <CardDescription>
-                  Doanh thu, chi phí và dòng tiền ròng theo tháng
+                  {t('forecast.chartDesc')}
                 </CardDescription>
               </div>
               <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'chart' | 'table')}>
                 <TabsList>
-                  <TabsTrigger value="chart">Biểu đồ</TabsTrigger>
-                  <TabsTrigger value="table">Chi tiết</TabsTrigger>
+                  <TabsTrigger value="chart">{t('forecast.chartView')}</TabsTrigger>
+                  <TabsTrigger value="table">{t('forecast.detailView')}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -200,8 +253,8 @@ export default function RollingForecastPage() {
             ) : chartData.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[400px] text-muted-foreground">
                 <Calendar className="h-12 w-12 mb-4 opacity-50" />
-                <p className="text-lg font-medium">Chưa có dữ liệu dự báo</p>
-                <p className="text-sm">Nhấn "Tạo dự báo mới" để bắt đầu</p>
+                <p className="text-lg font-medium">{t('forecast.noData')}</p>
+                <p className="text-sm">{t('forecast.clickGenerate')}</p>
               </div>
             ) : activeView === 'chart' ? (
               <div className="h-[400px]">

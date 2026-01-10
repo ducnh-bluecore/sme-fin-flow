@@ -9,6 +9,7 @@ import { QuickDateSelector } from "@/components/filters/DateRangeFilter";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { DataSourceNotice } from "@/components/shared/DataSourceNotice";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   TrendingUp,
   RefreshCw,
@@ -98,6 +99,7 @@ const sourceColors: Record<string, string> = {
 };
 
 export default function RevenuePage() {
+  const { t } = useLanguage();
   const { data: tenantId } = useActiveTenantId();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSource, setFilterSource] = useState<string>("all");
@@ -304,32 +306,32 @@ export default function RevenuePage() {
   return (
     <>
       <Helmet>
-        <title>Phân tích Doanh thu | Finance Platform</title>
+        <title>{t('revenue.title')} | Finance Platform</title>
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Phân tích Doanh thu
+              {t('revenue.title')}
             </h1>
             <p className="text-muted-foreground">
-              Theo dõi và phân tích doanh thu từ các nguồn đã tích hợp
+              {t('revenue.subtitle')}
             </p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Làm mới
+              {t('revenue.refresh')}
             </Button>
             <Button variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
-              Xuất Excel
+              {t('revenue.exportExcel')}
             </Button>
             <Link to="/connectors">
               <Button size="sm">
                 <Link2 className="w-4 h-4 mr-2" />
-                Kết nối nguồn
+                {t('revenue.connectSource')}
               </Button>
             </Link>
           </div>
@@ -338,8 +340,8 @@ export default function RevenuePage() {
         {/* Data Source Notice */}
         <DataSourceNotice 
           variant="green" 
-          title="Dữ liệu được đồng bộ từ các nguồn tích hợp"
-          description="Để thêm dữ liệu mới, vui lòng kết nối với hệ thống bán hàng hoặc import file tại"
+          title={t('revenue.dataSource')}
+          description={t('revenue.dataDesc')}
           integrationCount={activeConnectors.length}
         />
 
@@ -347,7 +349,7 @@ export default function RevenuePage() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('revenue.totalRevenue')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -364,17 +366,17 @@ export default function RevenuePage() {
                   ) : (
                     <ArrowDownRight className="w-3 h-3 mr-1" />
                   )}
-                  {Math.abs(revenueChange).toFixed(1)}% so với kỳ trước
+                  {Math.abs(revenueChange).toFixed(1)}% {t('revenue.vsPrevPeriod')}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground mt-1">Chưa có dữ liệu so sánh</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('revenue.noCompare')}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Từ tích hợp</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('revenue.fromIntegration')}</CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -382,27 +384,27 @@ export default function RevenuePage() {
                 {totalIntegratedRevenue > 0 ? formatCurrency(totalIntegratedRevenue) : '--'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {totalIntegratedOrders > 0 ? `${formatCount(totalIntegratedOrders)} đơn hàng` : 'Chưa có đơn hàng'}
+                {totalIntegratedOrders > 0 ? `${formatCount(totalIntegratedOrders)} ${t('revenue.orders')}` : t('revenue.noOrders')}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Số giao dịch</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('revenue.transactions')}</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {revenues.length + totalIntegratedOrders > 0 ? formatCount(revenues.length + totalIntegratedOrders) : '--'}
               </div>
-              <p className="text-xs text-muted-foreground">trong kỳ phân tích</p>
+              <p className="text-xs text-muted-foreground">{t('revenue.inPeriod')}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Nguồn kết nối</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('revenue.connectedSources')}</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -410,7 +412,7 @@ export default function RevenuePage() {
                 {connectorData.length > 0 ? `${activeConnectors.length}/${connectorData.length}` : '--'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {connectorData.length > 0 ? 'đang hoạt động' : 'Chưa kết nối'}
+                {connectorData.length > 0 ? t('revenue.active') : t('common.noData')}
               </p>
             </CardContent>
           </Card>
