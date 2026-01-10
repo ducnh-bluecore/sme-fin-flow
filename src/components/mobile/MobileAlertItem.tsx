@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
-import { AlertTriangle, Bell, TrendingDown, Clock, ChevronRight } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { AlertTriangle, Bell, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -20,7 +19,6 @@ export function MobileAlertItem({
   title,
   message,
   severity,
-  category,
   createdAt,
   isRead = false,
   onClick,
@@ -30,22 +28,22 @@ export function MobileAlertItem({
       icon: AlertTriangle,
       color: 'text-destructive',
       bg: 'bg-destructive/10',
-      badge: 'bg-destructive text-destructive-foreground',
-      label: 'Cao',
+      borderColor: 'border-destructive/30',
+      dot: 'bg-destructive',
     },
     medium: {
-      icon: TrendingDown,
+      icon: AlertCircle,
       color: 'text-warning',
       bg: 'bg-warning/10',
-      badge: 'bg-warning text-warning-foreground',
-      label: 'Trung bình',
+      borderColor: 'border-warning/30',
+      dot: 'bg-warning',
     },
     low: {
       icon: Bell,
       color: 'text-info',
       bg: 'bg-info/10',
-      badge: 'bg-info text-info-foreground',
-      label: 'Thấp',
+      borderColor: 'border-info/30',
+      dot: 'bg-info',
     },
   };
 
@@ -62,36 +60,41 @@ export function MobileAlertItem({
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        'bg-card rounded-xl border border-border p-4 cursor-pointer',
-        'flex items-start gap-3 transition-colors',
-        !isRead && 'border-l-4 border-l-primary'
+        'bg-card rounded-xl border p-4 cursor-pointer',
+        'flex items-start gap-3 transition-all',
+        config.borderColor,
+        !isRead && config.bg
       )}
     >
       {/* Icon */}
-      <div className={cn('h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0', config.bg)}>
+      <div className={cn(
+        'h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0',
+        config.bg
+      )}>
         <Icon className={cn('h-5 w-5', config.color)} />
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <Badge className={cn('text-[10px] px-1.5 py-0', config.badge)}>
-            {config.label}
-          </Badge>
-          <span className="text-xs text-muted-foreground">{category}</span>
+        <div className="flex items-start justify-between gap-2">
+          <h4 className={cn(
+            'text-sm text-foreground leading-tight',
+            !isRead ? 'font-semibold' : 'font-medium'
+          )}>
+            {title}
+          </h4>
+          {!isRead && (
+            <span className={cn('h-2 w-2 rounded-full flex-shrink-0 mt-1.5', config.dot)} />
+          )}
         </div>
-        <h4 className={cn('text-sm font-medium truncate', !isRead && 'font-semibold')}>
-          {title}
-        </h4>
-        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{message}</p>
+        {message && (
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{message}</p>
+        )}
         <div className="flex items-center gap-1 mt-2 text-muted-foreground">
           <Clock className="h-3 w-3" />
-          <span className="text-xs">{timeAgo}</span>
+          <span className="text-[11px]">{timeAgo}</span>
         </div>
       </div>
-
-      {/* Arrow */}
-      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0 self-center" />
     </motion.div>
   );
 }
