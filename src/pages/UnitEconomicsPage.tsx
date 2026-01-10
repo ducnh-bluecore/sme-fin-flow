@@ -44,12 +44,14 @@ import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useUnitEconomics } from '@/hooks/useUnitEconomics';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export default function UnitEconomicsPage() {
   const { data, isLoading, error } = useUnitEconomics();
   const [showFormulas, setShowFormulas] = useState(false);
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
@@ -65,16 +67,16 @@ export default function UnitEconomicsPage() {
   if (error || !data) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Không thể tải dữ liệu Unit Economics
+        {t('unit.loadError')}
       </div>
     );
   }
 
   const orderBreakdown = [
-    { name: 'Doanh thu', value: data.avgOrderValue, color: 'hsl(var(--primary))' },
-    { name: 'COGS', value: data.cogsPerOrder, color: 'hsl(var(--destructive))' },
-    { name: 'Phí sàn', value: data.platformFeesPerOrder, color: 'hsl(var(--chart-2))' },
-    { name: 'Vận chuyển', value: data.shippingCostPerOrder, color: 'hsl(var(--chart-3))' },
+    { name: t('board.revenue'), value: data.avgOrderValue, color: 'hsl(var(--primary))' },
+    { name: t('unit.cogs'), value: data.cogsPerOrder, color: 'hsl(var(--destructive))' },
+    { name: t('unit.platformFee'), value: data.platformFeesPerOrder, color: 'hsl(var(--chart-2))' },
+    { name: t('unit.shipping'), value: data.shippingCostPerOrder, color: 'hsl(var(--chart-3))' },
   ];
 
   const ltvStatus = data.ltvCacRatio >= 3 ? 'excellent' : data.ltvCacRatio >= 2 ? 'good' : data.ltvCacRatio >= 1 ? 'warning' : 'danger';
@@ -85,17 +87,24 @@ export default function UnitEconomicsPage() {
     danger: 'text-red-500 bg-red-500/10'
   };
 
+  const ltvStatusLabel = {
+    excellent: t('unit.excellent'),
+    good: t('unit.good'),
+    warning: t('unit.needsImprovement'),
+    danger: t('unit.atRisk')
+  };
+
   return (
     <>
       <Helmet>
-        <title>Unit Economics | CFO Dashboard</title>
+        <title>{t('unit.title')} | CFO Dashboard</title>
       </Helmet>
 
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <PageHeader
-            title="Unit Economics"
-            subtitle="Phân tích chi tiết hiệu quả kinh doanh theo đơn hàng và khách hàng"
+            title={t('unit.title')}
+            subtitle={t('unit.subtitle')}
           />
           <QuickDateSelector />
         </div>
@@ -105,7 +114,7 @@ export default function UnitEconomicsPage() {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
               <Info className="h-4 w-4" />
-              Công thức tính
+              {t('unit.formulas')}
               <ChevronDown className={`h-4 w-4 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
             </Button>
           </CollapsibleTrigger>
@@ -113,43 +122,43 @@ export default function UnitEconomicsPage() {
             <Card className="bg-muted/30">
               <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                 <div>
-                  <p className="font-medium text-primary">AOV (Giá trị đơn TB)</p>
-                  <p className="text-muted-foreground font-mono">= Tổng doanh thu / Số đơn</p>
+                  <p className="font-medium text-primary">{t('unit.aov')}</p>
+                  <p className="text-muted-foreground font-mono">{t('unit.aovFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.rawData.totalRevenue)} / {data.rawData.totalOrders}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">CM/Order (Biên lợi nhuận gộp)</p>
-                  <p className="text-muted-foreground font-mono">= AOV - COGS - Phí sàn - Ship</p>
+                  <p className="font-medium text-primary">{t('unit.cmOrder')}</p>
+                  <p className="text-muted-foreground font-mono">{t('unit.cmFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.avgOrderValue)} - {formatVNDCompact(data.cogsPerOrder)} - {formatVNDCompact(data.platformFeesPerOrder)} - {formatVNDCompact(data.shippingCostPerOrder)}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">LTV (Giá trị vòng đời KH)</p>
-                  <p className="text-muted-foreground font-mono">= AOV × Đơn/KH × CM%</p>
+                  <p className="font-medium text-primary">{t('unit.ltv')}</p>
+                  <p className="text-muted-foreground font-mono">{t('unit.ltvFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.avgOrderValue)} × {data.avgOrdersPerCustomer.toFixed(1)} × {data.contributionMarginPercent.toFixed(1)}%
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">CAC (Chi phí thu hút KH)</p>
-                  <p className="text-muted-foreground font-mono">= Marketing / Khách mới</p>
+                  <p className="font-medium text-primary">{t('unit.cac')}</p>
+                  <p className="text-muted-foreground font-mono">{t('unit.cacFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.totalMarketingSpend)} / {data.newCustomersThisMonth || data.rawData.uniqueBuyers}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">LTV:CAC Ratio</p>
-                  <p className="text-muted-foreground font-mono">= LTV / CAC</p>
+                  <p className="font-medium text-primary">{t('unit.ltvCacRatio')}</p>
+                  <p className="text-muted-foreground font-mono">{t('unit.ltvCacFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Mục tiêu: ≥ 3x (tốt), ≥ 5x (xuất sắc)
+                    {t('unit.ltvCacTarget')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">ROAS</p>
-                  <p className="text-muted-foreground font-mono">= Doanh thu / Chi Marketing</p>
+                  <p className="font-medium text-primary">{t('unit.roas')}</p>
+                  <p className="text-muted-foreground font-mono">{t('unit.roasFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     = {formatVNDCompact(data.rawData.totalRevenue)} / {formatVNDCompact(data.totalMarketingSpend)}
                   </p>
@@ -173,7 +182,7 @@ export default function UnitEconomicsPage() {
                   <span className="text-xs text-muted-foreground">AOV</span>
                 </div>
                 <p className="text-2xl font-bold">{formatVNDCompact(data.avgOrderValue)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Giá trị đơn TB</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('unit.avgOrderValue')}</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -191,7 +200,7 @@ export default function UnitEconomicsPage() {
                 </div>
                 <p className="text-2xl font-bold">{formatVNDCompact(data.contributionMarginPerOrder)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {data.contributionMarginPercent.toFixed(1)}% biên LN gộp
+                  {data.contributionMarginPercent.toFixed(1)}% {t('unit.grossMargin')}
                 </p>
               </CardContent>
             </Card>
@@ -210,7 +219,7 @@ export default function UnitEconomicsPage() {
                 </div>
                 <p className="text-2xl font-bold">{data.ltvCacRatio.toFixed(1)}x</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {ltvStatus === 'excellent' ? 'Xuất sắc' : ltvStatus === 'good' ? 'Tốt' : ltvStatus === 'warning' ? 'Cần cải thiện' : 'Rủi ro'}
+                  {ltvStatusLabel[ltvStatus]}
                 </p>
               </CardContent>
             </Card>
@@ -228,7 +237,7 @@ export default function UnitEconomicsPage() {
                   <span className="text-xs text-muted-foreground">ROAS</span>
                 </div>
                 <p className="text-2xl font-bold">{data.returnOnAdSpend.toFixed(1)}x</p>
-                <p className="text-xs text-muted-foreground mt-1">Hiệu quả quảng cáo</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('unit.adEfficiency')}</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -236,10 +245,10 @@ export default function UnitEconomicsPage() {
 
         <Tabs defaultValue="order" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="order">Chi phí/Đơn</TabsTrigger>
-            <TabsTrigger value="customer">Khách hàng</TabsTrigger>
-            <TabsTrigger value="channel">Theo kênh</TabsTrigger>
-            <TabsTrigger value="trends">Xu hướng</TabsTrigger>
+            <TabsTrigger value="order">{t('unit.costPerOrder')}</TabsTrigger>
+            <TabsTrigger value="customer">{t('unit.customer')}</TabsTrigger>
+            <TabsTrigger value="channel">{t('unit.channel')}</TabsTrigger>
+            <TabsTrigger value="trends">{t('unit.trends')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="order" className="space-y-4">
@@ -247,33 +256,33 @@ export default function UnitEconomicsPage() {
               {/* Order Breakdown Waterfall */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Phân tích chi phí/đơn hàng</CardTitle>
-                  <CardDescription>Breakdown từ doanh thu đến lợi nhuận gộp</CardDescription>
+                  <CardTitle className="text-base">{t('unit.orderCostBreakdown')}</CardTitle>
+                  <CardDescription>{t('unit.breakdownDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
-                      <span className="font-medium">Doanh thu/đơn</span>
+                      <span className="font-medium">{t('unit.revenuePerOrder')}</span>
                       <span className="font-bold text-primary">{formatVND(data.avgOrderValue)}</span>
                     </div>
                     
                     <div className="space-y-2 pl-4 border-l-2 border-destructive/30">
                       <div className="flex justify-between items-center p-2 rounded bg-muted/50">
-                        <span className="text-sm">(-) COGS</span>
+                        <span className="text-sm">(-) {t('unit.cogs')}</span>
                         <span className="text-destructive">-{formatVND(data.cogsPerOrder)}</span>
                       </div>
                       <div className="flex justify-between items-center p-2 rounded bg-muted/50">
-                        <span className="text-sm">(-) Phí sàn</span>
+                        <span className="text-sm">(-) {t('unit.platformFee')}</span>
                         <span className="text-destructive">-{formatVND(data.platformFeesPerOrder)}</span>
                       </div>
                       <div className="flex justify-between items-center p-2 rounded bg-muted/50">
-                        <span className="text-sm">(-) Vận chuyển</span>
+                        <span className="text-sm">(-) {t('unit.shipping')}</span>
                         <span className="text-destructive">-{formatVND(data.shippingCostPerOrder)}</span>
                       </div>
                     </div>
 
                     <div className="flex justify-between items-center p-3 rounded-lg bg-green-500/10">
-                      <span className="font-medium">= Contribution Margin</span>
+                      <span className="font-medium">= {t('unit.contributionMargin')}</span>
                       <div className="text-right">
                         <span className="font-bold text-green-500">{formatVND(data.contributionMarginPerOrder)}</span>
                         <span className="text-xs text-muted-foreground ml-2">
@@ -288,7 +297,7 @@ export default function UnitEconomicsPage() {
               {/* Cost Structure Pie */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Cơ cấu chi phí/đơn</CardTitle>
+                  <CardTitle className="text-base">{t('unit.costStructure')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={250}>
@@ -319,35 +328,35 @@ export default function UnitEconomicsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Customer Lifetime Value (LTV)</CardTitle>
+                  <CardTitle className="text-sm">{t('unit.ltv')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold text-primary">
                     {formatVNDCompact(data.customerLifetimeValue)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    = AOV × Đơn/KH × CM%
+                    {t('unit.ltvFormula')}
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Customer Acquisition Cost (CAC)</CardTitle>
+                  <CardTitle className="text-sm">{t('unit.cac')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold text-destructive">
                     {formatVNDCompact(data.customerAcquisitionCost)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    = Marketing / KH mới
+                    {t('unit.cacFormula')}
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">LTV:CAC Ratio</CardTitle>
+                  <CardTitle className="text-sm">{t('unit.ltvCacRatio')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className={`text-3xl font-bold ${data.ltvCacRatio >= 3 ? 'text-green-500' : data.ltvCacRatio >= 2 ? 'text-yellow-500' : 'text-red-500'}`}>
@@ -358,7 +367,7 @@ export default function UnitEconomicsPage() {
                     className="h-2 mt-2" 
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Mục tiêu: ≥ 3x
+                    {t('unit.ltvCacTarget')}
                   </p>
                 </CardContent>
               </Card>
@@ -367,25 +376,25 @@ export default function UnitEconomicsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Chỉ số khách hàng</CardTitle>
+                  <CardTitle className="text-base">{t('unit.customerMetrics')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Tổng khách hàng</span>
+                    <span className="text-sm">{t('unit.totalCustomers')}</span>
                     <Badge variant="secondary">{data.totalCustomers}</Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Khách mới tháng này</span>
+                    <span className="text-sm">{t('unit.newCustomers')}</span>
                     <Badge variant="outline">{data.newCustomersThisMonth}</Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Tỷ lệ mua lại</span>
+                    <span className="text-sm">{t('unit.repeatRate')}</span>
                     <Badge className="bg-green-500/10 text-green-500">
                       {data.repeatCustomerRate.toFixed(1)}%
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Đơn TB/khách</span>
+                    <span className="text-sm">{t('unit.avgOrdersPerCustomer')}</span>
                     <Badge variant="secondary">{data.avgOrdersPerCustomer.toFixed(1)}</Badge>
                   </div>
                 </CardContent>
@@ -393,25 +402,25 @@ export default function UnitEconomicsPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Hiệu quả Marketing</CardTitle>
+                  <CardTitle className="text-base">{t('unit.marketingEfficiency')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Chi phí Marketing</span>
+                    <span className="text-sm">{t('unit.marketingSpend')}</span>
                     <span className="font-medium">{formatVNDCompact(data.totalMarketingSpend)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Chi phí/khách (CPA)</span>
+                    <span className="text-sm">{t('unit.cpa')}</span>
                     <span className="font-medium">{formatVNDCompact(data.costPerAcquisition)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">ROAS</span>
+                    <span className="text-sm">{t('unit.roas')}</span>
                     <Badge className={data.returnOnAdSpend >= 3 ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}>
                       {data.returnOnAdSpend.toFixed(1)}x
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Marketing Efficiency</span>
+                    <span className="text-sm">{t('unit.mer')}</span>
                     <Badge variant="secondary">{data.marketingEfficiencyRatio.toFixed(1)}x</Badge>
                   </div>
                 </CardContent>
@@ -422,8 +431,8 @@ export default function UnitEconomicsPage() {
           <TabsContent value="channel" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Unit Economics theo kênh</CardTitle>
-                <CardDescription>So sánh hiệu quả các kênh bán hàng</CardDescription>
+                <CardTitle className="text-base">{t('unit.byChannel')}</CardTitle>
+                <CardDescription>{t('unit.channelDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.channelMetrics.length > 0 ? (
@@ -435,9 +444,9 @@ export default function UnitEconomicsPage() {
                         <YAxis tickFormatter={(v) => formatVNDCompact(v)} />
                         <Tooltip formatter={(value: number) => formatVND(value)} />
                         <Legend />
-                        <Bar dataKey="revenue" name="Doanh thu" fill="hsl(var(--primary))" />
-                        <Bar dataKey="cogs" name="COGS" fill="hsl(var(--destructive))" />
-                        <Bar dataKey="fees" name="Phí" fill="hsl(var(--chart-2))" />
+                        <Bar dataKey="revenue" name={t('board.revenue')} fill="hsl(var(--primary))" />
+                        <Bar dataKey="cogs" name={t('unit.cogs')} fill="hsl(var(--destructive))" />
+                        <Bar dataKey="fees" name={t('unit.platformFee')} fill="hsl(var(--chart-2))" />
                         <Bar dataKey="contributionMargin" name="CM" fill="hsl(var(--chart-4))" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -446,8 +455,8 @@ export default function UnitEconomicsPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b">
-                            <th className="text-left py-2">Kênh</th>
-                            <th className="text-right py-2">Đơn hàng</th>
+                            <th className="text-left py-2">{t('unit.channel')}</th>
+                            <th className="text-right py-2">{t('unit.orders')}</th>
                             <th className="text-right py-2">AOV</th>
                             <th className="text-right py-2">CM</th>
                             <th className="text-right py-2">CM %</th>
@@ -476,7 +485,7 @@ export default function UnitEconomicsPage() {
                   </>
                 ) : (
                   <p className="text-center text-muted-foreground py-12">
-                    Chưa có dữ liệu kênh bán hàng
+                    {t('unit.noChannelData')}
                   </p>
                 )}
               </CardContent>
@@ -486,8 +495,8 @@ export default function UnitEconomicsPage() {
           <TabsContent value="trends" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Xu hướng Unit Economics</CardTitle>
-                <CardDescription>Theo dõi các chỉ số qua thời gian</CardDescription>
+                <CardTitle className="text-base">{t('unit.trendsTitle')}</CardTitle>
+                <CardDescription>{t('unit.trendsDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.monthlyTrends.length > 0 ? (
@@ -531,7 +540,7 @@ export default function UnitEconomicsPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-center text-muted-foreground py-12">
-                    Chưa có dữ liệu xu hướng
+                    {t('unit.noTrendData')}
                   </p>
                 )}
               </CardContent>
