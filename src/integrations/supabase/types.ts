@@ -5426,6 +5426,72 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          action_url: string | null
+          alert_instance_id: string | null
+          category: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          message: string | null
+          metadata: Json | null
+          read_at: string | null
+          tenant_id: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          alert_instance_id?: string | null
+          category?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          tenant_id: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          alert_instance_id?: string | null
+          category?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          metadata?: Json | null
+          read_at?: string | null
+          tenant_id?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_alert_instance_id_fkey"
+            columns: ["alert_instance_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_auto_approval_rules: {
         Row: {
           created_at: string
@@ -6214,6 +6280,53 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string
+          device_info: Json | null
+          endpoint: string
+          id: string
+          is_active: boolean
+          p256dh_key: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          device_info?: Json | null
+          endpoint: string
+          id?: string
+          is_active?: boolean
+          p256dh_key: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          device_info?: Json | null
+          endpoint?: string
+          id?: string
+          is_active?: boolean
+          p256dh_key?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_templates: {
         Row: {
           auto_post: boolean | null
@@ -6650,6 +6763,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "scenarios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          message: string | null
+          metadata: Json | null
+          next_run_at: string | null
+          schedule_day_of_month: number | null
+          schedule_day_of_week: number | null
+          schedule_time: string
+          schedule_type: string
+          target_users: string[] | null
+          tenant_id: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          message?: string | null
+          metadata?: Json | null
+          next_run_at?: string | null
+          schedule_day_of_month?: number | null
+          schedule_day_of_week?: number | null
+          schedule_time: string
+          schedule_type: string
+          target_users?: string[] | null
+          tenant_id: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          message?: string | null
+          metadata?: Json | null
+          next_run_at?: string | null
+          schedule_day_of_month?: number | null
+          schedule_day_of_week?: number | null
+          schedule_time?: string
+          schedule_type?: string
+          target_users?: string[] | null
+          tenant_id?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_notifications_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
