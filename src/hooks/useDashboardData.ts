@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
+import { useFinancialMetrics } from './useFinancialMetrics';
 
 // Types
 export interface DashboardKPIs {
@@ -10,10 +11,15 @@ export interface DashboardKPIs {
   totalAR: number;
   overdueAR: number;
   dso: number;
+  dpo: number;
+  dio: number;
   ccc: number;
   grossMargin: number;
   ebitda: number;
   autoMatchRate: number;
+  // Metadata for transparency
+  dateRangeStart: string;
+  dateRangeEnd: string;
 }
 
 // Empty KPI state for fallback
@@ -23,10 +29,14 @@ export const EMPTY_KPIS: DashboardKPIs = {
   totalAR: 0,
   overdueAR: 0,
   dso: 0,
+  dpo: 0,
+  dio: 0,
   ccc: 0,
   grossMargin: 0,
   ebitda: 0,
   autoMatchRate: 0,
+  dateRangeStart: '',
+  dateRangeEnd: '',
 };
 
 export interface CashForecast {
@@ -69,10 +79,17 @@ export interface ARAgingBucket {
   color: string;
 }
 
-// Fetch Dashboard KPIs with date range from context
+/**
+ * Dashboard KPIs Hook - REFACTORED
+ * Now uses useFinancialMetrics for DSO, DPO, DIO, CCC to ensure consistency
+ * across all pages (Dashboard, CashConversionCycle, WorkingCapital, etc.)
+ */
 export function useDashboardKPIs() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
   const { startDateStr, endDateStr, dateRange } = useDateRangeForQuery();
+  
+  // Use centralized financial metrics for DSO, DPO, DIO, CCC
+  const { data: financialMetrics } = useFinancialMetrics();
 
   return useQuery({
     queryKey: ['dashboard-kpis', tenantId, dateRange, startDateStr, endDateStr],
@@ -81,7 +98,7 @@ export function useDashboardKPIs() {
         return EMPTY_KPIS;
       }
 
-      // Fetch all data in parallel for better performance
+      // Fetch data that is NOT covered by useFinancialMetrics
       const [
         bankAccountsRes,
         invoicesRes,
@@ -129,14 +146,12 @@ export function useDashboardKPIs() {
           .eq('tenant_id', tenantId)
           .gte('expense_date', startDateStr)
           .lte('expense_date', endDateStr),
-        // Fetch external orders for eCommerce data
         supabase
           .from('external_orders')
           .select('total_amount, status, order_date, cost_of_goods, platform_fee, commission_fee, payment_fee, shipping_fee_paid, other_fees, seller_income, gross_profit')
           .eq('tenant_id', tenantId)
           .gte('order_date', startDateStr)
           .lte('order_date', endDateStr),
-        // Fetch settlements for cash inflows
         supabase
           .from('channel_settlements')
           .select('net_amount, payout_date, is_reconciled')
@@ -157,12 +172,10 @@ export function useDashboardKPIs() {
       // Calculate cash today from bank accounts
       const cashToday = bankAccounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
       
-      // Calculate AR and revenue from multiple sources
+      // Calculate AR from invoices and settlements
       const today = new Date();
       let totalAR = 0;
       let overdueAR = 0;
-      let totalDSO = 0;
-      let invoiceCount = 0;
       
       // Traditional invoice AR
       invoices.forEach(inv => {
@@ -175,25 +188,18 @@ export function useDashboardKPIs() {
             if (!isNaN(dueDate.getTime()) && dueDate < today) {
               overdueAR += remaining;
             }
-            
-            const issueDate = new Date(inv.issue_date);
-            if (!isNaN(issueDate.getTime())) {
-              const daysDiff = Math.floor((today.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24));
-              totalDSO += daysDiff;
-              invoiceCount++;
-            }
           } catch {
             // Skip invalid dates
           }
         }
       });
       
-      // Calculate pending eCommerce revenue as AR (not yet settled)
+      // Pending eCommerce revenue as AR
       const pendingSettlements = settlements.filter(s => !s.is_reconciled);
       const ecommerceAR = pendingSettlements.reduce((sum, s) => sum + (s.net_amount || 0), 0);
       totalAR += ecommerceAR;
       
-      // Estimate overdue from settlements > 7 days old
+      // Overdue from settlements > 7 days old
       pendingSettlements.forEach(s => {
         try {
           const payoutDate = new Date(s.payout_date || '');
@@ -208,17 +214,13 @@ export function useDashboardKPIs() {
         }
       });
       
-      const dso = invoiceCount > 0 ? Math.round(totalDSO / invoiceCount) : (settlements.length > 0 ? 3 : 0);
-      
-      // Cash 7d from forecasts or estimate from settlements
+      // Cash 7d from forecasts
       let cash7d = forecasts.length ? forecasts[forecasts.length - 1]?.closing_balance : cashToday;
-      
-      // If no forecast, estimate from pending settlements
       if (!forecasts.length && pendingSettlements.length > 0) {
-        cash7d = cashToday + ecommerceAR * 0.7; // Estimate 70% will settle within 7 days
+        cash7d = cashToday + ecommerceAR * 0.7;
       }
       
-      // Auto match rate - consider settlements reconciliation as well
+      // Auto match rate
       const matchedCount = allTransactions.filter(t => t.match_status === 'matched').length;
       const reconciledSettlements = settlements.filter(s => s.is_reconciled).length;
       const totalMatchable = (allTransactions.length || 0) + (settlements.length || 0);
@@ -226,21 +228,20 @@ export function useDashboardKPIs() {
         ? Math.round(((matchedCount + reconciledSettlements) / totalMatchable) * 100)
         : 0;
       
-      // Revenue calculation - combine all sources
+      // Revenue and COGS calculation
       const traditionalRevenue = revenues.reduce((sum, r) => sum + (r.amount || 0), 0);
       const ecommerceRevenue = externalOrders
         .filter(o => o.status === 'delivered')
         .reduce((sum, o) => sum + (o.total_amount || 0), 0);
       const totalRevenue = traditionalRevenue + ecommerceRevenue;
       
-      // COGS calculation
       const traditionalCogs = expenses.filter(e => e.category === 'cogs').reduce((sum, e) => sum + (e.amount || 0), 0);
       const ecommerceCogs = externalOrders
         .filter(o => o.status === 'delivered')
         .reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
       const cogs = traditionalCogs + ecommerceCogs;
       
-      // Fees as operating expenses - sum all fee types
+      // Fees as operating expenses
       const ecommerceFees = externalOrders
         .filter(o => o.status === 'delivered')
         .reduce((sum, o) => sum + (o.platform_fee || 0) + (o.commission_fee || 0) + (o.payment_fee || 0) + (o.shipping_fee_paid || 0) + (o.other_fees || 0), 0);
@@ -250,19 +251,29 @@ export function useDashboardKPIs() {
       const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100 * 10) / 10 : 0;
       const ebitda = totalRevenue - cogs - operatingExpenses;
       
+      // USE FINANCIAL METRICS for DSO, DPO, DIO, CCC - Single source of truth!
+      const dso = financialMetrics?.dso ?? 0;
+      const dpo = financialMetrics?.dpo ?? 0;
+      const dio = financialMetrics?.dio ?? 0;
+      const ccc = financialMetrics?.ccc ?? 0;
+      
       return {
         cashToday,
         cash7d: cash7d || cashToday,
         totalAR,
         overdueAR,
         dso,
-        ccc: dso + 16,
+        dpo,
+        dio,
+        ccc,
         grossMargin: grossMargin > 0 ? grossMargin : 0,
         ebitda: ebitda,
         autoMatchRate,
+        dateRangeStart: startDateStr,
+        dateRangeEnd: endDateStr,
       };
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
     enabled: !tenantLoading && !!tenantId,
   });
 }

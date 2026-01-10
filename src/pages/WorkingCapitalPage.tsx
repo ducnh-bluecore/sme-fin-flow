@@ -30,6 +30,8 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 
 export default function WorkingCapitalPage() {
   const { data: summary, isLoading } = useWorkingCapitalSummary();
@@ -95,10 +97,16 @@ export default function WorkingCapitalPage() {
       </Helmet>
 
       <div className="space-y-6">
-        <PageHeader 
-          title="Tối ưu vốn lưu động"
-          subtitle="Phân tích và tối ưu chu kỳ tiền mặt (Cash Conversion Cycle)"
-        />
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <PageHeader 
+            title="Tối ưu vốn lưu động"
+            subtitle="Phân tích và tối ưu chu kỳ tiền mặt (Cash Conversion Cycle)"
+          />
+          <div className="flex flex-col items-end gap-2">
+            <QuickDateSelector />
+            <DateRangeIndicator variant="badge" />
+          </div>
+        </div>
 
         {/* Formula Reference */}
         <Collapsible open={showFormulas} onOpenChange={setShowFormulas}>

@@ -65,6 +65,7 @@ import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContextualAIPanel } from '@/components/dashboard/ContextualAIPanel';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 import { Link } from 'react-router-dom';
 
 type PLLineItemProps = {
@@ -309,15 +310,18 @@ export default function PLReportPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-            <QuickDateSelector />
-            <Button variant="outline" size="icon">
-              <Filter className="w-4 h-4" />
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Xuất báo cáo
-            </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-3">
+              <QuickDateSelector />
+              <Button variant="outline" size="icon">
+                <Filter className="w-4 h-4" />
+              </Button>
+              <Button variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Xuất báo cáo
+              </Button>
+            </div>
+            <DateRangeIndicator variant="compact" />
           </div>
         </motion.div>
 
