@@ -29,12 +29,13 @@ import { Link } from 'react-router-dom';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { InvoiceOrderDetailDialog } from '@/components/invoice/InvoiceOrderDetailDialog';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-const statusConfig = {
-  draft: { label: 'Nháp', icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted' },
-  sent_cqt: { label: 'Đã gửi CQT', icon: Send, color: 'text-warning', bg: 'bg-warning/10' },
-  signed: { label: 'Đã ký', icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
-};
+const getStatusConfig = (t: (key: string) => string) => ({
+  draft: { label: t('invoice.statusDraft'), icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted' },
+  sent_cqt: { label: t('invoice.statusSentCQT'), icon: Send, color: 'text-warning', bg: 'bg-warning/10' },
+  signed: { label: t('invoice.statusSigned'), icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+});
 
 const platformConfig = {
   shopee: { label: 'Shopee', color: 'text-orange-600', bg: 'bg-orange-100' },
@@ -42,7 +43,7 @@ const platformConfig = {
   tiktok: { label: 'TikTok Shop', color: 'text-pink-600', bg: 'bg-pink-100' },
   tiki: { label: 'Tiki', color: 'text-cyan-600', bg: 'bg-cyan-100' },
   sendo: { label: 'Sendo', color: 'text-red-600', bg: 'bg-red-100' },
-  other: { label: 'Khác', color: 'text-gray-600', bg: 'bg-gray-100' },
+  other: { label: 'Other', color: 'text-gray-600', bg: 'bg-gray-100' },
 };
 
 // Generate stable order codes based on invoice id
@@ -62,6 +63,7 @@ const getPlatformFromInvoice = (invoiceId: string) => {
 };
 
 export default function InvoiceTrackingPage() {
+  const { t } = useLanguage();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [customerFilter, setCustomerFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -72,6 +74,8 @@ export default function InvoiceTrackingPage() {
   const { dateRange } = useDateRange();
   const { invoices, isLoading } = useInvoiceTracking(dateRange);
   const { stats } = useCollectionStats(dateRange);
+  
+  const statusConfig = getStatusConfig(t);
 
   // Get unique platforms for filter dropdown
   const platforms = ['shopee', 'lazada', 'tiktok', 'tiki', 'sendo'];
@@ -97,8 +101,8 @@ export default function InvoiceTrackingPage() {
   return (
     <>
       <Helmet>
-        <title>Theo dõi & Thu hồi | Bluecore Finance</title>
-        <meta name="description" content="Theo dõi và thu hồi công nợ" />
+        <title>{t('invoice.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('invoice.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -113,19 +117,19 @@ export default function InvoiceTrackingPage() {
               <FileSearch className="w-6 h-6 text-warning" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Theo dõi & Thu hồi</h1>
-              <p className="text-muted-foreground">Invoice Tracking & Collection</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('invoice.title')}</h1>
+              <p className="text-muted-foreground">{t('invoice.subtitle')}</p>
             </div>
           </div>
           <div className="flex gap-2 items-center">
             <QuickDateSelector />
             <Button variant="outline" size="sm">
               <Download className="w-4 h-4 mr-2" />
-              Xuất báo cáo
+              {t('invoice.exportReport')}
             </Button>
             <Button size="sm">
               <Send className="w-4 h-4 mr-2" />
-              Gửi nhắc nợ hàng loạt
+              {t('invoice.bulkReminder')}
             </Button>
           </div>
         </motion.div>
@@ -138,10 +142,10 @@ export default function InvoiceTrackingPage() {
             ))
           ) : (
             [
-              { label: 'Tổng công nợ', value: stats.total, color: 'text-foreground' },
-              { label: 'Đã thu', value: stats.collected, color: 'text-success' },
-              { label: 'Chờ thu', value: stats.pending, color: 'text-warning' },
-              { label: 'Quá hạn', value: stats.overdue, color: 'text-destructive' },
+              { label: t('invoice.totalDebt'), value: stats.total, color: 'text-foreground' },
+              { label: t('invoice.collected'), value: stats.collected, color: 'text-success' },
+              { label: t('invoice.pending'), value: stats.pending, color: 'text-warning' },
+              { label: t('invoice.overdue'), value: stats.overdue, color: 'text-destructive' },
             ].map((stat, index) => (
               <motion.div
                 key={stat.label}
@@ -168,13 +172,13 @@ export default function InvoiceTrackingPage() {
           className="data-card"
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Tiến độ thu hồi tháng này</h3>
+            <h3 className="font-semibold">{t('invoice.collectionProgress')}</h3>
             <Badge variant="outline">{collectionRate.toFixed(1)}%</Badge>
           </div>
           <Progress value={collectionRate} className="h-3" />
           <div className="flex justify-between mt-2 text-sm text-muted-foreground">
-            <span>Đã thu: {formatCurrency(stats.collected)}</span>
-            <span>Mục tiêu: {formatCurrency(stats.total)}</span>
+            <span>{t('invoice.collectedAmount')}: {formatCurrency(stats.collected)}</span>
+            <span>{t('invoice.targetAmount')}: {formatCurrency(stats.total)}</span>
           </div>
         </motion.div>
 
@@ -186,20 +190,20 @@ export default function InvoiceTrackingPage() {
           className="data-card"
         >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-            <h3 className="font-semibold text-lg">Danh sách hóa đơn</h3>
+            <h3 className="font-semibold text-lg">{t('invoice.invoiceList')}</h3>
             <div className="flex flex-wrap gap-3">
               <Input 
-                placeholder="Tìm kiếm mã HĐ, khách hàng..." 
+                placeholder={t('invoice.searchPlaceholder')}
                 className="w-64" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               <Select value={customerFilter} onValueChange={setCustomerFilter}>
                 <SelectTrigger className="w-44">
-                  <SelectValue placeholder="Nền tảng" />
+                  <SelectValue placeholder={t('invoice.platformFilter')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả nền tảng</SelectItem>
+                  <SelectItem value="all">{t('invoice.allPlatforms')}</SelectItem>
                   {platforms.map(platform => (
                     <SelectItem key={platform} value={platform}>
                       {platformConfig[platform as keyof typeof platformConfig]?.label || platform}
@@ -209,13 +213,13 @@ export default function InvoiceTrackingPage() {
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Trạng thái" />
+                  <SelectValue placeholder={t('invoice.statusFilter')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="draft">Nháp</SelectItem>
-                  <SelectItem value="sent_cqt">Đã gửi CQT</SelectItem>
-                  <SelectItem value="signed">Đã ký</SelectItem>
+                  <SelectItem value="all">{t('invoice.allStatus')}</SelectItem>
+                  <SelectItem value="draft">{t('invoice.statusDraft')}</SelectItem>
+                  <SelectItem value="sent_cqt">{t('invoice.statusSentCQT')}</SelectItem>
+                  <SelectItem value="signed">{t('invoice.statusSigned')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -228,19 +232,19 @@ export default function InvoiceTrackingPage() {
               </div>
             ) : filteredInvoices.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <p>Không có hóa đơn nào</p>
+                <p>{t('invoice.noInvoices')}</p>
               </div>
             ) : (
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-semibold">Mã HĐ</th>
-                    <th className="text-left py-3 px-4 font-semibold">Mã đơn hàng</th>
-                    <th className="text-left py-3 px-4 font-semibold">Nền tảng</th>
-                    <th className="text-left py-3 px-4 font-semibold">Ngày tạo đơn</th>
-                    <th className="text-right py-3 px-4 font-semibold">Số tiền</th>
-                    <th className="text-left py-3 px-4 font-semibold">Trạng thái</th>
-                    <th className="text-right py-3 px-4 font-semibold">Thao tác</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t('invoice.invoiceCode')}</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t('invoice.orderCode')}</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t('invoice.platform')}</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t('invoice.createDate')}</th>
+                    <th className="text-right py-3 px-4 font-semibold">{t('invoice.amount')}</th>
+                    <th className="text-left py-3 px-4 font-semibold">{t('invoice.status')}</th>
+                    <th className="text-right py-3 px-4 font-semibold">{t('invoice.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>

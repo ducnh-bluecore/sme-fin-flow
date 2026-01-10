@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { Users, TrendingDown, Clock, DollarSign, Mail, Phone, FileText, Loader2, Plus } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { ARAgingChart } from '@/components/dashboard/ARAgingChart';
@@ -44,6 +45,7 @@ import {
 
 export default function AROperations() {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
   
   // Date range filter
   const [dateRange, setDateRange] = useState('this_year');
@@ -128,8 +130,8 @@ export default function AROperations() {
   return (
     <>
       <Helmet>
-        <title>AR Operations | Bluecore Finance</title>
-        <meta name="description" content="Quản lý công nợ phải thu - AR Operations Dashboard" />
+        <title>{t('ar.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('ar.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -141,9 +143,9 @@ export default function AROperations() {
         >
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              AR Operations
+              {t('ar.title')}
             </h1>
-            <p className="text-muted-foreground">Quản lý Công nợ Phải thu</p>
+            <p className="text-muted-foreground">{t('ar.subtitle')}</p>
           </div>
           <div className="flex gap-2 flex-wrap items-center">
             <QuickDateSelector value={dateRange} onChange={setDateRange} />
@@ -151,29 +153,29 @@ export default function AROperations() {
               <DialogTrigger asChild>
                 <Button size="sm" variant="default">
                   <Plus className="w-4 h-4 mr-2" />
-                  Thêm khách hàng
+                  {t('ar.addCustomer')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                  <DialogTitle>Thêm khách hàng mới</DialogTitle>
+                  <DialogTitle>{t('ar.addCustomerTitle')}</DialogTitle>
                   <DialogDescription>
-                    Nhập thông tin khách hàng để bắt đầu quản lý công nợ
+                    {t('ar.addCustomerDesc')}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="customer-name">Tên khách hàng *</Label>
+                    <Label htmlFor="customer-name">{t('ar.customerName')} *</Label>
                     <Input
                       id="customer-name"
-                      placeholder="VD: Công ty TNHH ABC"
+                      placeholder={t('ar.customerNamePlaceholder')}
                       value={customerForm.name}
                       onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="customer-email">Email</Label>
+                      <Label htmlFor="customer-email">{t('ar.email')}</Label>
                       <Input
                         id="customer-email"
                         type="email"
@@ -183,7 +185,7 @@ export default function AROperations() {
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="customer-phone">Điện thoại</Label>
+                      <Label htmlFor="customer-phone">{t('ar.phone')}</Label>
                       <Input
                         id="customer-phone"
                         placeholder="0901234567"
@@ -193,7 +195,7 @@ export default function AROperations() {
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="customer-address">Địa chỉ</Label>
+                    <Label htmlFor="customer-address">{t('ar.address')}</Label>
                     <Input
                       id="customer-address"
                       placeholder="123 Nguyễn Huệ, Q.1, TP.HCM"
@@ -203,7 +205,7 @@ export default function AROperations() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="customer-tax">Mã số thuế</Label>
+                      <Label htmlFor="customer-tax">{t('ar.taxCode')}</Label>
                       <Input
                         id="customer-tax"
                         placeholder="0123456789"
@@ -212,7 +214,7 @@ export default function AROperations() {
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="customer-credit">Hạn mức tín dụng</Label>
+                      <Label htmlFor="customer-credit">{t('ar.creditLimit')}</Label>
                       <Input
                         id="customer-credit"
                         type="number"
@@ -224,36 +226,36 @@ export default function AROperations() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="customer-terms">Điều khoản thanh toán</Label>
+                      <Label htmlFor="customer-terms">{t('ar.paymentTerms')}</Label>
                       <Select
                         value={customerForm.payment_terms}
                         onValueChange={(value) => setCustomerForm({ ...customerForm, payment_terms: value })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Chọn..." />
+                          <SelectValue placeholder="..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="0">Thanh toán ngay</SelectItem>
-                          <SelectItem value="15">15 ngày</SelectItem>
-                          <SelectItem value="30">30 ngày</SelectItem>
-                          <SelectItem value="45">45 ngày</SelectItem>
-                          <SelectItem value="60">60 ngày</SelectItem>
-                          <SelectItem value="90">90 ngày</SelectItem>
+                          <SelectItem value="0">{t('ar.payNow')}</SelectItem>
+                          <SelectItem value="15">15 {t('ar.daysN')}</SelectItem>
+                          <SelectItem value="30">30 {t('ar.daysN')}</SelectItem>
+                          <SelectItem value="45">45 {t('ar.daysN')}</SelectItem>
+                          <SelectItem value="60">60 {t('ar.daysN')}</SelectItem>
+                          <SelectItem value="90">90 {t('ar.daysN')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="customer-status">Trạng thái</Label>
+                      <Label htmlFor="customer-status">{t('common.status')}</Label>
                       <Select
                         value={customerForm.status}
                         onValueChange={(value) => setCustomerForm({ ...customerForm, status: value })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Chọn..." />
+                          <SelectValue placeholder="..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="active">Hoạt động</SelectItem>
-                          <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
+                          <SelectItem value="active">{t('ar.statusActive')}</SelectItem>
+                          <SelectItem value="inactive">{t('ar.statusInactive')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -261,7 +263,7 @@ export default function AROperations() {
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setShowAddCustomer(false)}>
-                    Hủy
+                    {t('common.cancel')}
                   </Button>
                   <Button onClick={handleAddCustomer} disabled={addCustomer.isPending}>
                     {addCustomer.isPending ? (
@@ -269,18 +271,18 @@ export default function AROperations() {
                     ) : (
                       <Plus className="w-4 h-4 mr-2" />
                     )}
-                    Thêm khách hàng
+                    {t('ar.addCustomer')}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
             <Button variant="outline" size="sm">
               <FileText className="w-4 h-4 mr-2" />
-              Xuất báo cáo
+              {t('ar.exportReport')}
             </Button>
             <Button variant="secondary" size="sm">
               <Mail className="w-4 h-4 mr-2" />
-              Gửi nhắc nợ hàng loạt
+              {t('ar.bulkReminder')}
             </Button>
           </div>
         </motion.div>
@@ -288,27 +290,27 @@ export default function AROperations() {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
-            title="Tổng AR"
+            title={t('ar.totalAR')}
             value={kpi.totalAR > 0 ? formatVNDCompact(kpi.totalAR) : '--'}
             trend={kpi.totalAR > 0 ? { value: 3.2 } : undefined}
             icon={DollarSign}
           />
           <KPICard
-            title="AR Quá hạn"
+            title={t('ar.overdueAR')}
             value={kpi.totalAR > 0 ? formatVNDCompact(kpi.overdueAR) : '--'}
-            subtitle={kpi.totalAR > 0 ? `${((kpi.overdueAR / kpi.totalAR) * 100).toFixed(1)}% tổng AR` : undefined}
+            subtitle={kpi.totalAR > 0 ? `${((kpi.overdueAR / kpi.totalAR) * 100).toFixed(1)}% ${t('ar.ofTotalAR')}` : undefined}
             icon={TrendingDown}
             variant={kpi.overdueAR > 0 ? "danger" : "default"}
           />
           <KPICard
-            title="DSO"
-            value={kpi.totalAR > 0 ? `${kpi.dso} ngày` : '--'}
-            trend={kpi.totalAR > 0 ? { value: kpi.dso - 45, label: 'vs target 45 ngày' } : undefined}
+            title={t('ar.dso')}
+            value={kpi.totalAR > 0 ? `${kpi.dso} ${t('ar.daysN')}` : '--'}
+            trend={kpi.totalAR > 0 ? { value: kpi.dso - 45, label: `${t('ar.vsTarget')} 45 ${t('ar.daysN')}` } : undefined}
             icon={Clock}
             variant={kpi.dso > 45 ? "warning" : "default"}
           />
           <KPICard
-            title="Hóa đơn chờ đối soát"
+            title={t('ar.pendingInvoices')}
             value={kpi.pendingInvoices.toString()}
             icon={FileText}
           />
@@ -335,10 +337,10 @@ export default function AROperations() {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-foreground">Top khách hàng theo AR</h3>
-                <p className="text-sm text-muted-foreground">Customer AR Analysis</p>
+                <h3 className="font-semibold text-foreground">{t('ar.topCustomers')}</h3>
+                <p className="text-sm text-muted-foreground">{t('ar.topCustomersDesc')}</p>
               </div>
-              <Badge variant="secondary">Top {Math.min(6, sortedCustomers.length)}</Badge>
+              <Badge variant="secondary">{t('ar.top')} {Math.min(6, sortedCustomers.length)}</Badge>
             </div>
 
             <ScrollArea className="h-64">
@@ -348,17 +350,17 @@ export default function AROperations() {
                 </div>
               ) : sortedCustomers.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  Không có dữ liệu khách hàng
+                  {t('ar.noCustomerData')}
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Khách hàng</TableHead>
-                      <TableHead className="text-xs text-right">Tổng AR</TableHead>
-                      <TableHead className="text-xs text-right">Quá hạn</TableHead>
-                      <TableHead className="text-xs text-center">DSO TB</TableHead>
-                      <TableHead className="text-xs text-right">Hành động</TableHead>
+                      <TableHead className="text-xs">{t('ar.customer')}</TableHead>
+                      <TableHead className="text-xs text-right">{t('ar.totalARAmount')}</TableHead>
+                      <TableHead className="text-xs text-right">{t('ar.overdueAmount')}</TableHead>
+                      <TableHead className="text-xs text-center">{t('ar.avgDSO')}</TableHead>
+                      <TableHead className="text-xs text-right">{t('ar.action')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -397,7 +399,7 @@ export default function AROperations() {
                           <Badge
                             variant={customer.avgPaymentDays > 45 ? 'destructive' : customer.avgPaymentDays > 30 ? 'default' : 'secondary'}
                           >
-                            {customer.avgPaymentDays} ngày
+                            {customer.avgPaymentDays} {t('ar.daysN')}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
