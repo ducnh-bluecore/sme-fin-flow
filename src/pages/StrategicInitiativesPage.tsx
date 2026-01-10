@@ -20,7 +20,8 @@ import {
   TrendingUp, Lightbulb, Shield, Settings2, Calendar
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { vi, enUS } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type InitiativeCategory = 'growth' | 'efficiency' | 'innovation' | 'risk_management' | 'digital_transformation' | 'sustainability';
 type InitiativePriority = 'low' | 'medium' | 'high' | 'critical';
@@ -52,28 +53,28 @@ interface StrategicInitiative {
   updated_at: string;
 }
 
-const categoryConfig: Record<InitiativeCategory, { label: string; icon: typeof Target; color: string }> = {
-  growth: { label: 'Tăng trưởng', icon: TrendingUp, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  efficiency: { label: 'Hiệu quả', icon: Settings2, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  innovation: { label: 'Đổi mới', icon: Lightbulb, color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
-  risk_management: { label: 'Quản lý rủi ro', icon: Shield, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-  digital_transformation: { label: 'Chuyển đổi số', icon: Target, color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200' },
-  sustainability: { label: 'Bền vững', icon: Target, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
+const categoryConfigStatic: Record<InitiativeCategory, { icon: typeof Target; color: string }> = {
+  growth: { icon: TrendingUp, color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  efficiency: { icon: Settings2, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  innovation: { icon: Lightbulb, color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+  risk_management: { icon: Shield, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+  digital_transformation: { icon: Target, color: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200' },
+  sustainability: { icon: Target, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
 };
 
-const priorityConfig: Record<InitiativePriority, { label: string; color: string }> = {
-  low: { label: 'Thấp', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
-  medium: { label: 'Trung bình', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  high: { label: 'Cao', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
-  critical: { label: 'Quan trọng', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+const priorityConfigStatic: Record<InitiativePriority, { color: string }> = {
+  low: { color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
+  medium: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  high: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+  critical: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
 };
 
-const statusConfig: Record<InitiativeStatus, { label: string; color: string }> = {
-  planned: { label: 'Kế hoạch', color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
-  in_progress: { label: 'Đang thực hiện', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-  completed: { label: 'Hoàn thành', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-  on_hold: { label: 'Tạm dừng', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
-  cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+const statusConfigStatic: Record<InitiativeStatus, { color: string }> = {
+  planned: { color: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200' },
+  in_progress: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  completed: { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+  on_hold: { color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
+  cancelled: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
 };
 
 interface InitiativeFormData {
@@ -107,11 +108,37 @@ const defaultFormData: InitiativeFormData = {
 };
 
 export default function StrategicInitiativesPage() {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'vi' ? vi : enUS;
   const { data: tenantId } = useActiveTenantId();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<InitiativeFormData>(defaultFormData);
+
+  const categoryConfig: Record<InitiativeCategory, { label: string; icon: typeof Target; color: string }> = {
+    growth: { label: t('strategic.growth'), icon: TrendingUp, ...categoryConfigStatic.growth },
+    efficiency: { label: t('strategic.efficiency'), icon: Settings2, ...categoryConfigStatic.efficiency },
+    innovation: { label: t('strategic.innovation'), icon: Lightbulb, ...categoryConfigStatic.innovation },
+    risk_management: { label: t('strategic.riskManagement'), icon: Shield, ...categoryConfigStatic.risk_management },
+    digital_transformation: { label: t('strategic.digitalTransformation'), icon: Target, ...categoryConfigStatic.digital_transformation },
+    sustainability: { label: t('strategic.sustainability'), icon: Target, ...categoryConfigStatic.sustainability },
+  };
+
+  const priorityConfig: Record<InitiativePriority, { label: string; color: string }> = {
+    low: { label: t('strategic.low'), ...priorityConfigStatic.low },
+    medium: { label: t('strategic.medium'), ...priorityConfigStatic.medium },
+    high: { label: t('strategic.high'), ...priorityConfigStatic.high },
+    critical: { label: t('strategic.critical'), ...priorityConfigStatic.critical },
+  };
+
+  const statusConfig: Record<InitiativeStatus, { label: string; color: string }> = {
+    planned: { label: t('strategic.planned'), ...statusConfigStatic.planned },
+    in_progress: { label: t('strategic.inProgress'), ...statusConfigStatic.in_progress },
+    completed: { label: t('strategic.completed'), ...statusConfigStatic.completed },
+    on_hold: { label: t('strategic.onHold'), ...statusConfigStatic.on_hold },
+    cancelled: { label: t('strategic.cancelled'), ...statusConfigStatic.cancelled },
+  };
 
   const { data: initiatives, isLoading } = useQuery({
     queryKey: ['strategic-initiatives', tenantId],
