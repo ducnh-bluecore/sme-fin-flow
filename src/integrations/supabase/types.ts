@@ -2857,6 +2857,83 @@ export type Database = {
           },
         ]
       }
+      extended_alert_configs: {
+        Row: {
+          alert_type: string
+          category: string
+          created_at: string
+          description: string | null
+          enabled: boolean | null
+          id: string
+          notify_email: boolean | null
+          notify_immediately: boolean | null
+          notify_in_daily_digest: boolean | null
+          notify_push: boolean | null
+          notify_slack: boolean | null
+          notify_sms: boolean | null
+          recipient_role: string
+          severity: string
+          tenant_id: string
+          threshold_operator: string | null
+          threshold_unit: string | null
+          threshold_value: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          alert_type: string
+          category: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean | null
+          id?: string
+          notify_email?: boolean | null
+          notify_immediately?: boolean | null
+          notify_in_daily_digest?: boolean | null
+          notify_push?: boolean | null
+          notify_slack?: boolean | null
+          notify_sms?: boolean | null
+          recipient_role?: string
+          severity?: string
+          tenant_id: string
+          threshold_operator?: string | null
+          threshold_unit?: string | null
+          threshold_value?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          alert_type?: string
+          category?: string
+          created_at?: string
+          description?: string | null
+          enabled?: boolean | null
+          id?: string
+          notify_email?: boolean | null
+          notify_immediately?: boolean | null
+          notify_in_daily_digest?: boolean | null
+          notify_push?: boolean | null
+          notify_slack?: boolean | null
+          notify_sms?: boolean | null
+          recipient_role?: string
+          severity?: string
+          tenant_id?: string
+          threshold_operator?: string | null
+          threshold_unit?: string | null
+          threshold_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extended_alert_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_inventory: {
         Row: {
           available_quantity: number | null
@@ -4881,6 +4958,53 @@ export type Database = {
           },
           {
             foreignKeyName: "monte_carlo_results_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_recipients: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          role: string
+          slack_user_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          role?: string
+          slack_user_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          role?: string
+          slack_user_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_recipients_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
