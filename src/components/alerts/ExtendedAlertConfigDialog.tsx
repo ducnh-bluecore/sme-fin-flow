@@ -104,8 +104,8 @@ export function ExtendedAlertConfigDialog({ open, onOpenChange }: ExtendedAlertC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Cấu hình cảnh báo mở rộng</DialogTitle>
           <DialogDescription>
             Thiết lập các loại cảnh báo theo danh mục và người nhận
@@ -126,9 +126,9 @@ export function ExtendedAlertConfigDialog({ open, onOpenChange }: ExtendedAlertC
             </Button>
           </div>
         ) : (
-          <div className="flex-1 overflow-hidden">
-            <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as AlertCategory)} className="h-full flex flex-col">
-              <TabsList className="grid grid-cols-4 lg:grid-cols-8 mb-4">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as AlertCategory)} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="grid grid-cols-4 lg:grid-cols-8 mb-4 flex-shrink-0">
                 {(Object.keys(categoryLabels) as AlertCategory[]).map((cat) => {
                   const Icon = categoryIcons[cat];
                   return (
@@ -140,7 +140,7 @@ export function ExtendedAlertConfigDialog({ open, onOpenChange }: ExtendedAlertC
                 })}
               </TabsList>
 
-              <ScrollArea className="flex-1 pr-4">
+              <ScrollArea className="flex-1 min-h-0 pr-4">
                 {(Object.keys(categoryLabels) as AlertCategory[]).map((cat) => (
                   <TabsContent key={cat} value={cat} className="mt-0 space-y-3">
                     {(categorizedConfigs[cat] || []).map((config) => {
@@ -257,7 +257,7 @@ export function ExtendedAlertConfigDialog({ open, onOpenChange }: ExtendedAlertC
           </div>
         )}
 
-        <DialogFooter className="mt-4">
+        <DialogFooter className="flex-shrink-0 pt-4 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
           <Button onClick={handleSave} disabled={bulkUpdate.isPending || isLoading}>
             {bulkUpdate.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
