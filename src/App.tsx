@@ -94,6 +94,7 @@ const CTTasksPage = lazy(() => import("./pages/control-tower/TasksPage"));
 const CTAlertsPage = lazy(() => import("./pages/control-tower/AlertsPage"));
 const CTAnalyticsPage = lazy(() => import("./pages/control-tower/AnalyticsPage"));
 const CTKPIRulesPage = lazy(() => import("./pages/control-tower/KPINotificationRulesPage"));
+const CTIntelligentRulesPage = lazy(() => import("./pages/control-tower/IntelligentRulesPage"));
 const CTStoresPage = lazy(() => import("./pages/control-tower/StoresPage"));
 const CTInventoryPage = lazy(() => import("./pages/control-tower/InventoryPage"));
 const CTPerformancePage = lazy(() => import("./pages/control-tower/PerformancePage"));
@@ -166,6 +167,7 @@ const AppRoutes = () => {
         <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
         <Route path="/control-tower/analytics" element={<CTAnalyticsPage />} />
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
+        <Route path="/control-tower/intelligent-rules" element={<CTIntelligentRulesPage />} />
         <Route path="/control-tower/stores" element={<CTStoresPage />} />
         <Route path="/control-tower/inventory" element={<CTInventoryPage />} />
         <Route path="/control-tower/performance" element={<CTPerformancePage />} />
