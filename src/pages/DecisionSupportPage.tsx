@@ -33,7 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { formatVNDCompact, formatVND } from '@/lib/formatters';
+import { formatVNDCompact, formatVND, formatDate, formatCount } from '@/lib/formatters';
 import { CheckCircle2 } from 'lucide-react';
 import {
   XAxis,
@@ -92,8 +92,8 @@ function MakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
   const handleSave = () => {
     saveAnalysis.mutate({
       analysis_type: 'make_vs_buy',
-      title: `Make vs Buy - ${new Date().toLocaleDateString('vi-VN')}`,
-      description: `So sánh tự sản xuất vs thuê ngoài với sản lượng ${makeData.volume.toLocaleString()} đơn vị`,
+      title: `Make vs Buy - ${formatDate(new Date())}`,
+      description: `So sánh tự sản xuất vs thuê ngoài với sản lượng ${formatCount(makeData.volume)} đơn vị`,
       parameters: { makeData, buyData },
       results: { makeTotalCost, buyTotalCost, breakEvenVolume, recommendation, savings },
       recommendation: recommendation === 'make' ? 'Tự sản xuất' : 'Thuê ngoài',
@@ -239,7 +239,7 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
   const handleSave = () => {
     saveAnalysis.mutate({
       analysis_type: 'break_even',
-      title: `Break-even Analysis - ${new Date().toLocaleDateString('vi-VN')}`,
+      title: `Break-even Analysis - ${formatDate(new Date())}`,
       description: `Phân tích hòa vốn với chi phí cố định ${formatVNDCompact(params.fixedCosts)}`,
       parameters: params,
       results: { contributionMargin, breakEvenUnits, breakEvenRevenue, marginOfSafety },
@@ -257,7 +257,7 @@ function BreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx: Adviso
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Break-even (Đơn vị)</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{breakEvenUnits.toLocaleString()}</div>
+            <div className="text-3xl font-bold">{formatCount(breakEvenUnits)}</div>
             <p className="text-sm text-muted-foreground">đơn vị sản phẩm</p>
           </CardContent>
         </Card>

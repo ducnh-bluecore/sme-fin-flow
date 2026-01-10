@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { formatVNDCompact, formatVND } from '@/lib/formatters';
+import { formatVNDCompact, formatVND, formatDate, formatPercent } from '@/lib/formatters';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
 import {
@@ -62,7 +62,7 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
   const handleSave = () => {
     saveAnalysis.mutate({
       analysis_type: 'roi',
-      title: `Phân tích ROI - ${new Date().toLocaleDateString('vi-VN')}`,
+      title: `Phân tích ROI - ${formatDate(new Date())}`,
       description: `Đầu tư ${formatVNDCompact(params.initialInvestment)}`,
       parameters: params,
       results: {
@@ -96,7 +96,7 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold ${roi > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {roi.toFixed(1)}%
+              {formatPercent(roi)}
             </div>
             <p className="text-sm text-muted-foreground">sau 5 năm</p>
           </CardContent>
@@ -108,7 +108,7 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold ${annualizedROI > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {(annualizedROI * 100).toFixed(1)}%
+              {formatPercent(annualizedROI, true)}
             </div>
             <p className="text-sm text-muted-foreground">CAGR</p>
           </CardContent>

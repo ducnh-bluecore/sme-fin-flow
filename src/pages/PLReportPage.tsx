@@ -49,7 +49,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { formatCurrency, formatPercent } from '@/lib/formatters';
+import { formatCurrency, formatPercent, formatCount } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -749,7 +749,7 @@ export default function PLReportPage() {
                       </div>
                       <span className="text-sm text-muted-foreground">Tổng đơn hàng</span>
                     </div>
-                    <p className="text-2xl font-bold">{channelsPLData.totals.orderCount.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">{formatCount(channelsPLData.totals.orderCount)}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       AOV: {formatCurrency(channelsPLData.totals.avgOrderValue)}
                     </p>
@@ -833,10 +833,10 @@ export default function PLReportPage() {
                             <TableCell className="text-right font-mono text-success">{formatCurrency(ch.grossProfit)}</TableCell>
                             <TableCell className="text-right">
                               <Badge variant={ch.grossMargin >= 20 ? 'default' : ch.grossMargin >= 10 ? 'secondary' : 'destructive'}>
-                                {ch.grossMargin.toFixed(1)}%
+                                {formatPercent(ch.grossMargin)}%
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">{ch.orderCount.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{formatCount(ch.orderCount)}</TableCell>
                             <TableCell className="text-right font-mono">{formatCurrency(ch.avgOrderValue)}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -854,9 +854,9 @@ export default function PLReportPage() {
                           <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(channelsPLData.totals.totalCogs)}</TableCell>
                           <TableCell className="text-right font-mono text-success">{formatCurrency(channelsPLData.totals.grossProfit)}</TableCell>
                           <TableCell className="text-right">
-                            <Badge variant="outline">{channelsPLData.totals.grossMargin.toFixed(1)}%</Badge>
+                            <Badge variant="outline">{formatPercent(channelsPLData.totals.grossMargin)}</Badge>
                           </TableCell>
-                          <TableCell className="text-right">{channelsPLData.totals.orderCount.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{formatCount(channelsPLData.totals.orderCount)}</TableCell>
                           <TableCell className="text-right font-mono">{formatCurrency(channelsPLData.totals.avgOrderValue)}</TableCell>
                           <TableCell className="text-right">100%</TableCell>
                         </TableRow>

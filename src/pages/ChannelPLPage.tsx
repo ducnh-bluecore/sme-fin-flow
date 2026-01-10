@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useChannelPL, useAvailableChannels } from '@/hooks/useChannelPL';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatPercent, formatRatio } from '@/lib/formatters';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -262,7 +262,7 @@ export default function ChannelPLPage() {
                   <p className="text-sm text-muted-foreground">Tổng Phí Kênh</p>
                   <p className="text-2xl font-bold text-red-500">{formatCurrency(plData.totalFees)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {((plData.totalFees / plData.totalRevenue) * 100).toFixed(1)}% doanh thu
+                    {formatRatio(plData.totalFees, plData.totalRevenue)} doanh thu
                   </p>
                 </div>
                 <Receipt className="h-8 w-8 text-red-500" />
@@ -277,7 +277,7 @@ export default function ChannelPLPage() {
                   <p className="text-sm text-muted-foreground">COGS</p>
                   <p className="text-2xl font-bold text-yellow-500">{formatCurrency(plData.totalCogs)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {((plData.totalCogs / plData.totalRevenue) * 100).toFixed(1)}% doanh thu
+                    {formatRatio(plData.totalCogs, plData.totalRevenue)} doanh thu
                   </p>
                 </div>
                 <Package className="h-8 w-8 text-yellow-500" />
@@ -292,7 +292,7 @@ export default function ChannelPLPage() {
                   <p className="text-sm text-muted-foreground">Chi Phí Ads</p>
                   <p className="text-2xl font-bold text-purple-500">{formatCurrency(plData.totalAds)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {plData.totalRevenue > 0 ? ((plData.totalAds / plData.totalRevenue) * 100).toFixed(1) : 0}% doanh thu
+                    {formatRatio(plData.totalAds, plData.totalRevenue)} doanh thu
                   </p>
                 </div>
                 <Megaphone className="h-8 w-8 text-purple-500" />
@@ -352,7 +352,7 @@ export default function ChannelPLPage() {
                         outerRadius={100}
                         innerRadius={60}
                         dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name}: ${formatPercent(percent, true)}`}
                       >
                         {feeData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -380,7 +380,7 @@ export default function ChannelPLPage() {
                     <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} />
                     <Tooltip 
                       formatter={(value: number, name: string) => {
-                        if (name === 'margin') return [`${value.toFixed(1)}%`, 'Margin'];
+                        if (name === 'margin') return [formatPercent(value), 'Margin'];
                         return [formatCurrency(value), name === 'revenue' ? 'Doanh thu' : name === 'profit' ? 'Lợi nhuận' : name];
                       }}
                     />
@@ -503,7 +503,7 @@ export default function ChannelPLPage() {
                       <div className="text-right">
                         <p className="font-semibold">{formatCurrency(fee.value)}</p>
                         <p className="text-xs text-muted-foreground">
-                          {((fee.value / plData.totalFees) * 100).toFixed(1)}% tổng phí
+                          {formatRatio(fee.value, plData.totalFees)} tổng phí
                         </p>
                       </div>
                     </div>
@@ -543,19 +543,19 @@ export default function ChannelPLPage() {
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
                     <p className="text-sm text-muted-foreground">Phí kênh / Doanh thu</p>
                     <p className="text-2xl font-bold text-red-500">
-                      {((plData.totalFees / plData.totalRevenue) * 100).toFixed(1)}%
+                      {formatRatio(plData.totalFees, plData.totalRevenue)}
                     </p>
                   </div>
                   <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                     <p className="text-sm text-muted-foreground">COGS / Doanh thu</p>
                     <p className="text-2xl font-bold text-yellow-500">
-                      {((plData.totalCogs / plData.totalRevenue) * 100).toFixed(1)}%
+                      {formatRatio(plData.totalCogs, plData.totalRevenue)}
                     </p>
                   </div>
                   <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
                     <p className="text-sm text-muted-foreground">Ads / Doanh thu</p>
                     <p className="text-2xl font-bold text-purple-500">
-                      {((plData.totalAds / plData.totalRevenue) * 100).toFixed(1)}%
+                      {formatRatio(plData.totalAds, plData.totalRevenue)}
                     </p>
                   </div>
                   <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">

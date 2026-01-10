@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatDate } from '@/lib/formatters';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
 import {
   ScatterChart,
@@ -112,7 +112,7 @@ export function SensitivityAnalysis({ onContextChange }: { onContextChange?: (ct
   const handleSave = () => {
     saveAnalysis.mutate({
       analysis_type: 'sensitivity',
-      title: `Phân tích Độ nhạy - ${new Date().toLocaleDateString('vi-VN')}`,
+      title: `Phân tích Độ nhạy - ${formatDate(new Date())}`,
       description: `Base profit: ${formatVNDCompact(baseProfit)}`,
       parameters: { baseCase, variations },
       results: { baseProfit, sensitivityCoeffs },

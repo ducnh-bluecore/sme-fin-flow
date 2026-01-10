@@ -19,7 +19,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, ReferenceLine, Cell
 } from 'recharts';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatPercent, formatCount } from '@/lib/formatters';
 import { 
   useMonteCarloSimulation, 
   ScenarioConfig, 
@@ -208,7 +208,7 @@ export function StressTestingPanel() {
               Stress Testing & Monte Carlo Simulation
             </CardTitle>
             <CardDescription>
-              Mô phỏng tác động của các kịch bản rủi ro với {iterations.toLocaleString()} lần chạy
+              Mô phỏng tác động của các kịch bản rủi ro với {formatCount(iterations)} lần chạy
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export function StressTestingPanel() {
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Xác suất</span>
-                            <span>{(scenario.probability * 100).toFixed(0)}%</span>
+                            <span>{formatPercent(scenario.probability, true)}</span>
                           </div>
                           <Slider
                             value={[scenario.probability * 100]}
@@ -554,7 +554,7 @@ function SimulationResults({
           </div>
           <p className="text-xl font-bold text-orange-500">{formatVNDCompact(stressedCase)}</p>
           <p className="text-xs text-muted-foreground">
-            {(((stressedCase - baseCase) / baseCase) * 100).toFixed(1)}%
+            {formatPercent(((stressedCase - baseCase) / baseCase) * 100)}
           </p>
         </Card>
         <Card className="p-4">
@@ -650,7 +650,7 @@ function SimulationResults({
             />
           </div>
           <p className="text-2xl font-bold text-orange-500">
-            {(riskMetrics.probabilityOfLoss * 100).toFixed(1)}%
+            {formatPercent(riskMetrics.probabilityOfLoss, true)}
           </p>
         </Card>
       </div>
@@ -725,7 +725,7 @@ function DistributionChart({
           <div className="p-2 rounded bg-background">
             <p className="font-medium">Histogram</p>
             <p className="text-muted-foreground mt-1">
-              Trục X = Giá trị kết quả, Trục Y = Số lần xuất hiện trong {output.results.distribution.reduce((a,b) => a+b, 0).toLocaleString()} mô phỏng
+              Trục X = Giá trị kết quả, Trục Y = Số lần xuất hiện trong {formatCount(output.results.distribution.reduce((a,b) => a+b, 0))} mô phỏng
             </p>
           </div>
           <div className="p-2 rounded bg-background">
@@ -762,7 +762,7 @@ function DistributionChart({
                     <div className="bg-popover border rounded-lg p-3 shadow-lg">
                       <p className="font-medium">{data.label}</p>
                       <p className="text-sm text-muted-foreground">
-                        Tần suất: {data.count.toLocaleString()} lần ({percentage}%)
+                        Tần suất: {formatCount(data.count)} lần ({percentage}%)
                       </p>
                       <p className={`text-sm ${data.isLoss ? 'text-red-500' : 'text-green-500'}`}>
                         {data.isLoss ? '📉 Thua lỗ so với Base' : '📈 Giữ/Tăng giá trị'}
@@ -803,7 +803,7 @@ function DistributionChart({
             />
           </div>
           <p className="text-lg font-bold text-red-500">
-            {(output.riskMetrics.probabilityOfLoss * 100).toFixed(1)}% khả năng
+            {formatPercent(output.riskMetrics.probabilityOfLoss, true)} khả năng
           </p>
         </div>
         <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -816,7 +816,7 @@ function DistributionChart({
             />
           </div>
           <p className="text-lg font-bold text-green-500">
-            {((1 - output.riskMetrics.probabilityOfLoss) * 100).toFixed(1)}% khả năng
+            {formatPercent(1 - output.riskMetrics.probabilityOfLoss, true)} khả năng
           </p>
         </div>
       </div>
