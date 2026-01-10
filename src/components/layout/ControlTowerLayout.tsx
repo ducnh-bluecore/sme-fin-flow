@@ -29,6 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 
 interface NavItem {
   id: string;
@@ -58,7 +59,7 @@ const bottomNavItems: NavItem[] = [
 
 export function ControlTowerLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -77,7 +78,7 @@ export function ControlTowerLayout() {
       whileTap={{ scale: 0.98 }}
       onClick={() => {
         navigate(item.path);
-        setMobileOpen(false);
+        setMobileDrawerOpen(false);
       }}
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
@@ -156,20 +157,25 @@ export function ControlTowerLayout() {
 
   return (
     <div className="min-h-screen bg-[#0F1117] flex">
-      {/* Mobile Overlay */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-          />
-        )}
-      </AnimatePresence>
+      {/* Mobile Header - Only on mobile */}
+      <div className="lg:hidden">
+        <MobileHeader
+          showSearch
+          showNotifications
+          notificationCount={5}
+          onNotificationClick={() => navigate('/control-tower/notifications')}
+          onSearchClick={() => {}}
+          onProfileClick={() => setMobileDrawerOpen(true)}
+        />
+      </div>
 
-      {/* Sidebar - Desktop */}
+      {/* Mobile Drawer */}
+      <MobileDrawer
+        isOpen={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+      />
+
+      {/* Sidebar - Desktop Only */}
       <motion.aside
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
@@ -191,50 +197,18 @@ export function ControlTowerLayout() {
         </Button>
       </motion.aside>
 
-      {/* Sidebar - Mobile */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.aside
-            initial={{ x: -280 }}
-            animate={{ x: 0 }}
-            exit={{ x: -280 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="fixed left-0 top-0 bottom-0 w-[280px] bg-[#13151C] border-r border-slate-800/50 z-50 lg:hidden"
-          >
-            <SidebarContent />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </motion.aside>
-        )}
-      </AnimatePresence>
-
       {/* Main Content */}
       <div 
         className={cn(
           'flex-1 flex flex-col min-h-screen transition-all duration-200',
+          'lg:ml-0',
           collapsed ? 'lg:ml-[72px]' : 'lg:ml-[260px]'
         )}
       >
-        {/* Header */}
-        <header className="sticky top-0 z-20 h-16 bg-[#0F1117]/80 backdrop-blur-xl border-b border-slate-800/50 flex items-center justify-between px-4 lg:px-6">
+        {/* Header - Desktop Only */}
+        <header className="hidden lg:flex sticky top-0 z-20 h-16 bg-[#0F1117]/80 backdrop-blur-xl border-b border-slate-800/50 items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMobileOpen(true)}
-              className="lg:hidden text-slate-400 hover:text-slate-200"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div className="hidden sm:block">
-              <TenantSwitcher />
-            </div>
+            <TenantSwitcher />
           </div>
 
           <div className="flex items-center gap-3">
@@ -247,10 +221,13 @@ export function ControlTowerLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 p-4 lg:p-6 overflow-auto pb-20 lg:pb-6">
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav onMoreClick={() => setMobileDrawerOpen(true)} />
     </div>
   );
 }
