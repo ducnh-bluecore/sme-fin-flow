@@ -17,6 +17,7 @@ import {
   Package, Percent, Store, ArrowUpRight, ArrowDownRight, ExternalLink 
 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatPercent, formatDateShort, formatDate } from '@/lib/formatters';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   useChannelPerformance, 
   useDailyChannelRevenue, 
@@ -98,6 +99,7 @@ function getDateRangeFromPreset(preset: string): DateRange {
 }
 
 export default function ChannelAnalyticsPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRange>(() => getDateRangeFromPreset('this_year'));
   const [selectedPreset, setSelectedPreset] = useState<string>('this_year');
@@ -205,12 +207,12 @@ export default function ChannelAnalyticsPage() {
     return (
       <>
         <Helmet>
-          <title>Phân tích đa kênh | Bluecore</title>
+          <title>{t('channel.title')} | Bluecore</title>
         </Helmet>
         <div className="space-y-6">
           <div>
-            <h1 className="text-2xl font-bold">Phân tích đa kênh</h1>
-            <p className="text-muted-foreground">Tổng quan hiệu suất bán hàng theo từng kênh</p>
+            <h1 className="text-2xl font-bold">{t('channel.title')}</h1>
+            <p className="text-muted-foreground">{t('channel.subtitle')}</p>
           </div>
           <LoadingSkeleton />
         </div>
@@ -221,16 +223,16 @@ export default function ChannelAnalyticsPage() {
   return (
     <>
       <Helmet>
-        <title>Phân tích đa kênh | Bluecore</title>
-        <meta name="description" content="Dashboard phân tích doanh thu và hiệu suất bán hàng đa kênh" />
+        <title>{t('channel.title')} | Bluecore</title>
+        <meta name="description" content={t('channel.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Phân tích đa kênh</h1>
-            <p className="text-muted-foreground">Tổng quan hiệu suất bán hàng theo từng kênh</p>
+            <h1 className="text-2xl font-bold">{t('channel.title')}</h1>
+            <p className="text-muted-foreground">{t('channel.subtitle')}</p>
           </div>
           <DateRangeFilter
             value={dateRange}
@@ -243,17 +245,97 @@ export default function ChannelAnalyticsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tổng đơn hàng
+                {t('channel.totalOrders')}
               </CardTitle>
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatNumber(totals.orders)}</div>
               <p className="text-xs text-muted-foreground">
-                Từ {channelPerformance?.length || 0} kênh bán hàng
+                {t('channel.fromChannels').replace('{0}', String(channelPerformance?.length || 0))}
               </p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('channel.totalRevenue')}
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totals.grossRevenue)}</div>
+              <div className="mt-2 space-y-1">
+                {totals.ecommerceRevenue > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-blue-500" />
+                      {t('channel.ecommerce')}
+                    </span>
+                    <span className="font-medium">{formatCurrency(totals.ecommerceRevenue)}</span>
+                  </div>
+                )}
+                {totals.invoiceRevenue > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-violet-500" />
+                      B2B
+                    </span>
+                    <span className="font-medium">{formatCurrency(totals.invoiceRevenue)}</span>
+                  </div>
+                )}
+                {totals.otherRevenue > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2 w-2 rounded-full bg-teal-500" />
+                      {t('channel.otherRevenue')}
+                    </span>
+                    <span className="font-medium">{formatCurrency(totals.otherRevenue)}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('channel.platformFees')}
+              </CardTitle>
+              <Percent className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">
+                {formatCurrency(totals.fees)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {totals.grossRevenue > 0 
+                  ? `${formatPercent((totals.fees / totals.grossRevenue) * 100)} ${t('channel.ofRevenue')}`
+                  : `0% ${t('channel.ofRevenue')}`}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('channel.grossProfit')}
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(totals.profit)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {totals.grossRevenue > 0 
+                  ? `${t('channel.margin')}: ${formatPercent((totals.profit / totals.grossRevenue) * 100)}`
+                  : `${t('channel.margin')}: 0%`}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -338,10 +420,10 @@ export default function ChannelAnalyticsPage() {
         {/* Charts */}
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="channels">Theo kênh</TabsTrigger>
-            <TabsTrigger value="orders">Đơn hàng</TabsTrigger>
-            <TabsTrigger value="settlements">Đối soát</TabsTrigger>
+            <TabsTrigger value="overview">{t('channel.overview')}</TabsTrigger>
+            <TabsTrigger value="channels">{t('channel.byChannel')}</TabsTrigger>
+            <TabsTrigger value="orders">{t('channel.orders')}</TabsTrigger>
+            <TabsTrigger value="settlements">{t('channel.settlements')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -349,8 +431,8 @@ export default function ChannelAnalyticsPage() {
               {/* Revenue Trend */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Xu hướng doanh thu</CardTitle>
-                  <CardDescription>Doanh thu và phí theo thời gian</CardDescription>
+                  <CardTitle>{t('channel.revenueTrend')}</CardTitle>
+                  <CardDescription>{t('channel.revenueTrendDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -373,7 +455,7 @@ export default function ChannelAnalyticsPage() {
                       <Area 
                         type="monotone" 
                         dataKey="grossRevenue" 
-                        name="Doanh thu gộp" 
+                        name={t('channel.grossRevenue')} 
                         stroke="#3B82F6" 
                         fill="#3B82F6" 
                         fillOpacity={0.3} 
@@ -381,7 +463,7 @@ export default function ChannelAnalyticsPage() {
                       <Area 
                         type="monotone" 
                         dataKey="netRevenue" 
-                        name="Doanh thu thuần" 
+                        name={t('channel.netRevenue')} 
                         stroke="#10B981" 
                         fill="#10B981" 
                         fillOpacity={0.3} 
@@ -394,8 +476,8 @@ export default function ChannelAnalyticsPage() {
               {/* Revenue by Source */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Doanh thu theo nguồn</CardTitle>
-                  <CardDescription>Phân bổ theo loại hình kinh doanh</CardDescription>
+                  <CardTitle>{t('channel.revenueBySource')}</CardTitle>
+                  <CardDescription>{t('channel.revenueBySourceDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -425,8 +507,8 @@ export default function ChannelAnalyticsPage() {
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Trạng thái đơn hàng TMĐT</CardTitle>
-                  <CardDescription>Phân bổ theo trạng thái</CardDescription>
+                  <CardTitle>{t('channel.ecommerceOrderStatus')}</CardTitle>
+                  <CardDescription>{t('channel.byStatus')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
