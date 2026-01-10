@@ -8,12 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCashFlowAnalysis } from '@/hooks/useCashFlowDirect';
 import { formatCurrency } from '@/lib/formatters';
 import { LoadingState, EmptyState } from '@/components/shared';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine } from 'recharts';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 export default function CashFlowDirectPage() {
   const { cashFlows, summary, periodData, isLoading } = useCashFlowAnalysis();
+  const { t, language } = useLanguage();
 
   if (isLoading) return <LoadingState variant="page" />;
 
@@ -29,7 +31,7 @@ export default function CashFlowDirectPage() {
   return (
     <>
       <Helmet>
-        <title>Dòng tiền trực tiếp | Bluecore Finance</title>
+        <title>{t('cashDirect.title')} | Bluecore Finance</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -42,8 +44,8 @@ export default function CashFlowDirectPage() {
             <Banknote className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Dòng tiền trực tiếp</h1>
-            <p className="text-muted-foreground">Direct Cash Flow Statement</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('cashDirect.title')}</h1>
+            <p className="text-muted-foreground">{t('cashDirect.subtitle')}</p>
           </div>
         </motion.div>
 
@@ -54,7 +56,7 @@ export default function CashFlowDirectPage() {
               <div className="flex items-center gap-3">
                 <ArrowUpRight className="w-8 h-8 text-green-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng thu</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.totalInflow')}</p>
                   <p className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalInflows)}</p>
                 </div>
               </div>
@@ -66,7 +68,7 @@ export default function CashFlowDirectPage() {
               <div className="flex items-center gap-3">
                 <ArrowDownRight className="w-8 h-8 text-red-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng chi</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.totalOutflow')}</p>
                   <p className="text-2xl font-bold text-red-600">{formatCurrency(summary.totalOutflows)}</p>
                 </div>
               </div>
@@ -82,7 +84,7 @@ export default function CashFlowDirectPage() {
                   <TrendingDown className="w-8 h-8 text-red-500" />
                 )}
                 <div>
-                  <p className="text-sm text-muted-foreground">Thay đổi ròng</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.netChange')}</p>
                   <p className={`text-2xl font-bold ${summary.netChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(summary.netChange)}
                   </p>
@@ -96,10 +98,10 @@ export default function CashFlowDirectPage() {
               <div className="flex items-center gap-3">
                 <Clock className="w-8 h-8 text-blue-500" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Cash Runway</p>
-                  <p className="text-2xl font-bold">{summary.runway.toFixed(1)} tháng</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.runway')}</p>
+                  <p className="text-2xl font-bold">{summary.runway.toFixed(1)} {t('cashDirect.months')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Burn: {formatCurrency(summary.burnRate)}/tháng
+                    {t('cashDirect.burnRate')}: {formatCurrency(summary.burnRate)}{t('cashDirect.perMonth')}
                   </p>
                 </div>
               </div>
@@ -113,7 +115,7 @@ export default function CashFlowDirectPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Hoạt động kinh doanh</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.operating')}</p>
                   <p className={`text-xl font-bold ${summary.operatingCashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(summary.operatingCashFlow)}
                   </p>
@@ -129,7 +131,7 @@ export default function CashFlowDirectPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Hoạt động đầu tư</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.investing')}</p>
                   <p className={`text-xl font-bold ${summary.investingCashFlow >= 0 ? 'text-green-600' : 'text-yellow-600'}`}>
                     {formatCurrency(summary.investingCashFlow)}
                   </p>
@@ -143,7 +145,7 @@ export default function CashFlowDirectPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Hoạt động tài chính</p>
+                  <p className="text-sm text-muted-foreground">{t('cashDirect.financing')}</p>
                   <p className={`text-xl font-bold ${summary.financingCashFlow >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                     {formatCurrency(summary.financingCashFlow)}
                   </p>
@@ -157,21 +159,21 @@ export default function CashFlowDirectPage() {
         {cashFlows.length === 0 ? (
           <EmptyState
             icon={Banknote}
-            title="Chưa có dữ liệu dòng tiền"
-            description="Thêm báo cáo dòng tiền để phân tích"
+            title={t('cashDirect.noData')}
+            description={t('cashDirect.addData')}
           />
         ) : (
           <Tabs defaultValue="chart" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="chart">Biểu đồ</TabsTrigger>
-              <TabsTrigger value="detail">Chi tiết</TabsTrigger>
+              <TabsTrigger value="chart">{t('cashDirect.chart')}</TabsTrigger>
+              <TabsTrigger value="detail">{t('cashDirect.detail')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="chart" className="space-y-6">
               {/* Cash Flow Trend Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Xu hướng dòng tiền theo kỳ</CardTitle>
+                  <CardTitle>{t('cashDirect.trendTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={400}>
@@ -180,14 +182,14 @@ export default function CashFlowDirectPage() {
                       <XAxis dataKey="period" />
                       <YAxis tickFormatter={(v) => `${v}M`} />
                       <Tooltip 
-                        formatter={(value: number) => `${value.toFixed(1)} triệu`}
-                        labelFormatter={(label) => `Kỳ: ${label}`}
+                        formatter={(value: number) => `${value.toFixed(1)} ${t('cashDirect.million')}`}
+                        labelFormatter={(label) => `${t('cashDirect.period')}: ${label}`}
                       />
                       <Legend />
                       <ReferenceLine y={0} stroke="#666" />
-                      <Bar dataKey="operating" name="Kinh doanh" fill="#22c55e" stackId="a" />
-                      <Bar dataKey="investing" name="Đầu tư" fill="#eab308" stackId="a" />
-                      <Bar dataKey="financing" name="Tài chính" fill="#3b82f6" stackId="a" />
+                      <Bar dataKey="operating" name={t('cashDirect.operating')} fill="#22c55e" stackId="a" />
+                      <Bar dataKey="investing" name={t('cashDirect.investing')} fill="#eab308" stackId="a" />
+                      <Bar dataKey="financing" name={t('cashDirect.financing')} fill="#3b82f6" stackId="a" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -196,7 +198,7 @@ export default function CashFlowDirectPage() {
               {/* Closing Balance Trend */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Số dư tiền cuối kỳ</CardTitle>
+                  <CardTitle>{t('cashDirect.closingBalance')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -205,12 +207,12 @@ export default function CashFlowDirectPage() {
                       <XAxis dataKey="period" />
                       <YAxis tickFormatter={(v) => `${v}M`} />
                       <Tooltip 
-                        formatter={(value: number) => `${value.toFixed(1)} triệu`}
+                        formatter={(value: number) => `${value.toFixed(1)} ${t('cashDirect.million')}`}
                       />
                       <Area 
                         type="monotone" 
                         dataKey="balance" 
-                        name="Số dư cuối kỳ" 
+                        name={t('cashDirect.closingBalance')} 
                         stroke="#3b82f6" 
                         fill="#3b82f6" 
                         fillOpacity={0.3} 
@@ -224,21 +226,21 @@ export default function CashFlowDirectPage() {
             <TabsContent value="detail">
               <Card>
                 <CardHeader>
-                  <CardTitle>Chi tiết dòng tiền theo kỳ</CardTitle>
+                  <CardTitle>{t('cashDirect.detailTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Kỳ</TableHead>
-                        <TableHead>Loại</TableHead>
-                        <TableHead className="text-right">Thu từ KH</TableHead>
-                        <TableHead className="text-right">Chi NCC</TableHead>
-                        <TableHead className="text-right">Chi lương</TableHead>
-                        <TableHead className="text-right">CF kinh doanh</TableHead>
-                        <TableHead className="text-right">CF đầu tư</TableHead>
-                        <TableHead className="text-right">CF tài chính</TableHead>
-                        <TableHead className="text-right">Số dư cuối</TableHead>
+                        <TableHead>{t('cashDirect.period')}</TableHead>
+                        <TableHead>{t('cashDirect.type')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.fromCustomers')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.toSuppliers')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.toEmployees')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.cfOperating')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.cfInvesting')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.cfFinancing')}</TableHead>
+                        <TableHead className="text-right">{t('cashDirect.endingBalance')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -249,7 +251,7 @@ export default function CashFlowDirectPage() {
                           </TableCell>
                           <TableCell>
                             <Badge variant={cf.is_actual ? 'default' : 'outline'}>
-                              {cf.is_actual ? 'Thực tế' : 'Dự báo'}
+                              {cf.is_actual ? t('cashDirect.actual') : t('cashDirect.forecast')}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right text-green-600">
