@@ -177,7 +177,7 @@ export default function RollingForecastPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Chênh lệch vs Ngân sách
+                {t('forecast.varianceBudget')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -196,7 +196,7 @@ export default function RollingForecastPage() {
                     {formatCurrency(Math.abs(summary?.totalVariance || 0))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    So với kế hoạch ban đầu
+                    {t('forecast.vsInitialPlan')}
                   </p>
                 </>
               )}
@@ -206,7 +206,7 @@ export default function RollingForecastPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Độ chính xác dự báo
+                {t('forecast.accuracy')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -218,7 +218,7 @@ export default function RollingForecastPage() {
                     {formatPercent(summary?.forecastAccuracy || 0)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Dựa trên số liệu thực tế
+                    {t('forecast.basedOnActual')}
                   </p>
                 </>
               )}
@@ -268,13 +268,13 @@ export default function RollingForecastPage() {
                     />
                     <Tooltip 
                       formatter={(value: number) => [`${value.toFixed(0)}M VND`, '']}
-                      labelFormatter={(label) => `Tháng: ${label}`}
+                      labelFormatter={(label) => `${t('forecast.month')}: ${label}`}
                     />
                     <Legend />
                     <Area 
                       type="monotone" 
                       dataKey="revenue" 
-                      name="Doanh thu" 
+                      name={t('forecast.revenue')} 
                       stroke="hsl(var(--chart-1))" 
                       fill="hsl(var(--chart-1))"
                       fillOpacity={0.3}
@@ -282,7 +282,7 @@ export default function RollingForecastPage() {
                     <Area 
                       type="monotone" 
                       dataKey="expense" 
-                      name="Chi phí" 
+                      name={t('forecast.expense')} 
                       stroke="hsl(var(--chart-2))" 
                       fill="hsl(var(--chart-2))"
                       fillOpacity={0.3}
@@ -290,7 +290,7 @@ export default function RollingForecastPage() {
                     <Line 
                       type="monotone" 
                       dataKey="netCash" 
-                      name="Dòng tiền ròng" 
+                      name={t('forecast.netCash')} 
                       stroke="hsl(var(--chart-3))" 
                       strokeWidth={2}
                       dot={false}
@@ -303,12 +303,12 @@ export default function RollingForecastPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-3 px-2">Tháng</th>
-                      <th className="text-left py-3 px-2">Loại</th>
-                      <th className="text-right py-3 px-2">Ngân sách</th>
-                      <th className="text-right py-3 px-2">Dự báo</th>
-                      <th className="text-right py-3 px-2">Chênh lệch</th>
-                      <th className="text-center py-3 px-2">Độ tin cậy</th>
+                      <th className="text-left py-3 px-2">{t('forecast.month')}</th>
+                      <th className="text-left py-3 px-2">{t('forecast.type')}</th>
+                      <th className="text-right py-3 px-2">{t('forecast.budget')}</th>
+                      <th className="text-right py-3 px-2">{t('forecast.forecastAmt')}</th>
+                      <th className="text-right py-3 px-2">{t('forecast.variance')}</th>
+                      <th className="text-center py-3 px-2">{t('forecast.confidence')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -319,7 +319,7 @@ export default function RollingForecastPage() {
                         </td>
                         <td className="py-2 px-2">
                           <Badge variant="outline">
-                            {f.forecast_type === 'revenue' ? 'Doanh thu' : 'Chi phí'}
+                            {f.forecast_type === 'revenue' ? t('forecast.revenue') : t('forecast.expense')}
                           </Badge>
                         </td>
                         <td className="py-2 px-2 text-right font-mono">
@@ -336,8 +336,8 @@ export default function RollingForecastPage() {
                         </td>
                         <td className="py-2 px-2 text-center">
                           <Badge className={confidenceColors[f.confidence_level]}>
-                            {f.confidence_level === 'high' ? 'Cao' : 
-                             f.confidence_level === 'medium' ? 'TB' : 'Thấp'}
+                            {f.confidence_level === 'high' ? t('forecast.confidenceHigh') : 
+                             f.confidence_level === 'medium' ? t('forecast.confidenceMedium') : t('forecast.confidenceLow')}
                           </Badge>
                         </td>
                       </tr>
@@ -354,35 +354,35 @@ export default function RollingForecastPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Target className="h-4 w-4" />
-              Giải thích độ tin cậy
+              {t('forecast.confidenceExplain')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="flex items-start gap-3">
-                <Badge className={confidenceColors.high}>Cao</Badge>
+                <Badge className={confidenceColors.high}>{t('forecast.confidenceHigh')}</Badge>
                 <div className="text-sm">
-                  <p className="font-medium">1-3 tháng tới</p>
+                  <p className="font-medium">{t('forecast.conf1to3')}</p>
                   <p className="text-muted-foreground">
-                    Dựa trên đơn hàng/hợp đồng đã ký, độ chính xác cao
+                    {t('forecast.conf1to3Desc')}
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Badge className={confidenceColors.medium}>Trung bình</Badge>
+                <Badge className={confidenceColors.medium}>{t('forecast.confidenceMedium')}</Badge>
                 <div className="text-sm">
-                  <p className="font-medium">4-9 tháng tới</p>
+                  <p className="font-medium">{t('forecast.conf4to9')}</p>
                   <p className="text-muted-foreground">
-                    Dựa trên xu hướng lịch sử và pipeline kinh doanh
+                    {t('forecast.conf4to9Desc')}
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Badge className={confidenceColors.low}>Thấp</Badge>
+                <Badge className={confidenceColors.low}>{t('forecast.confidenceLow')}</Badge>
                 <div className="text-sm">
-                  <p className="font-medium">10-18 tháng tới</p>
+                  <p className="font-medium">{t('forecast.conf10to18')}</p>
                   <p className="text-muted-foreground">
-                    Ước tính dựa trên giả định tăng trưởng, cần cập nhật thường xuyên
+                    {t('forecast.conf10to18Desc')}
                   </p>
                 </div>
               </div>
