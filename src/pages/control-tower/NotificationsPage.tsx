@@ -14,8 +14,10 @@ import {
   Package,
   Users,
   DollarSign,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react';
+import { ExtendedAlertConfigDialog } from '@/components/alerts/ExtendedAlertConfigDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -113,6 +115,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState(mockNotifications);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -163,12 +166,27 @@ export default function NotificationsPage() {
             </h1>
             <p className="text-slate-400 text-sm mt-1">Quản lý tất cả thông báo và cảnh báo</p>
           </div>
-          {unreadCount > 0 && (
-            <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 h-8 px-3">
-              {unreadCount} chưa đọc
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {unreadCount > 0 && (
+              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 h-8 px-3">
+                {unreadCount} chưa đọc
+              </Badge>
+            )}
+            <Button 
+              onClick={() => setConfigDialogOpen(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Cấu hình thông báo
+            </Button>
+          </div>
         </div>
+
+        {/* Config Dialog */}
+        <ExtendedAlertConfigDialog 
+          open={configDialogOpen} 
+          onOpenChange={setConfigDialogOpen} 
+        />
 
         {/* Search & Actions */}
         <Card className="bg-slate-900/50 border-slate-800/50">
