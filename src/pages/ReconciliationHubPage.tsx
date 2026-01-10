@@ -51,6 +51,7 @@ import { useDateRange } from '@/contexts/DateRangeContext';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const reconciliationStatusConfig = {
   matched: { label: 'Khớp', icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
@@ -94,6 +95,7 @@ const shippingCarriers = [
 
 
 export default function ReconciliationHubPage() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('3way');
   const [selectedBank, setSelectedBank] = useState<string>('all');
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
@@ -272,8 +274,8 @@ export default function ReconciliationHubPage() {
   return (
     <>
       <Helmet>
-        <title>Đối soát | Bluecore Finance</title>
-        <meta name="description" content="Đối soát 3 chiều, ngân hàng, sàn TMĐT và đơn vị vận chuyển" />
+        <title>{t('recon.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('recon.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -288,19 +290,19 @@ export default function ReconciliationHubPage() {
               <ArrowRightLeft className="w-6 h-6 text-info" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Đối soát</h1>
-              <p className="text-muted-foreground">Reconciliation Hub</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('recon.title')}</h1>
+              <p className="text-muted-foreground">{t('recon.subtitle')}</p>
             </div>
           </div>
           <div className="flex gap-2 items-center">
             <QuickDateSelector />
             <Button variant="outline" size="sm" onClick={handleSync}>
               <RefreshCw className="w-4 h-4 mr-2" />
-              Đồng bộ
+              {t('recon.sync')}
             </Button>
             <Button size="sm" onClick={() => handleExport('all')}>
               <Download className="w-4 h-4 mr-2" />
-              Xuất báo cáo
+              {t('recon.exportReport')}
             </Button>
           </div>
         </motion.div>
@@ -310,19 +312,19 @@ export default function ReconciliationHubPage() {
           <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="3way" className="text-xs sm:text-sm">
               <ArrowRightLeft className="w-4 h-4 mr-1 hidden sm:inline" />
-              3 chiều
+              {t('recon.3way')}
             </TabsTrigger>
             <TabsTrigger value="bank" className="text-xs sm:text-sm">
               <Building2 className="w-4 h-4 mr-1 hidden sm:inline" />
-              Ngân hàng
+              {t('recon.bank')}
             </TabsTrigger>
             <TabsTrigger value="ecommerce" className="text-xs sm:text-sm">
               <ShoppingBag className="w-4 h-4 mr-1 hidden sm:inline" />
-              Sàn TMĐT
+              {t('recon.ecommerce')}
             </TabsTrigger>
             <TabsTrigger value="shipping" className="text-xs sm:text-sm">
               <Truck className="w-4 h-4 mr-1 hidden sm:inline" />
-              Vận chuyển
+              {t('recon.shipping')}
             </TabsTrigger>
           </TabsList>
 
@@ -331,29 +333,29 @@ export default function ReconciliationHubPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard
-                title="Tỷ lệ 3-way matched"
+                title={t('recon.matchRate3way')}
                 value={invoices.length > 0 ? `${kpi.matchedRate}%` : '--'}
                 trend={invoices.length > 0 ? { value: 3.5 } : undefined}
                 icon={CheckCircle2}
                 variant={invoices.length > 0 ? "success" : "default"}
               />
               <KPICard
-                title="Hóa đơn chờ đối soát"
+                title={t('recon.pendingInvoices')}
                 value={unmatchedInvoices.toString()}
-                subtitle={unmatchedInvoices > 0 ? "cần xử lý" : undefined}
+                subtitle={unmatchedInvoices > 0 ? t('recon.needProcess') : undefined}
                 icon={Clock}
                 variant={unmatchedInvoices > 0 ? "warning" : "default"}
               />
               <KPICard
-                title="Tỷ lệ tự động khớp"
+                title={t('recon.autoMatchRate')}
                 value={bankTransactionsFromMatch.length > 0 ? `${autoMatchRate}%` : '--'}
                 trend={bankTransactionsFromMatch.length > 0 ? { value: 2.1 } : undefined}
                 icon={RefreshCw}
               />
               <KPICard
-                title="Exception aging"
-                value={unmatchedInvoices > 0 ? "4.2 ngày" : '--'}
-                subtitle={unmatchedInvoices > 0 ? "trung bình" : undefined}
+                title={t('recon.exceptionAging')}
+                value={unmatchedInvoices > 0 ? `4.2 ${t('bills.days')}` : '--'}
+                subtitle={unmatchedInvoices > 0 ? t('recon.average') : undefined}
                 icon={XCircle}
               />
             </div>
@@ -367,10 +369,10 @@ export default function ReconciliationHubPage() {
             >
               <div className="flex items-center justify-center gap-4 py-4 overflow-x-auto">
                 {[
-                  { label: 'Hóa đơn', sublabel: 'Invoice', count: invoices.length },
-                  { label: 'Thanh toán', sublabel: 'Payment', count: invoices.filter(i => i.paid_amount && i.paid_amount > 0).length },
-                  { label: 'Ngân hàng', sublabel: 'Bank Txn', count: bankTransactionsFromMatch.length },
-                  { label: 'Sổ cái', sublabel: 'GL Entry', count: invoices.length },
+                  { label: t('recon.invoice'), sublabel: 'Invoice', count: invoices.length },
+                  { label: t('recon.payment'), sublabel: 'Payment', count: invoices.filter(i => i.paid_amount && i.paid_amount > 0).length },
+                  { label: t('recon.bankTxn'), sublabel: 'Bank Txn', count: bankTransactionsFromMatch.length },
+                  { label: t('recon.glEntry'), sublabel: 'GL Entry', count: invoices.length },
                 ].map((step, index) => (
                   <div key={step.label} className="flex items-center gap-4">
                     <div className="text-center">
@@ -403,9 +405,9 @@ export default function ReconciliationHubPage() {
               ) : bankAccounts.length === 0 ? (
                 <Card className="col-span-3 p-8 bg-card shadow-card text-center">
                   <Building2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                  <p className="text-muted-foreground">Chưa có tài khoản ngân hàng nào được kết nối</p>
+                  <p className="text-muted-foreground">{t('recon.noBankAccount')}</p>
                   <Button variant="outline" size="sm" className="mt-4">
-                    Thêm tài khoản
+                    {t('recon.addAccount')}
                   </Button>
                 </Card>
               ) : (
