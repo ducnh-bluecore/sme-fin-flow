@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   BarChart3
 } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +31,7 @@ export default function BudgetVsActualPage() {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>();
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [showFormulas, setShowFormulas] = useState(false);
+  const { t } = useLanguage();
   
   const { data, isLoading, error } = useScenarioBudgetData({ selectedScenarioId, targetYear: selectedYear });
 
@@ -48,7 +50,7 @@ export default function BudgetVsActualPage() {
   if (error) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Không thể tải dữ liệu Budget vs Actual
+        {t('budgetVsActual.loadError')}
       </div>
     );
   }
@@ -60,19 +62,19 @@ export default function BudgetVsActualPage() {
   return (
     <>
       <Helmet>
-        <title>Budget vs Actual | CFO Dashboard</title>
+        <title>{t('budgetVsActual.title')} | CFO Dashboard</title>
       </Helmet>
 
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <PageHeader
-            title="Budget vs Actual"
-            subtitle="So sánh kế hoạch kịch bản với số liệu thực tế"
+            title={t('budgetVsActual.title')}
+            subtitle={t('budgetVsActual.subtitle')}
           />
           <div className="flex items-center gap-3">
             <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
               <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Năm" />
+                <SelectValue placeholder={t('budgetVsActual.year')} />
               </SelectTrigger>
               <SelectContent>
                 {[2024, 2025, 2026, 2027].map(year => (
@@ -93,10 +95,10 @@ export default function BudgetVsActualPage() {
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
-              <span>Chưa có kịch bản nào. Hãy tạo kịch bản để bắt đầu lập kế hoạch ngân sách.</span>
+              <span>{t('budgetVsActual.noScenario')}</span>
               <Button asChild variant="outline" size="sm">
                 <Link to="/scenario-hub">
-                  Đi tới Scenario Hub
+                  {t('budgetVsActual.goToScenarioHub')}
                   <ExternalLink className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
@@ -110,12 +112,11 @@ export default function BudgetVsActualPage() {
             <FileSpreadsheet className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>
-                Kịch bản "{data?.scenarioName}" chưa có kế hoạch tháng. 
-                Hãy nhập kế hoạch Revenue, OPEX, EBITDA.
+                {t('budgetVsActual.scenario')} "{data?.scenarioName}" {t('budgetVsActual.noPlanData')}
               </span>
               <Button asChild variant="outline" size="sm">
                 <Link to={`/scenario/${data?.scenarioId}`}>
-                  Nhập kế hoạch
+                  {t('budgetVsActual.enterPlan')}
                   <ExternalLink className="h-4 w-4 ml-2" />
                 </Link>
               </Button>
@@ -128,7 +129,7 @@ export default function BudgetVsActualPage() {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-2">
               <Info className="h-4 w-4" />
-              Công thức & Nguồn dữ liệu
+              {t('budgetVsActual.formulas')}
               <ChevronDown className={`h-4 w-4 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
             </Button>
           </CollapsibleTrigger>
@@ -136,35 +137,35 @@ export default function BudgetVsActualPage() {
             <Card className="bg-muted/30">
               <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="font-medium text-primary">Kế hoạch (KH)</p>
+                  <p className="font-medium text-primary">{t('budgetVsActual.planned')}</p>
                   <p className="text-muted-foreground text-xs mt-1">
-                    Từ bảng scenario_monthly_plans
+                    {t('budgetVsActual.plannedSource')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Kịch bản: {data?.scenarioName || 'Chưa chọn'}
+                    {t('budgetVsActual.scenario')}: {data?.scenarioName || t('budgetVsActual.notSelected')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">Thực tế (TT)</p>
+                  <p className="font-medium text-primary">{t('budgetVsActual.actual')}</p>
                   <p className="text-muted-foreground text-xs mt-1">
-                    DT từ external_orders (delivered)
+                    {t('budgetVsActual.actualRevenueSource')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    CP từ expenses
+                    {t('budgetVsActual.actualExpenseSource')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">Chênh lệch Doanh thu</p>
-                  <p className="text-muted-foreground font-mono text-xs">= Thực tế - Kế hoạch</p>
+                  <p className="font-medium text-primary">{t('budgetVsActual.revenueVariance')}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{t('budgetVsActual.revenueVarianceFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Dương = Vượt KH (tốt)
+                    {t('budgetVsActual.positiveGood')}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium text-primary">Chênh lệch Chi phí</p>
-                  <p className="text-muted-foreground font-mono text-xs">= Kế hoạch - Thực tế</p>
+                  <p className="font-medium text-primary">{t('budgetVsActual.expenseVariance')}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{t('budgetVsActual.expenseVarianceFormula')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Dương = Tiết kiệm (tốt)
+                    {t('budgetVsActual.savingsGood')}
                   </p>
                 </div>
               </CardContent>
@@ -177,14 +178,14 @@ export default function BudgetVsActualPage() {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
-              Tổng quan
+              {t('budgetVsActual.tabOverview')}
             </TabsTrigger>
             <TabsTrigger value="chart" className="gap-2">
               <BarChart3 className="h-4 w-4" />
-              Biểu đồ
+              {t('budgetVsActual.tabChart')}
             </TabsTrigger>
-            <TabsTrigger value="quarterly">Theo Quý</TabsTrigger>
-            <TabsTrigger value="monthly">Chi tiết tháng</TabsTrigger>
+            <TabsTrigger value="quarterly">{t('budgetVsActual.tabQuarterly')}</TabsTrigger>
+            <TabsTrigger value="monthly">{t('budgetVsActual.tabMonthly')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -205,17 +206,17 @@ export default function BudgetVsActualPage() {
         </Tabs>
 
         {/* AI Strategic Recommendations */}
-        <section aria-label="AI đề xuất hành động" className="space-y-3">
+        <section aria-label={t('budgetVsActual.aiRecommendations')} className="space-y-3">
           {!hasPlannedData ? (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="flex items-center justify-between gap-3">
                 <span>
-                  Chưa có dữ liệu kế hoạch (Budget) nên AI chưa thể đề xuất hành động chiến lược. Hãy nhập kế hoạch theo tháng để AI phân tích Budget vs Actual.
+                  {t('budgetVsActual.noPlanAIWarning')}
                 </span>
                 <Button asChild variant="outline" size="sm">
                   <Link to={selectedScenarioLink}>
-                    Nhập kế hoạch
+                    {t('budgetVsActual.enterPlan')}
                     <ExternalLink className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
@@ -224,7 +225,7 @@ export default function BudgetVsActualPage() {
           ) : (
             <ContextualAIPanel
               context="budget_vs_actual"
-              title="🎯 AI Đề xuất Hành động Chiến lược"
+              title={t('budgetVsActual.aiTitle')}
             />
           )}
         </section>
