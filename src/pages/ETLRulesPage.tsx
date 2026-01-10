@@ -25,16 +25,18 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-
-const statusConfig = {
-  running: { label: 'Đang chạy', color: 'text-info', bg: 'bg-info/10', icon: Play },
-  success: { label: 'Thành công', color: 'text-success', bg: 'bg-success/10', icon: CheckCircle2 },
-  error: { label: 'Lỗi', color: 'text-destructive', bg: 'bg-destructive/10', icon: XCircle },
-  idle: { label: 'Tạm dừng', color: 'text-muted-foreground', bg: 'bg-muted', icon: Pause },
-};
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function ETLRulesPage() {
   const { data: tenantId } = useActiveTenantId();
+  const { t } = useLanguage();
+
+  const statusConfig = {
+    running: { label: t('etl.statusRunning'), color: 'text-info', bg: 'bg-info/10', icon: Play },
+    success: { label: t('etl.statusSuccess'), color: 'text-success', bg: 'bg-success/10', icon: CheckCircle2 },
+    error: { label: t('etl.statusError'), color: 'text-destructive', bg: 'bg-destructive/10', icon: XCircle },
+    idle: { label: t('etl.statusIdle'), color: 'text-muted-foreground', bg: 'bg-muted', icon: Pause },
+  };
 
   const { data: etlPipelines = [], isLoading: loadingPipelines } = useQuery({
     queryKey: ['etl-pipelines', tenantId],
@@ -74,8 +76,8 @@ export default function ETLRulesPage() {
   return (
     <>
       <Helmet>
-        <title>Quy tắc ETL | Bluecore Finance</title>
-        <meta name="description" content="Quản lý quy tắc ETL và data pipelines" />
+        <title>{t('etl.title')} | Bluecore Finance</title>
+        <meta name="description" content={t('etl.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -90,13 +92,13 @@ export default function ETLRulesPage() {
               <Workflow className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Quy tắc ETL</h1>
-              <p className="text-muted-foreground">ETL Rules & Data Pipelines</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('etl.title')}</h1>
+              <p className="text-muted-foreground">{t('etl.subtitle')}</p>
             </div>
           </div>
           <Button size="sm">
             <Plus className="w-4 h-4 mr-2" />
-            Tạo pipeline mới
+            {t('etl.createPipeline')}
           </Button>
         </motion.div>
 
@@ -106,7 +108,7 @@ export default function ETLRulesPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Zap className="w-5 h-5 text-info" />
-                <span className="text-sm text-muted-foreground">Đang chạy</span>
+                <span className="text-sm text-muted-foreground">{t('etl.running')}</span>
               </div>
               <p className="text-2xl font-bold">{loadingPipelines ? '-' : runningCount} pipelines</p>
             </Card>
@@ -115,7 +117,7 @@ export default function ETLRulesPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <Database className="w-5 h-5 text-success" />
-                <span className="text-sm text-muted-foreground">Bản ghi xử lý hôm nay</span>
+                <span className="text-sm text-muted-foreground">{t('etl.recordsToday')}</span>
               </div>
               <p className="text-2xl font-bold">{loadingPipelines ? '-' : totalProcessed.toLocaleString()}</p>
             </Card>
@@ -124,7 +126,7 @@ export default function ETLRulesPage() {
             <Card className="p-5 bg-card shadow-card">
               <div className="flex items-center gap-3 mb-2">
                 <FileSpreadsheet className="w-5 h-5 text-warning" />
-                <span className="text-sm text-muted-foreground">Quy tắc transform</span>
+                <span className="text-sm text-muted-foreground">{t('etl.transformRules')}</span>
               </div>
               <p className="text-2xl font-bold">{loadingRules ? '-' : transformRules.length}</p>
             </Card>
@@ -138,14 +140,14 @@ export default function ETLRulesPage() {
           transition={{ delay: 0.2 }}
           className="data-card"
         >
-          <h3 className="font-semibold text-lg mb-4">Data Pipelines</h3>
+          <h3 className="font-semibold text-lg mb-4">{t('etl.dataPipelines')}</h3>
           {loadingPipelines ? (
             <div className="flex justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : etlPipelines.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              Chưa có pipeline nào được cấu hình.
+              {t('etl.noPipelines')}
             </div>
           ) : (
             <div className="space-y-4">
@@ -176,13 +178,13 @@ export default function ETLRulesPage() {
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             <Clock className="w-3 h-3 inline mr-1" />
-                            {pipeline.schedule || 'Không lịch'}
+                            {pipeline.schedule || t('etl.noSchedule')}
                           </p>
                         </div>
                         
                         <div className="text-right min-w-[100px]">
                           <p className="text-sm font-medium">{(pipeline.records_processed || 0).toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">bản ghi</p>
+                          <p className="text-xs text-muted-foreground">{t('etl.records')}</p>
                         </div>
                         
                         <div className="flex gap-1">
@@ -227,10 +229,10 @@ export default function ETLRulesPage() {
           className="data-card"
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Quy tắc Transform</h3>
+            <h3 className="font-semibold text-lg">{t('etl.transformRules')}</h3>
             <Button variant="outline" size="sm">
               <Plus className="w-4 h-4 mr-2" />
-              Thêm quy tắc
+              {t('etl.addRule')}
             </Button>
           </div>
           {loadingRules ? (
@@ -239,7 +241,7 @@ export default function ETLRulesPage() {
             </div>
           ) : transformRules.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              Chưa có quy tắc transform nào.
+              {t('etl.noRules')}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -250,7 +252,7 @@ export default function ETLRulesPage() {
                     <Badge variant="outline">{rule.rule_type}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {rule.is_active ? 'Đang hoạt động' : 'Tạm dừng'}
+                    {rule.is_active ? t('etl.ruleActive') : t('etl.rulePaused')}
                   </p>
                 </Card>
               ))}
