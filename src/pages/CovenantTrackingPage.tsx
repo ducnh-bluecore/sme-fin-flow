@@ -19,7 +19,7 @@ import {
   Plus, Calendar, Building, TrendingUp 
 } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { vi, enUS } from 'date-fns/locale';
 import { 
   useCovenants, 
   useCovenantSummary, 
@@ -29,8 +29,11 @@ import {
   type BankCovenant
 } from '@/hooks/useCovenantTracking';
 import { formatNumber, formatPercent } from '@/lib/formatters';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function CovenantTrackingPage() {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'vi' ? vi : enUS;
   const { data: covenants, isLoading } = useCovenants();
   const { data: summary } = useCovenantSummary();
   const createCovenant = useCreateCovenant();
@@ -57,25 +60,25 @@ export default function CovenantTrackingPage() {
       icon: CheckCircle, 
       color: 'text-green-600', 
       bg: 'bg-green-500/20',
-      label: 'Tuân thủ' 
+      label: t('covenant.compliant') 
     },
     warning: { 
       icon: AlertTriangle, 
       color: 'text-yellow-600', 
       bg: 'bg-yellow-500/20',
-      label: 'Cảnh báo' 
+      label: t('covenant.warning') 
     },
     breach: { 
       icon: XCircle, 
       color: 'text-red-600', 
       bg: 'bg-red-500/20',
-      label: 'Vi phạm' 
+      label: t('covenant.breached') 
     },
     waiver: { 
       icon: Shield, 
       color: 'text-blue-600', 
       bg: 'bg-blue-500/20',
-      label: 'Miễn trừ' 
+      label: t('covenant.waiver') 
     },
   };
 
@@ -131,18 +134,18 @@ export default function CovenantTrackingPage() {
   return (
     <>
       <Helmet>
-        <title>Theo dõi Covenant | CFO Dashboard</title>
+        <title>{t('covenant.title')} | CFO Dashboard</title>
       </Helmet>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <PageHeader 
-            title="Theo dõi Covenant"
-            subtitle="Giám sát cam kết tài chính với ngân hàng và tổ chức tín dụng"
+            title={t('covenant.title')}
+            subtitle={t('covenant.subtitle')}
           />
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Thêm Covenant
+            {t('covenant.addCovenant')}
           </Button>
         </div>
 
@@ -155,7 +158,7 @@ export default function CovenantTrackingPage() {
           } border-2`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Tình trạng tổng thể
+                {t('covenant.overallHealth')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -164,9 +167,9 @@ export default function CovenantTrackingPage() {
                 summary?.overallHealth === 'caution' ? 'text-yellow-600' :
                 'text-green-600'
               }`}>
-                {summary?.overallHealth === 'critical' ? 'Nghiêm trọng' :
-                 summary?.overallHealth === 'caution' ? 'Cần chú ý' :
-                 'Tốt'}
+                {summary?.overallHealth === 'critical' ? t('covenant.critical') :
+                 summary?.overallHealth === 'caution' ? t('covenant.caution') :
+                 t('covenant.good')}
               </div>
             </CardContent>
           </Card>
@@ -175,7 +178,7 @@ export default function CovenantTrackingPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <CheckCircle className="h-4 w-4 text-green-600" />
-                Tuân thủ
+                {t('covenant.compliant')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -189,7 +192,7 @@ export default function CovenantTrackingPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                Cảnh báo
+                {t('covenant.warning')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -203,7 +206,7 @@ export default function CovenantTrackingPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <XCircle className="h-4 w-4 text-red-600" />
-                Vi phạm
+                {t('covenant.breached')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -217,7 +220,7 @@ export default function CovenantTrackingPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                 <Shield className="h-4 w-4 text-blue-600" />
-                Miễn trừ
+                {t('covenant.waiver')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -234,7 +237,7 @@ export default function CovenantTrackingPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-yellow-600" />
-                Sắp đến kỳ đo lường ({summary.upcomingMeasurements.length})
+                {t('covenant.upcomingMeasurements')} ({summary.upcomingMeasurements.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -244,7 +247,7 @@ export default function CovenantTrackingPage() {
                     <span className="font-medium">{c.covenant_name}</span>
                     <span className="mx-1 text-muted-foreground">|</span>
                     <span className="text-muted-foreground">
-                      {c.next_measurement_date && differenceInDays(parseISO(c.next_measurement_date), new Date())} ngày
+                      {c.next_measurement_date && differenceInDays(parseISO(c.next_measurement_date), new Date())} {t('covenant.daysLeft')}
                     </span>
                   </Badge>
                 ))}
@@ -258,10 +261,10 @@ export default function CovenantTrackingPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building className="h-5 w-5" />
-              Danh sách Covenant
+              {t('covenant.covenantList')}
             </CardTitle>
             <CardDescription>
-              Tất cả cam kết tài chính đang theo dõi
+              {t('covenant.allCovenants')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -274,8 +277,8 @@ export default function CovenantTrackingPage() {
             ) : !covenants || covenants.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Shield className="h-12 w-12 mb-4 opacity-50" />
-                <p className="text-lg font-medium">Chưa có covenant nào</p>
-                <p className="text-sm">Nhấn "Thêm Covenant" để bắt đầu theo dõi</p>
+                <p className="text-lg font-medium">{t('covenant.noCovenant')}</p>
+                <p className="text-sm">{t('covenant.addToStart')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -292,54 +295,54 @@ export default function CovenantTrackingPage() {
                           <div>
                             <h3 className="font-semibold">{covenant.covenant_name}</h3>
                             <p className="text-sm text-muted-foreground">
-                              {covenant.lender_name} • {getCovenantTypeLabel(covenant.covenant_type)}
-                            </p>
-                            <div className="flex items-center gap-4 mt-2 text-sm">
-                              <span>
-                                Ngưỡng: <strong>{covenant.threshold_operator} {formatNumber(covenant.threshold_value)}</strong>
-                              </span>
-                              <span>
-                                Hiện tại: <strong className={statusConfig[covenant.status].color}>
-                                  {formatNumber(covenant.current_value)}
-                                </strong>
-                              </span>
-                              <span>
-                                Biên an toàn: <strong>{formatNumber(covenant.compliance_margin)}</strong>
-                              </span>
+                                {covenant.lender_name} • {getCovenantTypeLabel(covenant.covenant_type)}
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 text-sm">
+                                <span>
+                                  {t('covenant.threshold')}: <strong>{covenant.threshold_operator} {formatNumber(covenant.threshold_value)}</strong>
+                                </span>
+                                <span>
+                                  {t('covenant.current')}: <strong className={statusConfig[covenant.status].color}>
+                                    {formatNumber(covenant.current_value)}
+                                  </strong>
+                                </span>
+                                <span>
+                                  {t('covenant.safetyMargin')}: <strong>{formatNumber(covenant.compliance_margin)}</strong>
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={statusConfig[covenant.status].bg}>
+                              {statusConfig[covenant.status].label}
+                            </Badge>
+                            <Button 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCovenant(covenant);
+                                setShowMeasureDialog(true);
+                              }}
+                            >
+                              <TrendingUp className="h-4 w-4 mr-1" />
+                              {t('covenant.measure')}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={statusConfig[covenant.status].bg}>
-                            {statusConfig[covenant.status].label}
-                          </Badge>
-                          <Button 
-                            size="sm"
-                            onClick={() => {
-                              setSelectedCovenant(covenant);
-                              setShowMeasureDialog(true);
-                            }}
-                          >
-                            <TrendingUp className="h-4 w-4 mr-1" />
-                            Đo lường
-                          </Button>
+                        <div className="mt-3">
+                          <Progress 
+                            value={getComplianceProgress(covenant)} 
+                            className="h-2"
+                          />
+                          <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                            <span>0</span>
+                            <span>
+                              {t('covenant.nextMeasurement')}: {covenant.next_measurement_date 
+                                ? format(parseISO(covenant.next_measurement_date), 'dd/MM/yyyy', { locale: dateLocale })
+                                : t('covenant.notSet')}
+                            </span>
+                            <span>{formatNumber(covenant.threshold_value * 2)}</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="mt-3">
-                        <Progress 
-                          value={getComplianceProgress(covenant)} 
-                          className="h-2"
-                        />
-                        <div className="flex justify-between mt-1 text-xs text-muted-foreground">
-                          <span>0</span>
-                          <span>
-                            Đo lường tiếp: {covenant.next_measurement_date 
-                              ? format(parseISO(covenant.next_measurement_date), 'dd/MM/yyyy', { locale: vi })
-                              : 'Chưa đặt'}
-                          </span>
-                          <span>{formatNumber(covenant.threshold_value * 2)}</span>
-                        </div>
-                      </div>
                     </div>
                   );
                 })}
@@ -353,22 +356,22 @@ export default function CovenantTrackingPage() {
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Thêm Covenant mới</DialogTitle>
+            <DialogTitle>{t('covenant.addNew')}</DialogTitle>
             <DialogDescription>
-              Thêm cam kết tài chính mới để theo dõi
+              {t('covenant.addNewDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Tên Covenant</Label>
+              <Label>{t('covenant.covenantName')}</Label>
               <Input 
                 value={newCovenant.covenant_name}
                 onChange={(e) => setNewCovenant({...newCovenant, covenant_name: e.target.value})}
-                placeholder="VD: Tỷ số thanh toán hiện hành"
+                placeholder={language === 'vi' ? "VD: Tỷ số thanh toán hiện hành" : "E.g. Current ratio covenant"}
               />
             </div>
             <div>
-              <Label>Loại</Label>
+              <Label>{t('covenant.covenantType')}</Label>
               <Select 
                 value={newCovenant.covenant_type}
                 onValueChange={(v) => setNewCovenant({...newCovenant, covenant_type: v as any})}
@@ -377,27 +380,27 @@ export default function CovenantTrackingPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="current_ratio">Tỷ số thanh toán hiện hành</SelectItem>
-                  <SelectItem value="debt_equity">Nợ/Vốn chủ sở hữu</SelectItem>
-                  <SelectItem value="dscr">Tỷ số khả năng trả nợ (DSCR)</SelectItem>
-                  <SelectItem value="interest_coverage">Tỷ số thanh toán lãi vay</SelectItem>
-                  <SelectItem value="leverage">Đòn bẩy tài chính</SelectItem>
-                  <SelectItem value="liquidity">Tỷ số thanh khoản</SelectItem>
-                  <SelectItem value="custom">Tùy chỉnh</SelectItem>
+                  <SelectItem value="current_ratio">{t('covenant.currentRatio')}</SelectItem>
+                  <SelectItem value="debt_equity">{t('covenant.debtEquity')}</SelectItem>
+                  <SelectItem value="dscr">{t('covenant.dscr')}</SelectItem>
+                  <SelectItem value="interest_coverage">{t('covenant.interestCoverage')}</SelectItem>
+                  <SelectItem value="leverage">{t('covenant.leverage')}</SelectItem>
+                  <SelectItem value="liquidity">{t('covenant.liquidity')}</SelectItem>
+                  <SelectItem value="custom">{t('covenant.custom')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Tổ chức cho vay</Label>
+              <Label>{t('covenant.lenderOrg')}</Label>
               <Input 
                 value={newCovenant.lender_name}
                 onChange={(e) => setNewCovenant({...newCovenant, lender_name: e.target.value})}
-                placeholder="VD: Vietcombank"
+                placeholder={language === 'vi' ? "VD: Vietcombank" : "E.g. Citibank"}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Điều kiện</Label>
+                <Label>{t('covenant.condition')}</Label>
                 <Select 
                   value={newCovenant.threshold_operator}
                   onValueChange={(v) => setNewCovenant({...newCovenant, threshold_operator: v as any})}
@@ -406,15 +409,15 @@ export default function CovenantTrackingPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value=">=">≥ (Lớn hơn hoặc bằng)</SelectItem>
-                    <SelectItem value="<=">≤ (Nhỏ hơn hoặc bằng)</SelectItem>
-                    <SelectItem value=">">{'>'} (Lớn hơn)</SelectItem>
-                    <SelectItem value="<">{'<'} (Nhỏ hơn)</SelectItem>
+                    <SelectItem value=">=">{t('covenant.greaterOrEqual')}</SelectItem>
+                    <SelectItem value="<=">{t('covenant.lessOrEqual')}</SelectItem>
+                    <SelectItem value=">">{t('covenant.greater')}</SelectItem>
+                    <SelectItem value="<">{t('covenant.less')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Ngưỡng</Label>
+                <Label>{t('covenant.threshold')}</Label>
                 <Input 
                   type="number"
                   value={newCovenant.threshold_value}
@@ -423,16 +426,15 @@ export default function CovenantTrackingPage() {
               </div>
             </div>
             <div>
-              <Label>Ngưỡng cảnh báo</Label>
+              <Label>{t('covenant.warningThreshold')}</Label>
               <Input 
                 type="number"
                 value={newCovenant.warning_threshold}
                 onChange={(e) => setNewCovenant({...newCovenant, warning_threshold: parseFloat(e.target.value)})}
-                placeholder="Cảnh báo khi tiến gần ngưỡng vi phạm"
               />
             </div>
             <div>
-              <Label>Tần suất đo lường</Label>
+              <Label>{t('covenant.frequency')}</Label>
               <Select 
                 value={newCovenant.measurement_frequency}
                 onValueChange={(v) => setNewCovenant({...newCovenant, measurement_frequency: v as any})}
@@ -441,19 +443,19 @@ export default function CovenantTrackingPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Hàng tháng</SelectItem>
-                  <SelectItem value="quarterly">Hàng quý</SelectItem>
-                  <SelectItem value="annually">Hàng năm</SelectItem>
+                  <SelectItem value="monthly">{t('covenant.monthly')}</SelectItem>
+                  <SelectItem value="quarterly">{t('covenant.quarterly')}</SelectItem>
+                  <SelectItem value="annually">{t('covenant.annual')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleAddCovenant} disabled={createCovenant.isPending}>
-              {createCovenant.isPending ? 'Đang lưu...' : 'Thêm Covenant'}
+              {createCovenant.isPending ? t('covenant.adding') : t('covenant.addCovenant')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -463,7 +465,7 @@ export default function CovenantTrackingPage() {
       <Dialog open={showMeasureDialog} onOpenChange={setShowMeasureDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ghi nhận đo lường</DialogTitle>
+            <DialogTitle>{t('covenant.recordMeasurement')}</DialogTitle>
             <DialogDescription>
               {selectedCovenant?.covenant_name} - {selectedCovenant?.lender_name}
             </DialogDescription>
@@ -471,36 +473,34 @@ export default function CovenantTrackingPage() {
           <div className="space-y-4">
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">
-                Ngưỡng yêu cầu: <strong>{selectedCovenant?.threshold_operator} {formatNumber(selectedCovenant?.threshold_value || 0)}</strong>
+                {t('covenant.threshold')}: <strong>{selectedCovenant?.threshold_operator} {formatNumber(selectedCovenant?.threshold_value || 0)}</strong>
               </p>
               <p className="text-sm text-muted-foreground">
-                Giá trị hiện tại: <strong>{formatNumber(selectedCovenant?.current_value || 0)}</strong>
+                {t('covenant.current')}: <strong>{formatNumber(selectedCovenant?.current_value || 0)}</strong>
               </p>
             </div>
             <div>
-              <Label>Giá trị đo được</Label>
+              <Label>{t('covenant.measuredValue')}</Label>
               <Input 
                 type="number"
                 value={measureValue}
                 onChange={(e) => setMeasureValue(e.target.value)}
-                placeholder="Nhập giá trị"
               />
             </div>
             <div>
-              <Label>Ghi chú</Label>
+              <Label>{t('covenant.notes')}</Label>
               <Textarea 
                 value={measureNotes}
                 onChange={(e) => setMeasureNotes(e.target.value)}
-                placeholder="Ghi chú về kết quả đo lường..."
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMeasureDialog(false)}>
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleRecordMeasurement} disabled={recordMeasurement.isPending}>
-              {recordMeasurement.isPending ? 'Đang lưu...' : 'Ghi nhận'}
+              {recordMeasurement.isPending ? t('covenant.recording') : t('covenant.record')}
             </Button>
           </DialogFooter>
         </DialogContent>
