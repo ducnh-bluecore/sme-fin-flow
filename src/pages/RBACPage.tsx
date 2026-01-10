@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/formatters';
 
 // Default roles configuration
 const defaultRoles = [
@@ -106,7 +107,7 @@ export default function RBACPage() {
       email: tu.user_id, // We don't have email in profiles, use user_id
       role: tu.role || 'viewer',
       status: tu.is_active ? 'active' : 'inactive',
-      lastLogin: tu.joined_at ? new Date(tu.joined_at).toLocaleString('vi-VN') : '-',
+      lastLogin: tu.joined_at ? formatDateTime(tu.joined_at) : '—',
     };
   });
 
