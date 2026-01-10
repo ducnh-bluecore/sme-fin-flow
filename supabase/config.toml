@@ -8,3 +8,51 @@ verify_jwt = false
 
 [functions.mongodb-query]
 verify_jwt = false
+
+[functions.send-fcm-notification]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.get-vapid-key]
+verify_jwt = false
+
+[functions.analyze-contextual]
+verify_jwt = false
+
+[functions.analyze-financial-data]
+verify_jwt = false
+
+[functions.bigquery-list]
+verify_jwt = false
+
+[functions.create-tenant-with-owner]
+verify_jwt = false
+
+[functions.decision-advisor]
+verify_jwt = false
+
+[functions.optimize-channel-budget]
+verify_jwt = false
+
+[functions.process-alert-notifications]
+verify_jwt = false
+
+[functions.process-scheduled-notifications]
+verify_jwt = false
+
+[functions.scheduled-sync]
+verify_jwt = false
+
+[functions.suggest-data-models]
+verify_jwt = false
+
+[functions.sync-bigquery]
+verify_jwt = false
+
+[functions.sync-connector]
+verify_jwt = false
+
+[functions.whatif-chat]
+verify_jwt = false
