@@ -58,26 +58,27 @@ const categoryColors: Record<string, string> = {
   other: '#8b5cf6',
 };
 
-const categoryLabels: Record<string, string> = {
-  infrastructure: 'Cơ sở hạ tầng',
-  technology: 'Công nghệ',
-  equipment: 'Thiết bị',
-  other: 'Khác',
-};
-
-const investmentTypeLabels: Record<string, string> = {
-  deposit: 'Tiền gửi',
-  bond: 'Trái phiếu',
-  fund: 'Quỹ đầu tư',
-  stock: 'Cổ phiếu',
-  venture: 'Startup/VC',
-  other: 'Khác',
-};
 
 export default function CapitalAllocationPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
   
+  const categoryLabels: Record<string, string> = {
+    infrastructure: t('capital.categoryInfrastructure'),
+    technology: t('capital.categoryTechnology'),
+    equipment: t('capital.categoryEquipment'),
+    other: t('capital.categoryOther'),
+  };
+
+  const investmentTypeLabels: Record<string, string> = {
+    deposit: t('capital.investDeposit'),
+    bond: t('capital.investBond'),
+    fund: t('capital.investFund'),
+    stock: t('capital.investStock'),
+    venture: t('capital.investVenture'),
+    other: t('capital.categoryOther'),
+  };
+
   const { data: capexProjects, isLoading: capexLoading } = useCapexProjects();
   const { data: investments, isLoading: investmentsLoading } = useInvestments();
 
@@ -149,15 +150,15 @@ export default function CapitalAllocationPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />Hoàn thành</Badge>;
+        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />{t('capital.statusCompleted')}</Badge>;
       case 'in-progress':
-        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20"><Clock className="h-3 w-3 mr-1" />Đang thực hiện</Badge>;
+        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20"><Clock className="h-3 w-3 mr-1" />{t('capital.statusInProgress')}</Badge>;
       case 'approved':
-        return <Badge className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />Đã duyệt</Badge>;
+        return <Badge className="bg-cyan-500/10 text-cyan-500 border-cyan-500/20"><CheckCircle2 className="h-3 w-3 mr-1" />{t('capital.statusApproved')}</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"><AlertTriangle className="h-3 w-3 mr-1" />Chờ duyệt</Badge>;
+        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"><AlertTriangle className="h-3 w-3 mr-1" />{t('capital.statusPending')}</Badge>;
       case 'cancelled':
-        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20"><XCircle className="h-3 w-3 mr-1" />Đã hủy</Badge>;
+        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20"><XCircle className="h-3 w-3 mr-1" />{t('capital.statusCancelled')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -368,8 +369,8 @@ export default function CapitalAllocationPage() {
                           <YAxis />
                           <Tooltip />
                           <Legend />
-                          <Bar dataKey="planned" name="Kế hoạch" fill="hsl(var(--primary))" />
-                          <Bar dataKey="actual" name="Thực tế" fill="hsl(var(--chart-2))" />
+                          <Bar dataKey="planned" name={t('capital.plannedRoi')} fill="hsl(var(--primary))" />
+                          <Bar dataKey="actual" name={t('capital.actualRoi')} fill="hsl(var(--chart-2))" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -401,14 +402,14 @@ export default function CapitalAllocationPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Dự án</TableHead>
-                        <TableHead>Danh mục</TableHead>
-                        <TableHead>Ngân sách</TableHead>
-                        <TableHead>Đã chi</TableHead>
-                        <TableHead>Tiến độ</TableHead>
-                        <TableHead>ROI</TableHead>
-                        <TableHead>Payback</TableHead>
-                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>{t('capital.tableProject')}</TableHead>
+                        <TableHead>{t('capital.tableCategory')}</TableHead>
+                        <TableHead>{t('capital.tableBudget')}</TableHead>
+                        <TableHead>{t('capital.tableSpent')}</TableHead>
+                        <TableHead>{t('capital.tableProgress')}</TableHead>
+                        <TableHead>{t('capital.tableROI')}</TableHead>
+                        <TableHead>{t('capital.tablePayback')}</TableHead>
+                        <TableHead>{t('capital.tableStatus')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -435,7 +436,7 @@ export default function CapitalAllocationPage() {
                             {project.expected_roi != null ? `${project.expected_roi}%` : '—'}
                           </TableCell>
                           <TableCell>
-                            {project.payback_months != null ? `${project.payback_months} tháng` : '—'}
+                            {project.payback_months != null ? `${project.payback_months} ${t('capital.months')}` : '—'}
                           </TableCell>
                           <TableCell>{getStatusBadge(project.status)}</TableCell>
                         </TableRow>
@@ -445,8 +446,8 @@ export default function CapitalAllocationPage() {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">Chưa có dự án CAPEX</p>
-                    <p className="text-sm">Nhấn "Thêm dự án CAPEX" để tạo dự án mới</p>
+                    <p className="font-medium">{t('capital.noCapexProject')}</p>
+                    <p className="text-sm">{t('capital.addCapexHint')}</p>
                   </div>
                 )}
               </CardContent>
@@ -457,12 +458,12 @@ export default function CapitalAllocationPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Danh mục đầu tư tài chính</CardTitle>
-                  <CardDescription>Theo dõi hiệu suất các khoản đầu tư</CardDescription>
+                  <CardTitle>{t('capital.investPortfolio')}</CardTitle>
+                  <CardDescription>{t('capital.investPortfolioDesc')}</CardDescription>
                 </div>
                 <Button variant="outline">
                   <Plus className="h-4 w-4 mr-2" />
-                  Thêm khoản đầu tư
+                  {t('capital.addInvestment')}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -475,12 +476,12 @@ export default function CapitalAllocationPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Khoản đầu tư</TableHead>
-                          <TableHead>Loại</TableHead>
-                          <TableHead>Vốn gốc</TableHead>
-                          <TableHead>Giá trị hiện tại</TableHead>
-                          <TableHead>Lợi nhuận</TableHead>
-                          <TableHead>Hiệu suất</TableHead>
+                          <TableHead>{t('capital.tableInvestment')}</TableHead>
+                          <TableHead>{t('capital.tableType')}</TableHead>
+                          <TableHead>{t('capital.tablePrincipal')}</TableHead>
+                          <TableHead>{t('capital.tableCurrentValue')}</TableHead>
+                          <TableHead>{t('capital.tableProfit')}</TableHead>
+                          <TableHead>{t('capital.tablePerformance')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -517,12 +518,12 @@ export default function CapitalAllocationPage() {
 
                     <div className="mt-4 p-4 rounded-lg bg-primary/10 border border-primary/20">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">Tổng danh mục đầu tư</span>
+                        <span className="font-medium">{t('capital.totalPortfolio')}</span>
                         <div className="text-right">
                           <div className="text-xl font-bold">{formatVNDCompact(totalInvestments)}</div>
                           <div className={`text-sm flex items-center gap-1 ${totalReturn >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                             {totalReturn >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                            Lợi nhuận: {totalReturn >= 0 ? '+' : ''}{formatVNDCompact(totalReturn)}
+                            {t('capital.totalReturn')}: {totalReturn >= 0 ? '+' : ''}{formatVNDCompact(totalReturn)}
                           </div>
                         </div>
                       </div>
@@ -531,8 +532,8 @@ export default function CapitalAllocationPage() {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <Building2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">Chưa có khoản đầu tư</p>
-                    <p className="text-sm">Nhấn "Thêm khoản đầu tư" để tạo mới</p>
+                    <p className="font-medium">{t('capital.noInvestment')}</p>
+                    <p className="text-sm">{t('capital.addInvestmentHint')}</p>
                   </div>
                 )}
               </CardContent>
