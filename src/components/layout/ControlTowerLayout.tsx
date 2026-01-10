@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Package,
   Store,
-  MessageSquare
+  MessageSquare,
+  Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/control-tower' },
   { id: 'notifications', label: 'Thông báo', icon: Bell, path: '/control-tower/notifications', badge: 5 },
+  { id: 'kpi-rules', label: 'Rules KPI', icon: Target, path: '/control-tower/kpi-rules' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badge: 12 },
   { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badge: 3 },
   { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },

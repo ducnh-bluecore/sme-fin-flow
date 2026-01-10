@@ -3,3 +3,4 @@ export { default as NotificationsPage } from './NotificationsPage';
 export { default as TasksPage } from './TasksPage';
 export { default as AlertsPage } from './AlertsPage';
 export { default as AnalyticsPage } from './AnalyticsPage';
+export { default as KPINotificationRulesPage } from './KPINotificationRulesPage';
