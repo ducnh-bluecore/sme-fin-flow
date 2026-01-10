@@ -9,6 +9,7 @@ import {
   usePushSubscriptions,
   useSubscribePush,
   useUnsubscribePush,
+  type PushSubscription as DbPushSubscription,
 } from '@/hooks/usePushNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -19,13 +20,13 @@ export function PushNotificationSettings() {
   const subscribePush = useSubscribePush();
   const unsubscribePush = useUnsubscribePush();
 
-  const hasActiveSubscription = (subscriptions as PushSubscription[]).length > 0;
+  const hasActiveSubscription = (subscriptions as DbPushSubscription[]).length > 0;
 
   const handleToggle = async (enabled: boolean) => {
     if (enabled) {
       await subscribePush.mutateAsync();
     } else {
-      await unsubscribePush.mutateAsync();
+      await unsubscribePush.mutateAsync(undefined);
     }
   };
 

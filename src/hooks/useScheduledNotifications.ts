@@ -38,7 +38,7 @@ export interface ScheduledNotificationInput {
 
 // Fetch scheduled notifications
 export function useScheduledNotifications() {
-  const tenantId = useActiveTenantId();
+  const { data: tenantId } = useActiveTenantId();
 
   return useQuery({
     queryKey: ['scheduled-notifications', tenantId],
@@ -61,7 +61,7 @@ export function useScheduledNotifications() {
 // Create scheduled notification
 export function useCreateScheduledNotification() {
   const queryClient = useQueryClient();
-  const tenantId = useActiveTenantId();
+  const { data: tenantId } = useActiveTenantId();
 
   return useMutation({
     mutationFn: async (input: ScheduledNotificationInput) => {
@@ -71,20 +71,22 @@ export function useCreateScheduledNotification() {
 
       const { data, error } = await supabase
         .from('scheduled_notifications')
-        .insert({
-          tenant_id: tenantId,
-          title: input.title,
-          message: input.message,
-          type: input.type || 'reminder',
-          target_users: input.target_users || [],
-          schedule_type: input.schedule_type,
-          schedule_time: input.schedule_time,
-          schedule_day_of_week: input.schedule_day_of_week,
-          schedule_day_of_month: input.schedule_day_of_month,
-          next_run_at: nextRunAt,
-          is_active: input.is_active ?? true,
-          metadata: input.metadata,
-        })
+        .insert(
+          {
+            tenant_id: tenantId,
+            title: input.title,
+            message: input.message,
+            type: input.type || 'reminder',
+            target_users: input.target_users || [],
+            schedule_type: input.schedule_type,
+            schedule_time: input.schedule_time,
+            schedule_day_of_week: input.schedule_day_of_week,
+            schedule_day_of_month: input.schedule_day_of_month,
+            next_run_at: nextRunAt,
+            is_active: input.is_active ?? true,
+            metadata: input.metadata,
+          }
+        )
         .select()
         .single();
 
