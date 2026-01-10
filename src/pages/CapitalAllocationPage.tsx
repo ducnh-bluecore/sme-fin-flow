@@ -169,17 +169,17 @@ export default function CapitalAllocationPage() {
   return (
     <>
       <Helmet>
-        <title>Capital Allocation | Bluecore FDP</title>
+        <title>{t('capital.title')} | Bluecore FDP</title>
       </Helmet>
 
       <div className="space-y-6">
         <PageHeader
-          title={t('nav.capitalAllocation')}
-          subtitle="Quản lý phân bổ vốn, CAPEX và danh mục đầu tư"
+          title={t('capital.title')}
+          subtitle={t('capital.subtitle')}
           actions={
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Thêm dự án CAPEX
+              {t('capital.addCapex')}
             </Button>
           }
         />
@@ -188,9 +188,9 @@ export default function CapitalAllocationPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Wallet className="h-4 w-4" />
-                Tổng ngân sách CAPEX
+                {t('capital.totalBudget')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -205,7 +205,7 @@ export default function CapitalAllocationPage() {
                     <>
                       <Progress value={(totalSpent / totalBudget) * 100} className="mt-2 h-2" />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Đã chi: {formatVNDCompact(totalSpent)} ({formatPercent((totalSpent / totalBudget) * 100)})
+                        {t('capital.spent')}: {formatVNDCompact(totalSpent)} ({formatPercent((totalSpent / totalBudget) * 100)})
                       </p>
                     </>
                   )}
@@ -218,7 +218,7 @@ export default function CapitalAllocationPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                Danh mục đầu tư
+                {t('capital.portfolio')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -244,7 +244,7 @@ export default function CapitalAllocationPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Calculator className="h-4 w-4" />
-                ROI trung bình
+                {t('capital.avgRoi')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -258,7 +258,7 @@ export default function CapitalAllocationPage() {
                   {hasCapexData && avgRoi > 0 && (
                     <div className={`flex items-center gap-1 text-sm mt-1 ${avgRoi >= 20 ? 'text-green-500' : 'text-yellow-500'}`}>
                       {avgRoi >= 20 ? <ArrowUpRight className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                      {avgRoi >= 20 ? 'Trên target 20%' : 'Dưới target 20%'}
+                      {avgRoi >= 20 ? t('capital.aboveTarget') : t('capital.belowTarget')}
                     </div>
                   )}
                 </>
@@ -270,7 +270,7 @@ export default function CapitalAllocationPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Payback trung bình
+                {t('capital.avgPayback')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -279,12 +279,12 @@ export default function CapitalAllocationPage() {
               ) : (
                 <>
                   <div className="text-2xl font-bold">
-                    {hasCapexData && avgPayback > 0 ? `${Math.round(avgPayback)} tháng` : '—'}
+                    {hasCapexData && avgPayback > 0 ? `${Math.round(avgPayback)} ${t('capital.months')}` : '—'}
                   </div>
                   {hasCapexData && avgPayback > 0 && (
                     <div className={`flex items-center gap-1 text-sm mt-1 ${avgPayback <= 24 ? 'text-green-500' : 'text-yellow-500'}`}>
                       {avgPayback <= 24 ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                      Target: 24 tháng
+                      {t('capital.target')}
                     </div>
                   )}
                 </>
@@ -296,10 +296,10 @@ export default function CapitalAllocationPage() {
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="capex">CAPEX Projects</TabsTrigger>
-            <TabsTrigger value="investments">Danh mục đầu tư</TabsTrigger>
-            <TabsTrigger value="analysis">Phân tích ROI</TabsTrigger>
+            <TabsTrigger value="overview">{t('capital.overview')}</TabsTrigger>
+            <TabsTrigger value="capex">{t('capital.capexProjects')}</TabsTrigger>
+            <TabsTrigger value="investments">{t('capital.investments')}</TabsTrigger>
+            <TabsTrigger value="analysis">{t('capital.roiAnalysis')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
@@ -309,7 +309,7 @@ export default function CapitalAllocationPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <PieChart className="h-5 w-5 text-primary" />
-                    Phân bổ theo danh mục
+                    {t('capital.byCategory')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -341,7 +341,7 @@ export default function CapitalAllocationPage() {
                     <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                       <div className="text-center">
                         <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Chưa có dự án CAPEX</p>
+                        <p>{t('capital.noCapex')}</p>
                       </div>
                     </div>
                   )}
@@ -353,7 +353,7 @@ export default function CapitalAllocationPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5 text-primary" />
-                    ROI: Kế hoạch vs Thực tế
+                    {t('capital.roiPlanVsActual')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -377,7 +377,7 @@ export default function CapitalAllocationPage() {
                     <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                       <div className="text-center">
                         <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Chưa có dữ liệu ROI</p>
+                        <p>{t('capital.noRoiData')}</p>
                       </div>
                     </div>
                   )}
@@ -389,8 +389,8 @@ export default function CapitalAllocationPage() {
           <TabsContent value="capex" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Danh sách dự án CAPEX</CardTitle>
-                <CardDescription>Theo dõi tiến độ và ngân sách các dự án đầu tư</CardDescription>
+                <CardTitle>{t('capital.projectList')}</CardTitle>
+                <CardDescription>{t('capital.projectListDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoading ? (

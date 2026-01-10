@@ -339,13 +339,13 @@ export default function DecisionSupportPage() {
   return (
     <>
       <Helmet>
-        <title>Decision Support | Bluecore FDP</title>
+        <title>{t('decision.title')} | Bluecore FDP</title>
       </Helmet>
 
       <div className="space-y-6">
         <PageHeader
-          title={t('nav.decisionSupport')}
-          subtitle="Công cụ hỗ trợ ra quyết định cho CFO với AI"
+          title={t('decision.title')}
+          subtitle={t('decision.subtitle')}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
