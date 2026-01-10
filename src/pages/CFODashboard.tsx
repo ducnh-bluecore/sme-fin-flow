@@ -16,16 +16,17 @@ import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useDateRange } from '@/contexts/DateRangeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 
-function ChartErrorFallback() {
+function ChartErrorFallback({ t }: { t: (key: string) => string }) {
   return (
     <div className="data-card flex items-center justify-center h-64">
       <div className="text-center space-y-2">
         <AlertTriangle className="h-8 w-8 text-muted-foreground mx-auto" />
-        <p className="text-sm text-muted-foreground">Không thể tải biểu đồ</p>
+        <p className="text-sm text-muted-foreground">{t('cfo.chartError')}</p>
       </div>
     </div>
   );
@@ -35,6 +36,7 @@ export default function CFODashboard() {
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
   const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
+  const { t } = useLanguage();
 
   const handleRefresh = useMemo(() => {
     return () => {
@@ -47,11 +49,11 @@ export default function CFODashboard() {
 
   // Format runway display
   const formatRunway = () => {
-    if (!cashRunway?.hasEnoughData) return 'Chưa đủ dữ liệu';
+    if (!cashRunway?.hasEnoughData) return t('cfo.notEnoughData');
     if (cashRunway.runwayMonths === null) return 'N/A';
     if (cashRunway.runwayMonths === Infinity) return '∞';
-    if (cashRunway.runwayMonths < 1) return `${cashRunway.runwayDays} ngày`;
-    return `${cashRunway.runwayMonths.toFixed(1)} tháng`;
+    if (cashRunway.runwayMonths < 1) return `${cashRunway.runwayDays} ${t('cfo.days')}`;
+    return `${cashRunway.runwayMonths.toFixed(1)} ${t('cashDirect.months')}`;
   };
 
   const getRunwayVariant = () => {
@@ -65,8 +67,8 @@ export default function CFODashboard() {
   return (
     <>
       <Helmet>
-        <title>Tổng quan CFO | Bluecore Finance</title>
-        <meta name="description" content="Dashboard tài chính cho CFO - Thanh khoản, tiền mặt, công nợ và dự báo" />
+        <title>{t('cfo.pageTitle')}</title>
+        <meta name="description" content={t('cfo.pageDesc')} />
       </Helmet>
 
       <div className="space-y-6">
@@ -78,9 +80,9 @@ export default function CFODashboard() {
         >
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              Thanh khoản & Tiền mặt
+              {t('cfo.title')}
             </h1>
-            <p className="text-muted-foreground">Liquidity & Cash Overview</p>
+            <p className="text-muted-foreground">{t('cfo.subtitle')}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2">
@@ -91,10 +93,10 @@ export default function CFODashboard() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm shadow-glow"
-                aria-label="Cập nhật dữ liệu dashboard"
+                aria-label={t('cfo.refreshData')}
               >
                 <RefreshCw className="w-4 h-4" />
-                Cập nhật dữ liệu
+                {t('cfo.refreshData')}
               </motion.button>
             </div>
             <DateRangeIndicator variant="compact" />
@@ -114,38 +116,38 @@ export default function CFODashboard() {
           ) : (
             <>
               <KPICard
-                title="Tiền mặt hôm nay"
+                title={t('cfo.cashToday')}
                 value={formatVNDCompact(metrics?.cashOnHand || 0)}
-                trend={{ value: 5.2, label: 'vs hôm qua' }}
+                trend={{ value: 5.2, label: t('cfo.vsYesterday') }}
                 icon={Wallet}
                 variant="success"
               />
               <KPICard
-                title="Cash Runway"
+                title={t('cfo.cashRunway')}
                 value={formatRunway()}
                 trend={cashRunway?.hasEnoughData ? { 
                   value: cashRunway.avgMonthlyBurn > 0 ? -Math.round(cashRunway.avgMonthlyBurn / 1000000) : 0, 
-                  label: 'burn/tháng (triệu)' 
+                  label: t('cfo.burnPerMonth')
                 } : undefined}
                 icon={Clock}
                 variant={getRunwayVariant()}
               />
               <KPICard
-                title="Tiền mặt 7 ngày tới"
+                title={t('cfo.cashNext7Days')}
                 value={formatVNDCompact((metrics?.cashOnHand || 0) + (metrics?.cashFlow || 0))}
                 trend={{ value: 12.3 }}
                 icon={ArrowUpRight}
               />
               <KPICard
-                title="Tổng AR quá hạn"
+                title={t('cfo.overdueAR')}
                 value={formatVNDCompact(metrics?.overdueAR || 0)}
                 trend={{ value: -8.5 }}
                 icon={ArrowDownRight}
                 variant="warning"
               />
               <KPICard
-                title="Cash Conversion Cycle"
-                value={`${metrics?.ccc || 0} ngày`}
+                title={t('cfo.ccc')}
+                value={`${metrics?.ccc || 0} ${t('cfo.days')}`}
                 trend={{ value: -3 }}
                 icon={RefreshCw}
               />
@@ -156,59 +158,59 @@ export default function CFODashboard() {
         {/* Secondary KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">DSO</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('cfo.dso')}</p>
             <p className="text-2xl font-bold text-foreground">{metrics?.dso || 0}</p>
-            <p className="text-xs text-muted-foreground">ngày</p>
+            <p className="text-xs text-muted-foreground">{t('cfo.days')}</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">Gross Margin</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('cfo.grossMargin')}</p>
             <p className="text-2xl font-bold text-success">{metrics?.grossMargin?.toFixed(1) || 0}%</p>
-            <p className="text-xs text-muted-foreground">kỳ này</p>
+            <p className="text-xs text-muted-foreground">{t('cfo.thisPeriod')}</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">EBITDA Margin</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('cfo.ebitdaMargin')}</p>
             <p className="text-2xl font-bold text-primary">{metrics?.ebitdaMargin?.toFixed(1) || 0}%</p>
-            <p className="text-xs text-muted-foreground">kỳ này</p>
+            <p className="text-xs text-muted-foreground">{t('cfo.thisPeriod')}</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">EBITDA</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('cfo.ebitda')}</p>
             <p className="text-2xl font-bold text-foreground">{formatVNDCompact(metrics?.ebitda || 0)}</p>
-            <p className="text-xs text-muted-foreground">kỳ này</p>
+            <p className="text-xs text-muted-foreground">{t('cfo.thisPeriod')}</p>
           </motion.div>
         </div>
 
         {/* AI Insights Panel */}
-        <ErrorBoundary fallback={<ChartErrorFallback />}>
+        <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
           <AIInsightsPanel />
         </ErrorBoundary>
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <ErrorBoundary fallback={<ChartErrorFallback />}>
+            <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
               <CashForecastChart />
             </ErrorBoundary>
           </div>
-          <ErrorBoundary fallback={<ChartErrorFallback />}>
+          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
             <ARAgingChart />
           </ErrorBoundary>
         </div>
 
         {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <ErrorBoundary fallback={<ChartErrorFallback />}>
+          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
             <OverdueInvoicesTable limit={5} />
           </ErrorBoundary>
-          <ErrorBoundary fallback={<ChartErrorFallback />}>
+          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
             <ScenarioPlanner />
           </ErrorBoundary>
-          <ErrorBoundary fallback={<ChartErrorFallback />}>
+          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
             <AlertsPanel />
           </ErrorBoundary>
         </div>
 
         {/* AI Usage Panel - Bottom */}
-        <ErrorBoundary fallback={<ChartErrorFallback />}>
+        <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
           <AIUsagePanel />
         </ErrorBoundary>
       </div>
