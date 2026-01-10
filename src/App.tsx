@@ -87,6 +87,15 @@ const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 
+// Control Tower pages
+const ControlTowerDashboard = lazy(() => import("./pages/control-tower/ControlTowerDashboard"));
+const CTNotificationsPage = lazy(() => import("./pages/control-tower/NotificationsPage"));
+const CTTasksPage = lazy(() => import("./pages/control-tower/TasksPage"));
+const CTAlertsPage = lazy(() => import("./pages/control-tower/AlertsPage"));
+const CTAnalyticsPage = lazy(() => import("./pages/control-tower/AnalyticsPage"));
+
+import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -116,6 +125,21 @@ const AppRoutes = () => {
           <PortalPage />
         </ProtectedRoute>
       } />
+
+      {/* Control Tower Routes */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <ControlTowerLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/control-tower" element={<ControlTowerDashboard />} />
+        <Route path="/control-tower/notifications" element={<CTNotificationsPage />} />
+        <Route path="/control-tower/tasks" element={<CTTasksPage />} />
+        <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
+        <Route path="/control-tower/analytics" element={<CTAnalyticsPage />} />
+      </Route>
       
       {/* Super Admin Routes */}
       <Route

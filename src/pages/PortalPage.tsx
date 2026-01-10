@@ -199,19 +199,20 @@ export default function PortalPage() {
     },
     {
       id: 'operations',
-      name: 'Operation System',
+      name: 'Control Tower',
       shortName: 'OPS',
       description: language === 'vi'
-        ? 'Web App + Mobile App - Tối ưu hóa quy trình vận hành'
-        : 'Web App + Mobile App - Optimize operational processes',
+        ? 'Web App - Hệ thống kiểm soát vận hành bán lẻ'
+        : 'Web App - Retail operation control system',
       detailDescription: language === 'vi'
-        ? 'Số hóa và tự động hóa quy trình vận hành nội bộ. Quản lý công việc, theo dõi tiến độ, phân công nhiệm vụ và báo cáo KPI nhân sự. Hỗ trợ cả web và mobile app cho đội ngũ hiện trường.'
-        : 'Digitize and automate internal operational processes. Manage work, track progress, assign tasks and report HR KPIs. Support both web and mobile app for field teams.',
-      features: language === 'vi' ? ['Workflow tự động', 'Quản lý tác vụ', 'Mobile App'] : ['Auto Workflow', 'Task Management', 'Mobile App'],
+        ? 'Kiểm soát vận hành doanh nghiệp bằng dữ liệu tập trung. Thông báo realtime, quản lý task, cảnh báo KPI và phân tích hiệu suất cửa hàng.'
+        : 'Control business operations with centralized data. Real-time notifications, task management, KPI alerts and store performance analytics.',
+      features: language === 'vi' ? ['Realtime Alerts', 'Task Management', 'Analytics'] : ['Realtime Alerts', 'Task Management', 'Analytics'],
       icon: Wrench,
       accentColor: '#D4A84B',
       glowColor: 'shadow-[0_0_20px_rgba(212,168,75,0.2)]',
-      status: 'coming-soon'
+      status: 'active',
+      path: '/control-tower'
     },
     {
       id: 'fdp',
