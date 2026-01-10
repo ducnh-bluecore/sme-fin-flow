@@ -61,6 +61,67 @@ export type Database = {
           },
         ]
       }
+      alert_calculations_log: {
+        Row: {
+          calculated_at: string
+          calculation_type: string
+          id: string
+          input_values: Json
+          is_triggered: boolean | null
+          object_id: string | null
+          output_value: number | null
+          rule_id: string | null
+          tenant_id: string
+          threshold_value: number | null
+        }
+        Insert: {
+          calculated_at?: string
+          calculation_type: string
+          id?: string
+          input_values: Json
+          is_triggered?: boolean | null
+          object_id?: string | null
+          output_value?: number | null
+          rule_id?: string | null
+          tenant_id: string
+          threshold_value?: number | null
+        }
+        Update: {
+          calculated_at?: string
+          calculation_type?: string
+          id?: string
+          input_values?: Json
+          is_triggered?: boolean | null
+          object_id?: string | null
+          output_value?: number | null
+          rule_id?: string | null
+          tenant_id?: string
+          threshold_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_calculations_log_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "alert_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_calculations_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "intelligent_alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_calculations_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_data_sources: {
         Row: {
           connector_integration_id: string | null
@@ -131,10 +192,13 @@ export type Database = {
         Row: {
           acknowledged_at: string | null
           acknowledged_by: string | null
+          action_priority: string | null
           action_url: string | null
           alert_config_id: string | null
           alert_object_id: string | null
           alert_type: string
+          auto_action_available: boolean | null
+          calculation_details: Json | null
           category: string
           change_percent: number | null
           created_at: string
@@ -159,6 +223,7 @@ export type Database = {
           severity: string
           snoozed_until: string | null
           status: string | null
+          suggested_action: string | null
           tenant_id: string
           threshold_operator: string | null
           threshold_value: number | null
@@ -168,10 +233,13 @@ export type Database = {
         Insert: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
+          action_priority?: string | null
           action_url?: string | null
           alert_config_id?: string | null
           alert_object_id?: string | null
           alert_type: string
+          auto_action_available?: boolean | null
+          calculation_details?: Json | null
           category: string
           change_percent?: number | null
           created_at?: string
@@ -196,6 +264,7 @@ export type Database = {
           severity?: string
           snoozed_until?: string | null
           status?: string | null
+          suggested_action?: string | null
           tenant_id: string
           threshold_operator?: string | null
           threshold_value?: number | null
@@ -205,10 +274,13 @@ export type Database = {
         Update: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
+          action_priority?: string | null
           action_url?: string | null
           alert_config_id?: string | null
           alert_object_id?: string | null
           alert_type?: string
+          auto_action_available?: boolean | null
+          calculation_details?: Json | null
           category?: string
           change_percent?: number | null
           created_at?: string
@@ -233,6 +305,7 @@ export type Database = {
           severity?: string
           snoozed_until?: string | null
           status?: string | null
+          suggested_action?: string | null
           tenant_id?: string
           threshold_operator?: string | null
           threshold_value?: number | null
@@ -400,62 +473,92 @@ export type Database = {
       alert_objects: {
         Row: {
           alert_status: string | null
+          avg_daily_sales: number | null
           created_at: string
           current_metrics: Json | null
           data_source_id: string | null
+          days_of_stock: number | null
           external_id: string | null
           id: string
           is_monitored: boolean | null
           last_alert_at: string | null
+          last_sale_date: string | null
+          lead_time_days: number | null
           metadata: Json | null
           object_category: string | null
           object_data: Json | null
           object_name: string
           object_type: string
           previous_metrics: Json | null
+          reorder_point: number | null
+          safety_stock: number | null
+          sales_velocity: number | null
+          stockout_risk_days: number | null
           synced_at: string | null
           tenant_id: string
           threshold_overrides: Json | null
+          trend_direction: string | null
+          trend_percent: number | null
           updated_at: string
         }
         Insert: {
           alert_status?: string | null
+          avg_daily_sales?: number | null
           created_at?: string
           current_metrics?: Json | null
           data_source_id?: string | null
+          days_of_stock?: number | null
           external_id?: string | null
           id?: string
           is_monitored?: boolean | null
           last_alert_at?: string | null
+          last_sale_date?: string | null
+          lead_time_days?: number | null
           metadata?: Json | null
           object_category?: string | null
           object_data?: Json | null
           object_name: string
           object_type: string
           previous_metrics?: Json | null
+          reorder_point?: number | null
+          safety_stock?: number | null
+          sales_velocity?: number | null
+          stockout_risk_days?: number | null
           synced_at?: string | null
           tenant_id: string
           threshold_overrides?: Json | null
+          trend_direction?: string | null
+          trend_percent?: number | null
           updated_at?: string
         }
         Update: {
           alert_status?: string | null
+          avg_daily_sales?: number | null
           created_at?: string
           current_metrics?: Json | null
           data_source_id?: string | null
+          days_of_stock?: number | null
           external_id?: string | null
           id?: string
           is_monitored?: boolean | null
           last_alert_at?: string | null
+          last_sale_date?: string | null
+          lead_time_days?: number | null
           metadata?: Json | null
           object_category?: string | null
           object_data?: Json | null
           object_name?: string
           object_type?: string
           previous_metrics?: Json | null
+          reorder_point?: number | null
+          safety_stock?: number | null
+          sales_velocity?: number | null
+          stockout_risk_days?: number | null
           synced_at?: string | null
           tenant_id?: string
           threshold_overrides?: Json | null
+          trend_direction?: string | null
+          trend_percent?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -4627,6 +4730,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "import_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intelligent_alert_rules: {
+        Row: {
+          calculation_formula: string
+          cooldown_hours: number | null
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          priority: number | null
+          rule_category: string
+          rule_code: string
+          rule_name: string
+          severity: string
+          suggested_actions: Json | null
+          tenant_id: string
+          threshold_config: Json
+          threshold_type: string
+          updated_at: string
+        }
+        Insert: {
+          calculation_formula: string
+          cooldown_hours?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          priority?: number | null
+          rule_category: string
+          rule_code: string
+          rule_name: string
+          severity?: string
+          suggested_actions?: Json | null
+          tenant_id: string
+          threshold_config?: Json
+          threshold_type?: string
+          updated_at?: string
+        }
+        Update: {
+          calculation_formula?: string
+          cooldown_hours?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          priority?: number | null
+          rule_category?: string
+          rule_code?: string
+          rule_name?: string
+          severity?: string
+          suggested_actions?: Json | null
+          tenant_id?: string
+          threshold_config?: Json
+          threshold_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligent_alert_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
