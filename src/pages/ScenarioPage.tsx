@@ -62,7 +62,7 @@ import {
 } from 'recharts';
 import { formatCurrency, formatVNDCompact, formatDateTime, formatCount, formatDays, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { useScenarios, useCreateScenario, useUpdateScenario, useDeleteScenario, useSetPrimaryScenario, usePrimaryScenario } from '@/hooks/useScenarioData';
+import { useScenarios, useCreateScenario, useUpdateScenario, useDeleteScenario, useSetPrimaryScenario, useUnsetPrimaryScenario, usePrimaryScenario } from '@/hooks/useScenarioData';
 import { useMonteCarloResults, useSaveMonteCarloResult, useDeleteMonteCarloResult } from '@/hooks/useMonteCarloData';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useWhatIfScenarios, WhatIfScenario } from '@/hooks/useWhatIfScenarios';
@@ -263,6 +263,7 @@ export default function ScenarioPage() {
   const updateScenarioMutation = useUpdateScenario();
   const deleteScenarioMutation = useDeleteScenario();
   const setPrimaryScenarioMutation = useSetPrimaryScenario();
+  const unsetPrimaryScenarioMutation = useUnsetPrimaryScenario();
   
   // Monte Carlo hooks
   const { data: savedMonteCarloResults } = useMonteCarloResults();
@@ -378,6 +379,10 @@ export default function ScenarioPage() {
 
   const handleSetPrimary = async (id: string) => {
     await setPrimaryScenarioMutation.mutateAsync(id);
+  };
+
+  const handleUnsetPrimary = async (id: string) => {
+    await unsetPrimaryScenarioMutation.mutateAsync(id);
   };
 
   // Import What-If scenario as financial scenario
@@ -680,7 +685,21 @@ export default function ScenarioPage() {
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
-                      {!scenario.isPrimary && (
+                      {scenario.isPrimary ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnsetPrimary(scenario.id);
+                          }}
+                          disabled={unsetPrimaryScenarioMutation.isPending}
+                          title="Bỏ chọn kịch bản chính"
+                          className="border-warning bg-warning/20 text-warning hover:bg-warning/30"
+                        >
+                          <Crown className="w-4 h-4 fill-warning" />
+                        </Button>
+                      ) : (
                         <Button 
                           variant="outline" 
                           size="sm"
