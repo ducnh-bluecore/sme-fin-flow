@@ -753,6 +753,7 @@ export type Database = {
       }
       alert_objects: {
         Row: {
+          address: string | null
           alert_status: string | null
           avg_daily_sales: number | null
           created_at: string
@@ -765,11 +766,14 @@ export type Database = {
           last_alert_at: string | null
           last_sale_date: string | null
           lead_time_days: number | null
+          manager_name: string | null
           metadata: Json | null
           object_category: string | null
           object_data: Json | null
           object_name: string
           object_type: string
+          open_hours: string | null
+          phone: string | null
           previous_metrics: Json | null
           reorder_point: number | null
           safety_stock: number | null
@@ -783,6 +787,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
           alert_status?: string | null
           avg_daily_sales?: number | null
           created_at?: string
@@ -795,11 +800,14 @@ export type Database = {
           last_alert_at?: string | null
           last_sale_date?: string | null
           lead_time_days?: number | null
+          manager_name?: string | null
           metadata?: Json | null
           object_category?: string | null
           object_data?: Json | null
           object_name: string
           object_type: string
+          open_hours?: string | null
+          phone?: string | null
           previous_metrics?: Json | null
           reorder_point?: number | null
           safety_stock?: number | null
@@ -813,6 +821,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
           alert_status?: string | null
           avg_daily_sales?: number | null
           created_at?: string
@@ -825,11 +834,14 @@ export type Database = {
           last_alert_at?: string | null
           last_sale_date?: string | null
           lead_time_days?: number | null
+          manager_name?: string | null
           metadata?: Json | null
           object_category?: string | null
           object_data?: Json | null
           object_name?: string
           object_type?: string
+          open_hours?: string | null
+          phone?: string | null
           previous_metrics?: Json | null
           reorder_point?: number | null
           safety_stock?: number | null
