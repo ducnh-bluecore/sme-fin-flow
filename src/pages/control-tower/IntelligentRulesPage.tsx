@@ -5,7 +5,8 @@ import {
   Settings, Bell, Search, Filter, AlertTriangle, AlertCircle, Info,
   Package, TrendingUp, Store, Wallet, Target, Users, Truck,
   ToggleRight, ChevronDown, ChevronRight, Zap, Calculator, Clock,
-  FileText, Lightbulb, Database, Activity, Check, X
+  FileText, Lightbulb, Database, Activity, Check, X, Plus,
+  ShoppingBag, Globe, MessageSquare, Smartphone
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,12 +17,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   useIntelligentAlertRules, 
   IntelligentAlertRule,
   ruleCategoryLabels,
-  severityLabels 
+  severityLabels,
+  salesChannelLabels,
+  alertGroupLabels,
+  type SalesChannel,
+  type AlertGroup,
 } from '@/hooks/useIntelligentAlertRules';
+import { useSeedAlertRules, useAlertRuleStats } from '@/hooks/useMultiChannelAlertRules';
 import { Loader2 } from 'lucide-react';
 
 // Icons mapping
@@ -34,6 +41,19 @@ const categoryIcons: Record<string, typeof Package> = {
   customer: Users,
   fulfillment: Truck,
   operations: Settings,
+  inventory: Package,
+  revenue: Wallet,
+  service: Users,
+};
+
+// Channel icons
+const channelIcons: Record<SalesChannel, typeof ShoppingBag> = {
+  shopee: ShoppingBag,
+  lazada: ShoppingBag,
+  tiktok: Smartphone,
+  website: Globe,
+  social: MessageSquare,
+  pos: Store,
 };
 
 // Category colors
@@ -46,6 +66,9 @@ const categoryColors: Record<string, string> = {
   customer: 'bg-pink-500/10 text-pink-600',
   fulfillment: 'bg-cyan-500/10 text-cyan-600',
   operations: 'bg-slate-500/10 text-slate-600',
+  inventory: 'bg-amber-500/10 text-amber-600',
+  revenue: 'bg-emerald-500/10 text-emerald-600',
+  service: 'bg-indigo-500/10 text-indigo-600',
 };
 
 // Format calculation formula for display
@@ -242,9 +265,13 @@ function RuleCard({ rule, onToggle }: { rule: IntelligentAlertRule; onToggle: (i
 export default function IntelligentRulesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['kpi', 'cashflow', 'product']);
+  const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'category' | 'channel' | 'group'>('category');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['fulfillment', 'inventory', 'revenue']);
 
-  const { rules, rulesByCategory, isLoading, stats, toggleRule, refetch } = useIntelligentAlertRules();
+  const { rules, rulesByCategory, rulesByGroup, filterByChannel, isLoading, stats, toggleRule, refetch } = useIntelligentAlertRules();
+  const seedRules = useSeedAlertRules();
+  const { getStatsByChannel, getStatsByGroup } = useAlertRuleStats();
 
   // Filter rules
   const filteredRules = rules.filter(r => {
@@ -252,7 +279,10 @@ export default function IntelligentRulesPage() {
                        r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        r.rule_code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCategory = categoryFilter === 'all' || r.rule_category === categoryFilter;
-    return matchSearch && matchCategory;
+    const matchChannel = channelFilter === 'all' || 
+                        r.applicable_channels?.includes(channelFilter as SalesChannel) ||
+                        (r.applicable_channels?.length === 0);
+    return matchSearch && matchCategory && matchChannel;
   });
 
   // Group filtered rules by category
@@ -260,6 +290,14 @@ export default function IntelligentRulesPage() {
     const category = rule.rule_category;
     if (!acc[category]) acc[category] = [];
     acc[category].push(rule);
+    return acc;
+  }, {} as Record<string, IntelligentAlertRule[]>);
+
+  // Group by alert_group
+  const groupedByAlertGroup = filteredRules.reduce((acc, rule) => {
+    const group = rule.alert_group || 'general';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(rule);
     return acc;
   }, {} as Record<string, IntelligentAlertRule[]>);
 
@@ -271,6 +309,10 @@ export default function IntelligentRulesPage() {
 
   const handleToggleRule = (id: string, enabled: boolean) => {
     toggleRule.mutate({ id, is_enabled: enabled });
+  };
+
+  const handleSeedRules = () => {
+    seedRules.mutate();
   };
 
   return (
@@ -295,6 +337,12 @@ export default function IntelligentRulesPage() {
             <Badge variant="outline" className="border-primary/30 text-primary">
               {stats.enabled}/{stats.total} rules đang bật
             </Badge>
+            {rules.length === 0 && (
+              <Button onClick={handleSeedRules} disabled={seedRules.isPending}>
+                {seedRules.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                Tạo 47 rules mẫu
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               <Activity className="h-4 w-4 mr-2" />
               Refresh
@@ -358,7 +406,6 @@ export default function IntelligentRulesPage() {
           </Card>
         </div>
 
-        {/* Filters */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -371,10 +418,22 @@ export default function IntelligentRulesPage() {
                   className="pl-10"
                 />
               </div>
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <ShoppingBag className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Kênh bán" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả kênh</SelectItem>
+                  {Object.entries(salesChannelLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[180px]">
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Lọc theo danh mục" />
+                  <SelectValue placeholder="Danh mục" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả danh mục</SelectItem>
