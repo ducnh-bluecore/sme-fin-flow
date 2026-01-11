@@ -7386,6 +7386,65 @@ export type Database = {
           },
         ]
       }
+      team_members: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          department: string
+          email: string
+          id: string
+          join_date: string
+          location: string | null
+          name: string
+          performance: number | null
+          phone: string | null
+          role: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          department: string
+          email: string
+          id?: string
+          join_date?: string
+          location?: string | null
+          name: string
+          performance?: number | null
+          phone?: string | null
+          role: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          department?: string
+          email?: string
+          id?: string
+          join_date?: string
+          location?: string | null
+          name?: string
+          performance?: number | null
+          phone?: string | null
+          role?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_users: {
         Row: {
           created_at: string | null

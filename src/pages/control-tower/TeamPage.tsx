@@ -12,11 +12,11 @@ import {
   Calendar,
   MoreVertical,
   UserCheck,
-  UserX,
   Clock,
-  Award
+  Award,
+  Loader2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,31 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-  location: string;
-  status: 'active' | 'away' | 'offline';
-  joinDate: string;
-  performance: number;
-  avatar?: string;
-}
-
-const mockTeam: TeamMember[] = [
-  { id: '1', name: 'Nguyễn Văn A', email: 'nva@company.com', phone: '0901234567', role: 'Store Manager', department: 'Bán hàng', location: 'Quận 1', status: 'active', joinDate: '2022-03-15', performance: 95 },
-  { id: '2', name: 'Trần Thị B', email: 'ttb@company.com', phone: '0902345678', role: 'Sales Lead', department: 'Bán hàng', location: 'Quận 3', status: 'active', joinDate: '2021-08-20', performance: 88 },
-  { id: '3', name: 'Lê Văn C', email: 'lvc@company.com', phone: '0903456789', role: 'Sales Executive', department: 'Bán hàng', location: 'Quận 7', status: 'away', joinDate: '2023-01-10', performance: 82 },
-  { id: '4', name: 'Phạm Thị D', email: 'ptd@company.com', phone: '0904567890', role: 'Warehouse Manager', department: 'Kho', location: 'Kho TT', status: 'active', joinDate: '2020-11-05', performance: 91 },
-  { id: '5', name: 'Hoàng Văn E', email: 'hve@company.com', phone: '0905678901', role: 'Accountant', department: 'Kế toán', location: 'VP', status: 'offline', joinDate: '2022-06-12', performance: 87 },
-  { id: '6', name: 'Mai Thị F', email: 'mtf@company.com', phone: '0906789012', role: 'HR Manager', department: 'Nhân sự', location: 'VP', status: 'active', joinDate: '2019-04-22', performance: 93 },
-  { id: '7', name: 'Đỗ Văn G', email: 'dvg@company.com', phone: '0907890123', role: 'IT Support', department: 'IT', location: 'VP', status: 'active', joinDate: '2023-02-28', performance: 78 },
-  { id: '8', name: 'Vũ Thị H', email: 'vth@company.com', phone: '0908901234', role: 'Customer Service', department: 'CSKH', location: 'VP', status: 'away', joinDate: '2022-09-14', performance: 85 },
-];
+import { useTeamMembers, TeamMember } from '@/hooks/useTeamMembers';
 
 const statusConfig = {
   active: { label: 'Online', color: 'bg-emerald-500' },
@@ -156,7 +132,7 @@ function TeamMemberCard({ member }: { member: TeamMember }) {
 
 export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [team] = useState(mockTeam);
+  const { data: team = [], isLoading } = useTeamMembers();
 
   const filteredTeam = team.filter(m =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -167,6 +143,14 @@ export default function TeamPage() {
   const activeCount = team.filter(m => m.status === 'active').length;
   const awayCount = team.filter(m => m.status === 'away').length;
   const departments = [...new Set(team.map(m => m.department))];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -268,7 +252,7 @@ export default function TeamPage() {
             <TabsTrigger value="active" className="data-[state=active]:bg-slate-800">
               Online ({activeCount})
             </TabsTrigger>
-            {departments.slice(0, 3).map(dept => (
+            {departments.slice(0, 3).map((dept: string) => (
               <TabsTrigger key={dept} value={dept} className="data-[state=active]:bg-slate-800">
                 {dept}
               </TabsTrigger>
@@ -305,7 +289,7 @@ export default function TeamPage() {
             </div>
           </TabsContent>
 
-          {departments.slice(0, 3).map(dept => (
+          {departments.slice(0, 3).map((dept: string) => (
             <TabsContent key={dept} value={dept} className="mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredTeam.filter(m => m.department === dept).map((member, index) => (
