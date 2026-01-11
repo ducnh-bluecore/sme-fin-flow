@@ -109,23 +109,49 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
     ? ((alert as any).calculation_details?.total_affected || alert.current_value || 0)
     : null;
 
-  // Determine object type label
+  // Determine object type label based on alert category and type
   const getObjectTypeLabel = () => {
     const category = alert.category?.toLowerCase() || '';
     const alertType = alert.alert_type?.toLowerCase() || '';
+    const title = alert.title?.toLowerCase() || '';
     
+    // Customer-related
     if (category === 'customer' || alertType.includes('customer') || alertType.includes('churn') || alertType.includes('vip')) {
       return 'khách hàng';
     }
-    if (category === 'store' || alertType.includes('store') || alertType.includes('staff')) {
+    // Store/Business/KPI-related
+    if (category === 'store' || category === 'business' || category === 'kpi' || category === 'revenue' || category === 'sales' ||
+        alertType.includes('store') || alertType.includes('staff') || alertType.includes('revenue') || 
+        alertType.includes('kpi') || alertType.includes('sales') || alertType.includes('target') ||
+        title.includes('doanh số') || title.includes('doanh thu') || title.includes('mục tiêu') || title.includes('cửa hàng')) {
       return 'cửa hàng';
     }
+    // Fulfillment/Order-related
     if (category === 'fulfillment' || alertType.includes('fulfillment') || alertType.includes('order') || alertType.includes('delivery')) {
       return 'đơn hàng';
     }
-    return 'sản phẩm';
+    // Inventory/Product-related
+    if (category === 'inventory' || category === 'product' || alertType.includes('stock') || alertType.includes('inventory')) {
+      return 'sản phẩm';
+    }
+    // Finance-related
+    if (category === 'finance' || category === 'ar' || category === 'cash_flow' || category === 'cashflow') {
+      return 'giao dịch';
+    }
+    return 'mục';
   };
   const objectTypeLabel = getObjectTypeLabel();
+
+  // Determine the right icon for affected items
+  const getAffectedIcon = () => {
+    const label = objectTypeLabel;
+    if (label === 'cửa hàng') return Store;
+    if (label === 'khách hàng') return Users;
+    if (label === 'đơn hàng') return Package;
+    if (label === 'giao dịch') return DollarSign;
+    return Package;
+  };
+  const AffectedIcon = getAffectedIcon();
 
   return (
     <motion.div
@@ -183,8 +209,8 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
           <div className="flex flex-wrap items-center gap-4 mt-3">
             {affectedCount && (
               <div className="flex items-center gap-1 text-xs">
-                <Package className="h-3 w-3 text-amber-400" />
-                <span className="text-amber-400 font-medium">{affectedCount} items</span>
+                <AffectedIcon className="h-3 w-3 text-amber-400" />
+                <span className="text-amber-400 font-medium">{affectedCount} {objectTypeLabel}</span>
               </div>
             )}
             {!isSummaryAlert && alert.object_name && (
