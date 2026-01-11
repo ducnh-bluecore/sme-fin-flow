@@ -1,25 +1,23 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { motion } from 'framer-motion';
 import { 
   Package, 
   AlertTriangle, 
-  TrendingDown, 
-  TrendingUp,
+  TrendingDown,
   Search,
   Filter,
   Download,
-  ArrowUpDown,
   Box,
   Truck,
-  BarChart3
+  BarChart3,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   BarChart,
   Bar,
@@ -32,45 +30,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-
-interface InventoryItem {
-  id: string;
-  sku: string;
-  name: string;
-  category: string;
-  quantity: number;
-  minStock: number;
-  maxStock: number;
-  status: 'normal' | 'low' | 'out' | 'overstock';
-  location: string;
-  lastUpdated: string;
-  value: number;
-}
-
-const mockInventory: InventoryItem[] = [
-  { id: '1', sku: 'IP15PM-256', name: 'iPhone 15 Pro Max 256GB', category: 'Điện thoại', quantity: 0, minStock: 10, maxStock: 100, status: 'out', location: 'Kho Q1', lastUpdated: '5 phút trước', value: 0 },
-  { id: '2', sku: 'IP15PM-512', name: 'iPhone 15 Pro Max 512GB', category: 'Điện thoại', quantity: 5, minStock: 10, maxStock: 100, status: 'low', location: 'Kho Q1', lastUpdated: '10 phút trước', value: 175000000 },
-  { id: '3', sku: 'SS-S24U-256', name: 'Samsung Galaxy S24 Ultra 256GB', category: 'Điện thoại', quantity: 25, minStock: 15, maxStock: 80, status: 'normal', location: 'Kho TT', lastUpdated: '1 giờ trước', value: 825000000 },
-  { id: '4', sku: 'MBA-M3-256', name: 'MacBook Air M3 256GB', category: 'Laptop', quantity: 45, minStock: 10, maxStock: 50, status: 'normal', location: 'Kho TT', lastUpdated: '2 giờ trước', value: 1350000000 },
-  { id: '5', sku: 'APW-S9-45', name: 'Apple Watch Series 9 45mm', category: 'Phụ kiện', quantity: 120, minStock: 20, maxStock: 80, status: 'overstock', location: 'Kho Q3', lastUpdated: '3 giờ trước', value: 1200000000 },
-  { id: '6', sku: 'AIRPODS-PRO2', name: 'AirPods Pro 2', category: 'Phụ kiện', quantity: 8, minStock: 30, maxStock: 150, status: 'low', location: 'Kho TT', lastUpdated: '4 giờ trước', value: 48000000 },
-  { id: '7', sku: 'IPAD-PRO-12', name: 'iPad Pro 12.9" M2', category: 'Tablet', quantity: 32, minStock: 10, maxStock: 60, status: 'normal', location: 'Kho Q1', lastUpdated: '5 giờ trước', value: 960000000 },
-  { id: '8', sku: 'MBP-M3P-512', name: 'MacBook Pro 14" M3 Pro 512GB', category: 'Laptop', quantity: 15, minStock: 8, maxStock: 40, status: 'normal', location: 'Kho TT', lastUpdated: '6 giờ trước', value: 750000000 },
-];
-
-const categoryData = [
-  { name: 'Điện thoại', value: 35, color: '#3B82F6' },
-  { name: 'Laptop', value: 25, color: '#10B981' },
-  { name: 'Phụ kiện', value: 25, color: '#F59E0B' },
-  { name: 'Tablet', value: 15, color: '#8B5CF6' },
-];
-
-const warehouseData = [
-  { name: 'Kho TT', stock: 450, capacity: 600 },
-  { name: 'Kho Q1', stock: 280, capacity: 400 },
-  { name: 'Kho Q3', stock: 320, capacity: 350 },
-  { name: 'Kho Q7', stock: 150, capacity: 300 },
-];
+import { useInventoryData, useInventoryStats } from '@/hooks/useInventoryData';
 
 const statusConfig = {
   normal: { label: 'Bình thường', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
@@ -81,16 +41,17 @@ const statusConfig = {
 
 export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const { data, isLoading } = useInventoryData();
+  const stats = useInventoryStats();
 
-  const filteredItems = mockInventory.filter(item =>
+  const items = data?.items || [];
+  const categoryData = data?.categories || [];
+  const warehouseData = data?.warehouses || [];
+
+  const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.sku.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const outOfStock = mockInventory.filter(i => i.status === 'out').length;
-  const lowStock = mockInventory.filter(i => i.status === 'low').length;
-  const totalValue = mockInventory.reduce((sum, i) => sum + i.value, 0);
-  const totalSKUs = mockInventory.length;
 
   return (
     <>
@@ -128,7 +89,11 @@ export default function InventoryPage() {
                 <Box className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-100">{totalSKUs}</div>
+                {stats.isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <div className="text-2xl font-bold text-slate-100">{stats.totalSKUs}</div>
+                )}
                 <div className="text-xs text-slate-400">Tổng SKU</div>
               </div>
             </div>
@@ -139,7 +104,11 @@ export default function InventoryPage() {
                 <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-red-400">{outOfStock}</div>
+                {stats.isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <div className="text-2xl font-bold text-red-400">{stats.outOfStock}</div>
+                )}
                 <div className="text-xs text-slate-400">Hết hàng</div>
               </div>
             </div>
@@ -150,7 +119,11 @@ export default function InventoryPage() {
                 <TrendingDown className="h-5 w-5 text-amber-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-amber-400">{lowStock}</div>
+                {stats.isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <div className="text-2xl font-bold text-amber-400">{stats.lowStock}</div>
+                )}
                 <div className="text-xs text-slate-400">Sắp hết</div>
               </div>
             </div>
@@ -161,7 +134,13 @@ export default function InventoryPage() {
                 <BarChart3 className="h-5 w-5 text-emerald-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-emerald-400">₫{(totalValue / 1e9).toFixed(1)}B</div>
+                {stats.isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <div className="text-2xl font-bold text-emerald-400">
+                    ₫{(stats.totalValue / 1e9).toFixed(1)}B
+                  </div>
+                )}
                 <div className="text-xs text-slate-400">Giá trị tồn</div>
               </div>
             </div>
@@ -176,40 +155,52 @@ export default function InventoryPage() {
               <CardTitle className="text-slate-100">Phân bổ theo danh mục</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1E293B', 
-                        border: '1px solid #334155',
-                        borderRadius: '8px'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {categoryData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm text-slate-400">{item.name}</span>
-                    <span className="text-sm text-slate-300 ml-auto">{item.value}%</span>
+              {isLoading ? (
+                <div className="h-[200px] flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                </div>
+              ) : categoryData.length > 0 ? (
+                <>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          dataKey="value"
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={index} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1E293B', 
+                            border: '1px solid #334155',
+                            borderRadius: '8px'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    {categoryData.map((item) => (
+                      <div key={item.name} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-sm text-slate-400">{item.name}</span>
+                        <span className="text-sm text-slate-300 ml-auto">{item.value}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-slate-400">
+                  Chưa có dữ liệu
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -219,24 +210,34 @@ export default function InventoryPage() {
               <CardTitle className="text-slate-100">Dung lượng kho</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={warehouseData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis type="number" stroke="#64748B" fontSize={12} />
-                    <YAxis dataKey="name" type="category" stroke="#64748B" fontSize={12} width={60} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1E293B', 
-                        border: '1px solid #334155',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Bar dataKey="stock" fill="#10B981" radius={[0, 4, 4, 0]} name="Tồn kho" />
-                    <Bar dataKey="capacity" fill="#334155" radius={[0, 4, 4, 0]} name="Sức chứa" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {isLoading ? (
+                <div className="h-[200px] flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                </div>
+              ) : warehouseData.length > 0 ? (
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={warehouseData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      <XAxis type="number" stroke="#64748B" fontSize={12} />
+                      <YAxis dataKey="name" type="category" stroke="#64748B" fontSize={12} width={60} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#1E293B', 
+                          border: '1px solid #334155',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Bar dataKey="stock" fill="#10B981" radius={[0, 4, 4, 0]} name="Tồn kho" />
+                      <Bar dataKey="capacity" fill="#334155" radius={[0, 4, 4, 0]} name="Sức chứa" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-slate-400">
+                  Chưa có dữ liệu
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -261,49 +262,63 @@ export default function InventoryPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">SKU</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">Sản phẩm</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">Danh mục</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-slate-400">Số lượng</th>
-                    <th className="text-center py-3 px-4 text-xs font-medium text-slate-400">Trạng thái</th>
-                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">Kho</th>
-                    <th className="text-right py-3 px-4 text-xs font-medium text-slate-400">Giá trị</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => {
-                    const status = statusConfig[item.status];
-                    const stockPercent = (item.quantity / item.maxStock) * 100;
-                    return (
-                      <tr key={item.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                        <td className="py-3 px-4 text-sm text-slate-400 font-mono">{item.sku}</td>
-                        <td className="py-3 px-4 text-sm text-slate-200">{item.name}</td>
-                        <td className="py-3 px-4 text-sm text-slate-400">{item.category}</td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-sm text-slate-200">{item.quantity}</span>
-                            <Progress value={stockPercent} className="w-16 h-1" />
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Badge className={`${status.bg} ${status.color} border ${status.border} text-xs`}>
-                            {status.label}
-                          </Badge>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-slate-400">{item.location}</td>
-                        <td className="py-3 px-4 text-sm text-slate-300 text-right">
-                          {item.value > 0 ? `₫${(item.value / 1e6).toFixed(0)}M` : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : filteredItems.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-800">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">SKU</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">Sản phẩm</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">Danh mục</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-slate-400">Số lượng</th>
+                      <th className="text-center py-3 px-4 text-xs font-medium text-slate-400">Trạng thái</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-slate-400">Kho</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-slate-400">Giá trị</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => {
+                      const status = statusConfig[item.status];
+                      const stockPercent = (item.quantity / item.maxStock) * 100;
+                      return (
+                        <tr key={item.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                          <td className="py-3 px-4 text-sm text-slate-400 font-mono">{item.sku}</td>
+                          <td className="py-3 px-4 text-sm text-slate-200">{item.name}</td>
+                          <td className="py-3 px-4 text-sm text-slate-400">{item.category}</td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-sm text-slate-200">{item.quantity}</span>
+                              <Progress value={stockPercent} className="w-16 h-1" />
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <Badge className={`${status.bg} ${status.color} border ${status.border} text-xs`}>
+                              {status.label}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-slate-400">{item.location}</td>
+                          <td className="py-3 px-4 text-sm text-slate-300 text-right">
+                            {item.value > 0 ? `₫${(item.value / 1e6).toFixed(0)}M` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-slate-400">
+                <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Chưa có dữ liệu tồn kho</p>
+                <p className="text-sm mt-1">Thêm sản phẩm vào hệ thống để theo dõi tồn kho</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
