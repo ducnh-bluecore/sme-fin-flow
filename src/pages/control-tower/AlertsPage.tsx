@@ -19,7 +19,8 @@ import {
   ExternalLink,
   List,
   CheckSquare,
-  Zap
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
 import { CreateTaskFromAlertDialog } from '@/components/alerts/CreateTaskFromAlertDialog';
-import { AIRecommendationsPanel } from '@/components/alerts/AIRecommendationsPanel';
+import { AlertAIRecommendationDialog } from '@/components/alerts/AlertAIRecommendationDialog';
 
 const typeConfig = {
   critical: { 
@@ -76,12 +77,13 @@ const categoryIcons: Record<string, React.ElementType> = {
   other: Bell,
 };
 
-function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTask }: { 
+function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTask, onAIRecommend }: { 
   alert: AlertInstance; 
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onViewDetails?: (alert: AlertInstance) => void;
   onCreateTask?: (alert: AlertInstance) => void;
+  onAIRecommend?: (alert: AlertInstance) => void;
 }) {
   const severity = alert.severity as keyof typeof typeConfig;
   const typeConf = typeConfig[severity] || typeConfig.warning;
@@ -235,6 +237,17 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                   Tạo task
                 </Button>
               )}
+              {onAIRecommend && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 border-purple-500/50 text-purple-400 hover:bg-purple-500/10 text-xs"
+                  onClick={() => onAIRecommend(alert)}
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Đề xuất AI
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -269,6 +282,17 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                   Tạo task
                 </Button>
               )}
+              {onAIRecommend && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 border-purple-500/50 text-purple-400 hover:bg-purple-500/10 text-xs"
+                  onClick={() => onAIRecommend(alert)}
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Đề xuất AI
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
@@ -290,6 +314,8 @@ export default function AlertsPage() {
   const [showProductsDialog, setShowProductsDialog] = useState(false);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
   const [taskAlert, setTaskAlert] = useState<AlertInstance | null>(null);
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [aiAlert, setAIAlert] = useState<AlertInstance | null>(null);
   
   const { 
     instances, 
@@ -316,6 +342,11 @@ export default function AlertsPage() {
   const handleCreateTask = (alert: AlertInstance) => {
     setTaskAlert(alert);
     setShowTaskDialog(true);
+  };
+
+  const handleAIRecommend = (alert: AlertInstance) => {
+    setAIAlert(alert);
+    setShowAIDialog(true);
   };
 
   const filteredAlerts = useMemo(() => {
@@ -452,9 +483,6 @@ export default function AlertsPage() {
           </CardContent>
         </Card>
 
-        {/* AI Recommendations */}
-        <AIRecommendationsPanel alertType="dos_critical" />
-
         {/* Tabs */}
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="bg-slate-900/50 border border-slate-800/50">
@@ -487,6 +515,7 @@ export default function AlertsPage() {
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
+                  onAIRecommend={handleAIRecommend}
                 />
               ))
             )}
@@ -507,6 +536,7 @@ export default function AlertsPage() {
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
+                  onAIRecommend={handleAIRecommend}
                 />
               ))
             )}
@@ -527,6 +557,7 @@ export default function AlertsPage() {
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
+                  onAIRecommend={handleAIRecommend}
                 />
               ))
             )}
@@ -547,6 +578,7 @@ export default function AlertsPage() {
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
+                  onAIRecommend={handleAIRecommend}
                 />
               ))
             )}
@@ -569,6 +601,13 @@ export default function AlertsPage() {
         open={showTaskDialog}
         onOpenChange={setShowTaskDialog}
         alert={taskAlert}
+      />
+
+      {/* AI Recommendation Dialog */}
+      <AlertAIRecommendationDialog
+        open={showAIDialog}
+        onOpenChange={setShowAIDialog}
+        alert={aiAlert}
       />
     </>
   );
