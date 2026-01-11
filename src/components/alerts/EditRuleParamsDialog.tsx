@@ -21,38 +21,20 @@ import {
 const unitLabels: Record<string, { singular: string; plural: string; description: string }> = {
   days: { singular: 'ngày', plural: 'ngày', description: 'Số ngày' },
   hours: { singular: 'giờ', plural: 'giờ', description: 'Số giờ' },
+  minutes: { singular: 'phút', plural: 'phút', description: 'Số phút' },
+  seconds: { singular: 'giây', plural: 'giây', description: 'Số giây' },
   count: { singular: 'đơn vị', plural: 'đơn vị', description: 'Số lượng' },
+  percent: { singular: '%', plural: '%', description: 'Phần trăm' },
   percentage: { singular: '%', plural: '%', description: 'Phần trăm' },
-  amount: { singular: 'VND', plural: 'VND', description: 'Số tiền' },
   items: { singular: 'sản phẩm', plural: 'sản phẩm', description: 'Số sản phẩm' },
+  products: { singular: 'sản phẩm', plural: 'sản phẩm', description: 'Số sản phẩm' },
   orders: { singular: 'đơn hàng', plural: 'đơn hàng', description: 'Số đơn hàng' },
   times: { singular: 'lần', plural: 'lần', description: 'Số lần' },
-  rate: { singular: '%', plural: '%', description: 'Tỷ lệ' },
-};
-
-// Metric labels in Vietnamese
-const metricLabels: Record<string, string> = {
-  days_of_stock: 'Số ngày tồn kho (dự kiến bán hết sau bao nhiêu ngày)',
-  delivery_sla_days: 'Số ngày vượt SLA giao hàng',
-  hours_since_confirmed: 'Số giờ kể từ khi xác nhận đơn',
-  days_since_return: 'Số ngày kể từ khi đơn hoàn',
-  orders_per_hour_ratio: 'Tỷ lệ đơn/giờ so với năng lực (%)',
-  shipping_cost_change: 'Mức thay đổi chi phí ship (%)',
-  carrier_delay_rate: 'Tỷ lệ giao trễ của ĐVVC (%)',
-  days_since_delivered: 'Số ngày kể từ khi giao',
-  failed_delivery_rate: 'Tỷ lệ giao thất bại (%)',
-  stock_sync_diff: 'Chênh lệch tồn kho',
-  dead_stock_days: 'Số ngày hàng không bán được',
-  stock_turnover_rate: 'Vòng quay tồn kho',
-  return_rate: 'Tỷ lệ hoàn hàng (%)',
-  cancel_rate: 'Tỷ lệ hủy đơn (%)',
-  daily_revenue: 'Doanh thu ngày',
-  margin_percentage: 'Biên lợi nhuận (%)',
-  ad_roas: 'ROAS quảng cáo',
-  rating_score: 'Điểm đánh giá',
-  negative_review_rate: 'Tỷ lệ đánh giá tiêu cực (%)',
-  response_time_hours: 'Thời gian phản hồi (giờ)',
-  chat_response_time_minutes: 'Thời gian trả lời chat (phút)',
+  VND: { singular: 'đồng', plural: 'đồng', description: 'Số tiền (VND)' },
+  stars: { singular: 'sao', plural: 'sao', description: 'Điểm đánh giá' },
+  violations: { singular: 'vi phạm', plural: 'vi phạm', description: 'Số vi phạm' },
+  complaints: { singular: 'khiếu nại', plural: 'khiếu nại', description: 'Số khiếu nại' },
+  mentions: { singular: 'mention', plural: 'mentions', description: 'Số lượt đề cập' },
 };
 
 // Operator labels in Vietnamese
@@ -68,13 +50,9 @@ const operatorLabels: Record<string, string> = {
 // Get threshold explanation based on rule context
 function getThresholdExplanation(rule: IntelligentAlertRule): string {
   const config = rule.threshold_config || {};
-  const metric = config.metric || '';
   const operator = config.operator || 'less_than';
-  const unit = config.unit || 'count';
-  const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
-  
   const operatorText = operatorLabels[operator] || operator;
-  const metricText = metricLabels[metric] || metric;
+  const metricText = config.metric_label || config.metric || 'Giá trị đo lường';
   
   return `Khi "${metricText}" ${operatorText} ngưỡng → Kích hoạt cảnh báo`;
 }
@@ -82,42 +60,18 @@ function getThresholdExplanation(rule: IntelligentAlertRule): string {
 // Get rule-specific context explanation
 function getRuleContextExplanation(rule: IntelligentAlertRule): string {
   const config = rule.threshold_config || {};
-  const metric = config.metric || '';
-  const unit = config.unit || 'count';
-  const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
   
-  // Return metric-based explanation
-  if (metricLabels[metric]) {
-    return metricLabels[metric];
+  // Use explanation from config if available
+  if (config.explanation) {
+    return config.explanation;
   }
   
-  // Fallback: Generate explanation based on rule code patterns
-  const code = rule.rule_code?.toLowerCase() || '';
-  
-  if (code.includes('stock') || code.includes('inventory') || code.includes('ton_kho')) {
-    return `Số ngày tồn kho còn lại trước khi hết hàng. VD: 7 = còn đủ hàng bán trong 7 ngày`;
-  }
-  if (code.includes('delivery') || code.includes('ship') || code.includes('giao_hang')) {
-    return `Thời gian giao hàng (${unitInfo.description.toLowerCase()}). VD: 5 = giao trong 5 ${unitInfo.plural}`;
-  }
-  if (code.includes('return') || code.includes('hoan')) {
-    return `Tỷ lệ hoàn hàng (%). VD: 10 = 10% đơn hàng bị hoàn`;
-  }
-  if (code.includes('cancel') || code.includes('huy')) {
-    return `Tỷ lệ hủy đơn (%). VD: 5 = 5% đơn hàng bị hủy`;
-  }
-  if (code.includes('rating') || code.includes('review') || code.includes('danh_gia')) {
-    return `Điểm đánh giá trung bình (thang 5 sao). VD: 4.0 = rating 4 sao`;
-  }
-  if (code.includes('margin') || code.includes('profit') || code.includes('loi_nhuan')) {
-    return `Biên lợi nhuận (%). VD: 20 = lợi nhuận 20% trên doanh thu`;
-  }
-  if (code.includes('revenue') || code.includes('doanh_thu')) {
-    return `Giá trị doanh thu (VND). VD: 10000000 = 10 triệu đồng`;
+  // Fallback to metric_label
+  if (config.metric_label) {
+    return config.metric_label;
   }
   
-  // Default based on unit
-  return `${unitInfo.description}. Giá trị tính theo: ${unitInfo.plural}`;
+  return 'Giá trị đo lường cho rule này';
 }
 
 interface EditRuleParamsDialogProps {
@@ -191,7 +145,7 @@ export default function EditRuleParamsDialog({
   const metric = config.metric || '';
   const operator = config.operator || 'less_than';
   const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
-  const metricText = metricLabels[metric] || metric || 'Giá trị đo lường';
+  const metricText = config.metric_label || config.metric || 'Giá trị đo lường';
   const operatorText = operatorLabels[operator] || operator;
   const contextExplanation = getRuleContextExplanation(rule);
 
