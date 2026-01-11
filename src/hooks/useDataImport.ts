@@ -102,16 +102,16 @@ export function useDataImport() {
       
       for (const row of rows) {
         try {
-          const { error } = await supabase.from('products').insert({
+          // Import to product_master instead of products (which was deleted)
+          const { error } = await supabase.from('product_master').insert({
             tenant_id: tenantId,
-            code: row.sku || row.SKU || row.code || row.Code || `P${Date.now()}`,
-            name: row.name || row.Name || '',
-            description: row.description || row.Description || null,
-            unit_price: parseFloat(row.unit_price || row.UnitPrice || '0') || 0,
-            cost_price: parseFloat(row.cost_price || row.CostPrice || '0') || 0,
-            unit: row.unit || row.Unit || 'cái',
+            sku: row.sku || row.SKU || row.code || row.Code || `P${Date.now()}`,
+            product_name: row.name || row.Name || '',
             category: row.category || row.Category || null,
-            status: (row.is_active?.toLowerCase() === 'true' || row.IsActive?.toLowerCase() === 'true') ? 'active' : 'inactive',
+            cost_price: parseFloat(row.cost_price || row.CostPrice || '0') || 0,
+            selling_price: parseFloat(row.unit_price || row.UnitPrice || '0') || 0,
+            brand: row.brand || row.Brand || null,
+            is_active: (row.is_active?.toLowerCase() === 'true' || row.IsActive?.toLowerCase() === 'true'),
           });
           
           if (error) {
@@ -129,7 +129,7 @@ export function useDataImport() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product-master'] });
     }
   });
 
@@ -764,27 +764,33 @@ export function useDataImport() {
       for (const row of rows) {
         try {
           // Try to find customer by name
-          let customerId: string | null = null;
+          let partyId: string | null = null;
+          let partyName: string | null = null;
           const customerName = row.customer_name || row.CustomerName;
           if (customerName) {
             const { data: customer } = await supabase
               .from('customers')
-              .select('id')
+              .select('id, name')
               .eq('tenant_id', tenantId)
               .eq('name', customerName)
               .maybeSingle();
-            customerId = customer?.id || null;
+            partyId = customer?.id || null;
+            partyName = customer?.name || customerName;
           }
 
-          const { error } = await supabase.from('credit_notes').insert({
+          // Use new adjustment_notes table
+          const { error } = await supabase.from('adjustment_notes').insert({
             tenant_id: tenantId,
-            credit_note_number: row.credit_note_number || row.CreditNoteNumber || `CN-${Date.now()}`,
-            credit_note_date: row.credit_note_date || row.CreditNoteDate || new Date().toISOString().split('T')[0],
-            customer_id: customerId,
+            note_type: 'credit_note',
+            direction: 'customer',
+            note_number: row.credit_note_number || row.CreditNoteNumber || `CN-${Date.now()}`,
+            note_date: row.credit_note_date || row.CreditNoteDate || new Date().toISOString().split('T')[0],
+            party_id: partyId,
+            party_name: partyName,
             reason: row.reason || row.Reason || 'Điều chỉnh',
             description: row.description || row.Description || null,
             subtotal: parseFloat(row.subtotal || row.Subtotal || '0') || 0,
-            vat_amount: parseFloat(row.vat_amount || row.VatAmount || '0') || 0,
+            tax_amount: parseFloat(row.vat_amount || row.VatAmount || '0') || 0,
             total_amount: parseFloat(row.total_amount || row.TotalAmount || '0') || 0,
             status: row.status || row.Status || 'draft',
           });
@@ -805,6 +811,7 @@ export function useDataImport() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['credit-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['adjustment-notes'] });
     }
   });
 
@@ -817,27 +824,33 @@ export function useDataImport() {
       for (const row of rows) {
         try {
           // Try to find customer by name
-          let customerId: string | null = null;
+          let partyId: string | null = null;
+          let partyName: string | null = null;
           const customerName = row.customer_name || row.CustomerName;
           if (customerName) {
             const { data: customer } = await supabase
               .from('customers')
-              .select('id')
+              .select('id, name')
               .eq('tenant_id', tenantId)
               .eq('name', customerName)
               .maybeSingle();
-            customerId = customer?.id || null;
+            partyId = customer?.id || null;
+            partyName = customer?.name || customerName;
           }
 
-          const { error } = await supabase.from('debit_notes').insert({
+          // Use new adjustment_notes table
+          const { error } = await supabase.from('adjustment_notes').insert({
             tenant_id: tenantId,
-            debit_note_number: row.debit_note_number || row.DebitNoteNumber || `DN-${Date.now()}`,
-            debit_note_date: row.debit_note_date || row.DebitNoteDate || new Date().toISOString().split('T')[0],
-            customer_id: customerId,
+            note_type: 'debit_note',
+            direction: 'customer',
+            note_number: row.debit_note_number || row.DebitNoteNumber || `DN-${Date.now()}`,
+            note_date: row.debit_note_date || row.DebitNoteDate || new Date().toISOString().split('T')[0],
+            party_id: partyId,
+            party_name: partyName,
             reason: row.reason || row.Reason || 'Điều chỉnh',
             description: row.description || row.Description || null,
             subtotal: parseFloat(row.subtotal || row.Subtotal || '0') || 0,
-            vat_amount: parseFloat(row.vat_amount || row.VatAmount || '0') || 0,
+            tax_amount: parseFloat(row.vat_amount || row.VatAmount || '0') || 0,
             total_amount: parseFloat(row.total_amount || row.TotalAmount || '0') || 0,
             status: row.status || row.Status || 'draft',
           });
@@ -858,6 +871,7 @@ export function useDataImport() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['debit-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['adjustment-notes'] });
     }
   });
 
