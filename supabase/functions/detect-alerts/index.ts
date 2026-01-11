@@ -30,6 +30,8 @@ interface IntelligentRule {
   suggested_actions: any[];
   is_enabled: boolean;
   priority: number;
+  applicable_channels?: string[];
+  description?: string;
 }
 
 interface AlertObject {
@@ -48,6 +50,7 @@ interface AlertObject {
   trend_percent: number;
   reorder_point: number;
   stockout_risk_days: number;
+  last_sale_date: string;
 }
 
 interface DetectionResult {
@@ -99,23 +102,28 @@ serve(async (req) => {
     if (objectsError) throw objectsError;
     console.log(`Found ${objects?.length || 0} monitored objects`);
 
-    // Step 4: Process intelligent rules
+    // Step 4: Get additional data sources for calculations
+    const additionalData = await fetchAdditionalData(supabase, tenant_id);
+
+    // Step 5: Process ALL intelligent rules with universal processor
     for (const rule of intelligentRules || []) {
       try {
-        const alerts = await processIntelligentRule(supabase, tenant_id, rule, objects || []);
+        const alerts = await processUniversalRule(supabase, tenant_id, rule, objects || [], additionalData);
         result.triggered += alerts.length;
         result.checked++;
         result.calculations.push({
           rule: rule.rule_code,
           alerts_created: alerts.length,
         });
+        console.log(`Processed rule ${rule.rule_code}: ${alerts.length} alerts`);
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : 'Unknown error';
         result.errors.push(`Rule ${rule.rule_code}: ${errMsg}`);
+        console.error(`Error processing rule ${rule.rule_code}:`, errMsg);
       }
     }
 
-    // Step 5: Process basic alert configs
+    // Step 6: Process basic alert configs
     const { data: configs } = await supabase
       .from('extended_alert_configs')
       .select('*')
@@ -135,8 +143,8 @@ serve(async (req) => {
       }
     }
 
-    // Step 6: Run cross-object detection
-    const additionalAlerts = await runCrossObjectDetection(supabase, tenant_id, objects || []);
+    // Step 7: Run cross-object detection
+    const additionalAlerts = await runCrossObjectDetection(supabase, tenant_id, objects || [], additionalData);
     result.triggered += additionalAlerts;
 
     return new Response(JSON.stringify({
@@ -157,6 +165,90 @@ serve(async (req) => {
   }
 });
 
+// ============= FETCH ADDITIONAL DATA FOR CALCULATIONS =============
+
+async function fetchAdditionalData(supabase: any, tenantId: string) {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Fetch orders data
+  const { data: recentOrders } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('order_date', lastWeek);
+
+  // Fetch invoices for revenue calculations
+  const { data: recentInvoices } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('invoice_date', last30Days);
+
+  // Fetch bank accounts for cash flow
+  const { data: bankAccounts } = await supabase
+    .from('bank_accounts')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active');
+
+  // Fetch upcoming bills
+  const { data: upcomingBills } = await supabase
+    .from('bills')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'approved')
+    .gte('due_date', today)
+    .lte('due_date', new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString());
+
+  // Fetch daily revenues
+  const { data: revenues } = await supabase
+    .from('revenues')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('date', last30Days);
+
+  // Fetch daily expenses
+  const { data: expenses } = await supabase
+    .from('expenses')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('date', last30Days);
+
+  // Calculate aggregates
+  const todayRevenue = revenues?.filter((r: any) => r.date === today).reduce((sum: number, r: any) => sum + (r.amount || 0), 0) || 0;
+  const yesterdayRevenue = revenues?.filter((r: any) => r.date === yesterday).reduce((sum: number, r: any) => sum + (r.amount || 0), 0) || 0;
+  const lastWeekRevenue = revenues?.filter((r: any) => r.date === lastWeek).reduce((sum: number, r: any) => sum + (r.amount || 0), 0) || 0;
+  
+  const totalCash = bankAccounts?.reduce((sum: number, acc: any) => sum + (acc.current_balance || 0), 0) || 0;
+  const totalDue = upcomingBills?.reduce((sum: number, bill: any) => sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 0) || 0;
+  const avgDailyExpenses = expenses?.length > 0 
+    ? expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0) / Math.max(1, expenses.length)
+    : 0;
+
+  return {
+    orders: recentOrders || [],
+    invoices: recentInvoices || [],
+    bankAccounts: bankAccounts || [],
+    upcomingBills: upcomingBills || [],
+    revenues: revenues || [],
+    expenses: expenses || [],
+    aggregates: {
+      todayRevenue,
+      yesterdayRevenue,
+      lastWeekRevenue,
+      totalCash,
+      totalDue,
+      avgDailyExpenses,
+      cashCoverageDays: avgDailyExpenses > 0 ? totalCash / avgDailyExpenses : 999,
+    },
+    dates: { today, yesterday, lastWeek, last30Days },
+  };
+}
+
 // ============= DYNAMIC CALCULATIONS =============
 
 async function updateDynamicCalculations(supabase: any, tenantId: string) {
@@ -173,7 +265,7 @@ async function updateDynamicCalculations(supabase: any, tenantId: string) {
     const metrics = product.current_metrics || {};
     const totalStock = metrics.total_stock ?? 0;
     
-    // Get sales data from last 30 days (simulated from metadata or calculated)
+    // Get sales data from last 30 days
     const salesLast30Days = metrics.sales_last_30_days ?? (Math.random() * 100);
     const avgDailySales = salesLast30Days / 30;
     
@@ -198,6 +290,12 @@ async function updateDynamicCalculations(supabase: any, tenantId: string) {
       : 0;
     const trendDirection = trendPercent > 5 ? 'up' : trendPercent < -5 ? 'down' : 'stable';
 
+    // Calculate days since last sale
+    const lastSaleDate = product.last_sale_date || metrics.last_sale_date;
+    const daysSinceLastSale = lastSaleDate 
+      ? Math.floor((Date.now() - new Date(lastSaleDate).getTime()) / (24 * 60 * 60 * 1000))
+      : 999;
+
     // Update the object with calculated values
     await supabase
       .from('alert_objects')
@@ -214,217 +312,510 @@ async function updateDynamicCalculations(supabase: any, tenantId: string) {
           calculated_dos: daysOfStock,
           calculated_velocity: salesVelocity,
           calculated_reorder_point: reorderPoint,
+          days_since_last_sale: daysSinceLastSale,
+          velocity_change_percent: trendPercent,
         },
         updated_at: new Date().toISOString(),
       })
       .eq('id', product.id);
   }
 
-  console.log(`Updated calculations for ${products.length} products`);
+  // Update store metrics
+  const { data: stores } = await supabase
+    .from('alert_objects')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('object_type', 'store');
+
+  for (const store of stores || []) {
+    const metrics = store.current_metrics || {};
+    const target = metrics.target_revenue || 0;
+    const actual = metrics.daily_revenue || 0;
+    const targetProgress = target > 0 ? (actual / target) * 100 : 100;
+
+    await supabase
+      .from('alert_objects')
+      .update({
+        current_metrics: {
+          ...metrics,
+          target_progress: targetProgress,
+          variance_percent: targetProgress - 100,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', store.id);
+  }
+
+  console.log(`Updated calculations for ${products.length} products and ${stores?.length || 0} stores`);
 }
 
-// ============= INTELLIGENT RULE PROCESSING =============
+// ============= UNIVERSAL RULE PROCESSOR =============
 
-async function processIntelligentRule(
+async function processUniversalRule(
   supabase: any,
   tenantId: string,
   rule: IntelligentRule,
-  objects: AlertObject[]
+  objects: AlertObject[],
+  additionalData: any
 ): Promise<any[]> {
   const alerts: any[] = [];
   const config = rule.threshold_config || {};
+  const operator = config.operator || 'greater_than';
+  const criticalThreshold = config.critical ?? config.critical_days ?? config.value ?? null;
+  const warningThreshold = config.warning ?? config.warning_days ?? null;
 
-  switch (rule.calculation_formula) {
-    case 'days_of_stock':
-      // Days of Stock based alert
-      for (const obj of objects.filter(o => o.object_type === 'product')) {
-        const dos = obj.days_of_stock ?? 999;
-        const threshold = config.critical_days ?? 7;
-        const warningThreshold = config.warning_days ?? 14;
+  // Determine which objects to check based on rule category
+  const targetObjects = getTargetObjects(rule, objects);
 
-        if (dos <= threshold) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'critical',
-            current_value: dos,
-            threshold_value: threshold,
-            suggested_action: `Đặt hàng ngay! Chỉ còn ${Math.round(dos)} ngày tồn kho. Velocity: ${obj.sales_velocity?.toFixed(1)} sp/ngày`,
-            action_priority: 'urgent',
-            calculation_details: {
-              formula: 'current_stock / avg_daily_sales',
-              inputs: { stock: obj.current_metrics?.total_stock, velocity: obj.sales_velocity },
-              result: dos,
-            },
-          }));
-        } else if (dos <= warningThreshold) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'warning',
-            current_value: dos,
-            threshold_value: warningThreshold,
-            suggested_action: `Chuẩn bị đặt hàng. Còn ${Math.round(dos)} ngày tồn. Reorder point: ${obj.reorder_point}`,
-            action_priority: 'high',
-            calculation_details: {
-              formula: 'current_stock / avg_daily_sales',
-              inputs: { stock: obj.current_metrics?.total_stock, velocity: obj.sales_velocity },
-              result: dos,
-            },
-          }));
-        }
+  for (const obj of targetObjects) {
+    try {
+      // Calculate the metric value based on the rule's formula
+      const calculatedValue = calculateMetricValue(rule, obj, additionalData);
+      
+      if (calculatedValue === null || calculatedValue === undefined) continue;
+
+      // Check if threshold is breached
+      const { isCritical, isWarning, breached } = checkThreshold(
+        calculatedValue, 
+        operator, 
+        criticalThreshold, 
+        warningThreshold
+      );
+
+      if (breached) {
+        const severity = isCritical ? 'critical' : 'warning';
+        const thresholdValue = isCritical ? criticalThreshold : warningThreshold;
+        
+        const alert = await createIntelligentAlert(supabase, tenantId, rule, obj, {
+          severity,
+          current_value: calculatedValue,
+          threshold_value: thresholdValue,
+          suggested_action: generateSuggestedAction(rule, obj, calculatedValue, severity),
+          action_priority: severity === 'critical' ? 'urgent' : 'high',
+          auto_action_available: false,
+          calculation_details: {
+            formula: rule.calculation_formula,
+            operator,
+            inputs: extractInputValues(rule, obj, additionalData),
+            result: calculatedValue,
+            threshold: thresholdValue,
+          },
+        });
+
+        if (alert) alerts.push(alert);
       }
-      break;
+    } catch (e) {
+      console.error(`Error calculating rule ${rule.rule_code} for object ${obj.object_name}:`, e);
+    }
+  }
 
-    case 'dead_stock':
-      // Dead Stock Detection - velocity too low
-      for (const obj of objects.filter(o => o.object_type === 'product')) {
-        const velocity = obj.sales_velocity ?? 0;
-        const stock = obj.current_metrics?.total_stock ?? 0;
-        const minVelocity = config.min_velocity ?? 0.1; // less than 0.1 units/day
-        const dos = obj.days_of_stock ?? 0;
+  // Also process rules that don't need objects (system-wide metrics)
+  if (targetObjects.length === 0 && isSystemWideRule(rule)) {
+    const systemValue = calculateSystemMetric(rule, additionalData);
+    if (systemValue !== null) {
+      const { isCritical, isWarning, breached } = checkThreshold(
+        systemValue, 
+        operator, 
+        criticalThreshold, 
+        warningThreshold
+      );
 
-        if (velocity < minVelocity && stock > 0 && dos > (config.max_dos ?? 90)) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'warning',
-            current_value: velocity,
-            threshold_value: minVelocity,
-            suggested_action: `KHÔNG NÊN TÁI NHẬP. Hàng tồn ${Math.round(dos)} ngày, velocity chỉ ${velocity.toFixed(2)}/ngày. Xem xét markdown hoặc thanh lý.`,
-            action_priority: 'medium',
-            auto_action_available: true,
-            calculation_details: {
-              formula: 'sales_velocity < threshold AND days_of_stock > max_dos',
-              inputs: { velocity, dos, stock },
-              suggestion: 'no_restock',
-            },
-          }));
-        }
+      if (breached) {
+        const severity = isCritical ? 'critical' : 'warning';
+        const alert = await createSystemAlert(supabase, tenantId, rule, systemValue, severity, additionalData);
+        if (alert) alerts.push(alert);
       }
-      break;
-
-    case 'fast_mover':
-      // Fast Mover Detection - velocity increasing
-      for (const obj of objects.filter(o => o.object_type === 'product')) {
-        const trendPercent = obj.trend_percent ?? 0;
-        const velocity = obj.sales_velocity ?? 0;
-        const minTrend = config.min_trend_percent ?? 30;
-
-        if (trendPercent >= minTrend && velocity > 1) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'info',
-            current_value: trendPercent,
-            threshold_value: minTrend,
-            suggested_action: `Sản phẩm HOT! Tăng +${Math.round(trendPercent)}%. Đề xuất tăng số lượng đặt hàng lên ${Math.ceil(velocity * 14 * 1.3)} cho 2 tuần.`,
-            action_priority: 'medium',
-            calculation_details: {
-              formula: 'trend_percent >= threshold',
-              inputs: { trend: trendPercent, velocity },
-              suggestion: 'increase_reorder_qty',
-            },
-          }));
-        }
-      }
-      break;
-
-    case 'overstock':
-      // Overstock Detection - too much inventory
-      for (const obj of objects.filter(o => o.object_type === 'product')) {
-        const dos = obj.days_of_stock ?? 0;
-        const threshold = config.max_dos ?? 60;
-        const stock = obj.current_metrics?.total_stock ?? 0;
-        const velocity = obj.sales_velocity ?? 0;
-
-        if (dos > threshold && stock > 0 && velocity > 0) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'warning',
-            current_value: dos,
-            threshold_value: threshold,
-            suggested_action: `Tồn kho quá mức: ${Math.round(dos)} ngày (ngưỡng ${threshold}). Đề xuất: Giảm giá 10-20% hoặc bundle với sản phẩm khác.`,
-            action_priority: 'low',
-            auto_action_available: true,
-            calculation_details: {
-              formula: 'days_of_stock > max_threshold',
-              inputs: { dos, stock, velocity },
-              excess_stock: Math.round(stock - (velocity * threshold)),
-            },
-          }));
-        }
-      }
-      break;
-
-    case 'reorder_point':
-      // Reorder Point Based Alert
-      for (const obj of objects.filter(o => o.object_type === 'product')) {
-        const stock = obj.current_metrics?.total_stock ?? 0;
-        const reorderPoint = obj.reorder_point ?? 10;
-
-        if (stock <= reorderPoint && stock > 0) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'warning',
-            current_value: stock,
-            threshold_value: reorderPoint,
-            suggested_action: `Đạt điểm tái đặt hàng. Số lượng đề xuất: ${Math.ceil(obj.avg_daily_sales * (obj.lead_time_days + 14))} (cho ${obj.lead_time_days + 14} ngày)`,
-            action_priority: 'high',
-            auto_action_available: true,
-            calculation_details: {
-              formula: 'stock <= reorder_point',
-              inputs: { stock, reorderPoint, leadTime: obj.lead_time_days },
-              suggested_qty: Math.ceil((obj.avg_daily_sales || 1) * ((obj.lead_time_days || 7) + 14)),
-            },
-          }));
-        }
-      }
-      break;
-
-    case 'store_revenue_velocity':
-      // Store revenue velocity analysis
-      for (const obj of objects.filter(o => o.object_type === 'store')) {
-        const metrics = obj.current_metrics || {};
-        const hourlyRevenue = metrics.hourly_revenue ?? 0;
-        const expectedHourly = (metrics.target_revenue ?? 0) / 10; // assuming 10 operating hours
-        const variance = expectedHourly > 0 ? ((hourlyRevenue - expectedHourly) / expectedHourly) * 100 : 0;
-
-        if (variance < (config.min_variance ?? -30)) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'critical',
-            current_value: variance,
-            threshold_value: config.min_variance ?? -30,
-            suggested_action: `Doanh thu theo giờ thấp ${Math.round(variance)}%. Kiểm tra: footfall, staff performance, promotion.`,
-            action_priority: 'urgent',
-            calculation_details: {
-              formula: '(hourly_revenue - expected) / expected * 100',
-              inputs: { hourlyRevenue, expectedHourly },
-              variance,
-            },
-          }));
-        }
-      }
-      break;
-
-    case 'conversion_rate':
-      // Conversion rate analysis
-      for (const obj of objects.filter(o => o.object_type === 'store')) {
-        const metrics = obj.current_metrics || {};
-        const footfall = metrics.footfall ?? 0;
-        const transactions = metrics.transactions ?? 0;
-        const conversionRate = footfall > 0 ? (transactions / footfall) * 100 : 0;
-        const benchmark = config.benchmark ?? 15;
-
-        if (conversionRate < benchmark && footfall > 50) {
-          alerts.push(await createIntelligentAlert(supabase, tenantId, rule, obj, {
-            severity: 'warning',
-            current_value: conversionRate,
-            threshold_value: benchmark,
-            suggested_action: `Conversion thấp ${conversionRate.toFixed(1)}% (benchmark ${benchmark}%). Đề xuất: Training staff, review sản phẩm trưng bày.`,
-            action_priority: 'medium',
-            calculation_details: {
-              formula: 'transactions / footfall * 100',
-              inputs: { footfall, transactions },
-              conversionRate,
-            },
-          }));
-        }
-      }
-      break;
+    }
   }
 
   return alerts;
+}
+
+function getTargetObjects(rule: IntelligentRule, objects: AlertObject[]): AlertObject[] {
+  const category = rule.rule_category?.toLowerCase() || '';
+  const code = rule.rule_code?.toLowerCase() || '';
+
+  // Inventory-related rules target products
+  if (category === 'inventory' || 
+      code.includes('stock') || 
+      code.includes('inventory') ||
+      code.includes('dead_stock') ||
+      code.includes('expiry') ||
+      code.includes('reorder')) {
+    return objects.filter(o => o.object_type === 'product');
+  }
+
+  // Store-related rules target stores
+  if (category === 'operations' && 
+      (code.includes('store') || code.includes('pos') || code.includes('conversion'))) {
+    return objects.filter(o => o.object_type === 'store');
+  }
+
+  // Fulfillment rules may target orders (handled separately)
+  if (category === 'fulfillment') {
+    return objects.filter(o => o.object_type === 'order');
+  }
+
+  // Service-related rules may target stores or products
+  if (category === 'service') {
+    return objects.filter(o => ['store', 'product'].includes(o.object_type));
+  }
+
+  // Revenue rules target stores or are system-wide
+  if (category === 'revenue') {
+    return objects.filter(o => o.object_type === 'store');
+  }
+
+  return objects;
+}
+
+function calculateMetricValue(rule: IntelligentRule, obj: AlertObject, additionalData: any): number | null {
+  const metrics = obj.current_metrics || {};
+  const code = rule.rule_code?.toUpperCase() || '';
+  const formula = rule.calculation_formula?.toLowerCase() || '';
+
+  // Inventory metrics
+  if (code.includes('STOCKOUT') || formula === 'days_of_stock' || formula === 'current_stock / avg_daily_sales') {
+    return obj.days_of_stock ?? (metrics.calculated_dos ?? null);
+  }
+
+  if (code.includes('DEAD_STOCK') || formula.includes('last_sale_date')) {
+    const lastSaleDate = obj.last_sale_date || metrics.last_sale_date;
+    if (lastSaleDate) {
+      return Math.floor((Date.now() - new Date(lastSaleDate).getTime()) / (24 * 60 * 60 * 1000));
+    }
+    return metrics.days_since_last_sale ?? null;
+  }
+
+  if (code.includes('OVERSTOCK') && !code.includes('STOCKOUT')) {
+    return obj.days_of_stock ?? metrics.calculated_dos ?? null;
+  }
+
+  if (code.includes('NEGATIVE_STOCK') || formula === 'current_stock') {
+    return metrics.total_stock ?? metrics.stock_quantity ?? null;
+  }
+
+  if (code.includes('REORDER_POINT') || formula.includes('reorder_point')) {
+    const stock = metrics.total_stock ?? 0;
+    const reorderPoint = obj.reorder_point ?? metrics.reorder_point ?? 10;
+    return stock - reorderPoint;
+  }
+
+  if (code.includes('SLOW_MOVING') || code.includes('VELOCITY')) {
+    const currentVelocity = obj.sales_velocity ?? metrics.sales_velocity ?? 0;
+    const previousVelocity = metrics.previous_velocity ?? currentVelocity * 0.8;
+    return previousVelocity > 0 ? ((currentVelocity - previousVelocity) / previousVelocity) * 100 : 0;
+  }
+
+  if (code.includes('SYNC_MISMATCH') || formula.includes('system_stock - platform_stock')) {
+    const systemStock = metrics.system_stock ?? metrics.total_stock ?? 0;
+    const platformStock = metrics.platform_stock ?? systemStock;
+    return Math.abs(systemStock - platformStock);
+  }
+
+  if (code.includes('EXPIRY') || formula.includes('expiry_date')) {
+    return metrics.days_to_expiry ?? metrics.days_until_expiry ?? null;
+  }
+
+  // Revenue metrics
+  if (code.includes('REVENUE_DROP') || formula.includes('today - same_day_last_week')) {
+    const current = metrics.daily_revenue ?? additionalData.aggregates?.todayRevenue ?? 0;
+    const previous = metrics.last_week_revenue ?? additionalData.aggregates?.lastWeekRevenue ?? current;
+    return previous > 0 ? ((current - previous) / previous) * 100 : 0;
+  }
+
+  if (code.includes('MARGIN') || formula.includes('selling_price - cost')) {
+    return metrics.gross_margin ?? metrics.margin_percent ?? null;
+  }
+
+  if (code.includes('AOV') || formula.includes('aov')) {
+    const currentAov = metrics.current_aov ?? 0;
+    const previousAov = metrics.previous_aov ?? currentAov;
+    return previousAov > 0 ? ((currentAov - previousAov) / previousAov) * 100 : 0;
+  }
+
+  if (code.includes('CASH_FLOW') || formula.includes('current_cash / avg_daily_expenses')) {
+    return additionalData.aggregates?.cashCoverageDays ?? null;
+  }
+
+  // Fulfillment metrics
+  if (code.includes('DELIVERY_DELAYED') || formula.includes('delivery_days - platform_sla_days')) {
+    return metrics.days_over_sla ?? metrics.delivery_delay_days ?? null;
+  }
+
+  if (code.includes('NOT_SHIPPED') || formula.includes('order_confirmed_at')) {
+    return metrics.hours_since_confirmed ?? null;
+  }
+
+  if (code.includes('RETURN_NOT_COLLECTED') || formula.includes('return_created_at')) {
+    return metrics.days_since_return ?? null;
+  }
+
+  if (code.includes('SURGE') || formula.includes('warehouse_capacity')) {
+    const current = metrics.orders_per_hour ?? 0;
+    const capacity = metrics.warehouse_capacity ?? current;
+    return capacity > 0 ? (current / capacity) * 100 : 0;
+  }
+
+  if (code.includes('SHIPPING_COST') || code.includes('CARRIER')) {
+    return metrics.shipping_cost_change ?? metrics.carrier_delay_rate ?? null;
+  }
+
+  if (code.includes('COD_NOT_RECEIVED')) {
+    return metrics.days_since_delivered ?? null;
+  }
+
+  if (code.includes('FAILED_DELIVERY')) {
+    return metrics.failed_delivery_rate ?? null;
+  }
+
+  // Service metrics
+  if (code.includes('NEGATIVE_REVIEW') || code.includes('REVIEW')) {
+    return metrics.negative_review_change ?? null;
+  }
+
+  if (code.includes('RESPONSE_TIME')) {
+    return metrics.avg_response_minutes ?? null;
+  }
+
+  if (code.includes('COMPLAINT')) {
+    return metrics.hours_since_opened ?? null;
+  }
+
+  if (code.includes('REFUND_RATE')) {
+    return metrics.refund_rate ?? null;
+  }
+
+  if (code.includes('QUALITY_ISSUE')) {
+    return metrics.quality_complaints_count ?? null;
+  }
+
+  if (code.includes('STORE_RATING')) {
+    return metrics.store_rating ?? null;
+  }
+
+  if (code.includes('PENALTY')) {
+    return metrics.active_penalty_count ?? null;
+  }
+
+  // Operations metrics
+  if (code.includes('API_SYNC') || formula.includes('last_successful_sync')) {
+    return metrics.minutes_since_last_sync ?? null;
+  }
+
+  if (code.includes('FLASH_SALE')) {
+    const remaining = metrics.flash_sale_remaining ?? 0;
+    const initial = metrics.flash_sale_initial ?? remaining;
+    return initial > 0 ? (remaining / initial) * 100 : 100;
+  }
+
+  if (code.includes('LISTING_DEACTIVATED')) {
+    return metrics.deactivated_listings_count ?? null;
+  }
+
+  if (code.includes('CAMPAIGN_ENDING')) {
+    return metrics.hours_to_campaign_end ?? null;
+  }
+
+  if (code.includes('CART_ABANDON')) {
+    return metrics.cart_abandon_rate ?? null;
+  }
+
+  if (code.includes('CHECKOUT_FAILURE')) {
+    return metrics.checkout_failure_rate ?? null;
+  }
+
+  if (code.includes('TRAFFIC')) {
+    const current = metrics.current_traffic ?? 0;
+    const avg = metrics.avg_traffic ?? current;
+    return avg > 0 ? (current / avg) * 100 : 100;
+  }
+
+  if (code.includes('PAGE_LOAD')) {
+    return metrics.page_load_time ?? null;
+  }
+
+  if (code.includes('STORE_NO_SALES') || code.includes('WITHOUT_SALE')) {
+    return metrics.hours_without_sale ?? metrics.hours_since_last_sale ?? null;
+  }
+
+  if (code.includes('POS_OFFLINE')) {
+    return metrics.minutes_offline ?? null;
+  }
+
+  if (code.includes('CASH_DISCREPANCY')) {
+    return metrics.cash_difference_amount ?? null;
+  }
+
+  if (code.includes('STAFF_OVERTIME')) {
+    return metrics.overtime_hours ?? null;
+  }
+
+  if (code.includes('DISCOUNT_ABUSE') || code.includes('VOUCHER')) {
+    return metrics.voucher_usage_count ?? null;
+  }
+
+  if (code.includes('PROMOTION_OVERSPEND')) {
+    const actual = metrics.promotion_actual ?? 0;
+    const budget = metrics.promotion_budget ?? actual;
+    return budget > 0 ? (actual / budget) * 100 : 0;
+  }
+
+  if (code.includes('PLATFORM_FEE')) {
+    return metrics.platform_fee_change ?? null;
+  }
+
+  if (code.includes('CHANNEL_REVENUE_IMBALANCE')) {
+    return metrics.channel_revenue_share ?? null;
+  }
+
+  if (code.includes('CONVERSION')) {
+    const footfall = metrics.footfall ?? 0;
+    const transactions = metrics.transactions ?? 0;
+    return footfall > 0 ? (transactions / footfall) * 100 : 0;
+  }
+
+  // Generic fallback - try to find metric by name
+  const metricKey = rule.threshold_config?.metric;
+  if (metricKey && metrics[metricKey] !== undefined) {
+    return metrics[metricKey];
+  }
+
+  return null;
+}
+
+function isSystemWideRule(rule: IntelligentRule): boolean {
+  const code = rule.rule_code?.toUpperCase() || '';
+  return code.includes('CASH_FLOW') || 
+         code.includes('SYSTEM_WIDE') ||
+         code.includes('CHANNEL_IMBALANCE');
+}
+
+function calculateSystemMetric(rule: IntelligentRule, additionalData: any): number | null {
+  const code = rule.rule_code?.toUpperCase() || '';
+  
+  if (code.includes('CASH_FLOW') || code.includes('CASH_COVERAGE')) {
+    return additionalData.aggregates?.cashCoverageDays ?? null;
+  }
+  
+  return null;
+}
+
+function checkThreshold(
+  value: number, 
+  operator: string, 
+  critical: number | null, 
+  warning: number | null
+): { isCritical: boolean; isWarning: boolean; breached: boolean } {
+  let isCritical = false;
+  let isWarning = false;
+
+  switch (operator) {
+    case 'less_than':
+    case 'less_than_or_equal':
+      if (critical !== null && value <= critical) isCritical = true;
+      else if (warning !== null && value <= warning) isWarning = true;
+      break;
+    case 'greater_than':
+    case 'greater_than_or_equal':
+      if (critical !== null && value >= critical) isCritical = true;
+      else if (warning !== null && value >= warning) isWarning = true;
+      break;
+    case 'change_decrease':
+      // For decrease, we expect negative values
+      if (critical !== null && value <= critical) isCritical = true;
+      else if (warning !== null && value <= warning) isWarning = true;
+      break;
+    case 'change_increase':
+      // For increase, we expect positive values
+      if (critical !== null && value >= critical) isCritical = true;
+      else if (warning !== null && value >= warning) isWarning = true;
+      break;
+    case 'equals':
+      if (critical !== null && value === critical) isCritical = true;
+      else if (warning !== null && value === warning) isWarning = true;
+      break;
+    default:
+      // Default to greater_than behavior
+      if (critical !== null && value >= critical) isCritical = true;
+      else if (warning !== null && value >= warning) isWarning = true;
+  }
+
+  return { isCritical, isWarning, breached: isCritical || isWarning };
+}
+
+function extractInputValues(rule: IntelligentRule, obj: AlertObject, additionalData: any): any {
+  const metrics = obj.current_metrics || {};
+  return {
+    object_name: obj.object_name,
+    object_type: obj.object_type,
+    total_stock: metrics.total_stock,
+    sales_velocity: obj.sales_velocity,
+    days_of_stock: obj.days_of_stock,
+    trend_percent: obj.trend_percent,
+    reorder_point: obj.reorder_point,
+    ...metrics,
+  };
+}
+
+function generateSuggestedAction(rule: IntelligentRule, obj: AlertObject, value: number, severity: string): string {
+  const emoji = severity === 'critical' ? '🚨' : '⚠️';
+  const config = rule.threshold_config || {};
+  const unit = config.unit || '';
+  const actions = rule.suggested_actions || [];
+
+  // Use the first suggested action if available
+  if (actions.length > 0) {
+    return `${emoji} ${obj.object_name}: ${actions[0]} (Hiện tại: ${formatValue(value, unit)})`;
+  }
+
+  // Generate based on rule code
+  const code = rule.rule_code?.toUpperCase() || '';
+  
+  if (code.includes('STOCKOUT')) {
+    return `${emoji} ${obj.object_name}: Chỉ còn ${Math.round(value)} ngày tồn kho. Đặt hàng ngay!`;
+  }
+  if (code.includes('DEAD_STOCK')) {
+    return `${emoji} ${obj.object_name}: Không bán được ${Math.round(value)} ngày. Xem xét giảm giá hoặc thanh lý.`;
+  }
+  if (code.includes('OVERSTOCK')) {
+    return `${emoji} ${obj.object_name}: Tồn kho ${Math.round(value)} ngày. Giảm giá hoặc điều chuyển sang kênh khác.`;
+  }
+  if (code.includes('REVENUE_DROP')) {
+    return `${emoji} ${obj.object_name}: Doanh thu giảm ${Math.abs(Math.round(value))}%. Kiểm tra traffic và promotion.`;
+  }
+  if (code.includes('DELIVERY_DELAYED')) {
+    return `${emoji} ${obj.object_name}: Giao trễ ${Math.round(value)} ngày so với SLA. Liên hệ ĐVVC ngay.`;
+  }
+
+  return `${emoji} ${obj.object_name}: ${rule.rule_name} - ${formatValue(value, unit)}`;
+}
+
+function formatValue(value: number, unit: string): string {
+  const rounded = Math.round(value * 100) / 100;
+  switch (unit) {
+    case 'percent':
+    case 'percentage':
+    case 'percentage_points':
+      return `${rounded}%`;
+    case 'days':
+      return `${rounded} ngày`;
+    case 'hours':
+      return `${rounded} giờ`;
+    case 'minutes':
+      return `${rounded} phút`;
+    case 'seconds':
+      return `${rounded} giây`;
+    case 'items':
+    case 'products':
+      return `${rounded} sản phẩm`;
+    case 'VND':
+      return `${rounded.toLocaleString()} VND`;
+    case 'stars':
+      return `${rounded} sao`;
+    default:
+      return `${rounded} ${unit}`;
+  }
 }
 
 async function createIntelligentAlert(
@@ -435,7 +826,7 @@ async function createIntelligentAlert(
   details: {
     severity: string;
     current_value: number;
-    threshold_value: number;
+    threshold_value: number | null;
     suggested_action: string;
     action_priority: string;
     auto_action_available?: boolean;
@@ -459,7 +850,7 @@ async function createIntelligentAlert(
     current_value: details.current_value,
     threshold_value: details.threshold_value,
     status: 'active',
-    priority: rule.priority,
+    priority: rule.priority || (details.severity === 'critical' ? 1 : 2),
     notification_sent: false,
     suggested_action: details.suggested_action,
     action_priority: details.action_priority,
@@ -469,6 +860,7 @@ async function createIntelligentAlert(
       rule_id: rule.id,
       detected_at: new Date().toISOString(),
       suggested_actions: rule.suggested_actions,
+      applicable_channels: rule.applicable_channels,
     },
   };
 
@@ -497,13 +889,75 @@ async function createIntelligentAlert(
         tenant_id: tenantId,
         rule_id: rule.id,
         object_id: object.id,
-        calculation_type: rule.calculation_formula,
+        calculation_type: rule.calculation_formula || rule.rule_code,
         input_values: details.calculation_details.inputs || {},
         output_value: details.current_value,
         threshold_value: details.threshold_value,
         is_triggered: true,
       });
     }
+    return alertData;
+  }
+  return null;
+}
+
+async function createSystemAlert(
+  supabase: any,
+  tenantId: string,
+  rule: IntelligentRule,
+  value: number,
+  severity: string,
+  additionalData: any
+): Promise<any> {
+  const emoji = severity === 'critical' ? '🚨' : '⚠️';
+  const config = rule.threshold_config || {};
+  const unit = config.unit || '';
+  
+  const alertData = {
+    tenant_id: tenantId,
+    alert_type: rule.rule_code,
+    category: rule.rule_category,
+    severity: severity,
+    title: `${emoji} ${rule.rule_name}`,
+    message: `${rule.description || rule.rule_name}: ${formatValue(value, unit)}`,
+    metric_name: rule.calculation_formula,
+    current_value: value,
+    threshold_value: severity === 'critical' ? config.critical : config.warning,
+    status: 'active',
+    priority: severity === 'critical' ? 1 : 2,
+    notification_sent: false,
+    suggested_action: rule.suggested_actions?.[0] || 'Kiểm tra và xử lý ngay',
+    action_priority: severity === 'critical' ? 'urgent' : 'high',
+    calculation_details: {
+      formula: rule.calculation_formula,
+      inputs: additionalData.aggregates,
+      result: value,
+    },
+    metadata: {
+      rule_id: rule.id,
+      detected_at: new Date().toISOString(),
+      suggested_actions: rule.suggested_actions,
+    },
+  };
+
+  const { data: existing } = await supabase
+    .from('alert_instances')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('alert_type', rule.rule_code)
+    .neq('status', 'resolved')
+    .maybeSingle();
+
+  if (!existing) {
+    const { error } = await supabase
+      .from('alert_instances')
+      .insert(alertData);
+
+    if (error) {
+      console.error('Insert system alert error:', error);
+      return null;
+    }
+    console.log(`Created system alert: ${alertData.title}`);
     return alertData;
   }
   return null;
@@ -661,10 +1115,15 @@ async function insertBasicAlert(
 
 // ============= CROSS-OBJECT DETECTION =============
 
-async function runCrossObjectDetection(supabase: any, tenantId: string, objects: AlertObject[]): Promise<number> {
+async function runCrossObjectDetection(
+  supabase: any, 
+  tenantId: string, 
+  objects: AlertObject[],
+  additionalData: any
+): Promise<number> {
   let alertsCreated = 0;
 
-  // 1. Supplier Lead Time Risk
+  // 1. Multi-product stockout risk
   const productsNearReorder = objects.filter(o => 
     o.object_type === 'product' && 
     (o.stockout_risk_days || 0) <= 3 &&
@@ -684,10 +1143,10 @@ async function runCrossObjectDetection(supabase: any, tenantId: string, objects:
       await supabase.from('alert_instances').insert({
         tenant_id: tenantId,
         alert_type: 'multi_product_stockout_risk',
-        category: 'product',
+        category: 'inventory',
         severity: 'critical',
         title: `🚨 ${productsNearReorder.length} sản phẩm sắp hết hàng trong 3 ngày`,
-        message: `Các sản phẩm: ${productsNearReorder.map(p => p.object_name).join(', ')}`,
+        message: `Các sản phẩm: ${productsNearReorder.slice(0, 5).map(p => p.object_name).join(', ')}${productsNearReorder.length > 5 ? '...' : ''}`,
         suggested_action: 'Tạo đơn đặt hàng gấp cho các sản phẩm này',
         action_priority: 'urgent',
         auto_action_available: true,
@@ -709,7 +1168,7 @@ async function runCrossObjectDetection(supabase: any, tenantId: string, objects:
     }
   }
 
-  // 2. Category Performance Drop
+  // 2. System-wide performance drop
   const stores = objects.filter(o => o.object_type === 'store');
   const underperformingStores = stores.filter(s => {
     const metrics = s.current_metrics || {};
@@ -732,7 +1191,7 @@ async function runCrossObjectDetection(supabase: any, tenantId: string, objects:
       await supabase.from('alert_instances').insert({
         tenant_id: tenantId,
         alert_type: 'system_wide_performance_drop',
-        category: 'business',
+        category: 'revenue',
         severity: 'critical',
         title: `🚨 ${underperformingStores.length}/${stores.length} chi nhánh dưới 60% target`,
         message: 'Có thể có vấn đề hệ thống: nguồn cung, giá, cạnh tranh hoặc seasonal impact',
@@ -754,69 +1213,98 @@ async function runCrossObjectDetection(supabase: any, tenantId: string, objects:
   }
 
   // 3. Cash Flow Projection Alert
-  const { data: bankAccounts } = await supabase
-    .from('bank_accounts')
-    .select('current_balance')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active');
+  const { totalCash, totalDue, cashCoverageDays } = additionalData.aggregates;
 
-  if (bankAccounts) {
-    const totalCash = bankAccounts.reduce((sum: number, acc: any) => sum + (acc.current_balance || 0), 0);
-
-    const { data: upcomingBills } = await supabase
-      .from('bills')
-      .select('total_amount, paid_amount, due_date')
+  if (cashCoverageDays < 7) {
+    const { data: existing } = await supabase
+      .from('alert_instances')
+      .select('id')
       .eq('tenant_id', tenantId)
-      .eq('status', 'approved')
-      .lte('due_date', new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString());
+      .eq('alert_type', 'cash_coverage_warning')
+      .neq('status', 'resolved')
+      .maybeSingle();
 
-    if (upcomingBills) {
-      const totalDue = upcomingBills.reduce(
-        (sum: number, bill: any) => sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 
-        0
-      );
+    if (!existing && totalDue > 0) {
+      const coverageRatio = (totalCash / totalDue) * 100;
+      await supabase.from('alert_instances').insert({
+        tenant_id: tenantId,
+        alert_type: 'cash_coverage_warning',
+        category: 'revenue',
+        severity: coverageRatio < 100 ? 'critical' : 'warning',
+        title: coverageRatio < 100 
+          ? '🚨 Không đủ tiền thanh toán 14 ngày tới'
+          : '⚠️ Tiền mặt chỉ đủ thanh toán sát sao',
+        message: `Cash: ${(totalCash/1000000).toFixed(1)}M. Phải trả: ${(totalDue/1000000).toFixed(1)}M. Coverage: ${coverageRatio.toFixed(0)}%`,
+        suggested_action: coverageRatio < 100 
+          ? 'Thu hồi công nợ khẩn cấp hoặc đàm phán giãn nợ NCC'
+          : 'Theo dõi sát dòng tiền, chuẩn bị phương án dự phòng',
+        action_priority: coverageRatio < 100 ? 'urgent' : 'high',
+        metric_name: 'cash_coverage_ratio',
+        current_value: coverageRatio,
+        threshold_value: 120,
+        status: 'active',
+        priority: coverageRatio < 100 ? 1 : 2,
+        notification_sent: false,
+        calculation_details: {
+          total_cash: totalCash,
+          total_due: totalDue,
+          coverage_ratio: coverageRatio,
+          coverage_days: cashCoverageDays,
+        },
+      });
+      alertsCreated++;
+    }
+  }
 
-      const coverageRatio = totalDue > 0 ? (totalCash / totalDue) * 100 : 100;
+  // 4. Dead stock accumulation
+  const deadStockProducts = objects.filter(o => {
+    if (o.object_type !== 'product') return false;
+    const daysSinceLastSale = o.current_metrics?.days_since_last_sale ?? 0;
+    return daysSinceLastSale >= 30 && (o.current_metrics?.total_stock || 0) > 0;
+  });
 
-      if (coverageRatio < 120) {
-        const { data: existing } = await supabase
-          .from('alert_instances')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('alert_type', 'cash_coverage_warning')
-          .neq('status', 'resolved')
-          .maybeSingle();
+  if (deadStockProducts.length >= 5) {
+    const { data: existing } = await supabase
+      .from('alert_instances')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('alert_type', 'dead_stock_accumulation')
+      .neq('status', 'resolved')
+      .maybeSingle();
 
-        if (!existing) {
-          await supabase.from('alert_instances').insert({
-            tenant_id: tenantId,
-            alert_type: 'cash_coverage_warning',
-            category: 'cashflow',
-            severity: coverageRatio < 100 ? 'critical' : 'warning',
-            title: coverageRatio < 100 
-              ? '🚨 Không đủ tiền thanh toán 14 ngày tới'
-              : '⚠️ Tiền mặt chỉ đủ thanh toán sát sao',
-            message: `Cash: ${(totalCash/1000000).toFixed(1)}M. Phải trả: ${(totalDue/1000000).toFixed(1)}M. Coverage: ${coverageRatio.toFixed(0)}%`,
-            suggested_action: coverageRatio < 100 
-              ? 'Thu hồi công nợ khẩn cấp hoặc đàm phán giãn nợ NCC'
-              : 'Theo dõi sát dòng tiền, chuẩn bị phương án dự phòng',
-            action_priority: coverageRatio < 100 ? 'urgent' : 'high',
-            metric_name: 'cash_coverage_ratio',
-            current_value: coverageRatio,
-            threshold_value: 120,
-            status: 'active',
-            priority: coverageRatio < 100 ? 1 : 2,
-            notification_sent: false,
-            calculation_details: {
-              total_cash: totalCash,
-              total_due: totalDue,
-              coverage_ratio: coverageRatio,
-              bills_count: upcomingBills.length,
-            },
-          });
-          alertsCreated++;
-        }
-      }
+    if (!existing) {
+      const totalValue = deadStockProducts.reduce((sum, p) => {
+        const stock = p.current_metrics?.total_stock || 0;
+        const cost = p.current_metrics?.unit_cost || 0;
+        return sum + (stock * cost);
+      }, 0);
+
+      await supabase.from('alert_instances').insert({
+        tenant_id: tenantId,
+        alert_type: 'dead_stock_accumulation',
+        category: 'inventory',
+        severity: 'warning',
+        title: `⚠️ ${deadStockProducts.length} SKU không bán được ≥30 ngày`,
+        message: `Tổng giá trị tồn: ${(totalValue/1000000).toFixed(1)}M. Xem xét khuyến mãi hoặc thanh lý.`,
+        suggested_action: 'Tạo chương trình khuyến mãi, bundle hoặc thanh lý cho các SKU này',
+        action_priority: 'medium',
+        auto_action_available: true,
+        metric_name: 'dead_stock_count',
+        current_value: deadStockProducts.length,
+        threshold_value: 5,
+        status: 'active',
+        priority: 2,
+        notification_sent: false,
+        calculation_details: {
+          products: deadStockProducts.slice(0, 10).map(p => ({
+            name: p.object_name,
+            days_without_sale: p.current_metrics?.days_since_last_sale,
+            stock: p.current_metrics?.total_stock,
+          })),
+          total_value: totalValue,
+        },
+      });
+      alertsCreated++;
     }
   }
 
