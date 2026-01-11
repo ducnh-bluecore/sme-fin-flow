@@ -17,7 +17,10 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Target,
+  Edit2,
+  Settings2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +31,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -36,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
@@ -45,7 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useStores, useStoreStats, useCreateStore, useDeleteStore, StoreData, StoreInput } from '@/hooks/useStores';
+import { useStores, useStoreStats, useCreateStore, useUpdateStore, useDeleteStore, StoreData, StoreInput } from '@/hooks/useStores';
 
 const statusConfig = {
   active: { label: 'Hoạt động', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
@@ -53,10 +58,11 @@ const statusConfig = {
   closed: { label: 'Đóng cửa', icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
 };
 
-function StoreCard({ store }: { store: StoreData }) {
+function StoreCard({ store, onEditKPI }: { store: StoreData; onEditKPI: (store: StoreData) => void }) {
   const status = statusConfig[store.status];
   const StatusIcon = status.icon;
   const progress = store.target > 0 ? Math.min((store.revenue / store.target) * 100, 100) : 0;
+  const hasTarget = store.target > 0;
 
   return (
     <motion.div
@@ -92,8 +98,18 @@ function StoreCard({ store }: { store: StoreData }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800">
-                  <DropdownMenuItem className="text-slate-300 focus:bg-slate-800">Xem chi tiết</DropdownMenuItem>
-                  <DropdownMenuItem className="text-slate-300 focus:bg-slate-800">Chỉnh sửa</DropdownMenuItem>
+                  <DropdownMenuItem className="text-slate-300 focus:bg-slate-800">
+                    <Edit2 className="h-3.5 w-3.5 mr-2" />
+                    Xem chi tiết
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-amber-400 focus:bg-slate-800"
+                    onClick={() => onEditKPI(store)}
+                  >
+                    <Target className="h-3.5 w-3.5 mr-2" />
+                    Cài đặt KPI/Target
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-slate-800" />
                   <DropdownMenuItem className="text-slate-300 focus:bg-slate-800">Báo cáo</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -121,25 +137,59 @@ function StoreCard({ store }: { store: StoreData }) {
             </div>
             <div className="p-3 rounded-lg bg-slate-800/30">
               <div className="flex items-center gap-2 mb-1">
-                <Users className="h-4 w-4 text-blue-400" />
-                <span className="text-xs text-slate-500">Nhân viên</span>
+                <Target className="h-4 w-4 text-amber-400" />
+                <span className="text-xs text-slate-500">Target</span>
               </div>
-              <span className="text-lg font-bold text-slate-100">{store.staff}</span>
+              {hasTarget ? (
+                <span className="text-lg font-bold text-slate-100">
+                  ₫{store.target >= 1000000 ? `${(store.target / 1000000).toFixed(0)}M` : store.target.toLocaleString()}
+                </span>
+              ) : (
+                <button 
+                  onClick={() => onEditKPI(store)}
+                  className="text-sm text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                >
+                  <Settings2 className="h-3 w-3" />
+                  Cài đặt
+                </button>
+              )}
             </div>
           </div>
 
           {/* Progress */}
-          {store.status === 'active' && store.target > 0 && (
+          {store.status === 'active' && hasTarget && (
             <div className="mb-4">
               <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-slate-500">Tiến độ target</span>
+                <span className="text-slate-500">Tiến độ đạt target</span>
                 <span className={progress >= 90 ? 'text-emerald-400' : progress >= 60 ? 'text-amber-400' : 'text-red-400'}>
                   {progress.toFixed(0)}%
                 </span>
               </div>
               <Progress value={progress} className="h-1.5" />
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>₫{(store.revenue / 1000000).toFixed(1)}M</span>
+                <span>₫{(store.target / 1000000).toFixed(1)}M</span>
+              </div>
             </div>
           )}
+
+          {/* Staff & Hours */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="p-3 rounded-lg bg-slate-800/30">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="h-4 w-4 text-blue-400" />
+                <span className="text-xs text-slate-500">Nhân viên</span>
+              </div>
+              <span className="text-lg font-bold text-slate-100">{store.staff}</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-800/30">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-4 w-4 text-purple-400" />
+                <span className="text-xs text-slate-500">Đơn hàng</span>
+              </div>
+              <span className="text-lg font-bold text-slate-100">{store.orders.toLocaleString()}</span>
+            </div>
+          </div>
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-800/50">
@@ -306,14 +356,54 @@ function AddStoreDialog({ onClose }: { onClose: () => void }) {
 export default function StoresPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [kpiDialogOpen, setKpiDialogOpen] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<StoreData | null>(null);
+  const [kpiFormData, setKpiFormData] = useState({
+    target: 0,
+    staff: 0,
+  });
   
   const { data: stores, isLoading } = useStores();
   const { stats } = useStoreStats();
+  const updateStore = useUpdateStore();
 
   const filteredStores = stores?.filter(s => 
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.address && s.address.toLowerCase().includes(searchQuery.toLowerCase()))
   ) || [];
+
+  const handleEditKPI = (store: StoreData) => {
+    setSelectedStore(store);
+    setKpiFormData({
+      target: store.target,
+      staff: store.staff,
+    });
+    setKpiDialogOpen(true);
+  };
+
+  const handleSaveKPI = () => {
+    if (!selectedStore) return;
+    
+    updateStore.mutate({
+      id: selectedStore.id,
+      name: selectedStore.name,
+      address: selectedStore.address,
+      phone: selectedStore.phone,
+      manager: selectedStore.manager,
+      openHours: selectedStore.openHours,
+      status: selectedStore.status,
+      revenue: selectedStore.revenue,
+      target: kpiFormData.target,
+      orders: selectedStore.orders,
+      growth: selectedStore.growth,
+      staff: kpiFormData.staff,
+    }, {
+      onSuccess: () => {
+        setKpiDialogOpen(false);
+        setSelectedStore(null);
+      }
+    });
+  };
 
   return (
     <>
@@ -405,7 +495,7 @@ export default function StoresPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <StoreCard store={store} />
+                <StoreCard store={store} onEditKPI={handleEditKPI} />
               </motion.div>
             ))}
           </div>
@@ -421,6 +511,102 @@ export default function StoresPage() {
           </div>
         )}
       </div>
+
+      {/* KPI Settings Dialog */}
+      <Dialog open={kpiDialogOpen} onOpenChange={setKpiDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-800 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100 flex items-center gap-2">
+              <Target className="h-5 w-5 text-amber-400" />
+              Cài đặt KPI / Target
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedStore && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Store className="h-4 w-4 text-amber-400" />
+                  <span className="font-medium text-slate-200">{selectedStore.name}</span>
+                </div>
+                <p className="text-xs text-slate-500">{selectedStore.address || 'Chưa có địa chỉ'}</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="kpi-target" className="text-slate-300 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-emerald-400" />
+                    Target doanh thu (VNĐ/tháng)
+                  </Label>
+                  <Input
+                    id="kpi-target"
+                    type="number"
+                    value={kpiFormData.target || ''}
+                    onChange={(e) => setKpiFormData({ ...kpiFormData, target: Number(e.target.value) })}
+                    placeholder="500000000"
+                    className="bg-slate-800/50 border-slate-700 text-slate-200"
+                  />
+                  <p className="text-xs text-slate-500">
+                    VD: 500.000.000 = 500M/tháng
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="kpi-staff" className="text-slate-300 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-400" />
+                    Số nhân viên
+                  </Label>
+                  <Input
+                    id="kpi-staff"
+                    type="number"
+                    value={kpiFormData.staff || ''}
+                    onChange={(e) => setKpiFormData({ ...kpiFormData, staff: Number(e.target.value) })}
+                    placeholder="8"
+                    className="bg-slate-800/50 border-slate-700 text-slate-200"
+                  />
+                </div>
+
+                {selectedStore.revenue > 0 && kpiFormData.target > 0 && (
+                  <div className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-slate-400">Tiến độ hiện tại</span>
+                      <span className={`text-sm font-medium ${
+                        (selectedStore.revenue / kpiFormData.target * 100) >= 90 ? 'text-emerald-400' : 
+                        (selectedStore.revenue / kpiFormData.target * 100) >= 60 ? 'text-amber-400' : 'text-red-400'
+                      }`}>
+                        {Math.min((selectedStore.revenue / kpiFormData.target * 100), 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <Progress value={Math.min((selectedStore.revenue / kpiFormData.target * 100), 100)} className="h-2" />
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                      <span>₫{(selectedStore.revenue / 1000000).toFixed(1)}M</span>
+                      <span>₫{(kpiFormData.target / 1000000).toFixed(1)}M</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setKpiDialogOpen(false)}
+              className="border-slate-700 text-slate-300"
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleSaveKPI}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              disabled={updateStore.isPending}
+            >
+              {updateStore.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Lưu KPI
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
