@@ -31,6 +31,7 @@ import { useNotificationCenter, AlertInstance, categoryLabels } from '@/hooks/us
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
+import { AlertDetailsDialog } from '@/components/alerts/AlertDetailsDialog';
 import { CreateTaskFromAlertDialog } from '@/components/alerts/CreateTaskFromAlertDialog';
 import { AlertAIRecommendationDialog } from '@/components/alerts/AlertAIRecommendationDialog';
 
@@ -101,11 +102,30 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
   // Check if this is a summary alert
   const isSummaryAlert = alert.alert_type?.includes('summary') || 
     (alert.metadata as any)?.is_summary === true ||
-    alert.object_type === 'summary';
+    alert.object_type === 'summary' ||
+    (alert.current_value && typeof alert.current_value === 'number' && alert.current_value > 1);
 
   const affectedCount = isSummaryAlert 
     ? ((alert as any).calculation_details?.total_affected || alert.current_value || 0)
     : null;
+
+  // Determine object type label
+  const getObjectTypeLabel = () => {
+    const category = alert.category?.toLowerCase() || '';
+    const alertType = alert.alert_type?.toLowerCase() || '';
+    
+    if (category === 'customer' || alertType.includes('customer') || alertType.includes('churn') || alertType.includes('vip')) {
+      return 'khách hàng';
+    }
+    if (category === 'store' || alertType.includes('store') || alertType.includes('staff')) {
+      return 'cửa hàng';
+    }
+    if (category === 'fulfillment' || alertType.includes('fulfillment') || alertType.includes('order') || alertType.includes('delivery')) {
+      return 'đơn hàng';
+    }
+    return 'sản phẩm';
+  };
+  const objectTypeLabel = getObjectTypeLabel();
 
   return (
     <motion.div
@@ -205,7 +225,7 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                     onClick={() => onViewDetails(alert)}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
-                    Xem {affectedCount} sản phẩm
+                    Xem {affectedCount} {objectTypeLabel}
                   </Button>
                   <Button 
                     size="sm" 
@@ -586,15 +606,12 @@ export default function AlertsPage() {
         </Tabs>
       </div>
 
-      {/* Products Dialog */}
-      {selectedAlert && (
-        <AffectedProductsDialog
-          open={showProductsDialog}
-          onOpenChange={setShowProductsDialog}
-          alertType={selectedAlert.alert_type}
-          totalCount={(selectedAlert as any).calculation_details?.total_affected || selectedAlert.current_value || 0}
-        />
-      )}
+      {/* Details Dialog - Generic for all alert types */}
+      <AlertDetailsDialog
+        open={showProductsDialog}
+        onOpenChange={setShowProductsDialog}
+        alert={selectedAlert}
+      />
 
       {/* Create Task Dialog */}
       <CreateTaskFromAlertDialog
