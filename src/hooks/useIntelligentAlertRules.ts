@@ -212,6 +212,56 @@ export function useIntelligentAlertRules() {
     },
   });
 
+  // Create new rule
+  const createRule = useMutation({
+    mutationFn: async (rule: {
+      rule_code: string;
+      rule_name: string;
+      description?: string;
+      rule_category: string;
+      severity: string;
+      threshold_config?: Record<string, any>;
+      calculation_formula?: string;
+      suggested_actions?: string[];
+      applicable_channels?: SalesChannel[];
+      alert_group?: AlertGroup;
+    }) => {
+      if (!tenantId) throw new Error('No tenant ID');
+
+      const { data, error } = await supabase
+        .from('intelligent_alert_rules')
+        .insert({
+          tenant_id: tenantId,
+          rule_code: rule.rule_code,
+          rule_name: rule.rule_name,
+          description: rule.description || '',
+          rule_category: rule.rule_category,
+          severity: rule.severity,
+          threshold_type: 'fixed',
+          threshold_config: rule.threshold_config || {},
+          calculation_formula: rule.calculation_formula || '',
+          suggested_actions: rule.suggested_actions || [],
+          applicable_channels: rule.applicable_channels || [],
+          alert_group: rule.alert_group || 'general',
+          is_enabled: true,
+          priority: 5,
+          cooldown_hours: 4,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      toast.success('Đã tạo rule mới');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+
   // Stats
   const stats = {
     total: rulesQuery.data?.length || 0,
@@ -230,6 +280,7 @@ export function useIntelligentAlertRules() {
     stats,
     toggleRule,
     updateRule,
+    createRule,
     refetch: rulesQuery.refetch,
   };
 }
