@@ -493,7 +493,7 @@ export default function AlertsPage() {
                 <Clock className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-blue-400">{stats.active}</div>
+                <div className="text-2xl font-bold text-blue-400">{stats.active + stats.acknowledged}</div>
                 <div className="text-xs text-slate-400">Chưa xử lý</div>
               </div>
             </div>
