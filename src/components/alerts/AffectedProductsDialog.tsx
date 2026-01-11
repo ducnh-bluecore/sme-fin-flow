@@ -46,7 +46,7 @@ interface AffectedProductsDialogProps {
   totalCount: number;
 }
 
-type SortField = 'days_of_stock' | 'sales_velocity' | 'object_name' | 'trend_percent';
+type SortField = 'days_of_stock' | 'sales_velocity' | 'object_name' | 'trend_percent' | 'current_stock';
 type SortOrder = 'asc' | 'desc';
 
 export function AffectedProductsDialog({
@@ -156,11 +156,12 @@ export function AffectedProductsDialog({
   const handleExportCSV = () => {
     if (!filteredProducts.length) return;
 
-    const headers = ['Mã SP', 'Tên sản phẩm', 'Loại', 'Ngày tồn kho', 'Velocity/ngày', 'Xu hướng %', 'Trạng thái'];
+    const headers = ['Mã SP', 'Tên sản phẩm', 'Loại', 'Tồn kho hiện tại', 'Ngày tồn kho', 'Velocity/ngày', 'Xu hướng %', 'Trạng thái'];
     const rows = filteredProducts.map(p => [
       p.external_id || '',
       p.object_name || '',
       p.object_type || 'product',
+      Math.round(p.current_stock || 0),
       Math.round(p.days_of_stock || 0),
       (p.sales_velocity || 0).toFixed(2),
       (p.trend_percent || 0).toFixed(1),
@@ -289,6 +290,17 @@ export function AffectedProductsDialog({
                   <TableHead className="text-slate-400">Danh mục</TableHead>
                   <TableHead 
                     className="text-slate-400 text-right cursor-pointer hover:text-slate-200"
+                    onClick={() => handleSort('current_stock')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Tồn kho
+                      {sortField === 'current_stock' && (
+                        <ArrowUpDown className="h-3 w-3" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-slate-400 text-right cursor-pointer hover:text-slate-200"
                     onClick={() => handleSort('days_of_stock')}
                   >
                     <div className="flex items-center justify-end gap-1">
@@ -329,11 +341,16 @@ export function AffectedProductsDialog({
                     <TableCell className="font-mono text-xs text-slate-400">
                       {product.external_id?.slice(0, 10) || '-'}
                     </TableCell>
-                    <TableCell className="text-slate-200 max-w-[250px] truncate">
+                    <TableCell className="text-slate-200 max-w-[200px] truncate">
                       {product.object_name}
                     </TableCell>
                     <TableCell className="text-slate-400 text-sm">
                       {product.object_type || 'product'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="text-slate-200 font-medium">
+                        {Math.round(product.current_stock || 0).toLocaleString('vi-VN')}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <span className={
