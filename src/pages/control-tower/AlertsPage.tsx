@@ -15,7 +15,9 @@ import {
   Filter,
   Search,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  ExternalLink,
+  List
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNotificationCenter, AlertInstance, categoryLabels } from '@/hooks/useNotificationCenter';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
 
 const typeConfig = {
   critical: { 
@@ -69,10 +72,11 @@ const categoryIcons: Record<string, React.ElementType> = {
   other: Bell,
 };
 
-function AlertCard({ alert, onAcknowledge, onResolve }: { 
+function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails }: { 
   alert: AlertInstance; 
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
+  onViewDetails?: (alert: AlertInstance) => void;
 }) {
   const severity = alert.severity as keyof typeof typeConfig;
   const typeConf = typeConfig[severity] || typeConfig.warning;
@@ -86,6 +90,15 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
       return alert.created_at;
     }
   }, [alert.created_at]);
+
+  // Check if this is a summary alert
+  const isSummaryAlert = alert.alert_type?.includes('summary') || 
+    (alert.metadata as any)?.is_summary === true ||
+    alert.object_type === 'summary';
+
+  const affectedCount = isSummaryAlert 
+    ? ((alert as any).calculation_details?.total_affected || alert.current_value || 0)
+    : null;
 
   return (
     <motion.div
@@ -108,10 +121,16 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
                   <CatIcon className="h-3 w-3" />
                   {categoryLabels[alert.category as keyof typeof categoryLabels] || alert.category}
                 </Badge>
+                {isSummaryAlert && (
+                  <Badge className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30 flex items-center gap-1">
+                    <List className="h-3 w-3" />
+                    Tổng hợp
+                  </Badge>
+                )}
               </div>
               <h3 className="text-sm font-medium text-slate-100">{alert.title}</h3>
               {alert.message && (
-                <p className="text-xs text-slate-400 mt-1">{alert.message}</p>
+                <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">{alert.message}</p>
               )}
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -135,13 +154,19 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
 
           {/* Details */}
           <div className="flex flex-wrap items-center gap-4 mt-3">
-            {alert.object_name && (
+            {affectedCount && (
+              <div className="flex items-center gap-1 text-xs">
+                <Package className="h-3 w-3 text-amber-400" />
+                <span className="text-amber-400 font-medium">{affectedCount} items</span>
+              </div>
+            )}
+            {!isSummaryAlert && alert.object_name && (
               <div className="flex items-center gap-1 text-xs text-slate-500">
                 <Store className="h-3 w-3" />
                 {alert.object_name}
               </div>
             )}
-            {alert.current_value !== null && (
+            {alert.current_value !== null && !isSummaryAlert && (
               <div className="text-xs">
                 <span className="text-slate-500">Giá trị: </span>
                 <span className={typeConf.color}>
@@ -151,7 +176,7 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
                 </span>
               </div>
             )}
-            {alert.threshold_value !== null && (
+            {alert.threshold_value !== null && !isSummaryAlert && (
               <div className="text-xs text-slate-500">
                 Ngưỡng: {alert.threshold_value.toLocaleString('vi-VN')}
               </div>
@@ -165,13 +190,24 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
           {/* Actions */}
           {alert.status === 'active' && (
             <div className="flex items-center gap-2 mt-3">
-              <Button 
-                size="sm" 
-                className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
-                onClick={() => onResolve(alert.id)}
-              >
-                Xử lý ngay
-              </Button>
+              {isSummaryAlert && onViewDetails ? (
+                <Button 
+                  size="sm" 
+                  className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
+                  onClick={() => onViewDetails(alert)}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Xem {affectedCount} sản phẩm
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
+                  onClick={() => onResolve(alert.id)}
+                >
+                  Xử lý ngay
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -184,6 +220,17 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
           )}
           {alert.status === 'acknowledged' && (
             <div className="flex items-center gap-2 mt-3">
+              {isSummaryAlert && onViewDetails ? (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 border-slate-700 text-slate-300 text-xs"
+                  onClick={() => onViewDetails(alert)}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Xem danh sách
+                </Button>
+              ) : null}
               <Button 
                 size="sm" 
                 className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
@@ -201,6 +248,9 @@ function AlertCard({ alert, onAcknowledge, onResolve }: {
 
 export default function AlertsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
+  const [showProductsDialog, setShowProductsDialog] = useState(false);
+  
   const { 
     instances, 
     stats, 
@@ -216,6 +266,11 @@ export default function AlertsPage() {
 
   const handleResolve = async (id: string) => {
     await resolveAlert.mutateAsync({ id });
+  };
+
+  const handleViewDetails = (alert: AlertInstance) => {
+    setSelectedAlert(alert);
+    setShowProductsDialog(true);
   };
 
   const filteredAlerts = useMemo(() => {
@@ -382,6 +437,7 @@ export default function AlertsPage() {
                   alert={alert} 
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
+                  onViewDetails={handleViewDetails}
                 />
               ))
             )}
@@ -400,6 +456,7 @@ export default function AlertsPage() {
                   alert={alert}
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
+                  onViewDetails={handleViewDetails}
                 />
               ))
             )}
@@ -418,6 +475,7 @@ export default function AlertsPage() {
                   alert={alert}
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
+                  onViewDetails={handleViewDetails}
                 />
               ))
             )}
@@ -436,12 +494,23 @@ export default function AlertsPage() {
                   alert={alert}
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
+                  onViewDetails={handleViewDetails}
                 />
               ))
             )}
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Products Dialog */}
+      {selectedAlert && (
+        <AffectedProductsDialog
+          open={showProductsDialog}
+          onOpenChange={setShowProductsDialog}
+          alertType={selectedAlert.alert_type}
+          totalCount={(selectedAlert as any).calculation_details?.total_affected || selectedAlert.current_value || 0}
+        />
+      )}
     </>
   );
 }
