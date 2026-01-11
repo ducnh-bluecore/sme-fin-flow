@@ -346,6 +346,7 @@ export default function KPINotificationRulesPage() {
     toggleRule,
     updateRule,
     createRule,
+    bulkToggleRules,
   } = useIntelligentAlertRules();
 
   // (newRule state removed - now handled by CreateRuleDialog)
@@ -622,10 +623,33 @@ export default function KPINotificationRulesPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button onClick={() => setCreateRuleDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tạo rule
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => bulkToggleRules.mutate({ is_enabled: true })}
+                      disabled={bulkToggleRules.isPending || rulesStats.enabled === rulesStats.total}
+                    >
+                      {bulkToggleRules.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <ToggleRight className="h-4 w-4 mr-2" />
+                      )}
+                      Bật tất cả
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => bulkToggleRules.mutate({ is_enabled: false })}
+                      disabled={bulkToggleRules.isPending || rulesStats.enabled === 0}
+                    >
+                      Tắt tất cả
+                    </Button>
+                    <Button onClick={() => setCreateRuleDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Tạo rule
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

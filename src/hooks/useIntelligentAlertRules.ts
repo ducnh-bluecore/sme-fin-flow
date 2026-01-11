@@ -272,6 +272,28 @@ export function useIntelligentAlertRules() {
     },
   });
 
+  // Bulk toggle all rules
+  const bulkToggleRules = useMutation({
+    mutationFn: async ({ is_enabled }: { is_enabled: boolean }) => {
+      if (!tenantId) throw new Error('No tenant ID');
+      
+      const { error } = await supabase
+        .from('intelligent_alert_rules')
+        .update({ is_enabled, updated_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+      return { is_enabled };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      toast.success(variables.is_enabled ? 'Đã bật tất cả rules' : 'Đã tắt tất cả rules');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+
   // Stats
   const stats = {
     total: rulesQuery.data?.length || 0,
@@ -291,6 +313,7 @@ export function useIntelligentAlertRules() {
     toggleRule,
     updateRule,
     createRule,
+    bulkToggleRules,
     refetch: rulesQuery.refetch,
   };
 }
