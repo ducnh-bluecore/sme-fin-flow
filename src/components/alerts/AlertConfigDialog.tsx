@@ -103,7 +103,8 @@ export function AlertConfigDialog({ open, onOpenChange }: AlertConfigDialogProps
     }));
   };
 
-  const handleSeverityChange = (key: AlertTypeKey, severity: 'high' | 'medium' | 'low') => {
+  // Chuẩn hóa severity: critical, warning, info
+  const handleSeverityChange = (key: AlertTypeKey, severity: 'critical' | 'warning' | 'info') => {
     setAlertConfig(prev => ({
       ...prev,
       [key]: { ...prev[key], severity }
@@ -240,25 +241,25 @@ export function AlertConfigDialog({ open, onOpenChange }: AlertConfigDialogProps
                           </div>
                         )}
 
-                        {/* Severity setting */}
+                        {/* Severity setting - Chuẩn hóa: critical, warning, info */}
                         <div className="space-y-2">
                           <Label className="text-sm">Mức độ nghiêm trọng</Label>
                           <div className="flex gap-2">
-                            {(['high', 'medium', 'low'] as const).map((severity) => (
+                            {(['critical', 'warning', 'info'] as const).map((severity) => (
                               <button
                                 key={severity}
                                 onClick={() => handleSeverityChange(type.key, severity)}
                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                                   config.severity === severity
-                                    ? severity === 'high'
+                                    ? severity === 'critical'
                                       ? 'bg-destructive text-destructive-foreground'
-                                      : severity === 'medium'
+                                      : severity === 'warning'
                                       ? 'bg-warning text-warning-foreground'
                                       : 'bg-info text-info-foreground'
                                     : 'bg-muted hover:bg-muted/80'
                                 }`}
                               >
-                                {severity === 'high' ? 'Cao' : severity === 'medium' ? 'Trung bình' : 'Thấp'}
+                                {severity === 'critical' ? 'Nguy cấp' : severity === 'warning' ? 'Cảnh báo' : 'Thông tin'}
                               </button>
                             ))}
                           </div>

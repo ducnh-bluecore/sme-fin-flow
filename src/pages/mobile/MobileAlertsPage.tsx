@@ -89,7 +89,7 @@ export default function MobileAlertsPage() {
                 id={alert.id}
                 title={alert.title}
                 message={alert.message || ''}
-                severity={alert.severity === 'critical' ? 'high' : alert.severity === 'warning' ? 'medium' : 'low'}
+                severity={(alert.severity as 'critical' | 'warning' | 'info') || 'info'}
                 category={alert.category}
                 createdAt={alert.created_at}
                 isRead={alert.status !== 'active'}
