@@ -37,7 +37,7 @@ interface Task {
   description: string | null;
   assignee_id: string | null;
   assignee_name: string | null;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'todo' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'urgent' | 'high' | 'medium' | 'low';
   due_date: string | null;
   department: string | null;
@@ -45,7 +45,8 @@ interface Task {
   created_at: string;
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; color: string; textColor: string }> = {
+  'todo': { label: 'Chờ xử lý', color: 'bg-slate-500', textColor: 'text-slate-400' },
   'pending': { label: 'Chờ xử lý', color: 'bg-slate-500', textColor: 'text-slate-400' },
   'in_progress': { label: 'Đang làm', color: 'bg-amber-500', textColor: 'text-amber-400' },
   'completed': { label: 'Hoàn thành', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
@@ -257,7 +258,7 @@ export default function TasksPage() {
     );
   }, [tasks, searchQuery]);
 
-  const pendingTasks = filteredTasks.filter(t => t.status === 'pending');
+  const pendingTasks = filteredTasks.filter(t => t.status === 'pending' || t.status === 'todo');
   const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
   const completedTasks = filteredTasks.filter(t => t.status === 'completed');
 
