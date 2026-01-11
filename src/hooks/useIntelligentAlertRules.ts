@@ -10,6 +10,27 @@ import { useActiveTenantId } from './useActiveTenantId';
 
 // ============= Types =============
 
+export type SalesChannel = 'shopee' | 'lazada' | 'tiktok' | 'website' | 'social' | 'pos';
+export type AlertGroup = 'fulfillment' | 'inventory' | 'revenue' | 'service' | 'operations' | 'general';
+
+export const salesChannelLabels: Record<SalesChannel, string> = {
+  shopee: 'Shopee',
+  lazada: 'Lazada',
+  tiktok: 'TikTok Shop',
+  website: 'Website/App',
+  social: 'Social (FB/Zalo/IG)',
+  pos: 'Cửa hàng/POS',
+};
+
+export const alertGroupLabels: Record<AlertGroup, string> = {
+  fulfillment: 'Fulfillment & Vận chuyển',
+  inventory: 'Tồn kho & Hàng hóa',
+  revenue: 'Doanh thu & Biên lợi nhuận',
+  service: 'Chất lượng dịch vụ',
+  operations: 'Vận hành',
+  general: 'Chung',
+};
+
 export interface IntelligentAlertRule {
   id: string;
   tenant_id: string;
@@ -46,6 +67,10 @@ export interface IntelligentAlertRule {
   cooldown_hours: number;
   created_at: string;
   updated_at: string;
+  // New fields for multi-channel
+  applicable_channels: SalesChannel[];
+  alert_group: AlertGroup;
+  priority_order: number;
 }
 
 // ============= Labels & Constants =============
@@ -59,6 +84,9 @@ export const ruleCategoryLabels: Record<string, string> = {
   business: 'Kinh doanh',
   operations: 'Vận hành',
   store: 'Cửa hàng',
+  inventory: 'Tồn kho',
+  revenue: 'Doanh thu',
+  service: 'Chất lượng dịch vụ',
 };
 
 export const severityLabels: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -116,6 +144,21 @@ export function useIntelligentAlertRules() {
     acc[category].push(rule);
     return acc;
   }, {} as Record<string, IntelligentAlertRule[]>);
+
+  // Group rules by alert_group
+  const rulesByGroup = (rulesQuery.data || []).reduce((acc, rule) => {
+    const group = rule.alert_group || 'general';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(rule);
+    return acc;
+  }, {} as Record<string, IntelligentAlertRule[]>);
+
+  // Filter rules by channel
+  const filterByChannel = (channel: SalesChannel) => {
+    return (rulesQuery.data || []).filter(rule => 
+      rule.applicable_channels?.includes(channel) || rule.applicable_channels?.length === 0
+    );
+  };
 
   // Toggle rule enabled/disabled
   const toggleRule = useMutation({
@@ -180,6 +223,8 @@ export function useIntelligentAlertRules() {
   return {
     rules: rulesQuery.data || [],
     rulesByCategory,
+    rulesByGroup,
+    filterByChannel,
     isLoading: tenantLoading || rulesQuery.isLoading,
     error: rulesQuery.error,
     stats,
