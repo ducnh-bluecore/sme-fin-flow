@@ -5532,6 +5532,129 @@ export type Database = {
           },
         ]
       }
+      object_calculated_metrics: {
+        Row: {
+          avg_daily_sales: number | null
+          avg_response_time_minutes: number | null
+          calculation_inputs: Json | null
+          conversion_rate: number | null
+          created_at: string
+          current_stock: number | null
+          daily_revenue: number | null
+          days_of_stock: number | null
+          days_since_last_sale: number | null
+          dos_status: string | null
+          external_id: string | null
+          gross_margin_percent: number | null
+          id: string
+          last_calculated_at: string
+          margin_status: string | null
+          object_id: string | null
+          object_name: string
+          object_type: string
+          refund_rate: number | null
+          reorder_point: number | null
+          return_rate: number | null
+          revenue_status: string | null
+          revenue_variance_percent: number | null
+          sales_velocity: number | null
+          stockout_risk_days: number | null
+          target_progress: number | null
+          target_revenue: number | null
+          tenant_id: string
+          trend_direction: string | null
+          trend_percent: number | null
+          updated_at: string
+          velocity_change_percent: number | null
+          velocity_status: string | null
+        }
+        Insert: {
+          avg_daily_sales?: number | null
+          avg_response_time_minutes?: number | null
+          calculation_inputs?: Json | null
+          conversion_rate?: number | null
+          created_at?: string
+          current_stock?: number | null
+          daily_revenue?: number | null
+          days_of_stock?: number | null
+          days_since_last_sale?: number | null
+          dos_status?: string | null
+          external_id?: string | null
+          gross_margin_percent?: number | null
+          id?: string
+          last_calculated_at?: string
+          margin_status?: string | null
+          object_id?: string | null
+          object_name: string
+          object_type: string
+          refund_rate?: number | null
+          reorder_point?: number | null
+          return_rate?: number | null
+          revenue_status?: string | null
+          revenue_variance_percent?: number | null
+          sales_velocity?: number | null
+          stockout_risk_days?: number | null
+          target_progress?: number | null
+          target_revenue?: number | null
+          tenant_id: string
+          trend_direction?: string | null
+          trend_percent?: number | null
+          updated_at?: string
+          velocity_change_percent?: number | null
+          velocity_status?: string | null
+        }
+        Update: {
+          avg_daily_sales?: number | null
+          avg_response_time_minutes?: number | null
+          calculation_inputs?: Json | null
+          conversion_rate?: number | null
+          created_at?: string
+          current_stock?: number | null
+          daily_revenue?: number | null
+          days_of_stock?: number | null
+          days_since_last_sale?: number | null
+          dos_status?: string | null
+          external_id?: string | null
+          gross_margin_percent?: number | null
+          id?: string
+          last_calculated_at?: string
+          margin_status?: string | null
+          object_id?: string | null
+          object_name?: string
+          object_type?: string
+          refund_rate?: number | null
+          reorder_point?: number | null
+          return_rate?: number | null
+          revenue_status?: string | null
+          revenue_variance_percent?: number | null
+          sales_velocity?: number | null
+          stockout_risk_days?: number | null
+          target_progress?: number | null
+          target_revenue?: number | null
+          tenant_id?: string
+          trend_direction?: string | null
+          trend_percent?: number | null
+          updated_at?: string
+          velocity_change_percent?: number | null
+          velocity_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "object_calculated_metrics_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "alert_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "object_calculated_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_auto_approval_rules: {
         Row: {
           created_at: string
@@ -8552,6 +8675,10 @@ export type Database = {
         Args: { p_entry_id: string }
         Returns: boolean
       }
+      batch_recalculate_metrics: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       calculate_ap_aging_detail: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: {
@@ -8586,6 +8713,10 @@ export type Database = {
           period_date: string
           remaining_value: number
         }[]
+      }
+      calculate_object_metrics: {
+        Args: { p_object_id: string }
+        Returns: undefined
       }
       close_financial_period: {
         Args: { p_period_id: string }
