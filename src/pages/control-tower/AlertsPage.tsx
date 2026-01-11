@@ -99,14 +99,17 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
     }
   }, [alert.created_at]);
 
-  // Check if this is a summary alert
+  // Check if this is a summary alert - only if explicitly marked or has total_affected
   const isSummaryAlert = alert.alert_type?.includes('summary') || 
     (alert.metadata as any)?.is_summary === true ||
     alert.object_type === 'summary' ||
-    (alert.current_value && typeof alert.current_value === 'number' && alert.current_value > 1);
+    (alert as any).calculation_details?.is_summary === true ||
+    ((alert as any).calculation_details?.total_affected && (alert as any).calculation_details.total_affected > 1);
 
-  const affectedCount = isSummaryAlert 
-    ? ((alert as any).calculation_details?.total_affected || alert.current_value || 0)
+  // Only show affected count if explicitly set in calculation_details.total_affected
+  // DO NOT use current_value as it could be a KPI metric (revenue amount, percentage, etc.)
+  const affectedCount = (alert as any).calculation_details?.total_affected 
+    ? Math.round((alert as any).calculation_details.total_affected)
     : null;
 
   // Determine object type label based on alert category and type
