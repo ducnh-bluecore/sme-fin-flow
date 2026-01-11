@@ -252,72 +252,64 @@ async function fetchAdditionalData(supabase: any, tenantId: string) {
 // ============= DYNAMIC CALCULATIONS =============
 
 async function updateDynamicCalculations(supabase: any, tenantId: string) {
-  // Get all product objects
+  // Skip dynamic calculations for large datasets - calculations should be done via scheduled job
+  // Just get a sample to ensure objects exist
+  const { count } = await supabase
+    .from('alert_objects')
+    .select('*', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('object_type', 'product');
+
+  if ((count || 0) > 100) {
+    console.log(`Skipping dynamic calc for ${count} products - use scheduled job instead`);
+    return;
+  }
+
+  // Get all product objects (only for small datasets)
   const { data: products } = await supabase
     .from('alert_objects')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('object_type', 'product');
+    .eq('object_type', 'product')
+    .limit(100);
 
   if (!products) return;
 
-  for (const product of products) {
+  // Batch update calculations
+  const updates = products.map((product: any) => {
     const metrics = product.current_metrics || {};
     const totalStock = metrics.total_stock ?? 0;
-    
-    // Get sales data from last 30 days
-    const salesLast30Days = metrics.sales_last_30_days ?? (Math.random() * 100);
+    const salesLast30Days = metrics.sales_last_30_days ?? 10;
     const avgDailySales = salesLast30Days / 30;
-    
-    // Calculate Days of Stock
     const daysOfStock = avgDailySales > 0 ? totalStock / avgDailySales : 999;
-    
-    // Calculate Sales Velocity (units per day)
-    const salesVelocity = avgDailySales;
-    
-    // Calculate Reorder Point = (Lead Time × Daily Sales) + Safety Stock
     const leadTimeDays = product.lead_time_days ?? 7;
     const safetyStock = product.safety_stock ?? 5;
     const reorderPoint = Math.ceil((leadTimeDays * avgDailySales) + safetyStock);
-    
-    // Calculate Stockout Risk (days until stockout)
     const stockoutRiskDays = Math.max(0, Math.floor(daysOfStock - leadTimeDays));
-    
-    // Calculate Trend
     const previousSales = metrics.sales_previous_30_days ?? salesLast30Days * 0.9;
-    const trendPercent = previousSales > 0 
-      ? ((salesLast30Days - previousSales) / previousSales) * 100 
-      : 0;
+    const trendPercent = previousSales > 0 ? ((salesLast30Days - previousSales) / previousSales) * 100 : 0;
     const trendDirection = trendPercent > 5 ? 'up' : trendPercent < -5 ? 'down' : 'stable';
-
-    // Calculate days since last sale
     const lastSaleDate = product.last_sale_date || metrics.last_sale_date;
-    const daysSinceLastSale = lastSaleDate 
-      ? Math.floor((Date.now() - new Date(lastSaleDate).getTime()) / (24 * 60 * 60 * 1000))
-      : 999;
+    const daysSinceLastSale = lastSaleDate ? Math.floor((Date.now() - new Date(lastSaleDate).getTime()) / (24 * 60 * 60 * 1000)) : 999;
 
-    // Update the object with calculated values
-    await supabase
-      .from('alert_objects')
-      .update({
-        sales_velocity: salesVelocity,
-        days_of_stock: daysOfStock,
-        avg_daily_sales: avgDailySales,
-        reorder_point: reorderPoint,
-        stockout_risk_days: stockoutRiskDays,
-        trend_direction: trendDirection,
-        trend_percent: trendPercent,
-        current_metrics: {
-          ...metrics,
-          calculated_dos: daysOfStock,
-          calculated_velocity: salesVelocity,
-          calculated_reorder_point: reorderPoint,
-          days_since_last_sale: daysSinceLastSale,
-          velocity_change_percent: trendPercent,
-        },
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', product.id);
+    return {
+      id: product.id,
+      sales_velocity: avgDailySales,
+      days_of_stock: daysOfStock,
+      avg_daily_sales: avgDailySales,
+      reorder_point: reorderPoint,
+      stockout_risk_days: stockoutRiskDays,
+      trend_direction: trendDirection,
+      trend_percent: trendPercent,
+    };
+  });
+
+  // Update in batches of 50
+  for (let i = 0; i < updates.length; i += 50) {
+    const batch = updates.slice(i, i + 50);
+    for (const upd of batch) {
+      await supabase.from('alert_objects').update(upd).eq('id', upd.id);
+    }
   }
 
   // Update store metrics
@@ -365,9 +357,33 @@ async function processUniversalRule(
   const warningThreshold = config.warning ?? config.warning_days ?? null;
 
   // Determine which objects to check based on rule category
-  const targetObjects = getTargetObjects(rule, objects);
+  let targetObjects = getTargetObjects(rule, objects);
+  
+  // OPTIMIZATION: Limit objects per rule to prevent timeout
+  const MAX_OBJECTS_PER_RULE = 200;
+  if (targetObjects.length > MAX_OBJECTS_PER_RULE) {
+    // Prioritize objects that are more likely to breach threshold
+    targetObjects = targetObjects
+      .sort((a, b) => {
+        // Sort by stockout risk for inventory rules
+        if (a.stockout_risk_days !== undefined && b.stockout_risk_days !== undefined) {
+          return (a.stockout_risk_days || 999) - (b.stockout_risk_days || 999);
+        }
+        return 0;
+      })
+      .slice(0, MAX_OBJECTS_PER_RULE);
+    console.log(`Limited ${rule.rule_code} to ${MAX_OBJECTS_PER_RULE} priority objects`);
+  }
+
+  let alertsCreatedForRule = 0;
+  const MAX_ALERTS_PER_RULE = 20; // Limit alerts per rule
 
   for (const obj of targetObjects) {
+    if (alertsCreatedForRule >= MAX_ALERTS_PER_RULE) {
+      console.log(`Rule ${rule.rule_code} hit max alerts limit (${MAX_ALERTS_PER_RULE})`);
+      break;
+    }
+
     try {
       // Calculate the metric value based on the rule's formula
       const calculatedValue = calculateMetricValue(rule, obj, additionalData);
@@ -402,7 +418,10 @@ async function processUniversalRule(
           },
         });
 
-        if (alert) alerts.push(alert);
+        if (alert) {
+          alerts.push(alert);
+          alertsCreatedForRule++;
+        }
       }
     } catch (e) {
       console.error(`Error calculating rule ${rule.rule_code} for object ${obj.object_name}:`, e);
