@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import NotificationRecipientsPanel from '@/components/control-tower/NotificationRecipientsPanel';
 
 interface SettingSection {
   id: string;
@@ -43,6 +44,7 @@ interface SettingSection {
 const settingSections: SettingSection[] = [
   { id: 'general', title: 'Cài đặt chung', description: 'Ngôn ngữ, múi giờ và giao diện', icon: Settings },
   { id: 'notifications', title: 'Thông báo', description: 'Quản lý cách nhận thông báo', icon: Bell },
+  { id: 'recipients', title: 'Người nhận', description: 'Quản lý người nhận cảnh báo', icon: Users },
   { id: 'security', title: 'Bảo mật', description: 'Mật khẩu và xác thực 2 yếu tố', icon: Shield },
   { id: 'integrations', title: 'Tích hợp', description: 'Kết nối với các dịch vụ bên ngoài', icon: Database },
 ];
@@ -236,6 +238,11 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Recipients Settings */}
+          <TabsContent value="recipients" className="mt-6">
+            <NotificationRecipientsPanel />
           </TabsContent>
 
           {/* Security Settings */}

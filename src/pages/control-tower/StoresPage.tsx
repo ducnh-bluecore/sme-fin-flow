@@ -16,9 +16,10 @@ import {
   MoreVertical,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,108 +30,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-interface StoreData {
-  id: string;
-  name: string;
-  address: string;
-  phone: string;
-  status: 'active' | 'maintenance' | 'closed';
-  manager: string;
-  revenue: number;
-  target: number;
-  orders: number;
-  growth: number;
-  staff: number;
-  openHours: string;
-}
-
-const mockStores: StoreData[] = [
-  { 
-    id: '1', 
-    name: 'Quận 1 - Nguyễn Huệ', 
-    address: '123 Nguyễn Huệ, Quận 1, TP.HCM',
-    phone: '028 1234 5678',
-    status: 'active',
-    manager: 'Nguyễn Văn A',
-    revenue: 452,
-    target: 500,
-    orders: 1250,
-    growth: 12.5,
-    staff: 8,
-    openHours: '8:00 - 22:00'
-  },
-  { 
-    id: '2', 
-    name: 'Quận 3 - Võ Văn Tần', 
-    address: '456 Võ Văn Tần, Quận 3, TP.HCM',
-    phone: '028 2345 6789',
-    status: 'active',
-    manager: 'Trần Thị B',
-    revenue: 385,
-    target: 400,
-    orders: 980,
-    growth: 8.2,
-    staff: 6,
-    openHours: '8:00 - 21:00'
-  },
-  { 
-    id: '3', 
-    name: 'Quận 7 - Phú Mỹ Hưng', 
-    address: '789 Nguyễn Lương Bằng, Quận 7, TP.HCM',
-    phone: '028 3456 7890',
-    status: 'maintenance',
-    manager: 'Lê Văn C',
-    revenue: 283,
-    target: 450,
-    orders: 720,
-    growth: -5.3,
-    staff: 7,
-    openHours: '9:00 - 22:00'
-  },
-  { 
-    id: '4', 
-    name: 'Thủ Đức - Vincom', 
-    address: 'Vincom Thủ Đức, TP.HCM',
-    phone: '028 4567 8901',
-    status: 'active',
-    manager: 'Phạm Thị D',
-    revenue: 521,
-    target: 550,
-    orders: 1420,
-    growth: 15.8,
-    staff: 10,
-    openHours: '9:00 - 22:00'
-  },
-  { 
-    id: '5', 
-    name: 'Bình Thạnh - Hàng Xanh', 
-    address: '12 Điện Biên Phủ, Bình Thạnh, TP.HCM',
-    phone: '028 5678 9012',
-    status: 'active',
-    manager: 'Hoàng Văn E',
-    revenue: 312,
-    target: 350,
-    orders: 850,
-    growth: 3.2,
-    staff: 5,
-    openHours: '8:00 - 21:00'
-  },
-  { 
-    id: '6', 
-    name: 'Gò Vấp - Quang Trung', 
-    address: '234 Quang Trung, Gò Vấp, TP.HCM',
-    phone: '028 6789 0123',
-    status: 'closed',
-    manager: 'Mai Thị F',
-    revenue: 0,
-    target: 300,
-    orders: 0,
-    growth: 0,
-    staff: 0,
-    openHours: 'Đang đóng cửa'
-  },
-];
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useStores, useStoreStats, useCreateStore, useDeleteStore, StoreData, StoreInput } from '@/hooks/useStores';
 
 const statusConfig = {
   active: { label: 'Hoạt động', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
@@ -141,7 +56,7 @@ const statusConfig = {
 function StoreCard({ store }: { store: StoreData }) {
   const status = statusConfig[store.status];
   const StatusIcon = status.icon;
-  const progress = Math.min((store.revenue / store.target) * 100, 100);
+  const progress = store.target > 0 ? Math.min((store.revenue / store.target) * 100, 100) : 0;
 
   return (
     <motion.div
@@ -157,10 +72,12 @@ function StoreCard({ store }: { store: StoreData }) {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-slate-100">{store.name}</h3>
-                <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                  <MapPin className="h-3 w-3" />
-                  <span className="truncate max-w-[200px]">{store.address}</span>
-                </div>
+                {store.address && (
+                  <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                    <MapPin className="h-3 w-3" />
+                    <span className="truncate max-w-[200px]">{store.address}</span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -191,7 +108,9 @@ function StoreCard({ store }: { store: StoreData }) {
                 <span className="text-xs text-slate-500">Doanh thu</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-slate-100">₫{store.revenue}M</span>
+                <span className="text-lg font-bold text-slate-100">
+                  ₫{store.revenue >= 1000000 ? `${(store.revenue / 1000000).toFixed(0)}M` : store.revenue.toLocaleString()}
+                </span>
                 {store.growth !== 0 && (
                   <span className={`text-xs flex items-center ${store.growth > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {store.growth > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
@@ -210,7 +129,7 @@ function StoreCard({ store }: { store: StoreData }) {
           </div>
 
           {/* Progress */}
-          {store.status === 'active' && (
+          {store.status === 'active' && store.target > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="text-slate-500">Tiến độ target</span>
@@ -225,14 +144,18 @@ function StoreCard({ store }: { store: StoreData }) {
           {/* Footer */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-800/50">
             <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span className="flex items-center gap-1">
-                <Phone className="h-3 w-3" />
-                {store.phone}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {store.openHours}
-              </span>
+              {store.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {store.phone}
+                </span>
+              )}
+              {store.openHours && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {store.openHours}
+                </span>
+              )}
             </div>
           </div>
         </CardContent>
@@ -241,18 +164,156 @@ function StoreCard({ store }: { store: StoreData }) {
   );
 }
 
+function AddStoreDialog({ onClose }: { onClose: () => void }) {
+  const createStore = useCreateStore();
+  const [formData, setFormData] = useState<StoreInput>({
+    name: '',
+    address: '',
+    phone: '',
+    manager: '',
+    openHours: '',
+    status: 'active',
+    revenue: 0,
+    target: 0,
+    orders: 0,
+    staff: 0,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createStore.mutate(formData, {
+      onSuccess: () => onClose(),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Tên cửa hàng *</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Quận 1 - Nguyễn Huệ"
+          required
+          className="bg-slate-800/50 border-slate-700"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="address">Địa chỉ</Label>
+        <Input
+          id="address"
+          value={formData.address || ''}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+          placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
+          className="bg-slate-800/50 border-slate-700"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="phone">Điện thoại</Label>
+          <Input
+            id="phone"
+            value={formData.phone || ''}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            placeholder="028 1234 5678"
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="openHours">Giờ mở cửa</Label>
+          <Input
+            id="openHours"
+            value={formData.openHours || ''}
+            onChange={(e) => setFormData({ ...formData, openHours: e.target.value })}
+            placeholder="8:00 - 22:00"
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="manager">Quản lý</Label>
+          <Input
+            id="manager"
+            value={formData.manager || ''}
+            onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+            placeholder="Nguyễn Văn A"
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="status">Trạng thái</Label>
+          <Select 
+            value={formData.status} 
+            onValueChange={(value: 'active' | 'maintenance' | 'closed') => 
+              setFormData({ ...formData, status: value })
+            }
+          >
+            <SelectTrigger className="bg-slate-800/50 border-slate-700">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Hoạt động</SelectItem>
+              <SelectItem value="maintenance">Bảo trì</SelectItem>
+              <SelectItem value="closed">Đóng cửa</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="target">Target (VNĐ)</Label>
+          <Input
+            id="target"
+            type="number"
+            value={formData.target || ''}
+            onChange={(e) => setFormData({ ...formData, target: Number(e.target.value) })}
+            placeholder="500000000"
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="staff">Số nhân viên</Label>
+          <Input
+            id="staff"
+            type="number"
+            value={formData.staff || ''}
+            onChange={(e) => setFormData({ ...formData, staff: Number(e.target.value) })}
+            placeholder="8"
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Hủy
+        </Button>
+        <Button type="submit" className="bg-amber-500 hover:bg-amber-600" disabled={createStore.isPending || !formData.name}>
+          {createStore.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Thêm cửa hàng
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export default function StoresPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [stores] = useState(mockStores);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  const { data: stores, isLoading } = useStores();
+  const { stats } = useStoreStats();
 
-  const filteredStores = stores.filter(s => 
+  const filteredStores = stores?.filter(s => 
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.address.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const activeCount = stores.filter(s => s.status === 'active').length;
-  const totalRevenue = stores.reduce((sum, s) => sum + s.revenue, 0);
-  const totalOrders = stores.reduce((sum, s) => sum + s.orders, 0);
+    (s.address && s.address.toLowerCase().includes(searchQuery.toLowerCase()))
+  ) || [];
 
   return (
     <>
@@ -270,28 +331,41 @@ export default function StoresPage() {
             </h1>
             <p className="text-slate-400 text-sm mt-1">Theo dõi hiệu suất và trạng thái các cửa hàng</p>
           </div>
-          <Button className="bg-amber-500 hover:bg-amber-600 text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            Thêm cửa hàng
-          </Button>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-amber-500 hover:bg-amber-600 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Thêm cửa hàng
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-slate-900 border-slate-800 max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="text-slate-100">Thêm cửa hàng mới</DialogTitle>
+              </DialogHeader>
+              <AddStoreDialog onClose={() => setIsDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
-            <div className="text-2xl font-bold text-slate-100">{stores.length}</div>
+            <div className="text-2xl font-bold text-slate-100">{stats.total}</div>
             <div className="text-xs text-slate-400">Tổng cửa hàng</div>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
-            <div className="text-2xl font-bold text-emerald-400">{activeCount}</div>
+            <div className="text-2xl font-bold text-emerald-400">{stats.active}</div>
             <div className="text-xs text-slate-400">Đang hoạt động</div>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
-            <div className="text-2xl font-bold text-amber-400">₫{totalRevenue}M</div>
+            <div className="text-2xl font-bold text-amber-400">
+              ₫{stats.totalRevenue >= 1000000 ? `${(stats.totalRevenue / 1000000).toFixed(0)}M` : stats.totalRevenue.toLocaleString()}
+            </div>
             <div className="text-xs text-slate-400">Tổng doanh thu</div>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
-            <div className="text-2xl font-bold text-blue-400">{totalOrders.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-blue-400">{stats.totalOrders.toLocaleString()}</div>
             <div className="text-xs text-slate-400">Tổng đơn hàng</div>
           </Card>
         </div>
@@ -318,23 +392,32 @@ export default function StoresPage() {
         </Card>
 
         {/* Store Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredStores.map((store, index) => (
-            <motion.div
-              key={store.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <StoreCard store={store} />
-            </motion.div>
-          ))}
-        </div>
-
-        {filteredStores.length === 0 && (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        ) : filteredStores.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredStores.map((store, index) => (
+              <motion.div
+                key={store.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <StoreCard store={store} />
+              </motion.div>
+            ))}
+          </div>
+        ) : (
           <div className="text-center py-12">
             <Store className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">Không tìm thấy cửa hàng nào</p>
+            <p className="text-slate-400 mb-2">
+              {searchQuery ? 'Không tìm thấy cửa hàng nào' : 'Chưa có cửa hàng nào'}
+            </p>
+            {!searchQuery && (
+              <p className="text-sm text-slate-500">Nhấn "Thêm cửa hàng" để tạo cửa hàng đầu tiên</p>
+            )}
           </div>
         )}
       </div>
