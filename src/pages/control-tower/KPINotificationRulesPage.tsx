@@ -37,6 +37,7 @@ import {
   ruleCategoryLabels,
   severityLabels,
 } from '@/hooks/useIntelligentAlertRules';
+import { useSeedAlertRules } from '@/hooks/useMultiChannelAlertRules';
 
 // Icons mapping
 const categoryIcons: Record<AlertCategory, typeof Package> = {
@@ -244,6 +245,32 @@ function IntelligentRuleCard({ rule, onToggle }: { rule: IntelligentAlertRule; o
         )}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+// Seed Rules Button Component
+function SeedRulesButton() {
+  const seedMutation = useSeedAlertRules();
+  
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Tạo 47 rules mẫu cho đa kênh bán lẻ (Shopee, Lazada, TikTok, Website, Cửa hàng, Social)
+      </p>
+      <Button onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending}>
+        {seedMutation.isPending ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Đang tạo...
+          </>
+        ) : (
+          <>
+            <Plus className="h-4 w-4 mr-2" />
+            Tạo 47 rules mẫu
+          </>
+        )}
+      </Button>
+    </div>
   );
 }
 
@@ -554,6 +581,9 @@ export default function KPINotificationRulesPage() {
                 <CardContent className="p-8 text-center">
                   <Zap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground mb-4">Không tìm thấy rule nào</p>
+                  {intelligentRules.length === 0 && (
+                    <SeedRulesButton />
+                  )}
                 </CardContent>
               </Card>
             ) : (
