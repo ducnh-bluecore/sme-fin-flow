@@ -70,7 +70,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { tenant_id } = await req.json();
+    const { tenant_id, use_precalculated = true } = await req.json();
 
     if (!tenant_id) {
       throw new Error('tenant_id is required');
@@ -78,11 +78,7 @@ serve(async (req) => {
 
     const result: DetectionResult = { triggered: 0, checked: 0, errors: [], calculations: [] };
 
-    // Step 1: Update dynamic calculations for all objects
-    console.log('Step 1: Updating dynamic calculations...');
-    await updateDynamicCalculations(supabase, tenant_id);
-
-    // Step 2: Get intelligent rules
+    // Step 1: Get intelligent rules
     const { data: intelligentRules } = await supabase
       .from('intelligent_alert_rules')
       .select('*')
@@ -92,38 +88,46 @@ serve(async (req) => {
 
     console.log(`Found ${intelligentRules?.length || 0} intelligent rules`);
 
-    // Step 3: Get all monitored objects with updated metrics
-    const { data: objects, error: objectsError } = await supabase
-      .from('alert_objects')
-      .select('*')
-      .eq('tenant_id', tenant_id)
-      .eq('is_monitored', true);
+    // Step 2: Get PRE-CALCULATED metrics (much faster!)
+    if (use_precalculated) {
+      console.log('Using pre-calculated metrics from object_calculated_metrics...');
+      
+      // Process alerts from pre-calculated metrics - SUPER FAST!
+      const alertsFromPrecalc = await processFromPrecalculatedMetrics(supabase, tenant_id, intelligentRules || []);
+      result.triggered += alertsFromPrecalc.triggered;
+      result.checked += alertsFromPrecalc.checked;
+      result.calculations.push(...alertsFromPrecalc.calculations);
+      
+    } else {
+      // Fallback to legacy calculation
+      console.log('Using legacy on-demand calculations...');
+      await updateDynamicCalculations(supabase, tenant_id);
+      
+      const { data: objects } = await supabase
+        .from('alert_objects')
+        .select('*')
+        .eq('tenant_id', tenant_id)
+        .eq('is_monitored', true)
+        .limit(500);
 
-    if (objectsError) throw objectsError;
-    console.log(`Found ${objects?.length || 0} monitored objects`);
+      const additionalData = await fetchAdditionalData(supabase, tenant_id);
 
-    // Step 4: Get additional data sources for calculations
-    const additionalData = await fetchAdditionalData(supabase, tenant_id);
-
-    // Step 5: Process ALL intelligent rules with universal processor
-    for (const rule of intelligentRules || []) {
-      try {
-        const alerts = await processUniversalRule(supabase, tenant_id, rule, objects || [], additionalData);
-        result.triggered += alerts.length;
-        result.checked++;
-        result.calculations.push({
-          rule: rule.rule_code,
-          alerts_created: alerts.length,
-        });
-        console.log(`Processed rule ${rule.rule_code}: ${alerts.length} alerts`);
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : 'Unknown error';
-        result.errors.push(`Rule ${rule.rule_code}: ${errMsg}`);
-        console.error(`Error processing rule ${rule.rule_code}:`, errMsg);
+      for (const rule of intelligentRules || []) {
+        try {
+          const alerts = await processUniversalRule(supabase, tenant_id, rule, objects || [], additionalData);
+          result.triggered += alerts.length;
+          result.checked++;
+          result.calculations.push({ rule: rule.rule_code, alerts_created: alerts.length });
+        } catch (e) {
+          result.errors.push(`Rule ${rule.rule_code}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
       }
     }
 
-    // Step 6: Process basic alert configs
+    // Step 3: Get additional data for cross-object detection
+    const additionalData = await fetchAdditionalData(supabase, tenant_id);
+
+    // Step 4: Process basic alert configs  
     const { data: configs } = await supabase
       .from('extended_alert_configs')
       .select('*')
@@ -132,9 +136,17 @@ serve(async (req) => {
 
     console.log(`Found ${configs?.length || 0} basic alert configs`);
 
+    // Get objects for basic config processing (limited)
+    const { data: objectsForBasic } = await supabase
+      .from('alert_objects')
+      .select('*')
+      .eq('tenant_id', tenant_id)
+      .eq('is_monitored', true)
+      .limit(200);
+
     for (const config of configs || []) {
       try {
-        const alerts = await detectAlertsForConfig(supabase, tenant_id, config, objects || []);
+        const alerts = await detectAlertsForConfig(supabase, tenant_id, config, objectsForBasic || []);
         result.triggered += alerts.length;
         result.checked++;
       } catch (e) {
@@ -143,8 +155,8 @@ serve(async (req) => {
       }
     }
 
-    // Step 7: Run cross-object detection
-    const additionalAlerts = await runCrossObjectDetection(supabase, tenant_id, objects || [], additionalData);
+    // Step 5: Run cross-object detection using pre-calculated data
+    const additionalAlerts = await runCrossObjectDetection(supabase, tenant_id, objectsForBasic || [], additionalData);
     result.triggered += additionalAlerts;
 
     return new Response(JSON.stringify({
@@ -164,6 +176,153 @@ serve(async (req) => {
     });
   }
 });
+
+// ============= PROCESS FROM PRE-CALCULATED METRICS (FAST!) =============
+
+async function processFromPrecalculatedMetrics(
+  supabase: any,
+  tenantId: string,
+  rules: IntelligentRule[]
+): Promise<{ triggered: number; checked: number; calculations: any[] }> {
+  const result = { triggered: 0, checked: 0, calculations: [] as any[] };
+
+  // Get pre-calculated metrics with threshold breaches
+  const { data: criticalDOS } = await supabase
+    .from('object_calculated_metrics')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('dos_status', 'critical')
+    .limit(50);
+
+  const { data: warningDOS } = await supabase
+    .from('object_calculated_metrics')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('dos_status', 'warning')
+    .limit(50);
+
+  const { data: criticalRevenue } = await supabase
+    .from('object_calculated_metrics')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('revenue_status', 'critical')
+    .limit(20);
+
+  console.log(`Pre-calc results: ${criticalDOS?.length || 0} critical DOS, ${warningDOS?.length || 0} warning DOS, ${criticalRevenue?.length || 0} critical revenue`);
+
+  // Find matching rules
+  const dosRule = rules.find(r => r.rule_code?.toLowerCase().includes('dos') || r.rule_code?.toLowerCase().includes('stockout'));
+  const revenueRule = rules.find(r => r.rule_code?.toLowerCase().includes('revenue') || r.rule_code?.toLowerCase().includes('target'));
+
+  // Create alerts from pre-calculated critical DOS
+  if (dosRule && criticalDOS?.length) {
+    let alertsCreated = 0;
+    for (const metric of criticalDOS.slice(0, 20)) {
+      const alert = await createAlertFromPrecalc(supabase, tenantId, dosRule, metric, 'critical', 'dos');
+      if (alert) alertsCreated++;
+    }
+    result.triggered += alertsCreated;
+    result.calculations.push({ rule: dosRule.rule_code, alerts_created: alertsCreated, source: 'precalc_critical_dos' });
+  }
+
+  // Create alerts from warning DOS
+  if (dosRule && warningDOS?.length) {
+    let alertsCreated = 0;
+    for (const metric of warningDOS.slice(0, 10)) {
+      const alert = await createAlertFromPrecalc(supabase, tenantId, dosRule, metric, 'warning', 'dos');
+      if (alert) alertsCreated++;
+    }
+    result.triggered += alertsCreated;
+    result.calculations.push({ rule: dosRule.rule_code + '_warning', alerts_created: alertsCreated, source: 'precalc_warning_dos' });
+  }
+
+  // Create alerts from critical revenue
+  if (revenueRule && criticalRevenue?.length) {
+    let alertsCreated = 0;
+    for (const metric of criticalRevenue) {
+      const alert = await createAlertFromPrecalc(supabase, tenantId, revenueRule, metric, 'critical', 'revenue');
+      if (alert) alertsCreated++;
+    }
+    result.triggered += alertsCreated;
+    result.calculations.push({ rule: revenueRule.rule_code, alerts_created: alertsCreated, source: 'precalc_revenue' });
+  }
+
+  // Mark other rules as checked
+  for (const rule of rules) {
+    result.checked++;
+    if (!result.calculations.find(c => c.rule === rule.rule_code)) {
+      result.calculations.push({ rule: rule.rule_code, alerts_created: 0, source: 'precalc' });
+    }
+  }
+
+  return result;
+}
+
+async function createAlertFromPrecalc(
+  supabase: any,
+  tenantId: string,
+  rule: IntelligentRule,
+  metric: any,
+  severity: string,
+  metricType: 'dos' | 'revenue'
+): Promise<any> {
+  const emoji = severity === 'critical' ? '🚨' : '⚠️';
+  const currentValue = metricType === 'dos' ? metric.days_of_stock : metric.target_progress;
+  const thresholdValue = metricType === 'dos' ? (severity === 'critical' ? 3 : 7) : (severity === 'critical' ? 60 : 80);
+  
+  const message = metricType === 'dos'
+    ? `${metric.object_name}: Chỉ còn ${Math.round(currentValue || 0)} ngày tồn kho. Velocity: ${(metric.sales_velocity || 0).toFixed(1)}/ngày`
+    : `${metric.object_name}: Đạt ${Math.round(currentValue || 0)}% target. Cần kiểm tra ngay!`;
+
+  const alertData = {
+    tenant_id: tenantId,
+    alert_type: rule.rule_code,
+    category: rule.rule_category || 'inventory',
+    severity,
+    title: `${emoji} ${rule.rule_name}: ${metric.object_name}`,
+    message,
+    object_type: metric.object_type,
+    object_name: metric.object_name,
+    alert_object_id: metric.object_id,
+    external_object_id: metric.external_id,
+    metric_name: metricType === 'dos' ? 'days_of_stock' : 'target_progress',
+    current_value: currentValue,
+    threshold_value: thresholdValue,
+    status: 'active',
+    priority: severity === 'critical' ? 1 : 2,
+    notification_sent: false,
+    suggested_action: message,
+    action_priority: severity === 'critical' ? 'urgent' : 'high',
+    calculation_details: {
+      source: 'object_calculated_metrics',
+      precalculated_at: metric.last_calculated_at,
+      inputs: metric.calculation_inputs,
+    },
+    metadata: {
+      rule_id: rule.id,
+      detected_at: new Date().toISOString(),
+    },
+  };
+
+  // Check existing
+  const { data: existing } = await supabase
+    .from('alert_instances')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('alert_type', rule.rule_code)
+    .eq('alert_object_id', metric.object_id)
+    .neq('status', 'resolved')
+    .maybeSingle();
+
+  if (!existing) {
+    const { error } = await supabase.from('alert_instances').insert(alertData);
+    if (!error) {
+      console.log(`Created precalc alert: ${alertData.title}`);
+      return alertData;
+    }
+  }
+  return null;
+}
 
 // ============= FETCH ADDITIONAL DATA FOR CALCULATIONS =============
 
