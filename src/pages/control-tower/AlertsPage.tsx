@@ -31,6 +31,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
 import { CreateTaskFromAlertDialog } from '@/components/alerts/CreateTaskFromAlertDialog';
+import { AIRecommendationsPanel } from '@/components/alerts/AIRecommendationsPanel';
 
 const typeConfig = {
   critical: { 
@@ -450,6 +451,9 @@ export default function AlertsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI Recommendations */}
+        <AIRecommendationsPanel alertType="dos_critical" />
 
         {/* Tabs */}
         <Tabs defaultValue="active" className="w-full">
