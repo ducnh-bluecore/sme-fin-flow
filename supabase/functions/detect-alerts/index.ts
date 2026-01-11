@@ -177,7 +177,13 @@ serve(async (req) => {
   }
 });
 
-// ============= PROCESS FROM PRE-CALCULATED METRICS (FAST!) =============
+// ============= SMART ALERT AGGREGATION =============
+// Strategy: Summary Alert + Top N Priority
+// - 1 summary alert for overview ("642 sản phẩm sắp hết hàng")
+// - Top 10-20 individual alerts for most critical items
+
+const TOP_N_CRITICAL = 15; // Số cảnh báo chi tiết tối đa
+const TOP_N_WARNING = 5;
 
 async function processFromPrecalculatedMetrics(
   supabase: any,
@@ -186,77 +192,262 @@ async function processFromPrecalculatedMetrics(
 ): Promise<{ triggered: number; checked: number; calculations: any[] }> {
   const result = { triggered: 0, checked: 0, calculations: [] as any[] };
 
-  // Get pre-calculated metrics with threshold breaches
-  const { data: criticalDOS } = await supabase
+  // Get COUNTS for summary
+  const { count: criticalDOSCount } = await supabase
+    .from('object_calculated_metrics')
+    .select('*', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('dos_status', 'critical');
+
+  const { count: warningDOSCount } = await supabase
+    .from('object_calculated_metrics')
+    .select('*', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('dos_status', 'warning');
+
+  const { count: criticalRevenueCount } = await supabase
+    .from('object_calculated_metrics')
+    .select('*', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('revenue_status', 'critical');
+
+  console.log(`Pre-calc counts: ${criticalDOSCount || 0} critical DOS, ${warningDOSCount || 0} warning DOS, ${criticalRevenueCount || 0} critical revenue`);
+
+  // Get TOP N most critical (sorted by stockout_risk, days_of_stock)
+  const { data: topCriticalDOS } = await supabase
     .from('object_calculated_metrics')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('dos_status', 'critical')
-    .limit(50);
+    .order('days_of_stock', { ascending: true }) // Lower DOS = more urgent
+    .limit(TOP_N_CRITICAL);
 
-  const { data: warningDOS } = await supabase
+  const { data: topWarningDOS } = await supabase
     .from('object_calculated_metrics')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('dos_status', 'warning')
-    .limit(50);
+    .order('days_of_stock', { ascending: true })
+    .limit(TOP_N_WARNING);
 
-  const { data: criticalRevenue } = await supabase
+  const { data: topCriticalRevenue } = await supabase
     .from('object_calculated_metrics')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('revenue_status', 'critical')
-    .limit(20);
-
-  console.log(`Pre-calc results: ${criticalDOS?.length || 0} critical DOS, ${warningDOS?.length || 0} warning DOS, ${criticalRevenue?.length || 0} critical revenue`);
+    .order('target_progress', { ascending: true })
+    .limit(TOP_N_WARNING);
 
   // Find matching rules
   const dosRule = rules.find(r => r.rule_code?.toLowerCase().includes('dos') || r.rule_code?.toLowerCase().includes('stockout'));
   const revenueRule = rules.find(r => r.rule_code?.toLowerCase().includes('revenue') || r.rule_code?.toLowerCase().includes('target'));
 
-  // Create alerts from pre-calculated critical DOS
-  if (dosRule && criticalDOS?.length) {
+  // ========== 1. CREATE SUMMARY ALERT (if > TOP_N items) ==========
+  if (dosRule && (criticalDOSCount || 0) > TOP_N_CRITICAL) {
+    const summaryCreated = await createSummaryAlert(supabase, tenantId, dosRule, {
+      totalCount: criticalDOSCount || 0,
+      severity: 'critical',
+      metricType: 'dos',
+      topItems: topCriticalDOS || [],
+    });
+    if (summaryCreated) {
+      result.triggered++;
+      result.calculations.push({ 
+        rule: dosRule.rule_code + '_summary', 
+        alerts_created: 1, 
+        source: 'summary_alert',
+        total_affected: criticalDOSCount,
+      });
+    }
+  }
+
+  if (dosRule && (warningDOSCount || 0) > TOP_N_WARNING) {
+    const summaryCreated = await createSummaryAlert(supabase, tenantId, dosRule, {
+      totalCount: warningDOSCount || 0,
+      severity: 'warning',
+      metricType: 'dos',
+      topItems: topWarningDOS || [],
+    });
+    if (summaryCreated) {
+      result.triggered++;
+      result.calculations.push({ 
+        rule: dosRule.rule_code + '_warning_summary', 
+        alerts_created: 1, 
+        source: 'summary_alert',
+        total_affected: warningDOSCount,
+      });
+    }
+  }
+
+  // ========== 2. CREATE TOP N INDIVIDUAL ALERTS ==========
+  if (dosRule && topCriticalDOS?.length) {
     let alertsCreated = 0;
-    for (const metric of criticalDOS.slice(0, 20)) {
+    for (const metric of topCriticalDOS) {
       const alert = await createAlertFromPrecalc(supabase, tenantId, dosRule, metric, 'critical', 'dos');
       if (alert) alertsCreated++;
     }
     result.triggered += alertsCreated;
-    result.calculations.push({ rule: dosRule.rule_code, alerts_created: alertsCreated, source: 'precalc_critical_dos' });
+    result.calculations.push({ 
+      rule: dosRule.rule_code, 
+      alerts_created: alertsCreated, 
+      source: 'top_n_critical',
+      top_n: TOP_N_CRITICAL,
+    });
   }
 
-  // Create alerts from warning DOS
-  if (dosRule && warningDOS?.length) {
+  if (dosRule && topWarningDOS?.length) {
     let alertsCreated = 0;
-    for (const metric of warningDOS.slice(0, 10)) {
+    for (const metric of topWarningDOS) {
       const alert = await createAlertFromPrecalc(supabase, tenantId, dosRule, metric, 'warning', 'dos');
       if (alert) alertsCreated++;
     }
     result.triggered += alertsCreated;
-    result.calculations.push({ rule: dosRule.rule_code + '_warning', alerts_created: alertsCreated, source: 'precalc_warning_dos' });
+    result.calculations.push({ 
+      rule: dosRule.rule_code + '_warning', 
+      alerts_created: alertsCreated, 
+      source: 'top_n_warning',
+    });
   }
 
-  // Create alerts from critical revenue
-  if (revenueRule && criticalRevenue?.length) {
+  // Revenue alerts
+  if (revenueRule && topCriticalRevenue?.length) {
     let alertsCreated = 0;
-    for (const metric of criticalRevenue) {
+    for (const metric of topCriticalRevenue) {
       const alert = await createAlertFromPrecalc(supabase, tenantId, revenueRule, metric, 'critical', 'revenue');
       if (alert) alertsCreated++;
     }
     result.triggered += alertsCreated;
-    result.calculations.push({ rule: revenueRule.rule_code, alerts_created: alertsCreated, source: 'precalc_revenue' });
+    result.calculations.push({ rule: revenueRule.rule_code, alerts_created: alertsCreated, source: 'top_n_revenue' });
   }
 
   // Mark other rules as checked
   for (const rule of rules) {
     result.checked++;
-    if (!result.calculations.find(c => c.rule === rule.rule_code)) {
+    if (!result.calculations.find(c => c.rule === rule.rule_code || c.rule?.startsWith(rule.rule_code))) {
       result.calculations.push({ rule: rule.rule_code, alerts_created: 0, source: 'precalc' });
     }
   }
 
   return result;
 }
+
+// ============= CREATE SUMMARY ALERT =============
+
+async function createSummaryAlert(
+  supabase: any,
+  tenantId: string,
+  rule: IntelligentRule,
+  data: {
+    totalCount: number;
+    severity: string;
+    metricType: 'dos' | 'revenue';
+    topItems: any[];
+  }
+): Promise<boolean> {
+  const { totalCount, severity, metricType, topItems } = data;
+  const emoji = severity === 'critical' ? '🚨' : '⚠️';
+  
+  // Build summary message
+  let title = '';
+  let message = '';
+  let topList = '';
+  
+  if (metricType === 'dos') {
+    title = `${emoji} ${totalCount} sản phẩm sắp hết hàng`;
+    message = severity === 'critical' 
+      ? `Có ${totalCount} sản phẩm có số ngày tồn kho < 3 ngày. Cần hành động ngay!`
+      : `Có ${totalCount} sản phẩm có số ngày tồn kho < 7 ngày. Nên kiểm tra và chuẩn bị nhập hàng.`;
+    
+    // Top 5 most urgent
+    topList = topItems.slice(0, 5).map((item, idx) => 
+      `${idx + 1}. ${item.object_name}: ${Math.round(item.days_of_stock || 0)} ngày (velocity: ${(item.sales_velocity || 0).toFixed(1)}/ngày)`
+    ).join('\n');
+  } else {
+    title = `${emoji} ${totalCount} đối tượng không đạt target`;
+    message = `Có ${totalCount} đối tượng doanh thu dưới mức target. Cần xem xét chiến lược.`;
+    
+    topList = topItems.slice(0, 5).map((item, idx) => 
+      `${idx + 1}. ${item.object_name}: ${Math.round(item.target_progress || 0)}% target`
+    ).join('\n');
+  }
+
+  const fullMessage = `${message}\n\n**Top 5 cần ưu tiên:**\n${topList}\n\n👉 Xem chi tiết tại Control Tower → Alerts`;
+
+  const alertType = `${rule.rule_code}_summary_${severity}`;
+  
+  const alertData = {
+    tenant_id: tenantId,
+    alert_type: alertType,
+    category: rule.rule_category || 'inventory',
+    severity,
+    title,
+    message: fullMessage,
+    object_type: 'summary',
+    object_name: `${totalCount} items`,
+    metric_name: metricType === 'dos' ? 'days_of_stock' : 'target_progress',
+    current_value: totalCount,
+    threshold_value: metricType === 'dos' ? (severity === 'critical' ? 3 : 7) : 80,
+    status: 'active',
+    priority: severity === 'critical' ? 0 : 1, // Highest priority for summary
+    notification_sent: false,
+    suggested_action: `Kiểm tra ${totalCount} ${metricType === 'dos' ? 'sản phẩm sắp hết hàng' : 'đối tượng không đạt target'}`,
+    action_priority: severity === 'critical' ? 'urgent' : 'high',
+    action_url: '/control-tower/alerts',
+    calculation_details: {
+      source: 'aggregated_summary',
+      total_affected: totalCount,
+      top_items: topItems.slice(0, 5).map(i => ({ 
+        id: i.object_id, 
+        name: i.object_name, 
+        value: metricType === 'dos' ? i.days_of_stock : i.target_progress 
+      })),
+      remaining_count: Math.max(0, totalCount - topItems.length),
+    },
+    metadata: {
+      rule_id: rule.id,
+      detected_at: new Date().toISOString(),
+      is_summary: true,
+      affected_count: totalCount,
+    },
+  };
+
+  // Check existing summary alert (only 1 per type per day)
+  const today = new Date().toISOString().split('T')[0];
+  const { data: existing } = await supabase
+    .from('alert_instances')
+    .select('id, current_value')
+    .eq('tenant_id', tenantId)
+    .eq('alert_type', alertType)
+    .neq('status', 'resolved')
+    .gte('created_at', today)
+    .maybeSingle();
+
+  if (existing) {
+    // Update existing summary with new count
+    if (existing.current_value !== totalCount) {
+      await supabase.from('alert_instances')
+        .update({ 
+          current_value: totalCount, 
+          message: fullMessage,
+          title,
+          calculation_details: alertData.calculation_details,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+      console.log(`Updated summary alert: ${title}`);
+    }
+    return false;
+  }
+
+  const { error } = await supabase.from('alert_instances').insert(alertData);
+  if (!error) {
+    console.log(`Created summary alert: ${title}`);
+    return true;
+  }
+  return false;
+}
+
+// ============= CREATE INDIVIDUAL TOP-N ALERT =============
 
 async function createAlertFromPrecalc(
   supabase: any,
@@ -294,13 +485,15 @@ async function createAlertFromPrecalc(
     suggested_action: message,
     action_priority: severity === 'critical' ? 'urgent' : 'high',
     calculation_details: {
-      source: 'object_calculated_metrics',
+      source: 'top_n_priority',
       precalculated_at: metric.last_calculated_at,
       inputs: metric.calculation_inputs,
+      rank_by: metricType === 'dos' ? 'days_of_stock ASC' : 'target_progress ASC',
     },
     metadata: {
       rule_id: rule.id,
       detected_at: new Date().toISOString(),
+      is_top_priority: true,
     },
   };
 
@@ -317,7 +510,7 @@ async function createAlertFromPrecalc(
   if (!existing) {
     const { error } = await supabase.from('alert_instances').insert(alertData);
     if (!error) {
-      console.log(`Created precalc alert: ${alertData.title}`);
+      console.log(`Created top-N alert: ${alertData.title}`);
       return alertData;
     }
   }
