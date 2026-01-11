@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Determine alert category and build appropriate prompts
-function buildPrompts(alertType: string, alertTitle: string, alertMessage: string, alertSeverity: string, category: string, productsContext: string) {
+function buildPrompts(alertType: string, alertTitle: string, alertMessage: string, alertSeverity: string, category: string, productsContext: string, isSingleProduct: boolean) {
   const type = alertType?.toLowerCase() || '';
   const title = alertTitle?.toLowerCase() || '';
   
@@ -68,20 +68,36 @@ Quy tắc phân tích:
 - Nếu xu hướng giảm mạnh (< -20%): Có thể không cần nhập nhiều
 - Tính toán số lượng nhập dựa trên velocity * 14-30 ngày
 
+${isSingleProduct ? 'QUAN TRỌNG: Đây là 1 sản phẩm duy nhất, chỉ đưa ra 1 PHÂN LOẠI DUY NHẤT phù hợp nhất.' : ''}
 Trả lời bằng tiếng Việt, ngắn gọn và có thể hành động được.`;
 
-    userPrompt = `CẢNH BÁO: ${alertTitle}
+    if (isSingleProduct) {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
 Chi tiết: ${alertMessage || 'Sản phẩm có tồn kho thấp cần xử lý'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 
 Dữ liệu sản phẩm:
 ${productsContext}
 
-Hãy đưa ra 3-5 đề xuất cụ thể:
+CHỈ đưa ra 1 đề xuất DUY NHẤT cho sản phẩm này:
+1. Phân loại (CHỌN 1): "CẦN NHẬP GẤP" hoặc "NÊN NHẬP SỚM" hoặc "THEO DÕI THÊM" hoặc "KHÔNG NÊN NHẬP"
+2. Lý do cụ thể
+3. Số lượng nhập đề xuất (velocity × số ngày)
+4. Hành động cần làm ngay`;
+    } else {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
+Chi tiết: ${alertMessage || 'Sản phẩm có tồn kho thấp cần xử lý'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu sản phẩm:
+${productsContext}
+
+Hãy đưa ra đề xuất cho TỪNG sản phẩm:
 1. Phân loại: "CẦN NHẬP GẤP", "NÊN NHẬP SỚM", "THEO DÕI THÊM"
 2. Lý do ngắn gọn
 3. Đề xuất số lượng nhập (velocity × số ngày)
 4. Ưu tiên sản phẩm quan trọng nhất`;
+    }
   } 
   else if (isHighStock) {
     systemPrompt = `Bạn là chuyên gia quản lý tồn kho. Phân tích sản phẩm TỒN KHO CAO, BÁN CHẬM hoặc SẮP HẾT HẠN và đưa ra đề xuất.
@@ -92,19 +108,35 @@ Quy tắc:
 - Sản phẩm ngày tồn > 90: RỦI RO HẾT HẠN/LỖI THỜI
 - Sản phẩm sắp hết hạn: KHUYẾN MÃI GẤP hoặc TRẢ NCC
 
+${isSingleProduct ? 'QUAN TRỌNG: Đây là 1 sản phẩm duy nhất, chỉ đưa ra 1 PHÂN LOẠI DUY NHẤT phù hợp nhất.' : ''}
 Trả lời bằng tiếng Việt, ngắn gọn và thực tế.`;
 
-    userPrompt = `CẢNH BÁO: ${alertTitle}
+    if (isSingleProduct) {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
 Chi tiết: ${alertMessage || 'Sản phẩm tồn kho cao/bán chậm/sắp hết hạn'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 
 Dữ liệu sản phẩm:
 ${productsContext}
 
-Đề xuất 3-5 hành động:
+CHỈ đưa ra 1 đề xuất DUY NHẤT cho sản phẩm này:
+1. Phân loại (CHỌN 1): "KHÔNG NHẬP THÊM" hoặc "GIẢM GIÁ NGAY" hoặc "KHUYẾN MÃI" hoặc "TRẢ NCC" hoặc "THANH LÝ"
+2. Lý do cụ thể và ước tính thiệt hại
+3. Mức giảm giá/khuyến mãi đề xuất (nếu cần)
+4. Hành động cần làm ngay`;
+    } else {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
+Chi tiết: ${alertMessage || 'Sản phẩm tồn kho cao/bán chậm/sắp hết hạn'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu sản phẩm:
+${productsContext}
+
+Đề xuất cho TỪNG sản phẩm:
 1. Phân loại: "KHÔNG NHẬP THÊM", "GIẢM GIÁ NGAY", "KHUYẾN MÃI", "TRẢ NCC", "THANH LÝ"
 2. Lý do và ước tính thiệt hại nếu không xử lý
 3. Đề xuất mức giảm giá hoặc khuyến mãi nếu cần`;
+    }
   }
   else if (isRevenueDown) {
     systemPrompt = `Bạn là chuyên gia phân tích kinh doanh. Phân tích sản phẩm/cửa hàng có DOANH THU GIẢM hoặc KHÔNG ĐẠT TARGET và đưa ra chiến lược.
@@ -121,20 +153,36 @@ Phân tích nguyên nhân có thể:
 - Vấn đề trưng bày/marketing
 - Thiếu hàng bán
 
+${isSingleProduct ? 'QUAN TRỌNG: Đây là 1 sản phẩm duy nhất, chỉ đưa ra 1 PHÂN LOẠI DUY NHẤT phù hợp nhất.' : ''}
 Trả lời bằng tiếng Việt, đưa ra giải pháp cụ thể.`;
 
-    userPrompt = `CẢNH BÁO: ${alertTitle}
+    if (isSingleProduct) {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
 Chi tiết: ${alertMessage || 'Doanh thu/doanh số giảm hoặc không đạt target'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 
 Dữ liệu:
 ${productsContext}
 
-Hãy phân tích và đề xuất:
+CHỈ đưa ra 1 đề xuất DUY NHẤT cho sản phẩm này:
+1. Phân loại (CHỌN 1): "GIẢM GIÁ", "TĂNG MARKETING", "THAY ĐỔI VỊ TRÍ", "GIẢM LƯỢNG NHẬP", "NGỪNG NHẬP"
+2. Nguyên nhân có thể
+3. Chiến lược phục hồi
+4. Có nên tiếp tục nhập? Số lượng bao nhiêu?`;
+    } else {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
+Chi tiết: ${alertMessage || 'Doanh thu/doanh số giảm hoặc không đạt target'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu:
+${productsContext}
+
+Hãy phân tích và đề xuất cho TỪNG sản phẩm:
 1. Nguyên nhân có thể của việc giảm
 2. Hành động: "GIẢM GIÁ", "TĂNG MARKETING", "THAY ĐỔI VỊ TRÍ", "ĐIỀU CHỈNH STOCK"
 3. Chiến lược phục hồi doanh số
 4. Nên tiếp tục nhập hay dừng nhập?`;
+    }
   }
   else if (isRevenueUp || isTrendUp) {
     systemPrompt = `Bạn là chuyên gia phân tích kinh doanh. Phân tích sản phẩm có DOANH THU/XU HƯỚNG TĂNG và đưa ra chiến lược tận dụng cơ hội.
@@ -149,21 +197,37 @@ Cân nhắc:
 - Có nên tăng giá để tối ưu margin?
 - Có sản phẩm liên quan để cross-sell?
 
+${isSingleProduct ? 'QUAN TRỌNG: Đây là 1 sản phẩm duy nhất, chỉ đưa ra 1 PHÂN LOẠI DUY NHẤT phù hợp nhất.' : ''}
 Trả lời bằng tiếng Việt, tận dụng cơ hội tối đa.`;
 
-    userPrompt = `THÔNG BÁO TÍCH CỰC: ${alertTitle}
+    if (isSingleProduct) {
+      userPrompt = `THÔNG BÁO TÍCH CỰC: ${alertTitle}
 Chi tiết: ${alertMessage || 'Doanh thu/xu hướng tăng'}
 Mức độ: Cơ hội kinh doanh
 
 Dữ liệu sản phẩm:
 ${productsContext}
 
-Hãy phân tích và đề xuất:
+CHỈ đưa ra 1 đề xuất DUY NHẤT cho sản phẩm này:
+1. Phân loại (CHỌN 1): "TĂNG LƯỢNG NHẬP", "TỐI ƯU GIÁ", "CROSS-SELL", "DUY TRÌ"
+2. Đánh giá xu hướng có bền vững không
+3. Số lượng nhập thêm đề xuất (nếu cần)
+4. Cơ hội tối ưu margin`;
+    } else {
+      userPrompt = `THÔNG BÁO TÍCH CỰC: ${alertTitle}
+Chi tiết: ${alertMessage || 'Doanh thu/xu hướng tăng'}
+Mức độ: Cơ hội kinh doanh
+
+Dữ liệu sản phẩm:
+${productsContext}
+
+Hãy phân tích và đề xuất cho TỪNG sản phẩm:
 1. Đánh giá: Xu hướng có bền vững không?
 2. Hành động: "TĂNG LƯỢNG NHẬP", "TỐI ƯU GIÁ", "CROSS-SELL", "DUY TRÌ"
 3. Đề xuất số lượng nhập thêm (nếu cần)
 4. Sản phẩm liên quan có thể đẩy mạnh
 5. Cơ hội tối ưu margin`;
+    }
   }
   else if (isTrendDown) {
     systemPrompt = `Bạn là chuyên gia phân tích xu hướng bán hàng. Phân tích sản phẩm có XU HƯỚNG GIẢM và đưa ra cảnh báo sớm.
@@ -173,20 +237,36 @@ Quy tắc:
 - Xu hướng giảm vừa (15-30%): Cân nhắc điều chỉnh lượng nhập
 - Xu hướng giảm mạnh (> 30%): Dừng nhập, xem xét khuyến mãi
 
+${isSingleProduct ? 'QUAN TRỌNG: Đây là 1 sản phẩm duy nhất, chỉ đưa ra 1 PHÂN LOẠI DUY NHẤT phù hợp nhất.' : ''}
 Trả lời bằng tiếng Việt, đưa ra dự báo và hành động.`;
 
-    userPrompt = `CẢNH BÁO: ${alertTitle}
+    if (isSingleProduct) {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
 Chi tiết: ${alertMessage || 'Xu hướng giảm'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 
 Dữ liệu sản phẩm:
 ${productsContext}
 
-Hãy phân tích và đề xuất:
+CHỈ đưa ra 1 đề xuất DUY NHẤT cho sản phẩm này:
+1. Phân loại (CHỌN 1): "DỪNG NHẬP", "GIẢM LƯỢNG NHẬP", "KHUYẾN MÃI", "THEO DÕI"
+2. Đánh giá mức độ giảm và dự báo
+3. Có nên tiếp tục kinh doanh sản phẩm này?
+4. Số lượng nhập (nếu còn nhập)`;
+    } else {
+      userPrompt = `CẢNH BÁO: ${alertTitle}
+Chi tiết: ${alertMessage || 'Xu hướng giảm'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu sản phẩm:
+${productsContext}
+
+Hãy phân tích và đề xuất cho TỪNG sản phẩm:
 1. Đánh giá mức độ giảm và dự báo xu hướng tiếp theo
 2. Hành động: "DỪNG NHẬP", "GIẢM LƯỢNG NHẬP", "KHUYẾN MÃI", "THEO DÕI"
 3. Có nên tiếp tục kinh doanh sản phẩm này?
 4. Đề xuất số lượng nhập (nếu còn nhập)`;
+    }
   }
   else if (isStoreIssue) {
     systemPrompt = `Bạn là chuyên gia quản lý cửa hàng bán lẻ. Phân tích vấn đề CỬA HÀNG hoặc NHÂN SỰ và đưa ra giải pháp.
@@ -295,9 +375,9 @@ serve(async (req) => {
   }
 
   try {
-    const { tenantId, alertType, alertTitle, alertMessage, alertSeverity, alertCategory, topProducts } = await req.json();
+    const { tenantId, alertType, alertTitle, alertMessage, alertSeverity, alertCategory, isSingleProduct, topProducts } = await req.json();
     
-    console.log("Processing alert:", { alertType, alertTitle, alertSeverity, alertCategory, productCount: topProducts?.length });
+    console.log("Processing alert:", { alertType, alertTitle, alertSeverity, alertCategory, isSingleProduct, productCount: topProducts?.length });
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
@@ -323,7 +403,8 @@ serve(async (req) => {
       alertMessage || '', 
       alertSeverity || 'warning',
       alertCategory || '',
-      productsContext || 'Không có dữ liệu chi tiết'
+      productsContext || 'Không có dữ liệu chi tiết',
+      isSingleProduct === true
     );
 
     console.log("Alert category detected, calling OpenAI...");
