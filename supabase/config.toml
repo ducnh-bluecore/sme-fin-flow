@@ -56,3 +56,15 @@ verify_jwt = false
 
 [functions.whatif-chat]
 verify_jwt = false
+
+[functions.detect-alerts]
+verify_jwt = false
+
+[functions.inventory-recommendations]
+verify_jwt = false
+
+[functions.scheduled-detect-alerts]
+verify_jwt = false
+
+[functions.sync-ecommerce-data]
+verify_jwt = false
