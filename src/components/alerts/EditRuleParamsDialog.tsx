@@ -21,7 +21,7 @@ import {
 const unitLabels: Record<string, { singular: string; plural: string; description: string }> = {
   days: { singular: 'ngày', plural: 'ngày', description: 'Số ngày' },
   hours: { singular: 'giờ', plural: 'giờ', description: 'Số giờ' },
-  count: { singular: 'đơn', plural: 'đơn', description: 'Số lượng' },
+  count: { singular: 'đơn vị', plural: 'đơn vị', description: 'Số lượng' },
   percentage: { singular: '%', plural: '%', description: 'Phần trăm' },
   amount: { singular: 'VND', plural: 'VND', description: 'Số tiền' },
   items: { singular: 'sản phẩm', plural: 'sản phẩm', description: 'Số sản phẩm' },
@@ -30,41 +30,75 @@ const unitLabels: Record<string, { singular: string; plural: string; description
   rate: { singular: '%', plural: '%', description: 'Tỷ lệ' },
 };
 
+// Metric labels in Vietnamese
+const metricLabels: Record<string, string> = {
+  days_of_stock: 'Số ngày tồn kho (dự kiến bán hết sau bao nhiêu ngày)',
+  delivery_sla_days: 'Số ngày vượt SLA giao hàng',
+  hours_since_confirmed: 'Số giờ kể từ khi xác nhận đơn',
+  days_since_return: 'Số ngày kể từ khi đơn hoàn',
+  orders_per_hour_ratio: 'Tỷ lệ đơn/giờ so với năng lực (%)',
+  shipping_cost_change: 'Mức thay đổi chi phí ship (%)',
+  carrier_delay_rate: 'Tỷ lệ giao trễ của ĐVVC (%)',
+  days_since_delivered: 'Số ngày kể từ khi giao',
+  failed_delivery_rate: 'Tỷ lệ giao thất bại (%)',
+  stock_sync_diff: 'Chênh lệch tồn kho',
+  dead_stock_days: 'Số ngày hàng không bán được',
+  stock_turnover_rate: 'Vòng quay tồn kho',
+  return_rate: 'Tỷ lệ hoàn hàng (%)',
+  cancel_rate: 'Tỷ lệ hủy đơn (%)',
+  daily_revenue: 'Doanh thu ngày',
+  margin_percentage: 'Biên lợi nhuận (%)',
+  ad_roas: 'ROAS quảng cáo',
+  rating_score: 'Điểm đánh giá',
+  negative_review_rate: 'Tỷ lệ đánh giá tiêu cực (%)',
+  response_time_hours: 'Thời gian phản hồi (giờ)',
+  chat_response_time_minutes: 'Thời gian trả lời chat (phút)',
+};
+
+// Operator labels in Vietnamese
+const operatorLabels: Record<string, string> = {
+  less_than: 'nhỏ hơn (<)',
+  less_than_or_equal: 'nhỏ hơn hoặc bằng (≤)',
+  greater_than: 'lớn hơn (>)',
+  greater_than_or_equal: 'lớn hơn hoặc bằng (≥)',
+  equals: 'bằng (=)',
+  not_equals: 'khác (≠)',
+};
+
 // Get threshold explanation based on rule context
-function getThresholdExplanation(rule: IntelligentAlertRule, thresholdType: 'critical' | 'warning'): string {
-  const unit = rule.threshold_config?.unit || 'count';
-  const operator = rule.threshold_config?.operator || 'less_than';
+function getThresholdExplanation(rule: IntelligentAlertRule): string {
+  const config = rule.threshold_config || {};
+  const metric = config.metric || '';
+  const operator = config.operator || 'less_than';
+  const unit = config.unit || 'count';
   const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
   
-  const operatorText = {
-    less_than: 'thấp hơn',
-    less_than_or_equal: 'thấp hơn hoặc bằng',
-    greater_than: 'cao hơn',
-    greater_than_or_equal: 'cao hơn hoặc bằng',
-    equals: 'bằng',
-    not_equals: 'khác',
-  }[operator] || 'đạt';
-
-  if (thresholdType === 'critical') {
-    return `Khi giá trị ${operatorText} ngưỡng này → Cảnh báo NGUY CẤP`;
-  }
-  return `Khi giá trị ${operatorText} ngưỡng này → Cảnh báo thường`;
+  const operatorText = operatorLabels[operator] || operator;
+  const metricText = metricLabels[metric] || metric;
+  
+  return `Khi "${metricText}" ${operatorText} ngưỡng → Kích hoạt cảnh báo`;
 }
 
 // Get rule-specific context explanation
 function getRuleContextExplanation(rule: IntelligentAlertRule): string {
-  const unit = rule.threshold_config?.unit || 'count';
+  const config = rule.threshold_config || {};
+  const metric = config.metric || '';
+  const unit = config.unit || 'count';
   const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
-  const category = rule.rule_category;
   
-  // Generate explanation based on rule code patterns
+  // Return metric-based explanation
+  if (metricLabels[metric]) {
+    return metricLabels[metric];
+  }
+  
+  // Fallback: Generate explanation based on rule code patterns
   const code = rule.rule_code?.toLowerCase() || '';
   
   if (code.includes('stock') || code.includes('inventory') || code.includes('ton_kho')) {
     return `Số ngày tồn kho còn lại trước khi hết hàng. VD: 7 = còn đủ hàng bán trong 7 ngày`;
   }
   if (code.includes('delivery') || code.includes('ship') || code.includes('giao_hang')) {
-    return `Thời gian giao hàng trung bình (tính bằng ${unitInfo.description.toLowerCase()}). VD: 5 = giao hàng trong 5 ${unitLabels[unit]?.plural || 'đơn vị'}`;
+    return `Thời gian giao hàng (${unitInfo.description.toLowerCase()}). VD: 5 = giao trong 5 ${unitInfo.plural}`;
   }
   if (code.includes('return') || code.includes('hoan')) {
     return `Tỷ lệ hoàn hàng (%). VD: 10 = 10% đơn hàng bị hoàn`;
@@ -81,15 +115,9 @@ function getRuleContextExplanation(rule: IntelligentAlertRule): string {
   if (code.includes('revenue') || code.includes('doanh_thu')) {
     return `Giá trị doanh thu (VND). VD: 10000000 = 10 triệu đồng`;
   }
-  if (code.includes('pending') || code.includes('cho_xu_ly')) {
-    return `Số đơn hàng đang chờ xử lý. VD: 50 = có 50 đơn chờ`;
-  }
-  if (code.includes('response') || code.includes('phan_hoi')) {
-    return `Thời gian phản hồi (giờ). VD: 2 = phản hồi trong vòng 2 giờ`;
-  }
   
   // Default based on unit
-  return `${unitInfo.description}. Giá trị được tính theo đơn vị: ${unitInfo.plural || ''}`;
+  return `${unitInfo.description}. Giá trị tính theo: ${unitInfo.plural}`;
 }
 
 interface EditRuleParamsDialogProps {
@@ -118,6 +146,7 @@ export default function EditRuleParamsDialog({
   const [priority, setPriority] = useState(5);
   const [description, setDescription] = useState('');
   const [cooldownHours, setCooldownHours] = useState(4);
+  const [thresholdValue, setThresholdValue] = useState<number | undefined>();
   const [thresholdCritical, setThresholdCritical] = useState<number | undefined>();
   const [thresholdWarning, setThresholdWarning] = useState<number | undefined>();
 
@@ -128,8 +157,11 @@ export default function EditRuleParamsDialog({
       setPriority(rule.priority);
       setDescription(rule.description || '');
       setCooldownHours(rule.cooldown_hours);
-      setThresholdCritical(rule.threshold_config?.critical);
-      setThresholdWarning(rule.threshold_config?.warning);
+      // Read value from threshold_config - can be 'value' (templates) or 'critical/warning' (custom)
+      const config = rule.threshold_config || {};
+      setThresholdValue(config.value);
+      setThresholdCritical(config.critical ?? config.value);
+      setThresholdWarning(config.warning ?? (config.value ? config.value * 1.5 : undefined));
     }
   }, [rule]);
 
@@ -144,6 +176,7 @@ export default function EditRuleParamsDialog({
       cooldown_hours: cooldownHours,
       threshold_config: {
         ...rule.threshold_config,
+        value: thresholdCritical, // Update main value
         critical: thresholdCritical,
         warning: thresholdWarning,
       },
@@ -153,8 +186,13 @@ export default function EditRuleParamsDialog({
   if (!rule) return null;
 
   const sevConfig = severityLabels[rule.severity];
-  const unit = rule.threshold_config?.unit || 'count';
+  const config = rule.threshold_config || {};
+  const unit = config.unit || 'count';
+  const metric = config.metric || '';
+  const operator = config.operator || 'less_than';
   const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
+  const metricText = metricLabels[metric] || metric || 'Giá trị đo lường';
+  const operatorText = operatorLabels[operator] || operator;
   const contextExplanation = getRuleContextExplanation(rule);
 
   return (
@@ -213,28 +251,37 @@ export default function EditRuleParamsDialog({
           </div>
 
           {/* Threshold Explanation Box */}
-          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 rounded-lg">
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4 rounded-lg space-y-3">
             <div className="flex items-start gap-2">
               <HelpCircle className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-              <div className="space-y-1">
+              <div className="space-y-2 flex-1">
                 <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Ý nghĩa ngưỡng cho rule này:
+                  📊 Metric đang đo:
                 </p>
-                <p className="text-sm text-blue-600 dark:text-blue-400">
+                <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                  {metricText}
+                </p>
+                <p className="text-xs text-blue-600/80 dark:text-blue-400/80">
                   {contextExplanation}
                 </p>
+              </div>
+            </div>
+            <Separator className="bg-blue-200 dark:bg-blue-800" />
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-blue-600 dark:text-blue-400">Điều kiện:</span>
+                <p className="font-medium text-blue-700 dark:text-blue-300">{operatorText}</p>
+              </div>
+              <div>
+                <span className="text-blue-600 dark:text-blue-400">Đơn vị:</span>
+                <p className="font-medium text-blue-700 dark:text-blue-300">{unitInfo.plural}</p>
               </div>
             </div>
           </div>
 
           {/* Thresholds */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Cấu hình ngưỡng cảnh báo</Label>
-              <Badge variant="outline" className="font-mono">
-                Đơn vị: {unitInfo.plural}
-              </Badge>
-            </div>
+            <Label className="text-base font-medium">Cấu hình ngưỡng cảnh báo</Label>
             
             <div className="grid grid-cols-2 gap-4">
               {/* Critical Threshold */}
@@ -256,7 +303,7 @@ export default function EditRuleParamsDialog({
                   </span>
                 </div>
                 <p className="text-xs text-red-600/80 dark:text-red-400/80">
-                  {getThresholdExplanation(rule, 'critical')}
+                  Vượt ngưỡng này → Cảnh báo NGUY CẤP
                 </p>
               </div>
               
@@ -279,23 +326,38 @@ export default function EditRuleParamsDialog({
                   </span>
                 </div>
                 <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">
-                  {getThresholdExplanation(rule, 'warning')}
+                  Vượt ngưỡng này → Cảnh báo thường
                 </p>
               </div>
             </div>
 
             {/* Visual Example */}
             <div className="bg-muted/50 p-3 rounded-lg text-sm">
-              <p className="font-medium mb-2">📊 Ví dụ:</p>
+              <p className="font-medium mb-2">📊 Ví dụ cách hoạt động:</p>
               <div className="space-y-1 text-muted-foreground">
-                <p>
-                  • Nếu giá trị ≤ <span className="text-red-500 font-medium">{thresholdCritical ?? rule.threshold_config?.critical ?? '?'}</span> {unitInfo.plural} 
-                  → <span className="text-red-500">🔴 Cảnh báo NGUY CẤP</span>
-                </p>
-                <p>
-                  • Nếu giá trị ≤ <span className="text-yellow-500 font-medium">{thresholdWarning ?? rule.threshold_config?.warning ?? '?'}</span> {unitInfo.plural} 
-                  → <span className="text-yellow-500">🟡 Cảnh báo thường</span>
-                </p>
+                {operator.includes('less') ? (
+                  <>
+                    <p>
+                      • Nếu {metricText} ≤ <span className="text-red-500 font-medium">{thresholdCritical ?? config.value ?? '?'}</span> {unitInfo.plural} 
+                      → <span className="text-red-500">🔴 Cảnh báo NGUY CẤP</span>
+                    </p>
+                    <p>
+                      • Nếu {metricText} ≤ <span className="text-yellow-500 font-medium">{thresholdWarning ?? (config.value ? config.value * 1.5 : '?')}</span> {unitInfo.plural} 
+                      → <span className="text-yellow-500">🟡 Cảnh báo thường</span>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      • Nếu {metricText} ≥ <span className="text-red-500 font-medium">{thresholdCritical ?? config.value ?? '?'}</span> {unitInfo.plural} 
+                      → <span className="text-red-500">🔴 Cảnh báo NGUY CẤP</span>
+                    </p>
+                    <p>
+                      • Nếu {metricText} ≥ <span className="text-yellow-500 font-medium">{thresholdWarning ?? (config.value ? config.value * 0.7 : '?')}</span> {unitInfo.plural} 
+                      → <span className="text-yellow-500">🟡 Cảnh báo thường</span>
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
