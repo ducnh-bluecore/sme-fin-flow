@@ -4620,6 +4620,8 @@ export type Database = {
       }
       intelligent_alert_rules: {
         Row: {
+          alert_group: string | null
+          applicable_channels: string[] | null
           calculation_formula: string
           cooldown_hours: number | null
           created_at: string
@@ -4628,6 +4630,7 @@ export type Database = {
           is_enabled: boolean | null
           object_type: string | null
           priority: number | null
+          priority_order: number | null
           rule_category: string
           rule_code: string
           rule_name: string
@@ -4639,6 +4642,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_group?: string | null
+          applicable_channels?: string[] | null
           calculation_formula: string
           cooldown_hours?: number | null
           created_at?: string
@@ -4647,6 +4652,7 @@ export type Database = {
           is_enabled?: boolean | null
           object_type?: string | null
           priority?: number | null
+          priority_order?: number | null
           rule_category: string
           rule_code: string
           rule_name: string
@@ -4658,6 +4664,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_group?: string | null
+          applicable_channels?: string[] | null
           calculation_formula?: string
           cooldown_hours?: number | null
           created_at?: string
@@ -4666,6 +4674,7 @@ export type Database = {
           is_enabled?: boolean | null
           object_type?: string | null
           priority?: number | null
+          priority_order?: number | null
           rule_category?: string
           rule_code?: string
           rule_name?: string
