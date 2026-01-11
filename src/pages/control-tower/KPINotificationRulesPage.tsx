@@ -285,8 +285,30 @@ function IntelligentRuleCard({
 }
 
 // Seed Rules Button Component
-function SeedRulesButton() {
+function SeedRulesButton({ compact = false }: { compact?: boolean }) {
   const seedMutation = useSeedAlertRules();
+  
+  if (compact) {
+    return (
+      <Button 
+        variant="outline" 
+        onClick={() => seedMutation.mutate()} 
+        disabled={seedMutation.isPending}
+      >
+        {seedMutation.isPending ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Đang tạo...
+          </>
+        ) : (
+          <>
+            <Zap className="h-4 w-4 mr-2" />
+            + 47 rules đa kênh
+          </>
+        )}
+      </Button>
+    );
+  }
   
   return (
     <div className="space-y-3">
@@ -623,7 +645,8 @@ export default function KPINotificationRulesPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <SeedRulesButton compact />
                     <Button 
                       variant="outline" 
                       size="sm"
