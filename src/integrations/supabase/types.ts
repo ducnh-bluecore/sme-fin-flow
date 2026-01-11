@@ -2337,9 +2337,13 @@ export type Database = {
           prev_aov: number | null
           prev_platform_fee: number | null
           prev_revenue: number | null
+          prev_shop_score: number | null
+          response_rate: number | null
           revenue: number | null
           sessions: number | null
           shipping_cost: number | null
+          shop_rating: number | null
+          shop_score: number | null
           tenant_id: string
           total_cogs: number | null
           total_orders: number | null
@@ -2360,9 +2364,13 @@ export type Database = {
           prev_aov?: number | null
           prev_platform_fee?: number | null
           prev_revenue?: number | null
+          prev_shop_score?: number | null
+          response_rate?: number | null
           revenue?: number | null
           sessions?: number | null
           shipping_cost?: number | null
+          shop_rating?: number | null
+          shop_score?: number | null
           tenant_id: string
           total_cogs?: number | null
           total_orders?: number | null
@@ -2383,9 +2391,13 @@ export type Database = {
           prev_aov?: number | null
           prev_platform_fee?: number | null
           prev_revenue?: number | null
+          prev_shop_score?: number | null
+          response_rate?: number | null
           revenue?: number | null
           sessions?: number | null
           shipping_cost?: number | null
+          shop_rating?: number | null
+          shop_score?: number | null
           tenant_id?: string
           total_cogs?: number | null
           total_orders?: number | null
@@ -5663,6 +5675,71 @@ export type Database = {
           },
         ]
       }
+      market_data: {
+        Row: {
+          category: string | null
+          channel: string | null
+          competitor_count: number | null
+          created_at: string | null
+          data_date: string
+          data_source: string | null
+          id: string
+          market_share_change: number | null
+          market_share_percent: number | null
+          market_total_revenue: number | null
+          notes: string | null
+          our_ranking: number | null
+          our_revenue: number | null
+          prev_market_share_percent: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          channel?: string | null
+          competitor_count?: number | null
+          created_at?: string | null
+          data_date: string
+          data_source?: string | null
+          id?: string
+          market_share_change?: number | null
+          market_share_percent?: number | null
+          market_total_revenue?: number | null
+          notes?: string | null
+          our_ranking?: number | null
+          our_revenue?: number | null
+          prev_market_share_percent?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          channel?: string | null
+          competitor_count?: number | null
+          created_at?: string | null
+          data_date?: string
+          data_source?: string | null
+          id?: string
+          market_share_change?: number | null
+          market_share_percent?: number | null
+          market_total_revenue?: number | null
+          notes?: string | null
+          our_ranking?: number | null
+          our_revenue?: number | null
+          prev_market_share_percent?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_data_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_expenses: {
         Row: {
           amount: number
@@ -6468,6 +6545,140 @@ export type Database = {
           },
         ]
       }
+      platform_violations: {
+        Row: {
+          action_required: string | null
+          affected_products: string[] | null
+          channel: string
+          created_at: string | null
+          deadline: string | null
+          description: string | null
+          detected_at: string | null
+          id: string
+          penalty_amount: number | null
+          resolved_at: string | null
+          severity: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+          violation_code: string | null
+          violation_type: string
+        }
+        Insert: {
+          action_required?: string | null
+          affected_products?: string[] | null
+          channel: string
+          created_at?: string | null
+          deadline?: string | null
+          description?: string | null
+          detected_at?: string | null
+          id?: string
+          penalty_amount?: number | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          violation_code?: string | null
+          violation_type: string
+        }
+        Update: {
+          action_required?: string | null
+          affected_products?: string[] | null
+          channel?: string
+          created_at?: string | null
+          deadline?: string | null
+          description?: string | null
+          detected_at?: string | null
+          id?: string
+          penalty_amount?: number | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          violation_code?: string | null
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_violations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_terminals: {
+        Row: {
+          created_at: string | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          last_heartbeat_at: string | null
+          last_transaction_at: string | null
+          offline_since: string | null
+          software_version: string | null
+          status: string | null
+          store_id: string | null
+          tenant_id: string
+          terminal_code: string
+          terminal_name: string | null
+          total_downtime_minutes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_heartbeat_at?: string | null
+          last_transaction_at?: string | null
+          offline_since?: string | null
+          software_version?: string | null
+          status?: string | null
+          store_id?: string | null
+          tenant_id: string
+          terminal_code: string
+          terminal_name?: string | null
+          total_downtime_minutes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_heartbeat_at?: string | null
+          last_transaction_at?: string | null
+          offline_since?: string | null
+          software_version?: string | null
+          status?: string | null
+          store_id?: string | null
+          tenant_id?: string
+          terminal_code?: string
+          terminal_name?: string | null
+          total_downtime_minutes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_terminals_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_terminals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_master: {
         Row: {
           attributes: Json | null
@@ -6915,6 +7126,151 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string | null
+          product_name: string | null
+          purchase_order_id: string
+          quantity_ordered: number | null
+          quantity_received: number | null
+          sku: string | null
+          tenant_id: string
+          total_price: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          product_name?: string | null
+          purchase_order_id: string
+          quantity_ordered?: number | null
+          quantity_received?: number | null
+          sku?: string | null
+          tenant_id: string
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          product_name?: string | null
+          purchase_order_id?: string
+          quantity_ordered?: number | null
+          quantity_received?: number | null
+          sku?: string | null
+          tenant_id?: string
+          total_price?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          actual_delivery_date: string | null
+          created_at: string | null
+          expected_delivery_date: string | null
+          expected_lead_time_days: number | null
+          id: string
+          is_on_time: boolean | null
+          items_count: number | null
+          items_received: number | null
+          lead_time_days: number | null
+          notes: string | null
+          order_date: string | null
+          po_number: string
+          received_amount: number | null
+          status: string | null
+          tenant_id: string
+          total_amount: number | null
+          updated_at: string | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          created_at?: string | null
+          expected_delivery_date?: string | null
+          expected_lead_time_days?: number | null
+          id?: string
+          is_on_time?: boolean | null
+          items_count?: number | null
+          items_received?: number | null
+          lead_time_days?: number | null
+          notes?: string | null
+          order_date?: string | null
+          po_number: string
+          received_amount?: number | null
+          status?: string | null
+          tenant_id: string
+          total_amount?: number | null
+          updated_at?: string | null
+          vendor_id?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          created_at?: string | null
+          expected_delivery_date?: string | null
+          expected_lead_time_days?: number | null
+          id?: string
+          is_on_time?: boolean | null
+          items_count?: number | null
+          items_received?: number | null
+          lead_time_days?: number | null
+          notes?: string | null
+          order_date?: string | null
+          po_number?: string
+          received_amount?: number | null
+          status?: string | null
+          tenant_id?: string
+          total_amount?: number | null
+          updated_at?: string | null
+          vendor_id?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -7656,6 +8012,80 @@ export type Database = {
           },
         ]
       }
+      social_mentions: {
+        Row: {
+          author_handle: string | null
+          author_name: string | null
+          content: string | null
+          created_at: string | null
+          detected_at: string | null
+          engagement_count: number | null
+          id: string
+          is_responded: boolean | null
+          mention_type: string | null
+          platform: string
+          post_url: string | null
+          priority: string | null
+          reach_count: number | null
+          responded_at: string | null
+          response_content: string | null
+          sentiment: string | null
+          sentiment_score: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          author_handle?: string | null
+          author_name?: string | null
+          content?: string | null
+          created_at?: string | null
+          detected_at?: string | null
+          engagement_count?: number | null
+          id?: string
+          is_responded?: boolean | null
+          mention_type?: string | null
+          platform: string
+          post_url?: string | null
+          priority?: string | null
+          reach_count?: number | null
+          responded_at?: string | null
+          response_content?: string | null
+          sentiment?: string | null
+          sentiment_score?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          author_handle?: string | null
+          author_name?: string | null
+          content?: string | null
+          created_at?: string | null
+          detected_at?: string | null
+          engagement_count?: number | null
+          id?: string
+          is_responded?: boolean | null
+          mention_type?: string | null
+          platform?: string
+          post_url?: string | null
+          priority?: string | null
+          reach_count?: number | null
+          responded_at?: string | null
+          response_content?: string | null
+          sentiment?: string | null
+          sentiment_score?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_mentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_daily_metrics: {
         Row: {
           avg_transaction_value: number | null
@@ -7734,6 +8164,7 @@ export type Database = {
       stores: {
         Row: {
           address: string | null
+          area_sqm: number | null
           created_at: string | null
           current_daily_sales: number | null
           daily_sales_target: number | null
@@ -7742,6 +8173,7 @@ export type Database = {
           last_transaction_at: string | null
           manager_name: string | null
           phone: string | null
+          rent_per_sqm: number | null
           store_code: string | null
           store_name: string
           tenant_id: string
@@ -7749,6 +8181,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          area_sqm?: number | null
           created_at?: string | null
           current_daily_sales?: number | null
           daily_sales_target?: number | null
@@ -7757,6 +8190,7 @@ export type Database = {
           last_transaction_at?: string | null
           manager_name?: string | null
           phone?: string | null
+          rent_per_sqm?: number | null
           store_code?: string | null
           store_name: string
           tenant_id: string
@@ -7764,6 +8198,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          area_sqm?: number | null
           created_at?: string | null
           current_daily_sales?: number | null
           daily_sales_target?: number | null
@@ -7772,6 +8207,7 @@ export type Database = {
           last_transaction_at?: string | null
           manager_name?: string | null
           phone?: string | null
+          rent_per_sqm?: number | null
           store_code?: string | null
           store_name?: string
           tenant_id?: string
@@ -8938,6 +9374,77 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "warehouse_capacity_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouse_operations: {
+        Row: {
+          avg_pack_time_minutes: number | null
+          avg_pick_time_minutes: number | null
+          backlog_orders: number | null
+          capacity_used_percent: number | null
+          created_at: string | null
+          id: string
+          operation_date: string
+          orders_packed: number | null
+          orders_per_staff: number | null
+          orders_picked: number | null
+          orders_shipped: number | null
+          pack_accuracy_rate: number | null
+          pick_accuracy_rate: number | null
+          staff_count: number | null
+          tenant_id: string
+          total_orders_received: number | null
+          updated_at: string | null
+          warehouse_location: string | null
+        }
+        Insert: {
+          avg_pack_time_minutes?: number | null
+          avg_pick_time_minutes?: number | null
+          backlog_orders?: number | null
+          capacity_used_percent?: number | null
+          created_at?: string | null
+          id?: string
+          operation_date: string
+          orders_packed?: number | null
+          orders_per_staff?: number | null
+          orders_picked?: number | null
+          orders_shipped?: number | null
+          pack_accuracy_rate?: number | null
+          pick_accuracy_rate?: number | null
+          staff_count?: number | null
+          tenant_id: string
+          total_orders_received?: number | null
+          updated_at?: string | null
+          warehouse_location?: string | null
+        }
+        Update: {
+          avg_pack_time_minutes?: number | null
+          avg_pick_time_minutes?: number | null
+          backlog_orders?: number | null
+          capacity_used_percent?: number | null
+          created_at?: string | null
+          id?: string
+          operation_date?: string
+          orders_packed?: number | null
+          orders_per_staff?: number | null
+          orders_picked?: number | null
+          orders_shipped?: number | null
+          pack_accuracy_rate?: number | null
+          pick_accuracy_rate?: number | null
+          staff_count?: number | null
+          tenant_id?: string
+          total_orders_received?: number | null
+          updated_at?: string | null
+          warehouse_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_operations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
