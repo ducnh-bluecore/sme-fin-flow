@@ -10,20 +10,31 @@ import {
   User,
   Clock,
   MoreVertical,
-  Loader2
+  Loader2,
+  MessageSquare,
+  FileText
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
@@ -42,6 +53,7 @@ interface Task {
   due_date: string | null;
   department: string | null;
   progress: number | null;
+  resolution_notes: string | null;
   created_at: string;
 }
 
@@ -60,7 +72,15 @@ const priorityConfig = {
   'low': { label: 'Thấp', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
 };
 
-function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange: (id: string, status: Task['status']) => void }) {
+function TaskCard({ 
+  task, 
+  onStatusChange,
+  onAddNote,
+}: { 
+  task: Task; 
+  onStatusChange: (id: string, status: Task['status']) => void;
+  onAddNote: (task: Task) => void;
+}) {
   const isOverdue = task.due_date && isPast(parseISO(task.due_date)) && task.status !== 'completed';
   
   const formatDueDate = (dateStr: string | null) => {
@@ -115,6 +135,14 @@ function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange: (id: s
           <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800">
             <DropdownMenuItem 
               className="text-slate-300 focus:bg-slate-800"
+              onClick={() => onAddNote(task)}
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Thêm ghi chú / kết quả
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-700" />
+            <DropdownMenuItem 
+              className="text-slate-300 focus:bg-slate-800"
               onClick={() => onStatusChange(task.id, 'in_progress')}
             >
               Bắt đầu làm
@@ -134,6 +162,17 @@ function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange: (id: s
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Resolution Notes */}
+      {task.resolution_notes && (
+        <div className="mt-3 p-2 rounded bg-slate-700/30 border border-slate-600/30">
+          <div className="flex items-center gap-1 text-xs text-slate-400 mb-1">
+            <FileText className="h-3 w-3" />
+            <span>Ghi chú / Kết quả:</span>
+          </div>
+          <p className="text-xs text-slate-300 whitespace-pre-wrap line-clamp-3">{task.resolution_notes}</p>
+        </div>
+      )}
 
       {/* Progress */}
       {task.status !== 'completed' && task.progress && task.progress > 0 && (
@@ -173,12 +212,13 @@ function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange: (id: s
   );
 }
 
-function TaskColumn({ title, status, tasks, count, onStatusChange }: { 
+function TaskColumn({ title, status, tasks, count, onStatusChange, onAddNote }: { 
   title: string; 
   status: Task['status']; 
   tasks: Task[];
   count: number;
   onStatusChange: (id: string, status: Task['status']) => void;
+  onAddNote: (task: Task) => void;
 }) {
   const config = statusConfig[status];
 
@@ -193,7 +233,7 @@ function TaskColumn({ title, status, tasks, count, onStatusChange }: {
       </div>
       <div className="space-y-3">
         {tasks.map(task => (
-          <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} />
+          <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} onAddNote={onAddNote} />
         ))}
         {tasks.length === 0 && (
           <div className="p-8 rounded-lg border border-dashed border-slate-700/50 text-center">
@@ -207,6 +247,9 @@ function TaskColumn({ title, status, tasks, count, onStatusChange }: {
 
 export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [noteText, setNoteText] = useState('');
   const { activeTenant } = useTenantContext();
   const queryClient = useQueryClient();
 
@@ -244,8 +287,39 @@ export default function TasksPage() {
     },
   });
 
+  const updateNoteMutation = useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ resolution_notes: notes, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Đã lưu ghi chú');
+      setNoteDialogOpen(false);
+      setSelectedTask(null);
+      setNoteText('');
+    },
+    onError: () => {
+      toast.error('Không thể lưu ghi chú');
+    },
+  });
+
   const handleStatusChange = (id: string, status: Task['status']) => {
     updateStatusMutation.mutate({ id, status });
+  };
+
+  const handleAddNote = (task: Task) => {
+    setSelectedTask(task);
+    setNoteText(task.resolution_notes || '');
+    setNoteDialogOpen(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!selectedTask) return;
+    updateNoteMutation.mutate({ id: selectedTask.id, notes: noteText });
   };
 
   const filteredTasks = useMemo(() => {
@@ -367,6 +441,7 @@ export default function TasksPage() {
             tasks={pendingTasks} 
             count={pendingTasks.length} 
             onStatusChange={handleStatusChange}
+            onAddNote={handleAddNote}
           />
           <TaskColumn 
             title="Đang làm" 
@@ -374,6 +449,7 @@ export default function TasksPage() {
             tasks={inProgressTasks} 
             count={inProgressTasks.length}
             onStatusChange={handleStatusChange}
+            onAddNote={handleAddNote}
           />
           <TaskColumn 
             title="Hoàn thành" 
@@ -381,6 +457,7 @@ export default function TasksPage() {
             tasks={completedTasks} 
             count={completedTasks.length}
             onStatusChange={handleStatusChange}
+            onAddNote={handleAddNote}
           />
         </div>
 
@@ -397,6 +474,61 @@ export default function TasksPage() {
           </div>
         )}
       </div>
+
+      {/* Add Note Dialog */}
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+        <DialogContent className="bg-slate-900 border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100">
+              Ghi chú / Kết quả công việc
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedTask && (
+              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
+                <p className="text-sm font-medium text-slate-200">{selectedTask.title}</p>
+                {selectedTask.description && (
+                  <p className="text-xs text-slate-400 mt-1">{selectedTask.description}</p>
+                )}
+              </div>
+            )}
+            <div>
+              <label className="text-sm text-slate-300 mb-2 block">
+                Nhập kết quả hoặc ghi chú:
+              </label>
+              <Textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Ví dụ: Đã hoàn thành kiểm kê, phát hiện 5 sản phẩm thiếu..."
+                className="bg-slate-800/50 border-slate-700/50 text-slate-200 min-h-[120px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setNoteDialogOpen(false)}
+              className="border-slate-700 text-slate-300"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleSaveNote}
+              disabled={updateNoteMutation.isPending}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {updateNoteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                'Lưu ghi chú'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

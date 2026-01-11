@@ -7149,6 +7149,7 @@ export type Database = {
           metadata: Json | null
           priority: string
           progress: number | null
+          resolution_notes: string | null
           source_alert_type: string | null
           source_id: string | null
           source_type: string | null
@@ -7170,6 +7171,7 @@ export type Database = {
           metadata?: Json | null
           priority?: string
           progress?: number | null
+          resolution_notes?: string | null
           source_alert_type?: string | null
           source_id?: string | null
           source_type?: string | null
@@ -7191,6 +7193,7 @@ export type Database = {
           metadata?: Json | null
           priority?: string
           progress?: number | null
+          resolution_notes?: string | null
           source_alert_type?: string | null
           source_id?: string | null
           source_type?: string | null
