@@ -114,6 +114,8 @@ export function AlertAIRecommendationDialog({
           alertTitle: alert.title,
           alertMessage: alert.message,
           alertSeverity: alert.severity,
+          alertCategory: alert.category,
+          isSingleProduct: !isSummaryAlert,
           topProducts: productsToAnalyze,
         },
       });
