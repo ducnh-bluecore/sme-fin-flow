@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { 
@@ -10,10 +10,9 @@ import {
   User,
   Clock,
   MoreVertical,
-  ChevronDown,
-  AlertCircle
+  Loader2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,97 +24,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useTenantContext } from '@/contexts/TenantContext';
+import { format, formatDistanceToNow, isPast, parseISO } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface Task {
   id: string;
   title: string;
-  description: string;
-  assignee: { name: string; avatar?: string };
-  status: 'todo' | 'in-progress' | 'review' | 'done';
+  description: string | null;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   priority: 'urgent' | 'high' | 'medium' | 'low';
-  dueDate: string;
-  department: string;
-  progress: number;
-  subtasks?: { total: number; completed: number };
+  due_date: string | null;
+  department: string | null;
+  progress: number | null;
+  created_at: string;
 }
 
-const mockTasks: Task[] = [
-  { 
-    id: '1', 
-    title: 'Kiểm kê tồn kho cuối tháng', 
-    description: 'Kiểm kê toàn bộ hàng hóa tại kho trung tâm',
-    assignee: { name: 'Nguyễn Văn A' },
-    status: 'in-progress',
-    priority: 'urgent',
-    dueDate: 'Hôm nay',
-    department: 'Kho',
-    progress: 65,
-    subtasks: { total: 10, completed: 6 }
-  },
-  { 
-    id: '2', 
-    title: 'Đối soát công nợ nhà cung cấp', 
-    description: 'Đối soát công nợ với 15 NCC trong tháng',
-    assignee: { name: 'Trần Thị B' },
-    status: 'todo',
-    priority: 'high',
-    dueDate: 'Ngày mai',
-    department: 'Kế toán',
-    progress: 0,
-    subtasks: { total: 15, completed: 0 }
-  },
-  { 
-    id: '3', 
-    title: 'Setup cửa hàng mới Quận 9', 
-    description: 'Chuẩn bị và setup toàn bộ thiết bị cho cửa hàng mới',
-    assignee: { name: 'Phạm Văn C' },
-    status: 'in-progress',
-    priority: 'high',
-    dueDate: '3 ngày nữa',
-    department: 'Operations',
-    progress: 45,
-    subtasks: { total: 20, completed: 9 }
-  },
-  { 
-    id: '4', 
-    title: 'Báo cáo doanh số tuần', 
-    description: 'Tổng hợp và phân tích doanh số các cửa hàng',
-    assignee: { name: 'Lê Thị D' },
-    status: 'review',
-    priority: 'medium',
-    dueDate: 'Thứ 6',
-    department: 'Bán hàng',
-    progress: 90,
-  },
-  { 
-    id: '5', 
-    title: 'Training nhân viên mới', 
-    description: 'Đào tạo 5 nhân viên mới về quy trình bán hàng',
-    assignee: { name: 'Hoàng Văn E' },
-    status: 'done',
-    priority: 'medium',
-    dueDate: 'Hoàn thành',
-    department: 'HR',
-    progress: 100,
-  },
-  { 
-    id: '6', 
-    title: 'Cập nhật giá sản phẩm', 
-    description: 'Cập nhật giá mới cho 200 SKU theo chính sách mới',
-    assignee: { name: 'Mai Thị F' },
-    status: 'done',
-    priority: 'low',
-    dueDate: 'Hoàn thành',
-    department: 'Marketing',
-    progress: 100,
-  },
-];
-
 const statusConfig = {
-  'todo': { label: 'Chờ xử lý', color: 'bg-slate-500', textColor: 'text-slate-400' },
-  'in-progress': { label: 'Đang làm', color: 'bg-amber-500', textColor: 'text-amber-400' },
-  'review': { label: 'Đang review', color: 'bg-blue-500', textColor: 'text-blue-400' },
-  'done': { label: 'Hoàn thành', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+  'pending': { label: 'Chờ xử lý', color: 'bg-slate-500', textColor: 'text-slate-400' },
+  'in_progress': { label: 'Đang làm', color: 'bg-amber-500', textColor: 'text-amber-400' },
+  'completed': { label: 'Hoàn thành', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+  'cancelled': { label: 'Đã hủy', color: 'bg-red-500', textColor: 'text-red-400' },
 };
 
 const priorityConfig = {
@@ -125,28 +59,51 @@ const priorityConfig = {
   'low': { label: 'Thấp', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
 };
 
-function TaskCard({ task }: { task: Task }) {
+function TaskCard({ task, onStatusChange }: { task: Task; onStatusChange: (id: string, status: Task['status']) => void }) {
+  const isOverdue = task.due_date && isPast(parseISO(task.due_date)) && task.status !== 'completed';
+  
+  const formatDueDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const date = parseISO(dateStr);
+      return formatDistanceToNow(date, { addSuffix: true, locale: vi });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:border-slate-600/50 transition-all group"
+      className={`p-4 rounded-lg bg-slate-800/30 border transition-all group ${
+        isOverdue ? 'border-red-500/50' : 'border-slate-700/30 hover:border-slate-600/50'
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Badge className={`text-xs border ${priorityConfig[task.priority].color}`}>
-              {priorityConfig[task.priority].label}
+            <Badge className={`text-xs border ${priorityConfig[task.priority]?.color || priorityConfig.medium.color}`}>
+              {priorityConfig[task.priority]?.label || 'Trung bình'}
             </Badge>
-            <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30">
-              {task.department}
-            </Badge>
+            {task.department && (
+              <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30">
+                {task.department}
+              </Badge>
+            )}
+            {isOverdue && (
+              <Badge className="text-xs bg-red-500/10 text-red-400 border-red-500/30">
+                Quá hạn
+              </Badge>
+            )}
           </div>
           <h3 className="text-sm font-medium text-slate-100 group-hover:text-white transition-colors">
             {task.title}
           </h3>
-          <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
+          {task.description && (
+            <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
+          )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -155,15 +112,30 @@ function TaskCard({ task }: { task: Task }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800">
-            <DropdownMenuItem className="text-slate-300 focus:bg-slate-800">Xem chi tiết</DropdownMenuItem>
-            <DropdownMenuItem className="text-slate-300 focus:bg-slate-800">Chỉnh sửa</DropdownMenuItem>
-            <DropdownMenuItem className="text-red-400 focus:bg-red-500/10">Xóa</DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-slate-300 focus:bg-slate-800"
+              onClick={() => onStatusChange(task.id, 'in_progress')}
+            >
+              Bắt đầu làm
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-emerald-400 focus:bg-emerald-500/10"
+              onClick={() => onStatusChange(task.id, 'completed')}
+            >
+              Đánh dấu hoàn thành
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-red-400 focus:bg-red-500/10"
+              onClick={() => onStatusChange(task.id, 'cancelled')}
+            >
+              Hủy công việc
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       {/* Progress */}
-      {task.status !== 'done' && task.progress > 0 && (
+      {task.status !== 'completed' && task.progress && task.progress > 0 && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-slate-500">Tiến độ</span>
@@ -173,38 +145,39 @@ function TaskCard({ task }: { task: Task }) {
         </div>
       )}
 
-      {/* Subtasks */}
-      {task.subtasks && (
-        <div className="flex items-center gap-1 mt-3 text-xs text-slate-500">
-          <CheckSquare className="h-3 w-3" />
-          <span>{task.subtasks.completed}/{task.subtasks.total} subtasks</span>
-        </div>
-      )}
-
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/30">
         <div className="flex items-center gap-2">
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="bg-slate-700 text-slate-300 text-xs">
-              {task.assignee.name.split(' ').map(n => n[0]).join('')}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-xs text-slate-400">{task.assignee.name}</span>
+          {task.assignee_name ? (
+            <>
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="bg-slate-700 text-slate-300 text-xs">
+                  {task.assignee_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-slate-400">{task.assignee_name}</span>
+            </>
+          ) : (
+            <span className="text-xs text-slate-500">Chưa phân công</span>
+          )}
         </div>
-        <div className="flex items-center gap-1 text-xs text-slate-500">
-          <Clock className="h-3 w-3" />
-          <span>{task.dueDate}</span>
-        </div>
+        {task.due_date && (
+          <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-400' : 'text-slate-500'}`}>
+            <Clock className="h-3 w-3" />
+            <span>{formatDueDate(task.due_date)}</span>
+          </div>
+        )}
       </div>
     </motion.div>
   );
 }
 
-function TaskColumn({ title, status, tasks, count }: { 
+function TaskColumn({ title, status, tasks, count, onStatusChange }: { 
   title: string; 
   status: Task['status']; 
   tasks: Task[];
   count: number;
+  onStatusChange: (id: string, status: Task['status']) => void;
 }) {
   const config = statusConfig[status];
 
@@ -216,13 +189,10 @@ function TaskColumn({ title, status, tasks, count }: {
           <h3 className="text-sm font-medium text-slate-200">{title}</h3>
           <Badge className="bg-slate-800 text-slate-400 border-slate-700">{count}</Badge>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-300">
-          <Plus className="h-4 w-4" />
-        </Button>
       </div>
       <div className="space-y-3">
         {tasks.map(task => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} />
         ))}
         {tasks.length === 0 && (
           <div className="p-8 rounded-lg border border-dashed border-slate-700/50 text-center">
@@ -236,19 +206,84 @@ function TaskColumn({ title, status, tasks, count }: {
 
 export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [tasks] = useState(mockTasks);
+  const { activeTenant } = useTenantContext();
+  const queryClient = useQueryClient();
 
-  const todoTasks = tasks.filter(t => t.status === 'todo');
-  const inProgressTasks = tasks.filter(t => t.status === 'in-progress');
-  const reviewTasks = tasks.filter(t => t.status === 'review');
-  const doneTasks = tasks.filter(t => t.status === 'done');
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ['tasks', activeTenant?.id],
+    queryFn: async () => {
+      if (!activeTenant?.id) return [];
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('tenant_id', activeTenant.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: !!activeTenant?.id,
+  });
 
-  const stats = {
-    total: tasks.length,
-    completed: doneTasks.length,
-    overdue: 2,
-    urgent: tasks.filter(t => t.priority === 'urgent').length,
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: Task['status'] }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-tasks-count'] });
+      toast.success('Đã cập nhật trạng thái công việc');
+    },
+    onError: () => {
+      toast.error('Không thể cập nhật trạng thái');
+    },
+  });
+
+  const handleStatusChange = (id: string, status: Task['status']) => {
+    updateStatusMutation.mutate({ id, status });
   };
+
+  const filteredTasks = useMemo(() => {
+    if (!searchQuery) return tasks;
+    const q = searchQuery.toLowerCase();
+    return tasks.filter(t => 
+      t.title.toLowerCase().includes(q) || 
+      t.description?.toLowerCase().includes(q) ||
+      t.assignee_name?.toLowerCase().includes(q)
+    );
+  }, [tasks, searchQuery]);
+
+  const pendingTasks = filteredTasks.filter(t => t.status === 'pending');
+  const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
+  const completedTasks = filteredTasks.filter(t => t.status === 'completed');
+
+  const stats = useMemo(() => {
+    const overdue = tasks.filter(t => 
+      t.due_date && isPast(parseISO(t.due_date)) && t.status !== 'completed' && t.status !== 'cancelled'
+    ).length;
+    
+    return {
+      total: tasks.length,
+      completed: tasks.filter(t => t.status === 'completed').length,
+      overdue,
+      urgent: tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed').length,
+    };
+  }, [tasks]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-amber-500 mx-auto mb-3" />
+          <p className="text-sm text-slate-400">Đang tải công việc...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -325,11 +360,41 @@ export default function TasksPage() {
 
         {/* Kanban Board */}
         <div className="flex gap-4 overflow-x-auto pb-4">
-          <TaskColumn title="Chờ xử lý" status="todo" tasks={todoTasks} count={todoTasks.length} />
-          <TaskColumn title="Đang làm" status="in-progress" tasks={inProgressTasks} count={inProgressTasks.length} />
-          <TaskColumn title="Đang review" status="review" tasks={reviewTasks} count={reviewTasks.length} />
-          <TaskColumn title="Hoàn thành" status="done" tasks={doneTasks} count={doneTasks.length} />
+          <TaskColumn 
+            title="Chờ xử lý" 
+            status="pending" 
+            tasks={pendingTasks} 
+            count={pendingTasks.length} 
+            onStatusChange={handleStatusChange}
+          />
+          <TaskColumn 
+            title="Đang làm" 
+            status="in_progress" 
+            tasks={inProgressTasks} 
+            count={inProgressTasks.length}
+            onStatusChange={handleStatusChange}
+          />
+          <TaskColumn 
+            title="Hoàn thành" 
+            status="completed" 
+            tasks={completedTasks} 
+            count={completedTasks.length}
+            onStatusChange={handleStatusChange}
+          />
         </div>
+
+        {/* Empty state */}
+        {tasks.length === 0 && (
+          <div className="text-center py-16">
+            <CheckSquare className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-300 mb-2">Chưa có công việc nào</h3>
+            <p className="text-sm text-slate-500 mb-4">Tạo công việc đầu tiên để bắt đầu quản lý</p>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white">
+              <Plus className="h-4 w-4 mr-2" />
+              Tạo công việc
+            </Button>
+          </div>
+        )}
       </div>
     </>
   );
