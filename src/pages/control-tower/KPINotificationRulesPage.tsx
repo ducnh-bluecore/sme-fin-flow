@@ -39,6 +39,7 @@ import {
   severityLabels,
 } from '@/hooks/useIntelligentAlertRules';
 import { useSeedAlertRules } from '@/hooks/useMultiChannelAlertRules';
+import CreateRuleDialog from '@/components/alerts/CreateRuleDialog';
 
 // Icons mapping
 const categoryIcons: Record<AlertCategory, typeof Package> = {
@@ -310,14 +311,7 @@ export default function KPINotificationRulesPage() {
     createRule,
   } = useIntelligentAlertRules();
 
-  // New rule form state
-  const [newRule, setNewRule] = useState({
-    rule_code: '',
-    rule_name: '',
-    description: '',
-    rule_category: 'fulfillment',
-    severity: 'warning',
-  });
+  // (newRule state removed - now handled by CreateRuleDialog)
 
   // Sync local configs with server data
   useEffect(() => {
@@ -1058,97 +1052,10 @@ export default function KPINotificationRulesPage() {
       </Dialog>
 
       {/* Create Rule Dialog */}
-      <Dialog open={createRuleDialogOpen} onOpenChange={setCreateRuleDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Tạo Rule mới</DialogTitle>
-            <DialogDescription>
-              Tạo quy tắc cảnh báo tùy chỉnh cho hệ thống
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Mã rule *</Label>
-                <Input
-                  value={newRule.rule_code}
-                  onChange={(e) => setNewRule(prev => ({ ...prev, rule_code: e.target.value.toUpperCase().replace(/\s/g, '_') }))}
-                  placeholder="VD: LOW_STOCK_ALERT"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mức độ *</Label>
-                <Select 
-                  value={newRule.severity} 
-                  onValueChange={(v) => setNewRule(prev => ({ ...prev, severity: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="critical">🔴 Nguy cấp</SelectItem>
-                    <SelectItem value="warning">🟡 Cảnh báo</SelectItem>
-                    <SelectItem value="info">🔵 Thông tin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Tên rule *</Label>
-              <Input
-                value={newRule.rule_name}
-                onChange={(e) => setNewRule(prev => ({ ...prev, rule_name: e.target.value }))}
-                placeholder="VD: Cảnh báo tồn kho thấp"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Danh mục *</Label>
-              <Select 
-                value={newRule.rule_category} 
-                onValueChange={(v) => setNewRule(prev => ({ ...prev, rule_category: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(ruleCategoryLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Mô tả</Label>
-              <Input
-                value={newRule.description}
-                onChange={(e) => setNewRule(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Mô tả ngắn về rule này..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateRuleDialogOpen(false)}>Hủy</Button>
-            <Button 
-              onClick={() => {
-                if (!newRule.rule_code || !newRule.rule_name) {
-                  toast.error('Vui lòng nhập mã và tên rule');
-                  return;
-                }
-                createRule.mutate(newRule, {
-                  onSuccess: () => {
-                    setCreateRuleDialogOpen(false);
-                    setNewRule({ rule_code: '', rule_name: '', description: '', rule_category: 'fulfillment', severity: 'warning' });
-                  }
-                });
-              }} 
-              disabled={createRule.isPending}
-            >
-              {createRule.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Tạo rule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateRuleDialog 
+        open={createRuleDialogOpen} 
+        onOpenChange={setCreateRuleDialogOpen} 
+      />
     </>
   );
 }
