@@ -14,6 +14,287 @@ export type Database = {
   }
   public: {
     Tables: {
+      adjustment_note_items: {
+        Row: {
+          adjustment_note_id: string
+          amount: number | null
+          created_at: string
+          description: string
+          external_product_id: string | null
+          gl_account_id: string | null
+          id: string
+          metadata: Json | null
+          product_id: string | null
+          quantity: number | null
+          sku: string | null
+          tax_amount: number | null
+          tax_rate: number | null
+          tenant_id: string
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          adjustment_note_id: string
+          amount?: number | null
+          created_at?: string
+          description: string
+          external_product_id?: string | null
+          gl_account_id?: string | null
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          quantity?: number | null
+          sku?: string | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          tenant_id: string
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          adjustment_note_id?: string
+          amount?: number | null
+          created_at?: string
+          description?: string
+          external_product_id?: string | null
+          gl_account_id?: string | null
+          id?: string
+          metadata?: Json | null
+          product_id?: string | null
+          quantity?: number | null
+          sku?: string | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          tenant_id?: string
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adjustment_note_items_adjustment_note_id_fkey"
+            columns: ["adjustment_note_id"]
+            isOneToOne: false
+            referencedRelation: "adjustment_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_adjustment_note_id_fkey"
+            columns: ["adjustment_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_adjustment_note_id_fkey"
+            columns: ["adjustment_note_id"]
+            isOneToOne: false
+            referencedRelation: "debit_notes_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_adjustment_note_id_fkey"
+            columns: ["adjustment_note_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_credit_notes_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_external_product_id_fkey"
+            columns: ["external_product_id"]
+            isOneToOne: false
+            referencedRelation: "external_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "adjustment_note_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adjustment_notes: {
+        Row: {
+          applied_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          direction: string
+          discount_amount: number | null
+          due_date: string | null
+          exchange_rate: number | null
+          gl_account_id: string | null
+          id: string
+          metadata: Json | null
+          note_date: string
+          note_number: string
+          note_type: string
+          notes: string | null
+          original_bill_id: string | null
+          original_invoice_id: string | null
+          original_order_id: string | null
+          party_address: string | null
+          party_email: string | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_code: string | null
+          reason: string | null
+          reference_number: string | null
+          remaining_amount: number | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          tenant_id: string
+          terms: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction: string
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string
+          metadata?: Json | null
+          note_date?: string
+          note_number: string
+          note_type: string
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id: string
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string
+          metadata?: Json | null
+          note_date?: string
+          note_number?: string
+          note_type?: string
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_aging"
+            referencedColumns: ["bill_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_aging"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_usage_logs: {
         Row: {
           completion_tokens: number
@@ -1027,13 +1308,6 @@ export type Database = {
             foreignKeyName: "bank_transactions_matched_invoice_id_fkey"
             columns: ["matched_invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "bank_transactions_matched_invoice_id_fkey"
-            columns: ["matched_invoice_id"]
-            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -1332,13 +1606,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "trial_balance"
             referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "bill_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bill_items_tenant_id_fkey"
@@ -2350,198 +2617,6 @@ export type Database = {
           },
         ]
       }
-      credit_note_items: {
-        Row: {
-          amount: number
-          created_at: string
-          credit_note_id: string
-          description: string
-          id: string
-          invoice_item_id: string | null
-          product_id: string | null
-          quantity: number
-          tenant_id: string
-          unit_price: number
-          vat_rate: number | null
-        }
-        Insert: {
-          amount?: number
-          created_at?: string
-          credit_note_id: string
-          description: string
-          id?: string
-          invoice_item_id?: string | null
-          product_id?: string | null
-          quantity?: number
-          tenant_id: string
-          unit_price?: number
-          vat_rate?: number | null
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          credit_note_id?: string
-          description?: string
-          id?: string
-          invoice_item_id?: string | null
-          product_id?: string | null
-          quantity?: number
-          tenant_id?: string
-          unit_price?: number
-          vat_rate?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "credit_note_items_credit_note_id_fkey"
-            columns: ["credit_note_id"]
-            isOneToOne: false
-            referencedRelation: "credit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_note_items_invoice_item_id_fkey"
-            columns: ["invoice_item_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_note_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_note_items_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      credit_notes: {
-        Row: {
-          applied_at: string | null
-          approved_at: string | null
-          approved_by: string | null
-          created_at: string
-          created_by: string | null
-          credit_note_date: string
-          credit_note_number: string
-          currency_code: string | null
-          customer_id: string | null
-          description: string | null
-          exchange_rate: number | null
-          id: string
-          invoice_id: string | null
-          journal_entry_id: string | null
-          notes: string | null
-          reason: string
-          status: string
-          subtotal: number
-          tenant_id: string
-          total_amount: number
-          total_amount_base: number | null
-          updated_at: string
-          vat_amount: number
-        }
-        Insert: {
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          credit_note_date?: string
-          credit_note_number: string
-          currency_code?: string | null
-          customer_id?: string | null
-          description?: string | null
-          exchange_rate?: number | null
-          id?: string
-          invoice_id?: string | null
-          journal_entry_id?: string | null
-          notes?: string | null
-          reason: string
-          status?: string
-          subtotal?: number
-          tenant_id: string
-          total_amount?: number
-          total_amount_base?: number | null
-          updated_at?: string
-          vat_amount?: number
-        }
-        Update: {
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          credit_note_date?: string
-          credit_note_number?: string
-          currency_code?: string | null
-          customer_id?: string | null
-          description?: string | null
-          exchange_rate?: number | null
-          id?: string
-          invoice_id?: string | null
-          journal_entry_id?: string | null
-          notes?: string | null
-          reason?: string
-          status?: string
-          subtotal?: number
-          tenant_id?: string
-          total_amount?: number
-          total_amount_base?: number | null
-          updated_at?: string
-          vat_amount?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "credit_notes_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "ar_aging"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "credit_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "credit_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_notes_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "credit_notes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       currencies: {
         Row: {
           code: string
@@ -2774,198 +2849,6 @@ export type Database = {
             foreignKeyName: "dashboard_kpi_cache_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      debit_note_items: {
-        Row: {
-          amount: number
-          created_at: string
-          debit_note_id: string
-          description: string
-          id: string
-          invoice_item_id: string | null
-          product_id: string | null
-          quantity: number
-          tenant_id: string
-          unit_price: number
-          vat_rate: number | null
-        }
-        Insert: {
-          amount?: number
-          created_at?: string
-          debit_note_id: string
-          description: string
-          id?: string
-          invoice_item_id?: string | null
-          product_id?: string | null
-          quantity?: number
-          tenant_id: string
-          unit_price?: number
-          vat_rate?: number | null
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          debit_note_id?: string
-          description?: string
-          id?: string
-          invoice_item_id?: string | null
-          product_id?: string | null
-          quantity?: number
-          tenant_id?: string
-          unit_price?: number
-          vat_rate?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "debit_note_items_debit_note_id_fkey"
-            columns: ["debit_note_id"]
-            isOneToOne: false
-            referencedRelation: "debit_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_note_items_invoice_item_id_fkey"
-            columns: ["invoice_item_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_note_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_note_items_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      debit_notes: {
-        Row: {
-          applied_at: string | null
-          approved_at: string | null
-          approved_by: string | null
-          created_at: string
-          created_by: string | null
-          currency_code: string | null
-          customer_id: string | null
-          debit_note_date: string
-          debit_note_number: string
-          description: string | null
-          exchange_rate: number | null
-          id: string
-          invoice_id: string | null
-          journal_entry_id: string | null
-          notes: string | null
-          reason: string
-          status: string
-          subtotal: number
-          tenant_id: string
-          total_amount: number
-          total_amount_base: number | null
-          updated_at: string
-          vat_amount: number
-        }
-        Insert: {
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          currency_code?: string | null
-          customer_id?: string | null
-          debit_note_date?: string
-          debit_note_number: string
-          description?: string | null
-          exchange_rate?: number | null
-          id?: string
-          invoice_id?: string | null
-          journal_entry_id?: string | null
-          notes?: string | null
-          reason: string
-          status?: string
-          subtotal?: number
-          tenant_id: string
-          total_amount?: number
-          total_amount_base?: number | null
-          updated_at?: string
-          vat_amount?: number
-        }
-        Update: {
-          applied_at?: string | null
-          approved_at?: string | null
-          approved_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          currency_code?: string | null
-          customer_id?: string | null
-          debit_note_date?: string
-          debit_note_number?: string
-          description?: string | null
-          exchange_rate?: number | null
-          id?: string
-          invoice_id?: string | null
-          journal_entry_id?: string | null
-          notes?: string | null
-          reason?: string
-          status?: string
-          subtotal?: number
-          tenant_id?: string
-          total_amount?: number
-          total_amount_base?: number | null
-          updated_at?: string
-          vat_amount?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "debit_notes_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "ar_aging"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "debit_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "debit_notes_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "debit_notes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
@@ -3841,13 +3724,6 @@ export type Database = {
             foreignKeyName: "external_orders_internal_invoice_id_fkey"
             columns: ["internal_invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "external_orders_internal_invoice_id_fkey"
-            columns: ["internal_invoice_id"]
-            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -3958,13 +3834,6 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "connector_integrations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "external_products_internal_product_id_fkey"
-            columns: ["internal_product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -5047,21 +4916,7 @@ export type Database = {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "invoice_items_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
             referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -5113,13 +4968,6 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "ar_aging"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "invoice_promotions_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
             referencedColumns: ["invoice_id"]
           },
           {
@@ -5772,13 +5620,6 @@ export type Database = {
             foreignKeyName: "orders_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "orders_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
@@ -5881,13 +5722,6 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "ar_aging"
-            referencedColumns: ["invoice_id"]
-          },
-          {
-            foreignKeyName: "payments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_adjustments_summary"
             referencedColumns: ["invoice_id"]
           },
           {
@@ -6055,18 +5889,27 @@ export type Database = {
           cost_price: number | null
           created_at: string | null
           current_stock: number | null
+          gl_cogs_account_id: string | null
+          gl_inventory_account_id: string | null
+          gl_revenue_account_id: string | null
           id: string
           internal_product_id: string | null
           is_active: boolean | null
           last_calculated_at: string | null
+          lead_time_days: number | null
+          max_stock: number | null
+          min_stock: number | null
           product_name: string
+          reorder_point: number | null
           selling_price: number | null
           sku: string
           subcategory: string | null
+          supplier_id: string | null
           tenant_id: string
           total_profit: number | null
           total_revenue: number | null
           total_sold: number | null
+          unit: string | null
           updated_at: string | null
         }
         Insert: {
@@ -6080,18 +5923,27 @@ export type Database = {
           cost_price?: number | null
           created_at?: string | null
           current_stock?: number | null
+          gl_cogs_account_id?: string | null
+          gl_inventory_account_id?: string | null
+          gl_revenue_account_id?: string | null
           id?: string
           internal_product_id?: string | null
           is_active?: boolean | null
           last_calculated_at?: string | null
+          lead_time_days?: number | null
+          max_stock?: number | null
+          min_stock?: number | null
           product_name: string
+          reorder_point?: number | null
           selling_price?: number | null
           sku: string
           subcategory?: string | null
+          supplier_id?: string | null
           tenant_id: string
           total_profit?: number | null
           total_revenue?: number | null
           total_sold?: number | null
+          unit?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -6105,149 +5957,32 @@ export type Database = {
           cost_price?: number | null
           created_at?: string | null
           current_stock?: number | null
+          gl_cogs_account_id?: string | null
+          gl_inventory_account_id?: string | null
+          gl_revenue_account_id?: string | null
           id?: string
           internal_product_id?: string | null
           is_active?: boolean | null
           last_calculated_at?: string | null
+          lead_time_days?: number | null
+          max_stock?: number | null
+          min_stock?: number | null
           product_name?: string
+          reorder_point?: number | null
           selling_price?: number | null
           sku?: string
           subcategory?: string | null
+          supplier_id?: string | null
           tenant_id?: string
           total_profit?: number | null
           total_revenue?: number | null
           total_sold?: number | null
+          unit?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "product_master_internal_product_id_fkey"
-            columns: ["internal_product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "product_master_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      products: {
-        Row: {
-          category: string | null
-          code: string
-          cost_price: number | null
-          created_at: string
-          created_by: string | null
-          current_stock: number | null
-          description: string | null
-          gl_cogs_account_id: string | null
-          gl_inventory_account_id: string | null
-          gl_revenue_account_id: string | null
-          id: string
-          is_service: boolean | null
-          min_stock: number | null
-          name: string
-          status: string | null
-          tenant_id: string | null
-          unit: string | null
-          unit_price: number | null
-          updated_at: string
-          vat_rate: number | null
-        }
-        Insert: {
-          category?: string | null
-          code: string
-          cost_price?: number | null
-          created_at?: string
-          created_by?: string | null
-          current_stock?: number | null
-          description?: string | null
-          gl_cogs_account_id?: string | null
-          gl_inventory_account_id?: string | null
-          gl_revenue_account_id?: string | null
-          id?: string
-          is_service?: boolean | null
-          min_stock?: number | null
-          name: string
-          status?: string | null
-          tenant_id?: string | null
-          unit?: string | null
-          unit_price?: number | null
-          updated_at?: string
-          vat_rate?: number | null
-        }
-        Update: {
-          category?: string | null
-          code?: string
-          cost_price?: number | null
-          created_at?: string
-          created_by?: string | null
-          current_stock?: number | null
-          description?: string | null
-          gl_cogs_account_id?: string | null
-          gl_inventory_account_id?: string | null
-          gl_revenue_account_id?: string | null
-          id?: string
-          is_service?: boolean | null
-          min_stock?: number | null
-          name?: string
-          status?: string | null
-          tenant_id?: string | null
-          unit?: string | null
-          unit_price?: number | null
-          updated_at?: string
-          vat_rate?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "products_gl_cogs_account_id_fkey"
-            columns: ["gl_cogs_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_gl_cogs_account_id_fkey"
-            columns: ["gl_cogs_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "products_gl_inventory_account_id_fkey"
-            columns: ["gl_inventory_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_gl_inventory_account_id_fkey"
-            columns: ["gl_inventory_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "products_gl_revenue_account_id_fkey"
-            columns: ["gl_revenue_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_gl_revenue_account_id_fkey"
-            columns: ["gl_revenue_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "products_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -7614,114 +7349,6 @@ export type Database = {
           },
         ]
       }
-      vendor_credit_notes: {
-        Row: {
-          bill_id: string | null
-          created_at: string
-          created_by: string | null
-          credit_note_date: string
-          credit_note_number: string
-          currency_code: string | null
-          description: string | null
-          exchange_rate: number | null
-          id: string
-          journal_entry_id: string | null
-          notes: string | null
-          reason: string
-          status: string
-          subtotal: number
-          tenant_id: string
-          total_amount: number
-          total_amount_base: number | null
-          updated_at: string
-          vat_amount: number
-          vendor_credit_note_number: string | null
-          vendor_id: string | null
-        }
-        Insert: {
-          bill_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          credit_note_date?: string
-          credit_note_number: string
-          currency_code?: string | null
-          description?: string | null
-          exchange_rate?: number | null
-          id?: string
-          journal_entry_id?: string | null
-          notes?: string | null
-          reason: string
-          status?: string
-          subtotal?: number
-          tenant_id: string
-          total_amount?: number
-          total_amount_base?: number | null
-          updated_at?: string
-          vat_amount?: number
-          vendor_credit_note_number?: string | null
-          vendor_id?: string | null
-        }
-        Update: {
-          bill_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          credit_note_date?: string
-          credit_note_number?: string
-          currency_code?: string | null
-          description?: string | null
-          exchange_rate?: number | null
-          id?: string
-          journal_entry_id?: string | null
-          notes?: string | null
-          reason?: string
-          status?: string
-          subtotal?: number
-          tenant_id?: string
-          total_amount?: number
-          total_amount_base?: number | null
-          updated_at?: string
-          vat_amount?: number
-          vendor_credit_note_number?: string | null
-          vendor_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vendor_credit_notes_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "ap_aging"
-            referencedColumns: ["bill_id"]
-          },
-          {
-            foreignKeyName: "vendor_credit_notes_bill_id_fkey"
-            columns: ["bill_id"]
-            isOneToOne: false
-            referencedRelation: "bills"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_credit_notes_journal_entry_id_fkey"
-            columns: ["journal_entry_id"]
-            isOneToOne: false
-            referencedRelation: "journal_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_credit_notes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendor_credit_notes_vendor_id_fkey"
-            columns: ["vendor_id"]
-            isOneToOne: false
-            referencedRelation: "vendors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       vendor_payments: {
         Row: {
           amount: number
@@ -8315,6 +7942,173 @@ export type Database = {
           },
         ]
       }
+      credit_notes_view: {
+        Row: {
+          applied_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          direction: string | null
+          discount_amount: number | null
+          due_date: string | null
+          exchange_rate: number | null
+          gl_account_id: string | null
+          id: string | null
+          metadata: Json | null
+          note_date: string | null
+          note_number: string | null
+          note_type: string | null
+          notes: string | null
+          original_bill_id: string | null
+          original_invoice_id: string | null
+          original_order_id: string | null
+          party_address: string | null
+          party_email: string | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_code: string | null
+          reason: string | null
+          reference_number: string | null
+          remaining_amount: number | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          tenant_id: string | null
+          terms: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string | null
+          metadata?: Json | null
+          note_date?: string | null
+          note_number?: string | null
+          note_type?: string | null
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string | null
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string | null
+          metadata?: Json | null
+          note_date?: string | null
+          note_number?: string | null
+          note_type?: string | null
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string | null
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_aging"
+            referencedColumns: ["bill_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_aging"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_channel_revenue: {
         Row: {
           channel: string | null
@@ -8336,32 +8130,166 @@ export type Database = {
           },
         ]
       }
-      invoice_adjustments_summary: {
+      debit_notes_view: {
         Row: {
-          balance_due: number | null
-          credit_note_count: number | null
-          customer_id: string | null
-          customer_name: string | null
-          debit_note_count: number | null
-          invoice_id: string | null
-          invoice_number: string | null
-          net_amount: number | null
-          original_amount: number | null
-          paid_amount: number | null
+          applied_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          direction: string | null
+          discount_amount: number | null
+          due_date: string | null
+          exchange_rate: number | null
+          gl_account_id: string | null
+          id: string | null
+          metadata: Json | null
+          note_date: string | null
+          note_number: string | null
+          note_type: string | null
+          notes: string | null
+          original_bill_id: string | null
+          original_invoice_id: string | null
+          original_order_id: string | null
+          party_address: string | null
+          party_email: string | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_code: string | null
+          reason: string | null
+          reference_number: string | null
+          remaining_amount: number | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
           tenant_id: string | null
-          total_credit_notes: number | null
-          total_debit_notes: number | null
+          terms: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string | null
+          metadata?: Json | null
+          note_date?: string | null
+          note_number?: string | null
+          note_type?: string | null
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string | null
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string | null
+          metadata?: Json | null
+          note_date?: string | null
+          note_number?: string | null
+          note_type?: string | null
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string | null
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "invoices_customer_id_fkey"
-            columns: ["customer_id"]
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
             isOneToOne: false
-            referencedRelation: "customers"
+            referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "invoices_tenant_id_fkey"
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_aging"
+            referencedColumns: ["bill_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_aging"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -8423,6 +8351,173 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "gl_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_credit_notes_view: {
+        Row: {
+          applied_amount: number | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          description: string | null
+          direction: string | null
+          discount_amount: number | null
+          due_date: string | null
+          exchange_rate: number | null
+          gl_account_id: string | null
+          id: string | null
+          metadata: Json | null
+          note_date: string | null
+          note_number: string | null
+          note_type: string | null
+          notes: string | null
+          original_bill_id: string | null
+          original_invoice_id: string | null
+          original_order_id: string | null
+          party_address: string | null
+          party_email: string | null
+          party_id: string | null
+          party_name: string | null
+          party_tax_code: string | null
+          reason: string | null
+          reference_number: string | null
+          remaining_amount: number | null
+          status: string | null
+          subtotal: number | null
+          tax_amount: number | null
+          tenant_id: string | null
+          terms: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string | null
+          metadata?: Json | null
+          note_date?: string | null
+          note_number?: string | null
+          note_type?: string | null
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string | null
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          applied_amount?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          description?: string | null
+          direction?: string | null
+          discount_amount?: number | null
+          due_date?: string | null
+          exchange_rate?: number | null
+          gl_account_id?: string | null
+          id?: string | null
+          metadata?: Json | null
+          note_date?: string | null
+          note_number?: string | null
+          note_type?: string | null
+          notes?: string | null
+          original_bill_id?: string | null
+          original_invoice_id?: string | null
+          original_order_id?: string | null
+          party_address?: string | null
+          party_email?: string | null
+          party_id?: string | null
+          party_name?: string | null
+          party_tax_code?: string | null
+          reason?: string | null
+          reference_number?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          subtotal?: number | null
+          tax_amount?: number | null
+          tenant_id?: string | null
+          terms?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
+            columns: ["gl_account_id"]
+            isOneToOne: false
+            referencedRelation: "trial_balance"
+            referencedColumns: ["account_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_aging"
+            referencedColumns: ["bill_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_aging"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
