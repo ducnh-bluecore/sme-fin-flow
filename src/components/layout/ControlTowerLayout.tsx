@@ -84,7 +84,7 @@ export function ControlTowerLayout() {
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', activeTenant.id)
-        .in('status', ['pending', 'in_progress']);
+        .in('status', ['todo', 'pending', 'in_progress']);
       return count || 0;
     },
     enabled: !!activeTenant?.id,
