@@ -40,7 +40,7 @@ import {
 } from '@/hooks/useIntelligentAlertRules';
 import { useSeedAlertRules } from '@/hooks/useMultiChannelAlertRules';
 import CreateRuleDialog from '@/components/alerts/CreateRuleDialog';
-
+import EditRuleParamsDialog from '@/components/alerts/EditRuleParamsDialog';
 // Icons mapping
 const categoryIcons: Record<AlertCategory, typeof Package> = {
   product: Package,
@@ -89,8 +89,16 @@ function formatThresholdConfig(config: IntelligentAlertRule['threshold_config'])
   );
 }
 
-// Intelligent Rule Card Component
-function IntelligentRuleCard({ rule, onToggle }: { rule: IntelligentAlertRule; onToggle: (id: string, enabled: boolean) => void }) {
+// Intelligent Rule Card Component (for pre-built rules)
+function IntelligentRuleCard({ 
+  rule, 
+  onToggle,
+  onEdit,
+}: { 
+  rule: IntelligentAlertRule; 
+  onToggle: (id: string, enabled: boolean) => void;
+  onEdit: (rule: IntelligentAlertRule) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const sevConfig = severityLabels[rule.severity] || severityLabels.info;
   
@@ -133,7 +141,18 @@ function IntelligentRuleCard({ rule, onToggle }: { rule: IntelligentAlertRule; o
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(rule);
+              }}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
             <Switch
               checked={rule.is_enabled}
               onCheckedChange={(checked) => {
@@ -242,6 +261,21 @@ function IntelligentRuleCard({ rule, onToggle }: { rule: IntelligentAlertRule; o
                   </div>
                 )}
               </div>
+              
+              {/* Edit Button */}
+              <div className="pt-2 border-t border-border/50">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(rule);
+                  }}
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Chỉnh tham số
+                </Button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -284,6 +318,8 @@ export default function KPINotificationRulesPage() {
   const [editingRecipient, setEditingRecipient] = useState<Partial<NotificationRecipient> & { name?: string; role?: string } | null>(null);
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [createRuleDialogOpen, setCreateRuleDialogOpen] = useState(false);
+  const [editRuleDialogOpen, setEditRuleDialogOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<IntelligentAlertRule | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['fulfillment', 'inventory', 'revenue', 'service']);
   const [localConfigs, setLocalConfigs] = useState<AlertConfig[]>([]);
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
@@ -308,6 +344,7 @@ export default function KPINotificationRulesPage() {
     isLoading: isRulesLoading,
     stats: rulesStats,
     toggleRule,
+    updateRule,
     createRule,
   } = useIntelligentAlertRules();
 
@@ -651,6 +688,10 @@ export default function KPINotificationRulesPage() {
                                 key={rule.id} 
                                 rule={rule} 
                                 onToggle={handleToggleIntelligentRule}
+                                onEdit={(r) => {
+                                  setEditingRule(r);
+                                  setEditRuleDialogOpen(true);
+                                }}
                               />
                             ))}
                           </CardContent>
@@ -1055,6 +1096,22 @@ export default function KPINotificationRulesPage() {
       <CreateRuleDialog 
         open={createRuleDialogOpen} 
         onOpenChange={setCreateRuleDialogOpen} 
+      />
+
+      {/* Edit Rule Params Dialog */}
+      <EditRuleParamsDialog
+        open={editRuleDialogOpen}
+        onOpenChange={setEditRuleDialogOpen}
+        rule={editingRule}
+        onSave={(updates) => {
+          updateRule.mutate(updates, {
+            onSuccess: () => {
+              setEditRuleDialogOpen(false);
+              setEditingRule(null);
+            }
+          });
+        }}
+        isPending={updateRule.isPending}
       />
     </>
   );

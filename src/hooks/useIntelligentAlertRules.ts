@@ -184,7 +184,15 @@ export function useIntelligentAlertRules() {
 
   // Update rule
   const updateRule = useMutation({
-    mutationFn: async (rule: { id: string; is_enabled?: boolean; severity?: string; priority?: number; description?: string }) => {
+    mutationFn: async (rule: { 
+      id: string; 
+      is_enabled?: boolean; 
+      severity?: string; 
+      priority?: number; 
+      description?: string;
+      threshold_config?: Record<string, any>;
+      cooldown_hours?: number;
+    }) => {
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
       };
@@ -192,6 +200,8 @@ export function useIntelligentAlertRules() {
       if (rule.severity !== undefined) updateData.severity = rule.severity;
       if (rule.priority !== undefined) updateData.priority = rule.priority;
       if (rule.description !== undefined) updateData.description = rule.description;
+      if (rule.threshold_config !== undefined) updateData.threshold_config = rule.threshold_config;
+      if (rule.cooldown_hours !== undefined) updateData.cooldown_hours = rule.cooldown_hours;
 
       const { data, error } = await supabase
         .from('intelligent_alert_rules')
