@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { 
   Settings, Bell, Plus, Search, Filter, Trash2, Edit2,
   Mail, MessageSquare, Phone, AlertTriangle, AlertCircle, Info,
@@ -278,9 +279,11 @@ export default function KPINotificationRulesPage() {
   const [activeTab, setActiveTab] = useState('intelligent');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('enabled'); // 'all' | 'enabled' | 'disabled'
   const [editingRecipient, setEditingRecipient] = useState<Partial<NotificationRecipient> & { name?: string; role?: string } | null>(null);
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['kpi', 'cashflow', 'product']);
+  const [createRuleDialogOpen, setCreateRuleDialogOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['fulfillment', 'inventory', 'revenue', 'service']);
   const [localConfigs, setLocalConfigs] = useState<AlertConfig[]>([]);
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
 
@@ -304,7 +307,17 @@ export default function KPINotificationRulesPage() {
     isLoading: isRulesLoading,
     stats: rulesStats,
     toggleRule,
+    createRule,
   } = useIntelligentAlertRules();
+
+  // New rule form state
+  const [newRule, setNewRule] = useState({
+    rule_code: '',
+    rule_name: '',
+    description: '',
+    rule_category: 'fulfillment',
+    severity: 'warning',
+  });
 
   // Sync local configs with server data
   useEffect(() => {
@@ -415,7 +428,10 @@ export default function KPINotificationRulesPage() {
                        r.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                        r.rule_code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchCategory = categoryFilter === 'all' || r.rule_category === categoryFilter;
-    return matchSearch && matchCategory;
+    const matchStatus = statusFilter === 'all' || 
+                       (statusFilter === 'enabled' && r.is_enabled) ||
+                       (statusFilter === 'disabled' && !r.is_enabled);
+    return matchSearch && matchCategory && matchStatus;
   });
 
   // Group filtered intelligent rules by category
@@ -552,6 +568,17 @@ export default function KPINotificationRulesPage() {
                       className="pl-10"
                     />
                   </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[160px]">
+                      <ToggleRight className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="enabled">Đang bật</SelectItem>
+                      <SelectItem value="disabled">Đã tắt</SelectItem>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-[200px]">
                       <Filter className="h-4 w-4 mr-2" />
@@ -564,6 +591,10 @@ export default function KPINotificationRulesPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <Button onClick={() => setCreateRuleDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Tạo rule
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1021,6 +1052,99 @@ export default function KPINotificationRulesPage() {
             <Button onClick={handleSaveRecipient} disabled={saveRecipient.isPending}>
               {saveRecipient.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Rule Dialog */}
+      <Dialog open={createRuleDialogOpen} onOpenChange={setCreateRuleDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Tạo Rule mới</DialogTitle>
+            <DialogDescription>
+              Tạo quy tắc cảnh báo tùy chỉnh cho hệ thống
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Mã rule *</Label>
+                <Input
+                  value={newRule.rule_code}
+                  onChange={(e) => setNewRule(prev => ({ ...prev, rule_code: e.target.value.toUpperCase().replace(/\s/g, '_') }))}
+                  placeholder="VD: LOW_STOCK_ALERT"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Mức độ *</Label>
+                <Select 
+                  value={newRule.severity} 
+                  onValueChange={(v) => setNewRule(prev => ({ ...prev, severity: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="critical">🔴 Nguy cấp</SelectItem>
+                    <SelectItem value="warning">🟡 Cảnh báo</SelectItem>
+                    <SelectItem value="info">🔵 Thông tin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Tên rule *</Label>
+              <Input
+                value={newRule.rule_name}
+                onChange={(e) => setNewRule(prev => ({ ...prev, rule_name: e.target.value }))}
+                placeholder="VD: Cảnh báo tồn kho thấp"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Danh mục *</Label>
+              <Select 
+                value={newRule.rule_category} 
+                onValueChange={(v) => setNewRule(prev => ({ ...prev, rule_category: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ruleCategoryLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Mô tả</Label>
+              <Input
+                value={newRule.description}
+                onChange={(e) => setNewRule(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Mô tả ngắn về rule này..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateRuleDialogOpen(false)}>Hủy</Button>
+            <Button 
+              onClick={() => {
+                if (!newRule.rule_code || !newRule.rule_name) {
+                  toast.error('Vui lòng nhập mã và tên rule');
+                  return;
+                }
+                createRule.mutate(newRule, {
+                  onSuccess: () => {
+                    setCreateRuleDialogOpen(false);
+                    setNewRule({ rule_code: '', rule_name: '', description: '', rule_category: 'fulfillment', severity: 'warning' });
+                  }
+                });
+              }} 
+              disabled={createRule.isPending}
+            >
+              {createRule.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Tạo rule
             </Button>
           </DialogFooter>
         </DialogContent>
