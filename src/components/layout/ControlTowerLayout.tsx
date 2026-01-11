@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -30,30 +30,37 @@ import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
+import { useActiveAlertsCount } from '@/hooks/useNotificationCenter';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-interface NavItem {
+interface NavItemConfig {
   id: string;
   label: string;
   icon: React.ElementType;
   path: string;
+  badgeKey?: string;
+}
+
+interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
-const navItems: NavItem[] = [
+const navItemsConfig: NavItemConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/control-tower' },
-  { id: 'notifications', label: 'Thông báo', icon: Bell, path: '/control-tower/notifications', badge: 5 },
+  { id: 'notifications', label: 'Thông báo', icon: Bell, path: '/control-tower/notifications' },
   { id: 'kpi-rules', label: 'Rules KPI', icon: Target, path: '/control-tower/kpi-rules' },
-  { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badge: 12 },
-  { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badge: 3 },
+  { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
+  { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
   { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
   { id: 'stores', label: 'Cửa hàng', icon: Store, path: '/control-tower/stores' },
   { id: 'inventory', label: 'Tồn kho', icon: Package, path: '/control-tower/inventory' },
   { id: 'performance', label: 'Hiệu suất', icon: TrendingUp, path: '/control-tower/performance' },
   { id: 'team', label: 'Đội ngũ', icon: Users, path: '/control-tower/team' },
-  { id: 'chat', label: 'Tin nhắn', icon: MessageSquare, path: '/control-tower/chat', badge: 2 },
+  { id: 'chat', label: 'Tin nhắn', icon: MessageSquare, path: '/control-tower/chat' },
 ];
 
-const bottomNavItems: NavItem[] = [
+const bottomNavItemsConfig: NavItemConfig[] = [
   { id: 'settings', label: 'Cài đặt', icon: Settings, path: '/control-tower/settings' },
 ];
 
@@ -65,6 +72,39 @@ export function ControlTowerLayout() {
   const { t } = useLanguage();
   const { activeTenant } = useTenantContext();
 
+  // Fetch real counts from database
+  const { data: alertsData } = useActiveAlertsCount();
+  const activeAlertsCount = alertsData?.total ?? 0;
+  
+  const { data: pendingTasksCount = 0 } = useQuery({
+    queryKey: ['pending-tasks-count', activeTenant?.id],
+    queryFn: async () => {
+      if (!activeTenant?.id) return 0;
+      const { count } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', activeTenant.id)
+        .in('status', ['pending', 'in_progress']);
+      return count || 0;
+    },
+    enabled: !!activeTenant?.id,
+  });
+
+  // Build navItems with real badge counts
+  const navItems = useMemo((): NavItemWithBadge[] => {
+    const badgeCounts: Record<string, number> = {
+      alerts: activeAlertsCount,
+      tasks: pendingTasksCount,
+    };
+    
+    return navItemsConfig.map(item => ({
+      ...item,
+      badge: item.badgeKey ? badgeCounts[item.badgeKey] : undefined,
+    }));
+  }, [activeAlertsCount, pendingTasksCount]);
+
+  const bottomNavItems: NavItemWithBadge[] = bottomNavItemsConfig.map(item => ({ ...item }));
+
   const isActive = (path: string) => {
     if (path === '/control-tower') {
       return location.pathname === '/control-tower';
@@ -72,7 +112,7 @@ export function ControlTowerLayout() {
     return location.pathname.startsWith(path);
   };
 
-  const NavLink = ({ item }: { item: NavItem }) => (
+  const NavLink = ({ item }: { item: NavItemWithBadge }) => (
     <motion.button
       whileHover={{ x: 4 }}
       whileTap={{ scale: 0.98 }}
