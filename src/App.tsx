@@ -87,20 +87,20 @@ const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 
-// Control Tower pages
-const ControlTowerDashboard = lazy(() => import("./pages/control-tower/ControlTowerDashboard"));
-const CTNotificationsPage = lazy(() => import("./pages/control-tower/NotificationsPage"));
-const CTTasksPage = lazy(() => import("./pages/control-tower/TasksPage"));
-const CTAlertsPage = lazy(() => import("./pages/control-tower/AlertsPage"));
-const CTAnalyticsPage = lazy(() => import("./pages/control-tower/AnalyticsPage"));
-const CTKPIRulesPage = lazy(() => import("./pages/control-tower/KPINotificationRulesPage"));
-const CTIntelligentRulesPage = lazy(() => import("./pages/control-tower/IntelligentRulesPage"));
-const CTStoresPage = lazy(() => import("./pages/control-tower/StoresPage"));
-const CTInventoryPage = lazy(() => import("./pages/control-tower/InventoryPage"));
-const CTPerformancePage = lazy(() => import("./pages/control-tower/PerformancePage"));
-const CTTeamPage = lazy(() => import("./pages/control-tower/TeamPage"));
-const CTChatPage = lazy(() => import("./pages/control-tower/ChatPage"));
-const CTSettingsPage = lazy(() => import("./pages/control-tower/SettingsPage"));
+// Control Tower pages - Eager loaded for smooth navigation
+import ControlTowerDashboard from "./pages/control-tower/ControlTowerDashboard";
+import CTNotificationsPage from "./pages/control-tower/NotificationsPage";
+import CTTasksPage from "./pages/control-tower/TasksPage";
+import CTAlertsPage from "./pages/control-tower/AlertsPage";
+import CTAnalyticsPage from "./pages/control-tower/AnalyticsPage";
+import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
+import CTIntelligentRulesPage from "./pages/control-tower/IntelligentRulesPage";
+import CTStoresPage from "./pages/control-tower/StoresPage";
+import CTInventoryPage from "./pages/control-tower/InventoryPage";
+import CTPerformancePage from "./pages/control-tower/PerformancePage";
+import CTTeamPage from "./pages/control-tower/TeamPage";
+import CTChatPage from "./pages/control-tower/ChatPage";
+import CTSettingsPage from "./pages/control-tower/SettingsPage";
 
 // Mobile App pages
 const MobileLayout = lazy(() => import("./pages/mobile/MobileLayout"));
