@@ -17,7 +17,9 @@ import {
   Loader2,
   RefreshCw,
   ExternalLink,
-  List
+  List,
+  CheckSquare,
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +30,7 @@ import { useNotificationCenter, AlertInstance, categoryLabels } from '@/hooks/us
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
+import { CreateTaskFromAlertDialog } from '@/components/alerts/CreateTaskFromAlertDialog';
 
 const typeConfig = {
   critical: { 
@@ -72,11 +75,12 @@ const categoryIcons: Record<string, React.ElementType> = {
   other: Bell,
 };
 
-function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails }: { 
+function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTask }: { 
   alert: AlertInstance; 
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onViewDetails?: (alert: AlertInstance) => void;
+  onCreateTask?: (alert: AlertInstance) => void;
 }) {
   const severity = alert.severity as keyof typeof typeConfig;
   const typeConf = typeConfig[severity] || typeConfig.warning;
@@ -189,23 +193,45 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails }: {
 
           {/* Actions */}
           {alert.status === 'active' && (
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex flex-wrap items-center gap-2 mt-3">
               {isSummaryAlert && onViewDetails ? (
-                <Button 
-                  size="sm" 
-                  className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
-                  onClick={() => onViewDetails(alert)}
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  Xem {affectedCount} sản phẩm
-                </Button>
+                <>
+                  <Button 
+                    size="sm" 
+                    className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
+                    onClick={() => onViewDetails(alert)}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Xem {affectedCount} sản phẩm
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
+                    onClick={() => onResolve(alert.id)}
+                  >
+                    <Zap className="h-3 w-3 mr-1" />
+                    Xử lý ngay
+                  </Button>
+                </>
               ) : (
                 <Button 
                   size="sm" 
                   className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
                   onClick={() => onResolve(alert.id)}
                 >
+                  <Zap className="h-3 w-3 mr-1" />
                   Xử lý ngay
+                </Button>
+              )}
+              {onCreateTask && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 text-xs"
+                  onClick={() => onCreateTask(alert)}
+                >
+                  <CheckSquare className="h-3 w-3 mr-1" />
+                  Tạo task
                 </Button>
               )}
               <Button 
@@ -219,7 +245,7 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails }: {
             </div>
           )}
           {alert.status === 'acknowledged' && (
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex flex-wrap items-center gap-2 mt-3">
               {isSummaryAlert && onViewDetails ? (
                 <Button 
                   size="sm" 
@@ -231,6 +257,17 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails }: {
                   Xem danh sách
                 </Button>
               ) : null}
+              {onCreateTask && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 text-xs"
+                  onClick={() => onCreateTask(alert)}
+                >
+                  <CheckSquare className="h-3 w-3 mr-1" />
+                  Tạo task
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
@@ -250,6 +287,8 @@ export default function AlertsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
   const [showProductsDialog, setShowProductsDialog] = useState(false);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [taskAlert, setTaskAlert] = useState<AlertInstance | null>(null);
   
   const { 
     instances, 
@@ -271,6 +310,11 @@ export default function AlertsPage() {
   const handleViewDetails = (alert: AlertInstance) => {
     setSelectedAlert(alert);
     setShowProductsDialog(true);
+  };
+
+  const handleCreateTask = (alert: AlertInstance) => {
+    setTaskAlert(alert);
+    setShowTaskDialog(true);
   };
 
   const filteredAlerts = useMemo(() => {
@@ -438,6 +482,7 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
+                  onCreateTask={handleCreateTask}
                 />
               ))
             )}
@@ -457,6 +502,7 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
+                  onCreateTask={handleCreateTask}
                 />
               ))
             )}
@@ -476,6 +522,7 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
+                  onCreateTask={handleCreateTask}
                 />
               ))
             )}
@@ -495,6 +542,7 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
+                  onCreateTask={handleCreateTask}
                 />
               ))
             )}
@@ -511,6 +559,13 @@ export default function AlertsPage() {
           totalCount={(selectedAlert as any).calculation_details?.total_affected || selectedAlert.current_value || 0}
         />
       )}
+
+      {/* Create Task Dialog */}
+      <CreateTaskFromAlertDialog
+        open={showTaskDialog}
+        onOpenChange={setShowTaskDialog}
+        alert={taskAlert}
+      />
     </>
   );
 }
