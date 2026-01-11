@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,10 +10,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { useAlerts } from '@/hooks/useAlertsData';
+import { useActiveAlertsCount } from '@/hooks/useNotificationCenter';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -21,9 +22,11 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
-  const { data: alerts = [], isLoading } = useAlerts();
+  const { data, isLoading } = useActiveAlertsCount();
+  const activeCount = data?.total || 0;
+  const criticalCount = data?.critical || 0;
   const { t } = useLanguage();
-  const unacknowledgedAlerts = alerts.filter((a) => !a.is_read).length;
+  const navigate = useNavigate();
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30">
@@ -62,65 +65,68 @@ export function Header({ onMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="w-5 h-5" />
-                {unacknowledgedAlerts > 0 && (
+                {activeCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-medium"
+                    className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium ${
+                      criticalCount > 0 
+                        ? 'bg-destructive text-destructive-foreground animate-pulse' 
+                        : 'bg-warning text-warning-foreground'
+                    }`}
                   >
-                    {unacknowledgedAlerts}
+                    {activeCount}
                   </motion.span>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
               <div className="p-3 border-b border-border">
-                <h4 className="font-semibold">{t('header.alerts')}</h4>
+                <h4 className="font-semibold flex items-center gap-2">
+                  {t('header.alerts')}
+                  {criticalCount > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {criticalCount} nghiêm trọng
+                    </Badge>
+                  )}
+                </h4>
                 <p className="text-xs text-muted-foreground">
-                  {unacknowledgedAlerts} {t('header.unreadAlerts')}
+                  {activeCount} {t('header.unreadAlerts')}
                 </p>
               </div>
-              <div className="max-h-64 overflow-auto">
+              <div className="p-4">
                 {isLoading ? (
-                  <div className="p-4 text-center text-muted-foreground text-sm">
+                  <div className="text-center text-muted-foreground text-sm">
                     {t('common.loading')}
                   </div>
-                ) : alerts.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground text-sm">
-                    {t('header.noAlerts')}
+                ) : activeCount === 0 ? (
+                  <div className="text-center py-4">
+                    <CheckCircle className="w-10 h-10 text-success/50 mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm">{t('header.noAlerts')}</p>
                   </div>
                 ) : (
-                  alerts.slice(0, 5).map((alert) => (
-                    <DropdownMenuItem
-                      key={alert.id}
-                      className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        <Badge
-                          variant={
-                            alert.severity === 'high'
-                              ? 'destructive'
-                              : alert.severity === 'medium'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                          className="text-[10px] px-1.5"
-                        >
-                          {alert.severity === 'high' ? t('header.high') : alert.severity === 'medium' ? t('header.medium') : t('header.low')}
-                        </Badge>
-                        <span className="text-sm font-medium flex-1 truncate">
-                          {alert.title}
+                  <div className="space-y-2">
+                    {criticalCount > 0 && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                        <span className="text-sm text-destructive font-medium">
+                          {criticalCount} cảnh báo nghiêm trọng cần xử lý
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {alert.message}
-                      </p>
-                    </DropdownMenuItem>
-                  ))
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Có {activeCount} cảnh báo đang chờ xử lý
+                    </p>
+                  </div>
                 )}
               </div>
               <div className="p-2 border-t border-border">
-                <Button variant="ghost" size="sm" className="w-full">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => navigate('/control-tower/alerts')}
+                >
                   {t('header.viewAllAlerts')}
                 </Button>
               </div>

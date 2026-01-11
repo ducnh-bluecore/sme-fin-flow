@@ -49,15 +49,7 @@ export interface CashForecast {
   forecast_type: string | null;
 }
 
-export interface Alert {
-  id: string;
-  alert_type: string;
-  severity: string | null;
-  title: string;
-  message: string | null;
-  is_read: boolean | null;
-  created_at: string;
-}
+// Alert interface moved to useNotificationCenter.ts - use AlertInstance instead
 
 export interface InvoiceWithCustomer {
   id: string;
@@ -301,28 +293,10 @@ export function useCashForecasts() {
   });
 }
 
-// Fetch Alerts
-export function useAlerts() {
-  const { data: tenantId } = useActiveTenantId();
-
-  return useQuery({
-    queryKey: ['alerts-all', tenantId],
-    queryFn: async (): Promise<Alert[]> => {
-      if (!tenantId) return [];
-
-      const { data, error } = await supabase
-        .from('alerts')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 30000,
-    enabled: !!tenantId,
-  });
-}
+// DEPRECATED: useAlerts moved to useNotificationCenter
+// Use useNotificationCenter or useActiveAlertsCount instead
+// This re-export is kept for backward compatibility but will be removed
+export { useActiveAlertsCount as useAlerts } from './useNotificationCenter';
 
 // Fetch Overdue Invoices - Note: No date range filter as overdue invoices may have old issue dates
 export function useOverdueInvoices(limit?: number) {
