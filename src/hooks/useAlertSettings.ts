@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActiveTenantId } from './useActiveTenantId';
 
+// Chuẩn hóa severity: critical, warning, info (thay thế high, medium, low)
 export interface AlertTypeConfig {
   enabled: boolean;
   threshold?: number;
-  severity: 'high' | 'medium' | 'low';
+  severity: 'critical' | 'warning' | 'info';
 }
 
 export interface AlertConfigs {
@@ -46,11 +47,11 @@ export interface AlertSettingsInput {
 }
 
 const defaultAlertConfigs: AlertConfigs = {
-  cash_critical: { enabled: true, threshold: 100000000, severity: 'high' },
-  ar_overdue: { enabled: true, threshold: 30, severity: 'high' },
-  data_quality: { enabled: true, severity: 'medium' },
-  reconciliation: { enabled: true, threshold: 7, severity: 'medium' },
-  risk: { enabled: true, severity: 'high' },
+  cash_critical: { enabled: true, threshold: 100000000, severity: 'critical' },
+  ar_overdue: { enabled: true, threshold: 30, severity: 'critical' },
+  data_quality: { enabled: true, severity: 'warning' },
+  reconciliation: { enabled: true, threshold: 7, severity: 'warning' },
+  risk: { enabled: true, severity: 'critical' },
 };
 
 const defaultSettings: AlertSettingsInput = {

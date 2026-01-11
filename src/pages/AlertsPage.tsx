@@ -56,21 +56,22 @@ const typeLabels: Record<string, string> = {
   risk: 'Rủi ro',
 };
 
+// Chuẩn hóa severity: critical, warning, info
 const severityConfig: Record<string, any> = {
-  high: {
-    badge: 'Cao',
+  critical: {
+    badge: 'Nguy cấp',
     bgClass: 'bg-destructive/10 border-destructive/20',
     iconClass: 'text-destructive',
     headerClass: 'border-l-destructive',
   },
-  medium: {
-    badge: 'Trung bình',
+  warning: {
+    badge: 'Cảnh báo',
     bgClass: 'bg-warning/10 border-warning/20',
     iconClass: 'text-warning',
     headerClass: 'border-l-warning',
   },
-  low: {
-    badge: 'Thấp',
+  info: {
+    badge: 'Thông tin',
     bgClass: 'bg-info/10 border-info/20',
     iconClass: 'text-info',
     headerClass: 'border-l-info',
@@ -113,24 +114,24 @@ export default function AlertsPage() {
     }
   }, [datePreset, dateRange]);
 
-  // Generate chart data from real alerts
+  // Generate chart data from real alerts - using standardized severity: critical, warning, info
   const chartData = chartPeriod === 'week' 
     ? [
-        { name: 'T2', high: Math.floor(stats.high * 0.15), medium: Math.floor(stats.medium * 0.12), low: Math.floor(stats.low * 0.1) },
-        { name: 'T3', high: Math.floor(stats.high * 0.1), medium: Math.floor(stats.medium * 0.15), low: Math.floor(stats.low * 0.15) },
-        { name: 'T4', high: Math.floor(stats.high * 0.2), medium: Math.floor(stats.medium * 0.18), low: Math.floor(stats.low * 0.05) },
-        { name: 'T5', high: Math.floor(stats.high * 0.05), medium: Math.floor(stats.medium * 0.12), low: Math.floor(stats.low * 0.2) },
-        { name: 'T6', high: Math.floor(stats.high * 0.25), medium: Math.floor(stats.medium * 0.22), low: Math.floor(stats.low * 0.1) },
-        { name: 'T7', high: Math.floor(stats.high * 0.15), medium: Math.floor(stats.medium * 0.12), low: Math.floor(stats.low * 0.25) },
-        { name: 'CN', high: Math.floor(stats.high * 0.1), medium: Math.floor(stats.medium * 0.09), low: Math.floor(stats.low * 0.15) },
+        { name: 'T2', critical: Math.floor(stats.critical * 0.15), warning: Math.floor(stats.warning * 0.12), info: Math.floor(stats.info * 0.1) },
+        { name: 'T3', critical: Math.floor(stats.critical * 0.1), warning: Math.floor(stats.warning * 0.15), info: Math.floor(stats.info * 0.15) },
+        { name: 'T4', critical: Math.floor(stats.critical * 0.2), warning: Math.floor(stats.warning * 0.18), info: Math.floor(stats.info * 0.05) },
+        { name: 'T5', critical: Math.floor(stats.critical * 0.05), warning: Math.floor(stats.warning * 0.12), info: Math.floor(stats.info * 0.2) },
+        { name: 'T6', critical: Math.floor(stats.critical * 0.25), warning: Math.floor(stats.warning * 0.22), info: Math.floor(stats.info * 0.1) },
+        { name: 'T7', critical: Math.floor(stats.critical * 0.15), warning: Math.floor(stats.warning * 0.12), info: Math.floor(stats.info * 0.25) },
+        { name: 'CN', critical: Math.floor(stats.critical * 0.1), warning: Math.floor(stats.warning * 0.09), info: Math.floor(stats.info * 0.15) },
       ]
     : [
-        { name: 'T1', high: stats.high * 2, medium: stats.medium * 3, low: stats.low * 2 },
-        { name: 'T2', high: stats.high * 2.5, medium: stats.medium * 2.5, low: stats.low * 2.5 },
-        { name: 'T3', high: stats.high * 1.5, medium: stats.medium * 2.2, low: stats.low * 3 },
-        { name: 'T4', high: stats.high * 3, medium: stats.medium * 3.5, low: stats.low * 1.5 },
-        { name: 'T5', high: stats.high * 2.2, medium: stats.medium * 2.8, low: stats.low * 2.2 },
-        { name: 'T6', high: stats.high, medium: stats.medium, low: stats.low },
+        { name: 'T1', critical: stats.critical * 2, warning: stats.warning * 3, info: stats.info * 2 },
+        { name: 'T2', critical: stats.critical * 2.5, warning: stats.warning * 2.5, info: stats.info * 2.5 },
+        { name: 'T3', critical: stats.critical * 1.5, warning: stats.warning * 2.2, info: stats.info * 3 },
+        { name: 'T4', critical: stats.critical * 3, warning: stats.warning * 3.5, info: stats.info * 1.5 },
+        { name: 'T5', critical: stats.critical * 2.2, warning: stats.warning * 2.8, info: stats.info * 2.2 },
+        { name: 'T6', critical: stats.critical, warning: stats.warning, info: stats.info },
       ];
   
   const filteredAlerts = useMemo(() => {
@@ -284,30 +285,30 @@ export default function AlertsPage() {
                   wrapperStyle={{ paddingTop: 16 }}
                   formatter={(value) => {
                     const labels: Record<string, string> = {
-                      high: 'Nghiêm trọng',
-                      medium: 'Trung bình',
-                      low: 'Thấp'
+                      critical: 'Nguy cấp',
+                      warning: 'Cảnh báo',
+                      info: 'Thông tin'
                     };
                     return <span className="text-sm">{labels[value] || value}</span>;
                   }}
                 />
                 <Bar 
-                  dataKey="high" 
-                  name="high"
+                  dataKey="critical" 
+                  name="critical"
                   stackId="a" 
                   fill="hsl(var(--destructive))" 
                   radius={[0, 0, 0, 0]}
                 />
                 <Bar 
-                  dataKey="medium" 
-                  name="medium"
+                  dataKey="warning" 
+                  name="warning"
                   stackId="a" 
                   fill="hsl(var(--warning))" 
                   radius={[0, 0, 0, 0]}
                 />
                 <Bar 
-                  dataKey="low" 
-                  name="low"
+                  dataKey="info" 
+                  name="info"
                   stackId="a" 
                   fill="hsl(var(--info))" 
                   radius={[4, 4, 0, 0]}
@@ -319,16 +320,16 @@ export default function AlertsPage() {
           {/* Summary Stats */}
           <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border">
             <div className="text-center">
-              <div className="text-2xl font-bold text-destructive">{stats.high}</div>
-              <div className="text-xs text-muted-foreground">Nghiêm trọng</div>
+              <div className="text-2xl font-bold text-destructive">{stats.critical}</div>
+              <div className="text-xs text-muted-foreground">Nguy cấp</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-warning">{stats.medium}</div>
-              <div className="text-xs text-muted-foreground">Trung bình</div>
+              <div className="text-2xl font-bold text-warning">{stats.warning}</div>
+              <div className="text-xs text-muted-foreground">Cảnh báo</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-info">{stats.low}</div>
-              <div className="text-xs text-muted-foreground">Thấp</div>
+              <div className="text-2xl font-bold text-info">{stats.info}</div>
+              <div className="text-xs text-muted-foreground">Thông tin</div>
             </div>
           </div>
         </motion.div>
@@ -460,7 +461,7 @@ export default function AlertsPage() {
               <div className="space-y-4">
                 {Object.entries(typeLabels).map(([key, label]) => {
                   const Icon = iconMap[key] || AlertTriangle;
-                  const typeStats = stats.byType[key] || { total: 0, high: 0, unread: 0 };
+                  const typeStats = stats.byType[key] || { total: 0, critical: 0, unread: 0 };
                   
                   return (
                     <div key={key} className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
@@ -468,22 +469,22 @@ export default function AlertsPage() {
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             'w-8 h-8 rounded-lg flex items-center justify-center',
-                            typeStats.high > 0 ? 'bg-destructive/10' : 'bg-primary/10'
+                            typeStats.critical > 0 ? 'bg-destructive/10' : 'bg-primary/10'
                           )}>
                             <Icon className={cn(
                               'w-4 h-4',
-                              typeStats.high > 0 ? 'text-destructive' : 'text-primary'
+                              typeStats.critical > 0 ? 'text-destructive' : 'text-primary'
                             )} />
                           </div>
                           <span className="text-sm font-medium">{label}</span>
                         </div>
-                        <Badge variant={typeStats.high > 0 ? 'destructive' : 'outline'}>{typeStats.total}</Badge>
+                        <Badge variant={typeStats.critical > 0 ? 'destructive' : 'outline'}>{typeStats.total}</Badge>
                       </div>
                       
                       <div className="flex items-center justify-between text-xs text-muted-foreground pl-10">
                         <div className="flex items-center gap-3">
-                          {typeStats.high > 0 && (
-                            <span className="text-destructive font-medium">{typeStats.high} nghiêm trọng</span>
+                          {typeStats.critical > 0 && (
+                            <span className="text-destructive font-medium">{typeStats.critical} nguy cấp</span>
                           )}
                           {typeStats.unread > 0 && (
                             <span>{typeStats.unread} chưa đọc</span>
@@ -532,8 +533,8 @@ export default function AlertsPage() {
                 ) : (
                   filteredAlerts.map((alert, index) => {
                     const Icon = iconMap[alert.alert_type] || AlertTriangle;
-                    const severity = alert.severity || 'medium';
-                    const config = severityConfig[severity] || severityConfig.medium;
+                    const severity = alert.severity || 'warning';
+                    const config = severityConfig[severity] || severityConfig.warning;
                     
                     return (
                       <motion.div
@@ -555,7 +556,7 @@ export default function AlertsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                               <Badge
-                                variant={severity === 'high' ? 'destructive' : 'secondary'}
+                                variant={severity === 'critical' ? 'destructive' : 'secondary'}
                                 className="text-[10px]"
                               >
                                 {config.badge}

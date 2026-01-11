@@ -98,26 +98,27 @@ export function useAlertStats() {
   const stats = {
     total: 0,
     unread: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    byType: {} as Record<string, { total: number; high: number; unread: number }>,
+    // Chuẩn hóa: critical, warning, info (thay thế high, medium, low)
+    critical: 0,
+    warning: 0,
+    info: 0,
+    byType: {} as Record<string, { total: number; critical: number; unread: number }>,
   };
 
   if (alerts) {
     stats.total = alerts.length;
     alerts.forEach((alert) => {
       if (!alert.is_read) stats.unread++;
-      if (alert.severity === 'high') stats.high++;
-      if (alert.severity === 'medium') stats.medium++;
-      if (alert.severity === 'low') stats.low++;
+      if (alert.severity === 'critical') stats.critical++;
+      if (alert.severity === 'warning') stats.warning++;
+      if (alert.severity === 'info') stats.info++;
 
       const type = alert.alert_type;
       if (!stats.byType[type]) {
-        stats.byType[type] = { total: 0, high: 0, unread: 0 };
+        stats.byType[type] = { total: 0, critical: 0, unread: 0 };
       }
       stats.byType[type].total++;
-      if (alert.severity === 'high') stats.byType[type].high++;
+      if (alert.severity === 'critical') stats.byType[type].critical++;
       if (!alert.is_read) stats.byType[type].unread++;
     });
   }

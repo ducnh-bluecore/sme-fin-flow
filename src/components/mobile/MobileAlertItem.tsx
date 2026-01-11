@@ -4,11 +4,12 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+// Chuẩn hóa severity: critical, warning, info
 interface MobileAlertItemProps {
   id: string;
   title: string;
   message: string;
-  severity: 'high' | 'medium' | 'low';
+  severity: 'critical' | 'warning' | 'info';
   category: string;
   createdAt: string;
   isRead?: boolean;
@@ -24,21 +25,21 @@ export function MobileAlertItem({
   onClick,
 }: MobileAlertItemProps) {
   const severityConfig = {
-    high: {
+    critical: {
       icon: AlertTriangle,
       color: 'text-destructive',
       bg: 'bg-destructive/10',
       borderColor: 'border-destructive/30',
       dot: 'bg-destructive',
     },
-    medium: {
+    warning: {
       icon: AlertCircle,
       color: 'text-warning',
       bg: 'bg-warning/10',
       borderColor: 'border-warning/30',
       dot: 'bg-warning',
     },
-    low: {
+    info: {
       icon: Bell,
       color: 'text-info',
       bg: 'bg-info/10',
