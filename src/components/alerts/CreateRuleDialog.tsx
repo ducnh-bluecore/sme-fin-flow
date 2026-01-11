@@ -85,7 +85,7 @@ export default function CreateRuleDialog({ open, onOpenChange }: CreateRuleDialo
   // Fetch objects based on selected type and data source
   const { data: alertObjects = [], isLoading: isLoadingObjects } = useAlertObjects({
     object_type: selectedObjectType || undefined,
-    data_source_id: selectedDataSourceId || undefined,
+    data_source_id: selectedDataSourceId === '__all__' ? undefined : selectedDataSourceId || undefined,
     is_monitored: true,
   });
 
@@ -192,7 +192,7 @@ export default function CreateRuleDialog({ open, onOpenChange }: CreateRuleDialo
       object_type: selectedObjectType,
       apply_mode: applyMode,
       target_object_ids: applyMode === 'specific' ? selectedObjectIds : [],
-      data_source_id: selectedDataSourceId || null,
+      data_source_id: selectedDataSourceId === '__all__' ? null : selectedDataSourceId || null,
     });
 
     createRule.mutate({
@@ -390,7 +390,7 @@ export default function CreateRuleDialog({ open, onOpenChange }: CreateRuleDialo
                       <SelectValue placeholder="Chọn nguồn dữ liệu (tùy chọn)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tất cả nguồn</SelectItem>
+                      <SelectItem value="__all__">Tất cả nguồn</SelectItem>
                       {dataSources.map((source) => (
                         <SelectItem key={source.id} value={source.id}>
                           <div className="flex items-center gap-2">
