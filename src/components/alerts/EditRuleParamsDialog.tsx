@@ -26,15 +26,20 @@ const unitLabels: Record<string, { singular: string; plural: string; description
   count: { singular: 'đơn vị', plural: 'đơn vị', description: 'Số lượng' },
   percent: { singular: '%', plural: '%', description: 'Phần trăm' },
   percentage: { singular: '%', plural: '%', description: 'Phần trăm' },
+  percentage_points: { singular: 'điểm %', plural: 'điểm %', description: 'Điểm phần trăm thay đổi' },
   items: { singular: 'sản phẩm', plural: 'sản phẩm', description: 'Số sản phẩm' },
   products: { singular: 'sản phẩm', plural: 'sản phẩm', description: 'Số sản phẩm' },
   orders: { singular: 'đơn hàng', plural: 'đơn hàng', description: 'Số đơn hàng' },
   times: { singular: 'lần', plural: 'lần', description: 'Số lần' },
   VND: { singular: 'đồng', plural: 'đồng', description: 'Số tiền (VND)' },
+  amount: { singular: 'đồng', plural: 'đồng', description: 'Số tiền' },
+  amount_per_sqm: { singular: 'đ/m²', plural: 'đ/m²', description: 'Số tiền trên m²' },
   stars: { singular: 'sao', plural: 'sao', description: 'Điểm đánh giá' },
   violations: { singular: 'vi phạm', plural: 'vi phạm', description: 'Số vi phạm' },
   complaints: { singular: 'khiếu nại', plural: 'khiếu nại', description: 'Số khiếu nại' },
   mentions: { singular: 'mention', plural: 'mentions', description: 'Số lượt đề cập' },
+  ratio: { singular: 'lần', plural: 'lần', description: 'Tỷ lệ (hệ số)' },
+  turns_per_year: { singular: 'vòng/năm', plural: 'vòng/năm', description: 'Vòng quay hàng năm' },
 };
 
 // Operator labels in Vietnamese
@@ -45,33 +50,81 @@ const operatorLabels: Record<string, string> = {
   greater_than_or_equal: 'lớn hơn hoặc bằng (≥)',
   equals: 'bằng (=)',
   not_equals: 'khác (≠)',
+  change_decrease: 'giảm so với kỳ trước',
+  change_increase: 'tăng so với kỳ trước',
 };
 
-// Get threshold explanation based on rule context
-function getThresholdExplanation(rule: IntelligentAlertRule): string {
+// Generate metric label from rule name and code
+function generateMetricLabel(rule: IntelligentAlertRule): string {
   const config = rule.threshold_config || {};
-  const operator = config.operator || 'less_than';
-  const operatorText = operatorLabels[operator] || operator;
-  const metricText = config.metric_label || config.metric || 'Giá trị đo lường';
   
-  return `Khi "${metricText}" ${operatorText} ngưỡng → Kích hoạt cảnh báo`;
+  // If metric_label exists, use it
+  if (config.metric_label) return config.metric_label;
+  
+  // Generate from rule name
+  const name = rule.rule_name || '';
+  const code = rule.rule_code || '';
+  
+  // Common patterns
+  if (name.toLowerCase().includes('giảm') || code.includes('declining') || code.includes('drop')) {
+    return `Mức thay đổi ${name.replace(/giảm/i, '').trim()}`;
+  }
+  if (name.toLowerCase().includes('tăng') || code.includes('increase') || code.includes('spike')) {
+    return `Mức thay đổi ${name.replace(/tăng/i, '').trim()}`;
+  }
+  if (name.toLowerCase().includes('thấp') || code.includes('low')) {
+    return `Giá trị ${name.replace(/thấp/i, '').trim()}`;
+  }
+  if (name.toLowerCase().includes('cao') || code.includes('high')) {
+    return `Giá trị ${name.replace(/cao/i, '').trim()}`;
+  }
+  if (name.toLowerCase().includes('chậm') || code.includes('slow')) {
+    return `Thời gian/Tốc độ ${name.replace(/chậm/i, '').trim()}`;
+  }
+  
+  return name || 'Giá trị đo lường';
 }
 
-// Get rule-specific context explanation
-function getRuleContextExplanation(rule: IntelligentAlertRule): string {
+// Generate explanation from rule context
+function generateExplanation(rule: IntelligentAlertRule): string {
   const config = rule.threshold_config || {};
   
-  // Use explanation from config if available
-  if (config.explanation) {
-    return config.explanation;
+  // If explanation exists, use it
+  if (config.explanation) return config.explanation;
+  
+  const name = rule.rule_name || '';
+  const description = rule.description || '';
+  const operator = config.operator || '';
+  const unit = config.unit || 'percentage';
+  const unitInfo = unitLabels[unit] || unitLabels.percentage;
+  
+  // Generate based on operator type
+  if (operator === 'change_decrease') {
+    return `Đo lường mức giảm so với kỳ trước (${unitInfo.description}). Giá trị âm = giảm, dương = tăng.`;
+  }
+  if (operator === 'change_increase') {
+    return `Đo lường mức tăng so với kỳ trước (${unitInfo.description}). Giá trị dương = tăng.`;
+  }
+  if (operator.includes('less_than')) {
+    return `Cảnh báo khi giá trị xuống thấp hơn ngưỡng (${unitInfo.description}).`;
+  }
+  if (operator.includes('greater_than')) {
+    return `Cảnh báo khi giá trị vượt quá ngưỡng (${unitInfo.description}).`;
   }
   
-  // Fallback to metric_label
-  if (config.metric_label) {
-    return config.metric_label;
-  }
+  // Use description if available
+  if (description) return description;
   
-  return 'Giá trị đo lường cho rule này';
+  return `Theo dõi và cảnh báo dựa trên ${name.toLowerCase()}.`;
+}
+
+// Get threshold values with proper fallback
+function getThresholdValues(config: Record<string, any>): { critical: number | undefined; warning: number | undefined } {
+  // Try multiple field names for compatibility
+  const critical = config.critical ?? config.critical_days ?? config.value;
+  const warning = config.warning ?? config.warning_days ?? config.info;
+  
+  return { critical, warning };
 }
 
 interface EditRuleParamsDialogProps {
@@ -111,11 +164,12 @@ export default function EditRuleParamsDialog({
       setPriority(rule.priority);
       setDescription(rule.description || '');
       setCooldownHours(rule.cooldown_hours);
-      // Read value from threshold_config - can be 'value' (templates) or 'critical/warning' (custom)
+      // Read value from threshold_config - support multiple formats
       const config = rule.threshold_config || {};
+      const vals = getThresholdValues(config);
       setThresholdValue(config.value);
-      setThresholdCritical(config.critical ?? config.value);
-      setThresholdWarning(config.warning ?? (config.value ? config.value * 1.5 : undefined));
+      setThresholdCritical(vals.critical);
+      setThresholdWarning(vals.warning);
     }
   }, [rule]);
 
@@ -141,13 +195,13 @@ export default function EditRuleParamsDialog({
 
   const sevConfig = severityLabels[rule.severity];
   const config = rule.threshold_config || {};
-  const unit = config.unit || 'count';
-  const metric = config.metric || '';
+  const unit = config.unit || 'percentage';
   const operator = config.operator || 'less_than';
-  const unitInfo = unitLabels[unit] || { singular: '', plural: '', description: 'Giá trị' };
-  const metricText = config.metric_label || config.metric || 'Giá trị đo lường';
+  const unitInfo = unitLabels[unit] || { singular: '%', plural: '%', description: 'Phần trăm' };
+  const metricText = generateMetricLabel(rule);
   const operatorText = operatorLabels[operator] || operator;
-  const contextExplanation = getRuleContextExplanation(rule);
+  const contextExplanation = generateExplanation(rule);
+  const thresholdVals = getThresholdValues(config);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
