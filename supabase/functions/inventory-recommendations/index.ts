@@ -7,24 +7,54 @@ const corsHeaders = {
 };
 
 // Determine alert category and build appropriate prompts
-function buildPrompts(alertType: string, alertTitle: string, alertMessage: string, alertSeverity: string, productsContext: string) {
-  const isLowStock = alertType?.includes('dos_critical') || alertType?.includes('dos_warning') || 
-                     alertType?.includes('stockout') || alertTitle?.toLowerCase().includes('tồn kho thấp');
+function buildPrompts(alertType: string, alertTitle: string, alertMessage: string, alertSeverity: string, category: string, productsContext: string) {
+  const type = alertType?.toLowerCase() || '';
+  const title = alertTitle?.toLowerCase() || '';
   
-  const isHighStock = alertType?.includes('overstock') || alertType?.includes('slow_moving') ||
-                      alertTitle?.toLowerCase().includes('tồn kho cao') || alertTitle?.toLowerCase().includes('hàng chậm');
+  // Category: PRODUCT - Low Stock
+  const isLowStock = type.includes('dos_critical') || type.includes('dos_warning') || 
+                     type.includes('stockout') || type.includes('inventory_low') ||
+                     title.includes('tồn kho thấp') || title.includes('sắp hết');
   
-  const isRevenueDown = alertType?.includes('revenue_critical') || alertType?.includes('revenue_warning') ||
-                        alertType?.includes('revenue_down') || alertTitle?.toLowerCase().includes('doanh thu giảm');
+  // Category: PRODUCT - High Stock / Slow Moving
+  const isHighStock = type.includes('overstock') || type.includes('slow_moving') ||
+                      type.includes('product_slow') || type.includes('inventory_expired') ||
+                      title.includes('tồn kho cao') || title.includes('hàng chậm') || title.includes('hết hạn');
   
-  const isRevenueUp = alertType?.includes('revenue_up') || alertTitle?.toLowerCase().includes('doanh thu tăng') ||
-                      alertTitle?.toLowerCase().includes('tăng trưởng');
+  // Category: BUSINESS - Revenue/Sales Issues
+  const isRevenueDown = type.includes('revenue_critical') || type.includes('revenue_warning') ||
+                        type.includes('revenue_down') || type.includes('sales_drop') ||
+                        type.includes('sales_target_miss') || type.includes('revenue_growth_slow') ||
+                        title.includes('doanh thu giảm') || title.includes('doanh số giảm') ||
+                        title.includes('không đạt target');
   
-  const isTrendDown = alertType?.includes('trend_down') || alertType?.includes('declining') ||
-                      alertTitle?.toLowerCase().includes('xu hướng giảm');
+  // Category: BUSINESS/KPI - Revenue/Sales Growth
+  const isRevenueUp = type.includes('revenue_up') || type.includes('sales_growth') ||
+                      type.includes('revenue_exceed') || 
+                      title.includes('doanh thu tăng') || title.includes('tăng trưởng') ||
+                      title.includes('vượt target');
   
-  const isTrendUp = alertType?.includes('trend_up') || alertType?.includes('growing') ||
-                    alertTitle?.toLowerCase().includes('xu hướng tăng');
+  // Category: PRODUCT - Trend Analysis
+  const isTrendDown = type.includes('trend_down') || type.includes('declining') ||
+                      title.includes('xu hướng giảm');
+  
+  const isTrendUp = type.includes('trend_up') || type.includes('growing') ||
+                    title.includes('xu hướng tăng');
+
+  // Category: STORE - Store Operations
+  const isStoreIssue = type.includes('store') || type.includes('staff') ||
+                       category === 'store' ||
+                       title.includes('cửa hàng') || title.includes('nhân sự');
+
+  // Category: CUSTOMER - Customer Related
+  const isCustomerIssue = type.includes('customer') || type.includes('churn') ||
+                          category === 'customer' ||
+                          title.includes('khách hàng');
+
+  // Category: FULFILLMENT - Order Fulfillment
+  const isFulfillmentIssue = type.includes('fulfillment') || type.includes('delivery') ||
+                             type.includes('delayed') || category === 'fulfillment' ||
+                             title.includes('giao hàng') || title.includes('đơn hàng');
 
   let systemPrompt = '';
   let userPrompt = '';
@@ -54,29 +84,30 @@ Hãy đưa ra 3-5 đề xuất cụ thể:
 4. Ưu tiên sản phẩm quan trọng nhất`;
   } 
   else if (isHighStock) {
-    systemPrompt = `Bạn là chuyên gia quản lý tồn kho. Phân tích sản phẩm TỒN KHO CAO hoặc BÁN CHẬM và đưa ra đề xuất.
+    systemPrompt = `Bạn là chuyên gia quản lý tồn kho. Phân tích sản phẩm TỒN KHO CAO, BÁN CHẬM hoặc SẮP HẾT HẠN và đưa ra đề xuất.
 
 Quy tắc:
 - Sản phẩm velocity = 0 hoặc rất thấp: KHÔNG NÊN NHẬP THÊM
 - Sản phẩm ngày tồn > 60 và xu hướng giảm: XEM XÉT GIẢM GIÁ/KHUYẾN MÃI
 - Sản phẩm ngày tồn > 90: RỦI RO HẾT HẠN/LỖI THỜI
+- Sản phẩm sắp hết hạn: KHUYẾN MÃI GẤP hoặc TRẢ NCC
 
 Trả lời bằng tiếng Việt, ngắn gọn và thực tế.`;
 
     userPrompt = `CẢNH BÁO: ${alertTitle}
-Chi tiết: ${alertMessage || 'Sản phẩm tồn kho cao/bán chậm'}
+Chi tiết: ${alertMessage || 'Sản phẩm tồn kho cao/bán chậm/sắp hết hạn'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 
 Dữ liệu sản phẩm:
 ${productsContext}
 
 Đề xuất 3-5 hành động:
-1. Phân loại: "KHÔNG NHẬP THÊM", "GIẢM GIÁ NGAY", "KHUYẾN MÃI", "THEO DÕI"
+1. Phân loại: "KHÔNG NHẬP THÊM", "GIẢM GIÁ NGAY", "KHUYẾN MÃI", "TRẢ NCC", "THANH LÝ"
 2. Lý do và ước tính thiệt hại nếu không xử lý
 3. Đề xuất mức giảm giá hoặc khuyến mãi nếu cần`;
   }
-  else if (isRevenueDown || isTrendDown) {
-    systemPrompt = `Bạn là chuyên gia phân tích kinh doanh. Phân tích sản phẩm có DOANH THU/XU HƯỚNG GIẢM và đưa ra chiến lược.
+  else if (isRevenueDown) {
+    systemPrompt = `Bạn là chuyên gia phân tích kinh doanh. Phân tích sản phẩm/cửa hàng có DOANH THU GIẢM hoặc KHÔNG ĐẠT TARGET và đưa ra chiến lược.
 
 Quy tắc:
 - Giảm < 10%: Biến động bình thường, theo dõi
@@ -88,19 +119,20 @@ Phân tích nguyên nhân có thể:
 - Cạnh tranh giá
 - Chất lượng sản phẩm
 - Vấn đề trưng bày/marketing
+- Thiếu hàng bán
 
 Trả lời bằng tiếng Việt, đưa ra giải pháp cụ thể.`;
 
     userPrompt = `CẢNH BÁO: ${alertTitle}
-Chi tiết: ${alertMessage || 'Doanh thu/xu hướng giảm'}
+Chi tiết: ${alertMessage || 'Doanh thu/doanh số giảm hoặc không đạt target'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 
-Dữ liệu sản phẩm:
+Dữ liệu:
 ${productsContext}
 
 Hãy phân tích và đề xuất:
 1. Nguyên nhân có thể của việc giảm
-2. Hành động: "GIẢM GIÁ", "TĂNG MARKETING", "THAY ĐỔI VỊ TRÍ", "GIẢM LƯỢNG NHẬP", "NGỪNG NHẬP"
+2. Hành động: "GIẢM GIÁ", "TĂNG MARKETING", "THAY ĐỔI VỊ TRÍ", "ĐIỀU CHỈNH STOCK"
 3. Chiến lược phục hồi doanh số
 4. Nên tiếp tục nhập hay dừng nhập?`;
   }
@@ -119,9 +151,9 @@ Cân nhắc:
 
 Trả lời bằng tiếng Việt, tận dụng cơ hội tối đa.`;
 
-    userPrompt = `CẢNH BÁO: ${alertTitle}
+    userPrompt = `THÔNG BÁO TÍCH CỰC: ${alertTitle}
 Chi tiết: ${alertMessage || 'Doanh thu/xu hướng tăng'}
-Mức độ: ${alertSeverity === 'critical' ? 'Rất tốt' : 'Tốt'}
+Mức độ: Cơ hội kinh doanh
 
 Dữ liệu sản phẩm:
 ${productsContext}
@@ -133,25 +165,125 @@ Hãy phân tích và đề xuất:
 4. Sản phẩm liên quan có thể đẩy mạnh
 5. Cơ hội tối ưu margin`;
   }
+  else if (isTrendDown) {
+    systemPrompt = `Bạn là chuyên gia phân tích xu hướng bán hàng. Phân tích sản phẩm có XU HƯỚNG GIẢM và đưa ra cảnh báo sớm.
+
+Quy tắc:
+- Xu hướng giảm nhẹ (< 15%): Theo dõi thêm
+- Xu hướng giảm vừa (15-30%): Cân nhắc điều chỉnh lượng nhập
+- Xu hướng giảm mạnh (> 30%): Dừng nhập, xem xét khuyến mãi
+
+Trả lời bằng tiếng Việt, đưa ra dự báo và hành động.`;
+
+    userPrompt = `CẢNH BÁO: ${alertTitle}
+Chi tiết: ${alertMessage || 'Xu hướng giảm'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu sản phẩm:
+${productsContext}
+
+Hãy phân tích và đề xuất:
+1. Đánh giá mức độ giảm và dự báo xu hướng tiếp theo
+2. Hành động: "DỪNG NHẬP", "GIẢM LƯỢNG NHẬP", "KHUYẾN MÃI", "THEO DÕI"
+3. Có nên tiếp tục kinh doanh sản phẩm này?
+4. Đề xuất số lượng nhập (nếu còn nhập)`;
+  }
+  else if (isStoreIssue) {
+    systemPrompt = `Bạn là chuyên gia quản lý cửa hàng bán lẻ. Phân tích vấn đề CỬA HÀNG hoặc NHÂN SỰ và đưa ra giải pháp.
+
+Các vấn đề thường gặp:
+- Thiếu nhân sự: Điều động từ store khác, tuyển dụng gấp
+- Hiệu suất thấp: Training, đánh giá KPI
+- Vấn đề vận hành: Quy trình, thiết bị
+
+Trả lời bằng tiếng Việt, thực tế và có thể thực hiện ngay.`;
+
+    userPrompt = `CẢNH BÁO CỬA HÀNG: ${alertTitle}
+Chi tiết: ${alertMessage || 'Vấn đề liên quan đến cửa hàng/nhân sự'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu liên quan:
+${productsContext}
+
+Hãy đề xuất:
+1. Nguyên nhân có thể
+2. Giải pháp ngắn hạn (thực hiện ngay)
+3. Giải pháp dài hạn (phòng ngừa)
+4. Người/bộ phận cần thực hiện`;
+  }
+  else if (isCustomerIssue) {
+    systemPrompt = `Bạn là chuyên gia Customer Success. Phân tích vấn đề KHÁCH HÀNG như churn risk, satisfaction và đưa ra chiến lược giữ chân.
+
+Quy tắc:
+- Churn risk cao: Liên hệ ngay, ưu đãi đặc biệt
+- Satisfaction thấp: Tìm hiểu nguyên nhân, cải thiện dịch vụ
+- Khách VIP có vấn đề: Ưu tiên cao nhất
+
+Trả lời bằng tiếng Việt, tập trung vào retention.`;
+
+    userPrompt = `CẢNH BÁO KHÁCH HÀNG: ${alertTitle}
+Chi tiết: ${alertMessage || 'Vấn đề liên quan đến khách hàng'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu:
+${productsContext}
+
+Hãy đề xuất:
+1. Đánh giá mức độ rủi ro mất khách
+2. Hành động: "LIÊN HỆ NGAY", "ƯU ĐÃI ĐẶC BIỆT", "CẢI THIỆN DỊCH VỤ", "THEO DÕI"
+3. Kịch bản chăm sóc khách hàng
+4. Cách phòng ngừa tương lai`;
+  }
+  else if (isFulfillmentIssue) {
+    systemPrompt = `Bạn là chuyên gia Fulfillment/Logistics. Phân tích vấn đề GIAO HÀNG, ĐƠN HÀNG CHẬM TRỄ và đưa ra giải pháp.
+
+Quy tắc:
+- Delay < 1 ngày: Thông báo khách hàng
+- Delay 1-3 ngày: Đền bù + xin lỗi
+- Delay > 3 ngày: Escalate, giải pháp đặc biệt
+
+Trả lời bằng tiếng Việt, giảm thiểu ảnh hưởng khách hàng.`;
+
+    userPrompt = `CẢNH BÁO FULFILLMENT: ${alertTitle}
+Chi tiết: ${alertMessage || 'Vấn đề giao hàng/đơn hàng'}
+Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
+
+Dữ liệu:
+${productsContext}
+
+Hãy đề xuất:
+1. Nguyên nhân delay
+2. Hành động: "LIÊN HỆ KHÁCH", "ĐỀN BÙ", "ĐỔI NHÀ VẬN CHUYỂN", "ĐIỀU PHỐI LẠI"
+3. Cách xử lý với khách hàng
+4. Biện pháp phòng ngừa`;
+  }
   else {
     // Generic alert
-    systemPrompt = `Bạn là chuyên gia quản lý bán lẻ. Phân tích dữ liệu sản phẩm và đưa ra đề xuất phù hợp với cảnh báo.
+    systemPrompt = `Bạn là chuyên gia quản lý bán lẻ đa năng. Phân tích cảnh báo và đưa ra đề xuất phù hợp.
 
-Trả lời bằng tiếng Việt, ngắn gọn và có thể hành động được.`;
+Các nguyên tắc:
+- Đánh giá mức độ nghiêm trọng
+- Đề xuất hành động cụ thể, có thể thực hiện ngay
+- Phân công người/bộ phận thực hiện
+- Đề xuất timeline
+
+Trả lời bằng tiếng Việt, ngắn gọn và thực tế.`;
 
     userPrompt = `CẢNH BÁO: ${alertTitle}
 Chi tiết: ${alertMessage || 'Cảnh báo cần xử lý'}
 Mức độ: ${alertSeverity === 'critical' ? 'NGHIÊM TRỌNG' : 'CẢNH BÁO'}
 Loại: ${alertType}
+Danh mục: ${category}
 
-Dữ liệu sản phẩm:
+Dữ liệu liên quan:
 ${productsContext}
 
-Hãy phân tích và đề xuất 3-5 hành động cụ thể:
-1. Đánh giá tình trạng
-2. Hành động cần thực hiện
-3. Ưu tiên và mức độ cấp bách
-4. Nên nhập thêm hay không và số lượng bao nhiêu?`;
+Hãy phân tích và đề xuất:
+1. Đánh giá tình trạng và mức độ ưu tiên
+2. Hành động cần thực hiện ngay
+3. Người/bộ phận phụ trách
+4. Timeline thực hiện
+5. Cách đo lường kết quả`;
   }
 
   return { systemPrompt, userPrompt };
@@ -163,9 +295,9 @@ serve(async (req) => {
   }
 
   try {
-    const { tenantId, alertType, alertTitle, alertMessage, alertSeverity, topProducts } = await req.json();
+    const { tenantId, alertType, alertTitle, alertMessage, alertSeverity, alertCategory, topProducts } = await req.json();
     
-    console.log("Processing alert:", { alertType, alertTitle, alertSeverity, productCount: topProducts?.length });
+    console.log("Processing alert:", { alertType, alertTitle, alertSeverity, alertCategory, productCount: topProducts?.length });
     
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
@@ -173,9 +305,16 @@ serve(async (req) => {
     }
 
     // Build context from products data
-    const productsContext = topProducts.map((p: any, i: number) => 
-      `${i + 1}. ${p.object_name} - Tồn kho: ${p.current_stock || 0}, Ngày tồn: ${Math.round(p.days_of_stock || 0)}, Velocity: ${(p.sales_velocity || 0).toFixed(2)}/ngày, Xu hướng: ${(p.trend_percent || 0).toFixed(1)}%, Doanh thu: ${(p.revenue_7d || 0).toLocaleString()}đ`
-    ).join('\n');
+    const productsContext = topProducts.map((p: any, i: number) => {
+      const parts = [`${i + 1}. ${p.object_name || p.name || 'N/A'}`];
+      if (p.current_stock !== undefined) parts.push(`Tồn kho: ${p.current_stock}`);
+      if (p.days_of_stock !== undefined) parts.push(`Ngày tồn: ${Math.round(p.days_of_stock)}`);
+      if (p.sales_velocity !== undefined) parts.push(`Velocity: ${(p.sales_velocity).toFixed(2)}/ngày`);
+      if (p.trend_percent !== undefined) parts.push(`Xu hướng: ${(p.trend_percent).toFixed(1)}%`);
+      if (p.revenue_7d !== undefined) parts.push(`Doanh thu 7d: ${(p.revenue_7d).toLocaleString()}đ`);
+      if (p.revenue_change !== undefined) parts.push(`Thay đổi DT: ${(p.revenue_change).toFixed(1)}%`);
+      return parts.join(' - ');
+    }).join('\n');
 
     // Build context-aware prompts
     const { systemPrompt, userPrompt } = buildPrompts(
@@ -183,7 +322,8 @@ serve(async (req) => {
       alertTitle || '', 
       alertMessage || '', 
       alertSeverity || 'warning',
-      productsContext
+      alertCategory || '',
+      productsContext || 'Không có dữ liệu chi tiết'
     );
 
     console.log("Alert category detected, calling OpenAI...");
@@ -230,7 +370,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       recommendations,
-      productsAnalyzed: topProducts.length,
+      productsAnalyzed: topProducts?.length || 0,
       alertType,
       generatedAt: new Date().toISOString()
     }), {
