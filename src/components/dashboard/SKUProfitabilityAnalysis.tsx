@@ -82,18 +82,38 @@ function useSKUProfitability() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data: orders, error } = await supabase
+      // Fetch orders
+      const { data: orders, error: ordersError } = await supabase
         .from('external_orders')
-        .select(`
-          *,
-          external_order_items (*)
-        `)
+        .select('*')
         .eq('tenant_id', tenantId)
         .gte('order_date', startDateStr)
         .lte('order_date', endDateStr)
         .eq('status', 'delivered');
 
-      if (error) throw error;
+      if (ordersError) throw ordersError;
+
+      // Fetch order items separately
+      const orderIds = orders?.map(o => o.id) || [];
+      let items: any[] = [];
+      
+      if (orderIds.length > 0) {
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('external_order_items')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .in('external_order_id', orderIds);
+        
+        if (itemsError) throw itemsError;
+        items = orderItems || [];
+      }
+
+      // Map items to orders
+      const itemsByOrderId = items.reduce((acc, item) => {
+        if (!acc[item.external_order_id]) acc[item.external_order_id] = [];
+        acc[item.external_order_id].push(item);
+        return acc;
+      }, {} as Record<string, any[]>);
 
       // Calculate SKU-level metrics
       const skuMap = new Map<string, {
@@ -109,8 +129,8 @@ function useSKUProfitability() {
         const orderFees = (order.platform_fee || 0) + (order.commission_fee || 0) + 
                          (order.payment_fee || 0) + (order.shipping_fee || 0);
         
-        const items = order.external_order_items || [];
-        const feePerItem = items.length > 0 ? orderFees / items.length : 0;
+        const orderItems = itemsByOrderId[order.id] || [];
+        const feePerItem = orderItems.length > 0 ? orderFees / orderItems.length : 0;
 
         // Update channel totals
         if (!channelTotals.has(channel)) {
@@ -122,7 +142,7 @@ function useSKUProfitability() {
         chTotal.cogs += order.cost_of_goods || 0;
         chTotal.profit = chTotal.revenue - chTotal.cogs - chTotal.fees;
 
-        items.forEach((item: any) => {
+        orderItems.forEach((item: any) => {
           const sku = item.sku || item.product_name || 'Unknown';
           const name = item.product_name || sku;
           
@@ -138,7 +158,7 @@ function useSKUProfitability() {
           const chData = skuData.channels.get(channel)!;
           chData.qty += item.quantity || 1;
           chData.revenue += item.total_amount || (item.unit_price * (item.quantity || 1)) || 0;
-          chData.cogs += item.cost_price ? item.cost_price * (item.quantity || 1) : 0;
+          chData.cogs += item.unit_cogs ? item.unit_cogs * (item.quantity || 1) : (item.total_cogs || 0);
           chData.fees += feePerItem;
         });
       });
