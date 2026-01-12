@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { 
   BarChart3, 
@@ -8,12 +9,15 @@ import {
   Users,
   Store,
   Calendar,
-  Loader2
+  Loader2,
+  Database,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AreaChart,
   Area,
@@ -29,8 +33,11 @@ import {
   Cell
 } from 'recharts';
 import { useControlTowerAnalytics } from '@/hooks/useControlTowerAnalytics';
+import DataSourceHealthPanel from '@/components/control-tower/DataSourceHealthPanel';
+import StoreHealthMap from '@/components/control-tower/StoreHealthMap';
 
 export default function AnalyticsPage() {
+  const [activeTab, setActiveTab] = useState('overview');
   const { data, isLoading } = useControlTowerAnalytics();
 
   const revenueData = data?.revenueData || [];
@@ -81,6 +88,33 @@ export default function AnalyticsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="bg-slate-900/50 border border-slate-800/50">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Tổng quan
+            </TabsTrigger>
+            <TabsTrigger value="data-health" className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 gap-2">
+              <Database className="h-4 w-4" />
+              Nguồn dữ liệu
+            </TabsTrigger>
+            <TabsTrigger value="store-map" className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 gap-2">
+              <MapPin className="h-4 w-4" />
+              Bản đồ cửa hàng
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="data-health" className="mt-6">
+            <DataSourceHealthPanel />
+          </TabsContent>
+
+          <TabsContent value="store-map" className="mt-6">
+            <StoreHealthMap />
+          </TabsContent>
+
+          <TabsContent value="overview" className="mt-6 space-y-6">
 
         {/* KPI Summary */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -396,6 +430,9 @@ export default function AnalyticsPage() {
             )}
           </CardContent>
         </Card>
+
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );

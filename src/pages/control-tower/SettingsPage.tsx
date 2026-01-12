@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import NotificationRecipientsPanel from '@/components/control-tower/NotificationRecipientsPanel';
+import AlertEscalationPanel from '@/components/control-tower/AlertEscalationPanel';
 
 interface SettingSection {
   id: string;
@@ -44,8 +45,8 @@ interface SettingSection {
 const settingSections: SettingSection[] = [
   { id: 'general', title: 'Cài đặt chung', description: 'Ngôn ngữ, múi giờ và giao diện', icon: Settings },
   { id: 'notifications', title: 'Thông báo', description: 'Quản lý cách nhận thông báo', icon: Bell },
+  { id: 'escalation', title: 'Leo thang', description: 'Quy tắc leo thang & tổng hợp', icon: Shield },
   { id: 'recipients', title: 'Người nhận', description: 'Quản lý người nhận cảnh báo', icon: Users },
-  { id: 'security', title: 'Bảo mật', description: 'Mật khẩu và xác thực 2 yếu tố', icon: Shield },
   { id: 'integrations', title: 'Tích hợp', description: 'Kết nối với các dịch vụ bên ngoài', icon: Database },
 ];
 
@@ -243,6 +244,11 @@ export default function SettingsPage() {
           {/* Recipients Settings */}
           <TabsContent value="recipients" className="mt-6">
             <NotificationRecipientsPanel />
+          </TabsContent>
+
+          {/* Escalation Settings */}
+          <TabsContent value="escalation" className="mt-6">
+            <AlertEscalationPanel />
           </TabsContent>
 
           {/* Security Settings */}
