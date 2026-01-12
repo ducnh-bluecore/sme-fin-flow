@@ -7,7 +7,7 @@ import {
   Mail, MessageSquare, Phone, AlertTriangle, AlertCircle, Info,
   Package, TrendingUp, Store, Wallet, Target, Users, Truck,
   ToggleRight, Save, Loader2, ChevronDown, ChevronRight, Zap, 
-  Calculator, Clock, Lightbulb, Database, Activity, Check
+  Calculator, Clock, Lightbulb, Database, Activity, Check, UserPlus
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +41,7 @@ import {
 import { useSeedAlertRules } from '@/hooks/useMultiChannelAlertRules';
 import CreateRuleDialog from '@/components/alerts/CreateRuleDialog';
 import EditRuleParamsDialog from '@/components/alerts/EditRuleParamsDialog';
+import { RuleRecipientsDialog } from '@/components/alerts/RuleRecipientsDialog';
 // Icons mapping
 const categoryIcons: Record<AlertCategory, typeof Package> = {
   product: Package,
@@ -94,10 +95,12 @@ function IntelligentRuleCard({
   rule, 
   onToggle,
   onEdit,
+  onConfigureRecipients,
 }: { 
   rule: IntelligentAlertRule; 
   onToggle: (id: string, enabled: boolean) => void;
   onEdit: (rule: IntelligentAlertRule) => void;
+  onConfigureRecipients: (rule: IntelligentAlertRule) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const sevConfig = severityLabels[rule.severity] || severityLabels.info;
@@ -262,8 +265,8 @@ function IntelligentRuleCard({
                 )}
               </div>
               
-              {/* Edit Button */}
-              <div className="pt-2 border-t border-border/50">
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-border/50 flex flex-wrap gap-2">
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -274,6 +277,17 @@ function IntelligentRuleCard({
                 >
                   <Edit2 className="h-4 w-4 mr-2" />
                   Chỉnh tham số
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConfigureRecipients(rule);
+                  }}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Cấu hình người nhận
                 </Button>
               </div>
             </div>
@@ -341,7 +355,9 @@ export default function KPINotificationRulesPage() {
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [createRuleDialogOpen, setCreateRuleDialogOpen] = useState(false);
   const [editRuleDialogOpen, setEditRuleDialogOpen] = useState(false);
+  const [ruleRecipientsDialogOpen, setRuleRecipientsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<IntelligentAlertRule | null>(null);
+  const [recipientsRule, setRecipientsRule] = useState<IntelligentAlertRule | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['fulfillment', 'inventory', 'revenue', 'service']);
   const [localConfigs, setLocalConfigs] = useState<AlertConfig[]>([]);
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
@@ -738,6 +754,10 @@ export default function KPINotificationRulesPage() {
                                 onEdit={(r) => {
                                   setEditingRule(r);
                                   setEditRuleDialogOpen(true);
+                                }}
+                                onConfigureRecipients={(r) => {
+                                  setRecipientsRule(r);
+                                  setRuleRecipientsDialogOpen(true);
                                 }}
                               />
                             ))}
@@ -1160,6 +1180,19 @@ export default function KPINotificationRulesPage() {
         }}
         isPending={updateRule.isPending}
       />
+
+      {/* Rule Recipients Dialog */}
+      {recipientsRule && (
+        <RuleRecipientsDialog
+          open={ruleRecipientsDialogOpen}
+          onOpenChange={(open) => {
+            setRuleRecipientsDialogOpen(open);
+            if (!open) setRecipientsRule(null);
+          }}
+          ruleId={recipientsRule.id}
+          ruleName={recipientsRule.rule_name}
+        />
+      )}
     </>
   );
 }
