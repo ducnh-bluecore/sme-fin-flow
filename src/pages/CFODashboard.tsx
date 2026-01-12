@@ -10,6 +10,7 @@ import { OverdueInvoicesTable } from '@/components/dashboard/OverdueInvoicesTabl
 import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
+import FinancialTruthCard from '@/components/dashboard/FinancialTruthCard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact } from '@/lib/formatters';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
@@ -102,6 +103,9 @@ export default function CFODashboard() {
             <DateRangeIndicator variant="compact" />
           </div>
         </motion.div>
+
+        {/* Financial Truth - Single Source of Truth */}
+        <FinancialTruthCard />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

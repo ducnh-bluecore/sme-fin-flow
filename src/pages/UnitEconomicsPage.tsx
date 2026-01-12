@@ -42,6 +42,7 @@ import {
 } from 'recharts';
 import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useUnitEconomics } from '@/hooks/useUnitEconomics';
+import SKUProfitabilityAnalysis from '@/components/dashboard/SKUProfitabilityAnalysis';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -545,6 +546,11 @@ export default function UnitEconomicsPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* SKU Profitability Tab */}
+          <TabsContent value="sku" className="space-y-6">
+            <SKUProfitabilityAnalysis />
           </TabsContent>
         </Tabs>
       </div>
