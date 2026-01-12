@@ -2,138 +2,184 @@ import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  ShoppingCart, 
-  Package, 
-  Users, 
-  DollarSign,
   AlertTriangle,
   CheckCircle2,
   Clock,
   ArrowRight,
-  Store,
-  Truck,
-  BarChart3,
   RefreshCw,
-  Loader2,
   AlertCircle,
-  Bell
+  DollarSign,
+  Zap,
+  TrendingDown,
+  Sparkles,
+  Target
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useNotificationCenter, severityConfig, statusLabels } from '@/hooks/useNotificationCenter';
+import { useNotificationCenter, severityConfig } from '@/hooks/useNotificationCenter';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useMemo } from 'react';
 
-interface KPICardProps {
+// Format VND compact
+const formatImpact = (amount: number) => {
+  if (amount >= 1000000000) return `${(amount / 1000000000).toFixed(1)}B`;
+  if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+  if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+  return amount.toString();
+};
+
+interface AlertWithImpact {
+  id: string;
   title: string;
-  value: string;
-  change?: number;
-  changeLabel?: string;
-  icon: React.ElementType;
-  color: string;
-  isLoading?: boolean;
+  message: string | null;
+  severity: string;
+  status: string;
+  category: string;
+  created_at: string;
+  impact_amount: number | null;
+  impact_description: string | null;
+  deadline_at: string | null;
+  suggested_action: string | null;
+  calculation_details: any;
 }
 
-function KPICard({ title, value, change, changeLabel, icon: Icon, color, isLoading }: KPICardProps) {
-  const isPositive = (change ?? 0) >= 0;
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <Card className="bg-slate-900/50 border-slate-800/50 hover:border-slate-700/50 transition-all">
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <p className="text-sm text-slate-400">{title}</p>
-              {isLoading ? (
-                <Skeleton className="h-8 w-24 bg-slate-700" />
-              ) : (
-                <p className="text-2xl font-bold text-slate-100">{value}</p>
-              )}
-              {change !== undefined && changeLabel && (
-                <div className="flex items-center gap-1.5">
-                  {isPositive ? (
-                    <TrendingUp className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-400" />
-                  )}
-                  <span className={isPositive ? 'text-emerald-400 text-sm' : 'text-red-400 text-sm'}>
-                    {isPositive ? '+' : ''}{change}%
-                  </span>
-                  <span className="text-slate-500 text-sm">{changeLabel}</span>
-                </div>
-              )}
-            </div>
-            <div 
-              className="p-3 rounded-xl"
-              style={{ backgroundColor: `${color}20` }}
-            >
-              <Icon className="h-6 w-6" style={{ color }} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-function AlertItem({ alert, onAcknowledge, onResolve }: { 
-  alert: any; 
+function ImpactAlertCard({ 
+  alert, 
+  onAcknowledge, 
+  onResolve 
+}: { 
+  alert: AlertWithImpact;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
 }) {
   const config = severityConfig[alert.severity as keyof typeof severityConfig] || severityConfig.info;
+  const isCrossDomain = alert.calculation_details?.is_cross_domain;
   
+  const timeAgo = useMemo(() => {
+    try {
+      return formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: vi });
+    } catch {
+      return '';
+    }
+  }, [alert.created_at]);
+
+  const deadlineInfo = useMemo(() => {
+    if (!alert.deadline_at) return null;
+    try {
+      const deadline = new Date(alert.deadline_at);
+      const now = new Date();
+      const hoursLeft = Math.round((deadline.getTime() - now.getTime()) / (1000 * 60 * 60));
+      if (hoursLeft < 0) return { text: 'Quá hạn', urgent: true };
+      if (hoursLeft < 24) return { text: `${hoursLeft}h còn lại`, urgent: true };
+      return { text: `${Math.round(hoursLeft / 24)} ngày`, urgent: false };
+    } catch {
+      return null;
+    }
+  }, [alert.deadline_at]);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className={`p-3 rounded-lg border ${config.bgColor} border-${alert.severity === 'critical' ? 'red' : alert.severity === 'warning' ? 'amber' : 'blue'}-500/30`}
+      className={`p-4 rounded-xl border-2 ${config.bgColor} ${
+        alert.severity === 'critical' ? 'border-red-500/50' : 
+        alert.severity === 'warning' ? 'border-amber-500/30' : 'border-blue-500/20'
+      } transition-all hover:scale-[1.01]`}
     >
-      <div className="flex items-start gap-3">
-        <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${config.color}`} />
+      <div className="flex items-start gap-4">
+        {/* Impact Amount - Most prominent */}
+        {alert.impact_amount && alert.impact_amount > 0 ? (
+          <div className={`flex flex-col items-center justify-center min-w-[80px] p-3 rounded-lg ${
+            alert.severity === 'critical' ? 'bg-red-500/20' : 'bg-amber-500/20'
+          }`}>
+            <DollarSign className={`h-4 w-4 mb-1 ${config.color}`} />
+            <span className={`text-lg font-bold ${config.color}`}>
+              {formatImpact(alert.impact_amount)}
+            </span>
+            <span className="text-[10px] text-slate-400">VND</span>
+          </div>
+        ) : (
+          <div className={`p-3 rounded-lg ${config.bgColor}`}>
+            <AlertTriangle className={`h-6 w-6 ${config.color}`} />
+          </div>
+        )}
+
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-200 line-clamp-1">{alert.title}</p>
-          <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{alert.message}</p>
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-xs text-slate-500">
-              {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true, locale: vi })}
-            </p>
-            <div className="flex gap-1">
-              {alert.status === 'active' && (
-                <>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 px-2 text-xs text-amber-400 hover:bg-amber-500/10"
-                    onClick={() => onAcknowledge(alert.id)}
-                  >
-                    Xác nhận
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="h-6 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10"
-                    onClick={() => onResolve(alert.id)}
-                  >
-                    Xử lý
-                  </Button>
-                </>
-              )}
+          {/* Header with badges */}
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <Badge className={`text-xs ${config.bgColor} ${config.color} border ${
+              alert.severity === 'critical' ? 'border-red-500/30' : 'border-amber-500/30'
+            }`}>
+              {alert.severity === 'critical' ? '🚨 Nghiêm trọng' : 
+               alert.severity === 'warning' ? '⚠️ Cảnh báo' : 'ℹ️ Thông tin'}
+            </Badge>
+            {isCrossDomain && (
+              <Badge className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Cross-domain
+              </Badge>
+            )}
+            {deadlineInfo && (
+              <Badge className={`text-xs ${
+                deadlineInfo.urgent 
+                  ? 'bg-red-500/10 text-red-400 border-red-500/30 animate-pulse' 
+                  : 'bg-slate-700/50 text-slate-400 border-slate-600/30'
+              }`}>
+                <Clock className="h-3 w-3 mr-1" />
+                {deadlineInfo.text}
+              </Badge>
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="text-sm font-semibold text-slate-100 line-clamp-2">{alert.title}</h3>
+
+          {/* Message */}
+          {alert.message && (
+            <p className="text-xs text-slate-400 mt-1 line-clamp-2">{alert.message}</p>
+          )}
+
+          {/* Suggested Action */}
+          {alert.suggested_action && (
+            <div className="mt-2 p-2 rounded bg-slate-800/50 border border-slate-700/30">
+              <div className="flex items-start gap-2">
+                <Target className="h-3 w-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-emerald-300">{alert.suggested_action}</p>
+              </div>
             </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-xs text-slate-500">{timeAgo}</span>
+            
+            {alert.status === 'active' && (
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-7 px-2 text-xs text-slate-400 hover:bg-slate-700/50"
+                  onClick={() => onAcknowledge(alert.id)}
+                >
+                  Đã nhận
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="h-7 px-3 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                  onClick={() => onResolve(alert.id)}
+                >
+                  <Zap className="h-3 w-3 mr-1" />
+                  Xử lý ngay
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -144,7 +190,6 @@ function AlertItem({ alert, onAcknowledge, onResolve }: {
 export default function ControlTowerDashboard() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { data: tenantId } = useActiveTenantId();
   
   const { 
@@ -156,63 +201,21 @@ export default function ControlTowerDashboard() {
     refetchAll 
   } = useNotificationCenter();
 
-  // Fetch store performance from alert_objects
-  const { data: storeData, isLoading: storesLoading } = useQuery({
-    queryKey: ['control-tower-stores', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('alert_objects')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('object_type', 'store')
-        .eq('is_monitored', true);
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId,
-  });
+  // Calculate total impact from active alerts
+  const totalImpact = useMemo(() => {
+    return activeAlerts.reduce((sum, alert: any) => sum + (alert.impact_amount || 0), 0);
+  }, [activeAlerts]);
 
-  // Fetch quick stats
-  const { data: quickStats, isLoading: quickStatsLoading } = useQuery({
-    queryKey: ['control-tower-quick-stats', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return null;
-      
-      // Get orders count
-      const { count: ordersCount } = await supabase
-        .from('external_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .gte('order_date', new Date().toISOString().split('T')[0]);
-
-      // Get products count
-      const { count: productsCount } = await supabase
-        .from('alert_objects')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('object_type', 'product');
-
-      // Get active stores
-      const stores = storeData || [];
-      const activeStores = stores.length;
-
-      // Calculate total revenue from stores
-      const totalRevenue = stores.reduce((sum, store) => {
-        const metrics = store.current_metrics as any;
-        return sum + (metrics?.daily_revenue || 0);
-      }, 0);
-
-      return {
-        todayOrders: ordersCount || 0,
-        productsCount: productsCount || 0,
-        activeStores,
-        totalRevenue,
-      };
-    },
-    enabled: !!tenantId && !!storeData,
-  });
+  // Sort by impact amount (highest first), then by severity
+  const sortedAlerts = useMemo(() => {
+    return [...activeAlerts].sort((a: any, b: any) => {
+      // Critical first
+      if (a.severity === 'critical' && b.severity !== 'critical') return -1;
+      if (b.severity === 'critical' && a.severity !== 'critical') return 1;
+      // Then by impact
+      return (b.impact_amount || 0) - (a.impact_amount || 0);
+    });
+  }, [activeAlerts]);
 
   const handleRunDetection = async () => {
     if (!tenantId) return;
@@ -220,13 +223,20 @@ export default function ControlTowerDashboard() {
     toast.loading('Đang quét cảnh báo...', { id: 'detection' });
     
     try {
-      const { data, error } = await supabase.functions.invoke('detect-alerts', {
-        body: { tenant_id: tenantId }
-      });
+      // Run both regular and cross-domain detection
+      const [regularResult, crossDomainResult] = await Promise.all([
+        supabase.functions.invoke('detect-alerts', { body: { tenant_id: tenantId } }),
+        supabase.functions.invoke('detect-cross-domain-alerts', { body: { tenant_id: tenantId } })
+      ]);
 
-      if (error) throw error;
+      const regularCount = regularResult.data?.result?.triggered || 0;
+      const crossDomainCount = crossDomainResult.data?.triggered || 0;
+      const totalTriggered = regularCount + crossDomainCount;
 
-      toast.success(`Đã quét xong: ${data.result?.triggered || 0} cảnh báo mới`, { id: 'detection' });
+      toast.success(
+        `Đã quét xong: ${totalTriggered} cảnh báo mới${crossDomainCount > 0 ? ` (${crossDomainCount} cross-domain)` : ''}`, 
+        { id: 'detection' }
+      );
       refetchAll();
     } catch (err) {
       toast.error('Lỗi khi quét cảnh báo', { id: 'detection' });
@@ -234,82 +244,89 @@ export default function ControlTowerDashboard() {
     }
   };
 
-  const storePerformance = (storeData || []).map(store => {
-    const metrics = store.current_metrics as any;
-    const revenue = metrics?.daily_revenue || 0;
-    const target = metrics?.target_revenue || 1;
-    return {
-      name: store.object_name,
-      revenue: revenue / 1000000,
-      target: target / 1000000,
-      progress: Math.round((revenue / target) * 100),
-    };
-  }).sort((a, b) => b.progress - a.progress);
-
-  const criticalAlerts = activeAlerts.filter(a => a.severity === 'critical');
-  const warningAlerts = activeAlerts.filter(a => a.severity === 'warning');
+  const criticalCount = stats.bySeverity.critical || 0;
+  const warningCount = stats.bySeverity.warning || 0;
 
   return (
     <>
       <Helmet>
-        <title>Control Tower | Operation System</title>
+        <title>Control Tower | Alert Center</title>
       </Helmet>
 
       <div className="space-y-6">
-        {/* Header */}
+        {/* Simplified Header - Alert Focused */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-100">Control Tower Dashboard</h1>
-            <p className="text-slate-400 text-sm mt-1">Tổng quan vận hành thời gian thực</p>
+            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-amber-400" />
+              Alert Center
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              {stats.active > 0 
+                ? `${stats.active} cảnh báo cần xử lý` 
+                : 'Không có cảnh báo nào'}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleRunDetection}
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Quét cảnh báo
-            </Button>
-            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              <span className="h-2 w-2 bg-emerald-400 rounded-full mr-2 animate-pulse" />
-              Live Data
-            </Badge>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRunDetection}
+            className="border-slate-700 text-slate-300 hover:bg-slate-800"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Quét cảnh báo
+          </Button>
         </div>
 
-        {/* Alert Summary Banner */}
-        {(criticalAlerts.length > 0 || warningAlerts.length > 0) && (
+        {/* Impact Summary Bar - The Most Important Metric */}
+        {stats.active > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-4 rounded-lg border ${
-              criticalAlerts.length > 0 
-                ? 'bg-red-500/10 border-red-500/30' 
-                : 'bg-amber-500/10 border-amber-500/30'
+            className={`p-5 rounded-xl border-2 ${
+              criticalCount > 0 
+                ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 border-red-500/30' 
+                : 'bg-gradient-to-r from-amber-500/10 to-amber-500/5 border-amber-500/30'
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Bell className={`h-5 w-5 ${criticalAlerts.length > 0 ? 'text-red-400' : 'text-amber-400'}`} />
-                <div>
-                  <p className="font-medium text-slate-100">
-                    {criticalAlerts.length > 0 
-                      ? `🚨 ${criticalAlerts.length} cảnh báo nguy cấp cần xử lý ngay`
-                      : `⚠️ ${warningAlerts.length} cảnh báo cần chú ý`
-                    }
-                  </p>
-                  <p className="text-sm text-slate-400">
-                    Tổng: {stats.active} đang hoạt động, {stats.acknowledged} đã xác nhận
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-6">
+                {/* Total Impact */}
+                <div className="text-center">
+                  <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                    <DollarSign className="h-3 w-3" />
+                    Tổng Impact
+                  </div>
+                  <p className={`text-3xl font-bold ${criticalCount > 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                    ₫{formatImpact(totalImpact)}
                   </p>
                 </div>
+
+                <div className="h-12 w-px bg-slate-700" />
+
+                {/* Alert Counts */}
+                <div className="flex gap-4">
+                  {criticalCount > 0 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-red-400">{criticalCount}</p>
+                      <p className="text-xs text-slate-400">Critical</p>
+                    </div>
+                  )}
+                  {warningCount > 0 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-amber-400">{warningCount}</p>
+                      <p className="text-xs text-slate-400">Warning</p>
+                    </div>
+                  )}
+                </div>
               </div>
+
               <Button 
-                size="sm" 
-                variant="ghost"
+                size="sm"
                 onClick={() => navigate('/control-tower/alerts')}
-                className="text-amber-400 hover:bg-amber-500/10"
+                className={`${
+                  criticalCount > 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
+                } text-white`}
               >
                 Xem tất cả
                 <ArrowRight className="h-4 w-4 ml-1" />
@@ -318,156 +335,67 @@ export default function ControlTowerDashboard() {
           </motion.div>
         )}
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard 
-            title="Doanh thu hôm nay" 
-            value={quickStats ? `₫${(quickStats.totalRevenue / 1000000).toFixed(1)}M` : '₫0'} 
-            change={12.5}
-            changeLabel="vs hôm qua"
-            icon={DollarSign} 
-            color="#10B981" 
-            isLoading={quickStatsLoading}
-          />
-          <KPICard 
-            title="Đơn hàng mới" 
-            value={quickStats?.todayOrders?.toString() || '0'} 
-            change={8.2}
-            changeLabel="vs hôm qua"
-            icon={ShoppingCart} 
-            color="#3B82F6" 
-            isLoading={quickStatsLoading}
-          />
-          <KPICard 
-            title="Cảnh báo đang hoạt động" 
-            value={`${stats.active} (${stats.bySeverity.critical} critical)`}
-            icon={AlertTriangle} 
-            color="#F59E0B" 
-            isLoading={isLoading}
-          />
-          <KPICard 
-            title="Cửa hàng hoạt động" 
-            value={`${storePerformance.length}/${storePerformance.length}`}
-            icon={Store} 
-            color="#8B5CF6" 
-            isLoading={storesLoading}
-          />
-        </div>
+        {/* No Alerts State */}
+        {stats.active === 0 && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16 bg-slate-900/30 rounded-xl border border-slate-800/50"
+          >
+            <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-emerald-400" />
+            <h2 className="text-xl font-semibold text-slate-100 mb-2">Hệ thống hoạt động bình thường</h2>
+            <p className="text-slate-400 mb-4">Không có cảnh báo nào cần xử lý</p>
+            <div className="flex items-center justify-center gap-4 text-sm">
+              <div className="flex items-center gap-2 text-slate-500">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                {stats.resolved} đã xử lý hôm nay
+              </div>
+            </div>
+          </motion.div>
+        )}
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Alerts Panel */}
-          <Card className="bg-slate-900/50 border-slate-800/50 lg:col-span-2">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg text-slate-100 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-400" />
-                  Cảnh báo cần xử lý
-                </CardTitle>
-                {stats.active > 0 && (
-                  <Badge className="bg-red-500/10 text-red-400 border border-red-500/30">
-                    {stats.active} active
-                  </Badge>
+        {/* Priority Alert List */}
+        {stats.active > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+                <TrendingDown className="h-5 w-5 text-amber-400" />
+                Cảnh báo ưu tiên cao nhất
+              </h2>
+              <span className="text-xs text-slate-500">Sắp xếp theo Impact ₫</span>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1,2,3].map(i => <Skeleton key={i} className="h-32 bg-slate-800" />)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedAlerts.slice(0, 5).map((alert: any) => (
+                  <ImpactAlertCard
+                    key={alert.id}
+                    alert={alert}
+                    onAcknowledge={(id) => acknowledgeAlert.mutate(id)}
+                    onResolve={(id) => resolveAlert.mutate({ id })}
+                  />
+                ))}
+                
+                {sortedAlerts.length > 5 && (
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                    onClick={() => navigate('/control-tower/alerts')}
+                  >
+                    Xem tất cả {sortedAlerts.length} cảnh báo
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoading ? (
-                Array(4).fill(0).map((_, i) => (
-                  <Skeleton key={i} className="h-20 bg-slate-800" />
-                ))
-              ) : activeAlerts.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-400" />
-                  <p>Không có cảnh báo nào</p>
-                  <p className="text-sm">Hệ thống đang hoạt động bình thường</p>
-                </div>
-              ) : (
-                <>
-                  {activeAlerts.slice(0, 5).map((alert) => (
-                    <AlertItem 
-                      key={alert.id} 
-                      alert={alert}
-                      onAcknowledge={(id) => acknowledgeAlert.mutate(id)}
-                      onResolve={(id) => resolveAlert.mutate({ id })}
-                    />
-                  ))}
-                  {activeAlerts.length > 5 && (
-                    <Button 
-                      variant="ghost" 
-                      className="w-full text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                      onClick={() => navigate('/control-tower/alerts')}
-                    >
-                      Xem tất cả {activeAlerts.length} cảnh báo
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+            )}
+          </div>
+        )}
 
-          {/* Store Performance */}
-          <Card className="bg-slate-900/50 border-slate-800/50 lg:col-span-1">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg text-slate-100 flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-emerald-400" />
-                  Hiệu suất cửa hàng
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {storesLoading ? (
-                Array(4).fill(0).map((_, i) => (
-                  <Skeleton key={i} className="h-12 bg-slate-800" />
-                ))
-              ) : storePerformance.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
-                  <Store className="h-8 w-8 mx-auto mb-2" />
-                  <p className="text-sm">Chưa có dữ liệu cửa hàng</p>
-                </div>
-              ) : (
-                storePerformance.map((store, index) => (
-                  <motion.div
-                    key={store.name}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300 truncate flex-1">{store.name}</span>
-                      <span className="text-sm font-medium text-slate-100">₫{store.revenue.toFixed(1)}M</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Progress 
-                        value={Math.min(store.progress, 100)} 
-                        className="h-2 flex-1"
-                      />
-                      <span className={`text-xs font-medium min-w-[40px] text-right ${
-                        store.progress >= 90 ? 'text-emerald-400' : 
-                        store.progress >= 70 ? 'text-amber-400' : 'text-red-400'
-                      }`}>
-                        {store.progress}%
-                      </span>
-                    </div>
-                  </motion.div>
-                ))
-              )}
-              <Button 
-                variant="ghost" 
-                className="w-full text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-                onClick={() => navigate('/control-tower/stores')}
-              >
-                Xem chi tiết
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Stats Row */}
+        {/* Quick Stats - Simplified */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
             <div className="flex items-center gap-3">
