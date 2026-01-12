@@ -100,6 +100,7 @@ import CTPerformancePage from "./pages/control-tower/PerformancePage";
 import CTTeamPage from "./pages/control-tower/TeamPage";
 import CTChatPage from "./pages/control-tower/ChatPage";
 import CTSettingsPage from "./pages/control-tower/SettingsPage";
+import CTAlertRulesDocPage from "./pages/control-tower/AlertRulesDocPage";
 
 // Mobile App pages
 const MobileLayout = lazy(() => import("./pages/mobile/MobileLayout"));
@@ -172,6 +173,7 @@ const AppRoutes = () => {
         <Route path="/control-tower/team" element={<CTTeamPage />} />
         <Route path="/control-tower/chat" element={<CTChatPage />} />
         <Route path="/control-tower/settings" element={<CTSettingsPage />} />
+        <Route path="/control-tower/rules-doc" element={<CTAlertRulesDocPage />} />
       </Route>
       
       {/* Super Admin Routes */}
