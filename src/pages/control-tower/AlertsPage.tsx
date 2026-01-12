@@ -177,6 +177,172 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
     }
   }, [deadlineAt]);
 
+  // Generate detailed action recommendations based on alert type
+  const getDetailedRecommendations = useMemo(() => {
+    const suggestedAction = alert.suggested_action;
+    const alertType = alert.alert_type;
+    const currentValue = alert.current_value || 0;
+    const thresholdValue = alert.threshold_value || 0;
+    
+    // Parse specific data from alert
+    const metadata = (alert as any).metadata || {};
+    const calcDetails = (alert as any).calculation_details || {};
+    
+    type RecommendationType = {
+      primary: { label: string; action: string; impact: string; urgency: 'high' | 'medium' | 'low' };
+      alternatives: Array<{ label: string; action: string; tradeoff: string }>;
+      metrics: Array<{ label: string; value: string | number }>;
+    };
+    
+    let recommendations: RecommendationType = {
+      primary: { label: '', action: '', impact: '', urgency: 'medium' },
+      alternatives: [],
+      metrics: []
+    };
+
+    // DOS/Inventory alerts
+    if (alertType?.includes('dos') || alertType?.includes('inventory')) {
+      const velocity = calcDetails.sales_velocity || calcDetails.velocity || 0;
+      const daysOfStock = calcDetails.days_of_stock ?? currentValue ?? 0;
+      const reorderPoint = calcDetails.reorder_point || 7;
+      const suggestedQty = Math.ceil(velocity * 14); // 2 weeks stock
+      
+      recommendations = {
+        primary: {
+          label: '🚀 Đặt hàng ngay',
+          action: `Đặt ${suggestedQty.toLocaleString('vi-VN')} đơn vị (đủ 14 ngày bán)`,
+          impact: `Tránh mất ₫${formatImpact(velocity * 200000 * 7)} doanh thu/tuần`,
+          urgency: daysOfStock <= 3 ? 'high' : daysOfStock <= 7 ? 'medium' : 'low'
+        },
+        alternatives: [
+          {
+            label: '⏱️ Đặt hàng khẩn',
+            action: `Đặt ${Math.ceil(velocity * 7).toLocaleString('vi-VN')} đơn vị (đủ 7 ngày)`,
+            tradeoff: 'Chi phí vận chuyển cao hơn, nhưng giảm stockout'
+          },
+          {
+            label: '🔄 Điều chuyển nội bộ',
+            action: 'Chuyển từ kho khác có tồn dư',
+            tradeoff: 'Nhanh hơn đặt hàng, nhưng cần kiểm tra tồn kho các chi nhánh'
+          },
+          {
+            label: '📉 Giảm promotion',
+            action: 'Tạm ngưng khuyến mãi cho sản phẩm này',
+            tradeoff: 'Giảm doanh số, nhưng kéo dài thời gian tồn kho'
+          }
+        ],
+        metrics: [
+          { label: 'Ngày tồn kho', value: `${daysOfStock} ngày` },
+          { label: 'Tốc độ bán', value: `${velocity.toFixed(1)}/ngày` },
+          { label: 'Điểm đặt lại', value: `${reorderPoint} ngày` }
+        ]
+      };
+    }
+    // Revenue/Sales target alerts
+    else if (alertType?.includes('revenue') || alertType?.includes('sales') || alertType?.includes('target')) {
+      const gap = thresholdValue - currentValue;
+      const achievePercent = thresholdValue > 0 ? (currentValue / thresholdValue * 100).toFixed(0) : 0;
+      const daysLeft = calcDetails.days_remaining || 15;
+      const dailyNeeded = gap / (daysLeft || 1);
+      
+      recommendations = {
+        primary: {
+          label: '📈 Tăng doanh số',
+          action: `Cần thêm ₫${formatImpact(dailyNeeded)}/ngày để đạt target`,
+          impact: `Còn thiếu ₫${formatImpact(gap)} (đạt ${achievePercent}%)`,
+          urgency: Number(achievePercent) < 50 ? 'high' : Number(achievePercent) < 80 ? 'medium' : 'low'
+        },
+        alternatives: [
+          {
+            label: '🎯 Flash sale tập trung',
+            action: 'Tung flash sale 24h cho top 10 sản phẩm bán chạy',
+            tradeoff: 'Tăng doanh số nhanh, margin giảm 10-15%'
+          },
+          {
+            label: '📣 Push marketing',
+            action: 'Tăng ngân sách quảng cáo 50% trong 7 ngày tới',
+            tradeoff: 'Chi phí marketing tăng, ROI cần theo dõi'
+          },
+          {
+            label: '🤝 Outreach khách VIP',
+            action: 'Gọi điện/Zalo trực tiếp cho top 50 khách hàng',
+            tradeoff: 'Tốn nhân lực, nhưng tỷ lệ chuyển đổi cao'
+          }
+        ],
+        metrics: [
+          { label: 'Target', value: `₫${formatImpact(thresholdValue)}` },
+          { label: 'Thực tế', value: `₫${formatImpact(currentValue)}` },
+          { label: 'Còn thiếu', value: `₫${formatImpact(gap)}` }
+        ]
+      };
+    }
+    // Expiry alerts  
+    else if (alertType?.includes('expir') || alertType?.includes('het_han')) {
+      const expiryDays = calcDetails.days_until_expiry || 7;
+      const quantity = calcDetails.quantity || 100;
+      
+      recommendations = {
+        primary: {
+          label: '🏷️ Khuyến mãi thanh lý',
+          action: `Giảm giá 30-50% cho ${quantity} sản phẩm sắp hết hạn`,
+          impact: `Thu hồi vốn thay vì huỷ bỏ hoàn toàn`,
+          urgency: expiryDays <= 7 ? 'high' : expiryDays <= 14 ? 'medium' : 'low'
+        },
+        alternatives: [
+          {
+            label: '🎁 Quà tặng kèm',
+            action: 'Tặng kèm khi mua sản phẩm khác',
+            tradeoff: 'Không thu hồi vốn, nhưng tăng giá trị đơn hàng'
+          },
+          {
+            label: '🤝 Bán cho đối tác',
+            action: 'Liên hệ đối tác B2B với giá sỉ',
+            tradeoff: 'Margin thấp, nhưng thanh lý nhanh số lượng lớn'
+          },
+          {
+            label: '🚫 Huỷ và ghi nhận',
+            action: 'Huỷ hàng và ghi nhận chi phí hao hụt',
+            tradeoff: 'Mất vốn, nhưng giữ uy tín chất lượng'
+          }
+        ],
+        metrics: [
+          { label: 'Còn lại', value: `${expiryDays} ngày` },
+          { label: 'Số lượng', value: quantity },
+          { label: 'Giá trị', value: `₫${formatImpact(impactAmount)}` }
+        ]
+      };
+    }
+    // Cross-domain / Business alerts
+    else {
+      recommendations = {
+        primary: {
+          label: '📊 Phân tích chi tiết',
+          action: suggestedAction || 'Xem xét dữ liệu và đánh giá tình hình',
+          impact: impactDescription || 'Cần đánh giá thêm',
+          urgency: severity === 'critical' ? 'high' : 'medium'
+        },
+        alternatives: [
+          {
+            label: '👥 Họp team',
+            action: 'Tổ chức họp nhanh với các bên liên quan',
+            tradeoff: 'Tốn thời gian, nhưng có góc nhìn đa chiều'
+          },
+          {
+            label: '📈 Theo dõi thêm',
+            action: 'Đặt reminder theo dõi trong 3 ngày tới',
+            tradeoff: 'Chậm hành động, nhưng có thêm dữ liệu'
+          }
+        ],
+        metrics: [
+          { label: 'Mức độ', value: severity === 'critical' ? 'Nghiêm trọng' : 'Cảnh báo' },
+          { label: 'Impact', value: `₫${formatImpact(impactAmount)}` }
+        ]
+      };
+    }
+    
+    return recommendations;
+  }, [alert, severity, impactAmount, formatImpact]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -236,6 +402,61 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                 <p className={`text-xs mt-1 font-medium ${severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>
                   💰 {impactDescription}
                 </p>
+              )}
+              
+              {/* Detailed Recommendations Section */}
+              {getDetailedRecommendations.primary.label && (
+                <div className="mt-3 p-3 rounded-lg bg-slate-800/60 border border-slate-700/50">
+                  {/* Primary Recommendation */}
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className={`text-xs font-medium ${
+                        getDetailedRecommendations.primary.urgency === 'high' 
+                          ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                          : getDetailedRecommendations.primary.urgency === 'medium'
+                          ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                          : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                      }`}>
+                        {getDetailedRecommendations.primary.urgency === 'high' ? '🔴 Khẩn cấp' : 
+                         getDetailedRecommendations.primary.urgency === 'medium' ? '🟡 Quan trọng' : '🟢 Bình thường'}
+                      </Badge>
+                      <span className="text-xs text-slate-400">Phương án đề xuất:</span>
+                    </div>
+                    <div className="pl-2 border-l-2 border-emerald-500/50">
+                      <p className="text-sm font-medium text-emerald-400">{getDetailedRecommendations.primary.label}</p>
+                      <p className="text-xs text-slate-300 mt-0.5">{getDetailedRecommendations.primary.action}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">📊 {getDetailedRecommendations.primary.impact}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Metrics Row */}
+                  {getDetailedRecommendations.metrics.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mb-3 py-2 px-2 bg-slate-900/50 rounded">
+                      {getDetailedRecommendations.metrics.map((metric, idx) => (
+                        <div key={idx} className="text-xs">
+                          <span className="text-slate-500">{metric.label}: </span>
+                          <span className="text-slate-200 font-medium">{metric.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Alternative Options */}
+                  {getDetailedRecommendations.alternatives.length > 0 && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-2">Các phương án khác:</p>
+                      <div className="space-y-2">
+                        {getDetailedRecommendations.alternatives.map((alt, idx) => (
+                          <div key={idx} className="pl-2 border-l border-slate-600/50 hover:border-slate-500 transition-colors">
+                            <p className="text-xs font-medium text-slate-300">{alt.label}</p>
+                            <p className="text-xs text-slate-400">{alt.action}</p>
+                            <p className="text-xs text-slate-600 italic">⚖️ {alt.tradeoff}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex flex-col items-end gap-1">
