@@ -485,8 +485,12 @@ export type Database = {
           created_at: string
           current_value: number | null
           data_source_id: string | null
+          deadline_at: string | null
           external_object_id: string | null
           id: string
+          impact_amount: number | null
+          impact_currency: string | null
+          impact_description: string | null
           message: string | null
           metadata: Json | null
           metric_name: string | null
@@ -508,6 +512,7 @@ export type Database = {
           tenant_id: string
           threshold_operator: string | null
           threshold_value: number | null
+          time_to_resolve_hours: number | null
           title: string
           updated_at: string
         }
@@ -526,8 +531,12 @@ export type Database = {
           created_at?: string
           current_value?: number | null
           data_source_id?: string | null
+          deadline_at?: string | null
           external_object_id?: string | null
           id?: string
+          impact_amount?: number | null
+          impact_currency?: string | null
+          impact_description?: string | null
           message?: string | null
           metadata?: Json | null
           metric_name?: string | null
@@ -549,6 +558,7 @@ export type Database = {
           tenant_id: string
           threshold_operator?: string | null
           threshold_value?: number | null
+          time_to_resolve_hours?: number | null
           title: string
           updated_at?: string
         }
@@ -567,8 +577,12 @@ export type Database = {
           created_at?: string
           current_value?: number | null
           data_source_id?: string | null
+          deadline_at?: string | null
           external_object_id?: string | null
           id?: string
+          impact_amount?: number | null
+          impact_currency?: string | null
+          impact_description?: string | null
           message?: string | null
           metadata?: Json | null
           metric_name?: string | null
@@ -590,6 +604,7 @@ export type Database = {
           tenant_id?: string
           threshold_operator?: string | null
           threshold_value?: number | null
+          time_to_resolve_hours?: number | null
           title?: string
           updated_at?: string
         }
@@ -2922,6 +2937,80 @@ export type Database = {
           },
           {
             foreignKeyName: "covenant_measurements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cross_domain_alert_rules: {
+        Row: {
+          alert_message_template: string
+          alert_title_template: string
+          check_frequency_minutes: number | null
+          condition_logic: string | null
+          conditions: Json
+          cooldown_minutes: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          impact_formula: string | null
+          impact_unit: string | null
+          is_enabled: boolean | null
+          last_checked_at: string | null
+          rule_code: string
+          rule_name: string
+          severity: string | null
+          suggested_action: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          alert_message_template: string
+          alert_title_template: string
+          check_frequency_minutes?: number | null
+          condition_logic?: string | null
+          conditions?: Json
+          cooldown_minutes?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_formula?: string | null
+          impact_unit?: string | null
+          is_enabled?: boolean | null
+          last_checked_at?: string | null
+          rule_code: string
+          rule_name: string
+          severity?: string | null
+          suggested_action?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          alert_message_template?: string
+          alert_title_template?: string
+          check_frequency_minutes?: number | null
+          condition_logic?: string | null
+          conditions?: Json
+          cooldown_minutes?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_formula?: string | null
+          impact_unit?: string | null
+          is_enabled?: boolean | null
+          last_checked_at?: string | null
+          rule_code?: string
+          rule_name?: string
+          severity?: string | null
+          suggested_action?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cross_domain_alert_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

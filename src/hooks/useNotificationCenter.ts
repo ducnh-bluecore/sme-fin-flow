@@ -78,6 +78,14 @@ export interface AlertInstance {
   related_alerts: string[] | null;
   action_url: string | null;
   metadata: Record<string, any>;
+  calculation_details: Record<string, any> | null;
+  suggested_action: string | null;
+  // New impact fields
+  impact_amount: number | null;
+  impact_currency: string | null;
+  impact_description: string | null;
+  deadline_at: string | null;
+  time_to_resolve_hours: number | null;
   created_at: string;
   updated_at: string;
 }

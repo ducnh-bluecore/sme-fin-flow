@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.sync-ecommerce-data]
 verify_jwt = false
+
+[functions.detect-cross-domain-alerts]
+verify_jwt = false
