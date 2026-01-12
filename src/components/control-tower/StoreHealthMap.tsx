@@ -361,6 +361,12 @@ export default function StoreHealthMap() {
     return { avgHealth, critical, warning, medium, healthy, total: filteredChannels.length };
   }, [filteredChannels]);
 
+  const { stores, onlineChannels } = useMemo(() => {
+    const stores = filteredChannels.filter((c) => c.channelType === 'store');
+    const onlineChannels = filteredChannels.filter((c) => c.channelType !== 'store');
+    return { stores, onlineChannels };
+  }, [filteredChannels]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -480,7 +486,7 @@ export default function StoreHealthMap() {
       {/* Legend */}
       <HealthLegend />
 
-      {/* Store Grid */}
+      {/* Channels */}
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {[...Array(10)].map((_, i) => (
@@ -488,10 +494,40 @@ export default function StoreHealthMap() {
           ))}
         </div>
       ) : filteredChannels.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredChannels.map((channel) => (
-            <ChannelHealthCard key={channel.id} channel={channel} />
-          ))}
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold text-slate-200">Cửa hàng</h3>
+              <span className="text-xs text-slate-400">{stores.length} điểm</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {stores.map((channel) => (
+                <ChannelHealthCard key={channel.id} channel={channel} />
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold text-slate-200">Kênh online</h3>
+              <span className="text-xs text-slate-400">{onlineChannels.length} kênh</span>
+            </div>
+
+            {onlineChannels.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {onlineChannels.map((channel) => (
+                  <ChannelHealthCard key={channel.id} channel={channel} />
+                ))}
+              </div>
+            ) : (
+              <Card className="bg-slate-900/50 border-slate-800/50 p-6">
+                <div className="text-sm text-slate-300 font-medium">Chưa có dữ liệu kênh bán online</div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Hiện tại hệ thống mới ghi nhận object_type = store; để thấy Shopee/Lazada/TikTok/Website, cần có thêm đối tượng kênh tương ứng.
+                </div>
+              </Card>
+            )}
+          </section>
         </div>
       ) : (
         <Card className="bg-slate-900/50 border-slate-800/50 p-12 text-center">
