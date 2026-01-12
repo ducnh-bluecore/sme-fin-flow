@@ -30,6 +30,188 @@ import { motion } from "framer-motion";
 import { useIntelligentAlertRules } from "@/hooks/useIntelligentAlertRules";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Separator } from "@/components/ui/separator";
+
+// Data Sources Documentation
+const dataSourcesDoc = [
+  {
+    id: "alert_objects",
+    name: "alert_objects",
+    description: "Bảng chứa các đối tượng cần giám sát (sản phẩm, cửa hàng, kênh bán)",
+    source: "Database (Supabase)",
+    syncFrom: ["Haravan", "Shopee", "Lazada", "TikTok Shop", "POS", "Manual Import"],
+    fields: [
+      { name: "object_type", description: "Loại đối tượng: product, store, channel" },
+      { name: "object_name", description: "Tên đối tượng" },
+      { name: "current_metrics", description: "JSON chứa các chỉ số hiện tại (tồn kho, doanh số...)" },
+      { name: "sales_velocity", description: "Tốc độ bán (sản phẩm/ngày)" },
+      { name: "days_of_stock", description: "Số ngày tồn kho còn lại" },
+      { name: "lead_time_days", description: "Thời gian đặt hàng NCC" },
+      { name: "reorder_point", description: "Điểm đặt hàng lại" },
+    ]
+  },
+  {
+    id: "orders",
+    name: "orders",
+    description: "Bảng đơn hàng từ các kênh bán",
+    source: "Database (Supabase)",
+    syncFrom: ["Haravan API", "Shopee API", "Lazada API", "TikTok API", "POS"],
+    fields: [
+      { name: "order_number", description: "Mã đơn hàng" },
+      { name: "order_date", description: "Ngày đặt hàng" },
+      { name: "status", description: "Trạng thái: pending, confirmed, shipped, delivered, cancelled, returned" },
+      { name: "total_amount", description: "Tổng giá trị đơn hàng" },
+      { name: "channel", description: "Kênh bán (shopee, lazada, tiktok, pos...)" },
+    ]
+  },
+  {
+    id: "invoices",
+    name: "invoices",
+    description: "Hóa đơn bán hàng và công nợ phải thu",
+    source: "Database (Supabase)",
+    syncFrom: ["ERP/Kế toán", "Manual Import", "Auto-generate từ Orders"],
+    fields: [
+      { name: "invoice_number", description: "Số hóa đơn" },
+      { name: "invoice_date", description: "Ngày xuất hóa đơn" },
+      { name: "due_date", description: "Ngày đến hạn thanh toán" },
+      { name: "total_amount", description: "Tổng giá trị" },
+      { name: "paid_amount", description: "Số tiền đã thanh toán" },
+      { name: "status", description: "Trạng thái: draft, sent, paid, overdue" },
+    ]
+  },
+  {
+    id: "bills",
+    name: "bills",
+    description: "Hóa đơn mua hàng và công nợ phải trả",
+    source: "Database (Supabase)",
+    syncFrom: ["ERP/Kế toán", "Manual Import"],
+    fields: [
+      { name: "bill_number", description: "Số hóa đơn" },
+      { name: "vendor_name", description: "Tên nhà cung cấp" },
+      { name: "due_date", description: "Ngày đến hạn" },
+      { name: "total_amount", description: "Tổng giá trị" },
+      { name: "paid_amount", description: "Số tiền đã thanh toán" },
+    ]
+  },
+  {
+    id: "bank_accounts",
+    name: "bank_accounts",
+    description: "Tài khoản ngân hàng và số dư",
+    source: "Database (Supabase)",
+    syncFrom: ["Bank API (nếu có)", "Manual Update", "File import từ ngân hàng"],
+    fields: [
+      { name: "bank_name", description: "Tên ngân hàng" },
+      { name: "account_number", description: "Số tài khoản" },
+      { name: "current_balance", description: "Số dư hiện tại" },
+      { name: "last_sync_at", description: "Thời điểm đồng bộ cuối" },
+    ]
+  },
+  {
+    id: "revenues",
+    name: "revenues",
+    description: "Dữ liệu doanh thu theo ngày/kênh",
+    source: "Database (Supabase)",
+    syncFrom: ["Tổng hợp từ Orders", "Manual Import", "BigQuery"],
+    fields: [
+      { name: "date", description: "Ngày" },
+      { name: "channel", description: "Kênh bán" },
+      { name: "amount", description: "Doanh thu" },
+      { name: "category", description: "Phân loại doanh thu" },
+    ]
+  },
+  {
+    id: "expenses",
+    name: "expenses",
+    description: "Dữ liệu chi phí hoạt động",
+    source: "Database (Supabase)",
+    syncFrom: ["ERP/Kế toán", "Manual Import"],
+    fields: [
+      { name: "date", description: "Ngày" },
+      { name: "category", description: "Phân loại chi phí" },
+      { name: "amount", description: "Số tiền" },
+      { name: "description", description: "Mô tả" },
+    ]
+  },
+  {
+    id: "inventory_aging",
+    name: "inventory_aging",
+    description: "Phân tích tuổi tồn kho",
+    source: "Calculated View",
+    syncFrom: ["Tính toán từ alert_objects + orders"],
+    fields: [
+      { name: "product_id", description: "ID sản phẩm" },
+      { name: "days_in_stock", description: "Số ngày tồn kho" },
+      { name: "aging_bucket", description: "Nhóm tuổi: 0-30, 31-60, 61-90, >90 ngày" },
+      { name: "stock_value", description: "Giá trị tồn kho" },
+    ]
+  },
+  {
+    id: "pos_transactions",
+    name: "pos_heartbeat / pos_transactions",
+    description: "Dữ liệu giao dịch và heartbeat từ POS",
+    source: "Real-time từ POS",
+    syncFrom: ["POS API", "Webhook"],
+    fields: [
+      { name: "store_id", description: "ID cửa hàng" },
+      { name: "last_heartbeat", description: "Thời điểm heartbeat cuối" },
+      { name: "last_transaction_at", description: "Thời điểm giao dịch cuối" },
+      { name: "device_status", description: "Trạng thái thiết bị" },
+    ]
+  },
+  {
+    id: "social_messages",
+    name: "social_messages",
+    description: "Tin nhắn từ các kênh social",
+    source: "External API",
+    syncFrom: ["Facebook API", "Zalo API", "Instagram API"],
+    fields: [
+      { name: "message_id", description: "ID tin nhắn" },
+      { name: "channel", description: "Kênh: facebook, zalo, instagram" },
+      { name: "received_at", description: "Thời điểm nhận" },
+      { name: "responded_at", description: "Thời điểm phản hồi" },
+      { name: "status", description: "Trạng thái: unread, read, responded" },
+    ]
+  },
+  {
+    id: "product_reviews",
+    name: "product_reviews",
+    description: "Đánh giá sản phẩm từ các sàn",
+    source: "External API",
+    syncFrom: ["Shopee API", "Lazada API", "TikTok API"],
+    fields: [
+      { name: "product_id", description: "ID sản phẩm" },
+      { name: "rating", description: "Số sao (1-5)" },
+      { name: "content", description: "Nội dung đánh giá" },
+      { name: "created_at", description: "Thời điểm đánh giá" },
+    ]
+  },
+  {
+    id: "monthly_plans",
+    name: "monthly_plans / targets",
+    description: "Kế hoạch và target theo tháng/quý",
+    source: "Database (Supabase)",
+    syncFrom: ["Manual Input", "Import từ Excel"],
+    fields: [
+      { name: "period", description: "Kỳ kế hoạch (tháng/quý)" },
+      { name: "target_revenue", description: "Target doanh thu" },
+      { name: "target_profit", description: "Target lợi nhuận" },
+      { name: "channel", description: "Kênh áp dụng" },
+    ]
+  },
+  {
+    id: "connector_integrations",
+    name: "connector_integrations",
+    description: "Cấu hình kết nối với các hệ thống bên ngoài",
+    source: "Database (Supabase)",
+    syncFrom: ["Manual Setup trong Data Hub"],
+    fields: [
+      { name: "connector_type", description: "Loại connector: haravan, shopee, bigquery..." },
+      { name: "status", description: "Trạng thái: connected, disconnected, error" },
+      { name: "last_sync_at", description: "Thời điểm sync cuối" },
+      { name: "config", description: "Cấu hình kết nối (encrypted)" },
+    ]
+  },
+];
 
 // Default rules documentation
 const defaultRules = [
@@ -372,7 +554,7 @@ const severityConfig: Record<string, { label: string; color: string }> = {
 export default function AlertRulesDocPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  const [activeTab, setActiveTab] = useState<"default" | "intelligent">("default");
+  const [activeTab, setActiveTab] = useState<"default" | "intelligent" | "datasources">("default");
 
   // Fetch intelligent rules from database
   const { rules: intelligentRules, isLoading: loadingIntelligent } = useIntelligentAlertRules();
@@ -492,8 +674,8 @@ export default function AlertRulesDocPage() {
         </div>
       </div>
 
-      {/* Main Tabs: Default vs Intelligent */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "default" | "intelligent")}>
+      {/* Main Tabs: Default vs Intelligent vs Data Sources */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "default" | "intelligent" | "datasources")}>
         <TabsList className="mb-4">
           <TabsTrigger value="default" className="gap-2">
             <BookOpen className="h-4 w-4" />
@@ -502,6 +684,10 @@ export default function AlertRulesDocPage() {
           <TabsTrigger value="intelligent" className="gap-2">
             <Sparkles className="h-4 w-4" />
             Intelligent Rules ({intelligentRules?.length || 0})
+          </TabsTrigger>
+          <TabsTrigger value="datasources" className="gap-2">
+            <Database className="h-4 w-4" />
+            Nguồn dữ liệu ({dataSourcesDoc.length})
           </TabsTrigger>
         </TabsList>
 
@@ -845,6 +1031,84 @@ export default function AlertRulesDocPage() {
               </TabsContent>
             </Tabs>
           )}
+        </TabsContent>
+
+        {/* Data Sources Tab */}
+        <TabsContent value="datasources">
+          <ScrollArea className="h-[calc(100vh-320px)]">
+            <div className="space-y-4 pr-4">
+              <div className="grid gap-4">
+                {dataSourcesDoc.map((source) => (
+                  <motion.div
+                    key={source.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Card className="overflow-hidden">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-cyan-500/10">
+                              <Database className="h-5 w-5 text-cyan-500" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-base font-mono">{source.name}</CardTitle>
+                              <CardDescription>{source.description}</CardDescription>
+                            </div>
+                          </div>
+                          <Badge variant="outline">{source.source}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Sync Sources */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Zap className="h-4 w-4 text-amber-500" />
+                            <span className="font-medium text-sm">Nguồn đồng bộ</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {source.syncFrom.map((sync, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {sync}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Fields */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Code className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-sm">Các trường dữ liệu</span>
+                          </div>
+                          <div className="bg-muted/50 rounded-lg overflow-hidden">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted">
+                                  <th className="text-left p-2 font-medium">Trường</th>
+                                  <th className="text-left p-2 font-medium">Mô tả</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {source.fields.map((field, idx) => (
+                                  <tr key={idx} className="border-b last:border-0">
+                                    <td className="p-2 font-mono text-xs text-primary">{field.name}</td>
+                                    <td className="p-2 text-muted-foreground">{field.description}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </ScrollArea>
         </TabsContent>
       </Tabs>
 
