@@ -156,6 +156,27 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
   };
   const AffectedIcon = getAffectedIcon();
 
+  // Impact amount formatting
+  const impactAmount = (alert as any).impact_amount || 0;
+  const impactDescription = (alert as any).impact_description || '';
+  const deadlineAt = (alert as any).deadline_at;
+  
+  const formatImpact = (amount: number) => {
+    if (amount >= 1000000000) return `${(amount / 1000000000).toFixed(1)}B`;
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+    return amount.toLocaleString('vi-VN');
+  };
+
+  const deadlineText = useMemo(() => {
+    if (!deadlineAt) return null;
+    try {
+      return formatDistanceToNow(new Date(deadlineAt), { addSuffix: false, locale: vi });
+    } catch {
+      return null;
+    }
+  }, [deadlineAt]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -163,16 +184,33 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
       className={`p-4 rounded-lg border ${typeConf.bg} ${typeConf.border} transition-all hover:border-opacity-60`}
     >
       <div className="flex items-start gap-4">
-        <div className={`p-2 rounded-lg ${typeConf.bg}`}>
+        {/* Impact Amount Badge - Left side */}
+        {impactAmount > 0 && (
+          <div className="flex flex-col items-center justify-center min-w-[70px] p-2 rounded-lg bg-slate-800/80 border border-slate-700/50">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wide">₫</span>
+            <span className={`text-lg font-bold ${severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>
+              {formatImpact(impactAmount)}
+            </span>
+            <span className="text-[10px] text-slate-500">VND</span>
+          </div>
+        )}
+        
+        <div className={`p-2 rounded-lg ${typeConf.bg} ${!impactAmount ? '' : 'hidden sm:flex'}`}>
           <TypeIcon className={`h-5 w-5 ${typeConf.color}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <Badge className={`text-xs ${typeConf.bg} ${typeConf.color} border ${typeConf.border}`}>
                   {typeConf.label}
                 </Badge>
+                {deadlineText && (
+                  <Badge className="text-xs bg-slate-700/50 text-slate-300 border-slate-600/30 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {deadlineText}
+                  </Badge>
+                )}
                 <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30 flex items-center gap-1">
                   <CatIcon className="h-3 w-3" />
                   {categoryLabels[alert.category as keyof typeof categoryLabels] || alert.category}
@@ -183,10 +221,21 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                     Tổng hợp
                   </Badge>
                 )}
+                {(alert as any).metadata?.cross_domain && (
+                  <Badge className="text-xs bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+                    Cross-domain
+                  </Badge>
+                )}
               </div>
               <h3 className="text-sm font-medium text-slate-100">{alert.title}</h3>
               {alert.message && (
-                <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">{alert.message}</p>
+                <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap line-clamp-3">{alert.message}</p>
+              )}
+              {/* Impact description */}
+              {impactDescription && (
+                <p className={`text-xs mt-1 font-medium ${severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>
+                  💰 {impactDescription}
+                </p>
               )}
             </div>
             <div className="flex flex-col items-end gap-1">
