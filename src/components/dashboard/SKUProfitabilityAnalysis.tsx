@@ -94,19 +94,19 @@ function useSKUProfitability() {
       if (ordersError) throw ordersError;
 
       // Fetch order items separately
-      const orderIds = orders?.map(o => o.id) || [];
-      let items: any[] = [];
-      
-      if (orderIds.length > 0) {
-        const { data: orderItems, error: itemsError } = await supabase
-          .from('external_order_items')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .in('external_order_id', orderIds);
-        
-        if (itemsError) throw itemsError;
-        items = orderItems || [];
-      }
+      // NOTE: Using a huge `in(...)` list can exceed URL limits and return 400.
+      // Since this dataset is typically small per tenant (and the REST API has a 1000 row default limit),
+      // we fetch items by tenant and filter in-memory.
+      const orderIds = new Set((orders || []).map(o => o.id));
+
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('external_order_items')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (itemsError) throw itemsError;
+
+      const items = (orderItems || []).filter(i => orderIds.has(i.external_order_id));
 
       // Map items to orders
       const itemsByOrderId = items.reduce((acc, item) => {
