@@ -886,6 +886,61 @@ export type Database = {
           },
         ]
       }
+      alert_rule_recipients: {
+        Row: {
+          created_at: string | null
+          id: string
+          notify_on_critical: boolean | null
+          notify_on_info: boolean | null
+          notify_on_warning: boolean | null
+          recipient_id: string
+          rule_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notify_on_critical?: boolean | null
+          notify_on_info?: boolean | null
+          notify_on_warning?: boolean | null
+          recipient_id: string
+          rule_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notify_on_critical?: boolean | null
+          notify_on_info?: boolean | null
+          notify_on_warning?: boolean | null
+          recipient_id?: string
+          rule_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_rule_recipients_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "notification_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_rule_recipients_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "intelligent_alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_rule_recipients_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_settings: {
         Row: {
           alert_configs: Json
