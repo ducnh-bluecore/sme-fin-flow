@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Store,
   Bot,
-  Target
+  Target,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,7 @@ interface NavItemWithBadge extends NavItemConfig {
 const navItemsConfig: NavItemConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/control-tower' },
   { id: 'kpi-rules', label: 'Rules KPI', icon: Target, path: '/control-tower/kpi-rules' },
+  { id: 'rules-doc', label: 'Tài liệu Rules', icon: BookOpen, path: '/control-tower/rules-doc' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
   { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
   { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
