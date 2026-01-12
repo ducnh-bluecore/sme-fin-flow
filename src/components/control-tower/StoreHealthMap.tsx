@@ -35,7 +35,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 
-interface StoreWithHealth {
+interface ChannelWithHealth {
   id: string;
   name: string;
   address: string | null;
@@ -54,7 +54,18 @@ interface StoreWithHealth {
   };
   region?: string;
   coordinates?: { lat: number; lng: number };
+  channelType: 'store' | 'shopee' | 'lazada' | 'tiktok' | 'website' | 'other';
 }
+
+// Channel type icons and colors
+const CHANNEL_CONFIG: Record<string, { icon: string; color: string; bgColor: string }> = {
+  store: { icon: '🏪', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
+  shopee: { icon: '🛒', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
+  lazada: { icon: '🛍️', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+  tiktok: { icon: '🎵', color: 'text-pink-400', bgColor: 'bg-pink-500/10' },
+  website: { icon: '🌐', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+  other: { icon: '📦', color: 'text-slate-400', bgColor: 'bg-slate-500/10' },
+};
 
 // Vietnam regions for demo
 const REGIONS = [
@@ -73,8 +84,9 @@ const getHealthStatus = (score: number) => {
   return { label: 'Nguy hiểm', color: 'text-red-400', bg: 'bg-red-500', ring: 'ring-red-500/30' };
 };
 
-function StoreHealthCard({ store }: { store: StoreWithHealth }) {
-  const health = getHealthStatus(store.healthScore);
+function ChannelHealthCard({ channel }: { channel: ChannelWithHealth }) {
+  const health = getHealthStatus(channel.healthScore);
+  const channelConfig = CHANNEL_CONFIG[channel.channelType] || CHANNEL_CONFIG.other;
   
   return (
     <TooltipProvider>
@@ -88,26 +100,26 @@ function StoreHealthCard({ store }: { store: StoreWithHealth }) {
           >
             {/* Health Score Badge */}
             <div className={`absolute -top-2 -right-2 w-10 h-10 rounded-full ${health.bg} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
-              {store.healthScore}
+              {channel.healthScore}
             </div>
 
             {/* Alert Badge */}
-            {store.alertCount > 0 && (
+            {channel.alertCount > 0 && (
               <div className="absolute -top-2 -left-2">
                 <Badge className="bg-red-500 text-white border-0 h-5 min-w-5 flex items-center justify-center text-xs">
-                  {store.alertCount}
+                  {channel.alertCount}
                 </Badge>
               </div>
             )}
 
             <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-lg ${store.status === 'active' ? 'bg-emerald-500/10' : store.status === 'maintenance' ? 'bg-amber-500/10' : 'bg-red-500/10'}`}>
-                <Store className={`h-5 w-5 ${store.status === 'active' ? 'text-emerald-400' : store.status === 'maintenance' ? 'text-amber-400' : 'text-red-400'}`} />
+              <div className={`p-2 rounded-lg ${channelConfig.bgColor}`}>
+                <span className="text-lg">{channelConfig.icon}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-slate-100 truncate">{store.name}</h4>
-                {store.address && (
-                  <p className="text-xs text-slate-500 truncate mt-0.5">{store.address}</p>
+                <h4 className="text-sm font-semibold text-slate-100 truncate">{channel.name}</h4>
+                {channel.address && (
+                  <p className="text-xs text-slate-500 truncate mt-0.5">{channel.address}</p>
                 )}
               </div>
             </div>
@@ -117,13 +129,13 @@ function StoreHealthCard({ store }: { store: StoreWithHealth }) {
               <div className="text-center p-2 rounded bg-slate-900/50">
                 <div className="text-xs text-slate-500">Doanh thu</div>
                 <div className="text-sm font-semibold text-slate-200">
-                  {store.revenue >= 1e6 ? `₫${(store.revenue / 1e6).toFixed(0)}M` : `₫${store.revenue.toLocaleString()}`}
+                  {channel.revenue >= 1e6 ? `₫${(channel.revenue / 1e6).toFixed(0)}M` : `₫${channel.revenue.toLocaleString()}`}
                 </div>
               </div>
               <div className="text-center p-2 rounded bg-slate-900/50">
                 <div className="text-xs text-slate-500">Target</div>
                 <div className="text-sm font-semibold text-slate-200">
-                  {store.revenueProgress}%
+                  {channel.revenueProgress}%
                 </div>
               </div>
             </div>
@@ -131,7 +143,7 @@ function StoreHealthCard({ store }: { store: StoreWithHealth }) {
             {/* Progress Bar */}
             <div className="mt-2">
               <Progress 
-                value={store.revenueProgress} 
+                value={channel.revenueProgress} 
                 className="h-1.5"
               />
             </div>
@@ -140,7 +152,7 @@ function StoreHealthCard({ store }: { store: StoreWithHealth }) {
         <TooltipContent side="right" className="bg-slate-900 border-slate-700 p-4 max-w-xs">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-slate-300 font-medium">{store.name}</span>
+              <span className="text-slate-300 font-medium">{channel.name}</span>
               <Badge className={`${health.bg.replace('bg-', 'bg-')}/20 ${health.color} border-0`}>
                 {health.label}
               </Badge>
@@ -149,28 +161,28 @@ function StoreHealthCard({ store }: { store: StoreWithHealth }) {
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span className="text-slate-500">Đơn hàng:</span>
-                <span className="text-slate-300 ml-1">{store.metrics.orders}</span>
+                <span className="text-slate-300 ml-1">{channel.metrics.orders}</span>
               </div>
               <div>
                 <span className="text-slate-500">AOV:</span>
-                <span className="text-slate-300 ml-1">₫{(store.metrics.avgOrderValue / 1000).toFixed(0)}K</span>
+                <span className="text-slate-300 ml-1">₫{(channel.metrics.avgOrderValue / 1000).toFixed(0)}K</span>
               </div>
               <div>
                 <span className="text-slate-500">Tăng trưởng:</span>
-                <span className={`ml-1 ${store.metrics.growth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {store.metrics.growth >= 0 ? '+' : ''}{store.metrics.growth}%
+                <span className={`ml-1 ${channel.metrics.growth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {channel.metrics.growth >= 0 ? '+' : ''}{channel.metrics.growth}%
                 </span>
               </div>
               <div>
-                <span className="text-slate-500">Hiệu suất NV:</span>
-                <span className="text-slate-300 ml-1">{store.metrics.staffEfficiency}%</span>
+                <span className="text-slate-500">Hiệu suất:</span>
+                <span className="text-slate-300 ml-1">{channel.metrics.staffEfficiency}%</span>
               </div>
             </div>
 
-            {store.alertCount > 0 && (
+            {channel.alertCount > 0 && (
               <div className="pt-2 border-t border-slate-700">
                 <span className="text-red-400 text-xs">
-                  ⚠️ {store.alertCount} cảnh báo cần xử lý
+                  ⚠️ {channel.alertCount} cảnh báo cần xử lý
                 </span>
               </div>
             )}
@@ -207,19 +219,19 @@ export default function StoreHealthMap() {
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [sortBy, setSortBy] = useState<'health' | 'revenue' | 'alerts'>('health');
 
-  const { data: storesWithHealth, isLoading } = useQuery({
-    queryKey: ['stores-health-map', tenantId],
+  const { data: channelsWithHealth, isLoading } = useQuery({
+    queryKey: ['channels-health-map', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Fetch stores from alert_objects
-      const { data: stores, error: storesError } = await supabase
+      // Fetch all channel types from alert_objects (store, shopee, lazada, tiktok, website, etc.)
+      const { data: channels, error: channelsError } = await supabase
         .from('alert_objects')
         .select('*')
         .eq('tenant_id', tenantId)
-        .eq('object_type', 'store');
+        .in('object_type', ['store', 'shopee', 'lazada', 'tiktok', 'website', 'channel']);
 
-      if (storesError) throw storesError;
+      if (channelsError) throw channelsError;
 
       // Fetch alert counts per store
       const { data: alerts } = await supabase
@@ -244,15 +256,15 @@ export default function StoreHealthMap() {
       });
 
       // Calculate health scores
-      return stores?.map(store => {
-        const metrics = store.current_metrics as any || {};
+      return channels?.map(channel => {
+        const metrics = channel.current_metrics as any || {};
         const revenue = metrics.daily_revenue || 0;
         const target = metrics.target_revenue || 1;
         const orders = metrics.orders || 0;
-        const growth = store.trend_percent || 0;
+        const growth = channel.trend_percent || 0;
         
         const revenueProgress = Math.min(Math.round((revenue / target) * 100), 100);
-        const alertInfo = alertCounts[store.id] || { count: 0, severity: null };
+        const alertInfo = alertCounts[channel.id] || { count: 0, severity: null };
         
         // Calculate health score based on multiple factors
         let healthScore = 100;
@@ -271,17 +283,22 @@ export default function StoreHealthMap() {
         if (growth < -10) healthScore -= 20;
         else if (growth < 0) healthScore -= 10;
         
-        // Store status impact
-        if (store.alert_status === 'maintenance') healthScore -= 15;
-        else if (store.alert_status === 'closed') healthScore -= 50;
+        // Channel status impact
+        if (channel.alert_status === 'maintenance') healthScore -= 15;
+        else if (channel.alert_status === 'closed') healthScore -= 50;
 
         healthScore = Math.max(0, Math.min(100, healthScore));
 
+        // Determine channel type
+        const channelType = ['store', 'shopee', 'lazada', 'tiktok', 'website'].includes(channel.object_type) 
+          ? channel.object_type as ChannelWithHealth['channelType']
+          : 'other';
+
         return {
-          id: store.id,
-          name: store.object_name,
-          address: store.address,
-          status: (store.alert_status as 'active' | 'maintenance' | 'closed') || 'active',
+          id: channel.id,
+          name: channel.object_name,
+          address: channel.address,
+          status: (channel.alert_status as 'active' | 'maintenance' | 'closed') || 'active',
           healthScore,
           revenue,
           target,
@@ -294,19 +311,20 @@ export default function StoreHealthMap() {
             growth,
             staffEfficiency: metrics.staff_efficiency || 85,
           },
-          region: (store.metadata as any)?.region || 'other',
-        } as StoreWithHealth;
+          region: (channel.metadata as any)?.region || 'other',
+          channelType,
+        } as ChannelWithHealth;
       }) || [];
     },
     enabled: !!tenantId,
     refetchInterval: 60000, // Refresh every minute
   });
 
-  // Filter and sort stores
-  const filteredStores = useMemo(() => {
-    if (!storesWithHealth) return [];
+  // Filter and sort channels
+  const filteredChannels = useMemo(() => {
+    if (!channelsWithHealth) return [];
     
-    let filtered = storesWithHealth;
+    let filtered = channelsWithHealth;
     
     if (selectedRegion !== 'all') {
       filtered = filtered.filter(s => s.region === selectedRegion);
@@ -326,21 +344,22 @@ export default function StoreHealthMap() {
     }
     
     return filtered;
-  }, [storesWithHealth, selectedRegion, sortBy]);
+  }, [channelsWithHealth, selectedRegion, sortBy]);
 
-  // Calculate summary stats
+  // Calculate summary stats from filteredChannels to match displayed items
   const stats = useMemo(() => {
-    if (!storesWithHealth || storesWithHealth.length === 0) {
-      return { avgHealth: 0, critical: 0, warning: 0, healthy: 0 };
+    if (!filteredChannels || filteredChannels.length === 0) {
+      return { avgHealth: 0, critical: 0, warning: 0, medium: 0, healthy: 0, total: 0 };
     }
     
-    const avgHealth = Math.round(storesWithHealth.reduce((sum, s) => sum + s.healthScore, 0) / storesWithHealth.length);
-    const critical = storesWithHealth.filter(s => s.healthScore < 40).length;
-    const warning = storesWithHealth.filter(s => s.healthScore >= 40 && s.healthScore < 60).length;
-    const healthy = storesWithHealth.filter(s => s.healthScore >= 80).length;
+    const avgHealth = Math.round(filteredChannels.reduce((sum, s) => sum + s.healthScore, 0) / filteredChannels.length);
+    const critical = filteredChannels.filter(s => s.healthScore < 40).length;
+    const warning = filteredChannels.filter(s => s.healthScore >= 40 && s.healthScore < 60).length;
+    const medium = filteredChannels.filter(s => s.healthScore >= 60 && s.healthScore < 80).length;
+    const healthy = filteredChannels.filter(s => s.healthScore >= 80).length;
     
-    return { avgHealth, critical, warning, healthy };
-  }, [storesWithHealth]);
+    return { avgHealth, critical, warning, medium, healthy, total: filteredChannels.length };
+  }, [filteredChannels]);
 
   return (
     <div className="space-y-6">
@@ -349,10 +368,10 @@ export default function StoreHealthMap() {
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <MapPin className="h-5 w-5 text-amber-400" />
-            Bản đồ sức khỏe cửa hàng
+            Bản đồ sức khỏe kênh bán
           </h2>
           <p className="text-slate-400 text-sm mt-1">
-            Theo dõi health score và trạng thái real-time của các cửa hàng
+            Theo dõi health score và trạng thái real-time của cửa hàng & kênh online
           </p>
         </div>
         
@@ -468,17 +487,17 @@ export default function StoreHealthMap() {
             <Skeleton key={i} className="h-40 bg-slate-800" />
           ))}
         </div>
-      ) : filteredStores.length > 0 ? (
+      ) : filteredChannels.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredStores.map((store) => (
-            <StoreHealthCard key={store.id} store={store} />
+          {filteredChannels.map((channel) => (
+            <ChannelHealthCard key={channel.id} channel={channel} />
           ))}
         </div>
       ) : (
         <Card className="bg-slate-900/50 border-slate-800/50 p-12 text-center">
           <Store className="h-12 w-12 mx-auto mb-4 text-slate-600" />
-          <h3 className="text-lg font-medium text-slate-300 mb-2">Chưa có cửa hàng</h3>
-          <p className="text-sm text-slate-500">Thêm cửa hàng để theo dõi sức khỏe vận hành</p>
+          <h3 className="text-lg font-medium text-slate-300 mb-2">Chưa có kênh bán</h3>
+          <p className="text-sm text-slate-500">Thêm cửa hàng hoặc kênh online để theo dõi sức khỏe vận hành</p>
         </Card>
       )}
     </div>
