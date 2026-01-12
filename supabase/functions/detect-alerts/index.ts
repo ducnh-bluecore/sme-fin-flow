@@ -351,12 +351,25 @@ async function createSummaryAlert(
   let title = '';
   let message = '';
   let topList = '';
+  let impactAmount = 0;
+  let impactDescription = '';
   
   if (metricType === 'dos') {
     title = `${emoji} ${totalCount} sản phẩm sắp hết hàng`;
     message = severity === 'critical' 
       ? `Có ${totalCount} sản phẩm có số ngày tồn kho < 3 ngày. Cần hành động ngay!`
       : `Có ${totalCount} sản phẩm có số ngày tồn kho < 7 ngày. Nên kiểm tra và chuẩn bị nhập hàng.`;
+    
+    // Calculate impact: estimate lost sales if stockout occurs
+    // Each product's potential daily revenue * days at risk
+    const avgDailyRevenue = topItems.reduce((sum, item) => {
+      const velocity = item.sales_velocity || 0;
+      const unitPrice = item.calculation_inputs?.unit_price || 200000; // Default 200K VND
+      return sum + (velocity * unitPrice);
+    }, 0) / Math.max(topItems.length, 1);
+    
+    impactAmount = Math.round(avgDailyRevenue * totalCount * (severity === 'critical' ? 3 : 7));
+    impactDescription = `Doanh thu có thể mất nếu stockout: ₫${(impactAmount / 1000000).toFixed(1)}M`;
     
     // Top 5 most urgent
     topList = topItems.slice(0, 5).map((item, idx) => 
@@ -366,12 +379,22 @@ async function createSummaryAlert(
     title = `${emoji} ${totalCount} đối tượng không đạt target`;
     message = `Có ${totalCount} đối tượng doanh thu dưới mức target. Cần xem xét chiến lược.`;
     
+    // Calculate gap to target
+    const gapToTarget = topItems.reduce((sum, item) => {
+      const target = item.calculation_inputs?.target_revenue || 0;
+      const actual = item.calculation_inputs?.current_revenue || 0;
+      return sum + Math.max(0, target - actual);
+    }, 0);
+    
+    impactAmount = gapToTarget > 0 ? gapToTarget : totalCount * 10000000; // Default 10M per item
+    impactDescription = `Gap so với target: ₫${(impactAmount / 1000000).toFixed(1)}M`;
+    
     topList = topItems.slice(0, 5).map((item, idx) => 
       `${idx + 1}. ${item.object_name}: ${Math.round(item.target_progress || 0)}% target`
     ).join('\n');
   }
 
-  const fullMessage = `${message}\n\n**Top 5 cần ưu tiên:**\n${topList}\n\n👉 Xem chi tiết tại Control Tower → Alerts`;
+  const fullMessage = `${message}\n\n**Top 5 cần ưu tiên:**\n${topList}\n\n💰 **Impact:** ${impactDescription}\n\n👉 Xem chi tiết tại Control Tower → Alerts`;
 
   const alertType = `${rule.rule_code}_summary_${severity}`;
   
@@ -393,6 +416,10 @@ async function createSummaryAlert(
     suggested_action: `Kiểm tra ${totalCount} ${metricType === 'dos' ? 'sản phẩm sắp hết hàng' : 'đối tượng không đạt target'}`,
     action_priority: severity === 'critical' ? 'urgent' : 'high',
     action_url: '/control-tower/alerts',
+    impact_amount: impactAmount,
+    impact_currency: 'VND',
+    impact_description: impactDescription,
+    deadline_at: new Date(Date.now() + (severity === 'critical' ? 24 : 72) * 60 * 60 * 1000).toISOString(),
     calculation_details: {
       source: 'aggregated_summary',
       total_affected: totalCount,
@@ -402,6 +429,10 @@ async function createSummaryAlert(
         value: metricType === 'dos' ? i.days_of_stock : i.target_progress 
       })),
       remaining_count: Math.max(0, totalCount - topItems.length),
+      impact_calculation: {
+        method: metricType === 'dos' ? 'potential_lost_sales' : 'target_gap',
+        amount: impactAmount,
+      },
     },
     metadata: {
       rule_id: rule.id,
@@ -430,18 +461,20 @@ async function createSummaryAlert(
           current_value: totalCount, 
           message: fullMessage,
           title,
+          impact_amount: impactAmount,
+          impact_description: impactDescription,
           calculation_details: alertData.calculation_details,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id);
-      console.log(`Updated summary alert: ${title}`);
+      console.log(`Updated summary alert: ${title} | Impact: ${impactAmount}`);
     }
     return false;
   }
 
   const { error } = await supabase.from('alert_instances').insert(alertData);
   if (!error) {
-    console.log(`Created summary alert: ${title}`);
+    console.log(`Created summary alert: ${title} | Impact: ${impactAmount}`);
     return true;
   }
   return false;
@@ -461,9 +494,29 @@ async function createAlertFromPrecalc(
   const currentValue = metricType === 'dos' ? metric.days_of_stock : metric.target_progress;
   const thresholdValue = metricType === 'dos' ? (severity === 'critical' ? 3 : 7) : (severity === 'critical' ? 60 : 80);
   
+  // Calculate impact amount for this specific item
+  let impactAmount = 0;
+  let impactDescription = '';
+  
+  if (metricType === 'dos') {
+    // Impact = potential lost sales if stockout
+    const velocity = metric.sales_velocity || 0;
+    const unitPrice = metric.calculation_inputs?.unit_price || 200000; // Default 200K VND
+    const daysAtRisk = Math.max(0, thresholdValue - (currentValue || 0));
+    impactAmount = Math.round(velocity * unitPrice * Math.max(daysAtRisk, 1) * 7); // 7 days potential loss
+    impactDescription = `Doanh thu có thể mất: ₫${(impactAmount / 1000000).toFixed(1)}M`;
+  } else {
+    // Impact = gap to target
+    const targetRevenue = metric.calculation_inputs?.target_revenue || 0;
+    const currentRevenue = metric.calculation_inputs?.current_revenue || 0;
+    impactAmount = Math.max(0, targetRevenue - currentRevenue);
+    if (impactAmount === 0) impactAmount = 5000000; // Default 5M if no data
+    impactDescription = `Gap so với target: ₫${(impactAmount / 1000000).toFixed(1)}M`;
+  }
+  
   const message = metricType === 'dos'
-    ? `${metric.object_name}: Chỉ còn ${Math.round(currentValue || 0)} ngày tồn kho. Velocity: ${(metric.sales_velocity || 0).toFixed(1)}/ngày`
-    : `${metric.object_name}: Đạt ${Math.round(currentValue || 0)}% target. Cần kiểm tra ngay!`;
+    ? `${metric.object_name}: Chỉ còn ${Math.round(currentValue || 0)} ngày tồn kho. Velocity: ${(metric.sales_velocity || 0).toFixed(1)}/ngày\n💰 ${impactDescription}`
+    : `${metric.object_name}: Đạt ${Math.round(currentValue || 0)}% target.\n💰 ${impactDescription}`;
 
   const alertData = {
     tenant_id: tenantId,
@@ -484,11 +537,21 @@ async function createAlertFromPrecalc(
     notification_sent: false,
     suggested_action: message,
     action_priority: severity === 'critical' ? 'urgent' : 'high',
+    impact_amount: impactAmount,
+    impact_currency: 'VND',
+    impact_description: impactDescription,
+    deadline_at: new Date(Date.now() + (severity === 'critical' ? 24 : 72) * 60 * 60 * 1000).toISOString(),
     calculation_details: {
       source: 'top_n_priority',
       precalculated_at: metric.last_calculated_at,
       inputs: metric.calculation_inputs,
       rank_by: metricType === 'dos' ? 'days_of_stock ASC' : 'target_progress ASC',
+      impact_calculation: {
+        velocity: metric.sales_velocity,
+        unit_price: metric.calculation_inputs?.unit_price,
+        days_at_risk: thresholdValue - (currentValue || 0),
+        amount: impactAmount,
+      },
     },
     metadata: {
       rule_id: rule.id,
@@ -510,7 +573,7 @@ async function createAlertFromPrecalc(
   if (!existing) {
     const { error } = await supabase.from('alert_instances').insert(alertData);
     if (!error) {
-      console.log(`Created top-N alert: ${alertData.title}`);
+      console.log(`Created top-N alert: ${alertData.title} | Impact: ${impactAmount}`);
       return alertData;
     }
   }
