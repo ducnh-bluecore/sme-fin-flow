@@ -82,16 +82,34 @@ function useSKUProfitability() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Fetch orders
-      const { data: orders, error: ordersError } = await supabase
-        .from('external_orders')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr)
-        .eq('status', 'delivered');
+      // Fetch orders (paginate to avoid the 1000 row default limit)
+      const pageSize = 1000;
+      const orders: Array<{
+        id: string;
+        channel: string | null;
+        total_amount: number | null;
+        cost_of_goods: number | null;
+        platform_fee: number | null;
+        commission_fee: number | null;
+        payment_fee: number | null;
+        shipping_fee: number | null;
+      }> = [];
 
-      if (ordersError) throw ordersError;
+      for (let from = 0; ; from += pageSize) {
+        const to = from + pageSize - 1;
+        const { data: page, error: pageError } = await supabase
+          .from('external_orders')
+          .select('id,channel,total_amount,cost_of_goods,platform_fee,commission_fee,payment_fee,shipping_fee')
+          .eq('tenant_id', tenantId)
+          .gte('order_date', startDateStr)
+          .lte('order_date', endDateStr)
+          .eq('status', 'delivered')
+          .range(from, to);
+
+        if (pageError) throw pageError;
+        orders.push(...(page || []));
+        if (!page || page.length < pageSize) break;
+      }
 
       // Fetch order items separately
       // NOTE: Using a huge `in(...)` list can exceed URL limits and return 400.
