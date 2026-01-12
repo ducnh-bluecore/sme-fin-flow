@@ -20,9 +20,14 @@ import {
   Target,
   BarChart3,
   Clock,
-  Layers
+  Layers,
+  Sparkles,
+  Zap,
+  Database,
+  Code
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useIntelligentAlertRules } from "@/hooks/useIntelligentAlertRules";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -367,6 +372,10 @@ const severityConfig: Record<string, { label: string; color: string }> = {
 export default function AlertRulesDocPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [activeTab, setActiveTab] = useState<"default" | "intelligent">("default");
+
+  // Fetch intelligent rules from database
+  const { rules: intelligentRules, isLoading: loadingIntelligent } = useIntelligentAlertRules();
 
   const filteredRules = useMemo(() => {
     return defaultRules.filter(rule => {
@@ -392,6 +401,69 @@ export default function AlertRulesDocPage() {
     return grouped;
   }, [filteredRules]);
 
+  // Filter intelligent rules
+  const filteredIntelligentRules = useMemo(() => {
+    return (intelligentRules || []).filter(rule => {
+      const matchesSearch = 
+        rule.rule_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rule.rule_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (rule.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesCategory = activeCategory === "all" || rule.rule_category === activeCategory;
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [intelligentRules, searchQuery, activeCategory]);
+
+  const intelligentRulesByCategory = useMemo(() => {
+    const grouped: Record<string, typeof intelligentRules> = {};
+    filteredIntelligentRules.forEach(rule => {
+      if (!grouped[rule.rule_category]) {
+        grouped[rule.rule_category] = [];
+      }
+      grouped[rule.rule_category].push(rule);
+    });
+    return grouped;
+  }, [filteredIntelligentRules]);
+
+  // Parse formula for display
+  const parseFormula = (formula: string | object | null): { formula: string; dataSources?: string[]; example?: string } => {
+    if (!formula) return { formula: 'N/A' };
+    if (typeof formula === 'string') {
+      try {
+        const parsed = JSON.parse(formula);
+        return {
+          formula: parsed.formula || formula,
+          dataSources: parsed.data_sources,
+          example: parsed.example
+        };
+      } catch {
+        return { formula };
+      }
+    }
+    if (typeof formula === 'object') {
+      const f = formula as any;
+      return {
+        formula: f.formula || JSON.stringify(formula),
+        dataSources: f.data_sources,
+        example: f.example
+      };
+    }
+    return { formula: String(formula) };
+  };
+
+  // Parse threshold config
+  const parseThreshold = (config: any): string => {
+    if (!config) return 'N/A';
+    const parts: string[] = [];
+    if (config.critical !== undefined) parts.push(`Critical: ${config.operator || '<'} ${config.critical}${config.unit || ''}`);
+    if (config.warning !== undefined) parts.push(`Warning: ${config.operator || '<'} ${config.warning}${config.unit || ''}`);
+    if (config.info !== undefined) parts.push(`Info: ${config.operator || '<'} ${config.info}${config.unit || ''}`);
+    if (config.value !== undefined) parts.push(`${config.operator || '<'} ${config.value}${config.unit || ''}`);
+    if (config.benchmark !== undefined) parts.push(`Benchmark: ${config.benchmark}%`);
+    return parts.length > 0 ? parts.join(' | ') : JSON.stringify(config);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -403,7 +475,7 @@ export default function AlertRulesDocPage() {
           <div>
             <h1 className="text-2xl font-bold">Tài liệu Rule Cảnh báo</h1>
             <p className="text-muted-foreground">
-              Mô tả chi tiết các rule mặc định, công thức tính và ứng dụng
+              Mô tả chi tiết các rule mặc định và intelligent rules, công thức tính và ứng dụng
             </p>
           </div>
         </div>
@@ -420,151 +492,386 @@ export default function AlertRulesDocPage() {
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="all" className="gap-2">
-            <Layers className="h-4 w-4" />
-            Tất cả ({defaultRules.length})
+      {/* Main Tabs: Default vs Intelligent */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "default" | "intelligent")}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="default" className="gap-2">
+            <BookOpen className="h-4 w-4" />
+            Rules Mặc định ({defaultRules.length})
           </TabsTrigger>
-          {Object.entries(categoryConfig).map(([key, config]) => {
-            const count = defaultRules.filter(r => r.category === key).length;
-            const Icon = config.icon;
-            return (
-              <TabsTrigger key={key} value={key} className="gap-2">
-                <Icon className="h-4 w-4" />
-                {config.label} ({count})
-              </TabsTrigger>
-            );
-          })}
+          <TabsTrigger value="intelligent" className="gap-2">
+            <Sparkles className="h-4 w-4" />
+            Intelligent Rules ({intelligentRules?.length || 0})
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeCategory} className="mt-6">
-          <ScrollArea className="h-[calc(100vh-280px)]">
-            <div className="space-y-6 pr-4">
-              {Object.entries(rulesByCategory).map(([category, rules]) => {
-                const config = categoryConfig[category];
-                const Icon = config?.icon || AlertTriangle;
-                
+        {/* Default Rules Tab */}
+        <TabsContent value="default">
+          <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+            <TabsList className="flex-wrap h-auto gap-1">
+              <TabsTrigger value="all" className="gap-2">
+                <Layers className="h-4 w-4" />
+                Tất cả ({defaultRules.length})
+              </TabsTrigger>
+              {Object.entries(categoryConfig).map(([key, config]) => {
+                const count = defaultRules.filter(r => r.category === key).length;
+                if (count === 0) return null;
+                const Icon = config.icon;
                 return (
-                  <motion.div
-                    key={category}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className={`p-1.5 rounded ${config?.color || 'bg-gray-500'}`}>
-                        <Icon className="h-4 w-4 text-white" />
-                      </div>
-                      <h2 className="text-lg font-semibold">{config?.label || category}</h2>
-                      <Badge variant="secondary">{rules.length} rules</Badge>
-                    </div>
-
-                    <Accordion type="multiple" className="space-y-3">
-                      {rules.map((rule) => (
-                        <AccordionItem
-                          key={rule.code}
-                          value={rule.code}
-                          className="border rounded-lg px-4 bg-card"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-4">
-                            <div className="flex items-center gap-3 text-left">
-                              <Badge className={severityConfig[rule.severity]?.color}>
-                                {severityConfig[rule.severity]?.label}
-                              </Badge>
-                              <div>
-                                <div className="font-medium">{rule.name}</div>
-                                <div className="text-sm text-muted-foreground font-mono">
-                                  {rule.code}
-                                </div>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-4">
-                            <div className="space-y-4">
-                              {/* Application */}
-                              <div className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg">
-                                <Target className="h-5 w-5 text-primary mt-0.5" />
-                                <div>
-                                  <div className="font-medium text-primary">Ứng dụng</div>
-                                  <p className="text-sm text-muted-foreground">{rule.application}</p>
-                                </div>
-                              </div>
-
-                              {/* Formula */}
-                              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                                <Calculator className="h-5 w-5 text-foreground mt-0.5" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Công thức</div>
-                                  <code className="text-sm bg-background px-2 py-1 rounded block mt-1">
-                                    {rule.formula}
-                                  </code>
-                                  <div className="text-sm text-muted-foreground mt-2">
-                                    <span className="font-medium">Ví dụ:</span> {rule.example}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Threshold */}
-                              <div className="flex items-start gap-3 p-3 bg-amber-500/10 rounded-lg">
-                                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                                <div>
-                                  <div className="font-medium text-amber-700 dark:text-amber-400">Ngưỡng cảnh báo</div>
-                                  <p className="text-sm">{rule.threshold}</p>
-                                </div>
-                              </div>
-
-                              {/* Data Sources */}
-                              <div className="flex items-start gap-3">
-                                <Layers className="h-5 w-5 text-muted-foreground mt-0.5" />
-                                <div>
-                                  <div className="font-medium text-sm">Nguồn dữ liệu</div>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {rule.dataSources.map((source) => (
-                                      <Badge key={source} variant="outline" className="font-mono text-xs">
-                                        {source}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Suggested Actions */}
-                              <div className="flex items-start gap-3">
-                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                                <div>
-                                  <div className="font-medium text-sm text-green-700 dark:text-green-400">Hành động đề xuất</div>
-                                  <ul className="list-disc list-inside text-sm text-muted-foreground mt-1 space-y-0.5">
-                                    {rule.suggestedActions.map((action, idx) => (
-                                      <li key={idx}>{action}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </motion.div>
+                  <TabsTrigger key={key} value={key} className="gap-2">
+                    <Icon className="h-4 w-4" />
+                    {config.label} ({count})
+                  </TabsTrigger>
                 );
               })}
+            </TabsList>
 
-              {filteredRules.length === 0 && (
-                <Card className="p-8 text-center">
-                  <Info className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    Không tìm thấy rule nào phù hợp
-                  </p>
-                </Card>
-              )}
+            <TabsContent value={activeCategory} className="mt-6">
+              <ScrollArea className="h-[calc(100vh-380px)]">
+                <div className="space-y-6 pr-4">
+                  {Object.entries(rulesByCategory).map(([category, rules]) => {
+                    const config = categoryConfig[category];
+                    const Icon = config?.icon || AlertTriangle;
+                    
+                    return (
+                      <motion.div
+                        key={category}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className={`p-1.5 rounded ${config?.color || 'bg-gray-500'}`}>
+                            <Icon className="h-4 w-4 text-white" />
+                          </div>
+                          <h2 className="text-lg font-semibold">{config?.label || category}</h2>
+                          <Badge variant="secondary">{rules.length} rules</Badge>
+                        </div>
+
+                        <Accordion type="multiple" className="space-y-3">
+                          {rules.map((rule) => (
+                            <AccordionItem
+                              key={rule.code}
+                              value={rule.code}
+                              className="border rounded-lg px-4 bg-card"
+                            >
+                              <AccordionTrigger className="hover:no-underline py-4">
+                                <div className="flex items-center gap-3 text-left">
+                                  <Badge className={severityConfig[rule.severity]?.color}>
+                                    {severityConfig[rule.severity]?.label}
+                                  </Badge>
+                                  <div>
+                                    <div className="font-medium">{rule.name}</div>
+                                    <div className="text-sm text-muted-foreground font-mono">
+                                      {rule.code}
+                                    </div>
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-4">
+                                <div className="space-y-4">
+                                  {/* Application */}
+                                  <div className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg">
+                                    <Target className="h-5 w-5 text-primary mt-0.5" />
+                                    <div>
+                                      <div className="font-medium text-primary">Ứng dụng</div>
+                                      <p className="text-sm text-muted-foreground">{rule.application}</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Formula */}
+                                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                                    <Calculator className="h-5 w-5 text-foreground mt-0.5" />
+                                    <div className="flex-1">
+                                      <div className="font-medium">Công thức</div>
+                                      <code className="text-sm bg-background px-2 py-1 rounded block mt-1">
+                                        {rule.formula}
+                                      </code>
+                                      <div className="text-sm text-muted-foreground mt-2">
+                                        <span className="font-medium">Ví dụ:</span> {rule.example}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Threshold */}
+                                  <div className="flex items-start gap-3 p-3 bg-amber-500/10 rounded-lg">
+                                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                                    <div>
+                                      <div className="font-medium text-amber-700 dark:text-amber-400">Ngưỡng cảnh báo</div>
+                                      <p className="text-sm">{rule.threshold}</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Data Sources */}
+                                  <div className="flex items-start gap-3">
+                                    <Database className="h-5 w-5 text-muted-foreground mt-0.5" />
+                                    <div>
+                                      <div className="font-medium text-sm">Nguồn dữ liệu</div>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {rule.dataSources.map((source) => (
+                                          <Badge key={source} variant="outline" className="font-mono text-xs">
+                                            {source}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Suggested Actions */}
+                                  <div className="flex items-start gap-3">
+                                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                                    <div>
+                                      <div className="font-medium text-sm text-green-700 dark:text-green-400">Hành động đề xuất</div>
+                                      <ul className="list-disc list-inside text-sm text-muted-foreground mt-1 space-y-0.5">
+                                        {rule.suggestedActions.map((action, idx) => (
+                                          <li key={idx}>{action}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
+                      </motion.div>
+                    );
+                  })}
+
+                  {filteredRules.length === 0 && (
+                    <Card className="p-8 text-center">
+                      <Info className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
+                        Không tìm thấy rule nào phù hợp
+                      </p>
+                    </Card>
+                  )}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        {/* Intelligent Rules Tab */}
+        <TabsContent value="intelligent">
+          {loadingIntelligent ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
             </div>
-          </ScrollArea>
+          ) : (
+            <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+              <TabsList className="flex-wrap h-auto gap-1">
+                <TabsTrigger value="all" className="gap-2">
+                  <Layers className="h-4 w-4" />
+                  Tất cả ({intelligentRules?.length || 0})
+                </TabsTrigger>
+                {Object.entries(categoryConfig).map(([key, config]) => {
+                  const count = (intelligentRules || []).filter(r => r.rule_category === key).length;
+                  if (count === 0) return null;
+                  const Icon = config.icon;
+                  return (
+                    <TabsTrigger key={key} value={key} className="gap-2">
+                      <Icon className="h-4 w-4" />
+                      {config.label} ({count})
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+
+              <TabsContent value={activeCategory} className="mt-6">
+                <ScrollArea className="h-[calc(100vh-380px)]">
+                  <div className="space-y-6 pr-4">
+                    {Object.entries(intelligentRulesByCategory).map(([category, rules]) => {
+                      const config = categoryConfig[category];
+                      const Icon = config?.icon || AlertTriangle;
+                      
+                      return (
+                        <motion.div
+                          key={category}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className={`p-1.5 rounded ${config?.color || 'bg-gray-500'}`}>
+                              <Icon className="h-4 w-4 text-white" />
+                            </div>
+                            <h2 className="text-lg font-semibold">{config?.label || category}</h2>
+                            <Badge variant="secondary">{rules.length} rules</Badge>
+                          </div>
+
+                          <Accordion type="multiple" className="space-y-3">
+                            {rules.map((rule) => {
+                              const formulaData = parseFormula(rule.calculation_formula);
+                              const thresholdText = parseThreshold(rule.threshold_config);
+                              const suggestedActions = Array.isArray(rule.suggested_actions) 
+                                ? rule.suggested_actions 
+                                : [];
+
+                              return (
+                                <AccordionItem
+                                  key={rule.id}
+                                  value={rule.id}
+                                  className="border rounded-lg px-4 bg-card"
+                                >
+                                  <AccordionTrigger className="hover:no-underline py-4">
+                                    <div className="flex items-center gap-3 text-left">
+                                      <Badge className={severityConfig[rule.severity]?.color}>
+                                        {severityConfig[rule.severity]?.label}
+                                      </Badge>
+                                      <Badge variant={rule.is_enabled ? "default" : "outline"} className="gap-1">
+                                        <Zap className="h-3 w-3" />
+                                        {rule.is_enabled ? 'Active' : 'Inactive'}
+                                      </Badge>
+                                      <div>
+                                        <div className="font-medium">{rule.rule_name}</div>
+                                        <div className="text-sm text-muted-foreground font-mono">
+                                          {rule.rule_code}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pb-4">
+                                    <div className="space-y-4">
+                                      {/* Description */}
+                                      {rule.description && (
+                                        <div className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg">
+                                          <Target className="h-5 w-5 text-primary mt-0.5" />
+                                          <div>
+                                            <div className="font-medium text-primary">Mô tả</div>
+                                            <p className="text-sm text-muted-foreground">{rule.description}</p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Formula */}
+                                      <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                                        <Code className="h-5 w-5 text-foreground mt-0.5" />
+                                        <div className="flex-1">
+                                          <div className="font-medium">Công thức tính</div>
+                                          <code className="text-sm bg-background px-2 py-1 rounded block mt-1 whitespace-pre-wrap">
+                                            {formulaData.formula}
+                                          </code>
+                                          {formulaData.example && (
+                                            <div className="text-sm text-muted-foreground mt-2">
+                                              <span className="font-medium">Ví dụ:</span> {formulaData.example}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Threshold */}
+                                      <div className="flex items-start gap-3 p-3 bg-amber-500/10 rounded-lg">
+                                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                                        <div>
+                                          <div className="font-medium text-amber-700 dark:text-amber-400">
+                                            Ngưỡng ({rule.threshold_type})
+                                          </div>
+                                          <p className="text-sm">{thresholdText}</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Data Sources */}
+                                      {formulaData.dataSources && formulaData.dataSources.length > 0 && (
+                                        <div className="flex items-start gap-3">
+                                          <Database className="h-5 w-5 text-muted-foreground mt-0.5" />
+                                          <div>
+                                            <div className="font-medium text-sm">Nguồn dữ liệu</div>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {formulaData.dataSources.map((source) => (
+                                                <Badge key={source} variant="outline" className="font-mono text-xs">
+                                                  {source}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Applicable Channels */}
+                                      {rule.applicable_channels && rule.applicable_channels.length > 0 && (
+                                        <div className="flex items-start gap-3">
+                                          <Store className="h-5 w-5 text-muted-foreground mt-0.5" />
+                                          <div>
+                                            <div className="font-medium text-sm">Kênh áp dụng</div>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {rule.applicable_channels.map((channel) => (
+                                                <Badge key={channel} variant="secondary" className="text-xs">
+                                                  {channel}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Suggested Actions */}
+                                      {suggestedActions.length > 0 && (
+                                        <div className="flex items-start gap-3">
+                                          <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                                          <div>
+                                            <div className="font-medium text-sm text-green-700 dark:text-green-400">Hành động đề xuất</div>
+                                            <ul className="list-disc list-inside text-sm text-muted-foreground mt-1 space-y-0.5">
+                                              {suggestedActions.map((action, idx) => (
+                                                <li key={idx}>{typeof action === 'string' ? action : JSON.stringify(action)}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Priority */}
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span className="font-medium">Priority:</span> {rule.priority}
+                                      </div>
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              );
+                            })}
+                          </Accordion>
+                        </motion.div>
+                      );
+                    })}
+
+                    {filteredIntelligentRules.length === 0 && (
+                      <Card className="p-8 text-center">
+                        <Info className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">
+                          Không tìm thấy intelligent rule nào phù hợp
+                        </p>
+                      </Card>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+          )}
         </TabsContent>
       </Tabs>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <BookOpen className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{defaultRules.length}</div>
+              <div className="text-sm text-muted-foreground">Rules mặc định</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/10">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{intelligentRules?.length || 0}</div>
+              <div className="text-sm text-muted-foreground">Intelligent Rules</div>
+            </div>
+          </div>
+        </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-red-500/10">
@@ -572,9 +879,10 @@ export default function AlertRulesDocPage() {
             </div>
             <div>
               <div className="text-2xl font-bold">
-                {defaultRules.filter(r => r.severity === 'critical').length}
+                {defaultRules.filter(r => r.severity === 'critical').length + 
+                 (intelligentRules || []).filter(r => r.severity === 'critical').length}
               </div>
-              <div className="text-sm text-muted-foreground">Critical Rules</div>
+              <div className="text-sm text-muted-foreground">Critical</div>
             </div>
           </div>
         </Card>
@@ -585,35 +893,23 @@ export default function AlertRulesDocPage() {
             </div>
             <div>
               <div className="text-2xl font-bold">
-                {defaultRules.filter(r => r.severity === 'warning').length}
+                {defaultRules.filter(r => r.severity === 'warning').length +
+                 (intelligentRules || []).filter(r => r.severity === 'warning').length}
               </div>
-              <div className="text-sm text-muted-foreground">Warning Rules</div>
+              <div className="text-sm text-muted-foreground">Warning</div>
             </div>
           </div>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10">
-              <Info className="h-5 w-5 text-blue-500" />
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <Zap className="h-5 w-5 text-green-500" />
             </div>
             <div>
               <div className="text-2xl font-bold">
-                {defaultRules.filter(r => r.severity === 'info').length}
+                {(intelligentRules || []).filter(r => r.is_enabled).length}
               </div>
-              <div className="text-sm text-muted-foreground">Info Rules</div>
-            </div>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Layers className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold">
-                {Object.keys(categoryConfig).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Categories</div>
+              <div className="text-sm text-muted-foreground">Active</div>
             </div>
           </div>
         </Card>
