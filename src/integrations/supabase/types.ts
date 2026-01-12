@@ -469,6 +469,103 @@ export type Database = {
           },
         ]
       }
+      alert_digest_configs: {
+        Row: {
+          created_at: string
+          daily_enabled: boolean
+          daily_time: string
+          id: string
+          include_resolved: boolean
+          include_summary: boolean
+          tenant_id: string
+          updated_at: string
+          weekly_day: number
+          weekly_enabled: boolean
+          weekly_time: string
+        }
+        Insert: {
+          created_at?: string
+          daily_enabled?: boolean
+          daily_time?: string
+          id?: string
+          include_resolved?: boolean
+          include_summary?: boolean
+          tenant_id: string
+          updated_at?: string
+          weekly_day?: number
+          weekly_enabled?: boolean
+          weekly_time?: string
+        }
+        Update: {
+          created_at?: string
+          daily_enabled?: boolean
+          daily_time?: string
+          id?: string
+          include_resolved?: boolean
+          include_summary?: boolean
+          tenant_id?: string
+          updated_at?: string
+          weekly_day?: number
+          weekly_enabled?: boolean
+          weekly_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_digest_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_escalation_rules: {
+        Row: {
+          created_at: string
+          escalate_after_minutes: number
+          escalate_to_role: string
+          id: string
+          is_active: boolean
+          name: string
+          notify_channels: Json
+          severity: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          escalate_after_minutes?: number
+          escalate_to_role?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notify_channels?: Json
+          severity?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          escalate_after_minutes?: number
+          escalate_to_role?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notify_channels?: Json
+          severity?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_escalation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_instances: {
         Row: {
           acknowledged_at: string | null

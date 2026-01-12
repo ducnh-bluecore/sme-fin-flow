@@ -12,8 +12,6 @@ import {
   Trash2,
   Edit2,
   Save,
-  AlertTriangle,
-  CheckCircle,
   Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,30 +36,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { toast } from 'sonner';
-
-interface EscalationRule {
-  id: string;
-  name: string;
-  severity: 'critical' | 'warning' | 'info';
-  escalate_after_minutes: number;
-  escalate_to_role: string;
-  notify_channels: string[];
-  is_active: boolean;
-}
-
-interface DigestConfig {
-  daily_enabled: boolean;
-  daily_time: string;
-  weekly_enabled: boolean;
-  weekly_day: number;
-  weekly_time: string;
-  include_resolved: boolean;
-  include_summary: boolean;
-}
+import { useEscalationRules, useDigestConfig, EscalationRule } from '@/hooks/useAlertEscalation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const severityConfig = {
   critical: { label: 'Nguy cấp', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
@@ -168,9 +144,20 @@ function EscalationRuleCard({ rule, onEdit, onDelete, onToggle }: {
   );
 }
 
-function DigestSettingsCard({ config, onSave }: {
-  config: DigestConfig;
-  onSave: (config: DigestConfig) => void;
+interface DigestConfigLocal {
+  daily_enabled: boolean;
+  daily_time: string;
+  weekly_enabled: boolean;
+  weekly_day: number;
+  weekly_time: string;
+  include_resolved: boolean;
+  include_summary: boolean;
+}
+
+function DigestSettingsCard({ config, onSave, isSaving }: {
+  config: DigestConfigLocal;
+  onSave: (config: DigestConfigLocal) => void;
+  isSaving?: boolean;
 }) {
   const [localConfig, setLocalConfig] = useState(config);
 
@@ -277,8 +264,9 @@ function DigestSettingsCard({ config, onSave }: {
         <Button 
           className="w-full bg-amber-500 hover:bg-amber-600 text-white"
           onClick={() => onSave(localConfig)}
+          disabled={isSaving}
         >
-          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
           Lưu cài đặt
         </Button>
       </CardContent>
@@ -287,11 +275,13 @@ function DigestSettingsCard({ config, onSave }: {
 }
 
 export default function AlertEscalationPanel() {
-  const { data: tenantId } = useActiveTenantId();
-  const queryClient = useQueryClient();
+  const { rules, isLoading, createRule, updateRule, deleteRule, toggleRule } = useEscalationRules();
+  const { config: digestConfig, isLoading: digestLoading, saveConfig } = useDigestConfig();
+  
   const [editingRule, setEditingRule] = useState<EscalationRule | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newRule, setNewRule] = useState<Partial<EscalationRule>>({
+    name: '',
     severity: 'warning',
     escalate_after_minutes: 30,
     escalate_to_role: 'manager',
@@ -299,72 +289,38 @@ export default function AlertEscalationPanel() {
     is_active: true,
   });
 
-  // Mock escalation rules - in production, fetch from database
-  const { data: escalationRules, isLoading } = useQuery({
-    queryKey: ['escalation-rules', tenantId],
-    queryFn: async () => {
-      // Mock data - replace with actual API call
-      return [
-        {
-          id: '1',
-          name: 'Critical - Quản lý ngay',
-          severity: 'critical' as const,
-          escalate_after_minutes: 15,
-          escalate_to_role: 'admin',
-          notify_channels: ['email', 'push', 'sms'],
-          is_active: true,
-        },
-        {
-          id: '2',
-          name: 'Warning - Thông báo sau 30p',
-          severity: 'warning' as const,
-          escalate_after_minutes: 30,
-          escalate_to_role: 'manager',
-          notify_channels: ['email', 'push'],
-          is_active: true,
-        },
-        {
-          id: '3',
-          name: 'Info - Tổng hợp cuối ngày',
-          severity: 'info' as const,
-          escalate_after_minutes: 480,
-          escalate_to_role: 'operations',
-          notify_channels: ['email'],
-          is_active: false,
-        },
-      ] as EscalationRule[];
-    },
-    enabled: !!tenantId,
-  });
-
-  const [digestConfig, setDigestConfig] = useState<DigestConfig>({
-    daily_enabled: true,
-    daily_time: '08:00',
-    weekly_enabled: true,
-    weekly_day: 1,
-    weekly_time: '09:00',
-    include_resolved: true,
-    include_summary: true,
-  });
-
-  const handleSaveDigest = (config: DigestConfig) => {
-    setDigestConfig(config);
-    toast.success('Đã lưu cài đặt tổng hợp');
+  const handleSaveDigest = (config: DigestConfigLocal) => {
+    saveConfig.mutate(config);
   };
 
   const handleToggleRule = (id: string, active: boolean) => {
-    toast.success(active ? 'Đã bật quy tắc' : 'Đã tắt quy tắc');
+    toggleRule.mutate({ id, is_active: active });
   };
 
   const handleDeleteRule = (id: string) => {
-    toast.success('Đã xóa quy tắc');
+    deleteRule.mutate(id);
   };
 
   const handleSaveRule = () => {
-    toast.success(editingRule ? 'Đã cập nhật quy tắc' : 'Đã tạo quy tắc mới');
+    const ruleData = {
+      name: currentRule.name || '',
+      severity: currentRule.severity || 'warning',
+      escalate_after_minutes: currentRule.escalate_after_minutes || 30,
+      escalate_to_role: currentRule.escalate_to_role || 'manager',
+      notify_channels: currentRule.notify_channels || ['email', 'push'],
+      is_active: currentRule.is_active !== false,
+    };
+
+    if (editingRule) {
+      updateRule.mutate({ id: editingRule.id, ...ruleData });
+    } else {
+      createRule.mutate(ruleData as any);
+    }
+    
     setIsDialogOpen(false);
     setEditingRule(null);
     setNewRule({
+      name: '',
       severity: 'warning',
       escalate_after_minutes: 30,
       escalate_to_role: 'manager',
@@ -375,6 +331,16 @@ export default function AlertEscalationPanel() {
 
   const currentRule = editingRule || newRule;
   const setCurrentRule = editingRule ? setEditingRule : setNewRule as any;
+  
+  const defaultDigestConfig: DigestConfigLocal = {
+    daily_enabled: digestConfig?.daily_enabled ?? true,
+    daily_time: typeof digestConfig?.daily_time === 'string' ? digestConfig.daily_time : '08:00',
+    weekly_enabled: digestConfig?.weekly_enabled ?? true,
+    weekly_day: digestConfig?.weekly_day ?? 1,
+    weekly_time: typeof digestConfig?.weekly_time === 'string' ? digestConfig.weekly_time : '09:00',
+    include_resolved: digestConfig?.include_resolved ?? true,
+    include_summary: digestConfig?.include_summary ?? true,
+  };
 
   return (
     <div className="space-y-6">
@@ -515,9 +481,9 @@ export default function AlertEscalationPanel() {
                 <div key={i} className="h-32 bg-slate-800/50 rounded-lg animate-pulse" />
               ))}
             </div>
-          ) : escalationRules && escalationRules.length > 0 ? (
+          ) : rules && rules.length > 0 ? (
             <div className="space-y-4">
-              {escalationRules.map(rule => (
+              {rules.map(rule => (
                 <EscalationRuleCard
                   key={rule.id}
                   rule={rule}
@@ -544,7 +510,15 @@ export default function AlertEscalationPanel() {
           <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">
             Cài đặt tổng hợp
           </h3>
-          <DigestSettingsCard config={digestConfig} onSave={handleSaveDigest} />
+          {digestLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <DigestSettingsCard 
+              config={defaultDigestConfig} 
+              onSave={handleSaveDigest} 
+              isSaving={saveConfig.isPending}
+            />
+          )}
         </div>
       </div>
     </div>
