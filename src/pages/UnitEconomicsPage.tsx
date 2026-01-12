@@ -250,6 +250,7 @@ export default function UnitEconomicsPage() {
             <TabsTrigger value="customer">{t('unit.customer')}</TabsTrigger>
             <TabsTrigger value="channel">{t('unit.channel')}</TabsTrigger>
             <TabsTrigger value="trends">{t('unit.trends')}</TabsTrigger>
+            <TabsTrigger value="sku">SKU Profitability</TabsTrigger>
           </TabsList>
 
           <TabsContent value="order" className="space-y-4">
