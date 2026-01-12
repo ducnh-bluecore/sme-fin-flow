@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,8 @@ import {
   Loader2, 
   User, 
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertInstance } from '@/hooks/useNotificationCenter';
@@ -44,16 +46,6 @@ const priorityOptions = [
   { value: 'low', label: 'Thấp', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
 ];
 
-const departmentOptions = [
-  'Kho',
-  'Bán hàng',
-  'Kế toán',
-  'Operations',
-  'Marketing',
-  'HR',
-  'IT',
-];
-
 export function CreateTaskFromAlertDialog({
   open,
   onOpenChange,
@@ -65,28 +57,29 @@ export function CreateTaskFromAlertDialog({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<string>('high');
-  const [assigneeName, setAssigneeName] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
   const [department, setDepartment] = useState('');
   const [dueDate, setDueDate] = useState('');
 
-  // Fetch team members from tenant_users
-  const { data: teamMembers } = useQuery({
-    queryKey: ['team-members', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('tenant_users')
-        .select('user_id, role')
-        .eq('tenant_id', tenantId);
-      
-      if (error) {
-        console.error('Error fetching team members:', error);
-        return [];
-      }
-      return data || [];
-    },
-    enabled: open && !!tenantId,
-  });
+  // Fetch team members using the hook
+  const { data: teamMembers = [], isLoading: isLoadingMembers } = useTeamMembers();
+
+  // Get unique departments from team members
+  const departments = useMemo(() => {
+    const deptSet = new Set(teamMembers.map(m => m.department).filter(Boolean));
+    return Array.from(deptSet).sort();
+  }, [teamMembers]);
+
+  // Filter team members by selected department
+  const filteredMembers = useMemo(() => {
+    if (!department) return teamMembers;
+    return teamMembers.filter(m => m.department === department);
+  }, [teamMembers, department]);
+
+  // Get selected member info
+  const selectedMember = useMemo(() => {
+    return teamMembers.find(m => m.id === assigneeId);
+  }, [teamMembers, assigneeId]);
 
   // Reset form when alert changes
   const resetForm = () => {
@@ -99,9 +92,15 @@ export function CreateTaskFromAlertDialog({
       setDescription('');
       setPriority('high');
     }
-    setAssigneeName('');
+    setAssigneeId('');
     setDepartment('');
     setDueDate('');
+  };
+
+  // Reset assignee when department changes
+  const handleDepartmentChange = (value: string) => {
+    setDepartment(value);
+    setAssigneeId(''); // Clear assignee when department changes
   };
 
   // Create task mutation
@@ -119,7 +118,8 @@ export function CreateTaskFromAlertDialog({
           description,
           status: 'todo',
           priority,
-          assignee_name: assigneeName || null,
+          assignee_id: assigneeId || null,
+          assignee_name: selectedMember?.name || null,
           department: department || null,
           due_date: dueDate ? new Date(dueDate).toISOString() : null,
           source_type: 'alert',
@@ -132,6 +132,7 @@ export function CreateTaskFromAlertDialog({
             alert_category: alert.category,
             current_value: alert.current_value,
             threshold_value: alert.threshold_value,
+            assignee_email: selectedMember?.email || null,
           },
         });
 
@@ -235,13 +236,17 @@ export function CreateTaskFromAlertDialog({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">Phòng ban</Label>
-              <Select value={department} onValueChange={setDepartment}>
+              <Label className="text-slate-300 flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Phòng ban
+              </Label>
+              <Select value={department} onValueChange={handleDepartmentChange}>
                 <SelectTrigger className="bg-slate-800/50 border-slate-700 text-slate-200">
                   <SelectValue placeholder="Chọn phòng ban" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
-                  {departmentOptions.map(dept => (
+                  <SelectItem value="">Tất cả phòng ban</SelectItem>
+                  {departments.map(dept => (
                     <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                   ))}
                 </SelectContent>
@@ -251,17 +256,34 @@ export function CreateTaskFromAlertDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="assignee" className="text-slate-300 flex items-center gap-1">
+              <Label className="text-slate-300 flex items-center gap-1">
                 <User className="h-3 w-3" />
                 Người thực hiện
               </Label>
-              <Input
-                id="assignee"
-                value={assigneeName}
-                onChange={(e) => setAssigneeName(e.target.value)}
-                placeholder="Tên người thực hiện..."
-                className="bg-slate-800/50 border-slate-700 text-slate-200"
-              />
+              <Select value={assigneeId} onValueChange={setAssigneeId} disabled={isLoadingMembers}>
+                <SelectTrigger className="bg-slate-800/50 border-slate-700 text-slate-200">
+                  <SelectValue placeholder={isLoadingMembers ? "Đang tải..." : "Chọn người thực hiện"} />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700 max-h-60">
+                  {filteredMembers.length === 0 ? (
+                    <div className="p-2 text-sm text-slate-400 text-center">
+                      {department ? 'Không có nhân sự trong phòng ban này' : 'Chưa có nhân sự'}
+                    </div>
+                  ) : (
+                    filteredMembers.map(member => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{member.name}</span>
+                          <span className="text-xs text-slate-400">- {member.role}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {selectedMember && (
+                <p className="text-xs text-slate-400">{selectedMember.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
