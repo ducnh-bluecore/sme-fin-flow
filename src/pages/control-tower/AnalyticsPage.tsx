@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
             </TabsTrigger>
             <TabsTrigger value="store-map" className="data-[state=active]:bg-amber-500/10 data-[state=active]:text-amber-400 gap-2">
               <MapPin className="h-4 w-4" />
-              Bản đồ cửa hàng
+              Bản đồ kênh bán
             </TabsTrigger>
           </TabsList>
 
