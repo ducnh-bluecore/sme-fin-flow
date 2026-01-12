@@ -99,11 +99,11 @@ function useSKUProfitability() {
         const to = from + pageSize - 1;
         const { data: page, error: pageError } = await supabase
           .from('external_orders')
-          .select('id,channel,total_amount,cost_of_goods,platform_fee,commission_fee,payment_fee,shipping_fee')
+          .select('id,channel,total_amount,cost_of_goods,platform_fee,commission_fee,payment_fee,shipping_fee,status')
           .eq('tenant_id', tenantId)
           .gte('order_date', startDateStr)
           .lte('order_date', endDateStr)
-          .eq('status', 'delivered')
+          .in('status', ['pending', 'delivered'])
           .range(from, to);
 
         if (pageError) throw pageError;
