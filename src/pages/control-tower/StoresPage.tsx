@@ -20,7 +20,10 @@ import {
   Loader2,
   Target,
   Edit2,
-  Settings2
+  Settings2,
+  ShoppingBag,
+  Globe,
+  ShoppingCart
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,11 +61,23 @@ const statusConfig = {
   closed: { label: 'Đóng cửa', icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
 };
 
-function StoreCard({ store, onEditKPI }: { store: StoreData; onEditKPI: (store: StoreData) => void }) {
+const channelTypeConfig = {
+  store: { label: 'Cửa hàng', icon: Store, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  shopee: { label: 'Shopee', icon: ShoppingBag, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  lazada: { label: 'Lazada', icon: ShoppingCart, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  tiktok: { label: 'TikTok Shop', icon: ShoppingBag, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+  website: { label: 'Website', icon: Globe, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+};
+
+function ChannelCard({ store, onEditKPI }: { store: StoreData; onEditKPI: (store: StoreData) => void }) {
   const status = statusConfig[store.status];
   const StatusIcon = status.icon;
   const progress = store.target > 0 ? Math.min((store.revenue / store.target) * 100, 100) : 0;
   const hasTarget = store.target > 0;
+  
+  // Use channelType from store data
+  const channelConfig = channelTypeConfig[store.channelType] || channelTypeConfig.store;
+  const ChannelIcon = channelConfig.icon;
 
   return (
     <motion.div
@@ -73,8 +88,8 @@ function StoreCard({ store, onEditKPI }: { store: StoreData; onEditKPI: (store: 
         <CardContent className="p-5">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10">
-                <Store className="h-5 w-5 text-amber-400" />
+              <div className={`p-2.5 rounded-xl ${channelConfig.bg}`}>
+                <ChannelIcon className={`h-5 w-5 ${channelConfig.color}`} />
               </div>
               <div>
                 <h3 className="text-base font-semibold text-slate-100">{store.name}</h3>
@@ -214,8 +229,9 @@ function StoreCard({ store, onEditKPI }: { store: StoreData; onEditKPI: (store: 
   );
 }
 
-function AddStoreDialog({ onClose }: { onClose: () => void }) {
+function AddChannelDialog({ onClose }: { onClose: () => void }) {
   const createStore = useCreateStore();
+  const [channelType, setChannelType] = useState<'store' | 'shopee' | 'lazada' | 'tiktok' | 'website'>('store');
   const [formData, setFormData] = useState<StoreInput>({
     name: '',
     address: '',
@@ -231,39 +247,86 @@ function AddStoreDialog({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createStore.mutate(formData, {
+    // Add channel type to the form data
+    const dataWithType = {
+      ...formData,
+      channelType, // This will be stored in metadata
+    };
+    createStore.mutate(dataWithType as StoreInput, {
       onSuccess: () => onClose(),
     });
   };
 
+  const isOnlineChannel = channelType !== 'store';
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Channel Type Selection */}
       <div className="space-y-2">
-        <Label htmlFor="name">Tên cửa hàng *</Label>
+        <Label>Loại kênh bán *</Label>
+        <div className="grid grid-cols-5 gap-2">
+          {Object.entries(channelTypeConfig).map(([key, config]) => {
+            const Icon = config.icon;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setChannelType(key as typeof channelType)}
+                className={`p-3 rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                  channelType === key
+                    ? `${config.bg} border-slate-600 ring-1 ring-slate-500`
+                    : 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50'
+                }`}
+              >
+                <Icon className={`h-5 w-5 ${config.color}`} />
+                <span className="text-xs text-slate-300">{config.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="name">{isOnlineChannel ? 'Tên kênh / Shop *' : 'Tên cửa hàng *'}</Label>
         <Input
           id="name"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="Quận 1 - Nguyễn Huệ"
+          placeholder={isOnlineChannel ? 'VD: Shop ABC Official' : 'Quận 1 - Nguyễn Huệ'}
           required
           className="bg-slate-800/50 border-slate-700"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="address">Địa chỉ</Label>
-        <Input
-          id="address"
-          value={formData.address || ''}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
-          className="bg-slate-800/50 border-slate-700"
-        />
-      </div>
+      {!isOnlineChannel && (
+        <div className="space-y-2">
+          <Label htmlFor="address">Địa chỉ</Label>
+          <Input
+            id="address"
+            value={formData.address || ''}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+      )}
+
+      {isOnlineChannel && (
+        <div className="space-y-2">
+          <Label htmlFor="shopUrl">Link Shop / URL</Label>
+          <Input
+            id="shopUrl"
+            value={formData.address || ''}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            placeholder={`https://${channelType === 'website' ? 'yourwebsite.com' : `${channelType}.vn/shop/yourshop`}`}
+            className="bg-slate-800/50 border-slate-700"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="phone">Điện thoại</Label>
+          <Label htmlFor="phone">{isOnlineChannel ? 'Hotline / SĐT' : 'Điện thoại'}</Label>
           <Input
             id="phone"
             value={formData.phone || ''}
@@ -272,29 +335,58 @@ function AddStoreDialog({ onClose }: { onClose: () => void }) {
             className="bg-slate-800/50 border-slate-700"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="openHours">Giờ mở cửa</Label>
-          <Input
-            id="openHours"
-            value={formData.openHours || ''}
-            onChange={(e) => setFormData({ ...formData, openHours: e.target.value })}
-            placeholder="8:00 - 22:00"
-            className="bg-slate-800/50 border-slate-700"
-          />
-        </div>
+        {!isOnlineChannel ? (
+          <div className="space-y-2">
+            <Label htmlFor="openHours">Giờ mở cửa</Label>
+            <Input
+              id="openHours"
+              value={formData.openHours || ''}
+              onChange={(e) => setFormData({ ...formData, openHours: e.target.value })}
+              placeholder="8:00 - 22:00"
+              className="bg-slate-800/50 border-slate-700"
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="manager">Người phụ trách</Label>
+            <Input
+              id="manager"
+              value={formData.manager || ''}
+              onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+              placeholder="Nguyễn Văn A"
+              className="bg-slate-800/50 border-slate-700"
+            />
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="manager">Quản lý</Label>
-          <Input
-            id="manager"
-            value={formData.manager || ''}
-            onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-            placeholder="Nguyễn Văn A"
-            className="bg-slate-800/50 border-slate-700"
-          />
+      {!isOnlineChannel && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="manager">Quản lý</Label>
+            <Input
+              id="manager"
+              value={formData.manager || ''}
+              onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+              placeholder="Nguyễn Văn A"
+              className="bg-slate-800/50 border-slate-700"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="staff">Số nhân viên</Label>
+            <Input
+              id="staff"
+              type="number"
+              value={formData.staff || ''}
+              onChange={(e) => setFormData({ ...formData, staff: Number(e.target.value) })}
+              placeholder="8"
+              className="bg-slate-800/50 border-slate-700"
+            />
+          </div>
         </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="status">Trạng thái</Label>
           <Select 
@@ -313,9 +405,6 @@ function AddStoreDialog({ onClose }: { onClose: () => void }) {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="target">Target (VNĐ)</Label>
           <Input
@@ -327,17 +416,6 @@ function AddStoreDialog({ onClose }: { onClose: () => void }) {
             className="bg-slate-800/50 border-slate-700"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="staff">Số nhân viên</Label>
-          <Input
-            id="staff"
-            type="number"
-            value={formData.staff || ''}
-            onChange={(e) => setFormData({ ...formData, staff: Number(e.target.value) })}
-            placeholder="8"
-            className="bg-slate-800/50 border-slate-700"
-          />
-        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
@@ -346,7 +424,7 @@ function AddStoreDialog({ onClose }: { onClose: () => void }) {
         </Button>
         <Button type="submit" className="bg-amber-500 hover:bg-amber-600" disabled={createStore.isPending || !formData.name}>
           {createStore.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Thêm cửa hàng
+          {isOnlineChannel ? 'Thêm kênh' : 'Thêm cửa hàng'}
         </Button>
       </div>
     </form>
@@ -408,7 +486,7 @@ export default function StoresPage() {
   return (
     <>
       <Helmet>
-        <title>Cửa hàng | Control Tower</title>
+        <title>Kênh bán | Control Tower</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -416,24 +494,24 @@ export default function StoresPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Store className="h-6 w-6 text-amber-400" />
-              Quản lý cửa hàng
+              <ShoppingBag className="h-6 w-6 text-amber-400" />
+              Quản lý kênh bán
             </h1>
-            <p className="text-slate-400 text-sm mt-1">Theo dõi hiệu suất và trạng thái các cửa hàng</p>
+            <p className="text-slate-400 text-sm mt-1">Theo dõi hiệu suất cửa hàng và các kênh bán online (Shopee, Lazada, TikTok, Website)</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-amber-500 hover:bg-amber-600 text-white">
                 <Plus className="h-4 w-4 mr-2" />
-                Thêm cửa hàng
+                Thêm kênh bán
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-slate-900 border-slate-800 max-w-lg">
               <DialogHeader>
-                <DialogTitle className="text-slate-100">Thêm cửa hàng mới</DialogTitle>
+                <DialogTitle className="text-slate-100">Thêm kênh bán mới</DialogTitle>
               </DialogHeader>
-              <AddStoreDialog onClose={() => setIsDialogOpen(false)} />
+              <AddChannelDialog onClose={() => setIsDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>
@@ -442,7 +520,7 @@ export default function StoresPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
             <div className="text-2xl font-bold text-slate-100">{stats.total}</div>
-            <div className="text-xs text-slate-400">Tổng cửa hàng</div>
+            <div className="text-xs text-slate-400">Tổng kênh bán</div>
           </Card>
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
             <div className="text-2xl font-bold text-emerald-400">{stats.active}</div>
@@ -467,7 +545,7 @@ export default function StoresPage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
-                  placeholder="Tìm kiếm cửa hàng..."
+                  placeholder="Tìm kiếm kênh bán..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -495,18 +573,18 @@ export default function StoresPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <StoreCard store={store} onEditKPI={handleEditKPI} />
+                <ChannelCard store={store} onEditKPI={handleEditKPI} />
               </motion.div>
             ))}
           </div>
         ) : (
           <div className="text-center py-12">
-            <Store className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+            <ShoppingBag className="h-12 w-12 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400 mb-2">
-              {searchQuery ? 'Không tìm thấy cửa hàng nào' : 'Chưa có cửa hàng nào'}
+              {searchQuery ? 'Không tìm thấy kênh bán nào' : 'Chưa có kênh bán nào'}
             </p>
             {!searchQuery && (
-              <p className="text-sm text-slate-500">Nhấn "Thêm cửa hàng" để tạo cửa hàng đầu tiên</p>
+              <p className="text-sm text-slate-500">Nhấn "Thêm kênh bán" để tạo kênh đầu tiên (cửa hàng, Shopee, Lazada...)</p>
             )}
           </div>
         )}
