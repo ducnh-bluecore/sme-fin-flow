@@ -15,9 +15,8 @@ import {
   Home,
   AlertTriangle,
   TrendingUp,
-  Package,
   Store,
-  MessageSquare,
+  Bot,
   Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -56,7 +55,7 @@ const navItemsConfig: NavItemConfig[] = [
   { id: 'stores', label: 'Kênh bán', icon: Store, path: '/control-tower/stores' },
   { id: 'performance', label: 'Hiệu suất', icon: TrendingUp, path: '/control-tower/performance' },
   { id: 'team', label: 'Đội ngũ', icon: Users, path: '/control-tower/team' },
-  { id: 'chat', label: 'Tin nhắn', icon: MessageSquare, path: '/control-tower/chat' },
+  { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/control-tower/chat' },
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [
