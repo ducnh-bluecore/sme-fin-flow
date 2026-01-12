@@ -54,7 +54,6 @@ const navItemsConfig: NavItemConfig[] = [
   { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
   { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
   { id: 'stores', label: 'Kênh bán', icon: Store, path: '/control-tower/stores' },
-  { id: 'inventory', label: 'Tồn kho', icon: Package, path: '/control-tower/inventory' },
   { id: 'performance', label: 'Hiệu suất', icon: TrendingUp, path: '/control-tower/performance' },
   { id: 'team', label: 'Đội ngũ', icon: Users, path: '/control-tower/team' },
   { id: 'chat', label: 'Tin nhắn', icon: MessageSquare, path: '/control-tower/chat' },

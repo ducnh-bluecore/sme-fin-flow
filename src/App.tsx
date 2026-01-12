@@ -96,7 +96,6 @@ import CTAnalyticsPage from "./pages/control-tower/AnalyticsPage";
 import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
 import CTIntelligentRulesPage from "./pages/control-tower/IntelligentRulesPage";
 import CTStoresPage from "./pages/control-tower/StoresPage";
-import CTInventoryPage from "./pages/control-tower/InventoryPage";
 import CTPerformancePage from "./pages/control-tower/PerformancePage";
 import CTTeamPage from "./pages/control-tower/TeamPage";
 import CTChatPage from "./pages/control-tower/ChatPage";
@@ -169,7 +168,6 @@ const AppRoutes = () => {
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
         <Route path="/control-tower/intelligent-rules" element={<CTIntelligentRulesPage />} />
         <Route path="/control-tower/stores" element={<CTStoresPage />} />
-        <Route path="/control-tower/inventory" element={<CTInventoryPage />} />
         <Route path="/control-tower/performance" element={<CTPerformancePage />} />
         <Route path="/control-tower/team" element={<CTTeamPage />} />
         <Route path="/control-tower/chat" element={<CTChatPage />} />
