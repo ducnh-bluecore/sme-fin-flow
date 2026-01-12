@@ -32,6 +32,7 @@ import {
   Package,
   Percent,
   Banknote,
+  Home,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
@@ -390,6 +391,20 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
         {/* Bottom Section */}
         <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
+          {/* Back to Portal Button */}
+          <NavLink
+            to="/portal"
+            className={({ isActive }) =>
+              cn(
+                'nav-item mb-2',
+                'bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10',
+                isActive && 'active'
+              )
+            }
+          >
+            <Home className="w-5 h-5 text-primary" />
+            <span className="text-sm text-primary font-medium">{t('nav.backToPortal')}</span>
+          </NavLink>
           {bottomNavItems.map((item) => (
             item.children ? (
               <div key={item.labelKey}>

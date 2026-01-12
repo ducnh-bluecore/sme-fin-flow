@@ -118,6 +118,7 @@ const vi: Record<string, string> = {
   'nav.tenantManagement': 'Quản lý Tenants',
   'nav.userManagement': 'Quản lý Users',
   'nav.platformSettings': 'Cài đặt Platform',
+  'nav.backToPortal': 'Về Portal',
 
   // Auth
   'auth.signIn': 'Đăng nhập',
@@ -1778,6 +1779,7 @@ const en: Record<string, string> = {
   'nav.tenantManagement': 'Tenant Management',
   'nav.userManagement': 'User Management',
   'nav.platformSettings': 'Platform Settings',
+  'nav.backToPortal': 'Back to Portal',
 
   // Auth
   'auth.signIn': 'Sign In',
