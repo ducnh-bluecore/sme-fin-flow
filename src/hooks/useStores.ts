@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActiveTenantId } from './useActiveTenantId';
 
+export type ChannelType = 'store' | 'shopee' | 'lazada' | 'tiktok' | 'website';
+
 export interface StoreData {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ export interface StoreData {
   growth: number;
   staff: number;
   openHours: string | null;
+  channelType: ChannelType;
 }
 
 export interface StoreStats {
@@ -39,7 +42,7 @@ export function useStores() {
         .from('alert_objects')
         .select('*')
         .eq('tenant_id', tenantId)
-        .eq('object_type', 'store')
+        .in('object_type', ['store', 'shopee', 'lazada', 'tiktok', 'website'])
         .order('object_name', { ascending: true });
 
       if (error) throw error;
@@ -69,6 +72,7 @@ export function useStores() {
           growth: (metrics.growth as number) || 0,
           staff: (metrics.staff as number) || 0,
           openHours: obj.open_hours || (objData.open_hours as string) || null,
+          channelType: (obj.object_type as ChannelType) || 'store',
         } as StoreData;
       });
     },
@@ -103,6 +107,7 @@ export interface StoreInput {
   orders?: number;
   growth?: number;
   staff?: number;
+  channelType?: ChannelType;
 }
 
 export function useCreateStore() {
@@ -120,7 +125,7 @@ export function useCreateStore() {
         .from('alert_objects')
         .insert({
           tenant_id: tenantId,
-          object_type: 'store',
+          object_type: store.channelType || 'store',
           object_name: store.name,
           address: store.address,
           phone: store.phone,
@@ -142,13 +147,14 @@ export function useCreateStore() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['stores'] });
-      toast.success('Đã tạo cửa hàng mới');
+      const channelName = variables.channelType === 'store' ? 'cửa hàng' : 'kênh bán';
+      toast.success(`Đã tạo ${channelName} mới`);
     },
     onError: (error) => {
       console.error('Error creating store:', error);
-      toast.error('Lỗi khi tạo cửa hàng: ' + error.message);
+      toast.error('Lỗi khi tạo kênh bán: ' + error.message);
     },
   });
 }
