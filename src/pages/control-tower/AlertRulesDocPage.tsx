@@ -32,10 +32,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 
-// Data Sources Documentation
-const dataSourcesDoc = [
-  {
-    id: "alert_objects",
+// Data Sources Documentation with sync info
+const dataSourcesDoc: Record<string, { 
+  name: string; 
+  description: string; 
+  source: string; 
+  syncFrom: string[];
+  fields: { name: string; description: string }[];
+}> = {
+  "alert_objects": {
     name: "alert_objects",
     description: "Bảng chứa các đối tượng cần giám sát (sản phẩm, cửa hàng, kênh bán)",
     source: "Database (Supabase)",
@@ -43,175 +48,208 @@ const dataSourcesDoc = [
     fields: [
       { name: "object_type", description: "Loại đối tượng: product, store, channel" },
       { name: "object_name", description: "Tên đối tượng" },
-      { name: "current_metrics", description: "JSON chứa các chỉ số hiện tại (tồn kho, doanh số...)" },
+      { name: "current_metrics", description: "JSON chứa các chỉ số hiện tại" },
       { name: "sales_velocity", description: "Tốc độ bán (sản phẩm/ngày)" },
       { name: "days_of_stock", description: "Số ngày tồn kho còn lại" },
-      { name: "lead_time_days", description: "Thời gian đặt hàng NCC" },
-      { name: "reorder_point", description: "Điểm đặt hàng lại" },
     ]
   },
-  {
-    id: "orders",
+  "orders": {
     name: "orders",
     description: "Bảng đơn hàng từ các kênh bán",
     source: "Database (Supabase)",
     syncFrom: ["Haravan API", "Shopee API", "Lazada API", "TikTok API", "POS"],
     fields: [
       { name: "order_number", description: "Mã đơn hàng" },
-      { name: "order_date", description: "Ngày đặt hàng" },
-      { name: "status", description: "Trạng thái: pending, confirmed, shipped, delivered, cancelled, returned" },
-      { name: "total_amount", description: "Tổng giá trị đơn hàng" },
-      { name: "channel", description: "Kênh bán (shopee, lazada, tiktok, pos...)" },
+      { name: "status", description: "Trạng thái đơn hàng" },
+      { name: "total_amount", description: "Tổng giá trị" },
     ]
   },
-  {
-    id: "invoices",
+  "invoices": {
     name: "invoices",
     description: "Hóa đơn bán hàng và công nợ phải thu",
     source: "Database (Supabase)",
     syncFrom: ["ERP/Kế toán", "Manual Import", "Auto-generate từ Orders"],
     fields: [
       { name: "invoice_number", description: "Số hóa đơn" },
-      { name: "invoice_date", description: "Ngày xuất hóa đơn" },
       { name: "due_date", description: "Ngày đến hạn thanh toán" },
-      { name: "total_amount", description: "Tổng giá trị" },
-      { name: "paid_amount", description: "Số tiền đã thanh toán" },
-      { name: "status", description: "Trạng thái: draft, sent, paid, overdue" },
+      { name: "status", description: "Trạng thái" },
     ]
   },
-  {
-    id: "bills",
+  "bills": {
     name: "bills",
     description: "Hóa đơn mua hàng và công nợ phải trả",
     source: "Database (Supabase)",
     syncFrom: ["ERP/Kế toán", "Manual Import"],
     fields: [
       { name: "bill_number", description: "Số hóa đơn" },
-      { name: "vendor_name", description: "Tên nhà cung cấp" },
       { name: "due_date", description: "Ngày đến hạn" },
       { name: "total_amount", description: "Tổng giá trị" },
-      { name: "paid_amount", description: "Số tiền đã thanh toán" },
     ]
   },
-  {
-    id: "bank_accounts",
+  "bank_accounts": {
     name: "bank_accounts",
     description: "Tài khoản ngân hàng và số dư",
     source: "Database (Supabase)",
     syncFrom: ["Bank API (nếu có)", "Manual Update", "File import từ ngân hàng"],
     fields: [
       { name: "bank_name", description: "Tên ngân hàng" },
-      { name: "account_number", description: "Số tài khoản" },
       { name: "current_balance", description: "Số dư hiện tại" },
-      { name: "last_sync_at", description: "Thời điểm đồng bộ cuối" },
     ]
   },
-  {
-    id: "revenues",
+  "revenues": {
     name: "revenues",
     description: "Dữ liệu doanh thu theo ngày/kênh",
     source: "Database (Supabase)",
     syncFrom: ["Tổng hợp từ Orders", "Manual Import", "BigQuery"],
     fields: [
       { name: "date", description: "Ngày" },
-      { name: "channel", description: "Kênh bán" },
       { name: "amount", description: "Doanh thu" },
-      { name: "category", description: "Phân loại doanh thu" },
     ]
   },
-  {
-    id: "expenses",
+  "expenses": {
     name: "expenses",
     description: "Dữ liệu chi phí hoạt động",
     source: "Database (Supabase)",
     syncFrom: ["ERP/Kế toán", "Manual Import"],
     fields: [
       { name: "date", description: "Ngày" },
-      { name: "category", description: "Phân loại chi phí" },
       { name: "amount", description: "Số tiền" },
-      { name: "description", description: "Mô tả" },
     ]
   },
-  {
-    id: "inventory_aging",
+  "cash_flow": {
+    name: "cash_flow",
+    description: "Dòng tiền vào ra",
+    source: "Calculated",
+    syncFrom: ["Tính toán từ revenues + expenses + bank_transactions"],
+    fields: [
+      { name: "inflow", description: "Dòng tiền vào" },
+      { name: "outflow", description: "Dòng tiền ra" },
+    ]
+  },
+  "inventory_aging": {
     name: "inventory_aging",
     description: "Phân tích tuổi tồn kho",
     source: "Calculated View",
     syncFrom: ["Tính toán từ alert_objects + orders"],
     fields: [
-      { name: "product_id", description: "ID sản phẩm" },
       { name: "days_in_stock", description: "Số ngày tồn kho" },
-      { name: "aging_bucket", description: "Nhóm tuổi: 0-30, 31-60, 61-90, >90 ngày" },
-      { name: "stock_value", description: "Giá trị tồn kho" },
+      { name: "aging_bucket", description: "Nhóm tuổi" },
     ]
   },
-  {
-    id: "pos_transactions",
-    name: "pos_heartbeat / pos_transactions",
-    description: "Dữ liệu giao dịch và heartbeat từ POS",
-    source: "Real-time từ POS",
-    syncFrom: ["POS API", "Webhook"],
+  "pos_heartbeat": {
+    name: "pos_heartbeat",
+    description: "Heartbeat từ thiết bị POS",
+    source: "Real-time",
+    syncFrom: ["POS API", "Webhook từ POS"],
     fields: [
-      { name: "store_id", description: "ID cửa hàng" },
       { name: "last_heartbeat", description: "Thời điểm heartbeat cuối" },
-      { name: "last_transaction_at", description: "Thời điểm giao dịch cuối" },
       { name: "device_status", description: "Trạng thái thiết bị" },
     ]
   },
-  {
-    id: "social_messages",
+  "returns_data": {
+    name: "returns_data",
+    description: "Dữ liệu đơn hoàn trả",
+    source: "Database (Supabase)",
+    syncFrom: ["Shopee API", "Lazada API", "TikTok API", "Haravan"],
+    fields: [
+      { name: "return_reason", description: "Lý do hoàn" },
+      { name: "return_status", description: "Trạng thái" },
+    ]
+  },
+  "social_messages": {
     name: "social_messages",
     description: "Tin nhắn từ các kênh social",
     source: "External API",
-    syncFrom: ["Facebook API", "Zalo API", "Instagram API"],
+    syncFrom: ["Facebook API", "Zalo API", "Instagram API", "Pancake"],
     fields: [
-      { name: "message_id", description: "ID tin nhắn" },
-      { name: "channel", description: "Kênh: facebook, zalo, instagram" },
       { name: "received_at", description: "Thời điểm nhận" },
       { name: "responded_at", description: "Thời điểm phản hồi" },
-      { name: "status", description: "Trạng thái: unread, read, responded" },
     ]
   },
-  {
-    id: "product_reviews",
+  "product_reviews": {
     name: "product_reviews",
     description: "Đánh giá sản phẩm từ các sàn",
     source: "External API",
     syncFrom: ["Shopee API", "Lazada API", "TikTok API"],
     fields: [
-      { name: "product_id", description: "ID sản phẩm" },
       { name: "rating", description: "Số sao (1-5)" },
       { name: "content", description: "Nội dung đánh giá" },
-      { name: "created_at", description: "Thời điểm đánh giá" },
     ]
   },
-  {
-    id: "monthly_plans",
+  "monthly_plans": {
     name: "monthly_plans / targets",
     description: "Kế hoạch và target theo tháng/quý",
     source: "Database (Supabase)",
     syncFrom: ["Manual Input", "Import từ Excel"],
     fields: [
-      { name: "period", description: "Kỳ kế hoạch (tháng/quý)" },
       { name: "target_revenue", description: "Target doanh thu" },
       { name: "target_profit", description: "Target lợi nhuận" },
-      { name: "channel", description: "Kênh áp dụng" },
     ]
   },
-  {
-    id: "connector_integrations",
-    name: "connector_integrations",
-    description: "Cấu hình kết nối với các hệ thống bên ngoài",
-    source: "Database (Supabase)",
-    syncFrom: ["Manual Setup trong Data Hub"],
+  "ar_aging": {
+    name: "ar_aging",
+    description: "Phân tích tuổi công nợ phải thu",
+    source: "Calculated View",
+    syncFrom: ["Tính toán từ invoices"],
     fields: [
-      { name: "connector_type", description: "Loại connector: haravan, shopee, bigquery..." },
-      { name: "status", description: "Trạng thái: connected, disconnected, error" },
-      { name: "last_sync_at", description: "Thời điểm sync cuối" },
-      { name: "config", description: "Cấu hình kết nối (encrypted)" },
+      { name: "days_overdue", description: "Số ngày quá hạn" },
+      { name: "amount_due", description: "Số tiền còn nợ" },
     ]
   },
-];
+  "ap_aging": {
+    name: "ap_aging",
+    description: "Phân tích tuổi công nợ phải trả",
+    source: "Calculated View",
+    syncFrom: ["Tính toán từ bills"],
+    fields: [
+      { name: "days_until_due", description: "Số ngày đến hạn" },
+      { name: "amount_due", description: "Số tiền cần trả" },
+    ]
+  },
+  "pl_data": {
+    name: "pl_data",
+    description: "Báo cáo lãi lỗ",
+    source: "Calculated",
+    syncFrom: ["Tổng hợp từ revenues + expenses + cogs"],
+    fields: [
+      { name: "gross_margin", description: "Biên lợi nhuận gộp" },
+      { name: "net_profit", description: "Lợi nhuận ròng" },
+    ]
+  },
+  "cogs": {
+    name: "cogs",
+    description: "Giá vốn hàng bán",
+    source: "Database (Supabase)",
+    syncFrom: ["ERP/Kế toán", "Haravan", "Manual Import"],
+    fields: [
+      { name: "product_id", description: "ID sản phẩm" },
+      { name: "cost_price", description: "Giá vốn" },
+    ]
+  },
+};
+
+// Helper to get data source info
+const getDataSourceInfo = (sourceName: string) => {
+  // Normalize source name
+  const normalized = sourceName.toLowerCase().replace(/[^a-z_]/g, '_');
+  
+  // Try exact match first
+  if (dataSourcesDoc[sourceName]) return dataSourcesDoc[sourceName];
+  if (dataSourcesDoc[normalized]) return dataSourcesDoc[normalized];
+  
+  // Try partial match
+  for (const [key, value] of Object.entries(dataSourcesDoc)) {
+    if (sourceName.toLowerCase().includes(key) || key.includes(normalized)) {
+      return value;
+    }
+  }
+  
+  return null;
+};
+
+// Get all data sources as array for the tab
+const dataSourcesList = Object.values(dataSourcesDoc);
+
 
 // Default rules documentation
 const defaultRules = [
@@ -687,7 +725,7 @@ export default function AlertRulesDocPage() {
           </TabsTrigger>
           <TabsTrigger value="datasources" className="gap-2">
             <Database className="h-4 w-4" />
-            Nguồn dữ liệu ({dataSourcesDoc.length})
+            Nguồn dữ liệu ({dataSourcesList.length})
           </TabsTrigger>
         </TabsList>
 
@@ -955,19 +993,51 @@ export default function AlertRulesDocPage() {
                                         </div>
                                       </div>
 
-                                      {/* Data Sources */}
+                                      {/* Data Sources with sync info */}
                                       {formulaData.dataSources && formulaData.dataSources.length > 0 && (
-                                        <div className="flex items-start gap-3">
-                                          <Database className="h-5 w-5 text-muted-foreground mt-0.5" />
-                                          <div>
-                                            <div className="font-medium text-sm">Nguồn dữ liệu</div>
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                              {formulaData.dataSources.map((source) => (
-                                                <Badge key={source} variant="outline" className="font-mono text-xs">
-                                                  {source}
-                                                </Badge>
-                                              ))}
-                                            </div>
+                                        <div className="space-y-3">
+                                          <div className="flex items-center gap-2">
+                                            <Database className="h-5 w-5 text-cyan-500" />
+                                            <span className="font-medium text-sm">Nguồn dữ liệu & Hệ thống đồng bộ</span>
+                                          </div>
+                                          <div className="space-y-2">
+                                            {formulaData.dataSources.map((sourceName) => {
+                                              const sourceInfo = getDataSourceInfo(sourceName);
+                                              return (
+                                                <div key={sourceName} className="bg-muted/50 rounded-lg p-3">
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <code className="text-sm font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">
+                                                      {sourceName}
+                                                    </code>
+                                                    {sourceInfo && (
+                                                      <Badge variant="outline" className="text-xs">
+                                                        {sourceInfo.source}
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                  {sourceInfo ? (
+                                                    <div className="space-y-2">
+                                                      <p className="text-sm text-muted-foreground">
+                                                        {sourceInfo.description}
+                                                      </p>
+                                                      <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="text-xs font-medium text-amber-600">Lấy từ:</span>
+                                                        {sourceInfo.syncFrom.map((sync, idx) => (
+                                                          <Badge key={idx} variant="secondary" className="text-xs gap-1">
+                                                            <Zap className="h-3 w-3" />
+                                                            {sync}
+                                                          </Badge>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <p className="text-xs text-muted-foreground italic">
+                                                      Xem tab "Nguồn dữ liệu" để biết thêm chi tiết
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         </div>
                                       )}
@@ -1038,9 +1108,9 @@ export default function AlertRulesDocPage() {
           <ScrollArea className="h-[calc(100vh-320px)]">
             <div className="space-y-4 pr-4">
               <div className="grid gap-4">
-                {dataSourcesDoc.map((source) => (
+                {dataSourcesList.map((source, index) => (
                   <motion.div
-                    key={source.id}
+                    key={source.name}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
