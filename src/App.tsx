@@ -89,7 +89,7 @@ const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 
 // Control Tower pages - Eager loaded for smooth navigation
 import ControlTowerDashboard from "./pages/control-tower/ControlTowerDashboard";
-import CTNotificationsPage from "./pages/control-tower/NotificationsPage";
+
 import CTTasksPage from "./pages/control-tower/TasksPage";
 import CTAlertsPage from "./pages/control-tower/AlertsPage";
 import CTAnalyticsPage from "./pages/control-tower/AnalyticsPage";
@@ -161,7 +161,7 @@ const AppRoutes = () => {
         }
       >
         <Route path="/control-tower" element={<ControlTowerDashboard />} />
-        <Route path="/control-tower/notifications" element={<CTNotificationsPage />} />
+        
         <Route path="/control-tower/tasks" element={<CTTasksPage />} />
         <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
         <Route path="/control-tower/analytics" element={<CTAnalyticsPage />} />

@@ -47,7 +47,6 @@ interface NavItemWithBadge extends NavItemConfig {
 
 const navItemsConfig: NavItemConfig[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/control-tower' },
-  { id: 'notifications', label: 'Thông báo', icon: Bell, path: '/control-tower/notifications' },
   { id: 'kpi-rules', label: 'Rules KPI', icon: Target, path: '/control-tower/kpi-rules' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
   { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
