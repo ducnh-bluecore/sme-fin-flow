@@ -18,7 +18,8 @@ import {
   RefreshCw,
   ExternalLink,
   List,
-  Zap
+  Zap,
+  UserCheck
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +29,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNotificationCenter, AlertInstance, categoryLabels } from '@/hooks/useNotificationCenter';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
 import { AlertDetailsDialog } from '@/components/alerts/AlertDetailsDialog';
 import { AssignOwnerDropdown } from '@/components/alerts/AssignOwnerDropdown';
+import { useAuth } from '@/hooks/useAuth';
+
+// Sort alerts: critical first, then warning, then info
+const severityOrder = { critical: 0, warning: 1, info: 2 };
+const sortBySeverity = (alerts: AlertInstance[]) => {
+  return [...alerts].sort((a, b) => {
+    const orderA = severityOrder[a.severity as keyof typeof severityOrder] ?? 3;
+    const orderB = severityOrder[b.severity as keyof typeof severityOrder] ?? 3;
+    if (orderA !== orderB) return orderA - orderB;
+    // Same severity: sort by created_at desc
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+};
 
 const typeConfig = {
   critical: { 
@@ -385,6 +398,7 @@ export default function AlertsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
   const [showProductsDialog, setShowProductsDialog] = useState(false);
+  const { user } = useAuth();
   
   const { 
     instances, 
@@ -409,7 +423,6 @@ export default function AlertsPage() {
     setShowProductsDialog(true);
   };
 
-
   // Control Tower Manifesto #5: Owner assignment
   const handleAssign = (alertId: string, ownerId: string | null) => {
     assignAlert.mutate({ id: alertId, assignedTo: ownerId });
@@ -425,13 +438,25 @@ export default function AlertsPage() {
     );
   }, [instances, searchQuery]);
 
-  const activeAlerts = filteredAlerts.filter(a => a.status === 'active');
-  const acknowledgedAlerts = filteredAlerts.filter(a => a.status === 'acknowledged');
-  const resolvedAlerts = filteredAlerts.filter(a => a.status === 'resolved');
+  // My tasks: alerts assigned to current user
+  const myAlerts = useMemo(() => {
+    if (!user?.id) return [];
+    return sortBySeverity(
+      filteredAlerts.filter(a => 
+        (a as any).assigned_to === user.id && 
+        a.status !== 'resolved'
+      )
+    );
+  }, [filteredAlerts, user?.id]);
+
+  // Sorted alert lists
+  const activeAlerts = sortBySeverity(filteredAlerts.filter(a => a.status === 'active'));
+  const acknowledgedAlerts = sortBySeverity(filteredAlerts.filter(a => a.status === 'acknowledged'));
+  const resolvedAlerts = sortBySeverity(filteredAlerts.filter(a => a.status === 'resolved'));
 
   const criticalCount = stats.bySeverity.critical || 0;
   const warningCount = stats.bySeverity.warning || 0;
-  const infoCount = stats.bySeverity.info || 0;
+  const myAlertsCount = myAlerts.length;
 
   if (isLoading) {
     return (
@@ -480,8 +505,20 @@ export default function AlertsPage() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats - Prioritized for action */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {/* My Tasks - Most important for user */}
+          <Card className={`p-4 cursor-pointer transition-all ${myAlertsCount > 0 ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20' : 'bg-slate-900/50 border-slate-800/50'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${myAlertsCount > 0 ? 'bg-primary/20' : 'bg-slate-800/50'}`}>
+                <UserCheck className={`h-5 w-5 ${myAlertsCount > 0 ? 'text-primary' : 'text-slate-500'}`} />
+              </div>
+              <div>
+                <div className={`text-2xl font-bold ${myAlertsCount > 0 ? 'text-primary' : 'text-slate-500'}`}>{myAlertsCount}</div>
+                <div className="text-xs text-slate-400">Việc của tôi</div>
+              </div>
+            </div>
+          </Card>
           <Card className="bg-slate-900/50 border-slate-800/50 p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-500/10">
@@ -515,17 +552,6 @@ export default function AlertsPage() {
               </div>
             </div>
           </Card>
-          <Card className="bg-slate-900/50 border-slate-800/50 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10">
-                <CheckCircle className="h-5 w-5 text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-emerald-400">{stats.resolved}</div>
-                <div className="text-xs text-slate-400">Đã xử lý</div>
-              </div>
-            </div>
-          </Card>
         </div>
 
         {/* Search */}
@@ -549,9 +575,16 @@ export default function AlertsPage() {
           </CardContent>
         </Card>
 
-        {/* Tabs */}
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="bg-slate-900/50 border border-slate-800/50">
+        {/* Tabs - "Việc của tôi" first */}
+        <Tabs defaultValue={myAlertsCount > 0 ? "my-tasks" : "active"} className="w-full">
+          <TabsList className="bg-slate-900/50 border border-slate-800/50 flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger 
+              value="my-tasks" 
+              className={`data-[state=active]:bg-primary data-[state=active]:text-primary-foreground ${myAlertsCount > 0 ? 'animate-pulse' : ''}`}
+            >
+              <UserCheck className="h-4 w-4 mr-1" />
+              Việc của tôi ({myAlertsCount})
+            </TabsTrigger>
             <TabsTrigger value="active" className="data-[state=active]:bg-slate-800">
               Đang xảy ra ({activeAlerts.length})
             </TabsTrigger>
@@ -561,10 +594,39 @@ export default function AlertsPage() {
             <TabsTrigger value="resolved" className="data-[state=active]:bg-slate-800">
               Đã xử lý ({resolvedAlerts.length})
             </TabsTrigger>
-            <TabsTrigger value="all" className="data-[state=active]:bg-slate-800">
-              Tất cả ({filteredAlerts.length})
-            </TabsTrigger>
           </TabsList>
+
+          {/* My Tasks Tab */}
+          <TabsContent value="my-tasks" className="mt-4 space-y-3">
+            {myAlerts.length === 0 ? (
+              <div className="text-center py-12">
+                <UserCheck className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400">Chưa có việc được giao cho bạn</p>
+                <p className="text-xs text-slate-500 mt-1">Các cảnh báo được giao sẽ hiện tại đây</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-sm text-slate-400 mb-2">
+                  {myAlerts.filter(a => a.severity === 'critical').length > 0 && (
+                    <span className="text-red-400 font-medium">
+                      ⚠️ {myAlerts.filter(a => a.severity === 'critical').length} việc nghiêm trọng cần xử lý ngay
+                    </span>
+                  )}
+                </div>
+                {myAlerts.map(alert => (
+                  <AlertCard 
+                    key={alert.id} 
+                    alert={alert} 
+                    onAcknowledge={handleAcknowledge}
+                    onResolve={handleResolve}
+                    onViewDetails={handleViewDetails}
+                    onAssign={handleAssign}
+                    isAssigning={assignAlert.isPending}
+                  />
+                ))}
+              </>
+            )}
+          </TabsContent>
 
           <TabsContent value="active" className="mt-4 space-y-3">
             {activeAlerts.length === 0 ? (
@@ -615,28 +677,7 @@ export default function AlertsPage() {
                 <p className="text-slate-400">Không có cảnh báo đã xử lý</p>
               </div>
             ) : (
-              resolvedAlerts.map(alert => (
-                <AlertCard 
-                  key={alert.id} 
-                  alert={alert}
-                  onAcknowledge={handleAcknowledge}
-                  onResolve={handleResolve}
-                  onViewDetails={handleViewDetails}
-                  onAssign={handleAssign}
-                  isAssigning={assignAlert.isPending}
-                />
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="all" className="mt-4 space-y-3">
-            {filteredAlerts.length === 0 ? (
-              <div className="text-center py-12">
-                <Bell className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400">Không có cảnh báo nào</p>
-              </div>
-            ) : (
-              filteredAlerts.map(alert => (
+              resolvedAlerts.slice(0, 20).map(alert => (
                 <AlertCard 
                   key={alert.id} 
                   alert={alert}
