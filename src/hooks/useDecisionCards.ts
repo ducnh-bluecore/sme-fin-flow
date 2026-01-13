@@ -146,22 +146,25 @@ export function useDecisionCard(cardId: string | null) {
   const { data: tenantId } = useActiveTenantId();
 
   return useQuery({
-    queryKey: ['decision-card', cardId],
+    queryKey: ['decision-card', tenantId, cardId],
     queryFn: async () => {
       if (!cardId || !tenantId) return null;
 
       const { data, error } = await supabase
         .from('decision_cards')
-        .select(`
+        .select(
+          `
           *,
           facts:decision_card_facts(*),
           actions:decision_card_actions(*)
-        `)
+        `
+        )
+        .eq('tenant_id', tenantId)
         .eq('id', cardId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as DecisionCard;
+      return (data as DecisionCard) ?? null;
     },
     enabled: !!cardId && !!tenantId,
   });
