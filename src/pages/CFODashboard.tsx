@@ -11,6 +11,8 @@ import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
 import FinancialTruthCard from '@/components/dashboard/FinancialTruthCard';
+import TodayDecisionSummary from '@/components/dashboard/TodayDecisionSummary';
+import { useCachedSKUProfitability } from '@/hooks/useSKUProfitabilityCache';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact } from '@/lib/formatters';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
@@ -37,6 +39,7 @@ export default function CFODashboard() {
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
   const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
+  const { data: skuData } = useCachedSKUProfitability();
   const { t } = useLanguage();
 
   const handleRefresh = useMemo(() => {
@@ -103,6 +106,26 @@ export default function CFODashboard() {
             <DateRangeIndicator variant="compact" />
           </div>
         </motion.div>
+
+        {/* FDP Principle #10: Today's Decision Summary - FIRST for immediate action */}
+        <TodayDecisionSummary 
+          skuMetrics={skuData?.skuMetrics?.map(m => ({
+            sku: m.sku,
+            product_name: m.product_name,
+            channel: m.channel,
+            profit: m.profit,
+            margin_percent: m.margin_percent,
+            revenue: m.revenue,
+            cogs: m.cogs,
+            fees: m.fees
+          }))}
+          cashPosition={{
+            bankBalance: metrics?.cashOnHand || 500000000,
+            currentAR: 200000000,
+            overdueAR: metrics?.overdueAR || 50000000,
+            inventoryValue: 150000000
+          }}
+        />
 
         {/* Financial Truth - Single Source of Truth */}
         <FinancialTruthCard />
