@@ -21,7 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
 import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
-import { DecisionAIChat } from '@/components/decision/DecisionAIChat';
+import { InlineAIChat } from '@/components/decision/InlineAIChat';
 import { 
   useDecisionCards, 
   useDecisionCardStats,
@@ -63,8 +63,6 @@ export default function DecisionCenterPage() {
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'ALL'>('ALL');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [aiChatCard, setAiChatCard] = useState<DecisionCard | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   // Fetch from DB
@@ -148,11 +146,6 @@ export default function DecisionCenterPage() {
     return { p1Count, p2Count, p3Count, overdueCount, totalImpact };
   }, [allCards, groupedCards]);
 
-  // Open AI chat for a specific card
-  const openAIForCard = (card: DecisionCard) => {
-    setAiChatCard(card);
-    setAiChatOpen(true);
-  };
 
   const isLoading = dbLoading;
 
@@ -166,12 +159,12 @@ export default function DecisionCenterPage() {
           </p>
         </div>
         <Button 
-          onClick={() => { setAiChatCard(null); setAiChatOpen(true); }}
+          onClick={() => refetch()}
           className="gap-2"
           variant="outline"
         >
-          <Sparkles className="h-4 w-4" />
-          AI Advisor
+          <RefreshCw className="h-4 w-4" />
+          Làm mới
         </Button>
       </div>
 
@@ -454,34 +447,27 @@ export default function DecisionCenterPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Detail Sheet */}
+      {/* Detail Sheet with Inline AI */}
       <Sheet open={!!selectedCardId} onOpenChange={(open) => !open && setSelectedCardId(null)}>
-        <SheetContent className="sm:max-w-xl overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Chi tiết quyết định</SheetTitle>
           </SheetHeader>
           {selectedCard && (
-            <div className="mt-6 space-y-4">
-              <DecisionCardComponent card={selectedCard} />
-              <Button 
-                onClick={() => openAIForCard(selectedCard)}
-                variant="outline"
-                className="w-full gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                Hỏi AI về quyết định này
-              </Button>
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-120px)]">
+              {/* Left: Decision Card */}
+              <div className="overflow-y-auto">
+                <DecisionCardComponent card={selectedCard} />
+              </div>
+              
+              {/* Right: AI Chat inline */}
+              <div className="border rounded-lg p-4 flex flex-col min-h-[400px]">
+                <InlineAIChat card={selectedCard} />
+              </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
-
-      {/* AI Chat */}
-      <DecisionAIChat 
-        card={aiChatCard} 
-        isOpen={aiChatOpen} 
-        onClose={() => setAiChatOpen(false)} 
-      />
     </div>
   );
 }
