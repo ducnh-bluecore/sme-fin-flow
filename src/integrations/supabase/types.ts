@@ -8253,6 +8253,77 @@ export type Database = {
           },
         ]
       }
+      sku_profitability_cache: {
+        Row: {
+          aov: number | null
+          calculated_at: string
+          channel: string
+          cogs: number | null
+          created_at: string
+          fees: number | null
+          id: string
+          margin_percent: number | null
+          period_end: string
+          period_start: string
+          product_name: string | null
+          profit: number | null
+          quantity: number | null
+          revenue: number | null
+          sku: string
+          status: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          aov?: number | null
+          calculated_at?: string
+          channel: string
+          cogs?: number | null
+          created_at?: string
+          fees?: number | null
+          id?: string
+          margin_percent?: number | null
+          period_end: string
+          period_start: string
+          product_name?: string | null
+          profit?: number | null
+          quantity?: number | null
+          revenue?: number | null
+          sku: string
+          status?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          aov?: number | null
+          calculated_at?: string
+          channel?: string
+          cogs?: number | null
+          created_at?: string
+          fees?: number | null
+          id?: string
+          margin_percent?: number | null
+          period_end?: string
+          period_start?: string
+          product_name?: string | null
+          profit?: number | null
+          quantity?: number | null
+          revenue?: number | null
+          sku?: string
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sku_profitability_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_mentions: {
         Row: {
           author_handle: string | null
