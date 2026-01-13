@@ -295,39 +295,39 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
       return 'ready';
     };
 
-    // External Orders
+    // External Orders - schema: channel, order_date, status, total_amount, payment_status, cost_of_goods, seller_income
     const ordersFields = ['channel', 'order_date', 'status', 'total_amount', 'payment_status', 'cost_of_goods', 'seller_income'];
     const ordersCheck = checkFieldCompleteness(ordersQuery.data?.sample, ordersFields);
     
-    // Order Items
-    const orderItemsFields = ['product_name', 'quantity', 'unit_price', 'cost_price'];
+    // Order Items - schema: product_name, quantity, unit_price, unit_cogs (not cost_price)
+    const orderItemsFields = ['product_name', 'quantity', 'unit_price', 'unit_cogs'];
     const orderItemsCheck = checkFieldCompleteness(orderItemsQuery.data?.sample, orderItemsFields);
 
-    // Campaigns
+    // Campaigns - schema: campaign_name, channel, actual_cost, total_revenue, start_date, end_date
     const campaignsFields = ['campaign_name', 'channel', 'actual_cost', 'total_revenue', 'start_date', 'end_date'];
     const campaignsCheck = checkFieldCompleteness(campaignsQuery.data?.sample, campaignsFields);
 
-    // Marketing Expenses
+    // Marketing Expenses - schema: channel, expense_date, amount
     const marketingExpensesFields = ['channel', 'expense_date', 'amount'];
     const marketingExpensesCheck = checkFieldCompleteness(marketingExpensesQuery.data?.sample, marketingExpensesFields);
 
-    // Channel Analytics
-    const channelAnalyticsFields = ['channel', 'analytics_date', 'impressions', 'clicks', 'spend'];
+    // Channel Analytics - schema: channel, analytics_date, sessions, marketing_cost (not impressions, clicks, spend)
+    const channelAnalyticsFields = ['channel', 'analytics_date', 'sessions', 'marketing_cost', 'revenue'];
     const channelAnalyticsCheck = checkFieldCompleteness(channelAnalyticsQuery.data?.sample, channelAnalyticsFields);
 
-    // Channel Fees
-    const channelFeesFields = ['fee_type', 'amount'];
+    // Channel Fees - schema: fee_type, amount, fee_date
+    const channelFeesFields = ['fee_type', 'amount', 'fee_date'];
     const channelFeesCheck = checkFieldCompleteness(channelFeesQuery.data?.sample, channelFeesFields);
 
-    // Products
+    // Products - schema: name, selling_price, cost_price
     const productsFields = ['name', 'selling_price', 'cost_price'];
     const productsCheck = checkFieldCompleteness(productsQuery.data?.sample, productsFields);
 
-    // Settlements
+    // Settlements - schema: period_start, period_end, net_amount, gross_sales
     const settlementsFields = ['period_start', 'period_end', 'net_amount', 'gross_sales'];
     const settlementsCheck = checkFieldCompleteness(settlementsQuery.data?.sample, settlementsFields);
 
-    // Expenses
+    // Expenses - schema: category, amount, expense_date
     const expensesFields = ['category', 'amount', 'expense_date'];
     const expensesCheck = checkFieldCompleteness(expensesQuery.data?.sample, expensesFields);
 
