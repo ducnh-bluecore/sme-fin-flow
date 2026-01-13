@@ -123,11 +123,11 @@ export function MDPLayout() {
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
         'text-sm font-medium',
         isActive(item.path)
-          ? 'bg-primary/15 text-primary border border-primary/30'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          ? 'bg-sidebar-primary/15 text-sidebar-primary-foreground border border-sidebar-primary/30'
+          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
       )}
     >
-      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-primary' : '')} />
+      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-sidebar-primary' : '')} />
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">
@@ -138,8 +138,8 @@ export function MDPLayout() {
               className={cn(
                 'h-5 min-w-5 flex items-center justify-center text-xs font-semibold',
                 isActive(item.path)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground'
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                  : 'bg-sidebar-accent text-sidebar-accent-foreground'
               )}
             >
               {item.badge}
@@ -153,7 +153,7 @@ export function MDPLayout() {
   const SectionHeader = ({ title, collapsed }: { title: string; collapsed: boolean }) => (
     !collapsed && (
       <div className="px-3 py-2">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</span>
+        <span className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">{title}</span>
       </div>
     )
   );
@@ -167,13 +167,13 @@ export function MDPLayout() {
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-foreground truncate">MDP</h1>
-            <p className="text-xs text-muted-foreground truncate">Marketing Data Platform</p>
+            <h1 className="text-lg font-bold text-sidebar-foreground truncate">MDP</h1>
+            <p className="text-xs text-sidebar-foreground/60 truncate">Marketing Data Platform</p>
           </div>
         )}
       </div>
 
-      <Separator className="bg-border" />
+      <Separator className="bg-sidebar-border" />
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
@@ -205,7 +205,7 @@ export function MDPLayout() {
         </nav>
       </ScrollArea>
 
-      <Separator className="bg-border" />
+      <Separator className="bg-sidebar-border" />
 
       {/* Bottom Navigation */}
       <div className="p-3 space-y-1">
@@ -216,7 +216,7 @@ export function MDPLayout() {
           whileHover={{ x: 4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/portal')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all"
         >
           <Home className="h-5 w-5 flex-shrink-0" />
           {!collapsed && <span className="text-sm font-medium">{language === 'vi' ? 'Về Portal' : 'Back to Portal'}</span>}
@@ -250,7 +250,7 @@ export function MDPLayout() {
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'hidden lg:flex flex-col bg-card border-r border-border',
+          'hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border',
           'fixed left-0 top-0 bottom-0 z-30'
         )}
       >
@@ -261,7 +261,7 @@ export function MDPLayout() {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-sidebar-accent border border-sidebar-border text-sidebar-foreground hover:text-sidebar-primary-foreground hover:bg-sidebar-primary"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </Button>
