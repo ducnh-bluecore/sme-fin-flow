@@ -87,20 +87,13 @@ const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 
-// Control Tower pages - Eager loaded for smooth navigation
+// Control Tower pages - Manifesto compliant: only alert-focused pages
 import ControlTowerDashboard from "./pages/control-tower/ControlTowerDashboard";
-
 import CTTasksPage from "./pages/control-tower/TasksPage";
 import CTAlertsPage from "./pages/control-tower/AlertsPage";
-import CTAnalyticsPage from "./pages/control-tower/AnalyticsPage";
 import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
-import CTIntelligentRulesPage from "./pages/control-tower/IntelligentRulesPage";
-import CTStoresPage from "./pages/control-tower/StoresPage";
-import CTPerformancePage from "./pages/control-tower/PerformancePage";
 import CTTeamPage from "./pages/control-tower/TeamPage";
-import CTChatPage from "./pages/control-tower/ChatPage";
 import CTSettingsPage from "./pages/control-tower/SettingsPage";
-import CTAlertRulesDocPage from "./pages/control-tower/AlertRulesDocPage";
 import CTDocumentationPage from "./pages/control-tower/DocumentationPage";
 
 // Mobile App pages
@@ -162,19 +155,13 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
+        {/* Control Tower Manifesto: Only alert-focused routes */}
         <Route path="/control-tower" element={<ControlTowerDashboard />} />
-        
-        <Route path="/control-tower/tasks" element={<CTTasksPage />} />
         <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
-        <Route path="/control-tower/analytics" element={<CTAnalyticsPage />} />
+        <Route path="/control-tower/tasks" element={<CTTasksPage />} />
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
-        <Route path="/control-tower/intelligent-rules" element={<CTIntelligentRulesPage />} />
-        <Route path="/control-tower/stores" element={<CTStoresPage />} />
-        <Route path="/control-tower/performance" element={<CTPerformancePage />} />
         <Route path="/control-tower/team" element={<CTTeamPage />} />
-        <Route path="/control-tower/chat" element={<CTChatPage />} />
         <Route path="/control-tower/settings" element={<CTSettingsPage />} />
-        <Route path="/control-tower/rules-doc" element={<CTAlertRulesDocPage />} />
         <Route path="/control-tower/docs" element={<CTDocumentationPage />} />
       </Route>
       

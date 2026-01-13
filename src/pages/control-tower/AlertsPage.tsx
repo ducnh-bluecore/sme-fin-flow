@@ -34,6 +34,7 @@ import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDial
 import { AlertDetailsDialog } from '@/components/alerts/AlertDetailsDialog';
 import { CreateTaskFromAlertDialog } from '@/components/alerts/CreateTaskFromAlertDialog';
 import { AlertAIRecommendationDialog } from '@/components/alerts/AlertAIRecommendationDialog';
+import { AssignOwnerDropdown } from '@/components/alerts/AssignOwnerDropdown';
 
 const typeConfig = {
   critical: { 
@@ -78,13 +79,15 @@ const categoryIcons: Record<string, React.ElementType> = {
   other: Bell,
 };
 
-function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTask, onAIRecommend }: { 
+function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTask, onAIRecommend, onAssign, isAssigning }: { 
   alert: AlertInstance; 
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onViewDetails?: (alert: AlertInstance) => void;
   onCreateTask?: (alert: AlertInstance) => void;
   onAIRecommend?: (alert: AlertInstance) => void;
+  onAssign?: (alertId: string, ownerId: string | null) => void;
+  isAssigning?: boolean;
 }) {
   const severity = alert.severity as keyof typeof typeConfig;
   const typeConf = typeConfig[severity] || typeConfig.warning;
@@ -348,6 +351,15 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                   Đề xuất AI
                 </Button>
               )}
+              {/* Owner Assignment - Control Tower Manifesto #5 */}
+              {onAssign && (
+                <AssignOwnerDropdown
+                  alertId={alert.id}
+                  currentOwnerId={(alert as any).assigned_to}
+                  onAssign={onAssign}
+                  isLoading={isAssigning}
+                />
+              )}
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -393,6 +405,15 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                   Đề xuất AI
                 </Button>
               )}
+              {/* Owner Assignment for acknowledged alerts too */}
+              {onAssign && (
+                <AssignOwnerDropdown
+                  alertId={alert.id}
+                  currentOwnerId={(alert as any).assigned_to}
+                  onAssign={onAssign}
+                  isLoading={isAssigning}
+                />
+              )}
               <Button 
                 size="sm" 
                 className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
@@ -423,6 +444,7 @@ export default function AlertsPage() {
     isLoading, 
     acknowledgeAlert,
     resolveAlert,
+    assignAlert,
     refetchInstances 
   } = useNotificationCenter();
 
@@ -447,6 +469,11 @@ export default function AlertsPage() {
   const handleAIRecommend = (alert: AlertInstance) => {
     setAIAlert(alert);
     setShowAIDialog(true);
+  };
+
+  // Control Tower Manifesto #5: Owner assignment
+  const handleAssign = (alertId: string, ownerId: string | null) => {
+    assignAlert.mutate({ id: alertId, assignedTo: ownerId });
   };
 
   const filteredAlerts = useMemo(() => {
@@ -616,6 +643,8 @@ export default function AlertsPage() {
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
                   onAIRecommend={handleAIRecommend}
+                  onAssign={handleAssign}
+                  isAssigning={assignAlert.isPending}
                 />
               ))
             )}
@@ -637,6 +666,8 @@ export default function AlertsPage() {
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
                   onAIRecommend={handleAIRecommend}
+                  onAssign={handleAssign}
+                  isAssigning={assignAlert.isPending}
                 />
               ))
             )}
@@ -658,6 +689,8 @@ export default function AlertsPage() {
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
                   onAIRecommend={handleAIRecommend}
+                  onAssign={handleAssign}
+                  isAssigning={assignAlert.isPending}
                 />
               ))
             )}
@@ -679,6 +712,8 @@ export default function AlertsPage() {
                   onViewDetails={handleViewDetails}
                   onCreateTask={handleCreateTask}
                   onAIRecommend={handleAIRecommend}
+                  onAssign={handleAssign}
+                  isAssigning={assignAlert.isPending}
                 />
               ))
             )}

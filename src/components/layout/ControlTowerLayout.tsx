@@ -47,18 +47,14 @@ interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
+// Control Tower Manifesto: Only pages that answer "What's wrong and needs action?"
 const navItemsConfig: NavItemConfig[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/control-tower' },
-  { id: 'kpi-rules', label: 'Rules KPI', icon: Target, path: '/control-tower/kpi-rules' },
-  { id: 'rules-doc', label: 'Tài liệu Rules', icon: BookOpen, path: '/control-tower/rules-doc' },
-  { id: 'docs', label: 'Tài liệu hệ thống', icon: FileText, path: '/control-tower/docs' },
+  { id: 'dashboard', label: 'Alert Center', icon: LayoutDashboard, path: '/control-tower' },
+  { id: 'alerts', label: 'Tất cả cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
-  { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
-  { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
-  { id: 'stores', label: 'Kênh bán', icon: Store, path: '/control-tower/stores' },
-  { id: 'performance', label: 'Hiệu suất', icon: TrendingUp, path: '/control-tower/performance' },
-  { id: 'team', label: 'Đội ngũ', icon: Users, path: '/control-tower/team' },
-  { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/control-tower/chat' },
+  { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
+  { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
+  { id: 'docs', label: 'Hướng dẫn', icon: BookOpen, path: '/control-tower/docs' },
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [

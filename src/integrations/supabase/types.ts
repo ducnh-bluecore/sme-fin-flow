@@ -575,6 +575,8 @@ export type Database = {
           alert_config_id: string | null
           alert_object_id: string | null
           alert_type: string
+          assigned_at: string | null
+          assigned_to: string | null
           auto_action_available: boolean | null
           calculation_details: Json | null
           category: string
@@ -621,6 +623,8 @@ export type Database = {
           alert_config_id?: string | null
           alert_object_id?: string | null
           alert_type: string
+          assigned_at?: string | null
+          assigned_to?: string | null
           auto_action_available?: boolean | null
           calculation_details?: Json | null
           category: string
@@ -667,6 +671,8 @@ export type Database = {
           alert_config_id?: string | null
           alert_object_id?: string | null
           alert_type?: string
+          assigned_at?: string | null
+          assigned_to?: string | null
           auto_action_available?: boolean | null
           calculation_details?: Json | null
           category?: string

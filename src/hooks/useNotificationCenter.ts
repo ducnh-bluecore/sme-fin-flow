@@ -80,12 +80,15 @@ export interface AlertInstance {
   metadata: Record<string, any>;
   calculation_details: Record<string, any> | null;
   suggested_action: string | null;
-  // New impact fields
+  // Impact fields
   impact_amount: number | null;
   impact_currency: string | null;
   impact_description: string | null;
   deadline_at: string | null;
   time_to_resolve_hours: number | null;
+  // Owner assignment - Control Tower Manifesto #5
+  assigned_to: string | null;
+  assigned_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -492,6 +495,31 @@ export function useNotificationCenter(filters?: AlertFilters) {
     },
   });
 
+  // Assign Alert to Owner - Control Tower Manifesto #5
+  const assignAlert = useMutation({
+    mutationFn: async ({ id, assignedTo }: { id: string; assignedTo: string | null }) => {
+      const { data, error } = await supabase
+        .from('alert_instances')
+        .update({
+          assigned_to: assignedTo,
+          assigned_at: assignedTo ? new Date().toISOString() : null,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      invalidateAll();
+      toast.success(variables.assignedTo ? 'Đã giao việc cho người phụ trách' : 'Đã hủy giao việc');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+
   // Bulk Update Alerts
   const bulkUpdateAlerts = useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<AlertInstance> }) => {
@@ -659,6 +687,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
     acknowledgeAlert,
     resolveAlert,
     snoozeAlert,
+    assignAlert,
     bulkUpdateAlerts,
     saveRecipient,
     deleteRecipient,
