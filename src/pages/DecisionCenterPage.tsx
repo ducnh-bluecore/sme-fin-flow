@@ -382,14 +382,14 @@ export default function DecisionCenterPage() {
               )}
 
               {/* Show more indicator */}
-              {!showAll && (allCards?.length || 0) > 7 && (
+              {!showAll && (allCards?.length || 0) > visibleCards.length && (
                 <div className="text-center pt-4">
                   <Button 
                     variant="ghost" 
                     size="sm"
                     onClick={() => setShowAll(true)}
                   >
-                    Xem thêm {(allCards?.length || 0) - 7} quyết định
+                    Xem thêm {(allCards?.length || 0) - visibleCards.length} quyết định
                   </Button>
                 </div>
               )}
@@ -400,7 +400,7 @@ export default function DecisionCenterPage() {
                     size="sm"
                     onClick={() => setShowAll(false)}
                   >
-                    Thu gọn
+                    Thu gọn (hiện {visibleCards.length > 7 ? 7 : visibleCards.length})
                   </Button>
                 </div>
               )}
