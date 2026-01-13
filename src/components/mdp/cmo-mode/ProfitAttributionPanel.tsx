@@ -77,17 +77,7 @@ export function ProfitAttributionPanel({ profitData, summary }: ProfitAttributio
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-purple-400" />
             <CardTitle className="text-lg">Profit Attribution</CardTitle>
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-medium mb-1">Contribution Margin (CMO)</p>
-                <p className="text-xs text-muted-foreground">
-                  CM = Net Revenue - COGS - Platform Fees - Logistics - Payment Fees - Return Cost - Ad Spend
-                </p>
-              </TooltipContent>
-            </Tooltip>
+            <MetricExplainer metricKey="contribution_margin" variant="hovercard" />
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
@@ -113,10 +103,7 @@ export function ProfitAttributionPanel({ profitData, summary }: ProfitAttributio
           <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               CM %
-              <Tooltip>
-                <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
-                <TooltipContent>Contribution Margin / Net Revenue</TooltipContent>
-              </Tooltip>
+              <MetricExplainer metricKey="contribution_margin_percent" variant="tooltip" />
             </p>
             <p className={cn(
               "text-lg font-bold",
@@ -129,10 +116,7 @@ export function ProfitAttributionPanel({ profitData, summary }: ProfitAttributio
           <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               Profit ROAS
-              <Tooltip>
-                <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
-                <TooltipContent>CM / Ad Spend</TooltipContent>
-              </Tooltip>
+              <MetricExplainer metricKey="profit_roas" variant="tooltip" />
             </p>
             <p className={cn(
               "text-lg font-bold",
