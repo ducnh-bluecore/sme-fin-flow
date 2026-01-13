@@ -54,7 +54,22 @@ interface ChannelSKUConflict {
   suggestion: string;
 }
 
-function SKUCard({ sku, onViewDetails }: { sku: CachedSKUMetrics; onViewDetails: () => void }) {
+// Aggregated SKU data across all channels
+interface AggregatedSKU {
+  sku: string;
+  product_name: string | null;
+  channels: string[];
+  quantity: number;
+  revenue: number;
+  cogs: number;
+  fees: number;
+  profit: number;
+  margin_percent: number;
+  aov: number;
+  status: string;
+}
+
+function SKUCard({ sku, onViewDetails }: { sku: AggregatedSKU; onViewDetails: () => void }) {
   const statusConfig = {
     profitable: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: TrendingUp },
     marginal: { color: 'text-amber-400', bg: 'bg-amber-500/10', icon: Target },
@@ -77,9 +92,13 @@ function SKUCard({ sku, onViewDetails }: { sku: CachedSKUMetrics; onViewDetails:
           <p className="text-xs text-slate-500">{sku.sku}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className={`${config.bg} ${config.color} text-xs`}>
-            {sku.channel}
-          </Badge>
+          <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
+            {sku.channels.map(ch => (
+              <Badge key={ch} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-600 text-slate-400">
+                {ch}
+              </Badge>
+            ))}
+          </div>
           <Eye className="h-4 w-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </div>
@@ -176,16 +195,59 @@ export default function SKUProfitabilityAnalysis() {
   const [sortBy, setSortBy] = useState<'profit' | 'margin' | 'revenue'>('profit');
   const [selectedSKU, setSelectedSKU] = useState<{ sku: string; productName: string | null } | null>(null);
 
-  const filteredSKUs = useMemo(() => {
+  // Aggregate SKUs across channels
+  const aggregatedSKUs = useMemo((): AggregatedSKU[] => {
     if (!data?.skuMetrics) return [];
     
-    return data.skuMetrics
+    const skuMap = new Map<string, AggregatedSKU>();
+    
+    data.skuMetrics.forEach(m => {
+      const key = m.sku; // Group by SKU only
+      if (!skuMap.has(key)) {
+        skuMap.set(key, {
+          sku: m.sku,
+          product_name: m.product_name,
+          channels: [],
+          quantity: 0,
+          revenue: 0,
+          cogs: 0,
+          fees: 0,
+          profit: 0,
+          margin_percent: 0,
+          aov: 0,
+          status: 'profitable'
+        });
+      }
+      
+      const agg = skuMap.get(key)!;
+      if (!agg.channels.includes(m.channel)) {
+        agg.channels.push(m.channel);
+      }
+      agg.quantity += m.quantity;
+      agg.revenue += m.revenue;
+      agg.cogs += m.cogs;
+      agg.fees += m.fees;
+      agg.profit += m.profit;
+    });
+    
+    // Calculate margin and status for aggregated data
+    skuMap.forEach(agg => {
+      agg.margin_percent = agg.revenue > 0 ? (agg.profit / agg.revenue) * 100 : 0;
+      agg.aov = agg.quantity > 0 ? agg.revenue / agg.quantity : 0;
+      agg.status = agg.margin_percent >= 10 ? 'profitable' : agg.margin_percent >= 0 ? 'marginal' : 'loss';
+    });
+    
+    return Array.from(skuMap.values());
+  }, [data]);
+
+  const filteredSKUs = useMemo(() => {
+    return aggregatedSKUs
       .filter(sku => {
         if (searchQuery && !(sku.product_name || '').toLowerCase().includes(searchQuery.toLowerCase()) &&
             !sku.sku.toLowerCase().includes(searchQuery.toLowerCase())) {
           return false;
         }
-        if (filterChannel !== 'all' && sku.channel !== filterChannel) return false;
+        if (filterChannel !== 'all' && !sku.channels.includes(filterChannel)) return false;
         if (filterStatus !== 'all' && sku.status !== filterStatus) return false;
         return true;
       })
@@ -194,7 +256,7 @@ export default function SKUProfitabilityAnalysis() {
         if (sortBy === 'margin') return b.margin_percent - a.margin_percent;
         return b.revenue - a.revenue;
       });
-  }, [data, searchQuery, filterChannel, filterStatus, sortBy]);
+  }, [aggregatedSKUs, searchQuery, filterChannel, filterStatus, sortBy]);
 
   const channels = useMemo(() => {
     if (!data?.skuMetrics) return [];
@@ -489,7 +551,7 @@ export default function SKUProfitabilityAnalysis() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredSKUs.map((sku, i) => (
                 <SKUCard 
-                  key={`${sku.sku}-${sku.channel}-${i}`} 
+                  key={`${sku.sku}-${i}`} 
                   sku={sku} 
                   onViewDetails={() => setSelectedSKU({ sku: sku.sku, productName: sku.product_name })}
                 />
