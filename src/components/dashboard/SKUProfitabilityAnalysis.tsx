@@ -694,6 +694,7 @@ export default function SKUProfitabilityAnalysis() {
         onOpenChange={(open) => !open && setSelectedSKU(null)}
         sku={selectedSKU?.sku || ''}
         productName={selectedSKU?.productName || null}
+        ignoreDateRange={showAllProblematic}
       />
     </div>
   );

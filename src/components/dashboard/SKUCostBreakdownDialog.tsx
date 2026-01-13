@@ -47,6 +47,7 @@ interface SKUCostBreakdownDialogProps {
   onOpenChange: (open: boolean) => void;
   sku: string;
   productName: string | null;
+  ignoreDateRange?: boolean; // New prop to skip date filtering
 }
 
 interface OrderBreakdown {
@@ -93,13 +94,14 @@ export function SKUCostBreakdownDialog({
   open, 
   onOpenChange, 
   sku, 
-  productName 
+  productName,
+  ignoreDateRange = false
 }: SKUCostBreakdownDialogProps) {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sku-cost-breakdown', tenantId, sku, startDateStr, endDateStr],
+    queryKey: ['sku-cost-breakdown', tenantId, sku, ignoreDateRange ? 'all' : startDateStr, ignoreDateRange ? 'all' : endDateStr],
     queryFn: async () => {
       if (!tenantId || !sku) return null;
 
@@ -127,8 +129,8 @@ export function SKUCostBreakdownDialog({
       // Get order IDs
       const orderIds = [...new Set(items.map(i => i.external_order_id))];
 
-      // Fetch orders
-      const { data: orders, error: ordersError } = await supabase
+      // Fetch orders - conditionally apply date filter
+      let ordersQuery = supabase
         .from('external_orders')
         .select(`
           id,
@@ -146,11 +148,16 @@ export function SKUCostBreakdownDialog({
         `)
         .eq('tenant_id', tenantId)
         .in('id', orderIds)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr)
         .in('status', ['pending', 'delivered']);
+      
+      // Only apply date filter if not ignoring date range
+      if (!ignoreDateRange) {
+        ordersQuery = ordersQuery
+          .gte('order_date', startDateStr)
+          .lte('order_date', endDateStr);
+      }
 
-      if (ordersError) throw ordersError;
+      const { data: orders, error: ordersError } = await ordersQuery;
 
       const ordersMap = new Map(orders?.map(o => [o.id, o]) || []);
 
