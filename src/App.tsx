@@ -73,7 +73,7 @@ const ScenarioHubPage = lazy(() => import("./pages/ScenarioHubPage"));
 const ScenarioPage = lazy(() => import("./pages/ScenarioPage"));
 const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
 const FormulasPage = lazy(() => import("./pages/FormulasPage"));
-const FormulaSettingsPage = lazy(() => import("./pages/FormulaSettingsPage"));
+
 
 // Strategy & Decision pages
 const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
@@ -254,7 +254,7 @@ const AppRoutes = () => {
         <Route path="/user-guide" element={<UserGuidePage />} />
         <Route path="/data-guide" element={<DataEntryGuidePage />} />
         <Route path="/formulas" element={<FormulasPage />} />
-        <Route path="/formula-settings" element={<FormulaSettingsPage />} />
+        
         <Route path="/tenant" element={<TenantManagementPage />} />
         <Route path="/tenant/members" element={<TenantMembersPage />} />
         <Route path="/tenant/settings" element={<TenantSettingsPage />} />

@@ -21,7 +21,6 @@ import {
   Loader2,
   Zap,
   Building2,
-  Calculator,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -37,8 +36,8 @@ import { formatDate } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { useUpdateTenant } from '@/hooks/useTenant';
-import { useFormulaSettings, useUpdateFormulaSettings, FormulaSettings } from '@/hooks/useFormulaSettings';
 import { useLanguage } from '@/contexts/LanguageContext';
+
 
 export default function SettingsPage() {
   const { t } = useLanguage();
@@ -57,10 +56,6 @@ export default function SettingsPage() {
   const [tenantName, setTenantName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
 
-  // Formula Settings
-  const { data: formulaSettings, isLoading: formulaLoading } = useFormulaSettings();
-  const updateFormula = useUpdateFormulaSettings();
-  const [formulas, setFormulas] = useState<Partial<FormulaSettings>>({});
 
   // Initialize tenant values
   useEffect(() => {
@@ -69,13 +64,6 @@ export default function SettingsPage() {
       setLogoUrl(activeTenant.logo_url || '');
     }
   }, [activeTenant]);
-
-  // Initialize formula values
-  useEffect(() => {
-    if (formulaSettings) {
-      setFormulas(formulaSettings);
-    }
-  }, [formulaSettings]);
 
   const handleTestApiKey = async () => {
     if (!apiKey.trim()) {
@@ -190,13 +178,6 @@ export default function SettingsPage() {
     });
   };
 
-  const handleSaveFormulas = () => {
-    updateFormula.mutate(formulas);
-  };
-
-  const updateFormulaField = (field: keyof FormulaSettings, value: any) => {
-    setFormulas(prev => ({ ...prev, [field]: value }));
-  };
 
   return (
     <>
@@ -224,7 +205,7 @@ export default function SettingsPage() {
         <Tabs defaultValue="tenant" className="space-y-6">
           <TabsList className="flex flex-wrap gap-1 h-auto p-1">
             <TabsTrigger value="tenant" className="text-xs sm:text-sm">{t('settings.tabCompany')}</TabsTrigger>
-            <TabsTrigger value="formulas" className="text-xs sm:text-sm">{t('settings.tabFormulas')}</TabsTrigger>
+            
             <TabsTrigger value="profile" className="text-xs sm:text-sm">{t('settings.tabProfile')}</TabsTrigger>
             <TabsTrigger value="notifications" className="text-xs sm:text-sm">{t('settings.tabNotifications')}</TabsTrigger>
             <TabsTrigger value="appearance" className="text-xs sm:text-sm">{t('settings.tabAppearance')}</TabsTrigger>
@@ -332,328 +313,6 @@ export default function SettingsPage() {
             </motion.div>
           </TabsContent>
 
-          {/* Formula Settings Tab */}
-          <TabsContent value="formulas">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="data-card"
-            >
-              <h3 className="font-semibold text-lg mb-6 flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-primary" />
-                {t('settings.formulaSettings')}
-              </h3>
-              
-              {formulaLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  {/* Financial Period */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Kỳ tài chính
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Số ngày năm tài chính</Label>
-                        <Input
-                          type="number"
-                          value={formulas.fiscal_year_days || 365}
-                          onChange={(e) => updateFormulaField('fiscal_year_days', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Tháng bắt đầu năm tài chính</Label>
-                        <Select
-                          value={String(formulas.fiscal_year_start_month || 1)}
-                          onValueChange={(v) => updateFormulaField('fiscal_year_start_month', Number(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 12 }, (_, i) => (
-                              <SelectItem key={i + 1} value={String(i + 1)}>
-                                Tháng {i + 1}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Working Capital */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Vốn lưu động (Days)
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>DSO (Days Sales Outstanding)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.dso_calculation_days || 365}
-                          onChange={(e) => updateFormulaField('dso_calculation_days', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>DIO (Days Inventory Outstanding)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.dio_calculation_days || 365}
-                          onChange={(e) => updateFormulaField('dio_calculation_days', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>DPO (Days Payable Outstanding)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.dpo_calculation_days || 365}
-                          onChange={(e) => updateFormulaField('dpo_calculation_days', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* AR Aging Buckets */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      AR Aging Buckets (ngày)
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <Label>Bucket 1</Label>
-                        <Input
-                          type="number"
-                          value={formulas.ar_bucket_1 || 30}
-                          onChange={(e) => updateFormulaField('ar_bucket_1', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Bucket 2</Label>
-                        <Input
-                          type="number"
-                          value={formulas.ar_bucket_2 || 60}
-                          onChange={(e) => updateFormulaField('ar_bucket_2', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Bucket 3</Label>
-                        <Input
-                          type="number"
-                          value={formulas.ar_bucket_3 || 90}
-                          onChange={(e) => updateFormulaField('ar_bucket_3', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Bucket 4</Label>
-                        <Input
-                          type="number"
-                          value={formulas.ar_bucket_4 || 120}
-                          onChange={(e) => updateFormulaField('ar_bucket_4', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Benchmarks */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Chỉ tiêu mục tiêu (%)
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <Label>Biên lợi nhuận gộp</Label>
-                        <Input
-                          type="number"
-                          value={formulas.target_gross_margin || 30}
-                          onChange={(e) => updateFormulaField('target_gross_margin', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Biên lợi nhuận ròng</Label>
-                        <Input
-                          type="number"
-                          value={formulas.target_net_margin || 10}
-                          onChange={(e) => updateFormulaField('target_net_margin', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>DSO mục tiêu (ngày)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.target_dso || 45}
-                          onChange={(e) => updateFormulaField('target_dso', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Tỷ lệ thu hồi nợ</Label>
-                        <Input
-                          type="number"
-                          value={formulas.target_collection_rate || 95}
-                          onChange={(e) => updateFormulaField('target_collection_rate', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Cash Management */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Quản lý tiền mặt
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Runway tối thiểu (tháng)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.min_cash_runway_months || 3}
-                          onChange={(e) => updateFormulaField('min_cash_runway_months', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Runway an toàn (tháng)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.safe_cash_runway_months || 6}
-                          onChange={(e) => updateFormulaField('safe_cash_runway_months', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Dự trữ tiền mặt (%)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.cash_reserve_percentage || 20}
-                          onChange={(e) => updateFormulaField('cash_reserve_percentage', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Tax & Depreciation */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Thuế & Khấu hao
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Thuế VAT (%)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.vat_rate || 10}
-                          onChange={(e) => updateFormulaField('vat_rate', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Thuế TNDN (%)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.corporate_tax_rate || 20}
-                          onChange={(e) => updateFormulaField('corporate_tax_rate', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Số năm khấu hao mặc định</Label>
-                        <Input
-                          type="number"
-                          value={formulas.default_depreciation_years || 5}
-                          onChange={(e) => updateFormulaField('default_depreciation_years', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Payment Terms */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Điều khoản thanh toán (ngày)
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>AR mặc định</Label>
-                        <Input
-                          type="number"
-                          value={formulas.default_payment_terms_ar || 30}
-                          onChange={(e) => updateFormulaField('default_payment_terms_ar', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>AP mặc định</Label>
-                        <Input
-                          type="number"
-                          value={formulas.default_payment_terms_ap || 30}
-                          onChange={(e) => updateFormulaField('default_payment_terms_ap', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Forecasting */}
-                  <div>
-                    <h4 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">
-                      Dự báo
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Độ tin cậy (%)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.forecast_confidence_level || 95}
-                          onChange={(e) => updateFormulaField('forecast_confidence_level', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Tăng trưởng mặc định (%)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.forecast_default_growth_rate || 5}
-                          onChange={(e) => updateFormulaField('forecast_default_growth_rate', Number(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Tỷ lệ thu hồi dự báo (%)</Label>
-                        <Input
-                          type="number"
-                          value={formulas.forecast_collection_rate || 85}
-                          onChange={(e) => updateFormulaField('forecast_collection_rate', Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <Button
-                    onClick={handleSaveFormulas}
-                    disabled={updateFormula.isPending}
-                  >
-                    {updateFormula.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    <Save className="w-4 h-4 mr-2" />
-                    Lưu cài đặt công thức
-                  </Button>
-                </div>
-              )}
-            </motion.div>
-          </TabsContent>
 
           <TabsContent value="profile">
             <motion.div
