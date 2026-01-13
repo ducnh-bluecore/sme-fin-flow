@@ -1,18 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Wallet, 
   CheckCircle2,
   Clock,
   TrendingDown,
   Lock,
-  Info,
   ArrowRight,
 } from 'lucide-react';
 import { CashImpact, CMOModeSummary } from '@/hooks/useMDPData';
 import { cn } from '@/lib/utils';
+import { MetricExplainer } from '@/components/mdp/MDPMetricExplainer';
 
 interface CMOCashImpactPanelProps {
   cashImpact: CashImpact[];
@@ -39,18 +38,11 @@ export function CMOCashImpactPanel({ cashImpact, summary }: CMOCashImpactPanelPr
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-purple-400" />
           <CardTitle className="text-lg">Cash Impact Analysis</CardTitle>
-          <Tooltip>
-            <TooltipTrigger>
-              <Info className="h-4 w-4 text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p className="font-medium mb-1">Marketing → Cashflow</p>
-              <p className="text-xs text-muted-foreground">
-                CMO phải trả lời: Marketing tạo cash nhanh hay chậm? Scale được không?
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          <MetricExplainer metricKey="cash_received" variant="hovercard" />
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          CMO phải trả lời: Marketing tạo cash nhanh hay chậm? Scale được không?
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Cash Flow Summary */}

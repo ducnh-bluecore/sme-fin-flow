@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { MarketingModeSummary } from '@/hooks/useMDPData';
 import { cn } from '@/lib/utils';
+import { MetricExplainer } from '@/components/mdp/MDPMetricExplainer';
 
 interface PerformanceOverviewProps {
   summary: MarketingModeSummary;
@@ -36,6 +37,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       icon: DollarSign,
       color: 'blue',
       subtext: `${summary.active_campaigns} campaigns active`,
+      metricKey: 'ad_spend',
     },
     {
       label: 'Leads',
@@ -43,6 +45,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       icon: Users,
       color: 'cyan',
       subtext: `CTR: ${summary.overall_ctr.toFixed(2)}%`,
+      metricKey: null,
     },
     {
       label: 'Orders',
@@ -50,6 +53,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       icon: ShoppingCart,
       color: 'green',
       subtext: `Conv: ${summary.overall_conversion.toFixed(2)}%`,
+      metricKey: null,
     },
     {
       label: 'Revenue',
@@ -57,6 +61,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       icon: TrendingUp,
       color: 'emerald',
       subtext: 'Từ paid marketing',
+      metricKey: 'gross_revenue',
     },
     {
       label: 'CPA',
@@ -64,6 +69,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       icon: Target,
       color: summary.overall_cpa < 100000 ? 'green' : summary.overall_cpa < 200000 ? 'yellow' : 'red',
       subtext: 'Cost per Acquisition',
+      metricKey: 'cpa',
     },
     {
       label: 'ROAS',
@@ -71,6 +77,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       icon: MousePointer,
       color: summary.overall_roas >= 2 ? 'green' : summary.overall_roas >= 1 ? 'yellow' : 'red',
       subtext: 'Revenue / Ad Spend',
+      metricKey: 'roas',
     },
   ];
 
@@ -119,6 +126,9 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
                     <Icon className={cn("h-3.5 w-3.5", colors.text)} />
                   </div>
                   <span className="text-xs text-muted-foreground truncate">{kpi.label}</span>
+                  {kpi.metricKey && (
+                    <MetricExplainer metricKey={kpi.metricKey} variant="tooltip" />
+                  )}
                 </div>
                 <p className={cn("text-xl font-bold", colors.text)}>
                   {kpi.value}
