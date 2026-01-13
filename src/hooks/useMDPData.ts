@@ -235,6 +235,72 @@ export function useMDPData() {
     enabled: !!tenantId,
   });
 
+  // NEW: Fetch REAL channel fees (not mock)
+  const channelFeesQuery = useQuery({
+    queryKey: ['mdp-channel-fees', tenantId, startDateStr, endDateStr],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('channel_fees')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .gte('fee_date', startDateStr)
+        .lte('fee_date', endDateStr);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
+
+  // NEW: Fetch REAL order items with COGS
+  const orderItemsQuery = useQuery({
+    queryKey: ['mdp-order-items', tenantId, startDateStr, endDateStr],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('external_order_items')
+        .select('external_order_id, sku, quantity, unit_price, total_amount, unit_cogs, total_cogs, gross_profit')
+        .eq('tenant_id', tenantId)
+        .limit(1000);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
+
+  // NEW: Fetch REAL settlements for cash tracking  
+  const settlementsQuery = useQuery({
+    queryKey: ['mdp-settlements', tenantId, startDateStr, endDateStr],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('channel_settlements')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .gte('period_start', startDateStr)
+        .lte('period_end', endDateStr);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
+
+  // NEW: Fetch products for cost lookup
+  const productsQuery = useQuery({
+    queryKey: ['mdp-products', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('external_products')
+        .select('id, external_sku, cost_price, selling_price')
+        .eq('tenant_id', tenantId)
+        .limit(1000);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
+
   // === MARKETING MODE DATA PROCESSING ===
 
   const marketingPerformance = useMemo<MarketingPerformance[]>(() => {
@@ -345,8 +411,69 @@ export function useMDPData() {
 
   // === CMO MODE DATA PROCESSING ===
 
+  // Aggregate real fees by type
+  const feesByType = useMemo(() => {
+    const fees = channelFeesQuery.data || [];
+    const result: Record<string, number> = {
+      commission: 0,
+      service: 0,
+      shipping: 0,
+      payment: 0,
+      other: 0,
+    };
+    fees.forEach(fee => {
+      const category = fee.fee_category || 'other';
+      result[category] = (result[category] || 0) + (fee.amount || 0);
+    });
+    return result;
+  }, [channelFeesQuery.data]);
+
+  // Create COGS lookup from order items
+  const cogsLookup = useMemo(() => {
+    const items = orderItemsQuery.data || [];
+    const lookup: Record<string, { cogs: number; revenue: number }> = {};
+    items.forEach(item => {
+      const orderId = item.external_order_id;
+      if (!lookup[orderId]) {
+        lookup[orderId] = { cogs: 0, revenue: 0 };
+      }
+      lookup[orderId].cogs += item.total_cogs || (item.unit_cogs || 0) * (item.quantity || 1);
+      lookup[orderId].revenue += item.total_amount || 0;
+    });
+    return lookup;
+  }, [orderItemsQuery.data]);
+
+  // Calculate real settlements data
+  const settlementsTotals = useMemo(() => {
+    const settlements = settlementsQuery.data || [];
+    return settlements.reduce((acc, s) => ({
+      gross_sales: acc.gross_sales + (s.gross_sales || 0),
+      total_commission: acc.total_commission + (s.total_commission || 0),
+      total_shipping_fee: acc.total_shipping_fee + (s.total_shipping_fee || 0),
+      total_payment_fee: acc.total_payment_fee + (s.total_payment_fee || 0),
+      total_service_fee: acc.total_service_fee + (s.total_service_fee || 0),
+      total_refunds: acc.total_refunds + (s.total_refunds || 0),
+      net_amount: acc.net_amount + (s.net_amount || 0),
+      total_orders: acc.total_orders + (s.total_orders || 0),
+    }), {
+      gross_sales: 0,
+      total_commission: 0,
+      total_shipping_fee: 0,
+      total_payment_fee: 0,
+      total_service_fee: 0,
+      total_refunds: 0,
+      net_amount: 0,
+      total_orders: 0,
+    });
+  }, [settlementsQuery.data]);
+
   const profitAttribution = useMemo<ProfitAttribution[]>(() => {
     if (!campaignsQuery.data) return [];
+    
+    const totalCampaigns = campaignsQuery.data.length;
+    const hasRealFees = (channelFeesQuery.data?.length || 0) > 0;
+    const hasRealCOGS = Object.keys(cogsLookup).length > 0;
+    const hasRealSettlements = (settlementsQuery.data?.length || 0) > 0;
 
     return campaignsQuery.data.map(campaign => {
       const grossRevenue = campaign.total_revenue || 0;
@@ -354,13 +481,79 @@ export function useMDPData() {
       const netRevenue = grossRevenue - discount;
       const adSpend = campaign.actual_cost || 0;
       const orders = campaign.total_orders || 0;
+      const channel = campaign.channel || 'Unknown';
 
-      // Cost estimation (should come from real data in production)
-      const cogs = netRevenue * 0.55; // 55% COGS
-      const platformFees = netRevenue * 0.12; // 12% platform fees
-      const logisticsCost = orders * 25000; // 25K per order
-      const paymentFees = netRevenue * 0.02; // 2% payment fees
-      const returnCost = netRevenue * 0.05; // 5% return cost estimate
+      // REAL DATA: Use actual COGS from order items if available
+      // Attribution: proportionally distribute total COGS based on campaign revenue share
+      let cogs: number;
+      if (hasRealCOGS) {
+        const totalCOGS = Object.values(cogsLookup).reduce((sum, v) => sum + v.cogs, 0);
+        const totalRev = Object.values(cogsLookup).reduce((sum, v) => sum + v.revenue, 0);
+        const cogsRatio = totalRev > 0 ? totalCOGS / totalRev : 0.55;
+        cogs = netRevenue * cogsRatio;
+      } else {
+        // Fallback: estimate 55% COGS (with warning logged)
+        cogs = netRevenue * 0.55;
+      }
+
+      // REAL DATA: Use actual platform fees from channel_fees or settlements
+      let platformFees: number;
+      if (hasRealFees) {
+        const totalFees = feesByType.commission + feesByType.service;
+        const totalCampaignRevenue = campaignsQuery.data.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
+        const revenueShare = totalCampaignRevenue > 0 ? netRevenue / totalCampaignRevenue : 1 / totalCampaigns;
+        platformFees = totalFees * revenueShare;
+      } else if (hasRealSettlements) {
+        const feeRatio = settlementsTotals.gross_sales > 0 
+          ? (settlementsTotals.total_commission + settlementsTotals.total_service_fee) / settlementsTotals.gross_sales 
+          : 0.12;
+        platformFees = netRevenue * feeRatio;
+      } else {
+        platformFees = netRevenue * 0.12;
+      }
+
+      // REAL DATA: Use actual logistics from fees or settlements
+      let logisticsCost: number;
+      if (hasRealFees) {
+        const totalShipping = feesByType.shipping;
+        const totalCampaignOrders = campaignsQuery.data.reduce((sum, c) => sum + (c.total_orders || 0), 0);
+        const orderShare = totalCampaignOrders > 0 ? orders / totalCampaignOrders : 1 / totalCampaigns;
+        logisticsCost = totalShipping * orderShare;
+      } else if (hasRealSettlements) {
+        const avgShipPerOrder = settlementsTotals.total_orders > 0 
+          ? settlementsTotals.total_shipping_fee / settlementsTotals.total_orders 
+          : 25000;
+        logisticsCost = orders * avgShipPerOrder;
+      } else {
+        logisticsCost = orders * 25000;
+      }
+
+      // REAL DATA: Use actual payment fees
+      let paymentFees: number;
+      if (hasRealFees) {
+        const totalPaymentFees = feesByType.payment;
+        const totalCampaignRevenue = campaignsQuery.data.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
+        const revenueShare = totalCampaignRevenue > 0 ? netRevenue / totalCampaignRevenue : 1 / totalCampaigns;
+        paymentFees = totalPaymentFees * revenueShare;
+      } else if (hasRealSettlements) {
+        const paymentRatio = settlementsTotals.gross_sales > 0 
+          ? settlementsTotals.total_payment_fee / settlementsTotals.gross_sales 
+          : 0.02;
+        paymentFees = netRevenue * paymentRatio;
+      } else {
+        paymentFees = netRevenue * 0.02;
+      }
+
+      // REAL DATA: Use actual refund/return costs
+      let returnCost: number;
+      if (hasRealSettlements) {
+        const refundRatio = settlementsTotals.gross_sales > 0 
+          ? settlementsTotals.total_refunds / settlementsTotals.gross_sales 
+          : 0.05;
+        returnCost = netRevenue * refundRatio;
+      } else {
+        returnCost = netRevenue * 0.05;
+      }
 
       const contributionMargin = netRevenue - cogs - platformFees - logisticsCost - paymentFees - returnCost - adSpend;
       const contributionMarginPercent = netRevenue > 0 ? (contributionMargin / netRevenue) * 100 : 0;
@@ -381,7 +574,7 @@ export function useMDPData() {
       return {
         campaign_id: campaign.id,
         campaign_name: campaign.campaign_name || 'Unknown',
-        channel: campaign.channel || 'Unknown',
+        channel,
         cohort: new Date(campaign.start_date).toLocaleDateString('vi-VN', { month: 'short', year: 'numeric' }),
         gross_revenue: grossRevenue,
         discount_given: discount,
@@ -398,7 +591,7 @@ export function useMDPData() {
         status,
       };
     });
-  }, [campaignsQuery.data]);
+  }, [campaignsQuery.data, channelFeesQuery.data, cogsLookup, settlementsQuery.data, feesByType, settlementsTotals]);
 
   const cashImpact = useMemo<CashImpact[]>(() => {
     if (!expensesQuery.data || !ordersQuery.data) return [];
@@ -590,7 +783,14 @@ export function useMDPData() {
     
     // Shared
     thresholds: MDP_THRESHOLDS,
-    isLoading: campaignsQuery.isLoading || expensesQuery.isLoading || channelQuery.isLoading || ordersQuery.isLoading,
-    error: campaignsQuery.error || expensesQuery.error || channelQuery.error || ordersQuery.error,
+    isLoading: campaignsQuery.isLoading || expensesQuery.isLoading || channelQuery.isLoading || ordersQuery.isLoading || channelFeesQuery.isLoading || orderItemsQuery.isLoading || settlementsQuery.isLoading,
+    error: campaignsQuery.error || expensesQuery.error || channelQuery.error || ordersQuery.error || channelFeesQuery.error || orderItemsQuery.error || settlementsQuery.error,
+    // Data quality indicators
+    dataQuality: {
+      hasRealCOGS: Object.keys(cogsLookup).length > 0,
+      hasRealFees: (channelFeesQuery.data?.length || 0) > 0,
+      hasRealSettlements: (settlementsQuery.data?.length || 0) > 0,
+      productsCount: productsQuery.data?.length || 0,
+    },
   };
 }

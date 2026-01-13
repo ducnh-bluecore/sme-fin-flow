@@ -16,12 +16,12 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
-  Info,
   TrendingUp,
   TrendingDown,
 } from 'lucide-react';
 import { ProfitAttribution, CMOModeSummary } from '@/hooks/useMDPData';
 import { cn } from '@/lib/utils';
+import { MetricExplainer } from '@/components/mdp/MDPMetricExplainer';
 
 interface ProfitAttributionPanelProps {
   profitData: ProfitAttribution[];
