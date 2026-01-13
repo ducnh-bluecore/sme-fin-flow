@@ -65,12 +65,22 @@ export default function DecisionCenterPage() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  // Fetch from DB
+  // Fetch from DB - Open cards
   const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
     status: statusFilter,
     priority: priorityFilter === 'ALL' ? undefined : [priorityFilter],
   });
   const { data: stats } = useDecisionCardStats();
+
+  // Fetch decided cards for history
+  const { data: decidedCards } = useDecisionCards({
+    status: ['DECIDED'],
+  });
+
+  // Fetch dismissed cards
+  const { data: dismissedCards } = useDecisionCards({
+    status: ['DISMISSED'],
+  });
 
   // Fetch auto-generated cards from FDP analysis
   const { data: autoCards } = useAutoDecisionCards();
@@ -422,17 +432,77 @@ export default function DecisionCenterPage() {
 
         <TabsContent value="history">
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
-              <p>Quyết định đã xử lý sẽ hiển thị tại đây</p>
+            <CardContent className="py-4">
+              {decidedCards && decidedCards.length > 0 ? (
+                <div className="space-y-3">
+                  {decidedCards.map((card) => (
+                    <div 
+                      key={card.id} 
+                      className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedCardId(card.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <div>
+                          <p className="font-medium text-sm">{card.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {card.entity_label} • {card.actions?.[0]?.label || 'Đã quyết định'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                          {card.priority}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(card.updated_at).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                  <p>Chưa có quyết định nào được xử lý</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="dismissed">
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <p>Các quyết định đã bỏ qua</p>
+            <CardContent className="py-4">
+              {dismissedCards && dismissedCards.length > 0 ? (
+                <div className="space-y-3">
+                  {dismissedCards.map((card) => (
+                    <div 
+                      key={card.id} 
+                      className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedCardId(card.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium text-sm">{card.title}</p>
+                          <p className="text-xs text-muted-foreground">{card.entity_label}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="outline">{card.priority}</Badge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(card.updated_at).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-muted-foreground">
+                  <p>Chưa có quyết định nào bị bỏ qua</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
