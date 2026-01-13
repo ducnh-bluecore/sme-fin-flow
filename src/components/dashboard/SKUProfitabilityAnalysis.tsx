@@ -10,20 +10,32 @@
  * Uses cache table for faster loading
  */
 
+/**
+ * SKU Profitability Analysis Component
+ *
+ * Provides deep analysis at SKU level:
+ * 1. Unit economics per SKU
+ * 2. Break-even analysis
+ * 3. Detection of "SKU lãi nhưng kênh lỗ"
+ * 4. Detection of "kênh lãi nhưng SKU lỗ"
+ *
+ * Uses cache table for faster loading
+ */
+
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Package, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
+import {
+  Package,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
   Target,
   Search,
   ChevronRight,
   Sparkles,
   BarChart3,
   RefreshCw,
-  Eye
+  Eye,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,8 +51,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { formatVND, formatVNDCompact, formatDateTime } from '@/lib/formatters';
-import { useCachedSKUProfitability, useRecalculateSKUProfitability, CachedSKUMetrics } from '@/hooks/useSKUProfitabilityCache';
+import {
+  useCachedSKUProfitability,
+  useRecalculateSKUProfitability,
+  CachedSKUMetrics,
+} from '@/hooks/useSKUProfitabilityCache';
 import { SKUCostBreakdownDialog } from './SKUCostBreakdownDialog';
 
 interface ChannelSKUConflict {
@@ -71,11 +88,11 @@ interface AggregatedSKU {
 
 function SKUCard({ sku, onViewDetails }: { sku: AggregatedSKU; onViewDetails: () => void }) {
   const statusConfig = {
-    profitable: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: TrendingUp },
-    marginal: { color: 'text-amber-400', bg: 'bg-amber-500/10', icon: Target },
-    loss: { color: 'text-red-400', bg: 'bg-red-500/10', icon: TrendingDown }
+    profitable: { color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: TrendingUp },
+    marginal: { color: 'text-amber-500', bg: 'bg-amber-500/10', icon: Target },
+    loss: { color: 'text-destructive', bg: 'bg-destructive/10', icon: TrendingDown },
   };
-  
+
   const config = statusConfig[sku.status as keyof typeof statusConfig] || statusConfig.profitable;
   const Icon = config.icon;
 
@@ -83,33 +100,36 @@ function SKUCard({ sku, onViewDetails }: { sku: AggregatedSKU; onViewDetails: ()
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`p-3 rounded-lg border ${config.bg} border-slate-700/50 cursor-pointer hover:border-primary/50 transition-colors group`}
+      className={cn(
+        "p-3 rounded-lg border border-border bg-muted/30 cursor-pointer hover:border-primary/50 transition-colors group",
+        config.bg,
+      )}
       onClick={onViewDetails}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-200 truncate">{sku.product_name || sku.sku}</p>
-          <p className="text-xs text-slate-500">{sku.sku}</p>
+          <p className="text-sm font-medium text-foreground truncate">{sku.product_name || sku.sku}</p>
+          <p className="text-xs text-muted-foreground">{sku.sku}</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
-            {sku.channels.map(ch => (
-              <Badge key={ch} variant="outline" className="text-[10px] px-1.5 py-0 border-slate-600 text-slate-400">
+            {sku.channels.map((ch) => (
+              <Badge key={ch} variant="outline" className="text-[10px] px-1.5 py-0">
                 {ch}
               </Badge>
             ))}
           </div>
-          <Eye className="h-4 w-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </div>
-      
+
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
-          <p className="text-xs text-slate-500">Doanh thu</p>
+          <p className="text-xs text-muted-foreground">Doanh thu</p>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <p className="text-sm font-medium text-slate-200 cursor-help">
+                <p className="text-sm font-medium text-foreground cursor-help">
                   {formatVNDCompact(sku.revenue)}
                 </p>
               </TooltipTrigger>
@@ -120,11 +140,16 @@ function SKUCard({ sku, onViewDetails }: { sku: AggregatedSKU; onViewDetails: ()
           </TooltipProvider>
         </div>
         <div>
-          <p className="text-xs text-slate-500">Lợi nhuận</p>
+          <p className="text-xs text-muted-foreground">Lợi nhuận</p>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <p className={`text-sm font-medium cursor-help ${sku.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p
+                  className={cn(
+                    "text-sm font-medium cursor-help",
+                    sku.profit >= 0 ? "text-emerald-500" : "text-destructive",
+                  )}
+                >
                   {formatVNDCompact(sku.profit)}
                 </p>
               </TooltipTrigger>
@@ -135,17 +160,17 @@ function SKUCard({ sku, onViewDetails }: { sku: AggregatedSKU; onViewDetails: ()
           </TooltipProvider>
         </div>
         <div>
-          <p className="text-xs text-slate-500">Margin</p>
-          <p className={`text-sm font-medium ${config.color}`}>
+          <p className="text-xs text-muted-foreground">Margin</p>
+          <p className={cn("text-sm font-medium", config.color)}>
             {sku.margin_percent.toFixed(1)}%
           </p>
         </div>
       </div>
 
-      <div className="mt-2 pt-2 border-t border-slate-700/30">
+      <div className="mt-2 pt-2 border-t border-border/60">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">SL bán: {sku.quantity}</span>
-          <span className="text-slate-500">AOV: {formatVNDCompact(sku.aov)}</span>
+          <span className="text-muted-foreground">SL bán: {sku.quantity}</span>
+          <span className="text-muted-foreground">AOV: {formatVNDCompact(sku.aov)}</span>
         </div>
       </div>
     </motion.div>
@@ -334,13 +359,15 @@ export default function SKUProfitabilityAnalysis() {
 
   if (isLoading) {
     return (
-      <Card className="bg-slate-900/50 border-slate-800">
+      <Card className="bg-muted/30">
         <CardHeader>
           <Skeleton className="h-6 w-48" />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-32" />)}
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -349,8 +376,8 @@ export default function SKUProfitabilityAnalysis() {
 
   if (error) {
     return (
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardContent className="py-8 text-center text-slate-400">
+      <Card className="bg-muted/30">
+        <CardContent className="py-8 text-center text-muted-foreground">
           Không thể tải dữ liệu SKU
         </CardContent>
       </Card>
@@ -360,16 +387,15 @@ export default function SKUProfitabilityAnalysis() {
   // Show empty state with recalculate button if no cached data
   if (!data?.hasCachedData) {
     return (
-      <Card className="bg-slate-900/50 border-slate-800">
+      <Card className="bg-muted/30">
         <CardContent className="py-12 text-center">
-          <Package className="h-12 w-12 mx-auto text-slate-600 mb-4" />
-          <p className="text-slate-400 mb-4">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground mb-4">
             Chưa có dữ liệu SKU Profitability cho khoảng thời gian này.
           </p>
-          <Button 
+          <Button
             onClick={() => recalculate.mutate()}
             disabled={recalculate.isPending}
-            className="bg-primary hover:bg-primary/90"
           >
             {recalculate.isPending ? (
               <>
@@ -394,14 +420,15 @@ export default function SKUProfitabilityAnalysis() {
         <Card className="bg-amber-500/10 border-amber-500/30">
           <CardContent className="pt-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-slate-100">
+                <p className="text-sm font-medium text-foreground">
                   Đang thiếu dữ liệu chi phí (COGS/fees) nên nhiều SKU hiển thị Lợi nhuận = Doanh thu
                 </p>
-                <p className="text-xs text-slate-300 mt-1">
-                  {missingCosts.missingRows}/{missingCosts.revenueRows} SKU có doanh thu đang có COGS=0 và fees=0.
-                  Nếu bạn muốn tính đúng, cần đồng bộ thêm giá vốn/chi phí bán hàng cho kênh hiện tại.
+                <p className="text-xs text-muted-foreground mt-1">
+                  {missingCosts.missingRows}/{missingCosts.revenueRows} SKU có doanh thu đang có
+                  COGS=0 và fees=0. Nếu bạn muốn tính đúng, cần đồng bộ thêm giá vốn/chi phí bán
+                  hàng cho kênh hiện tại.
                 </p>
               </div>
             </div>
@@ -409,58 +436,60 @@ export default function SKUProfitabilityAnalysis() {
         </Card>
       )}
 
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-900/50 border-slate-800">
+        <Card className="bg-muted/30">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-2">
               <Package className="h-4 w-4 text-primary" />
-              <span className="text-xs text-slate-400">Tổng SKU</span>
+              <span className="text-xs text-muted-foreground">Tổng SKU</span>
             </div>
-            <p className="text-2xl font-bold text-slate-100">{data.summary.totalSKUs}</p>
+            <p className="text-2xl font-bold text-foreground">{data.summary.totalSKUs}</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-emerald-500/10 border-emerald-500/30">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs text-slate-400">Có lãi</span>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span className="text-xs text-muted-foreground">Có lãi</span>
             </div>
-            <p className="text-2xl font-bold text-emerald-400">{data.summary.profitableSKUs}</p>
+            <p className="text-2xl font-bold text-emerald-600">{data.summary.profitableSKUs}</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-amber-500/10 border-amber-500/30">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="h-4 w-4 text-amber-400" />
-              <span className="text-xs text-slate-400">Marginal</span>
+              <Target className="h-4 w-4 text-amber-600" />
+              <span className="text-xs text-muted-foreground">Marginal</span>
             </div>
-            <p className="text-2xl font-bold text-amber-400">{data.summary.marginalSKUs}</p>
+            <p className="text-2xl font-bold text-amber-600">{data.summary.marginalSKUs}</p>
           </CardContent>
         </Card>
-        
-        <Card className="bg-red-500/10 border-red-500/30">
+
+        <Card className="bg-destructive/10 border-destructive/20">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingDown className="h-4 w-4 text-red-400" />
-              <span className="text-xs text-slate-400">Đang lỗ</span>
+              <TrendingDown className="h-4 w-4 text-destructive" />
+              <span className="text-xs text-muted-foreground">Đang lỗ</span>
             </div>
-            <p className="text-2xl font-bold text-red-400">{data.summary.lossSKUs}</p>
+            <p className="text-2xl font-bold text-destructive">{data.summary.lossSKUs}</p>
           </CardContent>
         </Card>
       </div>
 
+
       {/* Conflicts / AI Insights */}
       {conflicts.length > 0 && (
-        <Card className="bg-slate-900/50 border-slate-800">
+        <Card className="bg-muted/30">
           <CardHeader>
-            <CardTitle className="text-lg text-slate-100 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-400" />
+            <CardTitle className="text-lg text-foreground flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
               Phát hiện bất thường ({conflicts.length})
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-muted-foreground">
               Các SKU có margin khác biệt với kênh bán - cần xem xét
             </CardDescription>
           </CardHeader>
@@ -474,16 +503,17 @@ export default function SKUProfitabilityAnalysis() {
         </Card>
       )}
 
+
       {/* SKU List */}
-      <Card className="bg-slate-900/50 border-slate-800">
+      <Card className="bg-muted/30">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle className="text-lg text-slate-100 flex items-center gap-2">
+              <CardTitle className="text-lg text-foreground flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-primary" />
                 Unit Economics theo SKU
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-muted-foreground">
                 Phân tích lợi nhuận chi tiết từng SKU theo kênh
                 {data.lastCalculated && (
                   <span className="ml-2 text-xs">
@@ -492,14 +522,13 @@ export default function SKUProfitabilityAnalysis() {
                 )}
               </CardDescription>
             </div>
-            
+
             <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => recalculate.mutate()}
                 disabled={recalculate.isPending}
-                className="border-slate-700 text-slate-300 hover:bg-slate-800"
               >
                 {recalculate.isPending ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
@@ -510,62 +539,67 @@ export default function SKUProfitabilityAnalysis() {
               </Button>
 
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Tìm SKU..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-48 bg-slate-800 border-slate-700 text-slate-200"
+                  className="pl-9 w-48"
                 />
               </div>
-              
+
               <Select value={filterChannel} onValueChange={setFilterChannel}>
-                <SelectTrigger className="w-32 bg-slate-800 border-slate-700 text-slate-200">
+                <SelectTrigger className="w-32">
                   <SelectValue placeholder="Kênh" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200 z-50">
-                  <SelectItem value="all" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Tất cả</SelectItem>
-                  {channels.map(ch => (
-                    <SelectItem key={ch} value={ch} className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">{ch}</SelectItem>
+                <SelectContent className="z-50">
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  {channels.map((ch) => (
+                    <SelectItem key={ch} value={ch}>
+                      {ch}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-32 bg-slate-800 border-slate-700 text-slate-200">
+                <SelectTrigger className="w-32">
                   <SelectValue placeholder="Trạng thái" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200 z-50">
-                  <SelectItem value="all" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Tất cả</SelectItem>
-                  <SelectItem value="profitable" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Có lãi</SelectItem>
-                  <SelectItem value="marginal" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Marginal</SelectItem>
-                  <SelectItem value="loss" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Đang lỗ</SelectItem>
+                <SelectContent className="z-50">
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="profitable">Có lãi</SelectItem>
+                  <SelectItem value="marginal">Marginal</SelectItem>
+                  <SelectItem value="loss">Đang lỗ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <ScrollArea className="h-[500px]">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredSKUs.map((sku, i) => (
-                <SKUCard 
-                  key={`${sku.sku}-${i}`} 
-                  sku={sku} 
-                  onViewDetails={() => setSelectedSKU({ sku: sku.sku, productName: sku.product_name })}
+                <SKUCard
+                  key={`${sku.sku}-${i}`}
+                  sku={sku}
+                  onViewDetails={() =>
+                    setSelectedSKU({ sku: sku.sku, productName: sku.product_name })
+                  }
                 />
               ))}
             </div>
-            
+
             {filteredSKUs.length === 0 && (
-              <div className="text-center py-12 text-slate-500">
+              <div className="text-center py-12 text-muted-foreground">
                 Không tìm thấy SKU nào
               </div>
             )}
           </ScrollArea>
         </CardContent>
       </Card>
+
 
       {/* Cost Breakdown Dialog */}
       <SKUCostBreakdownDialog
