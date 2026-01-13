@@ -5,7 +5,7 @@ import { Wallet, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock }
 import { KPICard } from '@/components/dashboard/KPICard';
 import { CashForecastChart } from '@/components/dashboard/CashForecastChart';
 import { ARAgingChart } from '@/components/dashboard/ARAgingChart';
-import { AlertsPanel } from '@/components/dashboard/AlertsPanel';
+
 import { OverdueInvoicesTable } from '@/components/dashboard/OverdueInvoicesTable';
 import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
@@ -216,15 +216,12 @@ export default function CFODashboard() {
         </div>
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
             <OverdueInvoicesTable limit={5} />
           </ErrorBoundary>
           <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
             <ScenarioPlanner />
-          </ErrorBoundary>
-          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-            <AlertsPanel />
           </ErrorBoundary>
         </div>
 
