@@ -18,6 +18,11 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
+  Play,
+  Pause,
+  MoreHorizontal,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { MarketingPerformance } from '@/hooks/useMDPData';
 import { cn } from '@/lib/utils';
@@ -28,14 +33,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface CampaignPerformanceTableProps {
   campaigns: MarketingPerformance[];
+  onPauseCampaign?: (campaignId: string) => void;
+  onResumeCampaign?: (campaignId: string) => void;
+  onViewDetails?: (campaignId: string) => void;
 }
 
 type SortField = 'spend' | 'orders' | 'revenue' | 'cpa' | 'roas';
 
-export function CampaignPerformanceTable({ campaigns }: CampaignPerformanceTableProps) {
+export function CampaignPerformanceTable({ 
+  campaigns, 
+  onPauseCampaign,
+  onResumeCampaign,
+  onViewDetails 
+}: CampaignPerformanceTableProps) {
   const [sortField, setSortField] = useState<SortField>('spend');
   const [sortAsc, setSortAsc] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -173,6 +199,7 @@ export function CampaignPerformanceTable({ campaigns }: CampaignPerformanceTable
                     ROAS <ArrowUpDown className="h-3 w-3" />
                   </div>
                 </TableHead>
+                <TableHead className="text-xs text-center w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
