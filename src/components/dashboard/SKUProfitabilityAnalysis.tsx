@@ -178,10 +178,12 @@ function useSKUProfitability() {
           const share = totalItemRevenue > 0 ? (itemRevenue || 0) / totalItemRevenue : fallbackShare;
           const feeAllocated = orderFees * share;
 
-          // Prefer item-level COGS if > 0, otherwise allocate order-level COGS by the same share.
+          // Prefer item-level COGS if > 0; if missing, try to infer from item gross_profit;
+          // otherwise allocate order-level COGS by revenue share.
           // Treat 0 as "missing" since some connectors default to 0 instead of null.
           const unitCogs = item.unit_cogs != null ? Number(item.unit_cogs) : 0;
           const totalCogs = item.total_cogs != null ? Number(item.total_cogs) : 0;
+          const grossProfit = item.gross_profit != null ? Number(item.gross_profit) : 0;
           const orderCogs = Number(order.cost_of_goods ?? 0);
 
           let itemCogs = 0;
@@ -189,10 +191,12 @@ function useSKUProfitability() {
             itemCogs = unitCogs * qty;
           } else if (totalCogs > 0) {
             itemCogs = totalCogs;
+          } else if (grossProfit !== 0 && (itemRevenue || 0) > 0) {
+            // gross_profit is typically revenue - cogs (before fees).
+            itemCogs = Math.max((itemRevenue || 0) - grossProfit, 0);
           } else if (orderCogs > 0) {
             itemCogs = orderCogs * share;
           }
-
           const chTotal = channelTotals.get(channel)!;
           chTotal.revenue += itemRevenue || 0;
           chTotal.fees += feeAllocated;
