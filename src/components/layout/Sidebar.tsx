@@ -33,6 +33,7 @@ import {
   Percent,
   Banknote,
   Home,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
@@ -59,6 +60,11 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.workingCapital', href: '/working-capital' },
       { labelKey: 'nav.cashConversion', href: '/cash-conversion-cycle' },
     ],
+  },
+  {
+    labelKey: 'nav.decisionCenter',
+    icon: Zap,
+    href: '/decision-center',
   },
   {
     labelKey: 'nav.strategyDecision',
