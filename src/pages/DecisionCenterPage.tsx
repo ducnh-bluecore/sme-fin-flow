@@ -16,6 +16,7 @@ import {
   Zap,
   RefreshCw,
   Sparkles,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
@@ -26,7 +27,9 @@ import {
   useDecisionCardStats,
   CardStatus,
   Priority,
+  DecisionCard,
 } from '@/hooks/useDecisionCards';
+import { useAutoDecisionCards } from '@/hooks/useAutoDecisionCards';
 import {
   Select,
   SelectContent,
@@ -61,34 +64,62 @@ export default function DecisionCenterPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [aiChatCard, setAiChatCard] = useState<typeof selectedCard>(null);
+  const [aiChatCard, setAiChatCard] = useState<DecisionCard | null>(null);
 
-  const { data: cards, isLoading, refetch } = useDecisionCards({
+  // Fetch from DB
+  const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
     status: statusFilter,
     priority: priorityFilter === 'ALL' ? undefined : [priorityFilter],
   });
   const { data: stats } = useDecisionCardStats();
 
+  // Fetch auto-generated cards from FDP analysis
+  const { data: autoCards } = useAutoDecisionCards();
+
+  // Combine DB cards + Auto cards (avoid duplicates)
+  const allCards = useMemo(() => {
+    const dbCardIds = new Set((dbCards || []).map(c => c.entity_id));
+    const filteredAutoCards = (autoCards || []).filter(
+      ac => !dbCardIds.has(ac.entity_id)
+    );
+    
+    // Cast auto cards to DecisionCard type for compatibility
+    const combinedCards = [
+      ...(dbCards || []),
+      ...filteredAutoCards.map(ac => ({
+        ...ac,
+        tenant_id: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as DecisionCard))
+    ];
+
+    // Apply priority filter
+    if (priorityFilter !== 'ALL') {
+      return combinedCards.filter(c => c.priority === priorityFilter);
+    }
+    return combinedCards;
+  }, [dbCards, autoCards, priorityFilter]);
+
   // Selected card for detail view
   const selectedCard = useMemo(() => 
-    cards?.find(c => c.id === selectedCardId),
-    [cards, selectedCardId]
+    allCards?.find(c => c.id === selectedCardId),
+    [allCards, selectedCardId]
   );
 
   // Group cards by priority
   const groupedCards = useMemo(() => {
-    if (!cards) return { P1: [], P2: [], P3: [] };
+    if (!allCards) return { P1: [], P2: [], P3: [] };
     
     return {
-      P1: cards.filter(c => c.priority === 'P1'),
-      P2: cards.filter(c => c.priority === 'P2'),
-      P3: cards.filter(c => c.priority === 'P3'),
+      P1: allCards.filter(c => c.priority === 'P1'),
+      P2: allCards.filter(c => c.priority === 'P2'),
+      P3: allCards.filter(c => c.priority === 'P3'),
     };
-  }, [cards]);
+  }, [allCards]);
 
-  // Limit display (CEO rule: max 3 P1, 5 total visible)
+  // Limit display (CEO rule: max 3 P1, 7 total visible)
   const visibleCards = useMemo(() => {
-    const result: typeof cards = [];
     const p1Cards = groupedCards.P1.slice(0, 3);
     const remaining = 7 - p1Cards.length;
     const p2Cards = groupedCards.P2.slice(0, Math.min(remaining, 4));
@@ -98,11 +129,28 @@ export default function DecisionCenterPage() {
     return [...p1Cards, ...p2Cards, ...p3Cards];
   }, [groupedCards]);
 
+  // Calculate combined stats
+  const combinedStats = useMemo(() => {
+    const p1Count = groupedCards.P1.length;
+    const p2Count = groupedCards.P2.length;
+    const p3Count = groupedCards.P3.length;
+    const overdueCount = allCards.filter(c => 
+      c.status === 'OPEN' && new Date(c.deadline_at) < new Date()
+    ).length;
+    const totalImpact = allCards
+      .filter(c => c.status === 'OPEN')
+      .reduce((sum, c) => sum + (c.impact_amount || 0), 0);
+    
+    return { p1Count, p2Count, p3Count, overdueCount, totalImpact };
+  }, [allCards, groupedCards]);
+
   // Open AI chat for a specific card
-  const openAIForCard = (card: typeof selectedCard) => {
+  const openAIForCard = (card: DecisionCard) => {
     setAiChatCard(card);
     setAiChatOpen(true);
   };
+
+  const isLoading = dbLoading;
 
   return (
     <div className="space-y-6">
@@ -135,7 +183,7 @@ export default function DecisionCenterPage() {
                 <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-400">{stats?.p1Count || 0}</p>
+                <p className="text-2xl font-bold text-red-400">{combinedStats.p1Count}</p>
                 <p className="text-xs text-muted-foreground">P1 Khẩn cấp</p>
               </div>
             </div>
@@ -149,7 +197,7 @@ export default function DecisionCenterPage() {
                 <Clock className="h-5 w-5 text-yellow-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-yellow-400">{stats?.p2Count || 0}</p>
+                <p className="text-2xl font-bold text-yellow-400">{combinedStats.p2Count}</p>
                 <p className="text-xs text-muted-foreground">P2 Quan trọng</p>
               </div>
             </div>
@@ -163,14 +211,14 @@ export default function DecisionCenterPage() {
                 <Target className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats?.p3Count || 0}</p>
+                <p className="text-2xl font-bold">{combinedStats.p3Count}</p>
                 <p className="text-xs text-muted-foreground">P3 Theo dõi</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className={cn(stats?.overdueCount && stats.overdueCount > 0 && "border-red-500/50")}>
+        <Card className={cn(combinedStats.overdueCount > 0 && "border-red-500/50")}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-red-500/10">
@@ -179,9 +227,9 @@ export default function DecisionCenterPage() {
               <div>
                 <p className={cn(
                   "text-2xl font-bold",
-                  stats?.overdueCount && stats.overdueCount > 0 && "text-red-400"
+                  combinedStats.overdueCount > 0 && "text-red-400"
                 )}>
-                  {stats?.overdueCount || 0}
+                  {combinedStats.overdueCount}
                 </p>
                 <p className="text-xs text-muted-foreground">Quá hạn</p>
               </div>
@@ -198,9 +246,9 @@ export default function DecisionCenterPage() {
               <div>
                 <p className={cn(
                   "text-2xl font-bold",
-                  (stats?.totalImpact || 0) > 0 ? "text-green-400" : "text-red-400"
+                  combinedStats.totalImpact > 0 ? "text-green-400" : "text-red-400"
                 )}>
-                  {formatCurrency(stats?.totalImpact || 0)}đ
+                  {formatCurrency(combinedStats.totalImpact)}đ
                 </p>
                 <p className="text-xs text-muted-foreground">Tổng impact</p>
               </div>
@@ -216,7 +264,7 @@ export default function DecisionCenterPage() {
             <div className="flex items-center gap-3">
               <Zap className="h-5 w-5 text-primary" />
               <CardTitle>Quyết định cần xử lý</CardTitle>
-              <Badge variant="outline">{visibleCards.length} / {cards?.length || 0}</Badge>
+              <Badge variant="outline">{visibleCards.length} / {allCards?.length || 0}</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Select 
@@ -330,10 +378,10 @@ export default function DecisionCenterPage() {
               )}
 
               {/* Show more indicator */}
-              {(cards?.length || 0) > 7 && (
+              {(allCards?.length || 0) > 7 && (
                 <div className="text-center pt-4">
                   <Button variant="ghost" size="sm">
-                    Xem thêm {(cards?.length || 0) - 7} quyết định
+                    Xem thêm {(allCards?.length || 0) - 7} quyết định
                   </Button>
                 </div>
               )}
