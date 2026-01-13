@@ -39,6 +39,7 @@ export interface MDPDataReadinessResult {
   sources: DataSourceStatus[];
   summary: DataReadinessSummary;
   isLoading: boolean;
+  refetch: () => void;
 }
 
 export function useMDPDataReadiness(): MDPDataReadinessResult {
@@ -592,9 +593,22 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     };
   }, [sources]);
 
+  const refetch = () => {
+    ordersQuery.refetch();
+    orderItemsQuery.refetch();
+    campaignsQuery.refetch();
+    marketingExpensesQuery.refetch();
+    channelAnalyticsQuery.refetch();
+    channelFeesQuery.refetch();
+    productsQuery.refetch();
+    settlementsQuery.refetch();
+    expensesQuery.refetch();
+  };
+
   return {
     sources,
     summary,
     isLoading,
+    refetch,
   };
 }
