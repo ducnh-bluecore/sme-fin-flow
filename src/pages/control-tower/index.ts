@@ -1,10 +1,6 @@
-export { default as ControlTowerDashboard } from './ControlTowerDashboard';
 export { default as TasksPage } from './TasksPage';
 export { default as AlertsPage } from './AlertsPage';
-export { default as AnalyticsPage } from './AnalyticsPage';
 export { default as KPINotificationRulesPage } from './KPINotificationRulesPage';
-export { default as StoresPage } from './StoresPage';
-export { default as PerformancePage } from './PerformancePage';
 export { default as TeamPage } from './TeamPage';
-export { default as ChatPage } from './ChatPage';
 export { default as SettingsPage } from './SettingsPage';
+export { default as DocumentationPage } from './DocumentationPage';
