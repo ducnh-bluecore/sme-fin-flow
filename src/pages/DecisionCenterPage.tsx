@@ -533,21 +533,21 @@ export default function DecisionCenterPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Detail Sheet with Inline AI - Horizontal Layout */}
+      {/* Detail Sheet with Inline AI - Vertical Layout: Detail on top, AI below */}
       <Sheet open={!!selectedCardId} onOpenChange={(open) => !open && setSelectedCardId(null)}>
-        <SheetContent className="sm:max-w-5xl overflow-y-auto">
+        <SheetContent className="sm:max-w-3xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Chi tiết quyết định</SheetTitle>
           </SheetHeader>
           {selectedCard && (
-            <div className="mt-6 flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)]">
-              {/* Left: Decision Card - Fixed width */}
-              <div className="lg:w-[400px] shrink-0 overflow-y-auto">
+            <div className="mt-6 flex flex-col gap-6">
+              {/* Top: Decision Card */}
+              <div>
                 <DecisionCardComponent card={selectedCard} />
               </div>
               
-              {/* Right: AI Chat inline - Flexible width */}
-              <div className="flex-1 border rounded-lg p-4 flex flex-col min-h-[400px] lg:min-h-0">
+              {/* Bottom: AI Chat inline */}
+              <div className="border rounded-lg p-4 flex flex-col min-h-[350px]">
                 <InlineAIChat card={selectedCard} />
               </div>
             </div>
