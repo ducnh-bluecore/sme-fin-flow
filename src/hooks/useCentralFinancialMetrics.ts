@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
@@ -12,6 +12,11 @@ import { differenceInDays } from 'date-fns';
  * Single source of truth for ALL financial metrics across the application.
  * Every page/component should use this hook instead of calculating metrics independently.
  * 
+ * PERFORMANCE: This hook now uses a cache-first approach:
+ * 1. Check for cached metrics in dashboard_kpi_cache
+ * 2. If cache is fresh (<15 min), return immediately
+ * 3. If cache is stale/missing, calculate real-time + update cache in background
+ * 
  * Metrics included:
  * - Cash Conversion Cycle: DSO, DPO, DIO, CCC
  * - Profitability: Gross Margin, EBITDA, Net Profit, Operating Margin
@@ -23,6 +28,9 @@ import { differenceInDays } from 'date-fns';
  *   const { data: metrics } = useCentralFinancialMetrics();
  *   console.log(metrics.grossMargin, metrics.ebitda, metrics.ccc);
  */
+
+// Max age for cache before recalculation (15 minutes)
+const CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 
 export interface CentralFinancialMetrics {
   // ========== CASH CONVERSION CYCLE ==========
@@ -115,6 +123,7 @@ const FALLBACK_RATIOS = {
 export function useCentralFinancialMetrics() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
   const { startDateStr, endDateStr, startDate, endDate } = useDateRangeForQuery();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['central-financial-metrics', tenantId, startDateStr, endDateStr],
@@ -122,6 +131,28 @@ export function useCentralFinancialMetrics() {
       if (!tenantId) {
         return getEmptyCentralMetrics(startDateStr, endDateStr);
       }
+
+      // ========== CACHE-FIRST APPROACH ==========
+      // Check for fresh cached data first to reduce load time
+      const { data: cachedData } = await supabase
+        .from('dashboard_kpi_cache')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+
+      if (cachedData?.calculated_at) {
+        const cacheAge = Date.now() - new Date(cachedData.calculated_at).getTime();
+        const dateRangeMatches = 
+          cachedData.date_range_start === startDateStr && 
+          cachedData.date_range_end === endDateStr;
+
+        // If cache is fresh and matches date range, return immediately
+        if (cacheAge < CACHE_MAX_AGE_MS && dateRangeMatches) {
+          return mapCacheToMetrics(cachedData, startDateStr, endDateStr);
+        }
+      }
+
+      // Cache is stale or missing - calculate fresh metrics
 
       // Fetch all required data in parallel
       const [
@@ -350,7 +381,7 @@ export function useCentralFinancialMetrics() {
         ebitdaMargin: 15
       };
 
-      return {
+      const metrics: CentralFinancialMetrics = {
         // Cycle metrics
         dso,
         dpo,
@@ -405,6 +436,19 @@ export function useCentralFinancialMetrics() {
         dataEndDate: endDateStr,
         lastUpdated: new Date().toISOString()
       };
+
+      // ========== UPDATE CACHE IN BACKGROUND ==========
+      // Don't await - let it run in background
+      supabase.rpc('refresh_central_metrics_cache', {
+        p_tenant_id: tenantId,
+        p_start_date: startDateStr,
+        p_end_date: endDateStr,
+      }).then(() => {
+        // Invalidate cache query to pick up new values
+        queryClient.invalidateQueries({ queryKey: ['central-metrics-cache', tenantId] });
+      });
+
+      return metrics;
     },
     enabled: !!tenantId && !tenantLoading,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -453,6 +497,61 @@ function getEmptyCentralMetrics(startDate: string, endDate: string): CentralFina
     dataStartDate: startDate,
     dataEndDate: endDate,
     lastUpdated: new Date().toISOString()
+  };
+}
+
+/**
+ * Map cached row to CentralFinancialMetrics
+ */
+function mapCacheToMetrics(
+  cached: Record<string, unknown>, 
+  startDate: string, 
+  endDate: string
+): CentralFinancialMetrics {
+  return {
+    dso: (cached.dso as number) ?? 0,
+    dpo: (cached.dpo as number) ?? 0,
+    dio: (cached.dio as number) ?? 0,
+    ccc: (cached.ccc as number) ?? 0,
+    grossMargin: Number(cached.gross_margin) || 0,
+    ebitda: Number(cached.ebitda) || 0,
+    ebitdaMargin: Number(cached.ebitda_margin) || 0,
+    netProfit: Number(cached.net_profit) || 0,
+    netProfitMargin: Number(cached.net_profit_margin) || 0,
+    operatingMargin: Number(cached.operating_margin) || 0,
+    totalRevenue: Number(cached.total_revenue) || 0,
+    netRevenue: Number(cached.net_revenue) || 0,
+    cogs: Number(cached.total_cogs) || 0,
+    grossProfit: Number(cached.gross_profit) || 0,
+    invoiceRevenue: Number(cached.invoice_revenue) || 0,
+    orderRevenue: Number(cached.order_revenue) || 0,
+    contractRevenue: Number(cached.contract_revenue) || 0,
+    totalOpex: Number(cached.total_opex) || 0,
+    depreciation: Number(cached.depreciation) || 0,
+    interestExpense: Number(cached.interest_expense) || 0,
+    taxExpense: Number(cached.tax_expense) || 0,
+    totalAR: Number(cached.total_ar) || 0,
+    overdueAR: Number(cached.overdue_ar) || 0,
+    totalAP: Number(cached.total_ap) || 0,
+    inventory: Number(cached.inventory) || 0,
+    workingCapital: Number(cached.working_capital) || 0,
+    cashOnHand: Number(cached.cash_today) || 0,
+    cashFlow: Number(cached.cash_flow) || 0,
+    dailySales: Number(cached.daily_sales) || 0,
+    dailyCogs: Number(cached.daily_cogs) || 0,
+    dailyPurchases: Number(cached.daily_purchases) || 0,
+    daysInPeriod: (cached.days_in_period as number) ?? 90,
+    industryBenchmark: {
+      dso: 35,
+      dio: 45,
+      dpo: 40,
+      ccc: 40,
+      grossMargin: 35,
+      ebitdaMargin: 15,
+    },
+    dataStartDate: (cached.date_range_start as string) || startDate,
+    dataEndDate: (cached.date_range_end as string) || endDate,
+    lastUpdated: (cached.calculated_at as string) || new Date().toISOString(),
   };
 }
 

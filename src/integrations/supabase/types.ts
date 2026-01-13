@@ -3347,76 +3347,142 @@ export type Database = {
           auto_match_rate: number | null
           calculated_at: string | null
           cash_7d: number | null
+          cash_flow: number | null
           cash_today: number | null
           ccc: number | null
+          contract_revenue: number | null
           created_at: string | null
+          daily_cogs: number | null
+          daily_purchases: number | null
+          daily_sales: number | null
           date_range_end: string | null
           date_range_start: string | null
+          days_in_period: number | null
+          depreciation: number | null
+          dio: number | null
+          dpo: number | null
           dso: number | null
           ebitda: number | null
+          ebitda_margin: number | null
           gross_margin: number | null
+          gross_profit: number | null
           id: string
+          interest_expense: number | null
+          inventory: number | null
           invoice_count: number | null
+          invoice_revenue: number | null
           matched_transaction_count: number | null
+          net_profit: number | null
+          net_profit_margin: number | null
+          net_revenue: number | null
+          operating_margin: number | null
+          order_revenue: number | null
           overdue_ar: number | null
           overdue_invoice_count: number | null
+          tax_expense: number | null
           tenant_id: string
+          total_ap: number | null
           total_ar: number | null
           total_cogs: number | null
           total_opex: number | null
           total_revenue: number | null
           transaction_count: number | null
           updated_at: string | null
+          working_capital: number | null
         }
         Insert: {
           auto_match_rate?: number | null
           calculated_at?: string | null
           cash_7d?: number | null
+          cash_flow?: number | null
           cash_today?: number | null
           ccc?: number | null
+          contract_revenue?: number | null
           created_at?: string | null
+          daily_cogs?: number | null
+          daily_purchases?: number | null
+          daily_sales?: number | null
           date_range_end?: string | null
           date_range_start?: string | null
+          days_in_period?: number | null
+          depreciation?: number | null
+          dio?: number | null
+          dpo?: number | null
           dso?: number | null
           ebitda?: number | null
+          ebitda_margin?: number | null
           gross_margin?: number | null
+          gross_profit?: number | null
           id?: string
+          interest_expense?: number | null
+          inventory?: number | null
           invoice_count?: number | null
+          invoice_revenue?: number | null
           matched_transaction_count?: number | null
+          net_profit?: number | null
+          net_profit_margin?: number | null
+          net_revenue?: number | null
+          operating_margin?: number | null
+          order_revenue?: number | null
           overdue_ar?: number | null
           overdue_invoice_count?: number | null
+          tax_expense?: number | null
           tenant_id: string
+          total_ap?: number | null
           total_ar?: number | null
           total_cogs?: number | null
           total_opex?: number | null
           total_revenue?: number | null
           transaction_count?: number | null
           updated_at?: string | null
+          working_capital?: number | null
         }
         Update: {
           auto_match_rate?: number | null
           calculated_at?: string | null
           cash_7d?: number | null
+          cash_flow?: number | null
           cash_today?: number | null
           ccc?: number | null
+          contract_revenue?: number | null
           created_at?: string | null
+          daily_cogs?: number | null
+          daily_purchases?: number | null
+          daily_sales?: number | null
           date_range_end?: string | null
           date_range_start?: string | null
+          days_in_period?: number | null
+          depreciation?: number | null
+          dio?: number | null
+          dpo?: number | null
           dso?: number | null
           ebitda?: number | null
+          ebitda_margin?: number | null
           gross_margin?: number | null
+          gross_profit?: number | null
           id?: string
+          interest_expense?: number | null
+          inventory?: number | null
           invoice_count?: number | null
+          invoice_revenue?: number | null
           matched_transaction_count?: number | null
+          net_profit?: number | null
+          net_profit_margin?: number | null
+          net_revenue?: number | null
+          operating_margin?: number | null
+          order_revenue?: number | null
           overdue_ar?: number | null
           overdue_invoice_count?: number | null
+          tax_expense?: number | null
           tenant_id?: string
+          total_ap?: number | null
           total_ar?: number | null
           total_cogs?: number | null
           total_opex?: number | null
           total_revenue?: number | null
           transaction_count?: number | null
           updated_at?: string | null
+          working_capital?: number | null
         }
         Relationships: [
           {
@@ -10955,6 +11021,10 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
+      refresh_central_metrics_cache: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: undefined
+      }
       refresh_channel_analytics_cache: {
         Args: { p_tenant_id: string }
         Returns: undefined
