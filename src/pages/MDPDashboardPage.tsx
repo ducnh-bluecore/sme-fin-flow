@@ -72,19 +72,14 @@ export default function MDPDashboardPage() {
           {/* Performance Overview KPIs */}
           <PerformanceOverview summary={marketingModeSummary} />
           
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left - Campaign Table (2 cols) */}
-            <div className="lg:col-span-2">
-              <CampaignPerformanceTable campaigns={marketingPerformance} />
-            </div>
-            
-            {/* Right - Funnel & Alerts */}
-            <div className="space-y-6">
-              <FunnelChart funnelData={funnelData} />
-              <ExecutionAlertsPanel alerts={executionAlerts} />
-            </div>
-          </div>
+          {/* Campaign Table - Full Width */}
+          <CampaignPerformanceTable campaigns={marketingPerformance} />
+          
+          {/* Marketing Funnel - Horizontal Full Width */}
+          <FunnelChart funnelData={funnelData} />
+          
+          {/* Execution Alerts */}
+          <ExecutionAlertsPanel alerts={executionAlerts} />
         </div>
       );
     }
