@@ -144,40 +144,60 @@ function useSKUProfitability() {
 
       orders?.forEach(order => {
         const channel = (order.channel || 'unknown').toUpperCase();
-        const orderFees = (order.platform_fee || 0) + (order.commission_fee || 0) + 
-                         (order.payment_fee || 0) + (order.shipping_fee || 0);
-        
-        const orderItems = itemsByOrderId[order.id] || [];
-        const feePerItem = orderItems.length > 0 ? orderFees / orderItems.length : 0;
+        const orderFees = (order.platform_fee || 0) + (order.commission_fee || 0) +
+          (order.payment_fee || 0) + (order.shipping_fee || 0);
 
-        // Update channel totals
+        const orderItems = itemsByOrderId[order.id] || [];
+
+        // Compute item-level revenue so we can allocate order-level fees / COGS fairly.
+        const itemRows = orderItems.map((item: any) => {
+          const qty = Number(item.quantity ?? 1);
+          const itemRevenue = Number(item.total_amount ?? ((item.unit_price ?? 0) * qty));
+          return { item, qty, itemRevenue };
+        });
+
+        const totalItemRevenue = itemRows.reduce((s, r) => s + (r.itemRevenue || 0), 0);
+        const fallbackShare = itemRows.length > 0 ? 1 / itemRows.length : 0;
+
+        // Update channel totals using item-level totals (avoids double-counting and mismatches)
         if (!channelTotals.has(channel)) {
           channelTotals.set(channel, { revenue: 0, cogs: 0, fees: 0, profit: 0 });
         }
-        const chTotal = channelTotals.get(channel)!;
-        chTotal.revenue += order.total_amount || 0;
-        chTotal.fees += orderFees;
-        chTotal.cogs += order.cost_of_goods || 0;
-        chTotal.profit = chTotal.revenue - chTotal.cogs - chTotal.fees;
 
-        orderItems.forEach((item: any) => {
+        itemRows.forEach(({ item, qty, itemRevenue }) => {
           const sku = item.sku || item.product_name || 'Unknown';
           const name = item.product_name || sku;
-          
+
+          const share = totalItemRevenue > 0 ? (itemRevenue || 0) / totalItemRevenue : fallbackShare;
+          const feeAllocated = orderFees * share;
+
+          // Prefer item-level COGS, otherwise allocate order-level COGS by the same share.
+          const itemCogs = item.unit_cogs != null
+            ? Number(item.unit_cogs) * qty
+            : item.total_cogs != null
+              ? Number(item.total_cogs)
+              : (Number(order.cost_of_goods ?? 0) * share);
+
+          const chTotal = channelTotals.get(channel)!;
+          chTotal.revenue += itemRevenue || 0;
+          chTotal.fees += feeAllocated;
+          chTotal.cogs += itemCogs || 0;
+          chTotal.profit = chTotal.revenue - chTotal.cogs - chTotal.fees;
+
           if (!skuMap.has(sku)) {
             skuMap.set(sku, { sku, name, channels: new Map() });
           }
-          
+
           const skuData = skuMap.get(sku)!;
           if (!skuData.channels.has(channel)) {
             skuData.channels.set(channel, { qty: 0, revenue: 0, cogs: 0, fees: 0 });
           }
-          
+
           const chData = skuData.channels.get(channel)!;
-          chData.qty += item.quantity || 1;
-          chData.revenue += item.total_amount || (item.unit_price * (item.quantity || 1)) || 0;
-          chData.cogs += item.unit_cogs ? item.unit_cogs * (item.quantity || 1) : (item.total_cogs || 0);
-          chData.fees += feePerItem;
+          chData.qty += qty;
+          chData.revenue += itemRevenue || 0;
+          chData.cogs += itemCogs || 0;
+          chData.fees += feeAllocated;
         });
       });
 
