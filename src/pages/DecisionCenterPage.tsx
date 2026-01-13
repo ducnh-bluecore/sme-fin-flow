@@ -15,10 +15,12 @@ import {
   List,
   Zap,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
 import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
+import { DecisionAIChat } from '@/components/decision/DecisionAIChat';
 import { 
   useDecisionCards, 
   useDecisionCardStats,
@@ -58,6 +60,8 @@ export default function DecisionCenterPage() {
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'ALL'>('ALL');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [aiChatCard, setAiChatCard] = useState<typeof selectedCard>(null);
 
   const { data: cards, isLoading, refetch } = useDecisionCards({
     status: statusFilter,
@@ -94,12 +98,30 @@ export default function DecisionCenterPage() {
     return [...p1Cards, ...p2Cards, ...p3Cards];
   }, [groupedCards]);
 
+  // Open AI chat for a specific card
+  const openAIForCard = (card: typeof selectedCard) => {
+    setAiChatCard(card);
+    setAiChatOpen(true);
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Decision Center" />
-      <p className="text-muted-foreground -mt-4">
-        Hệ điều hành quyết định - Hôm nay cần quyết định gì?
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <PageHeader title="Decision Center" />
+          <p className="text-muted-foreground -mt-4">
+            Hệ điều hành quyết định - Hôm nay cần quyết định gì?
+          </p>
+        </div>
+        <Button 
+          onClick={() => { setAiChatCard(null); setAiChatOpen(true); }}
+          className="gap-2"
+          variant="outline"
+        >
+          <Sparkles className="h-4 w-4" />
+          AI Advisor
+        </Button>
+      </div>
 
       {/* Bluecore Scores - Top level health indicators */}
       <BluecoreScoresPanel layout="compact" showTitle />
@@ -372,12 +394,27 @@ export default function DecisionCenterPage() {
             <SheetTitle>Chi tiết quyết định</SheetTitle>
           </SheetHeader>
           {selectedCard && (
-            <div className="mt-6">
+            <div className="mt-6 space-y-4">
               <DecisionCardComponent card={selectedCard} />
+              <Button 
+                onClick={() => openAIForCard(selectedCard)}
+                variant="outline"
+                className="w-full gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Hỏi AI về quyết định này
+              </Button>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* AI Chat */}
+      <DecisionAIChat 
+        card={aiChatCard} 
+        isOpen={aiChatOpen} 
+        onClose={() => setAiChatOpen(false)} 
+      />
     </div>
   );
 }
