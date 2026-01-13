@@ -334,7 +334,7 @@ export default function DecisionCenterPage() {
                     <AlertTriangle className="h-4 w-4" />
                     Khẩn cấp - Xử lý ngay
                   </div>
-                  {groupedCards.P1.slice(0, 3).map((card) => (
+                  {(showAll ? groupedCards.P1 : groupedCards.P1.slice(0, 3)).map((card) => (
                     <DecisionCardComponent
                       key={card.id}
                       card={card}
@@ -352,7 +352,7 @@ export default function DecisionCenterPage() {
                     <Clock className="h-4 w-4" />
                     Quan trọng - Trong 24-72h
                   </div>
-                  {groupedCards.P2.slice(0, 4).map((card) => (
+                  {(showAll ? groupedCards.P2 : groupedCards.P2.slice(0, 4)).map((card) => (
                     <DecisionCardComponent
                       key={card.id}
                       card={card}
@@ -370,7 +370,7 @@ export default function DecisionCenterPage() {
                     <Target className="h-4 w-4" />
                     Theo dõi - Trong tuần
                   </div>
-                  {groupedCards.P3.slice(0, 3).map((card) => (
+                  {(showAll ? groupedCards.P3 : groupedCards.P3.slice(0, 3)).map((card) => (
                     <DecisionCardComponent
                       key={card.id}
                       card={card}
