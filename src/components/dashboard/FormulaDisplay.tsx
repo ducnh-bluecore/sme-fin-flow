@@ -69,6 +69,25 @@ export default function FormulaDisplay({ showThresholds = true }: FormulaDisplay
       thresholds: [
         { label: 'STOP Immediately', value: `Margin < ${FDP_THRESHOLDS.SKU_CRITICAL_MARGIN_PERCENT}%`, status: 'critical' },
         { label: 'Review SKU', value: `Margin < ${FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT}%`, status: 'warning' },
+        { label: 'Low Margin', value: `Margin < ${FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT}%`, status: 'warning' },
+      ]
+    },
+    {
+      name: 'DSO & CCC',
+      thresholds: [
+        { label: 'DSO Critical', value: `> ${FDP_THRESHOLDS.DSO_CRITICAL_DAYS} ngày`, status: 'critical' },
+        { label: 'DSO Warning', value: `> ${FDP_THRESHOLDS.DSO_WARNING_DAYS} ngày`, status: 'warning' },
+        { label: 'CCC Critical', value: `> ${FDP_THRESHOLDS.CCC_CRITICAL_DAYS} ngày`, status: 'critical' },
+        { label: 'CCC Warning', value: `> ${FDP_THRESHOLDS.CCC_WARNING_DAYS} ngày`, status: 'warning' },
+      ]
+    },
+    {
+      name: 'AR & Channel',
+      thresholds: [
+        { label: 'AR Overdue Critical', value: `> ${FDP_THRESHOLDS.AR_OVERDUE_CRITICAL_PERCENT}%`, status: 'critical' },
+        { label: 'AR Overdue Warning', value: `> ${FDP_THRESHOLDS.AR_OVERDUE_WARNING_PERCENT}%`, status: 'warning' },
+        { label: 'Channel Fee Critical', value: `> ${FDP_THRESHOLDS.CHANNEL_FEE_CRITICAL_PERCENT}%`, status: 'critical' },
+        { label: 'Channel Fee Warning', value: `> ${FDP_THRESHOLDS.CHANNEL_FEE_WARNING_PERCENT}%`, status: 'warning' },
       ]
     }
   ];

@@ -53,6 +53,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatVND, formatVNDCompact, formatDateTime } from '@/lib/formatters';
+import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import {
   useCachedSKUProfitability,
   useRecalculateSKUProfitability,
@@ -315,8 +316,8 @@ export default function SKUProfitabilityAnalysis() {
         ? (channelTotal.profit / channelTotal.revenue) * 100 
         : 0;
 
-      // SKU profitable but channel losing
-      if (m.margin_percent > 5 && channelMargin < -5) {
+      // SKU profitable but channel losing - using FDP_THRESHOLDS
+      if (m.margin_percent > FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT && channelMargin < FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT) {
         result.push({
           type: 'sku_profit_channel_loss',
           sku: m.sku,
@@ -329,8 +330,8 @@ export default function SKUProfitabilityAnalysis() {
         });
       }
 
-      // Channel profitable but this SKU losing
-      if (m.margin_percent < -5 && channelMargin > 5) {
+      // Channel profitable but this SKU losing - using FDP_THRESHOLDS
+      if (m.margin_percent < FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT && channelMargin > FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT) {
         result.push({
           type: 'channel_profit_sku_loss',
           sku: m.sku,

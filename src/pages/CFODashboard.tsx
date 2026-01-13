@@ -15,6 +15,7 @@ import TodayDecisionSummary from '@/components/dashboard/TodayDecisionSummary';
 import { useAllProblematicSKUs } from '@/hooks/useAllProblematicSKUs';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact } from '@/lib/formatters';
+import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
 import { useCashRunway } from '@/hooks/useCashRunway';
@@ -63,8 +64,8 @@ export default function CFODashboard() {
   const getRunwayVariant = () => {
     if (!cashRunway?.hasEnoughData || cashRunway.runwayMonths === null) return 'default';
     if (cashRunway.runwayMonths === Infinity) return 'success';
-    if (cashRunway.runwayMonths < 3) return 'danger';
-    if (cashRunway.runwayMonths < 6) return 'warning';
+    if (cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) return 'danger';
+    if (cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS) return 'warning';
     return 'success';
   };
 

@@ -43,6 +43,7 @@ import {
 } from 'recharts';
 import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useUnitEconomics } from '@/hooks/useUnitEconomics';
+import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import SKUProfitabilityAnalysis from '@/components/dashboard/SKUProfitabilityAnalysis';
 import RealCashBreakdown from '@/components/dashboard/RealCashBreakdown';
 import SKUStopAction from '@/components/dashboard/SKUStopAction';
@@ -60,15 +61,15 @@ export default function UnitEconomicsPage() {
   const [showFormulas, setShowFormulas] = useState(false);
   const { t } = useLanguage();
 
-  // FDP Principle #6: Identify SKUs that need STOP action
+  // FDP Principle #6: Identify SKUs that need STOP action using FDP_THRESHOLDS
   const stopSKUs = useMemo(() => {
     if (!skuData?.skuMetrics) return [];
     
     return skuData.skuMetrics
-      .filter(m => m.margin_percent < -5) // SKUs with significant loss
+      .filter(m => m.margin_percent < FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT) // Use threshold constant
       .map(m => {
         const reasons: string[] = [];
-        const severity = m.margin_percent < -15 ? 'critical' as const : 'warning' as const;
+        const severity = m.margin_percent < FDP_THRESHOLDS.SKU_CRITICAL_MARGIN_PERCENT ? 'critical' as const : 'warning' as const;
         
         if (m.margin_percent < 0) {
           reasons.push(`Margin âm ${m.margin_percent.toFixed(1)}% - bán càng nhiều càng lỗ`);
@@ -92,7 +93,7 @@ export default function UnitEconomicsPage() {
           lockedCash: avgInventoryValue,
           reason: reasons,
           severity,
-          recommendation: m.margin_percent < -15 
+          recommendation: m.margin_percent < FDP_THRESHOLDS.SKU_CRITICAL_MARGIN_PERCENT 
             ? 'stop_immediately' as const 
             : m.fees > m.revenue * 0.15 
               ? 'reduce_ads' as const 
