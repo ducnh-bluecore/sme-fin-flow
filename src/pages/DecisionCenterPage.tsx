@@ -24,6 +24,7 @@ import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
 import { InlineAIChat } from '@/components/decision/InlineAIChat';
 import { 
   useDecisionCards, 
+  useDecisionCard,
   useDecisionCardStats,
   CardStatus,
   Priority,
@@ -110,11 +111,8 @@ export default function DecisionCenterPage() {
     return combinedCards;
   }, [dbCards, autoCards, priorityFilter]);
 
-  // Selected card for detail view
-  const selectedCard = useMemo(() => 
-    allCards?.find(c => c.id === selectedCardId),
-    [allCards, selectedCardId]
-  );
+  // Selected card for detail view (fetch by id so History/Dismissed can open too)
+  const { data: selectedCard } = useDecisionCard(selectedCardId);
 
   // Group cards by priority
   const groupedCards = useMemo(() => {
