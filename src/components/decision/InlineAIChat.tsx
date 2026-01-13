@@ -2,14 +2,34 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bot, Send, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Bot, Send, Sparkles, Loader2, RefreshCw, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCard } from '@/hooks/useDecisionCards';
 import { toast } from 'sonner';
 
+// AI Advisor Response Schema
+interface AIAdvisorResponse {
+  mode: 'silent' | 'proactive' | 'explain' | 'compare_options' | 'dismiss_response';
+  title?: string;
+  body_lines?: string[];
+  recommendation?: {
+    action_type: string;
+    why_lines?: string[];
+  };
+  options?: Array<{
+    action_type: string;
+    consequence_line: string;
+  }>;
+  cta_label?: string;
+  confidence_note?: string;
+  safety_note?: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  parsedResponse?: AIAdvisorResponse;
 }
 
 interface InlineAIChatProps {
@@ -19,10 +39,130 @@ interface InlineAIChatProps {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/decision-advisor`;
 
 const QUICK_PROMPTS = [
-  "Phân tích rủi ro",
+  "Vì sao khuyến nghị này?",
   "So sánh các lựa chọn",
-  "Kịch bản tệ nhất?",
+  "Nếu trì hoãn thì sao?",
 ];
+
+// Try to parse JSON from AI response
+function tryParseAIResponse(content: string): AIAdvisorResponse | null {
+  try {
+    // Try to extract JSON from the content
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+  } catch {
+    // Not valid JSON
+  }
+  return null;
+}
+
+// Render structured AI response
+function AIResponseRenderer({ response }: { response: AIAdvisorResponse }) {
+  if (response.mode === 'silent') {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        AI đang theo dõi...
+      </div>
+    );
+  }
+
+  const getActionColor = (action: string) => {
+    const colors: Record<string, string> = {
+      'PAUSE': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+      'STOP': 'bg-red-500/10 text-red-600 border-red-500/20',
+      'SCALE': 'bg-green-500/10 text-green-600 border-green-500/20',
+      'INVESTIGATE': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+      'PROTECT': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+      'AVOID': 'bg-red-500/10 text-red-600 border-red-500/20',
+      'FREEZE_SPEND': 'bg-red-500/10 text-red-600 border-red-500/20',
+    };
+    return colors[action] || 'bg-muted text-muted-foreground';
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Title */}
+      {response.title && (
+        <div className="font-semibold text-sm flex items-start gap-2">
+          {response.mode === 'proactive' && (
+            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          )}
+          <span>{response.title}</span>
+        </div>
+      )}
+
+      {/* Body lines */}
+      {response.body_lines && response.body_lines.length > 0 && (
+        <div className="space-y-1.5">
+          {response.body_lines.map((line, i) => (
+            <p key={i} className="text-sm text-muted-foreground leading-relaxed">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Options (compare mode) */}
+      {response.options && response.options.length > 0 && (
+        <div className="space-y-2 mt-3">
+          {response.options.map((option, i) => (
+            <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-muted/50 border">
+              <Badge variant="outline" className={cn("shrink-0", getActionColor(option.action_type))}>
+                {option.action_type}
+              </Badge>
+              <span className="text-sm">{option.consequence_line}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recommendation */}
+      {response.recommendation && (
+        <div className="mt-3 p-3 rounded-lg border bg-primary/5">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-4 w-4 text-primary" />
+            <Badge className={getActionColor(response.recommendation.action_type)}>
+              Khuyến nghị: {response.recommendation.action_type}
+            </Badge>
+          </div>
+          {response.recommendation.why_lines && (
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              {response.recommendation.why_lines.map((line, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <ArrowRight className="h-3 w-3 mt-1 shrink-0" />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* Confidence note */}
+      {response.confidence_note && (
+        <p className="text-xs text-muted-foreground italic border-l-2 border-amber-500/50 pl-2">
+          ⚠️ {response.confidence_note}
+        </p>
+      )}
+
+      {/* Safety note */}
+      {response.safety_note && (
+        <p className="text-xs text-red-500/80 italic border-l-2 border-red-500/50 pl-2">
+          {response.safety_note}
+        </p>
+      )}
+
+      {/* CTA */}
+      {response.cta_label && (
+        <Button size="sm" className="mt-2 w-full">
+          {response.cta_label}
+        </Button>
+      )}
+    </div>
+  );
+}
 
 export function InlineAIChat({ card }: InlineAIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,7 +175,7 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
   useEffect(() => {
     if (!hasAutoAnalyzed && messages.length === 0) {
       setHasAutoAnalyzed(true);
-      handleSend(`Phân tích nhanh Decision Card: "${card.title}". Cho tôi biết nên quyết định thế nào?`);
+      handleSend(`Phân tích Decision Card này và đưa ra khuyến nghị.`);
     }
   }, [card.id]);
 
@@ -58,6 +198,7 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
 
     try {
       const cardContext = {
+        id: card.id,
         title: card.title,
         question: card.question,
         type: card.card_type,
@@ -67,6 +208,8 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
         entity: card.entity_label,
         facts: card.facts,
         actions: card.actions,
+        confidence: card.confidence,
+        owner_role: card.owner_role,
       };
 
       const response = await fetch(CHAT_URL, {
@@ -78,6 +221,7 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
         body: JSON.stringify({
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
           cardContext,
+          userRole: 'CEO',
         }),
       });
 
@@ -123,9 +267,14 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
+              const parsedResponse = tryParseAIResponse(assistantContent);
               setMessages(prev => {
                 const updated = [...prev];
-                updated[updated.length - 1] = { role: 'assistant', content: assistantContent };
+                updated[updated.length - 1] = { 
+                  role: 'assistant', 
+                  content: assistantContent,
+                  parsedResponse: parsedResponse || undefined
+                };
                 return updated;
               });
             }
@@ -134,6 +283,20 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
             break;
           }
         }
+      }
+
+      // Final parse attempt
+      const finalParsed = tryParseAIResponse(assistantContent);
+      if (finalParsed) {
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { 
+            role: 'assistant', 
+            content: assistantContent,
+            parsedResponse: finalParsed
+          };
+          return updated;
+        });
       }
     } catch (error) {
       console.error('AI Chat error:', error);
@@ -157,6 +320,7 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <span className="font-medium text-sm">AI Advisor</span>
+          <Badge variant="outline" className="text-xs">OpenAI</Badge>
         </div>
         <Button variant="ghost" size="sm" onClick={handleReset} className="h-7 gap-1">
           <RefreshCw className="h-3 w-3" />
@@ -166,7 +330,7 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
 
       {/* Messages */}
       <ScrollArea className="flex-1 py-4" ref={scrollRef}>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {messages.length === 0 && !isLoading && (
             <div className="text-center py-6">
               <Bot className="h-10 w-10 mx-auto text-muted-foreground/50 mb-2" />
@@ -191,15 +355,28 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
               )}
               <div
                 className={cn(
-                  'rounded-lg px-3 py-2 max-w-[90%] text-sm whitespace-pre-wrap',
+                  'rounded-lg max-w-[95%]',
                   msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                    ? 'bg-primary text-primary-foreground px-3 py-2 text-sm'
+                    : 'bg-muted px-3 py-3'
                 )}
               >
-                {msg.content || (isLoading && i === messages.length - 1 && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ))}
+                {msg.role === 'assistant' ? (
+                  msg.parsedResponse ? (
+                    <AIResponseRenderer response={msg.parsedResponse} />
+                  ) : (
+                    <div className="text-sm whitespace-pre-wrap">
+                      {msg.content || (isLoading && i === messages.length - 1 && (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground">Đang phân tích...</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           ))}
