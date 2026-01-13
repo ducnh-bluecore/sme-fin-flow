@@ -48,9 +48,9 @@ interface NavItemWithBadge extends NavItemConfig {
 }
 
 // Control Tower Manifesto: Only pages that answer "What's wrong and needs action?"
+// Dashboard merged into Alerts - single source of truth
 const navItemsConfig: NavItemConfig[] = [
-  { id: 'dashboard', label: 'Alert Center', icon: LayoutDashboard, path: '/control-tower' },
-  { id: 'alerts', label: 'Tất cả cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
+  { id: 'alerts', label: 'Alert Center', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
   { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
   { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
@@ -103,10 +103,7 @@ export function ControlTowerLayout() {
   const bottomNavItems: NavItemWithBadge[] = bottomNavItemsConfig.map(item => ({ ...item }));
 
   const isActive = (path: string) => {
-    if (path === '/control-tower') {
-      return location.pathname === '/control-tower';
-    }
-    return location.pathname.startsWith(path);
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   const NavLink = ({ item }: { item: NavItemWithBadge }) => (

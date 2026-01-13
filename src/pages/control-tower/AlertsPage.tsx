@@ -458,6 +458,18 @@ export default function AlertsPage() {
   const warningCount = stats.bySeverity.warning || 0;
   const myAlertsCount = myAlerts.length;
 
+  // Calculate total impact from active alerts
+  const totalImpact = useMemo(() => {
+    return activeAlerts.reduce((sum, alert: any) => sum + (alert.impact_amount || 0), 0);
+  }, [activeAlerts]);
+
+  const formatImpact = (amount: number) => {
+    if (amount >= 1000000000) return `${(amount / 1000000000).toFixed(1)}B`;
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+    return amount.toLocaleString('vi-VN');
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -469,7 +481,7 @@ export default function AlertsPage() {
   return (
     <>
       <Helmet>
-        <title>Cảnh báo | Control Tower</title>
+        <title>Alert Center | Control Tower</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -478,9 +490,11 @@ export default function AlertsPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-amber-400" />
-              Trung tâm cảnh báo
+              Alert Center
             </h1>
-            <p className="text-slate-400 text-sm mt-1">Theo dõi và xử lý các cảnh báo vận hành</p>
+            <p className="text-slate-400 text-sm mt-1">
+              {stats.active > 0 ? `${stats.active} cảnh báo cần xử lý` : 'Không có cảnh báo nào'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -492,19 +506,79 @@ export default function AlertsPage() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Làm mới
             </Button>
-            {criticalCount > 0 && (
-              <Badge className="bg-red-500/10 text-red-400 border border-red-500/30 animate-pulse">
-                {criticalCount} nghiêm trọng
-              </Badge>
-            )}
-            {warningCount > 0 && (
-              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                {warningCount} cảnh báo
-              </Badge>
-            )}
           </div>
         </div>
 
+        {/* Impact Summary Bar - Manifesto: Show the cost of inaction */}
+        {stats.active > 0 && totalImpact > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-5 rounded-xl border-2 ${
+              criticalCount > 0 
+                ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 border-red-500/30' 
+                : 'bg-gradient-to-r from-amber-500/10 to-amber-500/5 border-amber-500/30'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-6">
+                {/* Total Impact */}
+                <div className="text-center">
+                  <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                    <DollarSign className="h-3 w-3" />
+                    Tổng Impact
+                  </div>
+                  <p className={`text-3xl font-bold ${criticalCount > 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                    ₫{formatImpact(totalImpact)}
+                  </p>
+                </div>
+
+                <div className="h-12 w-px bg-slate-700" />
+
+                {/* Alert Counts */}
+                <div className="flex gap-4">
+                  {criticalCount > 0 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-red-400">{criticalCount}</p>
+                      <p className="text-xs text-slate-400">Critical</p>
+                    </div>
+                  )}
+                  {warningCount > 0 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-amber-400">{warningCount}</p>
+                      <p className="text-xs text-slate-400">Warning</p>
+                    </div>
+                  )}
+                  {myAlertsCount > 0 && (
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-primary">{myAlertsCount}</p>
+                      <p className="text-xs text-slate-400">Việc của tôi</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* No Alerts State */}
+        {stats.active === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-16 bg-slate-900/30 rounded-xl border border-slate-800/50"
+          >
+            <CheckCircle className="h-16 w-16 mx-auto mb-4 text-emerald-400" />
+            <h2 className="text-xl font-semibold text-slate-100 mb-2">Hệ thống hoạt động bình thường</h2>
+            <p className="text-slate-400 mb-4">Không có cảnh báo nào cần xử lý</p>
+            <div className="flex items-center justify-center gap-4 text-sm">
+              <div className="flex items-center gap-2 text-slate-500">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                {stats.resolved} đã xử lý
+              </div>
+            </div>
+          </motion.div>
+        )}
         {/* Stats - Prioritized for action */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {/* My Tasks - Most important for user */}

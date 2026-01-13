@@ -88,7 +88,6 @@ const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 
 // Control Tower pages - Manifesto compliant: only alert-focused pages
-import ControlTowerDashboard from "./pages/control-tower/ControlTowerDashboard";
 import CTTasksPage from "./pages/control-tower/TasksPage";
 import CTAlertsPage from "./pages/control-tower/AlertsPage";
 import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
@@ -155,8 +154,8 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        {/* Control Tower Manifesto: Only alert-focused routes */}
-        <Route path="/control-tower" element={<ControlTowerDashboard />} />
+        {/* Control Tower Manifesto: Merged Dashboard into Alerts - single source of truth */}
+        <Route path="/control-tower" element={<Navigate to="/control-tower/alerts" replace />} />
         <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
         <Route path="/control-tower/tasks" element={<CTTasksPage />} />
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
