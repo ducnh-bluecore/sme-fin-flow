@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, UserPlus, X, Loader2 } from 'lucide-react';
+import { UserPlus, X, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,38 +11,84 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 
 interface AssignOwnerDropdownProps {
   alertId: string;
   currentOwnerId: string | null;
   onAssign: (alertId: string, ownerId: string | null) => void;
   isLoading?: boolean;
+  compact?: boolean;
+}
+
+// Use notification_recipients instead of team_members for proper user mapping
+function useAssignableUsers() {
+  const { data: tenantId } = useActiveTenantId();
+  
+  return useQuery({
+    queryKey: ['assignable-users', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      
+      const { data, error } = await supabase
+        .from('notification_recipients')
+        .select('id, name, email, role')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
 }
 
 export function AssignOwnerDropdown({ 
   alertId, 
   currentOwnerId, 
   onAssign,
-  isLoading 
+  isLoading,
+  compact = false
 }: AssignOwnerDropdownProps) {
-  const { data: teamMembers = [], isLoading: membersLoading } = useTeamMembers();
+  const { data: users = [], isLoading: usersLoading } = useAssignableUsers();
   const [open, setOpen] = useState(false);
 
-  const currentOwner = teamMembers.find(m => m.id === currentOwnerId);
+  const currentOwner = users.find(u => u.id === currentOwnerId);
 
-  const handleAssign = (memberId: string | null) => {
-    onAssign(alertId, memberId);
+  const handleAssign = (userId: string | null) => {
+    onAssign(alertId, userId);
     setOpen(false);
   };
+
+  // Compact mode: just show avatar or icon
+  if (compact && currentOwner) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Avatar className="h-5 w-5">
+          <AvatarFallback className="text-[9px] bg-emerald-500/20 text-emerald-400">
+            {currentOwner.name.charAt(0)}
+          </AvatarFallback>
+        </Avatar>
+        <span className="text-xs text-emerald-400 truncate max-w-[60px]">
+          {currentOwner.name.split(' ')[0]}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button 
           size="sm" 
-          variant="outline"
-          className="h-7 px-2 text-xs border-slate-700 text-slate-300 hover:bg-slate-700/50"
+          variant={currentOwner ? "ghost" : "outline"}
+          className={currentOwner 
+            ? "h-7 px-2 text-xs text-emerald-400 hover:bg-emerald-500/10" 
+            : "h-7 px-2 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+          }
           disabled={isLoading}
         >
           {isLoading ? (
@@ -55,6 +101,7 @@ export function AssignOwnerDropdown({
                 </AvatarFallback>
               </Avatar>
               <span className="max-w-[60px] truncate">{currentOwner.name.split(' ')[0]}</span>
+              <Check className="h-3 w-3" />
             </div>
           ) : (
             <>
@@ -70,34 +117,34 @@ export function AssignOwnerDropdown({
         </DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-slate-700/50" />
         
-        {membersLoading ? (
+        {usersLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
           </div>
-        ) : teamMembers.length === 0 ? (
-          <div className="text-xs text-slate-500 text-center py-4">
-            Chưa có thành viên nào
+        ) : users.length === 0 ? (
+          <div className="text-xs text-slate-500 text-center py-4 px-2">
+            Chưa có người nhận thông báo. Vui lòng thêm trong Cài đặt.
           </div>
         ) : (
           <>
-            {teamMembers.map((member) => (
+            {users.map((user) => (
               <DropdownMenuItem 
-                key={member.id}
-                onClick={() => handleAssign(member.id)}
+                key={user.id}
+                onClick={() => handleAssign(user.id)}
                 className="flex items-center gap-2 cursor-pointer hover:bg-slate-800"
               >
                 <Avatar className="h-6 w-6">
                   <AvatarFallback className="text-xs bg-primary/20 text-primary">
-                    {member.name.charAt(0)}
+                    {user.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{member.name}</p>
-                  <p className="text-xs text-slate-500">{member.role}</p>
+                  <p className="text-sm truncate">{user.name}</p>
+                  <p className="text-xs text-slate-500">{user.role}</p>
                 </div>
-                {member.id === currentOwnerId && (
+                {user.id === currentOwnerId && (
                   <Badge className="h-5 text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                    Hiện tại
+                    <Check className="h-2.5 w-2.5" />
                   </Badge>
                 )}
               </DropdownMenuItem>
