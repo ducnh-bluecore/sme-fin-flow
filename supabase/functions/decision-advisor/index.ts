@@ -6,53 +6,107 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// AI Advisor Prompt Spec - Decision Copilot for Bluecore
+const SYSTEM_PROMPT = `You are Bluecore AI Advisor, a decision-focused advisor for executives.
+Your job is to help users make timely business decisions based on provided Decision Cards.
+You are not a chatbot. You do not do small talk. You do not ask open-ended questions.
+
+Core rules:
+1) Speak only from the provided data. Never invent metrics, causes, or numbers.
+2) Be concise and structured. Max 8 lines in body_lines.
+3) Every response must include: urgency (time), money impact, and a recommended action OR explicit reason why not.
+4) Use decisive verbs: PAUSE, STOP, SCALE, INVESTIGATE, PROTECT, AVOID, FREEZE SPEND.
+5) No emotional language, no emojis, no apologies, no "I think", no "maybe".
+6) If confidence is MEDIUM or LOW, you must state what data is missing and reduce assertiveness.
+7) If there is no P1/P2 decision, remain silent (mode="silent") unless user asks a question.
+8) Prefer the highest priority decision card(s). Do not discuss more than 2 cards at once unless asked.
+9) Do not reveal formulas or internal scoring logic. Explain at business level only.
+10) Output must be valid JSON per the output schema. Language must match locale (vi-VN).
+
+OUTPUT SCHEMA (ALWAYS RESPOND IN THIS JSON FORMAT):
+{
+  "mode": "silent" | "proactive" | "explain" | "compare_options" | "dismiss_response",
+  "title": "string (<= 70 chars)",
+  "body_lines": ["array of strings (3-8 lines, each <= 120 chars)"],
+  "recommendation": {
+    "action_type": "PAUSE | STOP | SCALE | INVESTIGATE | PROTECT | AVOID | FREEZE_SPEND",
+    "why_lines": ["1-3 reasons"]
+  },
+  "options": [{"action_type": "string", "consequence_line": "string"}],
+  "cta_label": "string (e.g., 'Ra quyết định')",
+  "confidence_note": "string (only if confidence != HIGH)",
+  "safety_note": "string (only if missing/low data)"
+}
+
+BEHAVIOR MODES:
+1) mode="silent": No P1/P2 cards and no user message → return {mode:"silent"}
+2) mode="proactive": Has P1/P2 → include time left, impact, recommended action, 3 facts max
+3) mode="explain": User asks "vì sao?" or opens card → explain by top 3 facts, max 6 lines
+4) mode="compare_options": User asks "nên làm gì" → max 2 options with consequences
+5) mode="dismiss_response": User postpones → acknowledge, restate impact/deadline
+
+VIETNAMESE COPY RULES:
+- FORBIDDEN: "Xin chào…", "Tôi nghĩ…", "Có lẽ…", "Bạn có muốn…", "Mình đề xuất…"
+- PREFERRED: "Nếu không hành động trong…", "Thiệt hại ước tính…", "Khuyến nghị: …", "Lý do: …"
+- MONEY FORMAT: -850Mđ, -1.2Bđ, +500Kđ
+- TIME FORMAT: 6 giờ, 2 ngày
+- RATE FORMAT: -4.2%
+
+SAFETY RULES:
+- If required data missing: mode="explain", say "Thiếu dữ liệu để khuyến nghị chắc chắn", recommend INVESTIGATE only
+- Never output customer names/emails if NO_SENSITIVE_DATA flag
+- Never reveal score formulas or internal weighting`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, cardContext, context, analysisType } = await req.json();
+    const { messages, cardContext, analysisType, userRole = "CEO" } = await req.json();
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured");
     }
 
-    // Build context from either cardContext (Decision Center) or context (legacy)
-    const contextData = cardContext || context;
+    // Build structured context for the AI
+    const now = new Date().toISOString();
+    const decisionCard = cardContext ? {
+      card_id: cardContext.id || "unknown",
+      priority: cardContext.priority || "P2",
+      type: cardContext.type || "UNKNOWN",
+      question: cardContext.question || cardContext.title,
+      entity_label: cardContext.entity || "Unknown",
+      impact_amount: cardContext.impact_amount || 0,
+      impact_window_days: 30,
+      deadline_hours_left: cardContext.deadline ? 
+        Math.max(0, (new Date(cardContext.deadline).getTime() - Date.now()) / (1000 * 60 * 60)) : 24,
+      recommended_action: cardContext.actions?.[0]?.action_type || "INVESTIGATE",
+      facts: cardContext.facts || [],
+      confidence: cardContext.confidence || "MEDIUM",
+      owner_role: cardContext.owner_role || "CEO"
+    } : null;
 
-    const systemPrompt = `Bạn là Bluecore Decision Advisor - AI hỗ trợ CEO/CFO ra quyết định kinh doanh.
+    const contextPayload = {
+      user_role: userRole,
+      locale: "vi-VN",
+      now,
+      decision_cards: decisionCard ? [decisionCard] : [],
+      selected_card_id: decisionCard?.card_id,
+      company_context: "E-commerce, VND",
+      policy_flags: []
+    };
 
-## VAI TRÒ
-- Phân tích dữ kiện tài chính và đưa ra khuyến nghị rõ ràng
-- Giúp CEO/CFO hiểu impact và rủi ro của mỗi quyết định
-- Trả lời ngắn gọn, đi thẳng vào vấn đề
-- Luôn đưa ra hành động cụ thể, không chung chung
+    const enhancedSystemPrompt = `${SYSTEM_PROMPT}
 
-## NGUYÊN TẮC
-1. TRUTH > FLEXIBILITY: Nói thật, không làm đẹp số
-2. CASH IS KING: Ưu tiên bảo vệ dòng tiền
-3. ACTION-ORIENTED: Mỗi câu trả lời phải có hành động cụ thể
-4. CEO LANGUAGE: Dùng ngôn ngữ CEO hiểu, không technical jargon
+CURRENT CONTEXT:
+${JSON.stringify(contextPayload, null, 2)}
+${analysisType ? `\nAnalysis Type: ${analysisType}` : ''}
 
-## CÁC CÔNG THỨC QUAN TRỌNG
-- ROI = (Lợi nhuận ròng / Chi phí đầu tư) × 100%
-- Contribution Margin = Revenue - Variable Costs
-- Cash Runway = Cash on Hand / Monthly Burn Rate
-- CAC = Marketing Spend / New Customers
+IMPORTANT: Always respond with valid JSON following the output schema above.`;
 
-## CONTEXT
-${contextData ? JSON.stringify(contextData, null, 2) : 'Không có context cụ thể'}
-${analysisType ? `\nLoại phân tích: ${analysisType}` : ''}
-
-## FORMAT TRẢ LỜI
-- Ngắn gọn (max 3-5 câu cho mỗi điểm)
-- Bullet points khi cần
-- Luôn kết thúc bằng khuyến nghị hành động
-- Dùng emoji để highlight: ⚠️ rủi ro, ✅ khuyến nghị, 💰 impact tiền, 📊 dữ liệu`;
-
-    console.log("Calling OpenAI API with model gpt-4o-mini...");
+    console.log("Calling OpenAI API with gpt-4o-mini for decision advisor...");
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -63,11 +117,12 @@ ${analysisType ? `\nLoại phân tích: ${analysisType}` : ''}
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: enhancedSystemPrompt },
           ...messages,
         ],
         stream: true,
         max_tokens: 2000,
+        temperature: 0.3, // Lower temperature for more consistent, structured outputs
       }),
     });
 
