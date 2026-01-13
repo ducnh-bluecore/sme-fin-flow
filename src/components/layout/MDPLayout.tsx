@@ -123,11 +123,11 @@ export function MDPLayout() {
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
         'text-sm font-medium',
         isActive(item.path)
-          ? 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
-          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+          ? 'bg-primary/15 text-primary border border-primary/30'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
-      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-violet-400' : '')} />
+      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-primary' : '')} />
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">
@@ -138,8 +138,8 @@ export function MDPLayout() {
               className={cn(
                 'h-5 min-w-5 flex items-center justify-center text-xs font-semibold',
                 isActive(item.path)
-                  ? 'bg-violet-500 text-white'
-                  : 'bg-slate-700 text-slate-300'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
               )}
             >
               {item.badge}
@@ -153,7 +153,7 @@ export function MDPLayout() {
   const SectionHeader = ({ title, collapsed }: { title: string; collapsed: boolean }) => (
     !collapsed && (
       <div className="px-3 py-2">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</span>
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</span>
       </div>
     )
   );
@@ -162,18 +162,18 @@ export function MDPLayout() {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-          <Megaphone className="h-5 w-5 text-white" />
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+          <Megaphone className="h-5 w-5 text-primary-foreground" />
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-slate-100 truncate">MDP</h1>
-            <p className="text-xs text-slate-500 truncate">Marketing Data Platform</p>
+            <h1 className="text-lg font-bold text-foreground truncate">MDP</h1>
+            <p className="text-xs text-muted-foreground truncate">Marketing Data Platform</p>
           </div>
         )}
       </div>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-border" />
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
@@ -205,7 +205,7 @@ export function MDPLayout() {
         </nav>
       </ScrollArea>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-border" />
 
       {/* Bottom Navigation */}
       <div className="p-3 space-y-1">
@@ -216,7 +216,7 @@ export function MDPLayout() {
           whileHover={{ x: 4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/portal')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
         >
           <Home className="h-5 w-5 flex-shrink-0" />
           {!collapsed && <span className="text-sm font-medium">{language === 'vi' ? 'Về Portal' : 'Back to Portal'}</span>}
@@ -226,7 +226,7 @@ export function MDPLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0F1117] flex">
+    <div className="min-h-screen bg-background flex">
       {/* Mobile Header - Only on mobile */}
       <div className="lg:hidden">
         <MobileHeader
@@ -250,7 +250,7 @@ export function MDPLayout() {
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'hidden lg:flex flex-col bg-[#13151C] border-r border-slate-800/50',
+          'hidden lg:flex flex-col bg-card border-r border-border',
           'fixed left-0 top-0 bottom-0 z-30'
         )}
       >
@@ -261,7 +261,7 @@ export function MDPLayout() {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-muted border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </Button>
@@ -276,7 +276,7 @@ export function MDPLayout() {
         )}
       >
         {/* Header - Desktop Only */}
-        <header className="hidden lg:flex sticky top-0 z-20 h-16 bg-[#0F1117]/80 backdrop-blur-xl border-b border-slate-800/50 items-center justify-between px-4 lg:px-6">
+        <header className="hidden lg:flex sticky top-0 z-20 h-16 bg-background/80 backdrop-blur-xl border-b border-border items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <TenantSwitcher />
           </div>
@@ -284,10 +284,10 @@ export function MDPLayout() {
           <div className="flex items-center gap-3">
             <DateRangeIndicator />
             <LanguageSwitcher />
-            <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-slate-200">
+            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
               <Bell className="h-5 w-5" />
               {riskAlertsCount > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 bg-violet-500 rounded-full" />
+                <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full" />
               )}
             </Button>
           </div>
