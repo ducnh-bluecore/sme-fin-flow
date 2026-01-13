@@ -65,6 +65,7 @@ export default function DecisionCenterPage() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [aiChatCard, setAiChatCard] = useState<DecisionCard | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   // Fetch from DB
   const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
@@ -118,8 +119,11 @@ export default function DecisionCenterPage() {
     };
   }, [allCards]);
 
-  // Limit display (CEO rule: max 3 P1, 7 total visible)
+  // Limit display (CEO rule: max 3 P1, 7 total visible - unless showAll)
   const visibleCards = useMemo(() => {
+    if (showAll) {
+      return [...groupedCards.P1, ...groupedCards.P2, ...groupedCards.P3];
+    }
     const p1Cards = groupedCards.P1.slice(0, 3);
     const remaining = 7 - p1Cards.length;
     const p2Cards = groupedCards.P2.slice(0, Math.min(remaining, 4));
@@ -127,7 +131,7 @@ export default function DecisionCenterPage() {
     const p3Cards = groupedCards.P3.slice(0, p3Remaining);
     
     return [...p1Cards, ...p2Cards, ...p3Cards];
-  }, [groupedCards]);
+  }, [groupedCards, showAll]);
 
   // Calculate combined stats
   const combinedStats = useMemo(() => {
@@ -378,10 +382,25 @@ export default function DecisionCenterPage() {
               )}
 
               {/* Show more indicator */}
-              {(allCards?.length || 0) > 7 && (
+              {!showAll && (allCards?.length || 0) > 7 && (
                 <div className="text-center pt-4">
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowAll(true)}
+                  >
                     Xem thêm {(allCards?.length || 0) - 7} quyết định
+                  </Button>
+                </div>
+              )}
+              {showAll && (allCards?.length || 0) > 7 && (
+                <div className="text-center pt-4">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowAll(false)}
+                  >
+                    Thu gọn
                   </Button>
                 </div>
               )}
