@@ -87,6 +87,13 @@ const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 const MDPDashboardPage = lazy(() => import("./pages/MDPDashboardPage"));
+const ABTestingPage = lazy(() => import("./pages/mdp/ABTestingPage"));
+const AudienceInsightsPage = lazy(() => import("./pages/mdp/AudienceInsightsPage"));
+const BudgetOptimizerPage = lazy(() => import("./pages/mdp/BudgetOptimizerPage"));
+const ScenarioPlannerPage = lazy(() => import("./pages/mdp/ScenarioPlannerPage"));
+const ROIAnalyticsPage = lazy(() => import("./pages/mdp/ROIAnalyticsPage"));
+const CustomerLTVPage = lazy(() => import("./pages/mdp/CustomerLTVPage"));
+const DataSourcesPage = lazy(() => import("./pages/mdp/DataSourcesPage"));
 
 // Control Tower pages - Manifesto compliant: only alert-focused pages
 import CTTasksPage from "./pages/control-tower/TasksPage";
@@ -179,10 +186,17 @@ const AppRoutes = () => {
         <Route path="/mdp/campaigns" element={<MDPDashboardPage />} />
         <Route path="/mdp/channels" element={<MDPDashboardPage />} />
         <Route path="/mdp/funnel" element={<MDPDashboardPage />} />
+        <Route path="/mdp/ab-testing" element={<ABTestingPage />} />
+        <Route path="/mdp/audience" element={<AudienceInsightsPage />} />
         <Route path="/mdp/profit" element={<MDPDashboardPage />} />
         <Route path="/mdp/cash-impact" element={<MDPDashboardPage />} />
         <Route path="/mdp/risks" element={<MDPDashboardPage />} />
         <Route path="/mdp/decisions" element={<MDPDashboardPage />} />
+        <Route path="/mdp/budget-optimizer" element={<BudgetOptimizerPage />} />
+        <Route path="/mdp/scenario-planner" element={<ScenarioPlannerPage />} />
+        <Route path="/mdp/roi-analytics" element={<ROIAnalyticsPage />} />
+        <Route path="/mdp/customer-ltv" element={<CustomerLTVPage />} />
+        <Route path="/mdp/data-sources" element={<DataSourcesPage />} />
         <Route path="/mdp/docs" element={<MDPDashboardPage />} />
         <Route path="/mdp/settings" element={<MDPDashboardPage />} />
       </Route>
