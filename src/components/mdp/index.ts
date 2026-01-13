@@ -1,5 +1,5 @@
-// MDP Layout
-export * from './MDPLayout';
+// MDP Mode Switcher
+export * from './MDPModeSwitcher';
 
 // Marketing Mode Components
 export * from './marketing-mode';

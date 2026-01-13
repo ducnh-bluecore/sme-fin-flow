@@ -1,9 +1,8 @@
-import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import { useMDPData } from '@/hooks/useMDPData';
-import { MDPLayout, MDPMode } from '@/components/mdp/MDPLayout';
+import { MDPModeSwitcher, MDPMode } from '@/components/mdp/MDPModeSwitcher';
 
 // Marketing Mode Components
 import { 
@@ -43,10 +42,6 @@ export default function MDPDashboardPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Marketing Data Platform</h1>
-          <DateRangeIndicator />
-        </div>
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Lỗi tải dữ liệu</AlertTitle>
@@ -136,19 +131,11 @@ export default function MDPDashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Date Range */}
-      <div className="flex justify-end">
-        <DateRangeIndicator />
-      </div>
-
-      {/* MDP Layout with Mode Switcher */}
-      <MDPLayout 
-        criticalAlerts={cmoModeSummary.critical_alerts_count}
-        executionAlerts={marketingModeSummary.execution_alerts_count}
-      >
-        {renderContent}
-      </MDPLayout>
-    </div>
+    <MDPModeSwitcher 
+      criticalAlerts={cmoModeSummary.critical_alerts_count}
+      executionAlerts={marketingModeSummary.execution_alerts_count}
+    >
+      {renderContent}
+    </MDPModeSwitcher>
   );
 }
