@@ -358,13 +358,10 @@ export function InlineAIChat({ card }: InlineAIChatProps) {
                   msg.parsedResponse ? (
                     <AIResponseRenderer response={msg.parsedResponse} />
                   ) : (
-                    <div className="text-sm whitespace-pre-wrap">
-                      {msg.content || (isLoading && i === messages.length - 1 && (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-muted-foreground">Đang phân tích...</span>
-                        </div>
-                      ))}
+                    // While streaming or if no valid JSON, show loading indicator instead of raw JSON
+                    <div className="flex items-center gap-2 py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-sm text-muted-foreground">Đang phân tích quyết định...</span>
                     </div>
                   )
                 ) : (
