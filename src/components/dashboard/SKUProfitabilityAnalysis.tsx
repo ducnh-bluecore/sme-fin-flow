@@ -184,27 +184,29 @@ function ConflictAlert({ conflict }: { conflict: ChannelSKUConflict }) {
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30"
+      className="p-4 rounded-lg bg-red-500/10 border-2 border-red-500/50"
     >
       <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-amber-500/20">
-          <Sparkles className="h-4 w-4 text-amber-400" />
+        <div className="p-2 rounded-lg bg-red-500/20">
+          <AlertTriangle className="h-5 w-5 text-red-500" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Badge className={isSkuProfitChannelLoss ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}>
+            <Badge className={isSkuProfitChannelLoss ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}>
               SKU: {conflict.skuMargin > 0 ? '+' : ''}{conflict.skuMargin.toFixed(1)}%
             </Badge>
-            <ChevronRight className="h-3 w-3 text-slate-500" />
-            <Badge className={!isSkuProfitChannelLoss ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}>
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            <Badge className={!isSkuProfitChannelLoss ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}>
               Kênh: {conflict.channelMargin > 0 ? '+' : ''}{conflict.channelMargin.toFixed(1)}%
             </Badge>
           </div>
-          <p className="text-sm text-slate-300 font-medium">{conflict.skuName}</p>
-          <p className="text-xs text-slate-400 mt-1">{conflict.suggestion}</p>
-          <p className="text-xs text-amber-400 mt-2">
-            Impact: {formatVNDCompact(conflict.impact)}
-          </p>
+          <p className="text-sm text-foreground font-medium">{conflict.skuName}</p>
+          <p className="text-xs text-muted-foreground mt-1">{conflict.suggestion}</p>
+          <div className="mt-2 p-2 rounded bg-red-500/20">
+            <p className="text-sm text-red-500 font-semibold">
+              💰 Impact: {formatVNDCompact(conflict.impact)} - CẦN ACTION NGAY
+            </p>
+          </div>
         </div>
       </div>
     </motion.div>

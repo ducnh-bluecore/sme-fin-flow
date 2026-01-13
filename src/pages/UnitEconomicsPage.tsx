@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   DollarSign, 
   Users, 
@@ -14,7 +14,8 @@ import {
   PieChart,
   Zap,
   Info,
-  ChevronDown
+  ChevronDown,
+  OctagonX
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,16 +44,63 @@ import {
 import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useUnitEconomics } from '@/hooks/useUnitEconomics';
 import SKUProfitabilityAnalysis from '@/components/dashboard/SKUProfitabilityAnalysis';
+import RealCashBreakdown from '@/components/dashboard/RealCashBreakdown';
+import SKUStopAction from '@/components/dashboard/SKUStopAction';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCachedSKUProfitability } from '@/hooks/useSKUProfitabilityCache';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export default function UnitEconomicsPage() {
   const { data, isLoading, error } = useUnitEconomics();
+  const { data: skuData } = useCachedSKUProfitability();
   const [showFormulas, setShowFormulas] = useState(false);
   const { t } = useLanguage();
+
+  // FDP Principle #6: Identify SKUs that need STOP action
+  const stopSKUs = useMemo(() => {
+    if (!skuData?.skuMetrics) return [];
+    
+    return skuData.skuMetrics
+      .filter(m => m.margin_percent < -5) // SKUs with significant loss
+      .map(m => {
+        const reasons: string[] = [];
+        const severity = m.margin_percent < -15 ? 'critical' as const : 'warning' as const;
+        
+        if (m.margin_percent < 0) {
+          reasons.push(`Margin âm ${m.margin_percent.toFixed(1)}% - bán càng nhiều càng lỗ`);
+        }
+        if (m.cogs > m.revenue * 0.7) {
+          reasons.push('Giá vốn quá cao so với giá bán');
+        }
+        if (m.fees > m.revenue * 0.2) {
+          reasons.push('Phí sàn/logistics chiếm quá 20% doanh thu');
+        }
+        
+        // Estimate locked cash (inventory for this SKU)
+        const avgInventoryValue = m.cogs * 0.5; // Rough estimate: half month of COGS
+        
+        return {
+          sku: m.sku,
+          productName: m.product_name || m.sku,
+          channel: m.channel,
+          marginPercent: m.margin_percent,
+          monthlyLoss: Math.abs(m.profit),
+          lockedCash: avgInventoryValue,
+          reason: reasons,
+          severity,
+          recommendation: m.margin_percent < -15 
+            ? 'stop_immediately' as const 
+            : m.fees > m.revenue * 0.15 
+              ? 'reduce_ads' as const 
+              : 'review_pricing' as const
+        };
+      })
+      .sort((a, b) => a.marginPercent - b.marginPercent)
+      .slice(0, 10); // Top 10 worst SKUs
+  }, [skuData]);
 
   if (isLoading) {
     return (
@@ -105,10 +153,23 @@ export default function UnitEconomicsPage() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <PageHeader
             title={t('unit.title')}
-            subtitle={t('unit.subtitle')}
+            subtitle="FDP Principle: Unit Economics → Action | Mỗi đồng doanh thu đều đi kèm cái giá"
           />
           <QuickDateSelector />
         </div>
+
+        {/* FDP Principle #6: SKU STOP Action - Show at TOP for immediate attention */}
+        {stopSKUs.length > 0 && (
+          <SKUStopAction 
+            stopSKUs={stopSKUs}
+            onAcknowledge={(sku, action) => {
+              console.log(`SKU ${sku} acknowledged with action: ${action}`);
+            }}
+          />
+        )}
+
+        {/* FDP Principle #4: Real Cash Breakdown */}
+        <RealCashBreakdown />
 
         {/* Formula Reference */}
         <Collapsible open={showFormulas} onOpenChange={setShowFormulas}>
