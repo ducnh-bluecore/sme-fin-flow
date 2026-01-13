@@ -149,16 +149,9 @@ function AIResponseRenderer({ response }: { response: AIAdvisorResponse }) {
 
       {/* Safety note */}
       {response.safety_note && (
-        <p className="text-xs text-red-500/80 italic border-l-2 border-red-500/50 pl-2">
+        <p className="text-xs text-destructive/80 italic border-l-2 border-destructive/50 pl-2">
           {response.safety_note}
         </p>
-      )}
-
-      {/* CTA */}
-      {response.cta_label && (
-        <Button size="sm" className="mt-2 w-full">
-          {response.cta_label}
-        </Button>
       )}
     </div>
   );
