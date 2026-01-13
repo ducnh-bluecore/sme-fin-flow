@@ -47,6 +47,7 @@ import SKUProfitabilityAnalysis from '@/components/dashboard/SKUProfitabilityAna
 import RealCashBreakdown from '@/components/dashboard/RealCashBreakdown';
 import SKUStopAction from '@/components/dashboard/SKUStopAction';
 import FormulaDisplay from '@/components/dashboard/FormulaDisplay';
+import TodayDecisionSummary from '@/components/dashboard/TodayDecisionSummary';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -158,6 +159,26 @@ export default function UnitEconomicsPage() {
           />
           <QuickDateSelector />
         </div>
+
+        {/* FDP Principle #10: Today's Decision Summary - FIRST for immediate action */}
+        <TodayDecisionSummary 
+          skuMetrics={skuData?.skuMetrics?.map(m => ({
+            sku: m.sku,
+            product_name: m.product_name,
+            channel: m.channel,
+            profit: m.profit,
+            margin_percent: m.margin_percent,
+            revenue: m.revenue,
+            cogs: m.cogs,
+            fees: m.fees
+          }))}
+          cashPosition={{
+            bankBalance: 500000000, // Would come from real data
+            currentAR: 200000000,
+            overdueAR: 50000000,
+            inventoryValue: 150000000
+          }}
+        />
 
         {/* FDP Principle #6: SKU STOP Action - Show at TOP for immediate attention */}
         {stopSKUs.length > 0 && (
