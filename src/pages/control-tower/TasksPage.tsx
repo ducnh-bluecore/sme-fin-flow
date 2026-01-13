@@ -87,11 +87,26 @@ function TaskCard({
     if (!dateStr) return null;
     try {
       const date = parseISO(dateStr);
-      return formatDistanceToNow(date, { addSuffix: true, locale: vi });
+      return format(date, 'dd/MM/yyyy', { locale: vi });
     } catch {
       return dateStr;
     }
   };
+
+  const getDaysRemaining = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    try {
+      const date = parseISO(dateStr);
+      const now = new Date();
+      const diffTime = date.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch {
+      return null;
+    }
+  };
+
+  const daysRemaining = getDaysRemaining(task.due_date);
 
   return (
     <motion.div
@@ -104,7 +119,7 @@ function TaskCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Badge className={`text-xs border ${priorityConfig[task.priority]?.color || priorityConfig.medium.color}`}>
               {priorityConfig[task.priority]?.label || 'Trung bình'}
             </Badge>
@@ -163,12 +178,49 @@ function TaskCard({
         </DropdownMenu>
       </div>
 
+      {/* Deadline Section */}
+      {task.due_date && (
+        <div className={`mt-3 p-2 rounded flex items-center justify-between ${
+          isOverdue 
+            ? 'bg-red-500/10 border border-red-500/30' 
+            : daysRemaining !== null && daysRemaining <= 3 
+              ? 'bg-amber-500/10 border border-amber-500/30'
+              : 'bg-slate-700/30 border border-slate-600/30'
+        }`}>
+          <div className="flex items-center gap-2">
+            <Calendar className={`h-4 w-4 ${
+              isOverdue ? 'text-red-400' : daysRemaining !== null && daysRemaining <= 3 ? 'text-amber-400' : 'text-slate-400'
+            }`} />
+            <div>
+              <span className={`text-xs font-medium ${
+                isOverdue ? 'text-red-400' : daysRemaining !== null && daysRemaining <= 3 ? 'text-amber-400' : 'text-slate-300'
+              }`}>
+                Deadline: {formatDueDate(task.due_date)}
+              </span>
+            </div>
+          </div>
+          <div className={`text-xs font-medium ${
+            isOverdue ? 'text-red-400' : daysRemaining !== null && daysRemaining <= 3 ? 'text-amber-400' : 'text-slate-400'
+          }`}>
+            {isOverdue ? (
+              <span>Quá hạn {Math.abs(daysRemaining || 0)} ngày</span>
+            ) : daysRemaining === 0 ? (
+              <span>Hôm nay</span>
+            ) : daysRemaining === 1 ? (
+              <span>Còn 1 ngày</span>
+            ) : (
+              <span>Còn {daysRemaining} ngày</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Resolution Notes */}
       {task.resolution_notes && (
-        <div className="mt-3 p-2 rounded bg-slate-700/30 border border-slate-600/30">
-          <div className="flex items-center gap-1 text-xs text-slate-400 mb-1">
+        <div className="mt-3 p-2 rounded bg-emerald-500/10 border border-emerald-500/30">
+          <div className="flex items-center gap-1 text-xs text-emerald-400 mb-1">
             <FileText className="h-3 w-3" />
-            <span>Ghi chú / Kết quả:</span>
+            <span>Báo cáo kết quả:</span>
           </div>
           <p className="text-xs text-slate-300 whitespace-pre-wrap line-clamp-3">{task.resolution_notes}</p>
         </div>
@@ -185,7 +237,7 @@ function TaskCard({
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer with Report Button */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/30">
         <div className="flex items-center gap-2">
           {task.assignee_name ? (
@@ -201,11 +253,17 @@ function TaskCard({
             <span className="text-xs text-slate-500">Chưa phân công</span>
           )}
         </div>
-        {task.due_date && (
-          <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-400' : 'text-slate-500'}`}>
-            <Clock className="h-3 w-3" />
-            <span>{formatDueDate(task.due_date)}</span>
-          </div>
+        
+        {task.status !== 'completed' && task.status !== 'cancelled' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAddNote(task)}
+            className="h-7 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+          >
+            <FileText className="h-3 w-3 mr-1" />
+            Báo cáo
+          </Button>
         )}
       </div>
     </motion.div>
