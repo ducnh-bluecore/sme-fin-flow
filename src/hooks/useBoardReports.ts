@@ -451,42 +451,46 @@ async function generateKeyMetrics(
   startDate?: Date,
   endDate?: Date
 ): Promise<KeyMetric> {
-  const { data: kpiCache } = await supabase
-    .from('dashboard_kpi_cache')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .single();
+  // Fetch all data in parallel
+  const [kpiCacheRes, invoicesRes, customersRes, billsRes, bankAccountsRes] = await Promise.all([
+    supabase
+      .from('dashboard_kpi_cache')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .single(),
+    (() => {
+      let query = supabase
+        .from('invoices')
+        .select('id, total_amount, status, due_date, customer_id, customers(name)')
+        .eq('tenant_id', tenantId);
+      
+      if (startDate && endDate) {
+        query = query
+          .gte('issue_date', startDate.toISOString())
+          .lte('issue_date', endDate.toISOString());
+      }
+      return query;
+    })(),
+    supabase
+      .from('customers')
+      .select('id, name')
+      .eq('tenant_id', tenantId),
+    supabase
+      .from('bills')
+      .select('id, total_amount, paid_amount, bill_date, due_date, status')
+      .eq('tenant_id', tenantId)
+      .not('status', 'eq', 'cancelled'),
+    supabase
+      .from('bank_accounts')
+      .select('current_balance')
+      .eq('tenant_id', tenantId),
+  ]);
 
-  // Build invoice query with optional date filter
-  let invoiceQuery = supabase
-    .from('invoices')
-    .select('id, total_amount, status, due_date, customer_id, customers(name)')
-    .eq('tenant_id', tenantId);
-  
-  if (startDate && endDate) {
-    invoiceQuery = invoiceQuery
-      .gte('issue_date', startDate.toISOString())
-      .lte('issue_date', endDate.toISOString());
-  }
-  
-  const { data: invoices } = await invoiceQuery;
-
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('id, name')
-    .eq('tenant_id', tenantId);
-
-  // Fetch bills to calculate DPO
-  const { data: bills } = await supabase
-    .from('bills')
-    .select('id, total_amount, paid_amount, bill_date, due_date, status')
-    .eq('tenant_id', tenantId);
-
-  // Fetch bank accounts for current_ratio calculation
-  const { data: bankAccounts } = await supabase
-    .from('bank_accounts')
-    .select('current_balance')
-    .eq('tenant_id', tenantId);
+  const kpiCache = kpiCacheRes.data;
+  const invoices = invoicesRes.data;
+  const customers = customersRes.data;
+  const bills = billsRes.data;
+  const bankAccounts = bankAccountsRes.data;
 
   const now = new Date();
   const invoiceCount = invoices?.length || 0;
@@ -495,20 +499,14 @@ async function generateKeyMetrics(
     inv.status !== 'paid' && inv.due_date && new Date(inv.due_date) < now
   ) || [];
 
-  const totalAR = invoices?.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+  // Use unpaid invoices for AR (consistent with central metrics)
+  const unpaidInvoices = invoices?.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled') || [];
+  const totalAR = unpaidInvoices.reduce((sum, inv) => sum + ((inv.total_amount || 0) - 0), 0);
   const avgInvoiceValue = invoiceCount > 0 ? (invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0) / invoiceCount : 0;
 
-  // Calculate DPO from bills
-  const totalAP = bills?.reduce((sum, b) => sum + (b.total_amount - (b.paid_amount || 0)), 0) || 0;
-  const paidBills = bills?.filter(b => b.status === 'paid') || [];
-  const avgPaymentDays = paidBills.length > 0 
-    ? paidBills.reduce((sum, b) => {
-        const billDate = new Date(b.bill_date);
-        const paidDate = new Date(); // Approximate
-        return sum + Math.max(0, differenceInDays(paidDate, billDate));
-      }, 0) / paidBills.length
-    : 0;
-  const dpo = Math.round(avgPaymentDays) || (totalAP > 0 ? 45 : 0);
+  // Use unpaid bills for AP (consistent with central metrics)
+  const unpaidBills = bills?.filter(b => b.status !== 'paid') || [];
+  const totalAP = unpaidBills.reduce((sum, b) => sum + ((b.total_amount || 0) - (b.paid_amount || 0)), 0);
 
   // Calculate ratios
   const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
@@ -540,10 +538,13 @@ async function generateKeyMetrics(
       percentage: totalCustomerRevenue > 0 ? (c.amount / totalCustomerRevenue) * 100 : 0,
     }));
 
+  // Use kpiCache for DSO/CCC - these come from the cached central calculations
+  // DPO and DIO are not in cache, so we calculate them here or default to 0
+  // For accurate real-time values, use useCentralFinancialMetrics directly in components
   return {
     dso: kpiCache?.dso || 0,
-    dpo: dpo,
-    dio: 0, // DIO requires inventory data which is not available
+    dpo: 0, // Not available in cache - use useCentralFinancialMetrics for real-time value
+    dio: 0, // Not available in cache - use useCentralFinancialMetrics for real-time value
     ccc: kpiCache?.ccc || 0,
     current_ratio: Number(currentRatio.toFixed(2)),
     quick_ratio: Number(quickRatio.toFixed(2)),

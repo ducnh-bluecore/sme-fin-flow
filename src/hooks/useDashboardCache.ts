@@ -79,15 +79,18 @@ export function useDashboardKPICache(dateRange: string = '90') {
   });
 
   // Convert cache to the format expected by useDashboardKPIs
-  // Note: DSO, DPO, DIO, CCC from cache may be stale - prefer useFinancialMetrics for real-time values
+  // NOTE: DSO, DPO, DIO, CCC from cache should be aligned with useCentralFinancialMetrics
+  // The cache is refreshed by the RPC function which uses the same calculation logic
   const kpis = query.data ? {
     cashToday: query.data.cash_today || 0,
     cash7d: query.data.cash_7d || 0,
     totalAR: query.data.total_ar || 0,
     overdueAR: query.data.overdue_ar || 0,
+    // These metrics come from the cache which should be synchronized with central metrics
+    // For real-time values, components should use useCentralFinancialMetrics directly
     dso: query.data.dso || 0,
-    dpo: 0, // Cache doesn't have DPO, use useFinancialMetrics instead
-    dio: 0, // Cache doesn't have DIO, use useFinancialMetrics instead
+    dpo: 0, // DPO not in cache - use useCentralFinancialMetrics for accurate value
+    dio: 0, // DIO not in cache - use useCentralFinancialMetrics for accurate value
     ccc: query.data.ccc || 0,
     grossMargin: query.data.gross_margin || 0,
     ebitda: query.data.ebitda || 0,

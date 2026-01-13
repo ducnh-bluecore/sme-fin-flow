@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { getDateRangeFromFilter, formatDateForQuery } from '@/lib/dateUtils';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 
 export interface MonthlyRevenueData {
   month: string;
@@ -99,6 +100,9 @@ export function useAnalyticsData(dateRange: string = 'this_year') {
   const { startDate, endDate } = getDateRangeFromFilter(dateRange);
   const dateStart = formatDateForQuery(startDate);
   const dateEnd = formatDateForQuery(endDate);
+
+  // Use central financial metrics for DSO/DPO (Single Source of Truth)
+  const { data: centralMetrics } = useCentralFinancialMetrics();
 
   return useQuery({
     queryKey: ['analytics-data', tenantId, dateRange, dateStart, dateEnd],
@@ -268,7 +272,7 @@ export function useAnalyticsData(dateRange: string = 'this_year') {
         });
       }
 
-      // AR Metrics
+      // AR Metrics - Use central metrics for DSO (Single Source of Truth)
       const unpaidInvoices = invoices.filter(inv => 
         inv.status !== 'paid' && inv.status !== 'cancelled'
       );
@@ -286,10 +290,8 @@ export function useAnalyticsData(dateRange: string = 'this_year') {
       const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
       const collectionRate = totalRevenue > 0 ? (paidAmount / totalRevenue) * 100 : 0;
 
-      // Calculate DSO - based on date range days
-      const daysDiff = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-      const avgDailyRevenue = totalRevenue / daysDiff;
-      const dso = avgDailyRevenue > 0 ? Math.round(totalAR / avgDailyRevenue) : 0;
+      // Use central metrics DSO (Single Source of Truth)
+      const dso = centralMetrics?.dso ?? 0;
 
       const arMetrics: ARMetrics = {
         totalAR,
@@ -299,16 +301,15 @@ export function useAnalyticsData(dateRange: string = 'this_year') {
         collectionRate: Math.min(collectionRate, 100),
       };
 
-      // AP Metrics (from expenses that haven't been paid yet - simplified)
-      const totalAP = expenses
-        .filter(exp => exp.payment_method === 'credit' || !exp.payment_method)
-        .reduce((sum, exp) => sum + (exp.amount || 0), 0) * 0.15; // Estimate 15% unpaid
+      // AP Metrics - Use central metrics DPO (Single Source of Truth)
+      const totalAP = centralMetrics?.totalAP ?? 0;
+      const dpo = centralMetrics?.dpo ?? 0;
       
       const apMetrics: APMetrics = {
         totalAP,
         paid: totalCost - totalAP,
         pending: totalAP,
-        dpo: Math.round((totalAP / (totalCost / daysDiff)) || 0),
+        dpo,
       };
 
       // Invoice metrics
@@ -319,14 +320,10 @@ export function useAnalyticsData(dateRange: string = 'this_year') {
         avgValue: invoices.length > 0 ? totalRevenue / invoices.length : 0,
       };
 
-      // EBITDA (simplified: profit + depreciation + interest)
-      const depreciationExpense = expenses
-        .filter(exp => exp.category === 'depreciation')
-        .reduce((sum, exp) => sum + (exp.amount || 0), 0);
-      const interestExpense = expenses
-        .filter(exp => exp.category === 'interest')
-        .reduce((sum, exp) => sum + (exp.amount || 0), 0);
-      const ebitda = totalProfit + depreciationExpense + interestExpense;
+      // EBITDA - Use central metrics (Single Source of Truth)
+      const ebitda = centralMetrics?.ebitda ?? (totalProfit + 
+        expenses.filter(exp => exp.category === 'depreciation').reduce((sum, exp) => sum + (exp.amount || 0), 0) +
+        expenses.filter(exp => exp.category === 'interest').reduce((sum, exp) => sum + (exp.amount || 0), 0));
 
       // Growth calculations (compare with previous period - simplified as 0 for now)
       const revenueGrowth = 0;
