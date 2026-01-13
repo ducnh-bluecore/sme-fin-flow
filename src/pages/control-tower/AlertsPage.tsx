@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   AlertTriangle, 
   Bell, 
@@ -19,7 +20,8 @@ import {
   ExternalLink,
   List,
   Zap,
-  UserCheck
+  UserCheck,
+  ClipboardList
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +34,10 @@ import { vi } from 'date-fns/locale';
 import { AlertDetailsDialog } from '@/components/alerts/AlertDetailsDialog';
 import { AssignOwnerDropdown } from '@/components/alerts/AssignOwnerDropdown';
 import { useAuth } from '@/hooks/useAuth';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { toast } from 'sonner';
 
 // Sort alerts: critical first, then warning, then info
 const severityOrder = { critical: 0, warning: 1, info: 2 };
@@ -88,13 +94,15 @@ const categoryIcons: Record<string, React.ElementType> = {
   other: Bell,
 };
 
-function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, isAssigning }: { 
+function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, onCreateTask, isAssigning, isCreatingTask }: { 
   alert: AlertInstance; 
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onViewDetails?: (alert: AlertInstance) => void;
   onAssign?: (alertId: string, ownerId: string | null) => void;
+  onCreateTask?: (alert: AlertInstance) => void;
   isAssigning?: boolean;
+  isCreatingTask?: boolean;
 }) {
   const severity = alert.severity as keyof typeof typeConfig;
   const typeConf = typeConfig[severity] || typeConfig.warning;
@@ -319,15 +327,33 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, i
               
               {/* Secondary: Quick actions */}
               {(alert as any).assigned_to ? (
-                // If owner assigned, show resolve button prominently
-                <Button 
-                  size="sm" 
-                  className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
-                  onClick={() => onResolve(alert.id)}
-                >
-                  <Zap className="h-3 w-3 mr-1" />
-                  Xử lý xong
-                </Button>
+                // If owner assigned, show task + resolve buttons
+                <>
+                  {onCreateTask && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="h-7 border-primary/50 text-primary hover:bg-primary/10 text-xs"
+                      onClick={() => onCreateTask(alert)}
+                      disabled={isCreatingTask}
+                    >
+                      {isCreatingTask ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <ClipboardList className="h-3 w-3 mr-1" />
+                      )}
+                      Tạo Task
+                    </Button>
+                  )}
+                  <Button 
+                    size="sm" 
+                    className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
+                    onClick={() => onResolve(alert.id)}
+                  >
+                    <Zap className="h-3 w-3 mr-1" />
+                    Xử lý xong
+                  </Button>
+                </>
               ) : (
                 // No owner yet - gentle nudge to assign first
                 <Button 
@@ -399,6 +425,9 @@ export default function AlertsPage() {
   const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
   const [showProductsDialog, setShowProductsDialog] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { data: tenantId } = useActiveTenantId();
+  const queryClient = useQueryClient();
   
   const { 
     instances, 
@@ -409,6 +438,56 @@ export default function AlertsPage() {
     assignAlert,
     refetchInstances 
   } = useNotificationCenter();
+
+  // Create task from alert mutation
+  const createTaskFromAlert = useMutation({
+    mutationFn: async (alert: AlertInstance) => {
+      if (!tenantId) throw new Error('No tenant selected');
+      
+      const priorityMap: Record<string, string> = {
+        critical: 'urgent',
+        warning: 'high',
+        info: 'medium',
+      };
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          tenant_id: tenantId,
+          title: `[Alert] ${alert.title}`,
+          description: alert.message || `Xử lý cảnh báo: ${alert.title}`,
+          status: 'todo',
+          priority: priorityMap[alert.severity] || 'medium',
+          assignee_id: (alert as any).assigned_to,
+          source_type: 'alert',
+          source_id: alert.id,
+          source_alert_type: alert.alert_type,
+          due_date: (alert as any).deadline_at || null,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['pending-tasks-count'] });
+      toast.success('Đã tạo task thành công', {
+        action: {
+          label: 'Xem Task',
+          onClick: () => navigate('/control-tower/tasks'),
+        },
+      });
+    },
+    onError: (error) => {
+      toast.error('Lỗi tạo task: ' + error.message);
+    },
+  });
+
+  const handleCreateTask = (alert: AlertInstance) => {
+    createTaskFromAlert.mutate(alert);
+  };
 
   const handleAcknowledge = async (id: string) => {
     await acknowledgeAlert.mutateAsync(id);
@@ -695,7 +774,9 @@ export default function AlertsPage() {
                     onResolve={handleResolve}
                     onViewDetails={handleViewDetails}
                     onAssign={handleAssign}
+                    onCreateTask={handleCreateTask}
                     isAssigning={assignAlert.isPending}
+                    isCreatingTask={createTaskFromAlert.isPending}
                   />
                 ))}
               </>
@@ -717,7 +798,9 @@ export default function AlertsPage() {
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
                   onAssign={handleAssign}
+                  onCreateTask={handleCreateTask}
                   isAssigning={assignAlert.isPending}
+                  isCreatingTask={createTaskFromAlert.isPending}
                 />
               ))
             )}
@@ -738,7 +821,9 @@ export default function AlertsPage() {
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
                   onAssign={handleAssign}
+                  onCreateTask={handleCreateTask}
                   isAssigning={assignAlert.isPending}
+                  isCreatingTask={createTaskFromAlert.isPending}
                 />
               ))
             )}
