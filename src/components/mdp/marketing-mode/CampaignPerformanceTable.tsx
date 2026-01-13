@@ -21,8 +21,8 @@ import {
   Play,
   Pause,
   MoreHorizontal,
-  TrendingUp,
   TrendingDown,
+  Target,
 } from 'lucide-react';
 import { MarketingPerformance } from '@/hooks/useMDPData';
 import { cn } from '@/lib/utils';
@@ -205,7 +205,7 @@ export function CampaignPerformanceTable({
             <TableBody>
               {displayedCampaigns.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Không tìm thấy campaign nào
                   </TableCell>
                 </TableRow>
@@ -249,6 +249,54 @@ export function CampaignPerformanceTable({
                         campaign.roas >= 1 ? "text-yellow-400" : "text-red-400"
                       )}>
                         {campaign.roas.toFixed(2)}x
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <TooltipProvider>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => onViewDetails?.(campaign.campaign_id)}>
+                                <Target className="h-4 w-4 mr-2" />
+                                Xem chi tiết
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {campaign.status === 'active' ? (
+                                <DropdownMenuItem 
+                                  onClick={() => onPauseCampaign?.(campaign.campaign_id)}
+                                  className="text-yellow-400"
+                                >
+                                  <Pause className="h-4 w-4 mr-2" />
+                                  Tạm dừng
+                                </DropdownMenuItem>
+                              ) : campaign.status === 'paused' ? (
+                                <DropdownMenuItem 
+                                  onClick={() => onResumeCampaign?.(campaign.campaign_id)}
+                                  className="text-green-400"
+                                >
+                                  <Play className="h-4 w-4 mr-2" />
+                                  Tiếp tục
+                                </DropdownMenuItem>
+                              ) : null}
+                              {campaign.roas < 1 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <DropdownMenuItem className="text-red-400">
+                                      <TrendingDown className="h-4 w-4 mr-2" />
+                                      ROAS thấp - Cần review
+                                    </DropdownMenuItem>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Campaign có ROAS dưới 1, đang lỗ {formatCurrency(campaign.spend - campaign.revenue)}đ</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TooltipProvider>
                       </TableCell>
                     </TableRow>
                   );
