@@ -59,28 +59,26 @@ export function useFinancialMetrics() {
         ordersRes,
         expensesRes
       ] = await Promise.all([
-        // AR data - invoices
+        // AR data - ALL unpaid invoices (not filtered by date - AR is current balance)
         supabase
           .from('invoices')
           .select('id, total_amount, paid_amount, status, issue_date, due_date')
           .eq('tenant_id', tenantId)
-          .gte('issue_date', startDateStr)
-          .lte('issue_date', endDateStr),
-        // AP data - bills
+          .not('status', 'eq', 'cancelled'),
+        // AP data - ALL unpaid bills (not filtered by date - AP is current balance)
         supabase
           .from('bills')
           .select('id, total_amount, paid_amount, status, bill_date, due_date')
           .eq('tenant_id', tenantId)
-          .gte('bill_date', startDateStr)
-          .lte('bill_date', endDateStr),
-        // Sales data from orders
+          .not('status', 'eq', 'cancelled'),
+        // Sales data from orders - filtered by date range for revenue calculation
         supabase
           .from('external_orders')
           .select('total_amount, cost_of_goods, order_date, status')
           .eq('tenant_id', tenantId)
           .gte('order_date', startDateStr)
           .lte('order_date', endDateStr),
-        // Expenses
+        // Expenses - filtered by date range
         supabase
           .from('expenses')
           .select('amount, expense_date, category')
@@ -108,19 +106,26 @@ export function useFinancialMetrics() {
       // Total expenses
       const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
-      // Total purchases (bills + COGS expenses)
+      // Total purchases (bills in period + COGS expenses)
+      // Filter bills by date range for purchases calculation
+      const periodBills = bills.filter(b => {
+        const billDate = new Date(b.bill_date);
+        return billDate >= startDate && billDate <= endDate;
+      });
       const cogsExpenses = expenses.filter(e => e.category === 'cogs');
-      const totalBillAmount = bills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+      const totalBillAmount = periodBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
       const totalCogsExpenses = cogsExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
       const totalPurchases = totalBillAmount + totalCogsExpenses;
       const dailyPurchases = totalPurchases / daysInPeriod;
 
-      // Current AR (unpaid invoices)
+      // Current AR (ALL unpaid invoices - not filtered by date)
+      // AR is a point-in-time balance, not period-based
       const unpaidInvoices = invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled');
       const avgAR = unpaidInvoices.reduce((sum, i) => 
         sum + ((i.total_amount || 0) - (i.paid_amount || 0)), 0);
 
-      // Current AP (unpaid bills)
+      // Current AP (ALL unpaid bills - not filtered by date)
+      // AP is a point-in-time balance, not period-based
       const unpaidBills = bills.filter(b => b.status !== 'paid' && b.status !== 'cancelled');
       const avgAP = unpaidBills.reduce((sum, b) => 
         sum + ((b.total_amount || 0) - (b.paid_amount || 0)), 0);

@@ -133,13 +133,13 @@ export function useCentralFinancialMetrics() {
         revenuesRes,
         transactionsRes
       ] = await Promise.all([
-        // Invoices for AR and revenue
+        // Invoices for AR - ALL unpaid (AR is current balance, not period-based)
         supabase
           .from('invoices')
           .select('id, total_amount, paid_amount, status, issue_date, due_date, subtotal, discount_amount')
           .eq('tenant_id', tenantId)
           .not('status', 'eq', 'cancelled'),
-        // Bills for AP
+        // Bills for AP - ALL unpaid (AP is current balance, not period-based)
         supabase
           .from('bills')
           .select('id, total_amount, paid_amount, status, bill_date, due_date')
