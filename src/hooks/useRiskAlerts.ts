@@ -3,6 +3,7 @@ import { useDashboardKPICache } from './useDashboardCache';
 import { useCashRunway } from './useCashRunway';
 import { useARAgingData } from './useDashboardData';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
+import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 
 export interface RiskAlert {
   id: string;
@@ -22,9 +23,9 @@ export function useRiskAlerts() {
   const riskAlerts = useMemo(() => {
     const alerts: RiskAlert[] = [];
 
-    // 1. Cash Runway Risk
+    // 1. Cash Runway Risk - using FDP_THRESHOLDS
     const runwayMonths = runwayData?.runwayMonths || 0;
-    if (runwayMonths > 0 && runwayMonths < 3) {
+    if (runwayMonths > 0 && runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) {
       alerts.push({
         id: 'runway-critical',
         title: 'Cash Runway nguy cấp',
@@ -33,7 +34,7 @@ export function useRiskAlerts() {
         metric: `Runway: ${runwayMonths.toFixed(1)} tháng`,
         category: 'liquidity',
       });
-    } else if (runwayMonths > 0 && runwayMonths < 6) {
+    } else if (runwayMonths > 0 && runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS) {
       alerts.push({
         id: 'runway-warning',
         title: 'Cash Runway thấp',
@@ -44,9 +45,9 @@ export function useRiskAlerts() {
       });
     }
 
-    // 2. DSO Risk
+    // 2. DSO Risk - using FDP_THRESHOLDS
     const dso = kpiData?.dso || 0;
-    if (dso > 60) {
+    if (dso > FDP_THRESHOLDS.DSO_CRITICAL_DAYS) {
       alerts.push({
         id: 'dso-critical',
         title: 'DSO quá cao',
@@ -55,23 +56,23 @@ export function useRiskAlerts() {
         metric: `DSO: ${dso} ngày`,
         category: 'receivables',
       });
-    } else if (dso > 45) {
+    } else if (dso > FDP_THRESHOLDS.DSO_WARNING_DAYS) {
       alerts.push({
         id: 'dso-warning',
         title: 'DSO cao',
         severity: 'warning',
-        description: `DSO ${dso} ngày cao hơn mức khuyến nghị (45 ngày).`,
+        description: `DSO ${dso} ngày cao hơn mức khuyến nghị (${FDP_THRESHOLDS.DSO_WARNING_DAYS} ngày).`,
         metric: `DSO: ${dso} ngày`,
         category: 'receivables',
       });
     }
 
-    // 3. Overdue AR Risk
+    // 3. Overdue AR Risk - using FDP_THRESHOLDS
     const overdueAR = kpiData?.overdueAR || 0;
     const totalAR = kpiData?.totalAR || 0;
     const overdueRate = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
     
-    if (overdueRate > 30) {
+    if (overdueRate > FDP_THRESHOLDS.AR_OVERDUE_CRITICAL_PERCENT) {
       alerts.push({
         id: 'overdue-critical',
         title: 'Công nợ quá hạn nghiêm trọng',
@@ -80,7 +81,7 @@ export function useRiskAlerts() {
         metric: `Quá hạn: ${overdueRate.toFixed(0)}%`,
         category: 'receivables',
       });
-    } else if (overdueRate > 15) {
+    } else if (overdueRate > FDP_THRESHOLDS.AR_OVERDUE_WARNING_PERCENT) {
       alerts.push({
         id: 'overdue-warning',
         title: 'Công nợ quá hạn cao',
@@ -91,12 +92,12 @@ export function useRiskAlerts() {
       });
     }
 
-    // 4. AR Aging - Long overdue (>90 days)
+    // 4. AR Aging - Long overdue (>90 days) - using FDP_THRESHOLDS
     if (arAgingData && arAgingData.length > 0) {
       const over90 = arAgingData.find(b => b.bucket === '>90 ngày');
       if (over90 && over90.value > 0 && totalAR > 0) {
         const over90Rate = (over90.value / totalAR) * 100;
-        if (over90Rate > 10) {
+        if (over90Rate > FDP_THRESHOLDS.AR_AGING_90_CRITICAL_PERCENT) {
           alerts.push({
             id: 'aging-90-critical',
             title: 'Nợ xấu >90 ngày cao',
@@ -109,9 +110,9 @@ export function useRiskAlerts() {
       }
     }
 
-    // 5. Gross Margin Risk
+    // 5. Gross Margin Risk - using FDP_THRESHOLDS
     const grossMargin = kpiData?.grossMargin || 0;
-    if (grossMargin > 0 && grossMargin < 15) {
+    if (grossMargin > 0 && grossMargin < FDP_THRESHOLDS.GROSS_MARGIN_CRITICAL_PERCENT) {
       alerts.push({
         id: 'margin-critical',
         title: 'Biên lợi nhuận gộp thấp',
@@ -120,20 +121,20 @@ export function useRiskAlerts() {
         metric: `Margin: ${grossMargin.toFixed(1)}%`,
         category: 'profitability',
       });
-    } else if (grossMargin > 0 && grossMargin < 25) {
+    } else if (grossMargin > 0 && grossMargin < FDP_THRESHOLDS.GROSS_MARGIN_WARNING_PERCENT) {
       alerts.push({
         id: 'margin-warning',
         title: 'Biên lợi nhuận gộp cần cải thiện',
         severity: 'warning',
-        description: `Gross margin ${grossMargin.toFixed(1)}% thấp hơn mức khuyến nghị (25%).`,
+        description: `Gross margin ${grossMargin.toFixed(1)}% thấp hơn mức khuyến nghị (${FDP_THRESHOLDS.GROSS_MARGIN_WARNING_PERCENT}%).`,
         metric: `Margin: ${grossMargin.toFixed(1)}%`,
         category: 'profitability',
       });
     }
 
-    // 6. CCC (Cash Conversion Cycle) Risk
+    // 6. CCC (Cash Conversion Cycle) Risk - using FDP_THRESHOLDS
     const ccc = kpiData?.ccc || 0;
-    if (ccc > 90) {
+    if (ccc > FDP_THRESHOLDS.CCC_CRITICAL_DAYS) {
       alerts.push({
         id: 'ccc-critical',
         title: 'Chu kỳ chuyển đổi tiền mặt quá dài',
@@ -142,7 +143,7 @@ export function useRiskAlerts() {
         metric: `CCC: ${ccc} ngày`,
         category: 'efficiency',
       });
-    } else if (ccc > 60) {
+    } else if (ccc > FDP_THRESHOLDS.CCC_WARNING_DAYS) {
       alerts.push({
         id: 'ccc-warning',
         title: 'CCC cao',
@@ -153,13 +154,13 @@ export function useRiskAlerts() {
       });
     }
 
-    // 7. Channel Fee Risk
+    // 7. Channel Fee Risk - using FDP_THRESHOLDS
     if (channelData) {
       const grossRevenue = channelData.gross_revenue || 0;
       const totalFees = channelData.total_fees || 0;
       const feeRate = grossRevenue > 0 ? (totalFees / grossRevenue) * 100 : 0;
       
-      if (feeRate > 20) {
+      if (feeRate > FDP_THRESHOLDS.CHANNEL_FEE_CRITICAL_PERCENT) {
         alerts.push({
           id: 'fee-critical',
           title: 'Phí kênh bán quá cao',
@@ -168,7 +169,7 @@ export function useRiskAlerts() {
           metric: `Phí: ${feeRate.toFixed(0)}%`,
           category: 'profitability',
         });
-      } else if (feeRate > 15) {
+      } else if (feeRate > FDP_THRESHOLDS.CHANNEL_FEE_WARNING_PERCENT) {
         alerts.push({
           id: 'fee-warning',
           title: 'Phí kênh bán cao',

@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatVNDCompact } from '@/lib/formatters';
+import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
@@ -128,23 +129,23 @@ export default function FinancialTruthCard() {
   const runwayMonths = cashRunway?.runwayMonths || 0;
   const runwayDays = cashRunway?.runwayDays || 0;
 
-  // Determine overall health status
+  // Determine overall health status - using FDP_THRESHOLDS
   const getOverallHealth = (): 'healthy' | 'warning' | 'critical' => {
-    if (runwayMonths < 3 || contributionMargin < 0) return 'critical';
-    if (runwayMonths < 6 || contributionMargin < 10) return 'warning';
+    if (runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS || contributionMargin < FDP_THRESHOLDS.CM_CRITICAL_PERCENT) return 'critical';
+    if (runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS || contributionMargin < FDP_THRESHOLDS.CM_WARNING_PERCENT) return 'warning';
     return 'healthy';
   };
 
-  // Individual metric statuses
+  // Individual metric statuses - using FDP_THRESHOLDS
   const getRevenueStatus = (): 'healthy' | 'warning' | 'critical' | 'neutral' => {
     if (netRevenue > 0) return 'healthy';
     return 'neutral';
   };
 
   const getMarginStatus = (): 'healthy' | 'warning' | 'critical' | 'neutral' => {
-    if (contributionMargin < 0) return 'critical';
-    if (contributionMargin < 10) return 'warning';
-    if (contributionMargin >= 20) return 'healthy';
+    if (contributionMargin < FDP_THRESHOLDS.CM_CRITICAL_PERCENT) return 'critical';
+    if (contributionMargin < FDP_THRESHOLDS.CM_WARNING_PERCENT) return 'warning';
+    if (contributionMargin >= FDP_THRESHOLDS.CM_GOOD_PERCENT) return 'healthy';
     return 'neutral';
   };
 
@@ -156,8 +157,8 @@ export default function FinancialTruthCard() {
 
   const getRunwayStatus = (): 'healthy' | 'warning' | 'critical' | 'neutral' => {
     if (runwayMonths === Infinity) return 'healthy';
-    if (runwayMonths < 3) return 'critical';
-    if (runwayMonths < 6) return 'warning';
+    if (runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) return 'critical';
+    if (runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS) return 'warning';
     return 'healthy';
   };
 
@@ -253,13 +254,13 @@ export default function FinancialTruthCard() {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  {runwayMonths < 3 && (
-                    <p className="text-amber-300 mb-1">⚠️ Cash runway dưới 3 tháng - cần action ngay!</p>
+                  {runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS && (
+                    <p className="text-amber-300 mb-1">⚠️ Cash runway dưới {FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS} tháng - cần action ngay!</p>
                   )}
-                  {contributionMargin < 0 && (
+                  {contributionMargin < FDP_THRESHOLDS.CM_CRITICAL_PERCENT && (
                     <p className="text-red-300 mb-1">🚨 Contribution margin âm - đang bán lỗ!</p>
                   )}
-                  {contributionMargin >= 0 && contributionMargin < 10 && (
+                  {contributionMargin >= FDP_THRESHOLDS.CM_CRITICAL_PERCENT && contributionMargin < FDP_THRESHOLDS.CM_WARNING_PERCENT && (
                     <p className="text-amber-300 mb-1">⚠️ Margin thấp ({contributionMargin.toFixed(1)}%) - cần tối ưu chi phí</p>
                   )}
                 </div>

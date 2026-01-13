@@ -72,6 +72,10 @@ export const FDP_THRESHOLDS = {
   CM_WARNING_PERCENT: 10,
   CM_GOOD_PERCENT: 20,
   
+  // Gross Margin (for risk alerts)
+  GROSS_MARGIN_CRITICAL_PERCENT: 15,
+  GROSS_MARGIN_WARNING_PERCENT: 25,
+  
   // LTV:CAC Ratio
   LTV_CAC_CRITICAL: 1,
   LTV_CAC_WARNING: 2,
@@ -89,10 +93,20 @@ export const FDP_THRESHOLDS = {
   // AR Overdue
   AR_OVERDUE_WARNING_PERCENT: 15,
   AR_OVERDUE_CRITICAL_PERCENT: 30,
+  AR_AGING_90_CRITICAL_PERCENT: 10,
   
   // SKU Margin
   SKU_STOP_MARGIN_PERCENT: -5,
   SKU_CRITICAL_MARGIN_PERCENT: -15,
+  SKU_REVIEW_MARGIN_PERCENT: 5,
+  
+  // CCC (Cash Conversion Cycle)
+  CCC_WARNING_DAYS: 60,
+  CCC_CRITICAL_DAYS: 90,
+  
+  // Channel Fees
+  CHANNEL_FEE_WARNING_PERCENT: 15,
+  CHANNEL_FEE_CRITICAL_PERCENT: 20,
   
   // Inventory Days
   INVENTORY_WARNING_DAYS: 60,
@@ -403,9 +417,9 @@ export function analyzeSKU(
   } else if (marginPercent < FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT) {
     decision = 'stop_immediately';
     reasons.push(`Margin âm ${marginPercent.toFixed(1)}%`);
-  } else if (marginPercent < 5) {
+  } else if (marginPercent < FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT) {
     decision = 'review';
-    reasons.push('Margin rất thấp, cần xem xét giá bán');
+    reasons.push(`Margin thấp (< ${FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT}%), cần xem xét giá bán`);
   }
   
   // Check COGS ratio
