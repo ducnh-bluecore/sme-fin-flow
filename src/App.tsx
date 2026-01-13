@@ -86,14 +86,15 @@ const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
 const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
-const MDPDashboardPage = lazy(() => import("./pages/MDPDashboardPage"));
-const ABTestingPage = lazy(() => import("./pages/mdp/ABTestingPage"));
-const AudienceInsightsPage = lazy(() => import("./pages/mdp/AudienceInsightsPage"));
-const BudgetOptimizerPage = lazy(() => import("./pages/mdp/BudgetOptimizerPage"));
-const ScenarioPlannerPage = lazy(() => import("./pages/mdp/ScenarioPlannerPage"));
-const ROIAnalyticsPage = lazy(() => import("./pages/mdp/ROIAnalyticsPage"));
-const CustomerLTVPage = lazy(() => import("./pages/mdp/CustomerLTVPage"));
-const DataSourcesPage = lazy(() => import("./pages/mdp/DataSourcesPage"));
+// MDP pages - eager import to avoid reload issues
+import MDPDashboardPage from "./pages/MDPDashboardPage";
+import ABTestingPage from "./pages/mdp/ABTestingPage";
+import AudienceInsightsPage from "./pages/mdp/AudienceInsightsPage";
+import BudgetOptimizerPage from "./pages/mdp/BudgetOptimizerPage";
+import ScenarioPlannerPage from "./pages/mdp/ScenarioPlannerPage";
+import ROIAnalyticsPage from "./pages/mdp/ROIAnalyticsPage";
+import CustomerLTVPage from "./pages/mdp/CustomerLTVPage";
+import DataSourcesPage from "./pages/mdp/DataSourcesPage";
 
 // Control Tower pages - Manifesto compliant: only alert-focused pages
 import CTTasksPage from "./pages/control-tower/TasksPage";
