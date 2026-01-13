@@ -23,11 +23,38 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
   const getWidthPercent = (stage: FunnelStage, index: number) => {
     if (index === 0) return 100;
     const firstStage = funnelData[0];
-    if (firstStage.count === 0) return 0;
+    if (!firstStage || firstStage.count === 0) return 0;
     return Math.max(20, (stage.count / firstStage.count) * 100);
   };
 
   const isHighDrop = (dropRate: number) => dropRate > MDP_THRESHOLDS.MAX_FUNNEL_DROP * 100;
+
+  // Handle empty data or all zeros
+  const hasData = funnelData && funnelData.length > 0 && funnelData[0]?.count > 0;
+  
+  if (!hasData) {
+    return (
+      <Card className="border-blue-500/20 bg-card/50 backdrop-blur">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-blue-400" />
+              <CardTitle className="text-lg">Marketing Funnel</CardTitle>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Filter className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">Chưa có dữ liệu funnel</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              Dữ liệu sẽ hiển thị khi có campaign marketing
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-blue-500/20 bg-card/50 backdrop-blur">
