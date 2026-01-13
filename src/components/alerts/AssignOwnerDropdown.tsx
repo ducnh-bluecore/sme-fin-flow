@@ -134,6 +134,11 @@ export function AssignOwnerDropdown({
         <DropdownMenuLabel className="text-xs text-slate-400">
           Chọn người phụ trách
         </DropdownMenuLabel>
+        {users.length <= 1 && !usersLoading && (
+          <DropdownMenuLabel className="text-[11px] text-amber-400/90">
+            Team hiện chỉ có 1 người (bạn). Hãy mời thêm thành viên để giao việc.
+          </DropdownMenuLabel>
+        )}
         <DropdownMenuSeparator className="bg-slate-700/50" />
         
         {usersLoading ? (
