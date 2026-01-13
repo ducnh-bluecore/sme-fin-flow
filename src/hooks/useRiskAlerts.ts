@@ -3,6 +3,7 @@ import { useDashboardKPICache } from './useDashboardCache';
 import { useCashRunway } from './useCashRunway';
 import { useARAgingData } from './useDashboardData';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 
 export interface RiskAlert {
@@ -19,6 +20,7 @@ export function useRiskAlerts() {
   const { data: runwayData, isLoading: runwayLoading } = useCashRunway();
   const { data: arAgingData, isLoading: arLoading } = useARAgingData();
   const { data: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
+  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
   const riskAlerts = useMemo(() => {
     const alerts: RiskAlert[] = [];
@@ -45,8 +47,8 @@ export function useRiskAlerts() {
       });
     }
 
-    // 2. DSO Risk - using FDP_THRESHOLDS
-    const dso = kpiData?.dso || 0;
+    // 2. DSO Risk - use centralized metrics (single source of truth)
+    const dso = centralMetrics?.dso ?? kpiData?.dso ?? 0;
     if (dso > FDP_THRESHOLDS.DSO_CRITICAL_DAYS) {
       alerts.push({
         id: 'dso-critical',
@@ -132,8 +134,8 @@ export function useRiskAlerts() {
       });
     }
 
-    // 6. CCC (Cash Conversion Cycle) Risk - using FDP_THRESHOLDS
-    const ccc = kpiData?.ccc || 0;
+    // 6. CCC (Cash Conversion Cycle) Risk - use centralized metrics (single source of truth)
+    const ccc = centralMetrics?.ccc ?? kpiData?.ccc ?? 0;
     if (ccc > FDP_THRESHOLDS.CCC_CRITICAL_DAYS) {
       alerts.push({
         id: 'ccc-critical',
@@ -190,6 +192,6 @@ export function useRiskAlerts() {
 
   return {
     data: riskAlerts,
-    isLoading: kpiLoading || runwayLoading || arLoading || channelLoading,
+    isLoading: kpiLoading || runwayLoading || arLoading || channelLoading || metricsLoading,
   };
 }

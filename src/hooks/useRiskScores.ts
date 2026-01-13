@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useDashboardKPICache } from './useDashboardCache';
 import { useCashRunway } from './useCashRunway';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 
 export interface RiskScore {
   category: string;
@@ -28,8 +29,9 @@ export function useRiskScores(): RiskSummary {
   const { data: kpiData, isLoading: kpiLoading } = useDashboardKPICache();
   const { data: cashRunway, isLoading: runwayLoading } = useCashRunway();
   const { data: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
+  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
-  const isLoading = kpiLoading || runwayLoading || channelLoading;
+  const isLoading = kpiLoading || runwayLoading || channelLoading || metricsLoading;
 
   const riskScores = useMemo(() => {
     const scores: RiskScore[] = [];
@@ -53,8 +55,9 @@ export function useRiskScores(): RiskSummary {
 
     // 2. Credit Risk - based on DSO and overdue AR
     let creditScore = 50;
+    const effectiveDso = centralMetrics?.dso ?? kpiData?.dso ?? 0;
     if (kpiData) {
-      const dso = kpiData.dso || 0;
+      const dso = effectiveDso;
       const overdueAR = kpiData.overdueAR || 0;
       const totalAR = kpiData.totalAR || 1;
       const overduePercent = (overdueAR / totalAR) * 100;
@@ -79,7 +82,7 @@ export function useRiskScores(): RiskSummary {
       category: 'Tín dụng',
       score: creditScore,
       fullMark: 100,
-      details: `DSO: ${kpiData?.dso?.toFixed(0) || 'N/A'} ngày`
+      details: `DSO: ${effectiveDso ? effectiveDso.toFixed(0) : 'N/A'} ngày`
     });
 
     // 3. Market Risk - based on channel concentration
@@ -108,12 +111,13 @@ export function useRiskScores(): RiskSummary {
 
     // 4. Operational Risk - based on CCC and gross margin
     let operationalScore = 50;
+    const effectiveCcc = centralMetrics?.ccc ?? kpiData?.ccc ?? 0;
     if (kpiData) {
-      const ccc = kpiData.ccc || 0;
+      const ccc = effectiveCcc;
       const grossMargin = kpiData.grossMargin || 0;
 
-      let cccScore = ccc <= 30 ? 10 : ccc <= 60 ? 25 : ccc <= 90 ? 35 : 50;
-      let marginScore = grossMargin >= 40 ? 10 : grossMargin >= 25 ? 20 : grossMargin >= 15 ? 35 : 50;
+      const cccScore = ccc <= 30 ? 10 : ccc <= 60 ? 25 : ccc <= 90 ? 35 : 50;
+      const marginScore = grossMargin >= 40 ? 10 : grossMargin >= 25 ? 20 : grossMargin >= 15 ? 35 : 50;
 
       operationalScore = cccScore + marginScore;
     }
@@ -121,7 +125,7 @@ export function useRiskScores(): RiskSummary {
       category: 'Hoạt động',
       score: operationalScore,
       fullMark: 100,
-      details: `CCC: ${kpiData?.ccc?.toFixed(0) || 'N/A'} ngày`
+      details: `CCC: ${effectiveCcc ? effectiveCcc.toFixed(0) : 'N/A'} ngày`
     });
 
     // 5. Compliance Risk - default based on data availability
