@@ -85,10 +85,10 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
                 >
                   <div className={cn(
                     "p-4 rounded-lg border transition-colors",
-                    index === 0 ? "bg-blue-500/20 border-blue-500/30" :
-                    index === 1 ? "bg-cyan-500/20 border-cyan-500/30" :
-                    index === 2 ? "bg-green-500/20 border-green-500/30" :
-                    "bg-emerald-500/20 border-emerald-500/30"
+                    index === 0 ? "bg-gradient-to-r from-blue-600/40 to-blue-500/30 border-blue-500/50" :
+                    index === 1 ? "bg-gradient-to-r from-cyan-600/40 to-cyan-500/30 border-cyan-500/50" :
+                    index === 2 ? "bg-gradient-to-r from-green-600/40 to-green-500/30 border-green-500/50" :
+                    "bg-gradient-to-r from-emerald-600/40 to-emerald-500/30 border-emerald-500/50"
                   )}>
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{stage.stage}</span>
