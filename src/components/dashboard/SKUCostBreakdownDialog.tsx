@@ -311,25 +311,16 @@ export function SKUCostBreakdownDialog({
           </div>
         ) : data?.summary ? (
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="bg-slate-800/50 border border-slate-700 p-1">
-              <TabsTrigger 
-                value="overview" 
-                className="data-[state=active]:bg-slate-700 data-[state=active]:text-slate-100 text-slate-400 hover:text-slate-200"
-              >
+            <TabsList>
+              <TabsTrigger value="overview">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Tổng quan
               </TabsTrigger>
-              <TabsTrigger 
-                value="channels" 
-                className="data-[state=active]:bg-slate-700 data-[state=active]:text-slate-100 text-slate-400 hover:text-slate-200"
-              >
+              <TabsTrigger value="channels">
                 <Store className="h-4 w-4 mr-2" />
                 Theo kênh ({data.channelSummaries.length})
               </TabsTrigger>
-              <TabsTrigger 
-                value="orders" 
-                className="data-[state=active]:bg-slate-700 data-[state=active]:text-slate-100 text-slate-400 hover:text-slate-200"
-              >
+              <TabsTrigger value="orders">
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Chi tiết đơn ({data.breakdowns.length})
               </TabsTrigger>
