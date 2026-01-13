@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ArrowRight,
   Zap,
+  FileText,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -413,19 +414,26 @@ export default function PortalPage() {
             </div>
           </motion.div>
 
-          {/* CTA Button */}
+          {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.2 }}
-            className="mt-10"
+            className="mt-10 flex flex-col sm:flex-row gap-4 items-center"
           >
             <button 
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               className="inline-flex items-center gap-3 px-8 py-4 rounded-lg bg-slate-700 text-slate-100 font-medium tracking-wide shadow-lg hover:bg-slate-600 hover:shadow-xl transition-all hover:-translate-y-0.5 group border border-slate-600"
             >
               <span>{t('portal.accessFinance')}</span>
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button 
+              onClick={() => navigate('/documentation')}
+              className="inline-flex items-center gap-3 px-6 py-3 rounded-lg bg-slate-800/50 text-slate-300 font-medium tracking-wide hover:bg-slate-700/50 transition-all group border border-slate-600/50"
+            >
+              <FileText className="h-4 w-4" />
+              <span>{language === 'vi' ? 'Tài liệu hệ thống' : 'Documentation'}</span>
             </button>
           </motion.div>
 

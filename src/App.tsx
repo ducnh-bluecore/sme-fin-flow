@@ -23,6 +23,7 @@ import NotFound from "./pages/NotFound";
 
 // Lazy loaded pages (chart-heavy and complex pages)
 const PortalPage = lazy(() => import("./pages/PortalPage"));
+const DocumentationPage = lazy(() => import("./pages/DocumentationPage"));
 const AROperations = lazy(() => import("./pages/AROperations"));
 const ChartOfAccountsPage = lazy(() => import("./pages/ChartOfAccountsPage"));
 const BillsPage = lazy(() => import("./pages/BillsPage"));
@@ -149,6 +150,11 @@ const AppRoutes = () => {
       <Route path="/portal" element={
         <ProtectedRoute>
           <PortalPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/documentation" element={
+        <ProtectedRoute>
+          <DocumentationPage />
         </ProtectedRoute>
       } />
 
