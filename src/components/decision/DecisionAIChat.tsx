@@ -32,14 +32,40 @@ export function DecisionAIChat({ card, isOpen, onClose }: DecisionAIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lastCardId, setLastCardId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasAutoAnalyzed = useRef(false);
 
+  // Reset when card changes or chat opens with new card
   useEffect(() => {
-    if (isOpen && card && messages.length === 0) {
-      // Auto-generate initial analysis when opening with a card
-      handleSend(`Phân tích nhanh Decision Card này: "${card.title}". Cho tôi biết nên quyết định thế nào?`);
+    if (isOpen && card) {
+      if (card.id !== lastCardId) {
+        // New card - reset everything
+        setMessages([]);
+        setLastCardId(card.id);
+        hasAutoAnalyzed.current = false;
+      }
+    } else if (isOpen && !card) {
+      // General chat without card
+      if (lastCardId !== null) {
+        setMessages([]);
+        setLastCardId(null);
+        hasAutoAnalyzed.current = false;
+      }
     }
-  }, [isOpen, card]);
+  }, [isOpen, card?.id, lastCardId]);
+
+  // Auto-analyze when ready
+  useEffect(() => {
+    if (isOpen && card && messages.length === 0 && !hasAutoAnalyzed.current && !isLoading) {
+      hasAutoAnalyzed.current = true;
+      // Small delay to ensure state is ready
+      const timer = setTimeout(() => {
+        handleSend(`Phân tích nhanh Decision Card này: "${card.title}". Cho tôi biết nên quyết định thế nào?`);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, card, messages.length, isLoading]);
 
   useEffect(() => {
     if (scrollRef.current) {
