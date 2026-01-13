@@ -186,16 +186,17 @@ export default function PortalPage() {
       name: 'Marketing Data Platform',
       shortName: 'MDP',
       description: language === 'vi'
-        ? 'Web App - Nền tảng dữ liệu marketing tích hợp đa kênh'
-        : 'Web App - Multi-channel marketing data platform',
+        ? 'Web App - Profit before Performance. Cash before Clicks.'
+        : 'Web App - Profit before Performance. Cash before Clicks.',
       detailDescription: language === 'vi'
-        ? 'Quản lý và phân tích dữ liệu marketing đa kênh bao gồm Google Ads, Facebook, TikTok, Email và các kênh khác. Đo lường ROI, tối ưu ngân sách và tự động hóa báo cáo hiệu suất chiến dịch.'
-        : 'Manage and analyze multi-channel marketing data including Google Ads, Facebook, TikTok, Email and other channels. Measure ROI, optimize budget and automate campaign performance reports.',
-      features: ['Marketing', 'Content', 'Product', 'Ads Platform'],
+        ? 'MDP đo lường GIÁ TRỊ TÀI CHÍNH thật của marketing. 2 Modes: Marketing Mode (Execution) cho team marketing vận hành hằng ngày. CMO Mode (Decision) cho quyết định lớn về margin, cash và risk.'
+        : 'MDP measures the REAL FINANCIAL VALUE of marketing. 2 Modes: Marketing Mode (Execution) for daily marketing team operations. CMO Mode (Decision) for major decisions on margin, cash and risk.',
+      features: ['Profit Attribution', 'Cash Impact', 'Risk Alerts', '2 Modes'],
       icon: Megaphone,
       accentColor: '#8B7EC8',
       glowColor: 'shadow-[0_0_20px_rgba(139,126,200,0.2)]',
-      status: 'coming-soon'
+      status: 'active',
+      path: '/mdp'
     },
     {
       id: 'operations',
