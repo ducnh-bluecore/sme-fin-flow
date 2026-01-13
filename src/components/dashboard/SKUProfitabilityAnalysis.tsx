@@ -36,6 +36,8 @@ import {
   BarChart3,
   RefreshCw,
   Eye,
+  Globe,
+  Calendar,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatVND, formatVNDCompact, formatDateTime } from '@/lib/formatters';
@@ -59,6 +62,7 @@ import {
   useRecalculateSKUProfitability,
   CachedSKUMetrics,
 } from '@/hooks/useSKUProfitabilityCache';
+import { useAllProblematicSKUs } from '@/hooks/useAllProblematicSKUs';
 import { SKUCostBreakdownDialog } from './SKUCostBreakdownDialog';
 
 interface ChannelSKUConflict {
@@ -216,12 +220,39 @@ function ConflictAlert({ conflict }: { conflict: ChannelSKUConflict }) {
 
 export default function SKUProfitabilityAnalysis() {
   const { data, isLoading, error } = useCachedSKUProfitability();
+  const { data: allProblematicSKUs, isLoading: loadingProblematic } = useAllProblematicSKUs();
   const recalculate = useRecalculateSKUProfitability();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChannel, setFilterChannel] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'profit' | 'margin' | 'revenue'>('profit');
   const [selectedSKU, setSelectedSKU] = useState<{ sku: string; productName: string | null } | null>(null);
+  const [showAllProblematic, setShowAllProblematic] = useState(false);
+
+  // Count problematic SKUs that are NOT in current date range
+  const problematicNotInRange = useMemo(() => {
+    if (!allProblematicSKUs || !data?.skuMetrics) return [];
+    const currentSKUs = new Set(data.skuMetrics.map(m => m.sku));
+    return allProblematicSKUs.filter(p => !currentSKUs.has(p.sku));
+  }, [allProblematicSKUs, data]);
+
+  // Convert problematic SKUs to AggregatedSKU format
+  const problematicAsAggregated = useMemo((): AggregatedSKU[] => {
+    if (!allProblematicSKUs) return [];
+    return allProblematicSKUs.map(p => ({
+      sku: p.sku,
+      product_name: p.product_name,
+      channels: [p.channel],
+      quantity: 0,
+      revenue: p.revenue,
+      cogs: p.cogs,
+      fees: p.fees,
+      profit: p.profit,
+      margin_percent: p.margin_percent,
+      aov: 0,
+      status: p.margin_percent >= 10 ? 'profitable' : p.margin_percent >= 0 ? 'marginal' : 'loss'
+    }));
+  }, [allProblematicSKUs]);
 
   // Aggregate SKUs across channels
   const aggregatedSKUs = useMemo((): AggregatedSKU[] => {
@@ -269,7 +300,10 @@ export default function SKUProfitabilityAnalysis() {
   }, [data]);
 
   const filteredSKUs = useMemo(() => {
-    return aggregatedSKUs
+    // Use all problematic SKUs when toggle is on, otherwise use date-filtered data
+    const sourceData = showAllProblematic ? problematicAsAggregated : aggregatedSKUs;
+    
+    return sourceData
       .filter(sku => {
         if (searchQuery && !(sku.product_name || '').toLowerCase().includes(searchQuery.toLowerCase()) &&
             !sku.sku.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -284,7 +318,7 @@ export default function SKUProfitabilityAnalysis() {
         if (sortBy === 'margin') return b.margin_percent - a.margin_percent;
         return b.revenue - a.revenue;
       });
-  }, [aggregatedSKUs, searchQuery, filterChannel, filterStatus, sortBy]);
+  }, [aggregatedSKUs, problematicAsAggregated, showAllProblematic, searchQuery, filterChannel, filterStatus, sortBy]);
 
   const channels = useMemo(() => {
     if (!data?.skuMetrics) return [];
@@ -439,6 +473,36 @@ export default function SKUProfitabilityAnalysis() {
         </Card>
       )}
 
+      {/* Alert when problematic SKUs exist outside current date range */}
+      {problematicNotInRange.length > 0 && !showAllProblematic && (
+        <Card className="bg-red-500/10 border-red-500/30">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  ⚠️ Có {problematicNotInRange.length} SKU lỗ/marginal KHÔNG hiển thị trong date range hiện tại
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Những SKU này đang được hiển thị trong "Quyết định hôm nay" (Dashboard) nhưng không nằm trong khoảng thời gian bạn đang chọn.
+                  Bật "Xem tất cả SKU lỗ" bên dưới để thống nhất.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {problematicNotInRange.slice(0, 5).map(p => (
+                    <Badge key={p.sku} variant="destructive" className="text-xs">
+                      {p.product_name || p.sku}: {p.margin_percent.toFixed(1)}%
+                    </Badge>
+                  ))}
+                  {problematicNotInRange.length > 5 && (
+                    <Badge variant="outline" className="text-xs">+{problematicNotInRange.length - 5} khác</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -527,11 +591,31 @@ export default function SKUProfitabilityAnalysis() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Toggle to show all problematic SKUs regardless of date */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-muted/50">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground hidden sm:inline">Tất cả SKU lỗ</span>
+                      <Switch 
+                        checked={showAllProblematic}
+                        onCheckedChange={setShowAllProblematic}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Hiển thị tất cả SKU có margin {'<'} 10% (bỏ qua date range)</p>
+                    <p className="text-xs text-muted-foreground">Thống nhất với "Quyết định hôm nay"</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => recalculate.mutate()}
-                disabled={recalculate.isPending}
+                disabled={recalculate.isPending || showAllProblematic}
               >
                 {recalculate.isPending ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
