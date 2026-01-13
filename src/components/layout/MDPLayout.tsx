@@ -19,7 +19,8 @@ import {
   PieChart,
   Zap,
   LineChart,
-  Gauge
+  Gauge,
+  Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,7 @@ const navItemsConfig: NavItemConfig[] = [
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [
+  { id: 'data-readiness', label: 'Kiểm tra dữ liệu', labelEn: 'Data Readiness', icon: Database, path: '/mdp/data-readiness' },
   { id: 'data-sources', label: 'Nguồn dữ liệu', labelEn: 'Data Sources', icon: Layers, path: '/mdp/data-sources' },
   { id: 'docs', label: 'Hướng dẫn', labelEn: 'Documentation', icon: BookOpen, path: '/mdp/docs' },
   { id: 'settings', label: 'Cài đặt', labelEn: 'Settings', icon: Settings, path: '/mdp/settings' },
