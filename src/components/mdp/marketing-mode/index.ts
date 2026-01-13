@@ -1,5 +1,7 @@
 export * from './PerformanceOverview';
 export * from './CampaignPerformanceTable';
+export * from './CampaignDetailDialog';
+export * from './PlatformDetailDialog';
 export * from './FunnelChart';
 export * from './ExecutionAlertsPanel';
 export * from './PlatformAdsOverview';
