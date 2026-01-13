@@ -18,9 +18,7 @@ import {
   RefreshCw,
   ExternalLink,
   List,
-  CheckSquare,
-  Zap,
-  Sparkles
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,8 +30,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AffectedProductsDialog } from '@/components/alerts/AffectedProductsDialog';
 import { AlertDetailsDialog } from '@/components/alerts/AlertDetailsDialog';
-import { CreateTaskFromAlertDialog } from '@/components/alerts/CreateTaskFromAlertDialog';
-import { AlertAIRecommendationDialog } from '@/components/alerts/AlertAIRecommendationDialog';
 import { AssignOwnerDropdown } from '@/components/alerts/AssignOwnerDropdown';
 
 const typeConfig = {
@@ -79,13 +75,11 @@ const categoryIcons: Record<string, React.ElementType> = {
   other: Bell,
 };
 
-function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTask, onAIRecommend, onAssign, isAssigning }: { 
+function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, isAssigning }: { 
   alert: AlertInstance; 
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onViewDetails?: (alert: AlertInstance) => void;
-  onCreateTask?: (alert: AlertInstance) => void;
-  onAIRecommend?: (alert: AlertInstance) => void;
   onAssign?: (alertId: string, ownerId: string | null) => void;
   isAssigning?: boolean;
 }) {
@@ -297,61 +291,10 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions - Simplified per Control Tower Manifesto */}
           {alert.status === 'active' && (
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {isSummaryAlert && onViewDetails ? (
-                <>
-                  <Button 
-                    size="sm" 
-                    className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
-                    onClick={() => onViewDetails(alert)}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Xem {affectedCount} {objectTypeLabel}
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
-                    onClick={() => onResolve(alert.id)}
-                  >
-                    <Zap className="h-3 w-3 mr-1" />
-                    Xử lý ngay
-                  </Button>
-                </>
-              ) : (
-                <Button 
-                  size="sm" 
-                  className="h-7 bg-amber-500 hover:bg-amber-600 text-white text-xs"
-                  onClick={() => onResolve(alert.id)}
-                >
-                  <Zap className="h-3 w-3 mr-1" />
-                  Xử lý ngay
-                </Button>
-              )}
-              {onCreateTask && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 text-xs"
-                  onClick={() => onCreateTask(alert)}
-                >
-                  <CheckSquare className="h-3 w-3 mr-1" />
-                  Tạo task
-                </Button>
-              )}
-              {onAIRecommend && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 border-purple-500/50 text-purple-400 hover:bg-purple-500/10 text-xs"
-                  onClick={() => onAIRecommend(alert)}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Đề xuất AI
-                </Button>
-              )}
-              {/* Owner Assignment - Control Tower Manifesto #5 */}
+              {/* Primary: Owner Assignment (Manifesto #5) */}
               {onAssign && (
                 <AssignOwnerDropdown
                   alertId={alert.id}
@@ -360,52 +303,47 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                   isLoading={isAssigning}
                 />
               )}
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-7 border-slate-700 text-slate-300 text-xs"
-                onClick={() => onAcknowledge(alert.id)}
-              >
-                Đánh dấu đã nhận
-              </Button>
+              
+              {/* Secondary: Quick actions */}
+              {(alert as any).assigned_to ? (
+                // If owner assigned, show resolve button prominently
+                <Button 
+                  size="sm" 
+                  className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
+                  onClick={() => onResolve(alert.id)}
+                >
+                  <Zap className="h-3 w-3 mr-1" />
+                  Xử lý xong
+                </Button>
+              ) : (
+                // No owner yet - gentle nudge to assign first
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 border-slate-700 text-slate-400 text-xs"
+                  onClick={() => onAcknowledge(alert.id)}
+                >
+                  Tạm bỏ qua
+                </Button>
+              )}
+              
+              {/* View details for summary alerts */}
+              {isSummaryAlert && onViewDetails && (
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-7 text-slate-400 hover:text-slate-300 text-xs"
+                  onClick={() => onViewDetails(alert)}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Chi tiết
+                </Button>
+              )}
             </div>
           )}
           {alert.status === 'acknowledged' && (
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {isSummaryAlert && onViewDetails ? (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 border-slate-700 text-slate-300 text-xs"
-                  onClick={() => onViewDetails(alert)}
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  Xem danh sách
-                </Button>
-              ) : null}
-              {onCreateTask && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 border-blue-500/50 text-blue-400 hover:bg-blue-500/10 text-xs"
-                  onClick={() => onCreateTask(alert)}
-                >
-                  <CheckSquare className="h-3 w-3 mr-1" />
-                  Tạo task
-                </Button>
-              )}
-              {onAIRecommend && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 border-purple-500/50 text-purple-400 hover:bg-purple-500/10 text-xs"
-                  onClick={() => onAIRecommend(alert)}
-                >
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Đề xuất AI
-                </Button>
-              )}
-              {/* Owner Assignment for acknowledged alerts too */}
+              {/* Owner still needed for acknowledged alerts */}
               {onAssign && (
                 <AssignOwnerDropdown
                   alertId={alert.id}
@@ -414,13 +352,27 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onCreateTas
                   isLoading={isAssigning}
                 />
               )}
+              
               <Button 
                 size="sm" 
                 className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
                 onClick={() => onResolve(alert.id)}
               >
-                Đánh dấu đã xử lý
+                <Zap className="h-3 w-3 mr-1" />
+                Xử lý xong
               </Button>
+              
+              {isSummaryAlert && onViewDetails && (
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-7 text-slate-400 hover:text-slate-300 text-xs"
+                  onClick={() => onViewDetails(alert)}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Chi tiết
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -433,10 +385,6 @@ export default function AlertsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
   const [showProductsDialog, setShowProductsDialog] = useState(false);
-  const [showTaskDialog, setShowTaskDialog] = useState(false);
-  const [taskAlert, setTaskAlert] = useState<AlertInstance | null>(null);
-  const [showAIDialog, setShowAIDialog] = useState(false);
-  const [aiAlert, setAIAlert] = useState<AlertInstance | null>(null);
   
   const { 
     instances, 
@@ -461,15 +409,6 @@ export default function AlertsPage() {
     setShowProductsDialog(true);
   };
 
-  const handleCreateTask = (alert: AlertInstance) => {
-    setTaskAlert(alert);
-    setShowTaskDialog(true);
-  };
-
-  const handleAIRecommend = (alert: AlertInstance) => {
-    setAIAlert(alert);
-    setShowAIDialog(true);
-  };
 
   // Control Tower Manifesto #5: Owner assignment
   const handleAssign = (alertId: string, ownerId: string | null) => {
@@ -641,8 +580,6 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
-                  onCreateTask={handleCreateTask}
-                  onAIRecommend={handleAIRecommend}
                   onAssign={handleAssign}
                   isAssigning={assignAlert.isPending}
                 />
@@ -664,8 +601,6 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
-                  onCreateTask={handleCreateTask}
-                  onAIRecommend={handleAIRecommend}
                   onAssign={handleAssign}
                   isAssigning={assignAlert.isPending}
                 />
@@ -687,8 +622,6 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
-                  onCreateTask={handleCreateTask}
-                  onAIRecommend={handleAIRecommend}
                   onAssign={handleAssign}
                   isAssigning={assignAlert.isPending}
                 />
@@ -710,8 +643,6 @@ export default function AlertsPage() {
                   onAcknowledge={handleAcknowledge}
                   onResolve={handleResolve}
                   onViewDetails={handleViewDetails}
-                  onCreateTask={handleCreateTask}
-                  onAIRecommend={handleAIRecommend}
                   onAssign={handleAssign}
                   isAssigning={assignAlert.isPending}
                 />
@@ -728,19 +659,6 @@ export default function AlertsPage() {
         alert={selectedAlert}
       />
 
-      {/* Create Task Dialog */}
-      <CreateTaskFromAlertDialog
-        open={showTaskDialog}
-        onOpenChange={setShowTaskDialog}
-        alert={taskAlert}
-      />
-
-      {/* AI Recommendation Dialog */}
-      <AlertAIRecommendationDialog
-        open={showAIDialog}
-        onOpenChange={setShowAIDialog}
-        alert={aiAlert}
-      />
     </>
   );
 }
