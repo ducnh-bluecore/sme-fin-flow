@@ -293,13 +293,13 @@ export function SKUCostBreakdownDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] bg-slate-900 border-slate-700">
+      <DialogContent className="max-w-5xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="text-slate-100 flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
             Chi tiết phân bổ chi phí
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription>
             {productName || sku} • SKU: {sku}
           </DialogDescription>
         </DialogHeader>
@@ -330,80 +330,80 @@ export function SKUCostBreakdownDialog({
             <TabsContent value="overview" className="space-y-4">
               {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div className="p-3 rounded-lg bg-muted/50 border">
                   <div className="flex items-center gap-2 mb-1">
                     <ShoppingCart className="h-4 w-4 text-primary" />
-                    <span className="text-xs text-slate-400">Số đơn</span>
+                    <span className="text-xs text-muted-foreground">Số đơn</span>
                   </div>
-                  <p className="text-lg font-bold text-slate-100">{data.summary.totalOrders}</p>
-                  <p className="text-xs text-slate-500">{data.summary.totalQuantity} sản phẩm</p>
+                  <p className="text-lg font-bold">{data.summary.totalOrders}</p>
+                  <p className="text-xs text-muted-foreground">{data.summary.totalQuantity} sản phẩm</p>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div className="p-3 rounded-lg bg-muted/50 border">
                   <div className="flex items-center gap-2 mb-1">
-                    <Receipt className="h-4 w-4 text-blue-400" />
-                    <span className="text-xs text-slate-400">Doanh thu</span>
+                    <Receipt className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs text-muted-foreground">Doanh thu</span>
                   </div>
-                  <p className="text-lg font-bold text-slate-100">{formatVNDCompact(data.summary.totalRevenue)}</p>
+                  <p className="text-lg font-bold">{formatVNDCompact(data.summary.totalRevenue)}</p>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div className="p-3 rounded-lg bg-muted/50 border">
                   <div className="flex items-center gap-2 mb-1">
-                    <Package className="h-4 w-4 text-amber-400" />
-                    <span className="text-xs text-slate-400">Giá vốn (COGS)</span>
+                    <Package className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs text-muted-foreground">Giá vốn (COGS)</span>
                   </div>
-                  <p className="text-lg font-bold text-amber-400">{formatVNDCompact(data.summary.totalCogs)}</p>
+                  <p className="text-lg font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
                 </div>
 
-                <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div className="p-3 rounded-lg bg-muted/50 border">
                   <div className="flex items-center gap-2 mb-1">
                     {data.summary.totalProfit >= 0 ? (
-                      <TrendingUp className="h-4 w-4 text-emerald-400" />
+                      <TrendingUp className="h-4 w-4 text-emerald-500" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-400" />
+                      <TrendingDown className="h-4 w-4 text-red-500" />
                     )}
-                    <span className="text-xs text-slate-400">Lợi nhuận ròng</span>
+                    <span className="text-xs text-muted-foreground">Lợi nhuận ròng</span>
                   </div>
-                  <p className={`text-lg font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <p className={`text-lg font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                     {formatVNDCompact(data.summary.totalProfit)}
                   </p>
-                  <p className="text-xs text-slate-500">Margin: {data.summary.avgMargin.toFixed(1)}%</p>
+                  <p className="text-xs text-muted-foreground">Margin: {data.summary.avgMargin.toFixed(1)}%</p>
                 </div>
               </div>
 
               {/* Fee Breakdown */}
-              <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
-                <h4 className="text-sm font-medium text-slate-200 mb-3 flex items-center gap-2">
+              <div className="p-4 rounded-lg bg-muted/30 border">
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                   <Percent className="h-4 w-4 text-primary" />
                   Phân bổ phí sàn (tổng: {formatVNDCompact(data.summary.totalFees)})
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="flex items-center gap-2">
-                    <Store className="h-4 w-4 text-purple-400" />
+                    <Store className="h-4 w-4 text-purple-500" />
                     <div>
-                      <p className="text-xs text-slate-400">Platform Fee</p>
-                      <p className="text-sm font-medium text-slate-200">{formatVNDCompact(data.summary.feeBreakdown.platform)}</p>
+                      <p className="text-xs text-muted-foreground">Platform Fee</p>
+                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.platform)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Percent className="h-4 w-4 text-orange-400" />
+                    <Percent className="h-4 w-4 text-orange-500" />
                     <div>
-                      <p className="text-xs text-slate-400">Commission</p>
-                      <p className="text-sm font-medium text-slate-200">{formatVNDCompact(data.summary.feeBreakdown.commission)}</p>
+                      <p className="text-xs text-muted-foreground">Commission</p>
+                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.commission)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-400" />
+                    <CreditCard className="h-4 w-4 text-blue-500" />
                     <div>
-                      <p className="text-xs text-slate-400">Payment Fee</p>
-                      <p className="text-sm font-medium text-slate-200">{formatVNDCompact(data.summary.feeBreakdown.payment)}</p>
+                      <p className="text-xs text-muted-foreground">Payment Fee</p>
+                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.payment)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-green-400" />
+                    <Truck className="h-4 w-4 text-green-500" />
                     <div>
-                      <p className="text-xs text-slate-400">Shipping Fee</p>
-                      <p className="text-sm font-medium text-slate-200">{formatVNDCompact(data.summary.feeBreakdown.shipping)}</p>
+                      <p className="text-xs text-muted-foreground">Shipping Fee</p>
+                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.shipping)}</p>
                     </div>
                   </div>
                 </div>
@@ -411,11 +411,11 @@ export function SKUCostBreakdownDialog({
 
               {/* Formula Explanation */}
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <h4 className="text-sm font-medium text-slate-200 mb-2">Công thức tính</h4>
-                <div className="text-xs text-slate-400 space-y-1">
-                  <p><strong className="text-slate-300">Phí phân bổ</strong> = Tổng phí đơn × (Doanh thu item / Doanh thu đơn)</p>
-                  <p><strong className="text-slate-300">Lợi nhuận ròng</strong> = Doanh thu - COGS - Phí phân bổ</p>
-                  <p><strong className="text-slate-300">Margin</strong> = (Lợi nhuận ròng / Doanh thu) × 100%</p>
+                <h4 className="text-sm font-medium mb-2">Công thức tính</h4>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong className="text-foreground">Phí phân bổ</strong> = Tổng phí đơn × (Doanh thu item / Doanh thu đơn)</p>
+                  <p><strong className="text-foreground">Lợi nhuận ròng</strong> = Doanh thu - COGS - Phí phân bổ</p>
+                  <p><strong className="text-foreground">Margin</strong> = (Lợi nhuận ròng / Doanh thu) × 100%</p>
                 </div>
               </div>
             </TabsContent>
@@ -425,15 +425,15 @@ export function SKUCostBreakdownDialog({
               {/* Channel cards with fee breakdown */}
               <div className="space-y-4">
                 {data.channelSummaries.map((ch, idx) => (
-                  <div key={idx} className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+                  <div key={idx} className="p-4 rounded-lg bg-muted/30 border">
                     <div className="flex items-center justify-between mb-3">
-                      <Badge variant="outline" className="text-sm border-slate-600 text-slate-200 px-3 py-1">
+                      <Badge variant="outline" className="text-sm px-3 py-1">
                         {ch.channel}
                       </Badge>
                       <div className="flex items-center gap-4 text-sm">
-                        <span className="text-slate-400">{ch.orderCount} đơn</span>
-                        <span className="text-slate-400">{ch.quantity} SP</span>
-                        <span className={`font-medium ${ch.margin >= 10 ? 'text-emerald-400' : ch.margin >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                        <span className="text-muted-foreground">{ch.orderCount} đơn</span>
+                        <span className="text-muted-foreground">{ch.quantity} SP</span>
+                        <span className={`font-medium ${ch.margin >= 10 ? 'text-emerald-600' : ch.margin >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
                           Margin: {ch.margin.toFixed(1)}%
                         </span>
                       </div>
@@ -441,59 +441,59 @@ export function SKUCostBreakdownDialog({
 
                     {/* Main metrics */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                      <div className="p-2 rounded bg-slate-800/50">
-                        <p className="text-xs text-slate-500">Doanh thu</p>
-                        <p className="text-sm font-medium text-slate-100">{formatVNDCompact(ch.revenue)}</p>
+                      <div className="p-2 rounded bg-background border">
+                        <p className="text-xs text-muted-foreground">Doanh thu</p>
+                        <p className="text-sm font-medium">{formatVNDCompact(ch.revenue)}</p>
                       </div>
-                      <div className="p-2 rounded bg-slate-800/50">
-                        <p className="text-xs text-slate-500">COGS</p>
-                        <p className="text-sm font-medium text-amber-400">{formatVNDCompact(ch.cogs)}</p>
+                      <div className="p-2 rounded bg-background border">
+                        <p className="text-xs text-muted-foreground">COGS</p>
+                        <p className="text-sm font-medium text-amber-600">{formatVNDCompact(ch.cogs)}</p>
                       </div>
-                      <div className="p-2 rounded bg-slate-800/50">
-                        <p className="text-xs text-slate-500">Tổng phí sàn</p>
-                        <p className="text-sm font-medium text-orange-400">{formatVNDCompact(ch.fees)}</p>
+                      <div className="p-2 rounded bg-background border">
+                        <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
+                        <p className="text-sm font-medium text-orange-600">{formatVNDCompact(ch.fees)}</p>
                       </div>
-                      <div className="p-2 rounded bg-slate-800/50">
-                        <p className="text-xs text-slate-500">Lợi nhuận ròng</p>
-                        <p className={`text-sm font-medium ${ch.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <div className="p-2 rounded bg-background border">
+                        <p className="text-xs text-muted-foreground">Lợi nhuận ròng</p>
+                        <p className={`text-sm font-medium ${ch.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                           {formatVNDCompact(ch.profit)}
                         </p>
                       </div>
                     </div>
 
                     {/* Fee breakdown */}
-                    <div className="pt-3 border-t border-slate-700/50">
-                      <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                    <div className="pt-3 border-t">
+                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
                         <Percent className="h-3 w-3" />
                         Chi tiết phí sàn phân bổ
                       </p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="flex items-center gap-2">
-                          <Store className="h-3.5 w-3.5 text-purple-400" />
+                          <Store className="h-3.5 w-3.5 text-purple-500" />
                           <div>
-                            <p className="text-[10px] text-slate-500">Platform</p>
-                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.platform)}</p>
+                            <p className="text-[10px] text-muted-foreground">Platform</p>
+                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.platform)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Percent className="h-3.5 w-3.5 text-orange-400" />
+                          <Percent className="h-3.5 w-3.5 text-orange-500" />
                           <div>
-                            <p className="text-[10px] text-slate-500">Commission</p>
-                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.commission)}</p>
+                            <p className="text-[10px] text-muted-foreground">Commission</p>
+                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.commission)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <CreditCard className="h-3.5 w-3.5 text-blue-400" />
+                          <CreditCard className="h-3.5 w-3.5 text-blue-500" />
                           <div>
-                            <p className="text-[10px] text-slate-500">Payment</p>
-                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.payment)}</p>
+                            <p className="text-[10px] text-muted-foreground">Payment</p>
+                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.payment)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Truck className="h-3.5 w-3.5 text-green-400" />
+                          <Truck className="h-3.5 w-3.5 text-green-500" />
                           <div>
-                            <p className="text-[10px] text-slate-500">Shipping</p>
-                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.shipping)}</p>
+                            <p className="text-[10px] text-muted-foreground">Shipping</p>
+                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.shipping)}</p>
                           </div>
                         </div>
                       </div>
@@ -504,23 +504,23 @@ export function SKUCostBreakdownDialog({
 
               {/* Total Summary */}
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <h4 className="text-sm font-medium text-slate-200 mb-3">Tổng cộng tất cả kênh</h4>
+                <h4 className="text-sm font-medium mb-3">Tổng cộng tất cả kênh</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <p className="text-xs text-slate-500">Tổng doanh thu</p>
-                    <p className="text-sm font-bold text-slate-100">{formatVNDCompact(data.summary.totalRevenue)}</p>
+                    <p className="text-xs text-muted-foreground">Tổng doanh thu</p>
+                    <p className="text-sm font-bold">{formatVNDCompact(data.summary.totalRevenue)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Tổng COGS</p>
-                    <p className="text-sm font-bold text-amber-400">{formatVNDCompact(data.summary.totalCogs)}</p>
+                    <p className="text-xs text-muted-foreground">Tổng COGS</p>
+                    <p className="text-sm font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Tổng phí sàn</p>
-                    <p className="text-sm font-bold text-orange-400">{formatVNDCompact(data.summary.totalFees)}</p>
+                    <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
+                    <p className="text-sm font-bold text-orange-600">{formatVNDCompact(data.summary.totalFees)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Tổng lợi nhuận</p>
-                    <p className={`text-sm font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <p className="text-xs text-muted-foreground">Tổng lợi nhuận</p>
+                    <p className={`text-sm font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {formatVNDCompact(data.summary.totalProfit)}
                     </p>
                   </div>
@@ -530,44 +530,44 @@ export function SKUCostBreakdownDialog({
 
             {/* Orders Tab */}
             <TabsContent value="orders" className="space-y-4">
-              <div className="rounded-lg border border-slate-700 overflow-hidden">
+              <div className="rounded-lg border overflow-hidden">
                 <ScrollArea className="h-[400px]">
                   <Table>
-                    <TableHeader className="bg-slate-800/50 sticky top-0">
-                      <TableRow className="border-slate-700">
-                        <TableHead className="text-slate-300">Đơn hàng</TableHead>
-                        <TableHead className="text-slate-300">Kênh</TableHead>
-                        <TableHead className="text-slate-300">Ngày</TableHead>
-                        <TableHead className="text-slate-300 text-right">SL</TableHead>
-                        <TableHead className="text-slate-300 text-right">Doanh thu</TableHead>
-                        <TableHead className="text-slate-300 text-right">COGS</TableHead>
-                        <TableHead className="text-slate-300 text-right">% DT đơn</TableHead>
-                        <TableHead className="text-slate-300 text-right">Phí phân bổ</TableHead>
-                        <TableHead className="text-slate-300 text-right">Lợi nhuận</TableHead>
-                        <TableHead className="text-slate-300 text-right">Margin</TableHead>
+                    <TableHeader className="bg-muted/50 sticky top-0">
+                      <TableRow>
+                        <TableHead>Đơn hàng</TableHead>
+                        <TableHead>Kênh</TableHead>
+                        <TableHead>Ngày</TableHead>
+                        <TableHead className="text-right">SL</TableHead>
+                        <TableHead className="text-right">Doanh thu</TableHead>
+                        <TableHead className="text-right">COGS</TableHead>
+                        <TableHead className="text-right">% DT đơn</TableHead>
+                        <TableHead className="text-right">Phí phân bổ</TableHead>
+                        <TableHead className="text-right">Lợi nhuận</TableHead>
+                        <TableHead className="text-right">Margin</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {data.breakdowns.map((row, idx) => (
-                        <TableRow key={idx} className="border-slate-700 hover:bg-slate-800/30">
-                          <TableCell className="text-slate-200 font-medium">{row.order_number}</TableCell>
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{row.order_number}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-xs border-slate-600 text-slate-300">
+                            <Badge variant="outline" className="text-xs">
                               {row.channel}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-slate-400 text-sm">
+                          <TableCell className="text-muted-foreground text-sm">
                             {format(new Date(row.order_date), 'dd/MM/yyyy')}
                           </TableCell>
-                          <TableCell className="text-slate-200 text-right">{row.quantity}</TableCell>
-                          <TableCell className="text-slate-200 text-right">{formatVNDCompact(row.item_revenue)}</TableCell>
-                          <TableCell className="text-amber-400 text-right">{formatVNDCompact(row.total_cogs)}</TableCell>
-                          <TableCell className="text-slate-400 text-right">{row.revenue_share.toFixed(1)}%</TableCell>
-                          <TableCell className="text-orange-400 text-right">{formatVNDCompact(row.allocated_fees)}</TableCell>
-                          <TableCell className={`text-right font-medium ${row.net_profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <TableCell className="text-right">{row.quantity}</TableCell>
+                          <TableCell className="text-right">{formatVNDCompact(row.item_revenue)}</TableCell>
+                          <TableCell className="text-amber-600 text-right">{formatVNDCompact(row.total_cogs)}</TableCell>
+                          <TableCell className="text-muted-foreground text-right">{row.revenue_share.toFixed(1)}%</TableCell>
+                          <TableCell className="text-orange-600 text-right">{formatVNDCompact(row.allocated_fees)}</TableCell>
+                          <TableCell className={`text-right font-medium ${row.net_profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             {formatVNDCompact(row.net_profit)}
                           </TableCell>
-                          <TableCell className={`text-right ${row.margin_percent >= 10 ? 'text-emerald-400' : row.margin_percent >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                          <TableCell className={`text-right ${row.margin_percent >= 10 ? 'text-emerald-600' : row.margin_percent >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
                             {row.margin_percent.toFixed(1)}%
                           </TableCell>
                         </TableRow>
@@ -579,7 +579,7 @@ export function SKUCostBreakdownDialog({
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="py-12 text-center text-slate-500">
+          <div className="py-12 text-center text-muted-foreground">
             Không tìm thấy dữ liệu cho SKU này trong khoảng thời gian đã chọn
           </div>
         )}
