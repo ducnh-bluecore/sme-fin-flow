@@ -257,14 +257,37 @@ export default function TasksPage() {
     queryKey: ['tasks', activeTenant?.id],
     queryFn: async () => {
       if (!activeTenant?.id) return [];
-      const { data, error } = await supabase
+      const { data: tasksData, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('tenant_id', activeTenant.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as Task[];
+      if (!tasksData || tasksData.length === 0) return [];
+      
+      // Get unique assignee IDs
+      const assigneeIds = [...new Set(tasksData.map(t => t.assignee_id).filter(Boolean))];
+      
+      // Fetch profiles for assignees
+      let profilesMap: Record<string, string> = {};
+      if (assigneeIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', assigneeIds);
+        
+        profilesMap = (profiles || []).reduce((acc, p) => {
+          acc[p.id] = p.full_name || 'Chưa đặt tên';
+          return acc;
+        }, {} as Record<string, string>);
+      }
+      
+      // Map assignee names
+      return tasksData.map(task => ({
+        ...task,
+        assignee_name: task.assignee_id ? profilesMap[task.assignee_id] || null : null,
+      })) as Task[];
     },
     enabled: !!activeTenant?.id,
   });
