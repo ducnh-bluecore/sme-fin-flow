@@ -152,7 +152,14 @@ function useSKUProfitability() {
         // Compute item-level revenue so we can allocate order-level fees / COGS fairly.
         const itemRows = orderItems.map((item: any) => {
           const qty = Number(item.quantity ?? 1);
-          const itemRevenue = Number(item.total_amount ?? ((item.unit_price ?? 0) * qty));
+          const totalAmount = item.total_amount != null ? Number(item.total_amount) : null;
+          const unitPrice = item.unit_price != null ? Number(item.unit_price) : 0;
+
+          // Some connectors store item.total_amount as 0 (not null). Treat 0 as "missing" and fallback to unit_price * qty.
+          const itemRevenue = totalAmount != null && totalAmount > 0
+            ? totalAmount
+            : (unitPrice * qty);
+
           return { item, qty, itemRevenue };
         });
 
