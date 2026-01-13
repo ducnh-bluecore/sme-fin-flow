@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { format, startOfMonth, subMonths } from 'date-fns';
-import { useFinancialMetrics } from './useFinancialMetrics';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 
 /**
  * Cash Conversion Cycle Hook - Refactored
@@ -62,8 +62,8 @@ export function useCashConversionCycle() {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   
-  // Use centralized financial metrics
-  const { data: metrics, isLoading: metricsLoading } = useFinancialMetrics();
+  // Use centralized financial metrics (single source of truth)
+  const { data: metrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
   return useQuery({
     queryKey: ['cash-conversion-cycle', tenantId, startDateStr, endDateStr],
@@ -135,7 +135,7 @@ export function useCashConversionCycle() {
       }
 
       // Working capital impact
-      const workingCapitalTied = metrics.avgAR + metrics.avgInventory - metrics.avgAP;
+      const workingCapitalTied = (metrics.totalAR || 0) + (metrics.inventory || 0) - (metrics.totalAP || 0);
       const currentDailyWorkingCapital = metrics.dailySales * metrics.ccc;
       const benchmarkDailyWorkingCapital = metrics.dailySales * metrics.industryBenchmark.ccc;
       const potentialSavings = Math.max(0, currentDailyWorkingCapital - benchmarkDailyWorkingCapital);
@@ -145,20 +145,25 @@ export function useCashConversionCycle() {
         dio: metrics.dio,
         dpo: metrics.dpo,
         ccc: metrics.ccc,
-        avgAR: metrics.avgAR,
-        avgInventory: metrics.avgInventory,
-        avgAP: metrics.avgAP,
+        avgAR: metrics.totalAR,
+        avgInventory: metrics.inventory,
+        avgAP: metrics.totalAP,
         dailySales: metrics.dailySales,
         dailyCogs: metrics.dailyCogs,
         dailyPurchases: metrics.dailyPurchases,
         trends,
-        industryBenchmark: metrics.industryBenchmark,
+        industryBenchmark: {
+          dso: metrics.industryBenchmark.dso,
+          dio: metrics.industryBenchmark.dio,
+          dpo: metrics.industryBenchmark.dpo,
+          ccc: metrics.industryBenchmark.ccc,
+        },
         workingCapitalTied,
         potentialSavings,
         rawData: {
-          totalSales: metrics.totalSales,
-          totalCogs: metrics.totalCogs,
-          totalPurchases: metrics.totalPurchases,
+          totalSales: metrics.netRevenue,
+          totalCogs: metrics.cogs,
+          totalPurchases: metrics.dailyPurchases * metrics.daysInPeriod,
           daysInPeriod: metrics.daysInPeriod
         }
       };
