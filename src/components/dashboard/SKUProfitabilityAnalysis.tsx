@@ -22,7 +22,8 @@ import {
   ChevronRight,
   Sparkles,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  Eye
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatVND, formatVNDCompact, formatDateTime } from '@/lib/formatters';
 import { useCachedSKUProfitability, useRecalculateSKUProfitability, CachedSKUMetrics } from '@/hooks/useSKUProfitabilityCache';
+import { SKUCostBreakdownDialog } from './SKUCostBreakdownDialog';
 
 interface ChannelSKUConflict {
   type: 'sku_profit_channel_loss' | 'channel_profit_sku_loss';
@@ -52,7 +54,7 @@ interface ChannelSKUConflict {
   suggestion: string;
 }
 
-function SKUCard({ sku }: { sku: CachedSKUMetrics }) {
+function SKUCard({ sku, onViewDetails }: { sku: CachedSKUMetrics; onViewDetails: () => void }) {
   const statusConfig = {
     profitable: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: TrendingUp },
     marginal: { color: 'text-amber-400', bg: 'bg-amber-500/10', icon: Target },
@@ -66,16 +68,20 @@ function SKUCard({ sku }: { sku: CachedSKUMetrics }) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`p-3 rounded-lg border ${config.bg} border-slate-700/50`}
+      className={`p-3 rounded-lg border ${config.bg} border-slate-700/50 cursor-pointer hover:border-primary/50 transition-colors group`}
+      onClick={onViewDetails}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-slate-200 truncate">{sku.product_name || sku.sku}</p>
           <p className="text-xs text-slate-500">{sku.sku}</p>
         </div>
-        <Badge className={`${config.bg} ${config.color} text-xs`}>
-          {sku.channel}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={`${config.bg} ${config.color} text-xs`}>
+            {sku.channel}
+          </Badge>
+          <Eye className="h-4 w-4 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
       </div>
       
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -168,6 +174,7 @@ export default function SKUProfitabilityAnalysis() {
   const [filterChannel, setFilterChannel] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'profit' | 'margin' | 'revenue'>('profit');
+  const [selectedSKU, setSelectedSKU] = useState<{ sku: string; productName: string | null } | null>(null);
 
   const filteredSKUs = useMemo(() => {
     if (!data?.skuMetrics) return [];
@@ -481,7 +488,11 @@ export default function SKUProfitabilityAnalysis() {
           <ScrollArea className="h-[500px]">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredSKUs.map((sku, i) => (
-                <SKUCard key={`${sku.sku}-${sku.channel}-${i}`} sku={sku} />
+                <SKUCard 
+                  key={`${sku.sku}-${sku.channel}-${i}`} 
+                  sku={sku} 
+                  onViewDetails={() => setSelectedSKU({ sku: sku.sku, productName: sku.product_name })}
+                />
               ))}
             </div>
             
@@ -493,6 +504,14 @@ export default function SKUProfitabilityAnalysis() {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Cost Breakdown Dialog */}
+      <SKUCostBreakdownDialog
+        open={!!selectedSKU}
+        onOpenChange={(open) => !open && setSelectedSKU(null)}
+        sku={selectedSKU?.sku || ''}
+        productName={selectedSKU?.productName || null}
+      />
     </div>
   );
 }
