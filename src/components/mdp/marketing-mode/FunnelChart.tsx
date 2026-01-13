@@ -34,7 +34,7 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
   
   if (!hasData) {
     return (
-      <Card className="border-blue-500/20 bg-card/50 backdrop-blur">
+      <Card className="border-border bg-card shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
   }
 
   return (
-    <Card className="border-blue-500/20 bg-card/50 backdrop-blur">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
