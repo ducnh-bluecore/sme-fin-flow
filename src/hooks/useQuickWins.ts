@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useInvoices } from './useInvoiceData';
 import { useDashboardKPICache } from './useDashboardCache';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 
 export interface QuickWin {
   id: string;
@@ -23,6 +24,8 @@ export function useQuickWins() {
   const { data: invoices, isLoading: invoicesLoading } = useInvoices();
   const { data: kpiData, isLoading: kpiLoading } = useDashboardKPICache();
   const { cacheData: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
+  // Use central metrics for DSO (Single Source of Truth)
+  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
   const quickWins = useMemo(() => {
     const wins: QuickWin[] = [];
@@ -121,25 +124,27 @@ export function useQuickWins() {
       }
     }
 
-    // 4. DSO Improvement
-    if (kpiData && kpiData.dso > 45) {
+    // 4. DSO Improvement - use central metrics (Single Source of Truth)
+    const dso = centralMetrics?.dso ?? kpiData?.dso ?? 0;
+    const totalAR = centralMetrics?.totalAR ?? kpiData?.totalAR ?? 0;
+    if (dso > 45) {
       // Each day of DSO reduction = revenue / 365 * days
-      const dailyRevenue = (kpiData.totalAR || 0) / (kpiData.dso || 45);
-      const targetDSOReduction = Math.min(10, kpiData.dso - 45);
+      const dailyRevenue = totalAR / dso || 0;
+      const targetDSOReduction = Math.min(10, dso - 45);
       const cashFlowImprovement = dailyRevenue * targetDSOReduction;
 
       if (cashFlowImprovement > 0) {
         wins.push({
           id: 'dso-improvement',
           title: 'Cải thiện DSO xuống 45 ngày',
-          description: `Hiện tại: ${kpiData.dso} ngày - Mục tiêu: 45 ngày`,
+          description: `Hiện tại: ${dso} ngày - Mục tiêu: 45 ngày`,
           savings: cashFlowImprovement,
           effort: 'medium',
           status: 'pending',
           category: 'ar',
           actionable: true,
           details: {
-            avgDays: kpiData.dso,
+            avgDays: dso,
           }
         });
       }
@@ -182,7 +187,7 @@ export function useQuickWins() {
     return wins
       .filter(w => w.savings > 0 || w.category === 'revenue')
       .sort((a, b) => b.savings - a.savings);
-  }, [invoices, kpiData, channelData]);
+  }, [invoices, kpiData, channelData, centralMetrics]);
 
   const totalPotentialSavings = useMemo(() => {
     return quickWins.reduce((sum, w) => sum + w.savings, 0);
@@ -191,6 +196,6 @@ export function useQuickWins() {
   return {
     quickWins,
     totalPotentialSavings,
-    isLoading: invoicesLoading || kpiLoading || channelLoading,
+    isLoading: invoicesLoading || kpiLoading || channelLoading || metricsLoading,
   };
 }
