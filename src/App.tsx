@@ -86,6 +86,7 @@ const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
 const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
+const MDPDashboardPage = lazy(() => import("./pages/MDPDashboardPage"));
 
 // Control Tower pages - Manifesto compliant: only alert-focused pages
 import CTTasksPage from "./pages/control-tower/TasksPage";
@@ -216,6 +217,7 @@ const AppRoutes = () => {
         <Route path="/channel/:channelId" element={<ChannelPLPage />} />
         <Route path="/channel/:channelId/whatif" element={<ChannelWhatIfPage />} />
         <Route path="/unit-economics" element={<UnitEconomicsPage />} />
+        <Route path="/mdp" element={<MDPDashboardPage />} />
         <Route path="/cash-conversion-cycle" element={<CashConversionCyclePage />} />
         <Route path="/budget-vs-actual" element={<BudgetVsActualPage />} />
         <Route path="/rolling-forecast" element={<RollingForecastPage />} />

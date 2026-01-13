@@ -91,6 +91,7 @@ const vi: Record<string, string> = {
   'nav.salesChannels': 'Kênh bán hàng',
   'nav.channelAnalytics': 'Phân tích kênh',
   'nav.unitEconomics': 'Unit Economics',
+  'nav.mdp': 'Marketing Data Platform',
 
   'nav.dataHub': 'Data Hub',
   'nav.dataCenter': 'Trung tâm dữ liệu',
@@ -1752,6 +1753,7 @@ const en: Record<string, string> = {
   'nav.salesChannels': 'Sales Channels',
   'nav.channelAnalytics': 'Channel Analytics',
   'nav.unitEconomics': 'Unit Economics',
+  'nav.mdp': 'Marketing Data Platform',
 
   'nav.dataHub': 'Data Hub',
   'nav.dataCenter': 'Data Center',
