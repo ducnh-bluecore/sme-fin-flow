@@ -103,6 +103,7 @@ const MobileAlertsPage = lazy(() => import("./pages/mobile/MobileAlertsPage"));
 const MobileSettingsPage = lazy(() => import("./pages/mobile/MobileSettingsPage"));
 
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
+import { MDPLayout } from "@/components/layout/MDPLayout";
 
 const queryClient = new QueryClient();
 
@@ -164,6 +165,27 @@ const AppRoutes = () => {
         <Route path="/control-tower/settings" element={<CTSettingsPage />} />
         <Route path="/control-tower/docs" element={<CTDocumentationPage />} />
       </Route>
+
+      {/* MDP Routes - Independent system like Control Tower */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <MDPLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* MDP Manifesto: Profit before Performance. Cash before Clicks. */}
+        <Route path="/mdp" element={<MDPDashboardPage />} />
+        <Route path="/mdp/campaigns" element={<MDPDashboardPage />} />
+        <Route path="/mdp/channels" element={<MDPDashboardPage />} />
+        <Route path="/mdp/funnel" element={<MDPDashboardPage />} />
+        <Route path="/mdp/profit" element={<MDPDashboardPage />} />
+        <Route path="/mdp/cash-impact" element={<MDPDashboardPage />} />
+        <Route path="/mdp/risks" element={<MDPDashboardPage />} />
+        <Route path="/mdp/decisions" element={<MDPDashboardPage />} />
+        <Route path="/mdp/docs" element={<MDPDashboardPage />} />
+        <Route path="/mdp/settings" element={<MDPDashboardPage />} />
+      </Route>
       
       {/* Super Admin Routes */}
       <Route
@@ -181,7 +203,7 @@ const AppRoutes = () => {
         </Route>
       </Route>
 
-      {/* Tenant Operations Routes */}
+      {/* Tenant Operations Routes (FDP) */}
       <Route
         element={
           <ProtectedRoute>
@@ -217,7 +239,6 @@ const AppRoutes = () => {
         <Route path="/channel/:channelId" element={<ChannelPLPage />} />
         <Route path="/channel/:channelId/whatif" element={<ChannelWhatIfPage />} />
         <Route path="/unit-economics" element={<UnitEconomicsPage />} />
-        <Route path="/mdp" element={<MDPDashboardPage />} />
         <Route path="/cash-conversion-cycle" element={<CashConversionCyclePage />} />
         <Route path="/budget-vs-actual" element={<BudgetVsActualPage />} />
         <Route path="/rolling-forecast" element={<RollingForecastPage />} />

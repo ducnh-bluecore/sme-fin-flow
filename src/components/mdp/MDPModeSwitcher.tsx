@@ -13,13 +13,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 export type MDPMode = 'marketing' | 'cmo';
 
-interface MDPLayoutProps {
+interface MDPModeSwitcherProps {
   children: (mode: MDPMode) => React.ReactNode;
   criticalAlerts?: number;
   executionAlerts?: number;
 }
 
-export function MDPLayout({ children, criticalAlerts = 0, executionAlerts = 0 }: MDPLayoutProps) {
+export function MDPModeSwitcher({ children, criticalAlerts = 0, executionAlerts = 0 }: MDPModeSwitcherProps) {
   const [mode, setMode] = useState<MDPMode>('marketing');
 
   return (
