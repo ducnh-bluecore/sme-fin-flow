@@ -1953,6 +1953,68 @@ export type Database = {
           },
         ]
       }
+      bluecore_scores: {
+        Row: {
+          calculated_at: string
+          components: Json | null
+          created_at: string
+          id: string
+          previous_score: number | null
+          primary_driver: string | null
+          recommendation: string | null
+          score_grade: string
+          score_type: string
+          score_value: number
+          tenant_id: string
+          trend: string | null
+          trend_percent: number | null
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          calculated_at?: string
+          components?: Json | null
+          created_at?: string
+          id?: string
+          previous_score?: number | null
+          primary_driver?: string | null
+          recommendation?: string | null
+          score_grade: string
+          score_type: string
+          score_value: number
+          tenant_id: string
+          trend?: string | null
+          trend_percent?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          calculated_at?: string
+          components?: Json | null
+          created_at?: string
+          id?: string
+          previous_score?: number | null
+          primary_driver?: string | null
+          recommendation?: string | null
+          score_grade?: string
+          score_type?: string
+          score_value?: number
+          tenant_id?: string
+          trend?: string | null
+          trend_percent?: number | null
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bluecore_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_reports: {
         Row: {
           approved_at: string | null
@@ -3567,6 +3629,287 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "decision_analyses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_card_actions: {
+        Row: {
+          action_type: string
+          card_id: string
+          created_at: string
+          display_order: number | null
+          expected_outcome: string | null
+          id: string
+          is_recommended: boolean | null
+          label: string
+          parameters: Json | null
+          risk_note: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action_type: string
+          card_id: string
+          created_at?: string
+          display_order?: number | null
+          expected_outcome?: string | null
+          id?: string
+          is_recommended?: boolean | null
+          label: string
+          parameters?: Json | null
+          risk_note?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action_type?: string
+          card_id?: string
+          created_at?: string
+          display_order?: number | null
+          expected_outcome?: string | null
+          id?: string
+          is_recommended?: boolean | null
+          label?: string
+          parameters?: Json | null
+          risk_note?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_card_actions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_card_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_card_decisions: {
+        Row: {
+          action_label: string | null
+          action_type: string
+          card_id: string
+          comment: string | null
+          decided_at: string
+          decided_by: string | null
+          dismiss_reason: string | null
+          id: string
+          outcome_notes: string | null
+          outcome_recorded_at: string | null
+          outcome_tracking_key: string | null
+          outcome_value: number | null
+          parameters: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_type: string
+          card_id: string
+          comment?: string | null
+          decided_at?: string
+          decided_by?: string | null
+          dismiss_reason?: string | null
+          id?: string
+          outcome_notes?: string | null
+          outcome_recorded_at?: string | null
+          outcome_tracking_key?: string | null
+          outcome_value?: number | null
+          parameters?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action_label?: string | null
+          action_type?: string
+          card_id?: string
+          comment?: string | null
+          decided_at?: string
+          decided_by?: string | null
+          dismiss_reason?: string | null
+          id?: string
+          outcome_notes?: string | null
+          outcome_recorded_at?: string | null
+          outcome_tracking_key?: string | null
+          outcome_value?: number | null
+          parameters?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_card_decisions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_card_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_card_facts: {
+        Row: {
+          card_id: string
+          created_at: string
+          display_order: number | null
+          fact_key: string
+          id: string
+          is_primary: boolean | null
+          label: string
+          numeric_value: number | null
+          tenant_id: string
+          trend: string | null
+          unit: string | null
+          value: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          display_order?: number | null
+          fact_key: string
+          id?: string
+          is_primary?: boolean | null
+          label: string
+          numeric_value?: number | null
+          tenant_id: string
+          trend?: string | null
+          unit?: string | null
+          value: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          display_order?: number | null
+          fact_key?: string
+          id?: string
+          is_primary?: boolean | null
+          label?: string
+          numeric_value?: number | null
+          tenant_id?: string
+          trend?: string | null
+          unit?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_card_facts_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_card_facts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_cards: {
+        Row: {
+          assigned_at: string | null
+          card_type: string
+          confidence: string | null
+          created_at: string
+          deadline_at: string
+          entity_id: string | null
+          entity_label: string
+          entity_type: string
+          id: string
+          impact_amount: number | null
+          impact_currency: string | null
+          impact_description: string | null
+          impact_window_days: number | null
+          owner_role: string
+          owner_user_id: string | null
+          priority: string
+          question: string
+          rule_version: number | null
+          severity_score: number | null
+          snooze_count: number | null
+          snoozed_until: string | null
+          source_modules: string[] | null
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          vertical: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          card_type: string
+          confidence?: string | null
+          created_at?: string
+          deadline_at: string
+          entity_id?: string | null
+          entity_label: string
+          entity_type: string
+          id?: string
+          impact_amount?: number | null
+          impact_currency?: string | null
+          impact_description?: string | null
+          impact_window_days?: number | null
+          owner_role: string
+          owner_user_id?: string | null
+          priority?: string
+          question: string
+          rule_version?: number | null
+          severity_score?: number | null
+          snooze_count?: number | null
+          snoozed_until?: string | null
+          source_modules?: string[] | null
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          vertical?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          card_type?: string
+          confidence?: string | null
+          created_at?: string
+          deadline_at?: string
+          entity_id?: string | null
+          entity_label?: string
+          entity_type?: string
+          id?: string
+          impact_amount?: number | null
+          impact_currency?: string | null
+          impact_description?: string | null
+          impact_window_days?: number | null
+          owner_role?: string
+          owner_user_id?: string | null
+          priority?: string
+          question?: string
+          rule_version?: number | null
+          severity_score?: number | null
+          snooze_count?: number | null
+          snoozed_until?: string | null
+          source_modules?: string[] | null
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          vertical?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_cards_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -9634,6 +9977,47 @@ export type Database = {
           },
           {
             foreignKeyName: "vendors_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vertical_configs: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          locked_until: string | null
+          tenant_id: string
+          thresholds: Json
+          updated_at: string
+          vertical: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          locked_until?: string | null
+          tenant_id: string
+          thresholds?: Json
+          updated_at?: string
+          vertical: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          locked_until?: string | null
+          tenant_id?: string
+          thresholds?: Json
+          updated_at?: string
+          vertical?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vertical_configs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
