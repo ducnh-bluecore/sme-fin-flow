@@ -81,6 +81,12 @@ interface ChannelSummary {
   fees: number;
   profit: number;
   margin: number;
+  feeBreakdown: {
+    platform: number;
+    commission: number;
+    payment: number;
+    shipping: number;
+  };
 }
 
 export function SKUCostBreakdownDialog({ 
@@ -232,7 +238,13 @@ export function SKUCostBreakdownDialog({
             cogs: 0,
             fees: 0,
             profit: 0,
-            margin: 0
+            margin: 0,
+            feeBreakdown: {
+              platform: 0,
+              commission: 0,
+              payment: 0,
+              shipping: 0
+            }
           });
         }
         const ch = channelMap.get(b.channel)!;
@@ -242,6 +254,12 @@ export function SKUCostBreakdownDialog({
         ch.cogs += b.total_cogs;
         ch.fees += b.allocated_fees;
         ch.profit += b.net_profit;
+        // Calculate allocated fee breakdown per channel
+        const share = b.revenue_share / 100;
+        ch.feeBreakdown.platform += b.platform_fee * share;
+        ch.feeBreakdown.commission += b.commission_fee * share;
+        ch.feeBreakdown.payment += b.payment_fee * share;
+        ch.feeBreakdown.shipping += b.shipping_fee * share;
       });
       
       const channelSummaries = Array.from(channelMap.values()).map(ch => ({
@@ -404,58 +422,109 @@ export function SKUCostBreakdownDialog({
 
             {/* Channels Tab */}
             <TabsContent value="channels" className="space-y-4">
-              <div className="rounded-lg border border-slate-700 overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-slate-800/50">
-                    <TableRow className="border-slate-700">
-                      <TableHead className="text-slate-300">Kênh</TableHead>
-                      <TableHead className="text-slate-300 text-right">Số đơn</TableHead>
-                      <TableHead className="text-slate-300 text-right">SL bán</TableHead>
-                      <TableHead className="text-slate-300 text-right">Doanh thu</TableHead>
-                      <TableHead className="text-slate-300 text-right">COGS</TableHead>
-                      <TableHead className="text-slate-300 text-right">Phí sàn</TableHead>
-                      <TableHead className="text-slate-300 text-right">Lợi nhuận</TableHead>
-                      <TableHead className="text-slate-300 text-right">Margin</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.channelSummaries.map((ch, idx) => (
-                      <TableRow key={idx} className="border-slate-700 hover:bg-slate-800/30">
-                        <TableCell>
-                          <Badge variant="outline" className="text-sm border-slate-600 text-slate-200">
-                            {ch.channel}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-slate-200 text-right">{ch.orderCount}</TableCell>
-                        <TableCell className="text-slate-200 text-right">{ch.quantity}</TableCell>
-                        <TableCell className="text-slate-200 text-right">{formatVNDCompact(ch.revenue)}</TableCell>
-                        <TableCell className="text-amber-400 text-right">{formatVNDCompact(ch.cogs)}</TableCell>
-                        <TableCell className="text-orange-400 text-right">{formatVNDCompact(ch.fees)}</TableCell>
-                        <TableCell className={`text-right font-medium ${ch.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {/* Channel cards with fee breakdown */}
+              <div className="space-y-4">
+                {data.channelSummaries.map((ch, idx) => (
+                  <div key={idx} className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
+                    <div className="flex items-center justify-between mb-3">
+                      <Badge variant="outline" className="text-sm border-slate-600 text-slate-200 px-3 py-1">
+                        {ch.channel}
+                      </Badge>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-slate-400">{ch.orderCount} đơn</span>
+                        <span className="text-slate-400">{ch.quantity} SP</span>
+                        <span className={`font-medium ${ch.margin >= 10 ? 'text-emerald-400' : ch.margin >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                          Margin: {ch.margin.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Main metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div className="p-2 rounded bg-slate-800/50">
+                        <p className="text-xs text-slate-500">Doanh thu</p>
+                        <p className="text-sm font-medium text-slate-100">{formatVNDCompact(ch.revenue)}</p>
+                      </div>
+                      <div className="p-2 rounded bg-slate-800/50">
+                        <p className="text-xs text-slate-500">COGS</p>
+                        <p className="text-sm font-medium text-amber-400">{formatVNDCompact(ch.cogs)}</p>
+                      </div>
+                      <div className="p-2 rounded bg-slate-800/50">
+                        <p className="text-xs text-slate-500">Tổng phí sàn</p>
+                        <p className="text-sm font-medium text-orange-400">{formatVNDCompact(ch.fees)}</p>
+                      </div>
+                      <div className="p-2 rounded bg-slate-800/50">
+                        <p className="text-xs text-slate-500">Lợi nhuận ròng</p>
+                        <p className={`text-sm font-medium ${ch.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {formatVNDCompact(ch.profit)}
-                        </TableCell>
-                        <TableCell className={`text-right font-medium ${ch.margin >= 10 ? 'text-emerald-400' : ch.margin >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
-                          {ch.margin.toFixed(1)}%
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {/* Total row */}
-                    <TableRow className="border-slate-700 bg-slate-800/50 font-medium">
-                      <TableCell className="text-slate-100">Tổng cộng</TableCell>
-                      <TableCell className="text-slate-100 text-right">{data.summary.totalOrders}</TableCell>
-                      <TableCell className="text-slate-100 text-right">{data.summary.totalQuantity}</TableCell>
-                      <TableCell className="text-slate-100 text-right">{formatVNDCompact(data.summary.totalRevenue)}</TableCell>
-                      <TableCell className="text-amber-400 text-right">{formatVNDCompact(data.summary.totalCogs)}</TableCell>
-                      <TableCell className="text-orange-400 text-right">{formatVNDCompact(data.summary.totalFees)}</TableCell>
-                      <TableCell className={`text-right ${data.summary.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {formatVNDCompact(data.summary.totalProfit)}
-                      </TableCell>
-                      <TableCell className={`text-right ${data.summary.avgMargin >= 10 ? 'text-emerald-400' : data.summary.avgMargin >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
-                        {data.summary.avgMargin.toFixed(1)}%
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Fee breakdown */}
+                    <div className="pt-3 border-t border-slate-700/50">
+                      <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                        <Percent className="h-3 w-3" />
+                        Chi tiết phí sàn phân bổ
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="flex items-center gap-2">
+                          <Store className="h-3.5 w-3.5 text-purple-400" />
+                          <div>
+                            <p className="text-[10px] text-slate-500">Platform</p>
+                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.platform)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Percent className="h-3.5 w-3.5 text-orange-400" />
+                          <div>
+                            <p className="text-[10px] text-slate-500">Commission</p>
+                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.commission)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-3.5 w-3.5 text-blue-400" />
+                          <div>
+                            <p className="text-[10px] text-slate-500">Payment</p>
+                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.payment)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Truck className="h-3.5 w-3.5 text-green-400" />
+                          <div>
+                            <p className="text-[10px] text-slate-500">Shipping</p>
+                            <p className="text-xs font-medium text-slate-300">{formatVNDCompact(ch.feeBreakdown.shipping)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Total Summary */}
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                <h4 className="text-sm font-medium text-slate-200 mb-3">Tổng cộng tất cả kênh</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Tổng doanh thu</p>
+                    <p className="text-sm font-bold text-slate-100">{formatVNDCompact(data.summary.totalRevenue)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Tổng COGS</p>
+                    <p className="text-sm font-bold text-amber-400">{formatVNDCompact(data.summary.totalCogs)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Tổng phí sàn</p>
+                    <p className="text-sm font-bold text-orange-400">{formatVNDCompact(data.summary.totalFees)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Tổng lợi nhuận</p>
+                    <p className={`text-sm font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {formatVNDCompact(data.summary.totalProfit)}
+                    </p>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
