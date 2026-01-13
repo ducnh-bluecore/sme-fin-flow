@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,22 +11,12 @@ import {
   CheckCircle2,
   XCircle,
   ArrowRight,
-  Zap
+  Zap,
+  Eye
 } from 'lucide-react';
 import { FDP_THRESHOLDS, analyzeSKU } from '@/lib/fdp-formulas';
-
-interface Decision {
-  id: string;
-  category: 'sku' | 'cash' | 'ar' | 'inventory' | 'ads';
-  urgency: 'immediate' | 'today' | 'this_week';
-  title: string;
-  description: string;
-  impact: string;
-  impactAmount?: number;
-  action: 'stop' | 'reduce' | 'review' | 'collect' | 'negotiate';
-  actionLabel: string;
-  relatedItems?: string[];
-}
+import { DecisionDetailDialog, DecisionDetail, DecisionOption } from './DecisionDetailDialog';
+import { toast } from '@/hooks/use-toast';
 
 interface SKUMetricInput {
   sku: string;
@@ -52,6 +42,25 @@ interface TodayDecisionSummaryProps {
     amount: number;
     days_overdue: number;
   }>;
+}
+
+interface Decision {
+  id: string;
+  category: 'sku' | 'cash' | 'ar' | 'inventory' | 'ads';
+  urgency: 'immediate' | 'today' | 'this_week';
+  title: string;
+  description: string;
+  impact: string;
+  impactAmount?: number;
+  action: 'stop' | 'reduce' | 'review' | 'collect' | 'negotiate';
+  actionLabel: string;
+  relatedItems?: string[];
+  // For detail dialog
+  reasons: string[];
+  formula?: string;
+  currentValue?: number;
+  threshold?: number;
+  options: DecisionOption[];
 }
 
 const urgencyConfig = {
@@ -91,13 +100,129 @@ const categoryIcons = {
   ads: TrendingDown
 };
 
+// Standard options for each action type
+const getOptionsForAction = (action: string, context: { sku?: string; amount?: number }): DecisionOption[] => {
+  switch (action) {
+    case 'stop':
+      return [
+        {
+          id: 'stop_immediately',
+          label: 'Dừng bán ngay lập tức',
+          description: `Ngừng bán SKU ${context.sku || ''} trên tất cả kênh`,
+          impact: 'Dừng lỗ ngay, giải phóng tồn kho dần',
+          risk: 'low'
+        },
+        {
+          id: 'clearance_sale',
+          label: 'Bán xả hàng tồn',
+          description: 'Giảm giá mạnh để xả hết tồn kho rồi dừng',
+          impact: 'Lỗ thêm 1-2 tuần nhưng thu hồi vốn tồn kho',
+          risk: 'medium'
+        },
+        {
+          id: 'wait_more_data',
+          label: 'Chờ thêm dữ liệu',
+          description: 'Theo dõi thêm 7 ngày trước khi quyết định',
+          impact: 'Có thể lỗ thêm nếu trend không đổi',
+          risk: 'high'
+        }
+      ];
+    case 'reduce':
+      return [
+        {
+          id: 'reduce_50',
+          label: 'Giảm 50% budget ads',
+          description: 'Cắt một nửa ngân sách quảng cáo cho SKU này',
+          impact: 'Tiết kiệm chi phí, doanh thu có thể giảm 20-30%',
+          risk: 'low'
+        },
+        {
+          id: 'pause_ads',
+          label: 'Tạm dừng ads hoàn toàn',
+          description: 'Dừng quảng cáo, chỉ bán organic',
+          impact: 'Tiết kiệm tối đa, doanh thu giảm đáng kể',
+          risk: 'medium'
+        },
+        {
+          id: 'optimize_targeting',
+          label: 'Tối ưu targeting thay vì giảm',
+          description: 'Giữ nguyên budget, tối ưu audience',
+          impact: 'Có thể cải thiện ROAS mà không giảm reach',
+          risk: 'medium'
+        }
+      ];
+    case 'review':
+      return [
+        {
+          id: 'increase_price',
+          label: 'Tăng giá bán 10-15%',
+          description: 'Điều chỉnh giá để cải thiện margin',
+          impact: 'Margin tăng, sales volume có thể giảm nhẹ',
+          risk: 'medium'
+        },
+        {
+          id: 'negotiate_supplier',
+          label: 'Đàm phán lại với supplier',
+          description: 'Thương lượng giảm giá nhập hoặc MOQ',
+          impact: 'Giảm COGS 5-10%, cần thời gian',
+          risk: 'low'
+        },
+        {
+          id: 'bundle_product',
+          label: 'Bundle với sản phẩm khác',
+          description: 'Bán kèm sản phẩm margin cao',
+          impact: 'Tăng AOV và overall margin',
+          risk: 'low'
+        }
+      ];
+    case 'collect':
+      return [
+        {
+          id: 'call_immediately',
+          label: 'Liên hệ khách hàng ngay',
+          description: 'Gọi điện/email đòi nợ trong hôm nay',
+          impact: `Thu hồi: ${context.amount?.toLocaleString() || 0}đ`,
+          risk: 'low'
+        },
+        {
+          id: 'offer_discount',
+          label: 'Đề xuất chiết khấu thanh toán sớm',
+          description: 'Giảm 2-3% nếu thanh toán trong 3 ngày',
+          impact: 'Thu nhanh hơn, chấp nhận mất 2-3%',
+          risk: 'medium'
+        },
+        {
+          id: 'escalate_legal',
+          label: 'Chuyển pháp lý',
+          description: 'Gửi thông báo pháp lý cho nợ quá hạn lâu',
+          impact: 'Áp lực cao, có thể ảnh hưởng quan hệ',
+          risk: 'high'
+        }
+      ];
+    default:
+      return [
+        {
+          id: 'take_action',
+          label: 'Thực hiện hành động',
+          description: 'Xử lý theo khuyến nghị',
+          impact: 'Giải quyết vấn đề',
+          risk: 'low'
+        }
+      ];
+  }
+};
+
 export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
   skuMetrics = [],
   cashPosition,
   overdueInvoices = []
 }) => {
+  const [completedDecisions, setCompletedDecisions] = useState<Set<string>>(new Set());
+  const [selectedDecision, setSelectedDecision] = useState<DecisionDetail | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   // Generate decisions based on data
-  const decisions: Decision[] = React.useMemo(() => {
+  const decisions: Decision[] = useMemo(() => {
     const result: Decision[] = [];
 
     // SKU decisions using FDP formula
@@ -121,7 +246,12 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           impactAmount: Math.abs(sku.profit),
           action: 'stop',
           actionLabel: 'Dừng bán ngay',
-          relatedItems: [sku.channel]
+          relatedItems: [sku.channel],
+          reasons: analysis.reason,
+          formula: 'Margin % = (Revenue - COGS - Fees) / Revenue × 100',
+          currentValue: sku.margin_percent,
+          threshold: FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT,
+          options: getOptionsForAction('stop', { sku: sku.sku })
         });
       } else if (analysis.decision === 'review') {
         result.push({
@@ -134,7 +264,12 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           impactAmount: sku.revenue * 0.05,
           action: 'review',
           actionLabel: 'Xem xét pricing',
-          relatedItems: [sku.channel]
+          relatedItems: [sku.channel],
+          reasons: analysis.reason,
+          formula: 'Contribution Margin = Net Revenue - COGS - Variable Costs',
+          currentValue: sku.margin_percent,
+          threshold: 10,
+          options: getOptionsForAction('review', { sku: sku.sku })
         });
       } else if (analysis.decision === 'reduce_ads') {
         result.push({
@@ -147,7 +282,10 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           impactAmount: sku.fees * 0.3,
           action: 'reduce',
           actionLabel: 'Giảm ads budget',
-          relatedItems: [sku.channel]
+          relatedItems: [sku.channel],
+          reasons: analysis.reason,
+          formula: 'ROAS = Revenue / Ads Spend',
+          options: getOptionsForAction('reduce', { sku: sku.sku })
         });
       }
     });
@@ -171,7 +309,16 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           impactAmount: bankBalance,
           action: 'collect',
           actionLabel: 'Thu hồi AR ngay',
-          relatedItems: ['Tất cả kênh']
+          relatedItems: ['Tất cả kênh'],
+          reasons: [
+            `Cash runway chỉ còn ${cashRunway.toFixed(1)} tháng`,
+            `Burn rate: ${monthlyBurn.toLocaleString()}đ/tháng`,
+            'Cần thu hồi công nợ hoặc cắt giảm chi phí'
+          ],
+          formula: 'Cash Runway = Bank Balance / Monthly Burn Rate',
+          currentValue: cashRunway,
+          threshold: FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS,
+          options: getOptionsForAction('collect', { amount: overdueAR })
         });
       }
 
@@ -187,7 +334,14 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           impactAmount: overdueAR,
           action: 'collect',
           actionLabel: 'Liên hệ khách hàng',
-          relatedItems: overdueInvoices.slice(0, 3).map(inv => inv.customer_name)
+          relatedItems: overdueInvoices.slice(0, 3).map(inv => inv.customer_name),
+          reasons: [
+            `AR quá hạn: ${overdueAR.toLocaleString()}đ`,
+            `Chiếm ${((overdueAR/bankBalance)*100).toFixed(0)}% bank balance`,
+            'Rủi ro mất vốn cao nếu không thu hồi'
+          ],
+          formula: 'AR Risk = Overdue AR / Bank Balance',
+          options: getOptionsForAction('collect', { amount: overdueAR })
         });
       }
 
@@ -203,7 +357,36 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           impactAmount: inventoryValue,
           action: 'review',
           actionLabel: 'Review tồn kho',
-          relatedItems: []
+          relatedItems: [],
+          reasons: [
+            `Tồn kho: ${inventoryValue.toLocaleString()}đ`,
+            `Chiếm ${((inventoryValue/bankBalance)*100).toFixed(0)}% bank balance`,
+            'Cash bị khóa trong hàng hóa'
+          ],
+          formula: 'Inventory Lock = Inventory Value / Bank Balance',
+          options: [
+            {
+              id: 'flash_sale',
+              label: 'Chạy flash sale',
+              description: 'Giảm giá để xả tồn kho nhanh',
+              impact: 'Thu hồi cash nhanh, chấp nhận margin thấp',
+              risk: 'medium'
+            },
+            {
+              id: 'stop_reorder',
+              label: 'Dừng đặt hàng mới',
+              description: 'Không nhập thêm hàng cho đến khi tồn giảm',
+              impact: 'Giảm inventory dần, có thể thiếu hàng',
+              risk: 'low'
+            },
+            {
+              id: 'bundle_slow',
+              label: 'Bundle hàng chậm',
+              description: 'Bán kèm với sản phẩm bán chạy',
+              impact: 'Xả tồn mà không giảm giá',
+              risk: 'low'
+            }
+          ]
         });
       }
     }
@@ -217,14 +400,34 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
     });
   }, [skuMetrics, cashPosition, overdueInvoices]);
 
+  // Filter out completed decisions
+  const activeDecisions = decisions.filter(d => !completedDecisions.has(d.id));
+  
   // Group by urgency
-  const immediateDecisions = decisions.filter(d => d.urgency === 'immediate');
-  const todayDecisions = decisions.filter(d => d.urgency === 'today');
-  const weekDecisions = decisions.filter(d => d.urgency === 'this_week');
+  const immediateDecisions = activeDecisions.filter(d => d.urgency === 'immediate');
+  const todayDecisions = activeDecisions.filter(d => d.urgency === 'today');
+  const weekDecisions = activeDecisions.filter(d => d.urgency === 'this_week');
 
-  const totalImpact = decisions.reduce((sum, d) => sum + (d.impactAmount || 0), 0);
+  const totalImpact = activeDecisions.reduce((sum, d) => sum + (d.impactAmount || 0), 0);
 
-  if (decisions.length === 0) {
+  const handleViewDetail = (decision: Decision) => {
+    setSelectedDecision({
+      ...decision,
+      reasons: decision.reasons || [],
+      options: decision.options || []
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDecide = (decisionId: string, selectedOption: string, notes: string) => {
+    setCompletedDecisions(prev => new Set([...prev, decisionId]));
+    toast({
+      title: "Đã ghi nhận quyết định",
+      description: `Option: ${selectedOption}${notes ? ` - Ghi chú: ${notes}` : ''}`,
+    });
+  };
+
+  if (activeDecisions.length === 0) {
     return (
       <Card className="border-2 border-green-500/30 bg-green-500/5">
         <CardHeader className="pb-3">
@@ -237,124 +440,159 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
           <p className="text-muted-foreground">
             Tất cả metrics đang trong ngưỡng an toàn. Tiếp tục monitor.
           </p>
+          {completedDecisions.size > 0 && (
+            <p className="text-sm text-green-600 mt-2">
+              ✅ Đã hoàn thành {completedDecisions.size} quyết định
+            </p>
+          )}
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-2 border-red-500/30 bg-gradient-to-br from-red-500/5 to-orange-500/5">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-red-600">
-            <AlertTriangle className="h-6 w-6 animate-pulse" />
-            QUYẾT ĐỊNH HÔM NAY
-          </CardTitle>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-red-600">
-              {decisions.length} quyết định
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Tác động: {totalImpact.toLocaleString()}đ
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        {/* Immediate Actions */}
-        {immediateDecisions.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge className={urgencyConfig.immediate.color}>
-                <Zap className="h-3 w-3 mr-1" />
-                {urgencyConfig.immediate.label}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {immediateDecisions.length} việc cần làm ngay
-              </span>
-            </div>
-            <div className="space-y-2">
-              {immediateDecisions.map(decision => (
-                <DecisionCard key={decision.id} decision={decision} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Today Actions */}
-        {todayDecisions.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge className={urgencyConfig.today.color}>
-                <Clock className="h-3 w-3 mr-1" />
-                {urgencyConfig.today.label}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {todayDecisions.length} việc cần hoàn thành hôm nay
-              </span>
-            </div>
-            <div className="space-y-2">
-              {todayDecisions.slice(0, 3).map(decision => (
-                <DecisionCard key={decision.id} decision={decision} compact />
-              ))}
-              {todayDecisions.length > 3 && (
-                <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
-                  +{todayDecisions.length - 3} quyết định khác
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </Button>
+    <>
+      <Card className="border-2 border-red-500/30 bg-gradient-to-br from-red-500/5 to-orange-500/5">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-6 w-6 animate-pulse" />
+              QUYẾT ĐỊNH HÔM NAY
+            </CardTitle>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-red-600">
+                {activeDecisions.length} quyết định
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Tác động: {totalImpact.toLocaleString()}đ
+              </div>
+              {completedDecisions.size > 0 && (
+                <div className="text-xs text-green-600">
+                  ✅ {completedDecisions.size} đã hoàn thành
+                </div>
               )}
             </div>
           </div>
-        )}
+        </CardHeader>
 
-        {/* This Week Actions */}
-        {weekDecisions.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge className={urgencyConfig.this_week.color}>
-                {urgencyConfig.this_week.label}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {weekDecisions.length} việc cần xem xét trong tuần
-              </span>
+        <CardContent className="space-y-4">
+          {/* Immediate Actions */}
+          {immediateDecisions.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge className={urgencyConfig.immediate.color}>
+                  <Zap className="h-3 w-3 mr-1" />
+                  {urgencyConfig.immediate.label}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {immediateDecisions.length} việc cần làm ngay
+                </span>
+              </div>
+              <div className="space-y-2">
+                {immediateDecisions.map(decision => (
+                  <DecisionCard 
+                    key={decision.id} 
+                    decision={decision} 
+                    onViewDetail={() => handleViewDetail(decision)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground pl-4 border-l-2 border-yellow-500/30">
-              {weekDecisions.map(d => d.title).slice(0, 2).join(' • ')}
-              {weekDecisions.length > 2 && ` và ${weekDecisions.length - 2} khác`}
+          )}
+
+          {/* Today Actions */}
+          {todayDecisions.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge className={urgencyConfig.today.color}>
+                  <Clock className="h-3 w-3 mr-1" />
+                  {urgencyConfig.today.label}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {todayDecisions.length} việc cần hoàn thành hôm nay
+                </span>
+              </div>
+              <div className="space-y-2">
+                {todayDecisions.slice(0, 3).map(decision => (
+                  <DecisionCard 
+                    key={decision.id} 
+                    decision={decision} 
+                    compact 
+                    onViewDetail={() => handleViewDetail(decision)}
+                  />
+                ))}
+                {todayDecisions.length > 3 && (
+                  <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
+                    +{todayDecisions.length - 3} quyết định khác
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
+              </div>
             </div>
+          )}
+
+          {/* This Week Actions */}
+          {weekDecisions.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge className={urgencyConfig.this_week.color}>
+                  {urgencyConfig.this_week.label}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {weekDecisions.length} việc cần xem xét trong tuần
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground pl-4 border-l-2 border-yellow-500/30">
+                {weekDecisions.map(d => d.title).slice(0, 2).join(' • ')}
+                {weekDecisions.length > 2 && ` và ${weekDecisions.length - 2} khác`}
+              </div>
+            </div>
+          )}
+
+          {/* Formula Reference */}
+          <div className="pt-4 border-t border-border/50">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="font-mono bg-muted px-1 rounded">🔒</span>
+              Quyết định dựa trên công thức FDP chuẩn - không thể chỉnh sửa
+            </p>
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        {/* Formula Reference */}
-        <div className="pt-4 border-t border-border/50">
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <span className="font-mono bg-muted px-1 rounded">🔒</span>
-            Quyết định dựa trên công thức FDP chuẩn - không thể chỉnh sửa
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      <DecisionDetailDialog
+        decision={selectedDecision}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onDecide={handleDecide}
+      />
+    </>
   );
 };
 
-const DecisionCard: React.FC<{ decision: Decision; compact?: boolean }> = ({ 
+interface DecisionCardProps {
+  decision: Decision;
+  compact?: boolean;
+  onViewDetail: () => void;
+}
+
+const DecisionCard: React.FC<DecisionCardProps> = ({ 
   decision, 
-  compact = false 
+  compact = false,
+  onViewDetail
 }) => {
   const CategoryIcon = categoryIcons[decision.category];
   const actionCfg = actionConfig[decision.action];
-  const ActionIcon = actionCfg.icon;
 
   if (compact) {
     return (
-      <div className="flex items-center justify-between p-2 bg-background/50 rounded-lg border border-border/50">
+      <div className="flex items-center justify-between p-2 bg-background/50 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
         <div className="flex items-center gap-2">
           <CategoryIcon className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium">{decision.title}</span>
         </div>
-        <Button size="sm" variant="outline" className="h-7 text-xs">
-          {decision.actionLabel}
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onViewDetail}>
+          <Eye className="h-3 w-3 mr-1" />
+          Chi tiết
         </Button>
       </div>
     );
@@ -380,9 +618,13 @@ const DecisionCard: React.FC<{ decision: Decision; compact?: boolean }> = ({
             </div>
           )}
         </div>
-        <Button size="sm" className={`${actionCfg.color} text-white shrink-0`}>
-          <ActionIcon className="h-4 w-4 mr-1" />
-          {decision.actionLabel}
+        <Button 
+          size="sm" 
+          className={`${actionCfg.color} text-white shrink-0`}
+          onClick={onViewDetail}
+        >
+          <Eye className="h-4 w-4 mr-1" />
+          Xem & Quyết định
         </Button>
       </div>
     </div>
