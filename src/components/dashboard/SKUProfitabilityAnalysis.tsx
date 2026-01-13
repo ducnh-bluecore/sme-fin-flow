@@ -178,17 +178,25 @@ function useSKUProfitability() {
           const share = totalItemRevenue > 0 ? (itemRevenue || 0) / totalItemRevenue : fallbackShare;
           const feeAllocated = orderFees * share;
 
-          // Prefer item-level COGS, otherwise allocate order-level COGS by the same share.
-          const itemCogs = item.unit_cogs != null
-            ? Number(item.unit_cogs) * qty
-            : item.total_cogs != null
-              ? Number(item.total_cogs)
-              : (Number(order.cost_of_goods ?? 0) * share);
+          // Prefer item-level COGS if > 0, otherwise allocate order-level COGS by the same share.
+          // Treat 0 as "missing" since some connectors default to 0 instead of null.
+          const unitCogs = item.unit_cogs != null ? Number(item.unit_cogs) : 0;
+          const totalCogs = item.total_cogs != null ? Number(item.total_cogs) : 0;
+          const orderCogs = Number(order.cost_of_goods ?? 0);
+
+          let itemCogs = 0;
+          if (unitCogs > 0) {
+            itemCogs = unitCogs * qty;
+          } else if (totalCogs > 0) {
+            itemCogs = totalCogs;
+          } else if (orderCogs > 0) {
+            itemCogs = orderCogs * share;
+          }
 
           const chTotal = channelTotals.get(channel)!;
           chTotal.revenue += itemRevenue || 0;
           chTotal.fees += feeAllocated;
-          chTotal.cogs += itemCogs || 0;
+          chTotal.cogs += itemCogs;
           chTotal.profit = chTotal.revenue - chTotal.cogs - chTotal.fees;
 
           if (!skuMap.has(sku)) {
