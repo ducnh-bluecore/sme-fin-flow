@@ -98,6 +98,11 @@ import ScenarioPlannerPage from "./pages/mdp/ScenarioPlannerPage";
 import ROIAnalyticsPage from "./pages/mdp/ROIAnalyticsPage";
 import CustomerLTVPage from "./pages/mdp/CustomerLTVPage";
 import DataSourcesPage from "./pages/mdp/DataSourcesPage";
+// CMO Mode pages
+import ProfitAttributionPage from "./pages/mdp/ProfitAttributionPage";
+import CashImpactPage from "./pages/mdp/CashImpactPage";
+import RiskAlertsPage from "./pages/mdp/RiskAlertsPage";
+import MDPDecisionSupportPage from "./pages/mdp/DecisionSupportPage";
 
 // Control Tower pages - Manifesto compliant: only alert-focused pages
 import CTTasksPage from "./pages/control-tower/TasksPage";
@@ -192,10 +197,10 @@ const AppRoutes = () => {
         <Route path="/mdp/funnel" element={<FunnelPage />} />
         <Route path="/mdp/ab-testing" element={<ABTestingPage />} />
         <Route path="/mdp/audience" element={<AudienceInsightsPage />} />
-        <Route path="/mdp/profit" element={<MDPDashboardPage />} />
-        <Route path="/mdp/cash-impact" element={<MDPDashboardPage />} />
-        <Route path="/mdp/risks" element={<MDPDashboardPage />} />
-        <Route path="/mdp/decisions" element={<MDPDashboardPage />} />
+        <Route path="/mdp/profit" element={<ProfitAttributionPage />} />
+        <Route path="/mdp/cash-impact" element={<CashImpactPage />} />
+        <Route path="/mdp/risks" element={<RiskAlertsPage />} />
+        <Route path="/mdp/decisions" element={<MDPDecisionSupportPage />} />
         <Route path="/mdp/budget-optimizer" element={<BudgetOptimizerPage />} />
         <Route path="/mdp/scenario-planner" element={<ScenarioPlannerPage />} />
         <Route path="/mdp/roi-analytics" element={<ROIAnalyticsPage />} />
