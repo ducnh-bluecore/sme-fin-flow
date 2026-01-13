@@ -155,13 +155,23 @@ export default function DocumentationPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
 
-  const handleDownload = (doc: DocumentItem) => {
-    const link = document.createElement('a');
-    link.href = doc.path;
-    link.download = doc.path.split('/').pop() || 'document';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async (doc: DocumentItem) => {
+    try {
+      const response = await fetch(doc.path);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.path.split('/').pop() || 'document';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback: open in new tab
+      window.open(doc.path, '_blank');
+    }
   };
 
   const handleView = (doc: DocumentItem) => {
