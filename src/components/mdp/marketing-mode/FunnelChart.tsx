@@ -71,60 +71,70 @@ export function FunnelChart({ funnelData }: FunnelChartProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Funnel Visualization */}
-        <div className="space-y-4">
+        <div className="flex flex-col items-center space-y-1">
           {funnelData.map((stage, index) => {
             const width = getWidthPercent(stage, index);
-            const highDrop = isHighDrop(stage.drop_rate);
+            const highDrop = index > 0 && isHighDrop(stage.drop_rate);
+            const nextStage = funnelData[index + 1];
+            const nextHighDrop = nextStage && isHighDrop(nextStage.drop_rate);
+            
+            // Color palette for funnel stages
+            const stageColors = [
+              { bg: 'bg-blue-500/30', border: 'border-blue-500/50', text: 'text-blue-300' },
+              { bg: 'bg-cyan-500/30', border: 'border-cyan-500/50', text: 'text-cyan-300' },
+              { bg: 'bg-green-500/30', border: 'border-green-500/50', text: 'text-green-300' },
+              { bg: 'bg-emerald-500/30', border: 'border-emerald-500/50', text: 'text-emerald-300' },
+            ];
+            const colors = stageColors[index] || stageColors[3];
             
             return (
-              <div key={stage.stage} className="space-y-2">
+              <div key={stage.stage} className="w-full flex flex-col items-center">
                 {/* Stage Bar */}
                 <div 
-                  className="relative mx-auto transition-all"
-                  style={{ width: `${width}%` }}
+                  className={cn(
+                    "relative py-3 px-4 rounded-lg border-l-4 transition-all duration-300",
+                    colors.bg, colors.border
+                  )}
+                  style={{ 
+                    width: `${Math.max(width, 30)}%`,
+                    minWidth: '180px'
+                  }}
                 >
-                  <div className={cn(
-                    "p-4 rounded-lg border transition-colors",
-                    index === 0 ? "bg-gradient-to-r from-blue-600/40 to-blue-500/30 border-blue-500/50" :
-                    index === 1 ? "bg-gradient-to-r from-cyan-600/40 to-cyan-500/30 border-cyan-500/50" :
-                    index === 2 ? "bg-gradient-to-r from-green-600/40 to-green-500/30 border-green-500/50" :
-                    "bg-gradient-to-r from-emerald-600/40 to-emerald-500/30 border-emerald-500/50"
-                  )}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{stage.stage}</span>
-                      <span className="text-lg font-bold">{formatNumber(stage.count)}</span>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-sm font-semibold", colors.text)}>{stage.stage}</span>
                     </div>
-                    {index > 0 && (
-                      <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-                        <span>Conversion: {stage.conversion_rate.toFixed(1)}%</span>
-                        {highDrop && (
-                          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            High Drop
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                    <span className="text-xl font-bold text-foreground">{formatNumber(stage.count)}</span>
                   </div>
+                  
+                  {index > 0 && (
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        Conversion: <span className="text-foreground font-medium">{stage.conversion_rate.toFixed(1)}%</span>
+                      </span>
+                      {highDrop && (
+                        <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-[10px] gap-0.5 py-0 h-5">
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          High Drop
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* Drop Arrow */}
+                {/* Drop Arrow between stages */}
                 {index < funnelData.length - 1 && (
-                  <div className="flex flex-col items-center py-1">
+                  <div className="flex flex-col items-center py-2">
                     <ArrowDown className={cn(
-                      "h-5 w-5",
-                      funnelData[index + 1] && isHighDrop(funnelData[index + 1].drop_rate)
-                        ? "text-yellow-400"
-                        : "text-muted-foreground"
+                      "h-4 w-4",
+                      nextHighDrop ? "text-yellow-400" : "text-muted-foreground/50"
                     )} />
-                    {funnelData[index + 1] && funnelData[index + 1].drop_rate > 0 && (
+                    {nextStage && nextStage.drop_rate > 0 && (
                       <span className={cn(
-                        "text-xs",
-                        isHighDrop(funnelData[index + 1].drop_rate)
-                          ? "text-yellow-400"
-                          : "text-muted-foreground"
+                        "text-[11px] font-medium",
+                        nextHighDrop ? "text-yellow-400" : "text-muted-foreground"
                       )}>
-                        -{funnelData[index + 1].drop_rate.toFixed(1)}% drop
+                        -{nextStage.drop_rate.toFixed(1)}% drop
                       </span>
                     )}
                   </div>
