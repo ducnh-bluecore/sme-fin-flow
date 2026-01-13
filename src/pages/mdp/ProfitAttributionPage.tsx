@@ -56,10 +56,10 @@ export default function ProfitAttributionPage() {
       />
 
       {/* Formula Explanation */}
-      <Card className="border-purple-500/30 bg-purple-500/5">
+      <Card className="border-primary/30 bg-card">
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-base">Công thức tính lợi nhuận Marketing</CardTitle>
+            <CardTitle className="text-base text-foreground">Công thức tính lợi nhuận Marketing</CardTitle>
             <Tooltip>
               <TooltipTrigger>
                 <Info className="h-4 w-4 text-muted-foreground" />
@@ -74,29 +74,29 @@ export default function ProfitAttributionPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="font-mono text-sm bg-background/50 p-3 rounded-lg border border-border/50">
-            <span className="text-green-400 font-bold">Contribution Margin</span>
-            <span className="text-muted-foreground"> = </span>
-            <span className="text-blue-400">Net Revenue</span>
-            <span className="text-muted-foreground"> - </span>
-            <span className="text-red-400">(COGS + Platform Fees + Logistics + Payment Fees + Return Cost + Ad Spend)</span>
+          <div className="font-mono text-sm bg-muted p-3 rounded-lg border border-border">
+            <span className="text-green-500 font-bold">Contribution Margin</span>
+            <span className="text-foreground"> = </span>
+            <span className="text-blue-500">Net Revenue</span>
+            <span className="text-foreground"> - </span>
+            <span className="text-red-500">(COGS + Platform Fees + Logistics + Payment Fees + Return Cost + Ad Spend)</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            <div className="text-center p-2 rounded bg-muted/30">
+            <div className="text-center p-2 rounded bg-muted border border-border">
               <p className="text-xs text-muted-foreground">COGS</p>
-              <p className="font-medium">~55%</p>
+              <p className="font-medium text-foreground">~55%</p>
             </div>
-            <div className="text-center p-2 rounded bg-muted/30">
+            <div className="text-center p-2 rounded bg-muted border border-border">
               <p className="text-xs text-muted-foreground">Platform Fees</p>
-              <p className="font-medium">~12%</p>
+              <p className="font-medium text-foreground">~12%</p>
             </div>
-            <div className="text-center p-2 rounded bg-muted/30">
+            <div className="text-center p-2 rounded bg-muted border border-border">
               <p className="text-xs text-muted-foreground">Logistics</p>
-              <p className="font-medium">25K/đơn</p>
+              <p className="font-medium text-foreground">25K/đơn</p>
             </div>
-            <div className="text-center p-2 rounded bg-muted/30">
+            <div className="text-center p-2 rounded bg-muted border border-border">
               <p className="text-xs text-muted-foreground">Return Cost</p>
-              <p className="font-medium">~5%</p>
+              <p className="font-medium text-foreground">~5%</p>
             </div>
           </div>
         </CardContent>
@@ -109,7 +109,7 @@ export default function ProfitAttributionPage() {
             <p className="text-xs text-muted-foreground">Tổng CM Marketing</p>
             <p className={cn(
               "text-2xl font-bold",
-              cmoModeSummary.total_contribution_margin >= 0 ? "text-green-400" : "text-red-400"
+              cmoModeSummary.total_contribution_margin >= 0 ? "text-green-500" : "text-red-500"
             )}>
               {cmoModeSummary.total_contribution_margin >= 0 ? '+' : ''}{formatCurrency(cmoModeSummary.total_contribution_margin)}đ
             </p>
@@ -120,8 +120,8 @@ export default function ProfitAttributionPage() {
             <p className="text-xs text-muted-foreground">CM %</p>
             <p className={cn(
               "text-2xl font-bold",
-              cmoModeSummary.contribution_margin_percent >= 10 ? "text-green-400" : 
-              cmoModeSummary.contribution_margin_percent >= 0 ? "text-yellow-400" : "text-red-400"
+              cmoModeSummary.contribution_margin_percent >= 10 ? "text-green-500" : 
+              cmoModeSummary.contribution_margin_percent >= 0 ? "text-yellow-500" : "text-red-500"
             )}>
               {cmoModeSummary.contribution_margin_percent.toFixed(1)}%
             </p>
@@ -130,7 +130,7 @@ export default function ProfitAttributionPage() {
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Campaigns lãi</p>
-            <p className="text-2xl font-bold text-green-400">
+            <p className="text-2xl font-bold text-green-500">
               {cmoModeSummary.profitable_campaigns}
             </p>
           </CardContent>
@@ -138,7 +138,7 @@ export default function ProfitAttributionPage() {
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Campaigns lỗ</p>
-            <p className="text-2xl font-bold text-red-400">
+            <p className="text-2xl font-bold text-red-500">
               {cmoModeSummary.loss_campaigns}
             </p>
           </CardContent>
