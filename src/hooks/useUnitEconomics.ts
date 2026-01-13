@@ -3,6 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { startOfMonth, format } from 'date-fns';
+import {
+  calculateAOV,
+  calculateCAC,
+  calculateLTV,
+  calculateLTVCACRatio,
+  calculateROAS,
+  calculateContributionMargin,
+  calculateCMPerOrder,
+  FDP_THRESHOLDS
+} from '@/lib/fdp-formulas';
 
 export interface UnitEconomicsData {
   // Per Order Metrics

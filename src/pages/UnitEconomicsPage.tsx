@@ -46,6 +46,7 @@ import { useUnitEconomics } from '@/hooks/useUnitEconomics';
 import SKUProfitabilityAnalysis from '@/components/dashboard/SKUProfitabilityAnalysis';
 import RealCashBreakdown from '@/components/dashboard/RealCashBreakdown';
 import SKUStopAction from '@/components/dashboard/SKUStopAction';
+import FormulaDisplay from '@/components/dashboard/FormulaDisplay';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -171,64 +172,8 @@ export default function UnitEconomicsPage() {
         {/* FDP Principle #4: Real Cash Breakdown */}
         <RealCashBreakdown />
 
-        {/* Formula Reference */}
-        <Collapsible open={showFormulas} onOpenChange={setShowFormulas}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Info className="h-4 w-4" />
-              {t('unit.formulas')}
-              <ChevronDown className={`h-4 w-4 transition-transform ${showFormulas ? 'rotate-180' : ''}`} />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
-            <Card className="bg-muted/30">
-              <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="font-medium text-primary">{t('unit.aov')}</p>
-                  <p className="text-muted-foreground font-mono">{t('unit.aovFormula')}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    = {formatVNDCompact(data.rawData.totalRevenue)} / {data.rawData.totalOrders}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-primary">{t('unit.cmOrder')}</p>
-                  <p className="text-muted-foreground font-mono">{t('unit.cmFormula')}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    = {formatVNDCompact(data.avgOrderValue)} - {formatVNDCompact(data.cogsPerOrder)} - {formatVNDCompact(data.platformFeesPerOrder)} - {formatVNDCompact(data.shippingCostPerOrder)}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-primary">{t('unit.ltv')}</p>
-                  <p className="text-muted-foreground font-mono">{t('unit.ltvFormula')}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    = {formatVNDCompact(data.avgOrderValue)} × {data.avgOrdersPerCustomer.toFixed(1)} × {data.contributionMarginPercent.toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-primary">{t('unit.cac')}</p>
-                  <p className="text-muted-foreground font-mono">{t('unit.cacFormula')}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    = {formatVNDCompact(data.totalMarketingSpend)} / {data.newCustomersThisMonth || data.rawData.uniqueBuyers}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-primary">{t('unit.ltvCacRatio')}</p>
-                  <p className="text-muted-foreground font-mono">{t('unit.ltvCacFormula')}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('unit.ltvCacTarget')}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-primary">{t('unit.roas')}</p>
-                  <p className="text-muted-foreground font-mono">{t('unit.roasFormula')}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    = {formatVNDCompact(data.rawData.totalRevenue)} / {formatVNDCompact(data.totalMarketingSpend)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+        {/* FDP Principle #3: Formula Library - LOCKED */}
+        <FormulaDisplay showThresholds={true} />
 
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
