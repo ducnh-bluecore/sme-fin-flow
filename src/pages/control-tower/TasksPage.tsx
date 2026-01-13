@@ -42,13 +42,14 @@ import { format, formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
 
+// DB constraint: status IN ('todo', 'in_progress', 'review', 'done')
 interface Task {
   id: string;
   title: string;
   description: string | null;
   assignee_id: string | null;
   assignee_name: string | null;
-  status: 'todo' | 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'todo' | 'in_progress' | 'review' | 'done';
   priority: 'urgent' | 'high' | 'medium' | 'low';
   due_date: string | null;
   department: string | null;
@@ -59,10 +60,9 @@ interface Task {
 
 const statusConfig: Record<string, { label: string; color: string; textColor: string }> = {
   'todo': { label: 'Chờ xử lý', color: 'bg-slate-500', textColor: 'text-slate-400' },
-  'pending': { label: 'Chờ xử lý', color: 'bg-slate-500', textColor: 'text-slate-400' },
   'in_progress': { label: 'Đang làm', color: 'bg-amber-500', textColor: 'text-amber-400' },
-  'completed': { label: 'Hoàn thành', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
-  'cancelled': { label: 'Đã hủy', color: 'bg-red-500', textColor: 'text-red-400' },
+  'review': { label: 'Chờ duyệt', color: 'bg-blue-500', textColor: 'text-blue-400' },
+  'done': { label: 'Hoàn thành', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
 };
 
 const priorityConfig = {
@@ -81,7 +81,7 @@ function TaskCard({
   onStatusChange: (id: string, status: Task['status']) => void;
   onAddNote: (task: Task) => void;
 }) {
-  const isOverdue = task.due_date && isPast(parseISO(task.due_date)) && task.status !== 'completed';
+  const isOverdue = task.due_date && isPast(parseISO(task.due_date)) && task.status !== 'done';
   
   const formatDueDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -163,16 +163,16 @@ function TaskCard({
               Bắt đầu làm
             </DropdownMenuItem>
             <DropdownMenuItem 
-              className="text-emerald-400 focus:bg-emerald-500/10"
-              onClick={() => onStatusChange(task.id, 'completed')}
+              className="text-blue-400 focus:bg-blue-500/10"
+              onClick={() => onStatusChange(task.id, 'review')}
             >
-              Đánh dấu hoàn thành
+              Gửi duyệt
             </DropdownMenuItem>
             <DropdownMenuItem 
-              className="text-red-400 focus:bg-red-500/10"
-              onClick={() => onStatusChange(task.id, 'cancelled')}
+              className="text-emerald-400 focus:bg-emerald-500/10"
+              onClick={() => onStatusChange(task.id, 'done')}
             >
-              Hủy công việc
+              Đánh dấu hoàn thành
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -227,7 +227,7 @@ function TaskCard({
       )}
 
       {/* Progress */}
-      {task.status !== 'completed' && task.progress && task.progress > 0 && (
+      {task.status !== 'done' && task.progress && task.progress > 0 && (
         <div className="mt-3">
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-slate-500">Tiến độ</span>
@@ -254,7 +254,7 @@ function TaskCard({
           )}
         </div>
         
-        {task.status !== 'completed' && task.status !== 'cancelled' && (
+        {task.status !== 'done' && (
           <Button
             variant="outline"
             size="sm"
@@ -413,20 +413,20 @@ export default function TasksPage() {
     );
   }, [tasks, searchQuery]);
 
-  const pendingTasks = filteredTasks.filter(t => t.status === 'pending' || t.status === 'todo');
-  const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress');
-  const completedTasks = filteredTasks.filter(t => t.status === 'completed');
+  const pendingTasks = filteredTasks.filter(t => t.status === 'todo');
+  const inProgressTasks = filteredTasks.filter(t => t.status === 'in_progress' || t.status === 'review');
+  const completedTasks = filteredTasks.filter(t => t.status === 'done');
 
   const stats = useMemo(() => {
     const overdue = tasks.filter(t => 
-      t.due_date && isPast(parseISO(t.due_date)) && t.status !== 'completed' && t.status !== 'cancelled'
+      t.due_date && isPast(parseISO(t.due_date)) && t.status !== 'done'
     ).length;
     
     return {
       total: tasks.length,
-      completed: tasks.filter(t => t.status === 'completed').length,
+      completed: tasks.filter(t => t.status === 'done').length,
       overdue,
-      urgent: tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed').length,
+      urgent: tasks.filter(t => t.priority === 'urgent' && t.status !== 'done').length,
     };
   }, [tasks]);
 
@@ -518,7 +518,7 @@ export default function TasksPage() {
         <div className="flex gap-4 overflow-x-auto pb-4">
           <TaskColumn 
             title="Chờ xử lý" 
-            status="pending" 
+            status="todo" 
             tasks={pendingTasks} 
             count={pendingTasks.length} 
             onStatusChange={handleStatusChange}
@@ -534,7 +534,7 @@ export default function TasksPage() {
           />
           <TaskColumn 
             title="Hoàn thành" 
-            status="completed" 
+            status="done" 
             tasks={completedTasks} 
             count={completedTasks.length}
             onStatusChange={handleStatusChange}
