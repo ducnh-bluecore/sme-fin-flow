@@ -251,6 +251,18 @@ export default function SKUProfitabilityAnalysis() {
     return result.sort((a, b) => b.impact - a.impact);
   }, [data]);
 
+  const missingCosts = useMemo(() => {
+    const metrics = data?.skuMetrics || [];
+    const revenueRows = metrics.filter(m => (m.revenue || 0) > 0);
+    const missing = revenueRows.filter(m => (m.cogs || 0) === 0 && (m.fees || 0) === 0);
+
+    return {
+      revenueRows: revenueRows.length,
+      missingRows: missing.length,
+      missingRatio: revenueRows.length > 0 ? missing.length / revenueRows.length : 0,
+    };
+  }, [data]);
+
   if (isLoading) {
     return (
       <Card className="bg-slate-900/50 border-slate-800">
@@ -309,6 +321,25 @@ export default function SKUProfitabilityAnalysis() {
 
   return (
     <div className="space-y-6">
+      {missingCosts.missingRows > 0 && (
+        <Card className="bg-amber-500/10 border-amber-500/30">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-100">
+                  Đang thiếu dữ liệu chi phí (COGS/fees) nên nhiều SKU hiển thị Lợi nhuận = Doanh thu
+                </p>
+                <p className="text-xs text-slate-300 mt-1">
+                  {missingCosts.missingRows}/{missingCosts.revenueRows} SKU có doanh thu đang có COGS=0 và fees=0.
+                  Nếu bạn muốn tính đúng, cần đồng bộ thêm giá vốn/chi phí bán hàng cho kênh hiện tại.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-slate-900/50 border-slate-800">
