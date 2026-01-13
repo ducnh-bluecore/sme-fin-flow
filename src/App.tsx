@@ -98,6 +98,7 @@ import ScenarioPlannerPage from "./pages/mdp/ScenarioPlannerPage";
 import ROIAnalyticsPage from "./pages/mdp/ROIAnalyticsPage";
 import CustomerLTVPage from "./pages/mdp/CustomerLTVPage";
 import DataSourcesPage from "./pages/mdp/DataSourcesPage";
+import DataReadinessPage from "./pages/mdp/DataReadinessPage";
 // CMO Mode pages
 import ProfitAttributionPage from "./pages/mdp/ProfitAttributionPage";
 import CashImpactPage from "./pages/mdp/CashImpactPage";
@@ -206,6 +207,7 @@ const AppRoutes = () => {
         <Route path="/mdp/roi-analytics" element={<ROIAnalyticsPage />} />
         <Route path="/mdp/customer-ltv" element={<CustomerLTVPage />} />
         <Route path="/mdp/data-sources" element={<DataSourcesPage />} />
+        <Route path="/mdp/data-readiness" element={<DataReadinessPage />} />
         <Route path="/mdp/docs" element={<MDPDashboardPage />} />
         <Route path="/mdp/settings" element={<MDPDashboardPage />} />
       </Route>
