@@ -7,3 +7,4 @@ export * from './ExecutionAlertsPanel';
 export * from './PlatformAdsOverview';
 export * from './MarketingActionsPanel';
 export * from './AdvancedMetricsGrid';
+export * from './FinancialTruthOverlay';

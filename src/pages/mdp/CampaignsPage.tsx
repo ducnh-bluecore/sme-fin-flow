@@ -10,6 +10,7 @@ import {
   CampaignDetailDialog,
   PerformanceOverview,
   ExecutionAlertsPanel,
+  FinancialTruthOverlay,
 } from '@/components/mdp/marketing-mode';
 
 export default function CampaignsPage() {
@@ -17,6 +18,7 @@ export default function CampaignsPage() {
     marketingPerformance,
     executionAlerts,
     marketingModeSummary,
+    cmoModeSummary,
     isLoading, 
     error,
   } = useMDPData();
@@ -71,6 +73,12 @@ export default function CampaignsPage() {
       <PageHeader 
         title="Hiệu suất Campaigns"
         subtitle="Theo dõi và quản lý hiệu suất các chiến dịch marketing"
+      />
+
+      {/* Financial Truth - Real Profit */}
+      <FinancialTruthOverlay 
+        cmoSummary={cmoModeSummary}
+        marketingSummary={marketingModeSummary}
       />
 
       {/* Performance Overview */}
