@@ -23,24 +23,43 @@ interface AssignOwnerDropdownProps {
   compact?: boolean;
 }
 
-// Use notification_recipients instead of team_members for proper user mapping
+// Use tenant_users + profiles for proper auth user mapping
 function useAssignableUsers() {
   const { data: tenantId } = useActiveTenantId();
-  
+
   return useQuery({
     queryKey: ['assignable-users', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      
-      const { data, error } = await supabase
-        .from('notification_recipients')
-        .select('id, name, email, role')
+
+      const { data: members, error: membersError } = await supabase
+        .from('tenant_users')
+        .select('user_id, role, is_active')
         .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) throw error;
-      return data || [];
+        .eq('is_active', true);
+
+      if (membersError) throw membersError;
+      const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+      if (userIds.length === 0) return [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profileById = new Map((profiles || []).map(p => [p.id, p]));
+
+      return (members || []).map(m => {
+        const p = profileById.get(m.user_id);
+        return {
+          id: m.user_id,
+          name: (p?.full_name || 'User').trim(),
+          avatar_url: p?.avatar_url || null,
+          role: String(m.role || 'member'),
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
     },
     enabled: !!tenantId,
   });
@@ -111,7 +130,7 @@ export function AssignOwnerDropdown({
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 bg-slate-900 border-slate-700">
+      <DropdownMenuContent align="end" className="w-56 z-50 bg-slate-900 border-slate-700">
         <DropdownMenuLabel className="text-xs text-slate-400">
           Chọn người phụ trách
         </DropdownMenuLabel>
@@ -123,7 +142,7 @@ export function AssignOwnerDropdown({
           </div>
         ) : users.length === 0 ? (
           <div className="text-xs text-slate-500 text-center py-4 px-2">
-            Chưa có người nhận thông báo. Vui lòng thêm trong Cài đặt.
+            Chưa có thành viên trong tenant. Vui lòng mời thêm người vào team.
           </div>
         ) : (
           <>
