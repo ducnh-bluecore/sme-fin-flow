@@ -71,7 +71,7 @@ export function ProfitAttributionPanel({ profitData, summary }: ProfitAttributio
   };
 
   return (
-    <Card className="border-purple-500/20 bg-card/50 backdrop-blur">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

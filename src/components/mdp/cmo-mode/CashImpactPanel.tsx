@@ -34,7 +34,7 @@ export function CMOCashImpactPanel({ cashImpact, summary }: CMOCashImpactPanelPr
   };
 
   return (
-    <Card className="border-purple-500/20 bg-card/50 backdrop-blur">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-purple-400" />
