@@ -438,25 +438,43 @@ export default function DecisionCenterPage() {
                   {decidedCards.map((card) => (
                     <div 
                       key={card.id} 
-                      className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                      className="p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
                       onClick={() => setSelectedCardId(card.id)}
                     >
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        <div>
-                          <p className="font-medium text-sm">{card.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {card.entity_label} • {card.actions?.[0]?.label || 'Đã quyết định'}
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1">
+                          <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                          <div className="space-y-1.5 flex-1">
+                            <p className="font-medium text-sm">{card.title}</p>
+                            <p className="text-sm text-muted-foreground">{card.question}</p>
+                            
+                            {/* Decision details */}
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                                ✓ {card.actions?.find(a => a.is_recommended)?.label || 'Đã quyết định'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {card.entity_label}
+                              </span>
+                              <span className="text-xs text-muted-foreground">•</span>
+                              <span className="text-xs text-muted-foreground">
+                                Impact: {formatCurrency(Math.abs(card.impact_amount))}đ
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <Badge variant="outline">{card.priority}</Badge>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(card.updated_at).toLocaleDateString('vi-VN', {
+                              day: '2-digit',
+                              month: '2-digit', 
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
                           </p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                          {card.priority}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(card.updated_at).toLocaleDateString('vi-VN')}
-                        </p>
                       </div>
                     </div>
                   ))}
