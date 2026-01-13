@@ -89,7 +89,7 @@ export function CampaignPerformanceTable({ campaigns }: CampaignPerformanceTable
   };
 
   return (
-    <Card className="border-blue-500/20 bg-card/50 backdrop-blur">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
