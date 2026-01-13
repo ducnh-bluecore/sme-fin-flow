@@ -111,8 +111,14 @@ export default function DecisionCenterPage() {
     return combinedCards;
   }, [dbCards, autoCards, priorityFilter]);
 
-  // Selected card for detail view (fetch by id so History/Dismissed can open too)
-  const { data: selectedCard } = useDecisionCard(selectedCardId);
+  const selectedCardLocal = useMemo(
+    () => allCards?.find(c => c.id === selectedCardId) || null,
+    [allCards, selectedCardId]
+  );
+
+  // Selected card for detail view (prefer DB for full details; fallback to local for auto cards)
+  const { data: selectedCardFromDb } = useDecisionCard(selectedCardId);
+  const selectedCard = selectedCardFromDb || selectedCardLocal;
 
   // Group cards by priority
   const groupedCards = useMemo(() => {
@@ -539,13 +545,18 @@ export default function DecisionCenterPage() {
           <SheetHeader>
             <SheetTitle>Chi tiết quyết định</SheetTitle>
           </SheetHeader>
-          {selectedCard && (
+
+          {!selectedCard ? (
+            <div className="mt-6 py-10 text-center text-muted-foreground">
+              <p>Không tìm thấy chi tiết quyết định (có thể card chưa được lưu vào hệ thống).</p>
+            </div>
+          ) : (
             <div className="mt-6 flex flex-col gap-6">
               {/* Top: Decision Card */}
               <div>
                 <DecisionCardComponent card={selectedCard} />
               </div>
-              
+
               {/* Bottom: AI Chat inline */}
               <div className="border rounded-lg p-4 flex flex-col min-h-[350px]">
                 <InlineAIChat card={selectedCard} />
