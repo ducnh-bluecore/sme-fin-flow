@@ -226,7 +226,10 @@ export const TodayDecisionSummary: React.FC<TodayDecisionSummaryProps> = ({
     const result: Decision[] = [];
 
     // SKU decisions using FDP formula
-    skuMetrics.forEach(sku => {
+    // IMPORTANT: Skip SKUs with no revenue (invalid data)
+    skuMetrics
+      .filter(sku => sku.revenue > 0) // Only process SKUs with actual sales
+      .forEach(sku => {
       const analysis = analyzeSKU(
         sku.margin_percent,
         sku.revenue,
