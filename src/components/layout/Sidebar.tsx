@@ -116,6 +116,7 @@ const navItems: NavItem[] = [
     children: [
       { labelKey: 'nav.channelAnalytics', href: '/channel-analytics' },
       { labelKey: 'nav.unitEconomics', href: '/unit-economics' },
+      { labelKey: 'nav.mdp', href: '/mdp' },
     ],
   },
   {
