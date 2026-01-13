@@ -88,6 +88,9 @@ const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 // MDP pages - eager import to avoid reload issues
 import MDPDashboardPage from "./pages/MDPDashboardPage";
+import CampaignsPage from "./pages/mdp/CampaignsPage";
+import ChannelsPage from "./pages/mdp/ChannelsPage";
+import FunnelPage from "./pages/mdp/FunnelPage";
 import ABTestingPage from "./pages/mdp/ABTestingPage";
 import AudienceInsightsPage from "./pages/mdp/AudienceInsightsPage";
 import BudgetOptimizerPage from "./pages/mdp/BudgetOptimizerPage";
@@ -184,9 +187,9 @@ const AppRoutes = () => {
       >
         {/* MDP Manifesto: Profit before Performance. Cash before Clicks. */}
         <Route path="/mdp" element={<MDPDashboardPage />} />
-        <Route path="/mdp/campaigns" element={<MDPDashboardPage />} />
-        <Route path="/mdp/channels" element={<MDPDashboardPage />} />
-        <Route path="/mdp/funnel" element={<MDPDashboardPage />} />
+        <Route path="/mdp/campaigns" element={<CampaignsPage />} />
+        <Route path="/mdp/channels" element={<ChannelsPage />} />
+        <Route path="/mdp/funnel" element={<FunnelPage />} />
         <Route path="/mdp/ab-testing" element={<ABTestingPage />} />
         <Route path="/mdp/audience" element={<AudienceInsightsPage />} />
         <Route path="/mdp/profit" element={<MDPDashboardPage />} />
