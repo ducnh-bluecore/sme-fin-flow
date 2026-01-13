@@ -135,6 +135,55 @@ const ACTION_TYPE_CONFIG: Record<ActionType, {
   SWITCH: { icon: Truck, color: 'text-purple-400', label: 'Chuyển đổi' },
 };
 
+// Recommendation badge configuration
+type RecommendationType = 'PAUSE' | 'INVESTIGATE' | 'SCALE_WITH_CONDITION';
+
+const RECOMMENDATION_CONFIG: Record<RecommendationType, {
+  emoji: string;
+  label: string;
+  bgColor: string;
+  textColor: string;
+}> = {
+  PAUSE: { 
+    emoji: '🟥', 
+    label: 'RECOMMEND: PAUSE', 
+    bgColor: 'bg-red-500/20', 
+    textColor: 'text-red-400' 
+  },
+  INVESTIGATE: { 
+    emoji: '🟨', 
+    label: 'RECOMMEND: INVESTIGATE', 
+    bgColor: 'bg-yellow-500/20', 
+    textColor: 'text-yellow-400' 
+  },
+  SCALE_WITH_CONDITION: { 
+    emoji: '🟩', 
+    label: 'RECOMMEND: SCALE WITH CONDITION', 
+    bgColor: 'bg-green-500/20', 
+    textColor: 'text-green-400' 
+  },
+};
+
+// Get recommendation type from card data
+function getRecommendationType(card: DecisionCardType): RecommendationType | null {
+  const recommendedAction = card.actions?.find(a => a.is_recommended);
+  if (!recommendedAction) {
+    // Fallback: determine from priority and impact
+    if (card.priority === 'P1' || card.impact_amount < -1000000) return 'PAUSE';
+    if (card.priority === 'P2' || card.impact_amount < 0) return 'INVESTIGATE';
+    if (card.impact_amount > 0) return 'SCALE_WITH_CONDITION';
+    return null;
+  }
+  
+  // Map action type to recommendation
+  const actionType = recommendedAction.action_type;
+  if (['STOP', 'PAUSE', 'AVOID'].includes(actionType)) return 'PAUSE';
+  if (['INVESTIGATE', 'COLLECT', 'RENEGOTIATE'].includes(actionType)) return 'INVESTIGATE';
+  if (['SCALE', 'SCALE_WITH_CONDITION', 'PROTECT'].includes(actionType)) return 'SCALE_WITH_CONDITION';
+  
+  return 'INVESTIGATE'; // Default
+}
+
 // Trend icon component
 function TrendIcon({ trend }: { trend: string | null }) {
   if (trend === 'UP') return <TrendingUp className="h-3 w-3 text-green-400" />;
@@ -210,6 +259,10 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
     });
   };
 
+  // Get recommendation type for badge
+  const recommendationType = getRecommendationType(card);
+  const recommendationBadge = recommendationType ? RECOMMENDATION_CONFIG[recommendationType] : null;
+
   // Compact view (for list)
   if (compact) {
     return (
@@ -225,7 +278,7 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <div className={cn("p-1 rounded", typeConfig.bgColor)}>
                   <TypeIcon className={cn("h-3.5 w-3.5", typeConfig.color)} />
                 </div>
@@ -235,6 +288,19 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
                 {isOverdue && (
                   <Badge variant="destructive" className="text-xs">
                     Quá hạn
+                  </Badge>
+                )}
+                {/* Recommendation Badge */}
+                {recommendationBadge && (
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[10px] font-semibold px-1.5 py-0",
+                      recommendationBadge.bgColor,
+                      recommendationBadge.textColor
+                    )}
+                  >
+                    {recommendationBadge.emoji} {recommendationBadge.label}
                   </Badge>
                 )}
               </div>
@@ -278,7 +344,7 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
                 <TypeIcon className={cn("h-5 w-5", typeConfig.color)} />
               </div>
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Badge variant="outline" className={cn("text-xs", priorityConfig.bgColor, priorityConfig.color)}>
                     {card.priority} - {priorityConfig.label}
                   </Badge>
@@ -288,6 +354,19 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
                   {isOverdue && (
                     <Badge variant="destructive" className="text-xs animate-pulse">
                       ⚠️ Quá hạn
+                    </Badge>
+                  )}
+                  {/* Recommendation Badge */}
+                  {recommendationBadge && (
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-xs font-semibold",
+                        recommendationBadge.bgColor,
+                        recommendationBadge.textColor
+                      )}
+                    >
+                      {recommendationBadge.emoji} {recommendationBadge.label}
                     </Badge>
                   )}
                 </div>
