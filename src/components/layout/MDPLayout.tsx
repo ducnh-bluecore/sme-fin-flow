@@ -57,15 +57,24 @@ const navItemsConfig: NavItemConfig[] = [
   { id: 'campaigns', label: 'Hiệu suất Campaigns', labelEn: 'Campaign Performance', icon: BarChart3, path: '/mdp/campaigns', mode: 'marketing' },
   { id: 'channels', label: 'Phân tích Kênh', labelEn: 'Channel Analysis', icon: Layers, path: '/mdp/channels', mode: 'marketing' },
   { id: 'funnel', label: 'Marketing Funnel', labelEn: 'Marketing Funnel', icon: TrendingUp, path: '/mdp/funnel', mode: 'marketing' },
+  { id: 'ab-testing', label: 'A/B Testing', labelEn: 'A/B Testing', icon: Gauge, path: '/mdp/ab-testing', mode: 'marketing' },
+  { id: 'audience', label: 'Audience Insights', labelEn: 'Audience Insights', icon: PieChart, path: '/mdp/audience', mode: 'marketing' },
   
   // CMO Mode (Decision)
   { id: 'profit', label: 'Profit Attribution', labelEn: 'Profit Attribution', icon: DollarSign, path: '/mdp/profit', mode: 'cmo' },
   { id: 'cash-impact', label: 'Cash Impact', labelEn: 'Cash Impact', icon: Wallet, path: '/mdp/cash-impact', mode: 'cmo' },
   { id: 'risks', label: 'Marketing Risks', labelEn: 'Marketing Risks', icon: AlertTriangle, path: '/mdp/risks', mode: 'cmo', badgeKey: 'risks' },
   { id: 'decisions', label: 'Decision Center', labelEn: 'Decision Center', icon: Target, path: '/mdp/decisions', mode: 'cmo' },
+  { id: 'budget-optimizer', label: 'Budget Optimizer', labelEn: 'Budget Optimizer', icon: Zap, path: '/mdp/budget-optimizer', mode: 'cmo' },
+  { id: 'scenario-planner', label: 'Scenario Planner', labelEn: 'Scenario Planner', icon: LineChart, path: '/mdp/scenario-planner', mode: 'cmo' },
+  
+  // Analytics
+  { id: 'roi-analytics', label: 'ROI Analytics', labelEn: 'ROI Analytics', icon: BarChart3, path: '/mdp/roi-analytics' },
+  { id: 'customer-ltv', label: 'Customer LTV', labelEn: 'Customer LTV', icon: DollarSign, path: '/mdp/customer-ltv' },
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [
+  { id: 'data-sources', label: 'Nguồn dữ liệu', labelEn: 'Data Sources', icon: Layers, path: '/mdp/data-sources' },
   { id: 'docs', label: 'Hướng dẫn', labelEn: 'Documentation', icon: BookOpen, path: '/mdp/docs' },
   { id: 'settings', label: 'Cài đặt', labelEn: 'Settings', icon: Settings, path: '/mdp/settings' },
 ];
