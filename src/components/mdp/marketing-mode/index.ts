@@ -2,3 +2,6 @@ export * from './PerformanceOverview';
 export * from './CampaignPerformanceTable';
 export * from './FunnelChart';
 export * from './ExecutionAlertsPanel';
+export * from './PlatformAdsOverview';
+export * from './MarketingActionsPanel';
+export * from './AdvancedMetricsGrid';
