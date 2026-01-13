@@ -6,6 +6,8 @@
  * 2. Break-even analysis
  * 3. Detection of "SKU lãi nhưng kênh lỗ"
  * 4. Detection of "kênh lãi nhưng SKU lỗ"
+ * 
+ * Uses cache table for faster loading
  */
 
 import { useState, useMemo } from 'react';
@@ -16,22 +18,18 @@ import {
   TrendingDown, 
   AlertTriangle, 
   Target,
-  DollarSign,
   Search,
-  Filter,
-  ArrowUpDown,
   ChevronRight,
   Sparkles,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -40,27 +38,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatVND, formatVNDCompact } from '@/lib/formatters';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
-
-interface SKUMetrics {
-  sku: string;
-  name: string;
-  channel: string;
-  quantity: number;
-  revenue: number;
-  cogs: number;
-  fees: number;
-  profit: number;
-  margin: number;
-  aov: number;
-  breakEvenQty: number;
-  currentQtyVsBE: number; // % above/below break-even
-  status: 'profitable' | 'marginal' | 'loss';
-}
+import { formatVND, formatVNDCompact, formatDateTime } from '@/lib/formatters';
+import { useCachedSKUProfitability, useRecalculateSKUProfitability, CachedSKUMetrics } from '@/hooks/useSKUProfitabilityCache';
 
 interface ChannelSKUConflict {
   type: 'sku_profit_channel_loss' | 'channel_profit_sku_loss';
@@ -73,275 +52,14 @@ interface ChannelSKUConflict {
   suggestion: string;
 }
 
-function useSKUProfitability() {
-  const { data: tenantId } = useActiveTenantId();
-  const { startDateStr, endDateStr } = useDateRangeForQuery();
-
-  return useQuery({
-    queryKey: ['sku-profitability', tenantId, startDateStr, endDateStr],
-    queryFn: async () => {
-      if (!tenantId) return null;
-
-      // Fetch orders (paginate to avoid the 1000 row default limit)
-      const pageSize = 1000;
-      const orders: Array<{
-        id: string;
-        channel: string | null;
-        total_amount: number | null;
-        cost_of_goods: number | null;
-        platform_fee: number | null;
-        commission_fee: number | null;
-        payment_fee: number | null;
-        shipping_fee: number | null;
-      }> = [];
-
-      for (let from = 0; ; from += pageSize) {
-        const to = from + pageSize - 1;
-        const { data: page, error: pageError } = await supabase
-          .from('external_orders')
-          .select('id,channel,total_amount,cost_of_goods,platform_fee,commission_fee,payment_fee,shipping_fee,status')
-          .eq('tenant_id', tenantId)
-          .gte('order_date', startDateStr)
-          .lte('order_date', endDateStr)
-          .in('status', ['pending', 'delivered'])
-          .range(from, to);
-
-        if (pageError) throw pageError;
-        orders.push(...(page || []));
-        if (!page || page.length < pageSize) break;
-      }
-
-      // Fetch order items separately
-      // NOTE: Using a huge `in(...)` list can exceed URL limits and return 400.
-      // Since this dataset is typically small per tenant (and the REST API has a 1000 row default limit),
-      // we fetch items by tenant and filter in-memory.
-      const orderIds = new Set((orders || []).map(o => o.id));
-
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('external_order_items')
-        .select('*')
-        .eq('tenant_id', tenantId);
-
-      if (itemsError) throw itemsError;
-
-      const items = (orderItems || []).filter(i => orderIds.has(i.external_order_id));
-
-      // Map items to orders
-      const itemsByOrderId = items.reduce((acc, item) => {
-        if (!acc[item.external_order_id]) acc[item.external_order_id] = [];
-        acc[item.external_order_id].push(item);
-        return acc;
-      }, {} as Record<string, any[]>);
-
-      // Calculate SKU-level metrics
-      const skuMap = new Map<string, {
-        sku: string;
-        name: string;
-        channels: Map<string, { qty: number; revenue: number; cogs: number; fees: number }>;
-      }>();
-
-      const channelTotals = new Map<string, { revenue: number; cogs: number; fees: number; profit: number }>();
-
-      orders?.forEach(order => {
-        const channel = (order.channel || 'unknown').toUpperCase();
-        const orderFees = (order.platform_fee || 0) + (order.commission_fee || 0) +
-          (order.payment_fee || 0) + (order.shipping_fee || 0);
-
-        const orderItems = itemsByOrderId[order.id] || [];
-
-        // Compute item-level revenue so we can allocate order-level fees / COGS fairly.
-        const itemRows = orderItems.map((item: any) => {
-          const qty = Number(item.quantity ?? 1);
-          const totalAmount = item.total_amount != null ? Number(item.total_amount) : null;
-          const unitPrice = item.unit_price != null ? Number(item.unit_price) : 0;
-
-          // Some connectors store item.total_amount as 0 (not null). Treat 0 as "missing" and fallback to unit_price * qty.
-          const itemRevenue = totalAmount != null && totalAmount > 0
-            ? totalAmount
-            : (unitPrice * qty);
-
-          return { item, qty, itemRevenue };
-        });
-
-        const totalItemRevenue = itemRows.reduce((s, r) => s + (r.itemRevenue || 0), 0);
-        const fallbackShare = itemRows.length > 0 ? 1 / itemRows.length : 0;
-
-        // Update channel totals using item-level totals (avoids double-counting and mismatches)
-        if (!channelTotals.has(channel)) {
-          channelTotals.set(channel, { revenue: 0, cogs: 0, fees: 0, profit: 0 });
-        }
-
-        itemRows.forEach(({ item, qty, itemRevenue }) => {
-          const sku = item.sku || item.product_name || 'Unknown';
-          const name = item.product_name || sku;
-
-          const share = totalItemRevenue > 0 ? (itemRevenue || 0) / totalItemRevenue : fallbackShare;
-          const feeAllocated = orderFees * share;
-
-          // Prefer item-level COGS if > 0; if missing, try to infer from item gross_profit;
-          // otherwise allocate order-level COGS by revenue share.
-          // Treat 0 as "missing" since some connectors default to 0 instead of null.
-          const unitCogs = item.unit_cogs != null ? Number(item.unit_cogs) : 0;
-          const totalCogs = item.total_cogs != null ? Number(item.total_cogs) : 0;
-          const grossProfit = item.gross_profit != null ? Number(item.gross_profit) : 0;
-          const orderCogs = Number(order.cost_of_goods ?? 0);
-
-          let itemCogs = 0;
-          if (unitCogs > 0) {
-            itemCogs = unitCogs * qty;
-          } else if (totalCogs > 0) {
-            itemCogs = totalCogs;
-          } else if (grossProfit !== 0 && (itemRevenue || 0) > 0) {
-            // gross_profit is typically revenue - cogs (before fees).
-            itemCogs = Math.max((itemRevenue || 0) - grossProfit, 0);
-          } else if (orderCogs > 0) {
-            itemCogs = orderCogs * share;
-          }
-          const chTotal = channelTotals.get(channel)!;
-          chTotal.revenue += itemRevenue || 0;
-          chTotal.fees += feeAllocated;
-          chTotal.cogs += itemCogs;
-          chTotal.profit = chTotal.revenue - chTotal.cogs - chTotal.fees;
-
-          if (!skuMap.has(sku)) {
-            skuMap.set(sku, { sku, name, channels: new Map() });
-          }
-
-          const skuData = skuMap.get(sku)!;
-          if (!skuData.channels.has(channel)) {
-            skuData.channels.set(channel, { qty: 0, revenue: 0, cogs: 0, fees: 0 });
-          }
-
-          const chData = skuData.channels.get(channel)!;
-          chData.qty += qty;
-          chData.revenue += itemRevenue || 0;
-          chData.cogs += itemCogs || 0;
-          chData.fees += feeAllocated;
-        });
-      });
-
-      // Convert to metrics array
-      const skuMetrics: SKUMetrics[] = [];
-      
-      skuMap.forEach((data, sku) => {
-        data.channels.forEach((chData, channel) => {
-          const profit = chData.revenue - chData.cogs - chData.fees;
-          const margin = chData.revenue > 0 ? (profit / chData.revenue) * 100 : 0;
-          const aov = chData.qty > 0 ? chData.revenue / chData.qty : 0;
-          
-          // Break-even: Fixed costs / (Price - Variable Cost per unit)
-          const pricePerUnit = chData.qty > 0 ? chData.revenue / chData.qty : 0;
-          const variableCostPerUnit = chData.qty > 0 ? (chData.cogs + chData.fees) / chData.qty : 0;
-          const contributionPerUnit = pricePerUnit - variableCostPerUnit;
-          const breakEvenQty = contributionPerUnit > 0 ? Math.ceil(0 / contributionPerUnit) : Infinity; // No fixed cost assumed per SKU
-          const currentQtyVsBE = breakEvenQty > 0 && breakEvenQty < Infinity 
-            ? ((chData.qty - breakEvenQty) / breakEvenQty) * 100 
-            : chData.qty > 0 ? 100 : 0;
-
-          skuMetrics.push({
-            sku,
-            name: data.name,
-            channel,
-            quantity: chData.qty,
-            revenue: chData.revenue,
-            cogs: chData.cogs,
-            fees: chData.fees,
-            profit,
-            margin,
-            aov,
-            breakEvenQty,
-            currentQtyVsBE,
-            status: margin >= 10 ? 'profitable' : margin >= 0 ? 'marginal' : 'loss'
-          });
-        });
-      });
-
-      // Detect conflicts
-      const conflicts: ChannelSKUConflict[] = [];
-      
-      // Group SKU metrics by SKU
-      const skuGroups = new Map<string, SKUMetrics[]>();
-      skuMetrics.forEach(m => {
-        if (!skuGroups.has(m.sku)) skuGroups.set(m.sku, []);
-        skuGroups.get(m.sku)!.push(m);
-      });
-
-      // Find conflicts
-      skuGroups.forEach((metrics, sku) => {
-        metrics.forEach(m => {
-          const channelTotal = channelTotals.get(m.channel);
-          if (!channelTotal) return;
-
-          const channelMargin = channelTotal.revenue > 0 
-            ? (channelTotal.profit / channelTotal.revenue) * 100 
-            : 0;
-
-          // SKU profitable but channel losing
-          if (m.margin > 5 && channelMargin < -5) {
-            conflicts.push({
-              type: 'sku_profit_channel_loss',
-              sku: m.sku,
-              skuName: m.name,
-              channel: m.channel,
-              skuMargin: m.margin,
-              channelMargin,
-              impact: Math.abs(channelTotal.profit),
-              suggestion: `SKU "${m.name}" có margin tốt (${m.margin.toFixed(1)}%) nhưng kênh ${m.channel} đang lỗ. Xem xét tăng bán SKU này hoặc cắt các SKU lỗ khác trên kênh.`
-            });
-          }
-
-          // Channel profitable but this SKU losing
-          if (m.margin < -5 && channelMargin > 5) {
-            conflicts.push({
-              type: 'channel_profit_sku_loss',
-              sku: m.sku,
-              skuName: m.name,
-              channel: m.channel,
-              skuMargin: m.margin,
-              channelMargin,
-              impact: Math.abs(m.profit),
-              suggestion: `SKU "${m.name}" đang lỗ (${m.margin.toFixed(1)}%) dù kênh ${m.channel} lãi. Xem xét tăng giá, giảm quảng cáo hoặc ngừng bán SKU này trên kênh.`
-            });
-          }
-        });
-      });
-
-      // Sort conflicts by impact
-      conflicts.sort((a, b) => b.impact - a.impact);
-
-      // Summary stats
-      const profitable = skuMetrics.filter(m => m.status === 'profitable');
-      const marginal = skuMetrics.filter(m => m.status === 'marginal');
-      const loss = skuMetrics.filter(m => m.status === 'loss');
-
-      return {
-        skuMetrics: skuMetrics.sort((a, b) => b.profit - a.profit),
-        conflicts,
-        summary: {
-          totalSKUs: new Set(skuMetrics.map(m => m.sku)).size,
-          profitableSKUs: new Set(profitable.map(m => m.sku)).size,
-          marginalSKUs: new Set(marginal.map(m => m.sku)).size,
-          lossSKUs: new Set(loss.map(m => m.sku)).size,
-          totalProfit: skuMetrics.reduce((s, m) => s + m.profit, 0),
-          avgMargin: skuMetrics.length > 0 
-            ? skuMetrics.reduce((s, m) => s + m.margin, 0) / skuMetrics.length 
-            : 0
-        }
-      };
-    },
-    enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000
-  });
-}
-
-function SKUCard({ sku }: { sku: SKUMetrics }) {
+function SKUCard({ sku }: { sku: CachedSKUMetrics }) {
   const statusConfig = {
     profitable: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: TrendingUp },
     marginal: { color: 'text-amber-400', bg: 'bg-amber-500/10', icon: Target },
     loss: { color: 'text-red-400', bg: 'bg-red-500/10', icon: TrendingDown }
   };
   
-  const config = statusConfig[sku.status];
+  const config = statusConfig[sku.status as keyof typeof statusConfig] || statusConfig.profitable;
   const Icon = config.icon;
 
   return (
@@ -352,7 +70,7 @@ function SKUCard({ sku }: { sku: SKUMetrics }) {
     >
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-200 truncate">{sku.name}</p>
+          <p className="text-sm font-medium text-slate-200 truncate">{sku.product_name || sku.sku}</p>
           <p className="text-xs text-slate-500">{sku.sku}</p>
         </div>
         <Badge className={`${config.bg} ${config.color} text-xs`}>
@@ -394,7 +112,7 @@ function SKUCard({ sku }: { sku: SKUMetrics }) {
         <div>
           <p className="text-xs text-slate-500">Margin</p>
           <p className={`text-sm font-medium ${config.color}`}>
-            {sku.margin.toFixed(1)}%
+            {sku.margin_percent.toFixed(1)}%
           </p>
         </div>
       </div>
@@ -444,7 +162,8 @@ function ConflictAlert({ conflict }: { conflict: ChannelSKUConflict }) {
 }
 
 export default function SKUProfitabilityAnalysis() {
-  const { data, isLoading, error } = useSKUProfitability();
+  const { data, isLoading, error } = useCachedSKUProfitability();
+  const recalculate = useRecalculateSKUProfitability();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChannel, setFilterChannel] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -455,7 +174,7 @@ export default function SKUProfitabilityAnalysis() {
     
     return data.skuMetrics
       .filter(sku => {
-        if (searchQuery && !sku.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        if (searchQuery && !(sku.product_name || '').toLowerCase().includes(searchQuery.toLowerCase()) &&
             !sku.sku.toLowerCase().includes(searchQuery.toLowerCase())) {
           return false;
         }
@@ -465,7 +184,7 @@ export default function SKUProfitabilityAnalysis() {
       })
       .sort((a, b) => {
         if (sortBy === 'profit') return b.profit - a.profit;
-        if (sortBy === 'margin') return b.margin - a.margin;
+        if (sortBy === 'margin') return b.margin_percent - a.margin_percent;
         return b.revenue - a.revenue;
       });
   }, [data, searchQuery, filterChannel, filterStatus, sortBy]);
@@ -473,6 +192,63 @@ export default function SKUProfitabilityAnalysis() {
   const channels = useMemo(() => {
     if (!data?.skuMetrics) return [];
     return [...new Set(data.skuMetrics.map(m => m.channel))];
+  }, [data]);
+
+  // Calculate conflicts from cached data
+  const conflicts = useMemo(() => {
+    if (!data?.skuMetrics || data.skuMetrics.length === 0) return [];
+
+    const result: ChannelSKUConflict[] = [];
+
+    // Group by channel to calculate channel-level margins
+    const channelTotals = new Map<string, { revenue: number; profit: number }>();
+    data.skuMetrics.forEach(m => {
+      if (!channelTotals.has(m.channel)) {
+        channelTotals.set(m.channel, { revenue: 0, profit: 0 });
+      }
+      const ch = channelTotals.get(m.channel)!;
+      ch.revenue += m.revenue;
+      ch.profit += m.profit;
+    });
+
+    data.skuMetrics.forEach(m => {
+      const channelTotal = channelTotals.get(m.channel);
+      if (!channelTotal) return;
+
+      const channelMargin = channelTotal.revenue > 0 
+        ? (channelTotal.profit / channelTotal.revenue) * 100 
+        : 0;
+
+      // SKU profitable but channel losing
+      if (m.margin_percent > 5 && channelMargin < -5) {
+        result.push({
+          type: 'sku_profit_channel_loss',
+          sku: m.sku,
+          skuName: m.product_name || m.sku,
+          channel: m.channel,
+          skuMargin: m.margin_percent,
+          channelMargin,
+          impact: Math.abs(channelTotal.profit),
+          suggestion: `SKU "${m.product_name || m.sku}" có margin tốt (${m.margin_percent.toFixed(1)}%) nhưng kênh ${m.channel} đang lỗ. Xem xét tăng bán SKU này hoặc cắt các SKU lỗ khác trên kênh.`
+        });
+      }
+
+      // Channel profitable but this SKU losing
+      if (m.margin_percent < -5 && channelMargin > 5) {
+        result.push({
+          type: 'channel_profit_sku_loss',
+          sku: m.sku,
+          skuName: m.product_name || m.sku,
+          channel: m.channel,
+          skuMargin: m.margin_percent,
+          channelMargin,
+          impact: Math.abs(m.profit),
+          suggestion: `SKU "${m.product_name || m.sku}" đang lỗ (${m.margin_percent.toFixed(1)}%) dù kênh ${m.channel} lãi. Xem xét tăng giá, giảm quảng cáo hoặc ngừng bán SKU này trên kênh.`
+        });
+      }
+    });
+
+    return result.sort((a, b) => b.impact - a.impact);
   }, [data]);
 
   if (isLoading) {
@@ -490,11 +266,42 @@ export default function SKUProfitabilityAnalysis() {
     );
   }
 
-  if (error || !data) {
+  if (error) {
     return (
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="py-8 text-center text-slate-400">
           Không thể tải dữ liệu SKU
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show empty state with recalculate button if no cached data
+  if (!data?.hasCachedData) {
+    return (
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardContent className="py-12 text-center">
+          <Package className="h-12 w-12 mx-auto text-slate-600 mb-4" />
+          <p className="text-slate-400 mb-4">
+            Chưa có dữ liệu SKU Profitability cho khoảng thời gian này.
+          </p>
+          <Button 
+            onClick={() => recalculate.mutate()}
+            disabled={recalculate.isPending}
+            className="bg-primary hover:bg-primary/90"
+          >
+            {recalculate.isPending ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Đang tính toán...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tính toán SKU Profitability
+              </>
+            )}
+          </Button>
         </CardContent>
       </Card>
     );
@@ -546,12 +353,12 @@ export default function SKUProfitabilityAnalysis() {
       </div>
 
       {/* Conflicts / AI Insights */}
-      {data.conflicts.length > 0 && (
+      {conflicts.length > 0 && (
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader>
             <CardTitle className="text-lg text-slate-100 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-400" />
-              Phát hiện bất thường ({data.conflicts.length})
+              Phát hiện bất thường ({conflicts.length})
             </CardTitle>
             <CardDescription className="text-slate-400">
               Các SKU có margin khác biệt với kênh bán - cần xem xét
@@ -559,7 +366,7 @@ export default function SKUProfitabilityAnalysis() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {data.conflicts.slice(0, 5).map((conflict, i) => (
+              {conflicts.slice(0, 5).map((conflict, i) => (
                 <ConflictAlert key={i} conflict={conflict} />
               ))}
             </div>
@@ -578,41 +385,61 @@ export default function SKUProfitabilityAnalysis() {
               </CardTitle>
               <CardDescription className="text-slate-400">
                 Phân tích lợi nhuận chi tiết từng SKU theo kênh
+                {data.lastCalculated && (
+                  <span className="ml-2 text-xs">
+                    (Cập nhật: {formatDateTime(data.lastCalculated)})
+                  </span>
+                )}
               </CardDescription>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => recalculate.mutate()}
+                disabled={recalculate.isPending}
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                {recalculate.isPending ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span className="ml-1 hidden sm:inline">Tính lại</span>
+              </Button>
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
                   placeholder="Tìm SKU..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-48 bg-slate-800/50 border-slate-700"
+                  className="pl-9 w-48 bg-slate-800 border-slate-700 text-slate-200"
                 />
               </div>
               
               <Select value={filterChannel} onValueChange={setFilterChannel}>
-                <SelectTrigger className="w-32 bg-slate-800/50 border-slate-700">
+                <SelectTrigger className="w-32 bg-slate-800 border-slate-700 text-slate-200">
                   <SelectValue placeholder="Kênh" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-800">
-                  <SelectItem value="all">Tất cả</SelectItem>
+                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200 z-50">
+                  <SelectItem value="all" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Tất cả</SelectItem>
                   {channels.map(ch => (
-                    <SelectItem key={ch} value={ch}>{ch}</SelectItem>
+                    <SelectItem key={ch} value={ch} className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">{ch}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-32 bg-slate-800/50 border-slate-700">
+                <SelectTrigger className="w-32 bg-slate-800 border-slate-700 text-slate-200">
                   <SelectValue placeholder="Trạng thái" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-900 border-slate-800">
-                  <SelectItem value="all">Tất cả</SelectItem>
-                  <SelectItem value="profitable">Có lãi</SelectItem>
-                  <SelectItem value="marginal">Marginal</SelectItem>
-                  <SelectItem value="loss">Đang lỗ</SelectItem>
+                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200 z-50">
+                  <SelectItem value="all" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Tất cả</SelectItem>
+                  <SelectItem value="profitable" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Có lãi</SelectItem>
+                  <SelectItem value="marginal" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Marginal</SelectItem>
+                  <SelectItem value="loss" className="text-slate-200 focus:bg-slate-700 focus:text-slate-100">Đang lỗ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
