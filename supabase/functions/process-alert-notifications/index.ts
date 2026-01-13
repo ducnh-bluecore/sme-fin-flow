@@ -36,7 +36,10 @@ serve(async (req) => {
       .select(`
         *,
         extended_alert_configs:alert_config_id (
-          notification_channels,
+          notify_email,
+          notify_slack,
+          notify_push,
+          notify_sms,
           recipient_role
         )
       `)
@@ -74,7 +77,14 @@ serve(async (req) => {
     for (const alert of pendingAlerts || []) {
       try {
         const config = alert.extended_alert_configs;
-        const channels = config?.notification_channels || { inApp: true };
+        // Build notification channels from individual flags
+        const channels = {
+          inApp: true,
+          email: config?.notify_email || false,
+          slack: config?.notify_slack || false,
+          push: config?.notify_push || false,
+          sms: config?.notify_sms || false,
+        };
 
         // Get escalation rules for this tenant and severity
         const { data: escalationRules } = await supabase
@@ -95,7 +105,8 @@ serve(async (req) => {
         if (escalationRule) {
           targetRole = escalationRule.escalate_to_role;
           notifyChannels = {
-            inApp: escalationRule.notify_channels.includes('push'),
+            inApp: true,
+            push: escalationRule.notify_channels.includes('push'),
             email: escalationRule.notify_channels.includes('email'),
             sms: escalationRule.notify_channels.includes('sms'),
             slack: escalationRule.notify_channels.includes('slack'),
