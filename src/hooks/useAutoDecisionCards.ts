@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { FDP_THRESHOLDS, analyzeSKU } from '@/lib/fdp-formulas';
 import { useAllProblematicSKUs, ProblematicSKU } from './useAllProblematicSKUs';
-import { useCashFlowDirect } from './useCashFlowDirect';
+import { useCashFlowAnalysis } from './useCashFlowDirect';
 import { useInvoiceTracking } from './useInvoiceData';
+import { useMDPData, MDP_THRESHOLDS } from './useMDPData';
 import type { DecisionCard, DecisionCardFact, DecisionCardAction, Priority, Confidence, OwnerRole, ActionType } from './useDecisionCards';
 
 interface AutoDecisionCard extends Omit<DecisionCard, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
@@ -32,6 +33,20 @@ function getDeadline(priority: Priority): string {
   return now.toISOString();
 }
 
+// Format currency for display
+function formatCurrency(value: number): string {
+  if (Math.abs(value) >= 1e9) {
+    return `${(value / 1e9).toFixed(1)}B`;
+  }
+  if (Math.abs(value) >= 1e6) {
+    return `${(value / 1e6).toFixed(0)}M`;
+  }
+  if (Math.abs(value) >= 1e3) {
+    return `${(value / 1e3).toFixed(0)}K`;
+  }
+  return value.toFixed(0);
+}
+
 // Create facts from data
 function createFacts(cardId: string, factsData: Array<{
   key: string;
@@ -56,7 +71,7 @@ function createFacts(cardId: string, factsData: Array<{
   }));
 }
 
-// Create actions
+// Create actions with calculated outcomes
 function createActions(cardId: string, actionsData: Array<{
   type: ActionType;
   label: string;
@@ -80,11 +95,21 @@ function createActions(cardId: string, actionsData: Array<{
 export function useAutoDecisionCards() {
   // Get real data from existing hooks
   const { data: skuData } = useAllProblematicSKUs();
-  const { data: cashData } = useCashFlowDirect();
+  const { summary: cashSummary, cashFlows } = useCashFlowAnalysis();
   const { invoices: invoicesData } = useInvoiceTracking();
+  const { 
+    profitAttribution, 
+    cashImpact, 
+    riskAlerts 
+  } = useMDPData();
 
   const autoCards = useMemo(() => {
     const cards: AutoDecisionCard[] = [];
+
+    // Get real burn rate and runway from cash analysis
+    const burnRate = cashSummary?.burnRate || 0;
+    const currentRunway = cashSummary?.runway || 0;
+    const latestCashBalance = cashFlows?.[0]?.closing_cash_balance || 0;
 
     // 1. Analyze SKU Profitability - Generate STOP/REVIEW decisions
     if (skuData && skuData.length > 0) {
@@ -102,6 +127,11 @@ export function useAutoDecisionCards() {
 
           if (analysis.decision === 'stop_immediately') {
             const cardId = generateAutoId('sku-stop', sku.sku);
+            
+            // Calculate real outcome: stopping this SKU saves monthly loss
+            const monthlyLoss = Math.abs(sku.profit);
+            const inventoryValue = sku.cogs * 0.3; // Estimate locked inventory
+            
             const card: AutoDecisionCard = {
               id: cardId,
               isAuto: true,
@@ -118,10 +148,10 @@ export function useAutoDecisionCards() {
               priority: 'P1',
               severity_score: 95,
               confidence: 'HIGH' as Confidence,
-              impact_amount: -Math.abs(sku.profit),
+              impact_amount: -monthlyLoss,
               impact_currency: 'VND',
               impact_window_days: 30,
-              impact_description: `Tổn thất ${Math.abs(sku.profit).toLocaleString()}đ/tháng nếu tiếp tục bán`,
+              impact_description: `Tổn thất ${formatCurrency(monthlyLoss)}đ/tháng nếu tiếp tục bán`,
               deadline_at: getDeadline('P1'),
               snoozed_until: null,
               snooze_count: 0,
@@ -136,14 +166,33 @@ export function useAutoDecisionCards() {
                 { key: 'channel', label: 'Kênh bán', value: sku.channel },
               ]),
               actions: createActions(cardId, [
-                { type: 'STOP', label: 'Dừng bán ngay', isRecommended: true, outcome: 'Dừng lỗ, giải phóng vốn tồn kho' },
-                { type: 'PAUSE', label: 'Tạm dừng & xả hàng', outcome: 'Giảm giá xả tồn rồi dừng' },
-                { type: 'INVESTIGATE', label: 'Điều tra thêm', outcome: 'Phân tích sâu trước khi quyết định' },
+                { 
+                  type: 'STOP', 
+                  label: 'Dừng bán ngay', 
+                  isRecommended: true, 
+                  outcome: `Tiết kiệm ${formatCurrency(monthlyLoss)}đ/tháng, giải phóng ${formatCurrency(inventoryValue)}đ vốn`
+                },
+                { 
+                  type: 'PAUSE', 
+                  label: 'Tạm dừng & xả hàng', 
+                  outcome: `Giảm giá 20-30% để xả ${formatCurrency(inventoryValue)}đ tồn kho`
+                },
+                { 
+                  type: 'INVESTIGATE', 
+                  label: 'Điều tra thêm', 
+                  outcome: 'Phân tích sâu trước khi quyết định'
+                },
               ]),
             };
             cards.push(card);
           } else if (analysis.decision === 'review') {
             const cardId = generateAutoId('sku-review', sku.sku);
+            
+            // Calculate potential improvement
+            const targetMargin = 10; // 10% target
+            const marginGap = targetMargin - marginPercent;
+            const potentialImprovement = sku.revenue * (marginGap / 100);
+            
             const card: AutoDecisionCard = {
               id: cardId,
               isAuto: true,
@@ -160,10 +209,10 @@ export function useAutoDecisionCards() {
               priority: 'P2',
               severity_score: 70,
               confidence: 'MEDIUM' as Confidence,
-              impact_amount: sku.revenue * 0.05, // Potential 5% improvement
+              impact_amount: potentialImprovement,
               impact_currency: 'VND',
               impact_window_days: 30,
-              impact_description: `Tiềm năng cải thiện ${(sku.revenue * 0.05).toLocaleString()}đ/tháng`,
+              impact_description: `Tiềm năng cải thiện ${formatCurrency(potentialImprovement)}đ/tháng`,
               deadline_at: getDeadline('P2'),
               snoozed_until: null,
               snooze_count: 0,
@@ -173,12 +222,25 @@ export function useAutoDecisionCards() {
                 { key: 'margin', label: 'Margin %', value: `${marginPercent.toFixed(1)}%`, numeric: marginPercent, unit: '%', trend: 'DOWN' },
                 { key: 'revenue', label: 'Doanh thu', value: `${sku.revenue.toLocaleString()}đ`, numeric: sku.revenue, unit: 'VND' },
                 { key: 'target_margin', label: 'Margin mục tiêu', value: '10%', numeric: 10, unit: '%' },
-                { key: 'channel', label: 'Kênh bán', value: sku.channel },
+                { key: 'gap', label: 'Cần cải thiện', value: `+${marginGap.toFixed(1)}%`, numeric: marginGap, unit: '%' },
               ]),
               actions: createActions(cardId, [
-                { type: 'SCALE_WITH_CONDITION', label: 'Tăng giá 10-15%', isRecommended: true, outcome: 'Margin tăng, volume có thể giảm nhẹ' },
-                { type: 'RENEGOTIATE', label: 'Đàm phán với supplier', outcome: 'Giảm COGS 5-10%' },
-                { type: 'INVESTIGATE', label: 'Theo dõi thêm', outcome: 'Thu thập thêm dữ liệu' },
+                { 
+                  type: 'SCALE_WITH_CONDITION', 
+                  label: 'Tăng giá 10-15%', 
+                  isRecommended: true, 
+                  outcome: `Margin +${marginGap.toFixed(1)}%, lợi nhuận +${formatCurrency(potentialImprovement)}đ/tháng`
+                },
+                { 
+                  type: 'RENEGOTIATE', 
+                  label: 'Đàm phán với supplier', 
+                  outcome: `Giảm COGS 5-10%, tiết kiệm ${formatCurrency(sku.cogs * 0.07)}đ`
+                },
+                { 
+                  type: 'INVESTIGATE', 
+                  label: 'Theo dõi thêm', 
+                  outcome: 'Thu thập thêm dữ liệu 7 ngày'
+                },
               ]),
             };
             cards.push(card);
@@ -186,24 +248,21 @@ export function useAutoDecisionCards() {
         });
     }
 
-    // 2. Analyze Cash Position - Generate CASH_SURVIVAL decisions
-    if (cashData && Array.isArray(cashData) && cashData.length > 0) {
-      const latestCash = cashData[0];
-      const bankBalance = latestCash.opening_cash_balance || 0;
-      const monthlyBurn = 50000000; // Should come from real data
-      const cashRunway = monthlyBurn > 0 ? bankBalance / monthlyBurn : 999;
-
-      if (cashRunway < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) {
+    // 2. Analyze Cash Position - Generate CASH_SURVIVAL decisions (from REAL data)
+    if (latestCashBalance > 0 && burnRate > 0) {
+      if (currentRunway < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) {
         const cardId = generateAutoId('cash', 'runway');
+        const daysLeft = Math.floor(currentRunway * 30);
+        
         const card: AutoDecisionCard = {
           id: cardId,
           isAuto: true,
           card_type: 'CASH_SURVIVAL',
-          title: `KHẨN CẤP: Cash Runway < ${FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS} tháng`,
-          question: `Chỉ còn ${cashRunway.toFixed(1)} tháng cash - cần hành động gì ngay?`,
+          title: `KHẨN CẤP: Cash Runway ${currentRunway.toFixed(1)} tháng`,
+          question: `Chỉ còn ${currentRunway.toFixed(1)} tháng cash - cần hành động gì ngay?`,
           entity_type: 'cash',
           entity_id: 'runway',
-          entity_label: `Cash Balance: ${bankBalance.toLocaleString()}đ`,
+          entity_label: `Cash Balance: ${formatCurrency(latestCashBalance)}đ`,
           owner_role: 'CFO' as OwnerRole,
           owner_user_id: null,
           assigned_at: null,
@@ -211,31 +270,44 @@ export function useAutoDecisionCards() {
           priority: 'P1',
           severity_score: 99,
           confidence: 'HIGH' as Confidence,
-          impact_amount: -bankBalance,
+          impact_amount: -latestCashBalance,
           impact_currency: 'VND',
-          impact_window_days: Math.floor(cashRunway * 30),
-          impact_description: `Hết tiền trong ${cashRunway.toFixed(1)} tháng nếu không hành động`,
+          impact_window_days: daysLeft,
+          impact_description: `Hết tiền trong ${currentRunway.toFixed(1)} tháng nếu không hành động`,
           deadline_at: getDeadline('P1'),
           snoozed_until: null,
           snooze_count: 0,
-          source_modules: ['FDP', 'Cash Flow'],
+          source_modules: ['FDP', 'Cash Flow Direct'],
           vertical: 'finance',
           facts: createFacts(cardId, [
-            { key: 'runway', label: 'Cash Runway', value: `${cashRunway.toFixed(1)} tháng`, numeric: cashRunway, unit: 'tháng', trend: 'DOWN' },
-            { key: 'balance', label: 'Số dư', value: `${bankBalance.toLocaleString()}đ`, numeric: bankBalance, unit: 'VND' },
-            { key: 'burn', label: 'Burn Rate', value: `${monthlyBurn.toLocaleString()}đ/tháng`, numeric: monthlyBurn, unit: 'VND' },
+            { key: 'runway', label: 'Cash Runway', value: `${currentRunway.toFixed(1)} tháng`, numeric: currentRunway, unit: 'tháng', trend: 'DOWN' },
+            { key: 'balance', label: 'Số dư hiện tại', value: `${formatCurrency(latestCashBalance)}đ`, numeric: latestCashBalance, unit: 'VND' },
+            { key: 'burn', label: 'Burn Rate', value: `${formatCurrency(burnRate)}đ/tháng`, numeric: burnRate, unit: 'VND' },
           ]),
           actions: createActions(cardId, [
-            { type: 'COLLECT', label: 'Thu hồi AR ngay', isRecommended: true, outcome: 'Tăng cash trong 7-14 ngày' },
-            { type: 'STOP', label: 'Cắt giảm chi phí', outcome: 'Giảm burn rate 30-50%' },
-            { type: 'RENEGOTIATE', label: 'Đàm phán với NCC', outcome: 'Hoãn thanh toán 30-60 ngày' },
+            { 
+              type: 'COLLECT', 
+              label: 'Thu hồi AR ngay', 
+              isRecommended: true, 
+              outcome: `Tăng runway, mục tiêu +${Math.ceil(burnRate * 2 / latestCashBalance * currentRunway)} tháng`
+            },
+            { 
+              type: 'STOP', 
+              label: 'Cắt giảm chi phí 30%', 
+              outcome: `Burn rate giảm ${formatCurrency(burnRate * 0.3)}đ, runway +${((latestCashBalance / (burnRate * 0.7)) - currentRunway).toFixed(1)} tháng`
+            },
+            { 
+              type: 'RENEGOTIATE', 
+              label: 'Đàm phán với NCC', 
+              outcome: 'Hoãn thanh toán 30-60 ngày, giữ cash'
+            },
           ]),
         };
         cards.push(card);
       }
     }
 
-    // 3. Analyze Overdue AR - Generate COLLECT decisions
+    // 3. Analyze Overdue AR - Generate COLLECT decisions (from REAL data)
     if (invoicesData && Array.isArray(invoicesData)) {
       const overdueInvoices = invoicesData.filter(inv => inv.daysOverdue > 0);
       const totalOverdue = overdueInvoices.reduce((sum, inv) => sum + (inv.total_amount - (inv.paid_amount || 0)), 0);
@@ -244,12 +316,15 @@ export function useAutoDecisionCards() {
         const cardId = generateAutoId('ar', 'overdue');
         const topOverdue = overdueInvoices.slice(0, 3);
         
+        // Calculate runway improvement if collected
+        const runwayImprovement = burnRate > 0 ? totalOverdue / burnRate : 0;
+        
         const card: AutoDecisionCard = {
           id: cardId,
           isAuto: true,
           card_type: 'CASH_SURVIVAL',
           title: `THU HỒI: ${overdueInvoices.length} hóa đơn quá hạn`,
-          question: `${totalOverdue.toLocaleString()}đ AR quá hạn - cần thu hồi ngay?`,
+          question: `${formatCurrency(totalOverdue)}đ AR quá hạn - cần thu hồi ngay?`,
           entity_type: 'ar',
           entity_id: 'overdue',
           entity_label: `${overdueInvoices.length} khách hàng nợ quá hạn`,
@@ -263,31 +338,192 @@ export function useAutoDecisionCards() {
           impact_amount: totalOverdue,
           impact_currency: 'VND',
           impact_window_days: 14,
-          impact_description: `Thu hồi được ${totalOverdue.toLocaleString()}đ nếu hành động`,
+          impact_description: `Thu hồi được ${formatCurrency(totalOverdue)}đ → runway +${runwayImprovement.toFixed(1)} tháng`,
           deadline_at: getDeadline('P1'),
           snoozed_until: null,
           snooze_count: 0,
           source_modules: ['FDP', 'AR Aging'],
           vertical: 'finance',
           facts: createFacts(cardId, [
-            { key: 'total', label: 'Tổng nợ quá hạn', value: `${totalOverdue.toLocaleString()}đ`, numeric: totalOverdue, unit: 'VND', trend: 'UP' },
+            { key: 'total', label: 'Tổng nợ quá hạn', value: `${formatCurrency(totalOverdue)}đ`, numeric: totalOverdue, unit: 'VND', trend: 'UP' },
             { key: 'count', label: 'Số hóa đơn', value: `${overdueInvoices.length}`, numeric: overdueInvoices.length },
+            { key: 'runway_impact', label: 'Runway nếu thu', value: `+${runwayImprovement.toFixed(1)} tháng`, numeric: runwayImprovement, unit: 'tháng' },
             ...topOverdue.map((inv, i) => ({
               key: `customer_${i}`,
               label: inv.customers?.name || `Khách ${i + 1}`,
-              value: `${(inv.total_amount - (inv.paid_amount || 0)).toLocaleString()}đ (${inv.daysOverdue} ngày)`,
+              value: `${formatCurrency(inv.total_amount - (inv.paid_amount || 0))}đ (${inv.daysOverdue} ngày)`,
               numeric: inv.total_amount - (inv.paid_amount || 0),
               unit: 'VND',
             })),
           ]),
           actions: createActions(cardId, [
-            { type: 'COLLECT', label: 'Liên hệ khách ngay', isRecommended: true, outcome: 'Thu hồi trong 7-14 ngày' },
-            { type: 'DISCOUNT', label: 'Đề xuất chiết khấu 2-3%', outcome: 'Thu nhanh hơn, chấp nhận mất 2-3%' },
-            { type: 'INVESTIGATE', label: 'Phân loại rủi ro', outcome: 'Ưu tiên khách có khả năng trả' },
+            { 
+              type: 'COLLECT', 
+              label: 'Liên hệ khách ngay', 
+              isRecommended: true, 
+              outcome: `Thu ${formatCurrency(totalOverdue)}đ trong 7-14 ngày, runway +${runwayImprovement.toFixed(1)} tháng`
+            },
+            { 
+              type: 'DISCOUNT', 
+              label: 'Chiết khấu 2-3% thanh toán sớm', 
+              outcome: `Thu nhanh ${formatCurrency(totalOverdue * 0.97)}đ, mất ${formatCurrency(totalOverdue * 0.03)}đ`
+            },
+            { 
+              type: 'INVESTIGATE', 
+              label: 'Phân loại rủi ro', 
+              outcome: 'Ưu tiên khách có khả năng trả cao nhất'
+            },
           ]),
         };
         cards.push(card);
       }
+    }
+
+    // 4. Marketing Risk Alerts - PAUSE/INVESTIGATE campaigns (from REAL MDP data)
+    if (riskAlerts && riskAlerts.length > 0) {
+      riskAlerts
+        .filter(alert => alert.severity === 'critical')
+        .slice(0, 3) // Max 3 marketing cards
+        .forEach((alert, index) => {
+          const cardId = generateAutoId('marketing', `${alert.type}-${index}`);
+          
+          // Calculate runway impact if pausing this campaign
+          const dailySpend = alert.impact_amount / 30;
+          const runwayGain = burnRate > 0 ? (dailySpend * 30) / burnRate : 0;
+          
+          let priority: Priority = 'P2';
+          let actionType: ActionType = 'INVESTIGATE';
+          let actionLabel = 'Điều tra chiến dịch';
+          
+          if (alert.type === 'burning_cash' || alert.type === 'negative_margin') {
+            priority = 'P1';
+            actionType = 'PAUSE';
+            actionLabel = `PAUSE ${alert.campaign_name}`;
+          }
+          
+          const card: AutoDecisionCard = {
+            id: cardId,
+            isAuto: true,
+            card_type: 'GROWTH_SCALE_CHANNEL',
+            title: `${alert.type === 'burning_cash' ? 'ĐANG ĐỐT TIỀN' : 'MARGIN ÂM'}: ${alert.campaign_name}`,
+            question: alert.message,
+            entity_type: 'campaign',
+            entity_id: alert.campaign_name,
+            entity_label: `${alert.campaign_name} • ${alert.channel}`,
+            owner_role: 'CMO' as OwnerRole,
+            owner_user_id: null,
+            assigned_at: null,
+            status: 'OPEN',
+            priority,
+            severity_score: alert.severity === 'critical' ? 90 : 70,
+            confidence: 'HIGH' as Confidence,
+            impact_amount: -Math.abs(alert.impact_amount),
+            impact_currency: 'VND',
+            impact_window_days: 30,
+            impact_description: alert.recommended_action,
+            deadline_at: getDeadline(priority),
+            snoozed_until: null,
+            snooze_count: 0,
+            source_modules: ['MDP', 'Risk Analysis'],
+            vertical: 'marketing',
+            facts: createFacts(cardId, [
+              { key: 'metric', label: alert.type === 'negative_margin' ? 'Contribution Margin' : 'Cash Impact', value: `${formatCurrency(alert.metric_value)}đ`, numeric: alert.metric_value, unit: 'VND', trend: 'DOWN' },
+              { key: 'threshold', label: 'Ngưỡng an toàn', value: `${formatCurrency(alert.threshold)}đ`, numeric: alert.threshold, unit: 'VND' },
+              { key: 'impact', label: 'Thiệt hại/tháng', value: `${formatCurrency(alert.impact_amount)}đ`, numeric: alert.impact_amount, unit: 'VND' },
+              { key: 'channel', label: 'Kênh', value: alert.channel },
+            ]),
+            actions: createActions(cardId, [
+              { 
+                type: actionType, 
+                label: actionLabel, 
+                isRecommended: true, 
+                outcome: `Tiết kiệm ${formatCurrency(Math.abs(alert.impact_amount))}đ, runway +${runwayGain.toFixed(1)} tháng`
+              },
+              { 
+                type: 'SCALE_WITH_CONDITION', 
+                label: 'Tối ưu targeting & creative', 
+                outcome: 'Giảm CPA 20%, tăng ROAS'
+              },
+              { 
+                type: 'STOP', 
+                label: 'Dừng hoàn toàn', 
+                outcome: `Dừng lỗ ngay, tiết kiệm ${formatCurrency(Math.abs(alert.impact_amount))}đ/tháng`
+              },
+            ]),
+          };
+          cards.push(card);
+        });
+    }
+
+    // 5. Loss-making campaigns from profit attribution (from REAL MDP data)
+    if (profitAttribution && profitAttribution.length > 0) {
+      profitAttribution
+        .filter(p => p.status === 'critical' || p.status === 'loss')
+        .slice(0, 2) // Max 2 additional campaign cards
+        .forEach((campaign, index) => {
+          // Skip if already covered by risk alerts
+          const existingCard = cards.find(c => c.entity_id === campaign.campaign_name);
+          if (existingCard) return;
+          
+          const cardId = generateAutoId('campaign-loss', `${campaign.campaign_id}-${index}`);
+          const monthlyLoss = Math.abs(campaign.contribution_margin);
+          const runwayGain = burnRate > 0 ? campaign.ad_spend / burnRate : 0;
+          
+          const card: AutoDecisionCard = {
+            id: cardId,
+            isAuto: true,
+            card_type: 'GROWTH_SCALE_CHANNEL',
+            title: `CAMPAIGN LỖ: ${campaign.campaign_name}`,
+            question: `CM ${campaign.contribution_margin_percent.toFixed(1)}% < ${MDP_THRESHOLDS.MIN_CM_PERCENT}% mục tiêu - tiếp tục hay dừng?`,
+            entity_type: 'campaign',
+            entity_id: campaign.campaign_name,
+            entity_label: `${campaign.campaign_name} • ${campaign.channel}`,
+            owner_role: 'CMO' as OwnerRole,
+            owner_user_id: null,
+            assigned_at: null,
+            status: 'OPEN',
+            priority: campaign.status === 'critical' ? 'P1' : 'P2',
+            severity_score: campaign.status === 'critical' ? 85 : 65,
+            confidence: 'HIGH' as Confidence,
+            impact_amount: campaign.contribution_margin,
+            impact_currency: 'VND',
+            impact_window_days: 30,
+            impact_description: campaign.contribution_margin < 0 
+              ? `Đang lỗ ${formatCurrency(monthlyLoss)}đ/tháng`
+              : `Margin thấp, chỉ ${campaign.contribution_margin_percent.toFixed(1)}%`,
+            deadline_at: getDeadline(campaign.status === 'critical' ? 'P1' : 'P2'),
+            snoozed_until: null,
+            snooze_count: 0,
+            source_modules: ['MDP', 'Profit Attribution'],
+            vertical: 'marketing',
+            facts: createFacts(cardId, [
+              { key: 'cm_percent', label: 'Contribution Margin %', value: `${campaign.contribution_margin_percent.toFixed(1)}%`, numeric: campaign.contribution_margin_percent, unit: '%', trend: 'DOWN' },
+              { key: 'ad_spend', label: 'Ad Spend', value: `${formatCurrency(campaign.ad_spend)}đ`, numeric: campaign.ad_spend, unit: 'VND' },
+              { key: 'revenue', label: 'Net Revenue', value: `${formatCurrency(campaign.net_revenue)}đ`, numeric: campaign.net_revenue, unit: 'VND' },
+              { key: 'profit_roas', label: 'Profit ROAS', value: `${campaign.profit_roas.toFixed(2)}`, numeric: campaign.profit_roas },
+            ]),
+            actions: createActions(cardId, [
+              { 
+                type: 'PAUSE', 
+                label: `PAUSE ${campaign.campaign_name}`, 
+                isRecommended: campaign.status === 'critical',
+                outcome: `Tiết kiệm ${formatCurrency(campaign.ad_spend)}đ/tháng, runway +${runwayGain.toFixed(1)} tháng`
+              },
+              { 
+                type: 'SCALE_WITH_CONDITION', 
+                label: 'Tối ưu để đạt CM > 10%', 
+                isRecommended: campaign.status !== 'critical',
+                outcome: `Cần tăng ROAS từ ${campaign.profit_roas.toFixed(2)} lên ${MDP_THRESHOLDS.MIN_PROFIT_ROAS}`
+              },
+              { 
+                type: 'INVESTIGATE', 
+                label: 'Phân tích sâu', 
+                outcome: 'Xác định nguyên nhân CM thấp'
+              },
+            ]),
+          };
+          cards.push(card);
+        });
     }
 
     // Sort by priority and severity
@@ -297,7 +533,7 @@ export function useAutoDecisionCards() {
       if (priorityDiff !== 0) return priorityDiff;
       return b.severity_score - a.severity_score;
     });
-  }, [skuData, cashData, invoicesData]);
+  }, [skuData, cashSummary, cashFlows, invoicesData, profitAttribution, riskAlerts]);
 
   return {
     data: autoCards,
