@@ -359,13 +359,33 @@ function SKUCard({ sku }: { sku: SKUMetrics }) {
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
           <p className="text-xs text-slate-500">Doanh thu</p>
-          <p className="text-sm font-medium text-slate-200">{formatVNDCompact(sku.revenue)}</p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="text-sm font-medium text-slate-200 cursor-help">
+                  {formatVNDCompact(sku.revenue)}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{formatVND(sku.revenue)}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div>
           <p className="text-xs text-slate-500">Lợi nhuận</p>
-          <p className={`text-sm font-medium ${sku.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {formatVNDCompact(sku.profit)}
-          </p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className={`text-sm font-medium cursor-help ${sku.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {formatVNDCompact(sku.profit)}
+                </p>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{formatVND(sku.profit)}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div>
           <p className="text-xs text-slate-500">Margin</p>
