@@ -262,6 +262,54 @@ function getLossPerUnit(card: DecisionCardType): { value: number; label: string 
   return null;
 }
 
+// Generate detailed intelligence trace for CEO trust
+function getIntelligenceTrace(card: DecisionCardType): string {
+  const parts: string[] = [];
+  
+  // Time window
+  const days = card.impact_window_days || 7;
+  parts.push(`${days} ngày dữ liệu`);
+  
+  // Data volume estimate based on entity type
+  const entityType = card.entity_type?.toLowerCase() || '';
+  const cardType = card.card_type || '';
+  
+  if (entityType === 'sku' || cardType.includes('SKU')) {
+    // SKU analysis: estimate transactions
+    const revenueFact = card.facts?.find(f => f.fact_key === 'revenue');
+    if (revenueFact?.numeric_value) {
+      // Estimate: avg 200k per transaction
+      const estimatedTransactions = Math.round(revenueFact.numeric_value / 200000);
+      if (estimatedTransactions > 10) {
+        parts.push(`~${estimatedTransactions.toLocaleString('vi-VN')} đơn hàng`);
+      }
+    } else {
+      parts.push('dữ liệu SKU');
+    }
+  } else if (entityType === 'channel' || cardType.includes('CHANNEL')) {
+    parts.push('dữ liệu kênh bán');
+  } else if (entityType === 'campaign' || cardType.includes('MARKETING')) {
+    parts.push('dữ liệu chiến dịch');
+  } else if (cardType.includes('CASH') || cardType.includes('INVENTORY')) {
+    parts.push('giao dịch tài chính');
+  } else if (cardType.includes('OPS')) {
+    parts.push('dữ liệu vận hành');
+  } else if (cardType.includes('CUSTOMER')) {
+    parts.push('dữ liệu khách hàng');
+  }
+  
+  // Number of sources
+  const sources = card.source_modules?.length || 1;
+  parts.push(`${sources} nguồn`);
+  
+  // Specific modules
+  if (card.source_modules?.length) {
+    parts.push(card.source_modules.join(' + '));
+  }
+  
+  return parts.join(' · ');
+}
+
 export function DecisionCardComponent({ card, compact = false, onViewDetail }: DecisionCardProps) {
   const [showDecideDialog, setShowDecideDialog] = useState(false);
   const [showDismissDialog, setShowDismissDialog] = useState(false);
@@ -428,7 +476,7 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
           {(card.priority === 'P1' || card.priority === 'P2') && (
             <div className="mt-3 pt-2 border-t border-border/50 text-[10px] text-muted-foreground flex items-center gap-1.5">
               <Shield className="h-3 w-3" />
-              Dựa trên {card.impact_window_days || 7} ngày dữ liệu · {card.source_modules?.join(' + ') || 'FDP'}
+              Dựa trên {getIntelligenceTrace(card)}
             </div>
           )}
         </CardContent>
@@ -609,7 +657,7 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
           {/* CEO 20-30s: Intelligence trace - Tạo niềm tin dữ liệu */}
           <div className="text-xs text-muted-foreground flex items-center gap-2 bg-muted/20 rounded-lg px-3 py-2">
             <Shield className="h-3.5 w-3.5" />
-            Dựa trên {card.impact_window_days || 7} ngày dữ liệu · {card.source_modules?.join(' + ') || 'FDP'}
+            Dựa trên {getIntelligenceTrace(card)}
           </div>
 
           {/* Action Buttons */}
