@@ -207,13 +207,38 @@ export default function DecisionCenterPage() {
     setSelectedCardId(null); // Close detail sheet
   };
 
-  const selectedCardLocal = useMemo(
-    () => allCards?.find(c => c.id === selectedCardId) || null,
-    [allCards, selectedCardId]
-  );
+  // Find selected card from multiple sources
+  const selectedCardLocal = useMemo(() => {
+    if (!selectedCardId) return null;
+    
+    // 1. Check active cards
+    const fromActive = allCards?.find(c => c.id === selectedCardId);
+    if (fromActive) return fromActive;
+    
+    // 2. Check local decided/dismissed
+    const fromLocalDecided = localDecidedCardsData.find(c => c.id === selectedCardId);
+    if (fromLocalDecided) return fromLocalDecided;
+    const fromLocalDismissed = localDismissedCardsData.find(c => c.id === selectedCardId);
+    if (fromLocalDismissed) return fromLocalDismissed;
+    
+    // 3. Check persisted auto card states (card_snapshot)
+    const persistedState = (autoCardStates || []).find(s => s.auto_card_id === selectedCardId);
+    if (persistedState?.card_snapshot) {
+      return {
+        ...(persistedState.card_snapshot as DecisionCard),
+        id: persistedState.auto_card_id,
+        status: persistedState.status as 'DECIDED' | 'DISMISSED',
+        updated_at: persistedState.decided_at || persistedState.updated_at,
+      } as DecisionCard;
+    }
+    
+    return null;
+  }, [allCards, selectedCardId, localDecidedCardsData, localDismissedCardsData, autoCardStates]);
 
   // Selected card for detail view (prefer DB for full details; fallback to local for auto cards)
-  const { data: selectedCardFromDb } = useDecisionCard(selectedCardId);
+  const { data: selectedCardFromDb } = useDecisionCard(
+    selectedCardId && !selectedCardId.startsWith('auto-') ? selectedCardId : null
+  );
   const selectedCard = selectedCardFromDb || selectedCardLocal;
 
   // Group cards by priority
@@ -563,9 +588,24 @@ export default function DecisionCenterPage() {
         <TabsContent value="history">
           <Card>
             <CardContent className="py-4">
-              {/* Combine DB decided cards with local decided cards */}
+              {/* Combine DB decided cards + local + persisted auto cards */}
               {(() => {
-                const allDecidedCards = [...localDecidedCardsData, ...(decidedCards || [])];
+                // Build cards from persisted auto_decision_card_states with DECIDED status
+                const persistedDecidedCards: DecisionCard[] = (autoCardStates || [])
+                  .filter(s => s.status === 'DECIDED' && s.card_snapshot)
+                  .map(s => ({
+                    ...(s.card_snapshot as DecisionCard),
+                    id: s.auto_card_id,
+                    status: 'DECIDED' as const,
+                    updated_at: s.decided_at || s.updated_at,
+                  }));
+
+                const allDecidedCards = [
+                  ...persistedDecidedCards,
+                  ...localDecidedCardsData.filter(c => !persistedDecidedIds.has(c.id)),
+                  ...(decidedCards || []),
+                ];
+
                 return allDecidedCards.length > 0 ? (
                   <div className="space-y-3">
                     {allDecidedCards.map((card) => (
@@ -587,7 +627,7 @@ export default function DecisionCenterPage() {
                                   ✓ {card.actions?.find(a => a.is_recommended)?.label || 'Đã quyết định'}
                                 </Badge>
                                 {card.id.startsWith('auto-') && (
-                                  <Badge variant="outline" className="text-xs">Session</Badge>
+                                  <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500">Đã lưu</Badge>
                                 )}
                                 <span className="text-xs text-muted-foreground">
                                   {card.entity_label}
@@ -629,9 +669,24 @@ export default function DecisionCenterPage() {
         <TabsContent value="dismissed">
           <Card>
             <CardContent className="py-4">
-              {/* Combine DB dismissed cards with local dismissed cards */}
+              {/* Combine DB dismissed cards + local + persisted auto cards */}
               {(() => {
-                const allDismissedCards = [...localDismissedCardsData, ...(dismissedCards || [])];
+                // Build cards from persisted auto_decision_card_states with DISMISSED status
+                const persistedDismissedCards: DecisionCard[] = (autoCardStates || [])
+                  .filter(s => s.status === 'DISMISSED' && s.card_snapshot)
+                  .map(s => ({
+                    ...(s.card_snapshot as DecisionCard),
+                    id: s.auto_card_id,
+                    status: 'DISMISSED' as const,
+                    updated_at: s.decided_at || s.updated_at,
+                  }));
+
+                const allDismissedCards = [
+                  ...persistedDismissedCards,
+                  ...localDismissedCardsData.filter(c => !persistedDismissedIds.has(c.id)),
+                  ...(dismissedCards || []),
+                ];
+
                 return allDismissedCards.length > 0 ? (
                   <div className="space-y-3">
                     {allDismissedCards.map((card) => (
@@ -649,7 +704,7 @@ export default function DecisionCenterPage() {
                         </div>
                         <div className="text-right flex items-center gap-2">
                           {card.id.startsWith('auto-') && (
-                            <Badge variant="outline" className="text-xs">Session</Badge>
+                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500">Đã lưu</Badge>
                           )}
                           <Badge variant="outline">{card.priority}</Badge>
                           <p className="text-xs text-muted-foreground">
