@@ -84,19 +84,49 @@ export default function DecisionCenterPage() {
     status: ['DISMISSED'],
   });
 
-  // Fetch auto-generated cards from FDP analysis
-  const { data: autoCards } = useAutoDecisionCards();
+  // Fetch auto-generated cards from FDP analysis (realtime SSOT)
+  const { data: autoCards, autoCardsLookup } = useAutoDecisionCards();
 
-  // Combine DB cards + Auto cards (avoid duplicates)
+  /**
+   * SSOT STRATEGY: Tách biệt vai trò
+   * 
+   * 1. Auto Cards = Phát hiện mới (OPEN) - source of truth cho metrics
+   * 2. DB Cards OPEN/IN_PROGRESS = Đã acknowledge, facts từ Auto Cards nếu có
+   * 3. DB Cards DECIDED/DISMISSED = Lịch sử, giữ facts gốc
+   * 
+   * Rule: Không bao giờ có 2 cards cho cùng entity với số liệu khác nhau
+   */
   const allCards = useMemo(() => {
-    const dbCardIds = new Set((dbCards || []).map(c => c.entity_id));
+    const dbOpenCards = (dbCards || []).filter(c => 
+      c.status === 'OPEN' || c.status === 'IN_PROGRESS'
+    );
+    
+    // Set of entity_ids that already have DB cards
+    const dbEntityIds = new Set(dbOpenCards.map(c => c.entity_id));
+    
+    // Enrich DB cards with realtime facts from Auto Cards (SSOT)
+    const enrichedDbCards = dbOpenCards.map(dbCard => {
+      const autoCard = autoCardsLookup?.get(dbCard.entity_id || '');
+      if (autoCard && autoCard.facts) {
+        // Use realtime facts from Auto Card, keep DB card metadata
+        return {
+          ...dbCard,
+          facts: autoCard.facts, // SSOT: Facts luôn từ realtime
+          impact_amount: autoCard.impact_amount, // SSOT: Impact từ realtime
+          impact_description: autoCard.impact_description,
+        };
+      }
+      return dbCard;
+    });
+    
+    // Auto Cards chỉ hiện khi KHÔNG có DB Card cho entity đó
     const filteredAutoCards = (autoCards || []).filter(
-      ac => !dbCardIds.has(ac.entity_id)
+      ac => !dbEntityIds.has(ac.entity_id)
     );
     
     // Cast auto cards to DecisionCard type for compatibility
     const combinedCards = [
-      ...(dbCards || []),
+      ...enrichedDbCards,
       ...filteredAutoCards.map(ac => ({
         ...ac,
         tenant_id: '',
@@ -110,7 +140,7 @@ export default function DecisionCenterPage() {
       return combinedCards.filter(c => c.priority === priorityFilter);
     }
     return combinedCards;
-  }, [dbCards, autoCards, priorityFilter]);
+  }, [dbCards, autoCards, autoCardsLookup, priorityFilter]);
 
   const selectedCardLocal = useMemo(
     () => allCards?.find(c => c.id === selectedCardId) || null,

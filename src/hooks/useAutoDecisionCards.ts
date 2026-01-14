@@ -535,8 +535,20 @@ export function useAutoDecisionCards() {
     });
   }, [skuData, cashSummary, cashFlows, invoicesData, profitAttribution, riskAlerts]);
 
+  // Create lookup map by entity_id for SSOT enrichment
+  const autoCardsLookup = useMemo(() => {
+    const lookup = new Map<string, AutoDecisionCard>();
+    autoCards.forEach(card => {
+      if (card.entity_id) {
+        lookup.set(card.entity_id, card);
+      }
+    });
+    return lookup;
+  }, [autoCards]);
+
   return {
     data: autoCards,
+    autoCardsLookup,
     isLoading: false,
   };
 }
