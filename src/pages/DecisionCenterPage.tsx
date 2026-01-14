@@ -66,6 +66,10 @@ export default function DecisionCenterPage() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Track local decisions for auto-generated cards (not in DB)
+  const [localDecidedCards, setLocalDecidedCards] = useState<Set<string>>(new Set());
+  const [localDismissedCards, setLocalDismissedCards] = useState<Set<string>>(new Set());
 
   // Fetch from DB - Open cards
   const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
@@ -120,8 +124,11 @@ export default function DecisionCenterPage() {
     });
     
     // Auto Cards chỉ hiện khi KHÔNG có DB Card cho entity đó
+    // AND không bị decided/dismissed locally
     const filteredAutoCards = (autoCards || []).filter(
-      ac => !dbEntityIds.has(ac.entity_id)
+      ac => !dbEntityIds.has(ac.entity_id) && 
+            !localDecidedCards.has(ac.id) && 
+            !localDismissedCards.has(ac.id)
     );
     
     // Cast auto cards to DecisionCard type for compatibility
@@ -140,7 +147,18 @@ export default function DecisionCenterPage() {
       return combinedCards.filter(c => c.priority === priorityFilter);
     }
     return combinedCards;
-  }, [dbCards, autoCards, autoCardsLookup, priorityFilter]);
+  }, [dbCards, autoCards, autoCardsLookup, priorityFilter, localDecidedCards, localDismissedCards]);
+
+  // Handlers for local card decisions
+  const handleCardDecided = (cardId: string) => {
+    setLocalDecidedCards(prev => new Set([...prev, cardId]));
+    setSelectedCardId(null); // Close detail sheet
+  };
+
+  const handleCardDismissed = (cardId: string) => {
+    setLocalDismissedCards(prev => new Set([...prev, cardId]));
+    setSelectedCardId(null); // Close detail sheet
+  };
 
   const selectedCardLocal = useMemo(
     () => allCards?.find(c => c.id === selectedCardId) || null,
@@ -400,6 +418,8 @@ export default function DecisionCenterPage() {
                       card={card}
                       compact
                       onViewDetail={() => setSelectedCardId(card.id)}
+                      onDecided={handleCardDecided}
+                      onDismissed={handleCardDismissed}
                     />
                   ))}
                 </div>
@@ -418,6 +438,8 @@ export default function DecisionCenterPage() {
                       card={card}
                       compact
                       onViewDetail={() => setSelectedCardId(card.id)}
+                      onDecided={handleCardDecided}
+                      onDismissed={handleCardDismissed}
                     />
                   ))}
                 </div>
@@ -436,6 +458,8 @@ export default function DecisionCenterPage() {
                       card={card}
                       compact
                       onViewDetail={() => setSelectedCardId(card.id)}
+                      onDecided={handleCardDecided}
+                      onDismissed={handleCardDismissed}
                     />
                   ))}
                 </div>
@@ -472,6 +496,8 @@ export default function DecisionCenterPage() {
                   key={card.id}
                   card={card}
                   onViewDetail={() => setSelectedCardId(card.id)}
+                  onDecided={handleCardDecided}
+                  onDismissed={handleCardDismissed}
                 />
               ))}
             </div>
@@ -607,7 +633,11 @@ export default function DecisionCenterPage() {
             <div className="mt-6 flex flex-col gap-6">
               {/* Top: Decision Card */}
               <div>
-                <DecisionCardComponent card={selectedCard} />
+                <DecisionCardComponent 
+                  card={selectedCard} 
+                  onDecided={handleCardDecided}
+                  onDismissed={handleCardDismissed}
+                />
               </div>
 
               {/* Bottom: AI Chat inline */}
