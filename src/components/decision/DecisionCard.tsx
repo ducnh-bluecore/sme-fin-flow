@@ -270,24 +270,34 @@ function getIntelligenceTrace(card: DecisionCardType): string {
   const days = card.impact_window_days || 7;
   parts.push(`${days} ngày dữ liệu`);
   
-  // Data volume estimate based on entity type
+  // Data volume based on entity type and facts
   const entityType = card.entity_type?.toLowerCase() || '';
   const cardType = card.card_type || '';
   
+  // Try to get quantity from facts for more accurate count
+  const quantityFact = card.facts?.find(f => 
+    f.fact_key === 'quantity' || f.fact_key === 'units_sold' || f.fact_key === 'orders'
+  );
+  
   if (entityType === 'sku' || cardType.includes('SKU')) {
-    // SKU analysis: estimate transactions
-    const revenueFact = card.facts?.find(f => f.fact_key === 'revenue');
-    if (revenueFact?.numeric_value) {
-      // Estimate: avg 200k per transaction
-      const estimatedTransactions = Math.round(revenueFact.numeric_value / 200000);
-      if (estimatedTransactions > 10) {
-        parts.push(`~${estimatedTransactions.toLocaleString('vi-VN')} đơn hàng`);
-      }
+    if (quantityFact?.numeric_value) {
+      parts.push(`${Math.round(quantityFact.numeric_value).toLocaleString('vi-VN')} SP đã bán`);
     } else {
-      parts.push('dữ liệu SKU');
+      // Fallback: use revenue to estimate
+      const revenueFact = card.facts?.find(f => f.fact_key === 'revenue');
+      if (revenueFact?.numeric_value && revenueFact.numeric_value > 0) {
+        const estimatedUnits = Math.round(revenueFact.numeric_value / 200000);
+        if (estimatedUnits > 5) {
+          parts.push(`~${estimatedUnits.toLocaleString('vi-VN')} đơn hàng`);
+        }
+      }
     }
   } else if (entityType === 'channel' || cardType.includes('CHANNEL')) {
-    parts.push('dữ liệu kênh bán');
+    if (quantityFact?.numeric_value) {
+      parts.push(`${Math.round(quantityFact.numeric_value).toLocaleString('vi-VN')} đơn hàng`);
+    } else {
+      parts.push('dữ liệu kênh bán');
+    }
   } else if (entityType === 'campaign' || cardType.includes('MARKETING')) {
     parts.push('dữ liệu chiến dịch');
   } else if (cardType.includes('CASH') || cardType.includes('INVENTORY')) {
