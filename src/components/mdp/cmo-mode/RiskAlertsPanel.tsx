@@ -150,7 +150,7 @@ export function RiskAlertsPanel({ alerts, onAction }: RiskAlertsPanelProps) {
                 <div 
                   key={index}
                   className={cn(
-                    "p-4 rounded-lg border transition-colors",
+                    "p-4 rounded-lg border transition-all hover:shadow-md",
                     config.bgClass
                   )}
                 >
@@ -160,7 +160,7 @@ export function RiskAlertsPanel({ alerts, onAction }: RiskAlertsPanelProps) {
                         {getAlertIcon(alert.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge className={cn("text-xs", config.badgeClass)}>
                             {config.label}
                           </Badge>
@@ -168,7 +168,7 @@ export function RiskAlertsPanel({ alerts, onAction }: RiskAlertsPanelProps) {
                             {alert.channel}
                           </Badge>
                           {alert.severity === 'critical' && (
-                            <Badge className="bg-red-500 text-white text-xs">
+                            <Badge className="bg-red-500 text-white text-xs animate-pulse">
                               CRITICAL
                             </Badge>
                           )}
@@ -179,9 +179,12 @@ export function RiskAlertsPanel({ alerts, onAction }: RiskAlertsPanelProps) {
                         <p className="text-xs text-muted-foreground mt-1">
                           {alert.message}
                         </p>
-                        <p className="text-xs text-primary mt-2 font-medium">
-                          → {alert.recommended_action}
-                        </p>
+                        <div className="mt-2 p-2 rounded bg-primary/10 border border-primary/20">
+                          <p className="text-xs text-primary font-medium flex items-center gap-1">
+                            <ArrowRight className="h-3 w-3" />
+                            {alert.recommended_action}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -191,11 +194,11 @@ export function RiskAlertsPanel({ alerts, onAction }: RiskAlertsPanelProps) {
                       {onAction && (
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-7 px-2 mt-2 text-xs"
+                          variant={alert.severity === 'critical' ? 'destructive' : 'outline'}
+                          className="h-8 px-3 mt-2 text-xs gap-1"
                           onClick={() => onAction(alert)}
                         >
-                          Quyết định <ArrowRight className="ml-1 h-3 w-3" />
+                          Quyết định <ArrowRight className="h-3 w-3" />
                         </Button>
                       )}
                     </div>

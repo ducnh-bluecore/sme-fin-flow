@@ -262,18 +262,58 @@ export function DecisionPanel({ profitData, cashImpact, summary }: DecisionPanel
                   </div>
 
                   {decision.recommendation === 'scale' && (
-                    <div className="p-2 rounded bg-green-500/10 border border-green-500/20 text-xs">
-                      <span className="text-green-400 font-medium">
-                        Nếu scale +50%: +{formatCurrency(decision.impact_if_scale)}đ margin dự kiến
-                      </span>
+                    <div className="p-3 rounded bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-green-400 font-medium text-xs">
+                          Nếu scale +50%: +{formatCurrency(decision.impact_if_scale)}đ margin dự kiến
+                        </span>
+                        <Button size="sm" className="h-7 bg-green-600 hover:bg-green-700 text-xs gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          Approve Scale
+                        </Button>
+                      </div>
                     </div>
                   )}
                   
                   {decision.recommendation === 'pause' && (
-                    <div className="p-2 rounded bg-red-500/10 border border-red-500/20 text-xs">
-                      <span className="text-red-400 font-medium">
-                        Đang lỗ: -{formatCurrency(Math.abs(decision.impact_if_pause))}đ margin/tháng
-                      </span>
+                    <div className="p-3 rounded bg-red-500/10 border border-red-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-red-400 font-medium text-xs">
+                          Đang lỗ: -{formatCurrency(Math.abs(decision.impact_if_pause))}đ margin/tháng
+                        </span>
+                        <Button size="sm" variant="destructive" className="h-7 text-xs gap-1">
+                          <Pause className="h-3 w-3" />
+                          Pause ngay
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {decision.recommendation === 'reduce' && (
+                    <div className="p-3 rounded bg-yellow-500/10 border border-yellow-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-yellow-400 font-medium text-xs">
+                          Giảm 30% budget để cải thiện margin
+                        </span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-yellow-500/30 hover:bg-yellow-500/10">
+                          <TrendingDown className="h-3 w-3" />
+                          Reduce
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {decision.recommendation === 'maintain' && (
+                    <div className="p-3 rounded bg-blue-500/10 border border-blue-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="text-blue-400 font-medium text-xs">
+                          Giữ nguyên và theo dõi thêm 1 tuần
+                        </span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-blue-500/30 hover:bg-blue-500/10">
+                          <Pause className="h-3 w-3" />
+                          Maintain
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
