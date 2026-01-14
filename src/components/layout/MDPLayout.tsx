@@ -51,11 +51,8 @@ interface NavItemWithBadge extends NavItemConfig {
 // MDP Manifesto: Profit before Performance. Cash before Clicks.
 // Two main entry points: Marketing Mode and CMO Mode
 const navItemsConfig: NavItemConfig[] = [
-  // Main Mode Pages
-  { id: 'marketing-mode', label: 'Marketing Mode', labelEn: 'Marketing Mode', icon: Megaphone, path: '/mdp/marketing-mode' },
-  { id: 'cmo-mode', label: 'CMO Mode', labelEn: 'CMO Mode', icon: Target, path: '/mdp/cmo-mode' },
-  
-  // Marketing Mode (Execution) - Submenu
+  // Marketing Mode (Execution) - includes Marketing Mode page
+  { id: 'marketing-mode', label: 'Marketing Mode', labelEn: 'Marketing Mode', icon: Megaphone, path: '/mdp/marketing-mode', mode: 'marketing' },
   { id: 'campaigns', label: 'Hiệu suất Campaigns', labelEn: 'Campaign Performance', icon: BarChart3, path: '/mdp/campaigns', mode: 'marketing' },
   { id: 'channels', label: 'Phân tích Kênh', labelEn: 'Channel Analysis', icon: Layers, path: '/mdp/channels', mode: 'marketing' },
   { id: 'funnel', label: 'Marketing Funnel', labelEn: 'Marketing Funnel', icon: TrendingUp, path: '/mdp/funnel', mode: 'marketing' },
@@ -64,7 +61,8 @@ const navItemsConfig: NavItemConfig[] = [
   { id: 'roi-analytics', label: 'ROI Analytics', labelEn: 'ROI Analytics', icon: LineChart, path: '/mdp/roi-analytics', mode: 'marketing' },
   { id: 'customer-ltv', label: 'Customer LTV', labelEn: 'Customer LTV', icon: DollarSign, path: '/mdp/customer-ltv', mode: 'marketing' },
   
-  // CMO Mode (Decision) - Submenu
+  // CMO Mode (Decision) - includes CMO Mode page
+  { id: 'cmo-mode', label: 'CMO Mode', labelEn: 'CMO Mode', icon: Target, path: '/mdp/cmo-mode', mode: 'cmo' },
   { id: 'profit', label: 'Profit Attribution', labelEn: 'Profit Attribution', icon: DollarSign, path: '/mdp/profit', mode: 'cmo' },
   { id: 'cash-impact', label: 'Cash Impact', labelEn: 'Cash Impact', icon: Wallet, path: '/mdp/cash-impact', mode: 'cmo' },
   { id: 'risks', label: 'Marketing Risks', labelEn: 'Marketing Risks', icon: AlertTriangle, path: '/mdp/risks', mode: 'cmo', badgeKey: 'risks' },
@@ -179,13 +177,8 @@ export function MDPLayout() {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
-          {/* Main Mode Pages */}
-          {navItems.filter(item => item.id === 'marketing-mode' || item.id === 'cmo-mode').map((item) => (
-            <NavLink key={item.id} item={item} />
-          ))}
-          
           {/* Marketing Mode Section */}
-          <div className="pt-4">
+          <div>
             <SectionHeader title={language === 'vi' ? 'Marketing Mode' : 'Marketing Mode'} collapsed={collapsed} />
             <div className="space-y-1">
               {navItems.filter(item => item.mode === 'marketing').map((item) => (
