@@ -36,6 +36,7 @@ import {
   MarketingActionsPanel,
   CampaignDetailDialog,
   PlatformDetailDialog,
+  ChannelBreakdownPanel,
   PlatformAdsData,
   MarketingAction,
   AdvancedMarketingMetrics,
@@ -350,6 +351,10 @@ export default function MarketingModePage() {
 
         <TabsContent value="overview" className="space-y-4">
           <PerformanceOverview summary={marketingModeSummary} />
+          <ChannelBreakdownPanel 
+            campaigns={marketingPerformance} 
+            onViewChannelDetails={(channel) => navigate(`/mdp/channels?channel=${channel}`)}
+          />
           <AdvancedMetricsGrid metrics={advancedMetrics} period="Last 30 days" />
           <ExecutionAlertsPanel alerts={executionAlerts} />
         </TabsContent>
