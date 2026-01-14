@@ -35,6 +35,18 @@ interface DocumentItem {
 
 const documents: DocumentItem[] = [
   {
+    id: 'system-architecture',
+    title: 'Kiến trúc hệ thống & Spec chi tiết',
+    titleEn: 'System Architecture & Detailed Specs',
+    description: 'Sơ đồ hệ thống, luồng dữ liệu, bảng chính, KPI, màn hình và rule logic từng module',
+    descriptionEn: 'System diagrams, data flows, main tables, KPIs, screens and rule logic for each module',
+    category: 'system',
+    icon: FileCode,
+    path: '/docs/system-architecture.md',
+    fileType: 'md',
+    size: '35 KB'
+  },
+  {
     id: 'system-overview',
     title: 'Tổng quan tính năng hệ thống',
     titleEn: 'System Features Overview',
