@@ -1247,6 +1247,51 @@ export type Database = {
           },
         ]
       }
+      auto_decision_card_states: {
+        Row: {
+          auto_card_id: string
+          card_snapshot: Json | null
+          comment: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          dismiss_reason: string | null
+          id: string
+          snoozed_until: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_card_id: string
+          card_snapshot?: Json | null
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dismiss_reason?: string | null
+          id?: string
+          snoozed_until?: string | null
+          status: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_card_id?: string
+          card_snapshot?: Json | null
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dismiss_reason?: string | null
+          id?: string
+          snoozed_until?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bank_accounts: {
         Row: {
           account_name: string | null
