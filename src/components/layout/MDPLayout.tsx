@@ -32,6 +32,7 @@ import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
+import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 
 interface NavItemConfig {
@@ -276,7 +277,7 @@ export function MDPLayout() {
           </div>
 
           <div className="flex items-center gap-3">
-            <DateRangeIndicator />
+            <QuickDateSelector />
             <LanguageSwitcher />
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
               <Bell className="h-5 w-5" />
