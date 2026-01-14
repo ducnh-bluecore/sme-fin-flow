@@ -404,7 +404,7 @@ export default function ChannelsPage() {
                       key={channel.channel}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all hover:scale-110 hover:z-10"
                       style={{ left: `${x}%`, top: `${y}%` }}
-                      onClick={() => navigate(`/channel-pl?channel=${channel.channel}`)}
+                      onClick={() => navigate(`/channel/${encodeURIComponent(channel.channel)}`)}
                     >
                       <div className={cn(
                         "p-2 rounded-full border-2 shadow-lg",
@@ -462,7 +462,7 @@ export default function ChannelsPage() {
                     <div 
                       key={channel.channel}
                       className="p-4 rounded-lg border bg-card hover:bg-accent/30 transition-all cursor-pointer"
-                      onClick={() => navigate(`/channel-pl?channel=${channel.channel}`)}
+                      onClick={() => navigate(`/channel/${encodeURIComponent(channel.channel)}`)}
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between mb-4">
@@ -550,7 +550,7 @@ export default function ChannelsPage() {
                       )}
 
                       {/* View Details */}
-                      <Button variant="ghost" size="sm" className="w-full mt-3 text-xs">
+                      <Button variant="ghost" size="sm" className="w-full mt-3 text-xs" onClick={(e) => { e.stopPropagation(); navigate(`/channel/${encodeURIComponent(channel.channel)}`); }}>
                         Xem P&L chi tiết kênh
                         <ChevronRight className="h-3 w-3 ml-1" />
                       </Button>
@@ -617,7 +617,7 @@ export default function ChannelsPage() {
                           <Button 
                             size="sm"
                             variant={type === 'stop' ? 'destructive' : type === 'scale' ? 'default' : 'outline'}
-                            onClick={() => navigate(`/channel-pl?channel=${channel.channel}`)}
+                            onClick={() => navigate(`/channel/${encodeURIComponent(channel.channel)}`)}
                           >
                             {type === 'scale' && 'Scale ngay'}
                             {type === 'reduce' && 'Xem xét'}
@@ -651,7 +651,7 @@ export default function ChannelsPage() {
                       <div 
                         key={channel.channel}
                         className="flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 cursor-pointer"
-                        onClick={() => navigate(`/channel-pl?channel=${channel.channel}`)}
+                        onClick={() => navigate(`/channel/${encodeURIComponent(channel.channel)}`)}
                       >
                         <div className="flex items-center gap-2">
                           <span>{getChannelIcon(channel.channel)}</span>
