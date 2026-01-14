@@ -3821,6 +3821,7 @@ export type Database = {
       }
       decision_cards: {
         Row: {
+          analysis_metadata: Json | null
           assigned_at: string | null
           card_type: string
           confidence: string | null
@@ -3850,6 +3851,7 @@ export type Database = {
           vertical: string | null
         }
         Insert: {
+          analysis_metadata?: Json | null
           assigned_at?: string | null
           card_type: string
           confidence?: string | null
@@ -3879,6 +3881,7 @@ export type Database = {
           vertical?: string | null
         }
         Update: {
+          analysis_metadata?: Json | null
           assigned_at?: string | null
           card_type?: string
           confidence?: string | null
