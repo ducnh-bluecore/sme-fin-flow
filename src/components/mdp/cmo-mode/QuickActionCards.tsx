@@ -35,11 +35,18 @@ export function QuickActionCards({ profitData, cashImpact, summary, onAction }: 
   const lossMakingCampaigns = profitData.filter(p => p.status === 'loss' || p.status === 'critical');
   const totalLoss = lossMakingCampaigns.reduce((sum, p) => sum + Math.abs(p.contribution_margin), 0);
   
-  const profitableCampaigns = profitData.filter(p => p.status === 'profitable');
-  const totalProfit = profitableCampaigns.reduce((sum, p) => sum + p.contribution_margin, 0);
+  // profitable = status 'profitable' OR 'marginal' (có margin dương)
+  const profitableCampaigns = profitData.filter(p => p.status === 'profitable' || p.status === 'marginal');
+  const totalProfit = profitableCampaigns.reduce((sum, p) => sum + Math.max(0, p.contribution_margin), 0);
 
   const cashPositiveChannels = cashImpact.filter(c => c.is_cash_positive);
   const cashNegativeChannels = cashImpact.filter(c => !c.is_cash_positive);
+  
+  // Scalable = có margin dương + cash tốt
+  const scalableChannels = cashPositiveChannels.filter(c => {
+    const channelProfit = profitData.find(p => p.channel === c.channel);
+    return channelProfit && channelProfit.contribution_margin > 0;
+  });
 
   const handleQuickAction = (action: string, description: string) => {
     toast.success(description, { description: 'Hành động đã được ghi nhận' });
@@ -51,7 +58,7 @@ export function QuickActionCards({ profitData, cashImpact, summary, onAction }: 
       {/* Scale Card */}
       <Card className={cn(
         "border-2 transition-all hover:shadow-lg cursor-pointer group",
-        profitableCampaigns.length > 0 && summary.cash_conversion_rate >= 0.7
+        scalableChannels.length > 0
           ? "border-green-500/50 bg-gradient-to-br from-green-500/10 to-green-500/5 hover:border-green-500"
           : "border-border/50 opacity-60"
       )}>
@@ -61,12 +68,14 @@ export function QuickActionCards({ profitData, cashImpact, summary, onAction }: 
               <TrendingUp className="h-5 w-5 text-green-400" />
             </div>
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-              {profitableCampaigns.length} sẵn sàng
+              {scalableChannels.length} sẵn sàng
             </Badge>
           </div>
           <h3 className="font-bold text-lg text-green-400 mb-1">SCALE</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            {cashPositiveChannels.length} kênh có margin + cash tốt
+            {profitableCampaigns.length > 0 
+              ? `${profitableCampaigns.length} kênh có margin dương`
+              : 'Chưa có kênh profitable'}
           </p>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Potential upside</span>
@@ -77,8 +86,8 @@ export function QuickActionCards({ profitData, cashImpact, summary, onAction }: 
           <Button 
             size="sm" 
             className="w-full mt-3 bg-green-600 hover:bg-green-700 gap-1"
-            disabled={profitableCampaigns.length === 0}
-            onClick={() => handleQuickAction('scale_all', 'Đã gửi lệnh scale các kênh profitable')}
+            disabled={scalableChannels.length === 0 && profitableCampaigns.length === 0}
+            onClick={() => handleQuickAction('scale_all', `Đã gửi lệnh scale ${scalableChannels.length > 0 ? scalableChannels.length : profitableCampaigns.length} kênh profitable`)}
           >
             <Zap className="h-4 w-4" />
             Scale ngay
