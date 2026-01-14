@@ -27,15 +27,35 @@ import {
   Brain,
   Lightbulb,
   TrendingUp,
+  Eye,
+  DollarSign,
+  Users,
+  ShoppingCart,
+  Percent,
+  PauseCircle,
+  PlayCircle,
+  MinusCircle,
+  MessageSquare,
+  ExternalLink,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -58,18 +78,80 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Shared config for alert types
+// Shared config for alert types with detailed actions
 const RISK_TYPE_CONFIG: Record<MarketingRiskAlert['type'], { 
   label: string; 
   icon: React.ElementType; 
   color: string;
   priority: number;
+  description: string;
+  actions: { id: string; label: string; icon: React.ElementType; variant: 'destructive' | 'warning' | 'default' | 'success'; description: string }[];
 }> = {
-  negative_margin: { label: 'Margin âm', icon: XCircle, color: 'text-red-400', priority: 1 },
-  burning_cash: { label: 'Đốt tiền', icon: Flame, color: 'text-orange-400', priority: 2 },
-  cac_exceeds_ltv: { label: 'CAC > LTV', icon: TrendingDown, color: 'text-yellow-400', priority: 3 },
-  cash_runway_impact: { label: 'Ảnh hưởng cash', icon: Zap, color: 'text-blue-400', priority: 4 },
-  fake_growth: { label: 'Tăng trưởng giả', icon: Target, color: 'text-purple-400', priority: 5 },
+  negative_margin: { 
+    label: 'Margin âm', 
+    icon: XCircle, 
+    color: 'text-red-400', 
+    priority: 1,
+    description: 'Campaign này đang tạo ra doanh thu nhưng chi phí vượt quá lợi nhuận, dẫn đến margin âm.',
+    actions: [
+      { id: 'stop', label: 'Dừng ngay', icon: XCircle, variant: 'destructive', description: 'Dừng hoàn toàn campaign để ngăn thiệt hại thêm' },
+      { id: 'reduce_50', label: 'Giảm 50% budget', icon: MinusCircle, variant: 'warning', description: 'Giảm ngân sách 50% và theo dõi margin' },
+      { id: 'optimize', label: 'Tối ưu targeting', icon: Target, variant: 'default', description: 'Điều chỉnh targeting để tăng conversion rate' },
+      { id: 'accept', label: 'Chấp nhận (Growth)', icon: PlayCircle, variant: 'success', description: 'Chấp nhận lỗ ngắn hạn để acquire khách hàng' },
+    ]
+  },
+  burning_cash: { 
+    label: 'Đốt tiền', 
+    icon: Flame, 
+    color: 'text-orange-400', 
+    priority: 2,
+    description: 'Campaign này tiêu tiền nhanh hơn dự kiến mà không tạo ra đủ conversion.',
+    actions: [
+      { id: 'pause', label: 'Pause 24h', icon: PauseCircle, variant: 'warning', description: 'Tạm dừng 24h để phân tích và điều chỉnh' },
+      { id: 'cap_daily', label: 'Giới hạn budget/ngày', icon: DollarSign, variant: 'default', description: 'Đặt daily cap để kiểm soát chi tiêu' },
+      { id: 'reduce_30', label: 'Giảm 30% budget', icon: MinusCircle, variant: 'warning', description: 'Giảm ngân sách 30% và theo dõi' },
+      { id: 'stop', label: 'Dừng hoàn toàn', icon: XCircle, variant: 'destructive', description: 'Dừng campaign nếu không cải thiện được' },
+    ]
+  },
+  cac_exceeds_ltv: { 
+    label: 'CAC > LTV', 
+    icon: TrendingDown, 
+    color: 'text-yellow-400', 
+    priority: 3,
+    description: 'Chi phí acquire khách hàng cao hơn giá trị vòng đời khách hàng - không bền vững.',
+    actions: [
+      { id: 'reduce_cac', label: 'Giảm CAC target', icon: TrendingDown, variant: 'default', description: 'Điều chỉnh bid/targeting để giảm CAC' },
+      { id: 'improve_ltv', label: 'Tập trung LTV cao', icon: Users, variant: 'default', description: 'Target khách hàng có LTV cao hơn' },
+      { id: 'reduce_50', label: 'Giảm 50% budget', icon: MinusCircle, variant: 'warning', description: 'Giảm scale để focus vào hiệu quả' },
+      { id: 'stop', label: 'Dừng campaign', icon: XCircle, variant: 'destructive', description: 'Dừng nếu không thể cải thiện CAC/LTV' },
+    ]
+  },
+  cash_runway_impact: { 
+    label: 'Ảnh hưởng cash', 
+    icon: Zap, 
+    color: 'text-blue-400', 
+    priority: 4,
+    description: 'Campaign này ảnh hưởng đến cash flow của doanh nghiệp, có thể gây thiếu hụt tiền mặt.',
+    actions: [
+      { id: 'delay_payment', label: 'Đàm phán thanh toán', icon: Clock, variant: 'default', description: 'Đàm phán kéo dài thời hạn thanh toán với platform' },
+      { id: 'reduce_spend', label: 'Giảm chi tiêu', icon: MinusCircle, variant: 'warning', description: 'Giảm spending để cải thiện cash flow' },
+      { id: 'reallocate', label: 'Chuyển ngân sách', icon: ArrowRight, variant: 'default', description: 'Chuyển budget sang kênh cash conversion tốt hơn' },
+      { id: 'pause', label: 'Pause tạm thời', icon: PauseCircle, variant: 'warning', description: 'Tạm dừng cho đến khi cash flow ổn định' },
+    ]
+  },
+  fake_growth: { 
+    label: 'Tăng trưởng giả', 
+    icon: Target, 
+    color: 'text-purple-400', 
+    priority: 5,
+    description: 'Campaign tạo ra số đẹp nhưng không phản ánh giá trị thực - có thể là bot/fraud.',
+    actions: [
+      { id: 'audit', label: 'Audit traffic', icon: Search, variant: 'default', description: 'Kiểm tra chất lượng traffic và conversion' },
+      { id: 'exclude', label: 'Loại trừ nguồn kém', icon: XCircle, variant: 'warning', description: 'Exclude các placement/audience chất lượng thấp' },
+      { id: 'tighten', label: 'Thắt chặt targeting', icon: Target, variant: 'default', description: 'Thu hẹp targeting để focus vào user thật' },
+      { id: 'stop', label: 'Dừng nếu fraud', icon: XCircle, variant: 'destructive', description: 'Dừng hoàn toàn nếu phát hiện fraud' },
+    ]
+  },
 };
 
 // Utility function
@@ -173,6 +255,11 @@ export default function RiskAlertsPage() {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [activeTab, setActiveTab] = useState<'alerts' | 'history' | 'insights'>('alerts');
+  
+  // Detail dialog state
+  const [selectedAlert, setSelectedAlert] = useState<MarketingRiskAlert | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [actionComment, setActionComment] = useState('');
 
   // Filtered and sorted alerts
   const processedAlerts = useMemo(() => {
@@ -232,7 +319,70 @@ export default function RiskAlertsPage() {
   // AI Insights
   const aiInsights = useMemo(() => generateAIInsights(riskAlerts), [riskAlerts]);
 
-  // Keyboard navigation
+  // Handlers - defined before useEffect
+  const handleToggleSelect = useCallback((index: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedIds.size === processedAlerts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(processedAlerts.map((_, i) => i)));
+    }
+  }, [selectedIds.size, processedAlerts.length]);
+
+  const handleBulkAction = useCallback((action: 'stop' | 'reduce' | 'dismiss') => {
+    const count = selectedIds.size;
+    const actionLabels = { stop: 'Dừng', reduce: 'Giảm budget', dismiss: 'Bỏ qua' };
+    toast.success(`Đã ${actionLabels[action].toLowerCase()} ${count} campaigns`);
+    setSelectedIds(new Set());
+  }, [selectedIds.size]);
+
+  const handleSingleAction = useCallback((alert: MarketingRiskAlert) => {
+    toast.success(`Đã ghi nhận quyết định cho ${alert.campaign_name}`);
+  }, []);
+
+  const handleOpenDetail = useCallback((alert: MarketingRiskAlert) => {
+    setSelectedAlert(alert);
+    setShowDetailDialog(true);
+    setActionComment('');
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setShowDetailDialog(false);
+    setSelectedAlert(null);
+    setActionComment('');
+  }, []);
+
+  const handleExecuteAction = useCallback((actionId: string, actionLabel: string) => {
+    if (selectedAlert) {
+      toast.success(
+        `Đã thực hiện "${actionLabel}" cho ${selectedAlert.campaign_name}`,
+        { description: actionComment ? `Ghi chú: ${actionComment}` : undefined }
+      );
+      handleCloseDetail();
+    }
+  }, [selectedAlert, actionComment, handleCloseDetail]);
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setSeverityFilter('all');
+    setTypeFilter('all');
+    setSortBy('severity');
+  }, []);
+
+  const hasActiveFilters = searchQuery || severityFilter !== 'all' || typeFilter !== 'all';
+
+  // Keyboard navigation - after handlers are defined
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't capture when typing in input
@@ -269,8 +419,18 @@ export default function RiskAlertsPage() {
           }
           break;
         case 'escape':
-          setSelectedIds(new Set());
-          setFocusedIndex(-1);
+          if (showDetailDialog) {
+            handleCloseDetail();
+          } else {
+            setSelectedIds(new Set());
+            setFocusedIndex(-1);
+          }
+          break;
+        case 'enter':
+          if (focusedIndex >= 0 && !showDetailDialog) {
+            e.preventDefault();
+            handleOpenDetail(processedAlerts[focusedIndex]);
+          }
           break;
         case '?':
           e.preventDefault();
@@ -281,48 +441,7 @@ export default function RiskAlertsPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedIndex, processedAlerts, selectedIds.size]);
-
-  // Handlers
-  const handleToggleSelect = useCallback((index: number) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleSelectAll = useCallback(() => {
-    if (selectedIds.size === processedAlerts.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(processedAlerts.map((_, i) => i)));
-    }
-  }, [selectedIds.size, processedAlerts.length]);
-
-  const handleBulkAction = useCallback((action: 'stop' | 'reduce' | 'dismiss') => {
-    const count = selectedIds.size;
-    const actionLabels = { stop: 'Dừng', reduce: 'Giảm budget', dismiss: 'Bỏ qua' };
-    toast.success(`Đã ${actionLabels[action].toLowerCase()} ${count} campaigns`);
-    setSelectedIds(new Set());
-  }, [selectedIds.size]);
-
-  const handleSingleAction = useCallback((alert: MarketingRiskAlert) => {
-    toast.success(`Đã ghi nhận quyết định cho ${alert.campaign_name}`);
-  }, []);
-
-  const clearFilters = useCallback(() => {
-    setSearchQuery('');
-    setSeverityFilter('all');
-    setTypeFilter('all');
-    setSortBy('severity');
-  }, []);
-
-  const hasActiveFilters = searchQuery || severityFilter !== 'all' || typeFilter !== 'all';
+  }, [focusedIndex, processedAlerts, selectedIds.size, showDetailDialog, handleCloseDetail, handleOpenDetail, handleToggleSelect, handleSelectAll]);
 
   if (error) {
     return (
@@ -413,7 +532,11 @@ export default function RiskAlertsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
-                    <span className="text-muted-foreground">Bỏ chọn tất cả</span>
+                    <span className="text-muted-foreground">Đóng/Bỏ chọn</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
+                    <span className="text-muted-foreground">Xem chi tiết</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">?</kbd>
@@ -710,9 +833,12 @@ export default function RiskAlertsPage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        onClick={() => setFocusedIndex(index)}
+                        onClick={() => {
+                          setFocusedIndex(index);
+                        }}
+                        onDoubleClick={() => handleOpenDetail(alert)}
                         className={cn(
-                          "p-4 rounded-lg border transition-all cursor-pointer",
+                          "p-4 rounded-lg border transition-all cursor-pointer group",
                           alert.severity === 'critical' 
                             ? "bg-red-500/10 border-red-500/30 hover:border-red-500/50" 
                             : "bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50",
@@ -775,31 +901,49 @@ export default function RiskAlertsPage() {
                               -{formatCurrency(alert.impact_amount)}đ
                             </p>
                             
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant={alert.severity === 'critical' ? 'destructive' : 'outline'}
-                                  className="h-8 px-3 mt-2 text-xs gap-1"
-                                >
-                                  Quyết định <ArrowRight className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleSingleAction(alert)}>
-                                  <XCircle className="h-4 w-4 mr-2 text-red-400" />
-                                  Dừng campaign
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSingleAction(alert)}>
-                                  <TrendingDown className="h-4 w-4 mr-2 text-yellow-400" />
-                                  Giảm budget 50%
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleSingleAction(alert)}>
-                                  <CheckCircle2 className="h-4 w-4 mr-2 text-green-400" />
-                                  Chấp nhận rủi ro
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <div className="flex gap-1 mt-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDetail(alert);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant={alert.severity === 'critical' ? 'destructive' : 'outline'}
+                                    className="h-8 px-3 text-xs gap-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Action <ArrowRight className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleOpenDetail(alert)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Xem chi tiết
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleSingleAction(alert)}>
+                                    <XCircle className="h-4 w-4 mr-2 text-red-400" />
+                                    Dừng campaign
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleSingleAction(alert)}>
+                                    <TrendingDown className="h-4 w-4 mr-2 text-yellow-400" />
+                                    Giảm budget 50%
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleSingleAction(alert)}>
+                                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-400" />
+                                    Chấp nhận rủi ro
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                         </div>
                       </motion.div>
@@ -986,6 +1130,171 @@ export default function RiskAlertsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Alert Detail Dialog */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedAlert && (() => {
+            const config = RISK_TYPE_CONFIG[selectedAlert.type];
+            const Icon = config.icon;
+            
+            return (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "p-2 rounded-lg",
+                      selectedAlert.severity === 'critical' ? "bg-red-500/20" : "bg-yellow-500/20"
+                    )}>
+                      <Icon className={cn("h-6 w-6", config.color)} />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-lg">{selectedAlert.campaign_name}</DialogTitle>
+                      <DialogDescription className="flex items-center gap-2 mt-1">
+                        <Badge className={cn(
+                          "text-xs",
+                          selectedAlert.severity === 'critical' 
+                            ? "bg-red-500/20 text-red-400" 
+                            : "bg-yellow-500/20 text-yellow-400"
+                        )}>
+                          {config.label}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">{selectedAlert.channel}</Badge>
+                        {selectedAlert.severity === 'critical' && (
+                          <Badge className="bg-red-500 text-white text-xs">CRITICAL</Badge>
+                        )}
+                      </DialogDescription>
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                <div className="space-y-6 py-4">
+                  {/* Impact Summary */}
+                  <div className={cn(
+                    "p-4 rounded-lg border",
+                    selectedAlert.severity === 'critical' 
+                      ? "bg-red-500/10 border-red-500/30" 
+                      : "bg-yellow-500/10 border-yellow-500/30"
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Thiệt hại tiềm năng</p>
+                        <p className={cn(
+                          "text-3xl font-bold",
+                          selectedAlert.severity === 'critical' ? "text-red-400" : "text-yellow-400"
+                        )}>
+                          -{formatCurrency(selectedAlert.impact_amount)}đ
+                        </p>
+                      </div>
+                      <AlertTriangle className={cn(
+                        "h-12 w-12",
+                        selectedAlert.severity === 'critical' ? "text-red-400/50" : "text-yellow-400/50"
+                      )} />
+                    </div>
+                  </div>
+
+                  {/* Problem Description */}
+                  <div>
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                      Mô tả vấn đề
+                    </h4>
+                    <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+                      {config.description}
+                    </p>
+                    <p className="text-sm mt-2 p-3 rounded-lg bg-muted/20">
+                      {selectedAlert.message}
+                    </p>
+                  </div>
+
+                  {/* Current Recommendation */}
+                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Lightbulb className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium text-primary">Khuyến nghị</span>
+                    </div>
+                    <p className="text-sm">{selectedAlert.recommended_action}</p>
+                  </div>
+
+                  <Separator />
+
+                  {/* Available Actions */}
+                  <div>
+                    <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-muted-foreground" />
+                      Các hành động khả dụng
+                    </h4>
+                    <div className="grid gap-3">
+                      {config.actions.map((action) => {
+                        const ActionIcon = action.icon;
+                        return (
+                          <div 
+                            key={action.id}
+                            className={cn(
+                              "p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md",
+                              action.variant === 'destructive' && "hover:border-red-500/50 hover:bg-red-500/5",
+                              action.variant === 'warning' && "hover:border-yellow-500/50 hover:bg-yellow-500/5",
+                              action.variant === 'success' && "hover:border-green-500/50 hover:bg-green-500/5",
+                              action.variant === 'default' && "hover:border-primary/50 hover:bg-primary/5"
+                            )}
+                            onClick={() => handleExecuteAction(action.id, action.label)}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={cn(
+                                "p-2 rounded-lg",
+                                action.variant === 'destructive' && "bg-red-500/20 text-red-400",
+                                action.variant === 'warning' && "bg-yellow-500/20 text-yellow-400",
+                                action.variant === 'success' && "bg-green-500/20 text-green-400",
+                                action.variant === 'default' && "bg-primary/20 text-primary"
+                              )}>
+                                <ActionIcon className="h-5 w-5" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{action.label}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {action.description}
+                                </p>
+                              </div>
+                              <ArrowRight className="h-4 w-4 text-muted-foreground mt-1" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Comment */}
+                  <div>
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      Ghi chú (tùy chọn)
+                    </h4>
+                    <Textarea
+                      placeholder="Thêm ghi chú về quyết định này..."
+                      value={actionComment}
+                      onChange={(e) => setActionComment(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={handleCloseDetail}>
+                    Đóng
+                  </Button>
+                  <Button 
+                    variant="default"
+                    onClick={() => window.open(`/mdp/campaigns?search=${encodeURIComponent(selectedAlert.campaign_name)}`, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Xem Campaign
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
