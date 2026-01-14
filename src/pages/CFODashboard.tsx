@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { Wallet, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Wallet, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock, Zap, ArrowRight } from 'lucide-react';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { CashForecastChart } from '@/components/dashboard/CashForecastChart';
 import { ARAgingChart } from '@/components/dashboard/ARAgingChart';
@@ -11,8 +12,11 @@ import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
 import FinancialTruthCard from '@/components/dashboard/FinancialTruthCard';
-import TodayDecisionSummary from '@/components/dashboard/TodayDecisionSummary';
-import { useAllProblematicSKUs } from '@/hooks/useAllProblematicSKUs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useAutoDecisionCards } from '@/hooks/useAutoDecisionCards';
+import { useDecisionCards } from '@/hooks/useDecisionCards';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact } from '@/lib/formatters';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
@@ -40,8 +44,19 @@ export default function CFODashboard() {
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
   const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
-  const { data: problematicSKUs } = useAllProblematicSKUs();
   const { t } = useLanguage();
+
+  // Get decision cards count from Command Center (single source of truth)
+  const { data: dbCards } = useDecisionCards({ status: ['OPEN', 'IN_PROGRESS'] });
+  const { data: autoCards } = useAutoDecisionCards();
+  
+  const urgentDecisionsCount = useMemo(() => {
+    const dbP1 = (dbCards || []).filter(c => c.priority === 'P1').length;
+    const autoP1 = (autoCards || []).filter(c => c.priority === 'P1').length;
+    return dbP1 + autoP1;
+  }, [dbCards, autoCards]);
+
+  const totalDecisionsCount = (dbCards?.length || 0) + (autoCards?.length || 0);
 
   const handleRefresh = useMemo(() => {
     return () => {
@@ -108,16 +123,42 @@ export default function CFODashboard() {
           </div>
         </motion.div>
 
-        {/* FDP Principle #10: Today's Decision Summary - FIRST for immediate action */}
-        <TodayDecisionSummary 
-          skuMetrics={problematicSKUs}
-          cashPosition={{
-            bankBalance: metrics?.cashOnHand || 500000000,
-            currentAR: 200000000,
-            overdueAR: metrics?.overdueAR || 50000000,
-            inventoryValue: 150000000
-          }}
-        />
+        {/* Quick Link to Command Center - Single Source of Truth for Decisions */}
+        {totalDecisionsCount > 0 && (
+          <Link to="/command-center">
+            <Card className={`border-2 ${urgentDecisionsCount > 0 ? 'border-red-500/50 bg-red-500/5' : 'border-primary/30 bg-primary/5'} hover:border-primary transition-colors cursor-pointer`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${urgentDecisionsCount > 0 ? 'bg-red-500/10' : 'bg-primary/10'}`}>
+                      <Zap className={`h-5 w-5 ${urgentDecisionsCount > 0 ? 'text-red-500' : 'text-primary'}`} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">Command Center</span>
+                        <Badge variant={urgentDecisionsCount > 0 ? 'destructive' : 'secondary'}>
+                          {totalDecisionsCount} quyết định
+                        </Badge>
+                        {urgentDecisionsCount > 0 && (
+                          <Badge variant="destructive" className="animate-pulse">
+                            {urgentDecisionsCount} P1 khẩn cấp
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Trung tâm điều hành quyết định — Nguồn dữ liệu duy nhất
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    Xem chi tiết
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
 
         {/* Financial Truth - Single Source of Truth */}
         <FinancialTruthCard />
