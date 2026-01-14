@@ -37,6 +37,9 @@ import {
   MinusCircle,
   MessageSquare,
   ExternalLink,
+  Calculator,
+  Database,
+  BarChart3,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -240,7 +243,7 @@ const generateAIInsights = (alerts: MarketingRiskAlert[]) => {
 };
 
 export default function RiskAlertsPage() {
-  const { riskAlerts, isLoading, error } = useMDPData();
+  const { riskAlerts, profitAttribution, cashImpact, dataQuality, thresholds, isLoading, error } = useMDPData();
   
   // Filter & Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -1168,15 +1171,15 @@ export default function RiskAlertsPage() {
                   </div>
                 </DialogHeader>
 
-                <div className="space-y-6 py-4">
-                  {/* Impact Summary */}
+                <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
+                  {/* Impact Summary with Calculation Breakdown */}
                   <div className={cn(
                     "p-4 rounded-lg border",
                     selectedAlert.severity === 'critical' 
                       ? "bg-red-500/10 border-red-500/30" 
                       : "bg-yellow-500/10 border-yellow-500/30"
                   )}>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Thiệt hại tiềm năng</p>
                         <p className={cn(
@@ -1190,6 +1193,208 @@ export default function RiskAlertsPage() {
                         "h-12 w-12",
                         selectedAlert.severity === 'critical' ? "text-red-400/50" : "text-yellow-400/50"
                       )} />
+                    </div>
+
+                    {/* How is this calculated? */}
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="w-full justify-between text-xs h-8">
+                          <span className="flex items-center gap-1">
+                            <Calculator className="h-3 w-3" />
+                            Cách tính thiệt hại
+                          </span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-2">
+                        <div className="text-xs space-y-2 p-3 bg-background/50 rounded-lg">
+                          {selectedAlert.type === 'negative_margin' && (() => {
+                            const campaign = profitAttribution.find(p => p.campaign_name === selectedAlert.campaign_name);
+                            if (campaign) {
+                              return (
+                                <>
+                                  <p className="font-medium mb-2">Contribution Margin = Net Revenue - All Costs</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>Net Revenue:</div>
+                                    <div className="text-right">{formatCurrency(campaign.net_revenue)}đ</div>
+                                    <div>- COGS:</div>
+                                    <div className="text-right text-red-400">-{formatCurrency(campaign.cogs)}đ</div>
+                                    <div>- Platform Fees:</div>
+                                    <div className="text-right text-red-400">-{formatCurrency(campaign.platform_fees)}đ</div>
+                                    <div>- Logistics:</div>
+                                    <div className="text-right text-red-400">-{formatCurrency(campaign.logistics_cost)}đ</div>
+                                    <div>- Payment Fees:</div>
+                                    <div className="text-right text-red-400">-{formatCurrency(campaign.payment_fees)}đ</div>
+                                    <div>- Return Cost:</div>
+                                    <div className="text-right text-red-400">-{formatCurrency(campaign.return_cost)}đ</div>
+                                    <div>- Ad Spend:</div>
+                                    <div className="text-right text-red-400">-{formatCurrency(campaign.ad_spend)}đ</div>
+                                    <Separator className="col-span-2 my-1" />
+                                    <div className="font-bold">= CM:</div>
+                                    <div className={cn("text-right font-bold", campaign.contribution_margin < 0 ? "text-red-400" : "text-green-400")}>
+                                      {formatCurrency(campaign.contribution_margin)}đ
+                                    </div>
+                                  </div>
+                                </>
+                              );
+                            }
+                            return <p>Dữ liệu chi tiết không có sẵn</p>;
+                          })()}
+                          
+                          {selectedAlert.type === 'burning_cash' && (
+                            <>
+                              <p className="font-medium mb-2">Margin % = (CM / Net Revenue) × 100</p>
+                              <p>Ngưỡng tối thiểu: {thresholds.MIN_CM_PERCENT}%</p>
+                              <p>Hiện tại: {selectedAlert.metric_value.toFixed(1)}%</p>
+                              <p className="text-yellow-400">→ Thiệt hại = Ad Spend đã chi</p>
+                            </>
+                          )}
+                          
+                          {selectedAlert.type === 'cash_runway_impact' && (() => {
+                            const channel = cashImpact.find(c => c.channel === selectedAlert.channel);
+                            if (channel) {
+                              return (
+                                <>
+                                  <p className="font-medium mb-2">Cash Conversion = Cash Received / Total Revenue</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>Cash Received:</div>
+                                    <div className="text-right text-green-400">{formatCurrency(channel.cash_received)}đ</div>
+                                    <div>Pending:</div>
+                                    <div className="text-right text-yellow-400">{formatCurrency(channel.pending_cash)}đ</div>
+                                    <div>Refunds:</div>
+                                    <div className="text-right text-red-400">{formatCurrency(channel.refund_amount)}đ</div>
+                                    <Separator className="col-span-2 my-1" />
+                                    <div>Cash Conversion:</div>
+                                    <div className="text-right">{(channel.cash_conversion_rate * 100).toFixed(0)}%</div>
+                                  </div>
+                                  <p className="text-yellow-400 mt-2">→ Thiệt hại = Pending + Refunds</p>
+                                </>
+                              );
+                            }
+                            return <p>Dữ liệu chi tiết không có sẵn</p>;
+                          })()}
+                          
+                          {(selectedAlert.type === 'cac_exceeds_ltv' || selectedAlert.type === 'fake_growth') && (
+                            <p className="text-muted-foreground">
+                              Thiệt hại được tính dựa trên Ad Spend hoặc Contribution Margin của campaign.
+                            </p>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+
+                  {/* Data Sources & Confidence */}
+                  <div className="p-4 rounded-lg border bg-muted/20">
+                    <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                      <Database className="h-4 w-4 text-muted-foreground" />
+                      Nguồn dữ liệu & Độ tin cậy
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      {/* Data sources used */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            dataQuality.hasRealCOGS ? "bg-green-400" : "bg-yellow-400"
+                          )} />
+                          <span>COGS</span>
+                        </div>
+                        <span className={cn(
+                          "text-right",
+                          dataQuality.hasRealCOGS ? "text-green-400" : "text-yellow-400"
+                        )}>
+                          {dataQuality.hasRealCOGS ? "Dữ liệu thực" : "Ước tính 55%"}
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            dataQuality.hasRealFees ? "bg-green-400" : "bg-yellow-400"
+                          )} />
+                          <span>Platform Fees</span>
+                        </div>
+                        <span className={cn(
+                          "text-right",
+                          dataQuality.hasRealFees ? "text-green-400" : "text-yellow-400"
+                        )}>
+                          {dataQuality.hasRealFees ? "Dữ liệu thực" : "Ước tính 12%"}
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            dataQuality.hasRealSettlements ? "bg-green-400" : "bg-yellow-400"
+                          )} />
+                          <span>Settlements</span>
+                        </div>
+                        <span className={cn(
+                          "text-right",
+                          dataQuality.hasRealSettlements ? "text-green-400" : "text-yellow-400"
+                        )}>
+                          {dataQuality.hasRealSettlements ? "Dữ liệu thực" : "Ước tính"}
+                        </span>
+                      </div>
+
+                      {/* Confidence Score */}
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Độ tin cậy</span>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const score = (dataQuality.hasRealCOGS ? 1 : 0) + 
+                                         (dataQuality.hasRealFees ? 1 : 0) + 
+                                         (dataQuality.hasRealSettlements ? 1 : 0);
+                            const level = score === 3 ? 'Cao' : score >= 1 ? 'Trung bình' : 'Thấp';
+                            const color = score === 3 ? 'text-green-400' : score >= 1 ? 'text-yellow-400' : 'text-red-400';
+                            return (
+                              <>
+                                <Badge className={cn("text-xs", color === 'text-green-400' ? "bg-green-500/20" : color === 'text-yellow-400' ? "bg-yellow-500/20" : "bg-red-500/20", color)}>
+                                  {level}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  ({score}/3 nguồn thực)
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      
+                      {!dataQuality.hasRealCOGS && !dataQuality.hasRealFees && (
+                        <p className="text-xs text-yellow-400 mt-2">
+                          ⚠️ Đề xuất: Import dữ liệu COGS và Fees từ ERP/Channel để tăng độ chính xác
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Alert Threshold Info */}
+                  <div className="p-3 rounded-lg bg-muted/30 border">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                      Ngưỡng cảnh báo
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <span className="text-muted-foreground">Metric hiện tại:</span>
+                      <span className="text-right font-medium">
+                        {selectedAlert.metric_value.toFixed(1)}
+                        {selectedAlert.type.includes('margin') || selectedAlert.type === 'burning_cash' ? '%' : ''}
+                      </span>
+                      <span className="text-muted-foreground">Ngưỡng:</span>
+                      <span className="text-right font-medium">
+                        {selectedAlert.threshold}
+                        {selectedAlert.type.includes('margin') || selectedAlert.type === 'burning_cash' ? '%' : ''}
+                      </span>
+                      <span className="text-muted-foreground">Chênh lệch:</span>
+                      <span className={cn(
+                        "text-right font-medium",
+                        selectedAlert.severity === 'critical' ? "text-red-400" : "text-yellow-400"
+                      )}>
+                        {(selectedAlert.metric_value - selectedAlert.threshold).toFixed(1)}
+                        {selectedAlert.type.includes('margin') || selectedAlert.type === 'burning_cash' ? '%' : ''}
+                      </span>
                     </div>
                   </div>
 
