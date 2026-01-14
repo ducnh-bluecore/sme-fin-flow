@@ -651,10 +651,59 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
             </div>
           )}
 
-          {/* CEO 20-30s: Intelligence trace - Tạo niềm tin dữ liệu */}
-          <div className="text-xs text-muted-foreground flex items-center gap-2 bg-muted/20 rounded-lg px-3 py-2">
-            <Shield className="h-3.5 w-3.5" />
-            Dựa trên {getIntelligenceTrace(card)}
+          {/* CEO 20-30s: Intelligence trace - Tạo niềm tin dữ liệu (DETAIL VIEW) */}
+          <div className="bg-muted/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Shield className="h-4 w-4 text-primary" />
+              Cơ sở dữ liệu phân tích
+            </div>
+            
+            {/* Data summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="bg-background/50 rounded-lg p-2">
+                <div className="text-muted-foreground">Thời gian</div>
+                <div className="font-medium">{card.impact_window_days || 7} ngày</div>
+              </div>
+              <div className="bg-background/50 rounded-lg p-2">
+                <div className="text-muted-foreground">Số chỉ số</div>
+                <div className="font-medium">{card.facts?.length || 0} metrics</div>
+              </div>
+              <div className="bg-background/50 rounded-lg p-2">
+                <div className="text-muted-foreground">Nguồn dữ liệu</div>
+                <div className="font-medium">{card.source_modules?.length || 1} nguồn</div>
+              </div>
+              <div className="bg-background/50 rounded-lg p-2">
+                <div className="text-muted-foreground">Độ tin cậy</div>
+                <div className={cn(
+                  "font-medium",
+                  card.confidence === 'HIGH' && "text-green-400",
+                  card.confidence === 'MEDIUM' && "text-yellow-400",
+                  card.confidence === 'LOW' && "text-red-400"
+                )}>
+                  {card.confidence === 'HIGH' ? 'Cao' : card.confidence === 'MEDIUM' ? 'Trung bình' : 'Thấp'}
+                </div>
+              </div>
+            </div>
+            
+            {/* Fact labels used */}
+            {card.facts && card.facts.length > 0 && (
+              <div className="text-xs">
+                <span className="text-muted-foreground">Chỉ số phân tích: </span>
+                <span className="text-foreground">
+                  {card.facts.map(f => f.label).join(', ')}
+                </span>
+              </div>
+            )}
+            
+            {/* Source modules */}
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <span>Modules:</span>
+              {card.source_modules?.map((mod, i) => (
+                <span key={i} className="bg-primary/10 text-primary px-2 py-0.5 rounded">
+                  {mod}
+                </span>
+              ))}
+            </div>
           </div>
 
           {/* Action Buttons */}
