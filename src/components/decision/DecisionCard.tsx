@@ -270,47 +270,34 @@ function getIntelligenceTrace(card: DecisionCardType): string {
   const days = card.impact_window_days || 7;
   parts.push(`${days} ngày dữ liệu`);
   
-  // Data volume based on entity type and facts
-  const entityType = card.entity_type?.toLowerCase() || '';
+  // Data type description based on card type
   const cardType = card.card_type || '';
+  const entityType = card.entity_type?.toLowerCase() || '';
   
-  // Try to get quantity from facts for more accurate count
-  const quantityFact = card.facts?.find(f => 
-    f.fact_key === 'quantity' || f.fact_key === 'units_sold' || f.fact_key === 'orders'
-  );
+  // Get fact count as data points
+  const factCount = card.facts?.length || 0;
   
   if (entityType === 'sku' || cardType.includes('SKU')) {
-    if (quantityFact?.numeric_value) {
-      parts.push(`${Math.round(quantityFact.numeric_value).toLocaleString('vi-VN')} SP đã bán`);
-    } else {
-      // Fallback: use revenue to estimate
-      const revenueFact = card.facts?.find(f => f.fact_key === 'revenue');
-      if (revenueFact?.numeric_value && revenueFact.numeric_value > 0) {
-        const estimatedUnits = Math.round(revenueFact.numeric_value / 200000);
-        if (estimatedUnits > 5) {
-          parts.push(`~${estimatedUnits.toLocaleString('vi-VN')} đơn hàng`);
-        }
-      }
-    }
+    parts.push(`${factCount} chỉ số SKU`);
   } else if (entityType === 'channel' || cardType.includes('CHANNEL')) {
-    if (quantityFact?.numeric_value) {
-      parts.push(`${Math.round(quantityFact.numeric_value).toLocaleString('vi-VN')} đơn hàng`);
-    } else {
-      parts.push('dữ liệu kênh bán');
-    }
-  } else if (entityType === 'campaign' || cardType.includes('MARKETING')) {
-    parts.push('dữ liệu chiến dịch');
-  } else if (cardType.includes('CASH') || cardType.includes('INVENTORY')) {
-    parts.push('giao dịch tài chính');
+    parts.push(`${factCount} chỉ số kênh`);
+  } else if (cardType.includes('CASH')) {
+    parts.push(`${factCount} chỉ số tài chính`);
+  } else if (cardType.includes('INVENTORY')) {
+    parts.push(`${factCount} chỉ số tồn kho`);
   } else if (cardType.includes('OPS')) {
-    parts.push('dữ liệu vận hành');
+    parts.push(`${factCount} chỉ số vận hành`);
   } else if (cardType.includes('CUSTOMER')) {
-    parts.push('dữ liệu khách hàng');
+    parts.push(`${factCount} chỉ số khách hàng`);
+  } else if (factCount > 0) {
+    parts.push(`${factCount} chỉ số`);
   }
   
   // Number of sources
   const sources = card.source_modules?.length || 1;
-  parts.push(`${sources} nguồn`);
+  if (sources > 1) {
+    parts.push(`${sources} nguồn`);
+  }
   
   // Specific modules
   if (card.source_modules?.length) {
