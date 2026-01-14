@@ -90,6 +90,8 @@ const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 // MDP pages - eager import to avoid reload issues
 import MDPDashboardPage from "./pages/MDPDashboardPage";
+import MarketingModePage from "./pages/mdp/MarketingModePage";
+import CMOModePage from "./pages/mdp/CMOModePage";
 import CampaignsPage from "./pages/mdp/CampaignsPage";
 import ChannelsPage from "./pages/mdp/ChannelsPage";
 import FunnelPage from "./pages/mdp/FunnelPage";
@@ -199,7 +201,9 @@ const AppRoutes = () => {
         }
       >
         {/* MDP Manifesto: Profit before Performance. Cash before Clicks. */}
-        <Route path="/mdp" element={<MDPDashboardPage />} />
+        <Route path="/mdp" element={<Navigate to="/mdp/marketing-mode" replace />} />
+        <Route path="/mdp/marketing-mode" element={<MarketingModePage />} />
+        <Route path="/mdp/cmo-mode" element={<CMOModePage />} />
         <Route path="/mdp/campaigns" element={<CampaignsPage />} />
         <Route path="/mdp/channels" element={<ChannelsPage />} />
         <Route path="/mdp/funnel" element={<FunnelPage />} />
@@ -215,8 +219,8 @@ const AppRoutes = () => {
         <Route path="/mdp/customer-ltv" element={<CustomerLTVPage />} />
         <Route path="/mdp/data-sources" element={<DataSourcesPage />} />
         <Route path="/mdp/data-readiness" element={<DataReadinessPage />} />
-        <Route path="/mdp/docs" element={<MDPDashboardPage />} />
-        <Route path="/mdp/settings" element={<MDPDashboardPage />} />
+        <Route path="/mdp/docs" element={<MarketingModePage />} />
+        <Route path="/mdp/settings" element={<MarketingModePage />} />
       </Route>
       
       {/* Super Admin Routes */}
