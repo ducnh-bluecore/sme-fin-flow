@@ -28,6 +28,8 @@ import {
   CMOCashImpactPanel,
   RiskAlertsPanel,
   DecisionPanel,
+  CMOCommandCenter,
+  QuickActionCards,
 } from '@/components/mdp/cmo-mode';
 
 // Metric Explainer
@@ -194,7 +196,22 @@ export default function MDPDashboardPage() {
     // CMO Mode
     return (
       <div className="space-y-6">
-        {/* Profit Attribution */}
+        {/* Quick Action Cards - Decision-first */}
+        <QuickActionCards 
+          profitData={profitAttribution}
+          cashImpact={cashImpact}
+          summary={cmoModeSummary}
+        />
+
+        {/* CMO Command Center - Main decision hub */}
+        <CMOCommandCenter 
+          profitData={profitAttribution}
+          cashImpact={cashImpact}
+          riskAlerts={riskAlerts}
+          summary={cmoModeSummary}
+        />
+        
+        {/* Profit Attribution - Detail view */}
         <ProfitAttributionPanel 
           profitData={profitAttribution} 
           summary={cmoModeSummary} 
@@ -219,7 +236,7 @@ export default function MDPDashboardPage() {
           </div>
         </div>
 
-        {/* Decision Panel */}
+        {/* Decision Panel - Channel-level */}
         <DecisionPanel 
           profitData={profitAttribution}
           cashImpact={cashImpact}
