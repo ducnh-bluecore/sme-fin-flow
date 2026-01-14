@@ -326,14 +326,17 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
   // Get loss per unit for SKU cards
   const lossPerUnit = getLossPerUnit(card);
 
-  // Compact view (for list)
+  // Calculate hours remaining to deadline
+  const hoursRemaining = Math.max(0, Math.round((new Date(card.deadline_at).getTime() - Date.now()) / (1000 * 60 * 60)));
+  
+  // Compact view (for list) - CEO 5-10s: "Cái gì nguy hiểm nhất?"
   if (compact) {
     return (
       <Card 
         className={cn(
           "border-l-4 cursor-pointer hover:bg-muted/50 transition-colors",
-          card.priority === 'P1' && "border-l-red-500",
-          card.priority === 'P2' && "border-l-yellow-500",
+          card.priority === 'P1' && "border-l-red-500 bg-red-500/5",
+          card.priority === 'P2' && "border-l-yellow-500 bg-yellow-500/5",
           card.priority === 'P3' && "border-l-blue-500"
         )}
         onClick={onViewDetail}
@@ -353,25 +356,40 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
                     Quá hạn
                   </Badge>
                 )}
-                {/* Recommendation Badge */}
-                {recommendationBadge && (
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-[10px] font-semibold px-1.5 py-0",
-                      recommendationBadge.bgColor,
-                      recommendationBadge.textColor
-                    )}
-                  >
-                    {recommendationBadge.emoji} {recommendationBadge.label}
-                  </Badge>
-                )}
               </div>
-              <h4 className="font-medium text-sm truncate">{card.title}</h4>
+              
+              {/* CEO 5-10s: Title là CÂU HỎI QUYẾT ĐỊNH (động từ đứng đầu) */}
+              <h4 className="font-semibold text-sm">
+                {card.question || card.title}
+              </h4>
               <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {card.entity_label}
               </p>
-              {/* Cost of Delay - urgency trigger */}
+              
+              {/* CEO 10-20s: 3 dòng cố định cho P1/P2 - Ép hành động */}
+              {(card.priority === 'P1' || card.priority === 'P2') && (
+                <div className="mt-2 space-y-1 text-[11px]">
+                  {/* System Recommendation */}
+                  {recommendationBadge && (
+                    <div className={cn("flex items-center gap-1.5 font-semibold", recommendationBadge.textColor)}>
+                      {recommendationBadge.emoji} System recommends: {recommendationType}
+                    </div>
+                  )}
+                  {/* Countdown */}
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Timer className="h-3 w-3" />
+                    <span className={cn(isOverdue ? "text-red-400 font-medium" : "")}>
+                      {isOverdue ? "⚠️ Đã quá hạn!" : `Còn ${hoursRemaining} giờ để quyết`}
+                    </span>
+                  </div>
+                  {/* Owner call-out */}
+                  <div className="flex items-center gap-1.5 text-primary font-medium">
+                    <User className="h-3 w-3" />
+                    Quyết định này đang chờ bạn
+                  </div>
+                </div>
+              )}
+              
               {/* Cost of Delay - urgency trigger */}
               {costOfDelay && (
                 <div className="flex items-center gap-1 mt-1.5">
@@ -398,13 +416,21 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
               )}>
                 {card.impact_amount > 0 ? '+' : ''}{formatCurrency(card.impact_amount)}đ
               </div>
-              <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+              <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end mt-1">
                 <Clock className="h-3 w-3" />
                 {formatDistanceToNow(new Date(card.deadline_at), { addSuffix: true, locale: vi })}
               </div>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </div>
+          
+          {/* CEO 20-30s: Intelligence trace - Tạo niềm tin */}
+          {(card.priority === 'P1' || card.priority === 'P2') && (
+            <div className="mt-3 pt-2 border-t border-border/50 text-[10px] text-muted-foreground flex items-center gap-1.5">
+              <Shield className="h-3 w-3" />
+              Dựa trên {card.impact_window_days || 7} ngày dữ liệu · {card.source_modules?.join(' + ') || 'FDP'}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -506,7 +532,34 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
             ))}
           </div>
 
-          {/* Deadline & Owner */}
+          {/* CEO 10-20s: 3 dòng cố định - Ép hành động rõ ràng */}
+          {(card.priority === 'P1' || card.priority === 'P2') && (
+            <div className={cn(
+              "rounded-lg p-4 space-y-2",
+              card.priority === 'P1' ? "bg-red-500/10 border border-red-500/30" : "bg-yellow-500/10 border border-yellow-500/30"
+            )}>
+              {/* System Recommendation */}
+              {recommendationBadge && (
+                <div className={cn("flex items-center gap-2 font-semibold text-sm", recommendationBadge.textColor)}>
+                  {recommendationBadge.emoji} System recommends: {recommendationType}
+                </div>
+              )}
+              {/* Countdown */}
+              <div className="flex items-center gap-2 text-sm">
+                <Timer className={cn("h-4 w-4", isOverdue ? "text-red-400" : "text-muted-foreground")} />
+                <span className={cn(isOverdue ? "text-red-400 font-medium" : "")}>
+                  {isOverdue ? "⚠️ Đã quá hạn - Cần xử lý ngay!" : `Còn ${hoursRemaining} giờ để quyết`}
+                </span>
+              </div>
+              {/* Owner call-out */}
+              <div className="flex items-center gap-2 text-sm text-primary font-semibold">
+                <User className="h-4 w-4" />
+                👤 Quyết định này đang chờ bạn
+              </div>
+            </div>
+          )}
+
+          {/* Deadline & Owner - Additional info */}
           <div className="flex items-center justify-between text-sm bg-muted/30 rounded-lg p-3">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -552,6 +605,12 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
               </div>
             </div>
           )}
+
+          {/* CEO 20-30s: Intelligence trace - Tạo niềm tin dữ liệu */}
+          <div className="text-xs text-muted-foreground flex items-center gap-2 bg-muted/20 rounded-lg px-3 py-2">
+            <Shield className="h-3.5 w-3.5" />
+            Dựa trên {card.impact_window_days || 7} ngày dữ liệu · {card.source_modules?.join(' + ') || 'FDP'}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 pt-2">

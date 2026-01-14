@@ -196,7 +196,7 @@ export default function DecisionCenterPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Header */}
+      {/* Hero Header - CEO 0-5s: "Tôi đang ở đâu?" */}
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border border-primary/20 p-6">
         <div className="absolute inset-0 bg-grid-white/5 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
         <div className="relative flex items-center justify-between">
@@ -206,9 +206,17 @@ export default function DecisionCenterPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Trung tâm Quyết định</h1>
-              <p className="text-muted-foreground mt-1">
-                Hệ điều hành quyết định — Hôm nay cần quyết định gì?
-              </p>
+              {/* CEO Hook: Urgency subline - Ép hành động ngay từ giây đầu */}
+              {combinedStats.p1Count + combinedStats.p2Count > 0 ? (
+                <p className="text-red-400 font-medium mt-1 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  Hôm nay có {combinedStats.p1Count + combinedStats.p2Count} quyết định có thể gây thiệt hại nếu bỏ qua.
+                </p>
+              ) : (
+                <p className="text-green-400 font-medium mt-1">
+                  ✓ Không có vấn đề khẩn cấp cần xử lý.
+                </p>
+              )}
             </div>
           </div>
           <Button 
