@@ -62,9 +62,9 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    labelKey: 'nav.commandCenter',
+    labelKey: 'nav.decisionCenter',
     icon: Zap,
-    href: '/command-center',
+    href: '/decision-center',
   },
   {
     labelKey: 'nav.strategyDecision',
@@ -91,6 +91,7 @@ const navItems: NavItem[] = [
     labelKey: 'nav.planSimulation',
     icon: FlaskConical,
     children: [
+      { labelKey: 'nav.scenario', href: '/scenario' },
       { labelKey: 'nav.rollingForecast', href: '/rolling-forecast' },
       { labelKey: 'nav.strategicInitiatives', href: '/strategic-initiatives' },
     ],

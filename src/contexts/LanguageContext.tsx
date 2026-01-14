@@ -63,7 +63,6 @@ const vi: Record<string, string> = {
   'nav.promotionROI': 'ROI Khuyến mãi',
   'nav.supplierPayments': 'Thanh toán NCC',
 
-  'nav.commandCenter': 'Command Center',
   'nav.decisionCenter': 'Trung tâm quyết định',
 
   'nav.strategyDecision': 'Chiến lược & Quyết định',
@@ -1728,7 +1727,6 @@ const en: Record<string, string> = {
   'nav.workingCapital': 'Working Capital Optimization',
   'nav.cashConversion': 'Cash Conversion Cycle',
 
-  'nav.commandCenter': 'Command Center',
   'nav.decisionCenter': 'Decision Center',
 
   'nav.strategyDecision': 'Strategy & Decision',
