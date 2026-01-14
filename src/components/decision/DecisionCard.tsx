@@ -57,6 +57,8 @@ interface DecisionCardProps {
   card: DecisionCardType;
   compact?: boolean;
   onViewDetail?: () => void;
+  onDecided?: (cardId: string) => void;
+  onDismissed?: (cardId: string) => void;
 }
 
 // Card type configuration
@@ -307,7 +309,7 @@ function getIntelligenceTrace(card: DecisionCardType): string {
   return parts.join(' · ');
 }
 
-export function DecisionCardComponent({ card, compact = false, onViewDetail }: DecisionCardProps) {
+export function DecisionCardComponent({ card, compact = false, onViewDetail, onDecided, onDismissed }: DecisionCardProps) {
   const [showDecideDialog, setShowDecideDialog] = useState(false);
   const [showDismissDialog, setShowDismissDialog] = useState(false);
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
@@ -341,6 +343,11 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
     setShowDecideDialog(false);
     setSelectedAction(null);
     setComment('');
+    
+    // Notify parent for auto-generated cards
+    if (card.id.startsWith('auto-') && onDecided) {
+      onDecided(card.id);
+    }
   };
 
   const handleDismiss = async () => {
@@ -352,6 +359,11 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
 
     setShowDismissDialog(false);
     setComment('');
+    
+    // Notify parent for auto-generated cards
+    if (card.id.startsWith('auto-') && onDismissed) {
+      onDismissed(card.id);
+    }
   };
 
   const handleSnooze = async () => {
