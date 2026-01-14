@@ -67,9 +67,13 @@ export default function DecisionCenterPage() {
   const [showAll, setShowAll] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Track local decisions for auto-generated cards (not in DB)
-  const [localDecidedCards, setLocalDecidedCards] = useState<Set<string>>(new Set());
-  const [localDismissedCards, setLocalDismissedCards] = useState<Set<string>>(new Set());
+  // Track local decisions for auto-generated cards (not in DB) - store full card data for history
+  const [localDecidedCardsData, setLocalDecidedCardsData] = useState<DecisionCard[]>([]);
+  const [localDismissedCardsData, setLocalDismissedCardsData] = useState<DecisionCard[]>([]);
+  
+  // IDs for filtering
+  const localDecidedCardIds = useMemo(() => new Set(localDecidedCardsData.map(c => c.id)), [localDecidedCardsData]);
+  const localDismissedCardIds = useMemo(() => new Set(localDismissedCardsData.map(c => c.id)), [localDismissedCardsData]);
 
   // Fetch from DB - Open cards
   const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
@@ -127,8 +131,8 @@ export default function DecisionCenterPage() {
     // AND không bị decided/dismissed locally
     const filteredAutoCards = (autoCards || []).filter(
       ac => !dbEntityIds.has(ac.entity_id) && 
-            !localDecidedCards.has(ac.id) && 
-            !localDismissedCards.has(ac.id)
+            !localDecidedCardIds.has(ac.id) && 
+            !localDismissedCardIds.has(ac.id)
     );
     
     // Cast auto cards to DecisionCard type for compatibility
@@ -147,16 +151,39 @@ export default function DecisionCenterPage() {
       return combinedCards.filter(c => c.priority === priorityFilter);
     }
     return combinedCards;
-  }, [dbCards, autoCards, autoCardsLookup, priorityFilter, localDecidedCards, localDismissedCards]);
+  }, [dbCards, autoCards, autoCardsLookup, priorityFilter, localDecidedCardIds, localDismissedCardIds]);
 
-  // Handlers for local card decisions
+  // Handlers for local card decisions - find the card data and store it
   const handleCardDecided = (cardId: string) => {
-    setLocalDecidedCards(prev => new Set([...prev, cardId]));
+    // Find the card in allCards or autoCards
+    const cardData = allCards?.find(c => c.id === cardId) || 
+                     autoCards?.find(c => c.id === cardId);
+    if (cardData) {
+      const fullCard: DecisionCard = {
+        ...cardData,
+        tenant_id: 'tenant_id' in cardData ? cardData.tenant_id : '',
+        created_at: 'created_at' in cardData ? cardData.created_at : new Date().toISOString(),
+        status: 'DECIDED',
+        updated_at: new Date().toISOString(),
+      };
+      setLocalDecidedCardsData(prev => [...prev, fullCard]);
+    }
     setSelectedCardId(null); // Close detail sheet
   };
 
   const handleCardDismissed = (cardId: string) => {
-    setLocalDismissedCards(prev => new Set([...prev, cardId]));
+    const cardData = allCards?.find(c => c.id === cardId) || 
+                     autoCards?.find(c => c.id === cardId);
+    if (cardData) {
+      const fullCard: DecisionCard = {
+        ...cardData,
+        tenant_id: 'tenant_id' in cardData ? cardData.tenant_id : '',
+        created_at: 'created_at' in cardData ? cardData.created_at : new Date().toISOString(),
+        status: 'DISMISSED',
+        updated_at: new Date().toISOString(),
+      };
+      setLocalDismissedCardsData(prev => [...prev, fullCard]);
+    }
     setSelectedCardId(null); // Close detail sheet
   };
 
@@ -516,58 +543,65 @@ export default function DecisionCenterPage() {
         <TabsContent value="history">
           <Card>
             <CardContent className="py-4">
-              {decidedCards && decidedCards.length > 0 ? (
-                <div className="space-y-3">
-                  {decidedCards.map((card) => (
-                    <div 
-                      key={card.id} 
-                      className="p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => setSelectedCardId(card.id)}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3 flex-1">
-                          <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                          <div className="space-y-1.5 flex-1">
-                            <p className="font-medium text-sm">{card.title}</p>
-                            <p className="text-sm text-muted-foreground">{card.question}</p>
-                            
-                            {/* Decision details */}
-                            <div className="flex flex-wrap items-center gap-2 mt-2">
-                              <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
-                                ✓ {card.actions?.find(a => a.is_recommended)?.label || 'Đã quyết định'}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {card.entity_label}
-                              </span>
-                              <span className="text-xs text-muted-foreground">•</span>
-                              <span className="text-xs text-muted-foreground">
-                                Impact: {formatCurrency(Math.abs(card.impact_amount))}đ
-                              </span>
+              {/* Combine DB decided cards with local decided cards */}
+              {(() => {
+                const allDecidedCards = [...localDecidedCardsData, ...(decidedCards || [])];
+                return allDecidedCards.length > 0 ? (
+                  <div className="space-y-3">
+                    {allDecidedCards.map((card) => (
+                      <div 
+                        key={card.id} 
+                        className="p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedCardId(card.id)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 flex-1">
+                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                            <div className="space-y-1.5 flex-1">
+                              <p className="font-medium text-sm">{card.title}</p>
+                              <p className="text-sm text-muted-foreground">{card.question}</p>
+                              
+                              {/* Decision details */}
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                                  ✓ {card.actions?.find(a => a.is_recommended)?.label || 'Đã quyết định'}
+                                </Badge>
+                                {card.id.startsWith('auto-') && (
+                                  <Badge variant="outline" className="text-xs">Session</Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {card.entity_label}
+                                </span>
+                                <span className="text-xs text-muted-foreground">•</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Impact: {formatCurrency(Math.abs(card.impact_amount))}đ
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <Badge variant="outline">{card.priority}</Badge>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(card.updated_at).toLocaleDateString('vi-VN', {
-                              day: '2-digit',
-                              month: '2-digit', 
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
+                          <div className="text-right shrink-0">
+                            <Badge variant="outline">{card.priority}</Badge>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(card.updated_at).toLocaleDateString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit', 
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-muted-foreground">
-                  <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
-                  <p>Chưa có quyết định nào được xử lý</p>
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                    <p>Chưa có quyết định nào được xử lý</p>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
@@ -575,35 +609,42 @@ export default function DecisionCenterPage() {
         <TabsContent value="dismissed">
           <Card>
             <CardContent className="py-4">
-              {dismissedCards && dismissedCards.length > 0 ? (
-                <div className="space-y-3">
-                  {dismissedCards.map((card) => (
-                    <div 
-                      key={card.id} 
-                      className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => setSelectedCardId(card.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Clock className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-sm">{card.title}</p>
-                          <p className="text-xs text-muted-foreground">{card.entity_label}</p>
+              {/* Combine DB dismissed cards with local dismissed cards */}
+              {(() => {
+                const allDismissedCards = [...localDismissedCardsData, ...(dismissedCards || [])];
+                return allDismissedCards.length > 0 ? (
+                  <div className="space-y-3">
+                    {allDismissedCards.map((card) => (
+                      <div 
+                        key={card.id} 
+                        className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedCardId(card.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-sm">{card.title}</p>
+                            <p className="text-xs text-muted-foreground">{card.entity_label}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex items-center gap-2">
+                          {card.id.startsWith('auto-') && (
+                            <Badge variant="outline" className="text-xs">Session</Badge>
+                          )}
+                          <Badge variant="outline">{card.priority}</Badge>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(card.updated_at).toLocaleDateString('vi-VN')}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="outline">{card.priority}</Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(card.updated_at).toLocaleDateString('vi-VN')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center text-muted-foreground">
-                  <p>Chưa có quyết định nào bị bỏ qua</p>
-                </div>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <p>Chưa có quyết định nào bị bỏ qua</p>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
