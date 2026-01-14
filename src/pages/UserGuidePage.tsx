@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { MetricExplainerPanel } from "@/components/mdp/MDPMetricExplainer";
 
 interface GuideSection {
   id: string;
@@ -1287,7 +1288,7 @@ export default function UserGuidePage() {
         </motion.div>
 
         <Tabs defaultValue="tutorials" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 lg:w-auto lg:inline-flex">
             <TabsTrigger value="tutorials" className="gap-2">
               <PlayCircle className="h-4 w-4" />
               {t('userGuide.tabTutorials')}
@@ -1295,6 +1296,10 @@ export default function UserGuidePage() {
             <TabsTrigger value="usecases" className="gap-2">
               <Lightbulb className="h-4 w-4" />
               {t('userGuide.tabUseCases')}
+            </TabsTrigger>
+            <TabsTrigger value="mdp-metrics" className="gap-2">
+              <Target className="h-4 w-4" />
+              MDP Metrics
             </TabsTrigger>
             <TabsTrigger value="overview" className="gap-2">
               <Eye className="h-4 w-4" />
@@ -1309,6 +1314,45 @@ export default function UserGuidePage() {
               {t('userGuide.tabQuickStart')}
             </TabsTrigger>
           </TabsList>
+
+          {/* MDP Metrics Tab - New */}
+          <TabsContent value="mdp-metrics" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-purple-500" />
+                  MDP Metrics - Định nghĩa & Công thức
+                </CardTitle>
+                <CardDescription>
+                  Tất cả metrics quan trọng trong Marketing Data Platform (MDP) với công thức tính toán và hướng dẫn diễn giải. 
+                  Tuân thủ MDP Manifesto: "Profit before Performance. Cash before Clicks."
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MetricExplainerPanel 
+                  title=""
+                  metrics={[
+                    'gross_revenue',
+                    'net_revenue',
+                    'contribution_margin',
+                    'contribution_margin_percent',
+                    'profit_roas',
+                    'roas',
+                    'cpa',
+                    'cogs',
+                    'platform_fees',
+                    'logistics_cost',
+                    'ad_spend',
+                    'cash_received',
+                    'cash_pending',
+                    'cash_at_risk',
+                    'cash_conversion_rate',
+                    'avg_days_to_cash',
+                  ]}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Detailed Tutorials Tab */}
           <TabsContent value="tutorials" className="space-y-6">
