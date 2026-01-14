@@ -1,6 +1,6 @@
 # 🏗️ Bluecore Platform - Kiến trúc Hệ thống & Spec Chi tiết
 
-> **Phiên bản:** 3.0  
+> **Phiên bản:** 3.1  
 > **Cập nhật:** 2025-01-14
 
 ---
@@ -12,19 +12,25 @@
 3. [Module FDP - Financial Data Platform](#3-module-fdp---financial-data-platform)
 4. [Module Control Tower](#4-module-control-tower)
 5. [Module MDP - Marketing Data Platform](#5-module-mdp---marketing-data-platform)
-6. [Module Scenario & Planning](#6-module-scenario--planning)
-7. [Module Decision Support](#7-module-decision-support)
-8. [Data Warehouse & Integration](#8-data-warehouse--integration)
-9. [Luồng dữ liệu End-to-End](#9-luồng-dữ-liệu-end-to-end)
-10. [Database Schema Overview](#10-database-schema-overview)
+6. [Data Warehouse & Integration](#6-data-warehouse--integration)
+7. [Luồng dữ liệu End-to-End](#7-luồng-dữ-liệu-end-to-end)
+8. [Database Schema Overview](#8-database-schema-overview)
 
 ---
 
 ## 1. Tổng quan Kiến trúc
 
-### 1.1 Triết lý Thiết kế
+### 1.1 Ba Module Chính
 
-Bluecore Platform được xây dựng dựa trên các nguyên tắc cốt lõi:
+Bluecore Platform gồm **3 module chính**, mỗi module có triết lý và mục đích riêng biệt:
+
+| Module | Triết lý | Người dùng chính |
+|--------|----------|------------------|
+| **FDP** - Financial Data Platform | Financial Truth - Single Source of Truth | CEO, CFO |
+| **Control Tower** | Alert & Decision Engine - Awareness before Analytics | COO, Operations |
+| **MDP** - Marketing Data Platform | Profit before Performance - Cash before Clicks | CMO, Marketing |
+
+### 1.2 Triết lý Thiết kế
 
 | Nguyên tắc | Mô tả |
 |------------|-------|
@@ -34,7 +40,7 @@ Bluecore Platform được xây dựng dựa trên các nguyên tắc cốt lõi
 | **Revenue ↔ Cost** | Mọi doanh thu đều đi kèm chi phí tương ứng |
 | **Today's Decision** | Phục vụ quyết định hôm nay, không phải báo cáo cuối tháng |
 
-### 1.2 Stack Công nghệ
+### 1.3 Stack Công nghệ
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -67,18 +73,25 @@ Bluecore Platform được xây dựng dựa trên các nguyên tắc cốt lõi
                               │              BLUECORE PLATFORM                 │
                               └───────────────────────────────────────────────┘
                                                     │
-         ┌──────────────────┬───────────────────────┼───────────────────────┬──────────────────┐
-         │                  │                       │                       │                  │
-         ▼                  ▼                       ▼                       ▼                  ▼
-   ┌───────────┐      ┌───────────┐          ┌───────────┐          ┌───────────┐      ┌───────────┐
-   │    FDP    │      │  Control  │          │    MDP    │          │ Scenario  │      │ Decision  │
-   │ Financial │      │   Tower   │          │ Marketing │          │ Planning  │      │  Support  │
-   │  Platform │      │           │          │  Platform │          │           │      │           │
-   └─────┬─────┘      └─────┬─────┘          └─────┬─────┘          └─────┬─────┘      └─────┬─────┘
-         │                  │                       │                       │                  │
-         └──────────────────┴───────────────────────┴───────────────────────┴──────────────────┘
-                                                    │
-                                                    ▼
+                    ┌───────────────────────────────┼───────────────────────────────┐
+                    │                               │                               │
+                    ▼                               ▼                               ▼
+          ┌─────────────────┐             ┌─────────────────┐             ┌─────────────────┐
+          │       FDP       │             │  CONTROL TOWER  │             │       MDP       │
+          │    Financial    │             │     Alert &     │             │    Marketing    │
+          │     Platform    │             │  Decision Engine│             │     Platform    │
+          ├─────────────────┤             ├─────────────────┤             ├─────────────────┤
+          │ • Dashboard     │             │ • Alerts        │             │ • CMO Mode      │
+          │ • Cash Flow     │             │ • Tasks         │             │ • Marketing Mode│
+          │ • Unit Economics│             │ • Escalation    │             │ • Profit Attr.  │
+          │ • Channel P&L   │             │ • Team          │             │ • Cash Impact   │
+          │ • Scenario/WhatIf│            │ • Analytics     │             │ • ROI Analytics │
+          │ • Decision Supp.│             │                 │             │                 │
+          └────────┬────────┘             └────────┬────────┘             └────────┬────────┘
+                   │                               │                               │
+                   └───────────────────────────────┼───────────────────────────────┘
+                                                   │
+                                                   ▼
                               ┌───────────────────────────────────────────────┐
                               │              DATA WAREHOUSE HUB               │
                               │  ┌─────────┐ ┌─────────┐ ┌─────────┐          │
@@ -101,34 +114,27 @@ Bluecore Platform được xây dựng dựa trên các nguyên tắc cốt lõi
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                                    DATA SOURCES                                          │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                          │
 │   E-COMMERCE              SHIPPING             BANKING              ERP/POS             │
 │   ┌─────────┐            ┌─────────┐          ┌─────────┐          ┌─────────┐          │
 │   │ Shopee  │            │   GHN   │          │   VCB   │          │  KiotViet│          │
 │   │ Lazada  │            │  GHTK   │          │   TCB   │          │  Sapo   │          │
 │   │ TikTok  │            │ Viettel │          │   MBB   │          │  MISA   │          │
 │   └────┬────┘            └────┬────┘          └────┬────┘          └────┬────┘          │
-│        │                      │                    │                    │               │
 │        └──────────────────────┴────────────────────┴────────────────────┘               │
-│                                         │                                                │
-└─────────────────────────────────────────│────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+                                          │
                                           ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                              SYNC CONNECTORS LAYER                                       │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
 │   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐                       │
 │   │  sync-connector  │  │  sync-bigquery   │  │ sync-ecommerce   │                       │
 │   │  (Edge Function) │  │  (Edge Function) │  │  (Edge Function) │                       │
-│   └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘                       │
-│            │                     │                     │                                 │
-│            └─────────────────────┴─────────────────────┘                                 │
-│                                  │                                                       │
-└──────────────────────────────────│───────────────────────────────────────────────────────┘
-                                   ▼
+│   └──────────────────┘  └──────────────────┘  └──────────────────┘                       │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                              SUPABASE DATABASE                                           │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                          │
 │   CORE TABLES              ANALYTICS TABLES          ALERT TABLES                        │
 │   ┌─────────────┐          ┌─────────────────┐       ┌─────────────────┐                 │
 │   │external_orders│        │channel_analytics │       │alert_instances  │                 │
@@ -136,35 +142,24 @@ Bluecore Platform được xây dựng dựa trên các nguyên tắc cốt lõi
 │   │bills        │          │promotion_campaigns│      │alert_objects    │                 │
 │   │bank_accounts│          │channel_settlements│      │escalation_rules │                 │
 │   │products     │          │channel_pl_cache  │       │notification_logs│                 │
-│   └──────┬──────┘          └────────┬────────┘       └────────┬────────┘                 │
-│          │                          │                         │                          │
-│          └──────────────────────────┴─────────────────────────┘                          │
-│                                     │                                                    │
-└─────────────────────────────────────│────────────────────────────────────────────────────┘
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              PROCESSING LAYER                                            │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
-│   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐                       │
-│   │  detect-alerts   │  │analyze-financial │  │ optimize-budget  │                       │
-│   │  (Edge Function) │  │  (Edge Function) │  │  (Edge Function) │                       │
-│   └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘                       │
-│            │                     │                     │                                 │
-│            └─────────────────────┴─────────────────────┘                                 │
-│                                  │                                                       │
-└──────────────────────────────────│───────────────────────────────────────────────────────┘
-                                   ▼
+│   └─────────────┘          └─────────────────┘       └─────────────────┘                 │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+                                          │
+                                          ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
 │                              APPLICATION MODULES                                         │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                          │
-│   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐         │
-│   │    FDP    │   │  Control  │   │    MDP    │   │ Scenario  │   │ Decision  │         │
-│   │           │   │   Tower   │   │           │   │ Planning  │   │  Support  │         │
-│   │ Dashboard │   │  Alerts   │   │ Marketing │   │ What-If   │   │ Analysis  │         │
-│   │ Cash Flow │   │   Tasks   │   │  CMO/Mkt  │   │  Budget   │   │    AI     │         │
-│   │ Unit Econ │   │  Escalate │   │  Profit   │   │ Forecast  │   │  Advisor  │         │
-│   └───────────┘   └───────────┘   └───────────┘   └───────────┘   └───────────┘         │
+│         ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐           │
+│         │        FDP        │   │   CONTROL TOWER   │   │        MDP        │           │
+│         ├───────────────────┤   ├───────────────────┤   ├───────────────────┤           │
+│         │ Dashboard         │   │ Alerts            │   │ CMO Mode          │           │
+│         │ Cash Flow         │   │ Tasks             │   │ Marketing Mode    │           │
+│         │ Unit Economics    │   │ Escalation        │   │ Profit Attribution│           │
+│         │ Channel P&L       │   │ Team Management   │   │ Cash Impact       │           │
+│         │ Scenario Planning │   │ Analytics         │   │ ROI Analytics     │           │
+│         │ Decision Support  │   │                   │   │ A/B Testing       │           │
+│         │ What-If Analysis  │   │                   │   │ Customer LTV      │           │
+│         └───────────────────┘   └───────────────────┘   └───────────────────┘           │
 │                                                                                          │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -173,23 +168,42 @@ Bluecore Platform được xây dựng dựa trên các nguyên tắc cốt lõi
 
 ## 3. Module FDP - Financial Data Platform
 
-### 3.1 Mục đích
-FDP là nền tảng tài chính cốt lõi, cung cấp **Financial Truth** cho CEO/CFO để ra quyết định điều hành. **KHÔNG PHẢI** phần mềm kế toán.
+### 3.1 Mục đích & Triết lý
 
-### 3.2 Màn hình chính
+> **FDP KHÔNG PHẢI PHẦN MỀM KẾ TOÁN** - Phục vụ CEO/CFO điều hành, không nộp báo cáo thuế
+
+FDP là nền tảng tài chính cốt lõi, cung cấp **Financial Truth** (Single Source of Truth) để ra quyết định điều hành.
+
+### 3.2 Chức năng chính
+
+| Nhóm chức năng | Mô tả |
+|----------------|-------|
+| **Financial Truth** | Dashboard KPIs, Real Cash Position, Unit Economics |
+| **Cash Control** | Cash Flow Direct, Cash Forecast, Cash Runway |
+| **Channel Economics** | Channel P&L, Fee Breakdown, Reconciliation |
+| **Scenario & Planning** | What-If Analysis, Budget vs Actual, Rolling Forecast |
+| **Decision Support** | Decision Center, ROI Analysis, NPV/IRR, Sensitivity |
+
+### 3.3 Màn hình chính
 
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
-| CFO Dashboard | `/` | Tổng quan tài chính: Cash, AR, AP, DSO, DPO, CCC |
-| Cash Flow Direct | `/cash-flow` | Dòng tiền thực tế theo phương pháp trực tiếp |
-| Cash Forecast | `/cash-forecast` | Dự báo dòng tiền 30 ngày, 13 tuần |
-| Unit Economics | `/unit-economics` | Phân tích hiệu quả theo SKU/kênh |
-| Channel P&L | `/channel-pl` | Lãi lỗ theo từng kênh bán hàng |
+| CFO Dashboard | `/` | Tổng quan: Cash, AR, AP, DSO, DPO, CCC |
+| Cash Flow Direct | `/cash-flow` | Dòng tiền theo phương pháp trực tiếp |
+| Cash Forecast | `/cash-forecast` | Dự báo 30 ngày, 13 tuần |
+| Unit Economics | `/unit-economics` | Phân tích hiệu quả SKU/kênh |
+| Channel P&L | `/channel-pl` | Lãi lỗ theo kênh bán hàng |
 | Working Capital | `/working-capital` | Quản lý vốn lưu động |
-| AR Operations | `/ar-operations` | Quản lý công nợ phải thu |
-| Bills (AP) | `/bills` | Quản lý công nợ phải trả |
+| AR Operations | `/ar-operations` | Công nợ phải thu |
+| Bills (AP) | `/bills` | Công nợ phải trả |
+| **Scenario Hub** | `/scenario` | Quản lý các scenario |
+| **What-If Analysis** | `/what-if` | Mô phỏng kịch bản |
+| **Budget vs Actual** | `/budget` | So sánh thực tế với ngân sách |
+| **Rolling Forecast** | `/rolling-forecast` | Dự báo cuốn chiếu |
+| **Decision Center** | `/decision-center` | Dashboard quyết định |
+| **Decision Support** | `/decision-support` | ROI/NPV/IRR Analysis |
 
-### 3.3 Bảng dữ liệu chính
+### 3.4 Bảng dữ liệu chính
 
 | Bảng | Mục đích | Trường quan trọng |
 |------|----------|-------------------|
@@ -201,8 +215,11 @@ FDP là nền tảng tài chính cốt lõi, cung cấp **Financial Truth** cho 
 | `external_orders` | Đơn hàng e-commerce | `order_value`, `channel`, `order_status` |
 | `external_products` | Sản phẩm | `cost_price`, `selling_price`, `stock_quantity` |
 | `channel_settlements` | Thanh toán từ sàn | `gross_sales`, `total_fees`, `net_amount` |
+| `scenarios` | Kịch bản | `name`, `assumptions`, `status` |
+| `monthly_plans` | Kế hoạch tháng | `revenue_target`, `expense_budget` |
+| `decision_analyses` | Phân tích đầu tư | `npv`, `irr`, `payback_period` |
 
-### 3.4 KPI & Công thức
+### 3.5 KPI & Công thức
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -227,10 +244,14 @@ FDP là nền tảng tài chính cốt lõi, cung cấp **Financial Truth** cho 
 │                                                                  │
 │  GROSS MARGIN = (Revenue - COGS) / Revenue × 100%               │
 │                                                                  │
+│  NPV = Σ [Cash Flow / (1 + r)^t]                                │
+│  IRR = Rate where NPV = 0                                       │
+│  PAYBACK = Time to recover initial investment                   │
+│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.5 Rule Logic
+### 3.6 Rule Logic
 
 | Rule | Điều kiện | Hành động |
 |------|-----------|-----------|
@@ -238,26 +259,43 @@ FDP là nền tảng tài chính cốt lõi, cung cấp **Financial Truth** cho 
 | Cash Runway Warning | `runway_months < 3` | Escalate to CFO/CEO |
 | SKU Stop Signal | `contribution_margin < 0` AND `cash_locked > threshold` | Đề xuất ngừng bán SKU |
 | AP Priority | `due_date - today <= 7` AND `discount_available` | Đề xuất thanh toán sớm |
+| Investment Decision | `NPV > 0` AND `IRR > hurdle_rate` | Recommend Approve |
 
 ---
 
 ## 4. Module Control Tower
 
-### 4.1 Mục đích
-Control Tower là **Alert & Decision Engine**, KHÔNG PHẢI dashboard. Tồn tại để báo động và ép hành động.
+### 4.1 Mục đích & Triết lý
 
-### 4.2 Màn hình chính
+> **CONTROL TOWER KHÔNG PHẢI DASHBOARD** - Tồn tại để báo động và ép hành động, không phải để hiển thị số liệu đẹp
+
+Control Tower là **Alert & Decision Engine**:
+- Chỉ quan tâm "điều gì đang sai và cần xử lý ngay"
+- Nếu không có vấn đề → Control Tower im lặng
+- Mỗi alert phải có: Mất bao nhiêu tiền? Nếu không xử lý sẽ mất thêm bao nhiêu? Còn bao lâu để hành động?
+
+### 4.2 Chức năng chính
+
+| Nhóm chức năng | Mô tả |
+|----------------|-------|
+| **Alert Detection** | Phát hiện vấn đề dựa trên rules & thresholds |
+| **Alert Management** | Quản lý, phân công, theo dõi alerts |
+| **Escalation** | Tự động leo thang khi không xử lý |
+| **Task Management** | Chuyển alert thành task để tracking |
+| **Analytics** | Thống kê alert resolution, response time |
+
+### 4.3 Màn hình chính
 
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
-| Alerts | `/control-tower/alerts` | Danh sách cảnh báo đang active |
+| Alerts | `/control-tower/alerts` | Danh sách alerts đang active |
 | Tasks | `/control-tower/tasks` | Quản lý task từ alert |
 | Intelligent Rules | `/control-tower/rules` | Cấu hình rule phát hiện |
 | Analytics | `/control-tower/analytics` | Thống kê alert & resolution |
 | Team | `/control-tower/team` | Quản lý người nhận thông báo |
 | Settings | `/control-tower/settings` | Cấu hình escalation |
 
-### 4.3 Bảng dữ liệu chính
+### 4.4 Bảng dữ liệu chính
 
 | Bảng | Mục đích | Trường quan trọng |
 |------|----------|-------------------|
@@ -268,7 +306,7 @@ Control Tower là **Alert & Decision Engine**, KHÔNG PHẢI dashboard. Tồn t�
 | `alert_notification_logs` | Log thông báo | `channel`, `recipient`, `status`, `sent_at` |
 | `notification_recipients` | Người nhận | `name`, `email`, `phone`, `role` |
 
-### 4.4 Alert Structure (Bắt buộc)
+### 4.5 Alert Structure (Bắt buộc)
 
 ```typescript
 interface ValidAlert {
@@ -282,17 +320,17 @@ interface ValidAlert {
   severity: 'critical' | 'warning' | 'info';
   category: string;
   
-  // Ownership
-  assigned_to: string;          // Alert PHẢI có owner
+  // Ownership - Alert PHẢI có owner
+  assigned_to: string;
   status: 'open' | 'in_progress' | 'resolved';
   resolution_notes?: string;    // Outcome sau xử lý
 }
 ```
 
-### 4.5 Rule Logic & Formulas
+### 4.6 Rule Categories & Formulas
 
-| Rule Category | Example Rules | Formula |
-|---------------|---------------|---------|
+| Category | Example Rules | Formula |
+|----------|---------------|---------|
 | **Cash & Liquidity** | Cash Runway Low | `cash_runway_months < 3` |
 | | Cash Balance Drop | `(cash_today - cash_yesterday) / cash_yesterday < -0.1` |
 | **Revenue & Orders** | Revenue Decline | `revenue_today / revenue_avg_7d < 0.8` |
@@ -304,7 +342,7 @@ interface ValidAlert {
 | **AR/AP** | AR Aging Critical | `ar_over_90_days / total_ar > 0.2` |
 | | Bill Due Approaching | `bill_due_in_days <= 3` |
 
-### 4.6 Escalation Flow
+### 4.7 Escalation Flow
 
 ```
 ┌──────────┐     15 min      ┌──────────┐     30 min      ┌──────────┐
@@ -325,8 +363,14 @@ interface ValidAlert {
 
 ## 5. Module MDP - Marketing Data Platform
 
-### 5.1 Mục đích
-MDP đo lường **GIÁ TRỊ TÀI CHÍNH THẬT** của marketing. KHÔNG PHẢI MarTech để chạy quảng cáo.
+### 5.1 Mục đích & Triết lý
+
+> **MDP KHÔNG PHẢI MARTECH** - Đo lường GIÁ TRỊ TÀI CHÍNH THẬT của marketing, không phải chạy quảng cáo
+
+MDP phục vụ CEO & CFO trước, marketer sau. Marketing insight phải:
+- CFO hiểu
+- CEO quyết
+- Marketer buộc phải điều chỉnh
 
 ### 5.2 Two Modes
 
@@ -342,7 +386,7 @@ MDP đo lường **GIÁ TRỊ TÀI CHÍNH THẬT** của marketing. KHÔNG PHẢ
 |----------|-------|-------|
 | Command Center | `/mdp/cmo-mode` | Overview + Quick Actions |
 | Profit Attribution | `/mdp/profit` | Profit thật từ marketing |
-| Cash Impact | `/mdp/cash-impact` | Marketing ảnh hưởng cash thế nào |
+| Cash Impact | `/mdp/cash-impact` | Marketing ảnh hưởng cash |
 | Risk Alerts | `/mdp/risks` | Marketing risks |
 | Decisions | `/mdp/decisions` | Scale/Stop recommendations |
 
@@ -355,6 +399,7 @@ MDP đo lường **GIÁ TRỊ TÀI CHÍNH THẬT** của marketing. KHÔNG PHẢ
 | Funnel | `/mdp/funnel` | Conversion funnel |
 | ROI Analytics | `/mdp/roi-analytics` | ROAS & ROI analysis |
 | A/B Testing | `/mdp/ab-testing` | Kết quả thử nghiệm |
+| Customer LTV | `/mdp/customer-ltv` | Lifetime value analysis |
 
 ### 5.4 Bảng dữ liệu chính
 
@@ -423,116 +468,9 @@ MDP đo lường **GIÁ TRỊ TÀI CHÍNH THẬT** của marketing. KHÔNG PHẢ
 
 ---
 
-## 6. Module Scenario & Planning
+## 6. Data Warehouse & Integration
 
 ### 6.1 Màn hình chính
-
-| Màn hình | Route | Mô tả |
-|----------|-------|-------|
-| Scenario Hub | `/scenario` | Quản lý các scenario |
-| What-If Analysis | `/what-if` | Mô phỏng kịch bản |
-| Budget vs Actual | `/budget` | So sánh thực tế với ngân sách |
-| Rolling Forecast | `/rolling-forecast` | Dự báo cuốn chiếu |
-
-### 6.2 Bảng dữ liệu chính
-
-| Bảng | Mục đích |
-|------|----------|
-| `scenarios` | Định nghĩa kịch bản |
-| `scenario_assumptions` | Giả định đầu vào |
-| `monthly_plans` | Kế hoạch theo tháng |
-| `budget_items` | Chi tiết ngân sách |
-| `forecast_inputs` | Đầu vào dự báo |
-| `cash_forecasts` | Kết quả dự báo dòng tiền |
-
-### 6.3 What-If Parameters
-
-```typescript
-interface WhatIfParams {
-  // Revenue
-  revenue_change_percent: number;      // -50% to +100%
-  new_channel_revenue: number;
-  price_change_percent: number;
-  
-  // Costs
-  cogs_change_percent: number;
-  opex_change_percent: number;
-  marketing_spend_change: number;
-  
-  // Working Capital
-  dso_change_days: number;
-  dpo_change_days: number;
-  dio_change_days: number;
-  
-  // Events
-  large_customer_loss: boolean;
-  new_market_entry: boolean;
-  supplier_change: boolean;
-}
-```
-
----
-
-## 7. Module Decision Support
-
-### 7.1 Màn hình chính
-
-| Màn hình | Route | Mô tả |
-|----------|-------|-------|
-| Decision Center | `/decision-center` | Dashboard quyết định |
-| ROI Analysis | `/decision-support` | Phân tích ROI dự án |
-
-### 7.2 Decision Card Structure
-
-```typescript
-interface DecisionCard {
-  id: string;
-  type: 'scale' | 'stop' | 'optimize' | 'invest' | 'divest';
-  
-  context: {
-    entity_type: 'sku' | 'campaign' | 'channel' | 'product_line';
-    entity_id: string;
-    entity_name: string;
-  };
-  
-  financial_impact: {
-    current_profit: number;
-    projected_profit: number;
-    cash_impact: number;
-    roi_percent: number;
-    payback_months: number;
-  };
-  
-  recommendation: {
-    action: string;
-    urgency: 'immediate' | 'this_week' | 'this_month';
-    confidence: number;        // 0-100%
-    supporting_data: any[];
-  };
-  
-  decision: {
-    status: 'pending' | 'approved' | 'rejected' | 'deferred';
-    decided_by: string;
-    decided_at: Date;
-    notes: string;
-  };
-}
-```
-
-### 7.3 Bảng dữ liệu
-
-| Bảng | Mục đích |
-|------|----------|
-| `decision_analyses` | Phân tích đầu tư |
-| `auto_decision_card_states` | Trạng thái decision cards |
-| `capex_projects` | Dự án đầu tư vốn |
-| `strategic_initiatives` | Sáng kiến chiến lược |
-
----
-
-## 8. Data Warehouse & Integration
-
-### 8.1 Màn hình chính
 
 | Màn hình | Route | Mô tả |
 |----------|-------|-------|
@@ -540,7 +478,7 @@ interface DecisionCard {
 | Data Warehouse | `/data-warehouse` | BigQuery management |
 | Reconciliation | `/reconciliation` | Đối soát e-commerce |
 
-### 8.2 Connector Types
+### 6.2 Connector Types
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -565,7 +503,7 @@ interface DecisionCard {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 8.3 Bảng dữ liệu
+### 6.3 Bảng dữ liệu
 
 | Bảng | Mục đích |
 |------|----------|
@@ -574,27 +512,11 @@ interface DecisionCard {
 | `bigquery_data_models` | Data models từ BQ |
 | `sync_logs` | Log đồng bộ |
 
-### 8.4 Sync Flow
-
-```
-┌──────────────┐    API Call    ┌──────────────┐    Transform    ┌──────────────┐
-│   External   │ ─────────────► │    Edge      │ ───────────────► │   Supabase   │
-│    Source    │                │   Function   │                  │   Tables     │
-└──────────────┘                └──────────────┘                  └──────────────┘
-                                       │
-                                       │ Log
-                                       ▼
-                                ┌──────────────┐
-                                │  sync_logs   │
-                                │  table       │
-                                └──────────────┘
-```
-
 ---
 
-## 9. Luồng dữ liệu End-to-End
+## 7. Luồng dữ liệu End-to-End
 
-### 9.1 Order Flow
+### 7.1 Order Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -610,7 +532,6 @@ interface DecisionCard {
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐           │
 │  │external_ │   │shipping_ │   │delivery_ │   │channel_  │   │bank_     │           │
 │  │orders    │   │tracking  │   │confirmed │   │settlements   │transactions          │
-│  │          │   │          │   │          │   │          │   │          │           │
 │  └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘           │
 │                                                                                      │
 │  Metrics Updated:                                                                    │
@@ -621,7 +542,7 @@ interface DecisionCard {
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 9.2 Marketing → Cash Flow
+### 7.2 Marketing → Cash Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -634,7 +555,6 @@ interface DecisionCard {
 │  │ Spend │       │       │       │       │       │       │       │       │          │
 │  └───────┘       └───────┘       └───────┘       └───────┘       └───────┘          │
 │     │               │               │               │               │               │
-│     │               │               │               │               │               │
 │  Cash OUT        No Cash         Cash Locked     Cash Locked     Cash IN            │
 │  (Immediate)     Movement        (Inventory)     (Platform)      (Settlement)       │
 │                                                                                      │
@@ -646,11 +566,34 @@ interface DecisionCard {
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### 7.3 Alert → Action Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              ALERT TO ACTION FLOW                                    │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐           │
+│  │ Data     │──►│ Detect   │──►│ Create   │──►│ Assign   │──►│ Resolve  │           │
+│  │ Change   │   │ Anomaly  │   │ Alert    │   │ Owner    │   │ & Close  │           │
+│  └──────────┘   └──────────┘   └──────────┘   └──────────┘   └──────────┘           │
+│       │              │              │              │              │                  │
+│       ▼              ▼              ▼              ▼              ▼                  │
+│  detect-alerts   intelligent_   alert_        notification_   resolution_           │
+│  edge function   alert_rules    instances     recipients      notes                 │
+│                                                                                      │
+│  ┌──────────────────────────────────────────────────────────────────────────────┐   │
+│  │              ESCALATION: 15min → Manager → 30min → CFO → 60min → CEO         │   │
+│  └──────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
-## 10. Database Schema Overview
+## 8. Database Schema Overview
 
-### 10.1 Core Entity Relationships
+### 8.1 Core Entity Relationships
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
@@ -697,7 +640,7 @@ interface DecisionCard {
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 10.2 Key Views
+### 8.2 Key Views
 
 | View | Purpose |
 |------|---------|
@@ -725,14 +668,59 @@ interface DecisionCard {
 
 ### B. React Hooks (Key)
 
-| Hook | Domain | Purpose |
+| Hook | Module | Purpose |
 |------|--------|---------|
 | `useCentralFinancialMetrics` | FDP | Single source of financial metrics |
+| `useCashConversionCycle` | FDP | DSO, DPO, DIO, CCC calculations |
+| `useWhatIfScenarios` | FDP | What-if calculations |
+| `useDecisionAnalyses` | FDP | Decision/ROI analysis |
 | `useAlertInstances` | Control Tower | Manage alerts |
+| `useIntelligentAlertRules` | Control Tower | Manage alert rules |
 | `useMDPData` | MDP | Marketing metrics |
-| `useWhatIfScenarios` | Scenario | What-if calculations |
-| `useDecisionCards` | Decision | Decision card management |
+| `useChannelPL` | MDP | Channel profitability |
 
 ---
 
-*Tài liệu này được cập nhật liên tục theo phát triển của hệ thống.*
+## 📊 Tổng kết Cấu trúc Module
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              BLUECORE PLATFORM                                       │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
+│  │                              FDP                                             │    │
+│  │                    Financial Data Platform                                   │    │
+│  │                                                                              │    │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │    │
+│  │  │ Financial   │  │ Cash        │  │ Scenario    │  │ Decision    │         │    │
+│  │  │ Truth       │  │ Control     │  │ Planning    │  │ Support     │         │    │
+│  │  ├─────────────┤  ├─────────────┤  ├─────────────┤  ├─────────────┤         │    │
+│  │  │• Dashboard  │  │• Cash Flow  │  │• What-If    │  │• Decision   │         │    │
+│  │  │• KPIs       │  │• Forecast   │  │• Budget     │  │  Center     │         │    │
+│  │  │• Unit Econ  │  │• Runway     │  │• Rolling    │  │• ROI/NPV    │         │    │
+│  │  │• Channel PL │  │• AR/AP      │  │  Forecast   │  │• Sensitivity│         │    │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘         │    │
+│  └─────────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                      │
+│  ┌────────────────────────────────┐  ┌────────────────────────────────────────┐     │
+│  │        CONTROL TOWER           │  │                MDP                     │     │
+│  │    Alert & Decision Engine     │  │    Marketing Data Platform             │     │
+│  │                                │  │                                        │     │
+│  │  ┌──────────────────────────┐  │  │  ┌─────────────┐  ┌─────────────┐     │     │
+│  │  │ • Alerts                 │  │  │  │ CMO Mode   │  │Marketing    │     │     │
+│  │  │ • Tasks                  │  │  │  ├─────────────┤  │ Mode        │     │     │
+│  │  │ • Escalation             │  │  │  │• Command   │  ├─────────────┤     │     │
+│  │  │ • Team                   │  │  │  │  Center    │  │• Campaigns  │     │     │
+│  │  │ • Analytics              │  │  │  │• Profit    │  │• Channels   │     │     │
+│  │  └──────────────────────────┘  │  │  │• Cash      │  │• Funnel     │     │     │
+│  │                                │  │  │• Risks     │  │• A/B Test   │     │     │
+│  └────────────────────────────────┘  │  └─────────────┘  └─────────────┘     │     │
+│                                      └────────────────────────────────────────┘     │
+│                                                                                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+*Tài liệu này được cập nhật theo phiên bản 3.1 - Tháng 1/2025*
