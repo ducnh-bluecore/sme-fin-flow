@@ -65,6 +65,7 @@ export default function DecisionCenterPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch from DB - Open cards
   const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
@@ -181,12 +182,17 @@ export default function DecisionCenterPage() {
             </div>
           </div>
           <Button 
-            onClick={() => refetch()}
+            onClick={async () => {
+              setIsRefreshing(true);
+              await refetch();
+              setIsRefreshing(false);
+            }}
             className="gap-2"
             variant="outline"
+            disabled={isRefreshing}
           >
-            <RefreshCw className="h-4 w-4" />
-            Làm mới
+            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+            {isRefreshing ? 'Đang tải...' : 'Làm mới'}
           </Button>
         </div>
       </div>
