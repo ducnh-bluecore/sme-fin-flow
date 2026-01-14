@@ -42,6 +42,10 @@ import {
   AdvancedMarketingMetrics,
 } from '@/components/mdp/marketing-mode';
 
+// New MDP Components
+import { BudgetPacingCard } from '@/components/mdp/BudgetPacingCard';
+import { DataQualityIndicator, useMDPDataQuality } from '@/components/mdp/DataQualityIndicator';
+
 // Quick links for Marketing Mode
 const quickLinks = [
   { 
@@ -119,9 +123,16 @@ export default function MarketingModePage() {
     marketingPerformance,
     executionAlerts,
     marketingModeSummary,
+    budgetPacingData,
+    totalPlannedBudget,
+    totalActualSpend,
+    rawQueryResults,
     isLoading, 
     error,
   } = useMDPData();
+  
+  // Data quality
+  const dataQualitySources = useMDPDataQuality(rawQueryResults);
 
   // Dialog states
   const [selectedCampaign, setSelectedCampaign] = useState<MarketingPerformance | null>(null);
@@ -251,16 +262,26 @@ export default function MarketingModePage() {
             </p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={() => navigate('/mdp/cmo-mode')}
-          className="gap-2"
-        >
-          <Target className="h-4 w-4" />
-          {language === 'vi' ? 'Chuyển CMO Mode' : 'Switch to CMO Mode'}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-3">
+          <DataQualityIndicator dataSources={dataQualitySources} compact />
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/mdp/cmo-mode')}
+            className="gap-2"
+          >
+            <Target className="h-4 w-4" />
+            {language === 'vi' ? 'Chuyển CMO Mode' : 'Switch to CMO Mode'}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      {/* Budget Pacing Card */}
+      <BudgetPacingCard 
+        budgetData={budgetPacingData}
+        totalPlannedBudget={totalPlannedBudget}
+        totalActualSpend={totalActualSpend}
+      />
 
       {/* Key Metrics Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

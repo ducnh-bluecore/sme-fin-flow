@@ -768,6 +768,58 @@ export function useMDPData() {
     };
   }, [profitAttribution, cashImpact, riskAlerts]);
 
+  // Budget Pacing data
+  const budgetPacingData = useMemo(() => {
+    const expenses = expensesQuery.data || [];
+    const campaigns = campaignsQuery.data || [];
+    
+    // Aggregate by channel
+    const channelSpend: Record<string, { actual: number; planned: number }> = {};
+    
+    expenses.forEach(exp => {
+      const channel = exp.channel || 'Unknown';
+      if (!channelSpend[channel]) {
+        channelSpend[channel] = { actual: 0, planned: 0 };
+      }
+      channelSpend[channel].actual += exp.amount || 0;
+    });
+    
+    campaigns.forEach(camp => {
+      const channel = camp.channel || 'Unknown';
+      if (!channelSpend[channel]) {
+        channelSpend[channel] = { actual: 0, planned: 0 };
+      }
+      channelSpend[channel].planned += camp.budget || camp.actual_cost || 0;
+    });
+    
+    const today = new Date();
+    const daysElapsed = today.getDate();
+    const totalDays = 30;
+    
+    return Object.entries(channelSpend).map(([channel, data]) => ({
+      channel,
+      plannedBudget: data.planned,
+      actualSpend: data.actual,
+      daysElapsed,
+      totalDays,
+    }));
+  }, [expensesQuery.data, campaignsQuery.data]);
+
+  const totalPlannedBudget = budgetPacingData.reduce((sum, d) => sum + d.plannedBudget, 0);
+  const totalActualSpend = budgetPacingData.reduce((sum, d) => sum + d.actualSpend, 0);
+
+  // Raw query results for data quality
+  const rawQueryResults = {
+    campaigns: campaignsQuery.data,
+    expenses: expensesQuery.data,
+    channelAnalytics: channelQuery.data,
+    orders: ordersQuery.data,
+    channelFees: channelFeesQuery.data,
+    orderItems: orderItemsQuery.data,
+    settlements: settlementsQuery.data,
+    products: productsQuery.data,
+  };
+
   return {
     // Marketing Mode data
     marketingPerformance,
@@ -781,10 +833,16 @@ export function useMDPData() {
     riskAlerts,
     cmoModeSummary,
     
+    // Budget Pacing
+    budgetPacingData,
+    totalPlannedBudget,
+    totalActualSpend,
+    
     // Shared
     thresholds: MDP_THRESHOLDS,
     isLoading: campaignsQuery.isLoading || expensesQuery.isLoading || channelQuery.isLoading || ordersQuery.isLoading || channelFeesQuery.isLoading || orderItemsQuery.isLoading || settlementsQuery.isLoading,
     error: campaignsQuery.error || expensesQuery.error || channelQuery.error || ordersQuery.error || channelFeesQuery.error || orderItemsQuery.error || settlementsQuery.error,
+    
     // Data quality indicators
     dataQuality: {
       hasRealCOGS: Object.keys(cogsLookup).length > 0,
@@ -792,5 +850,6 @@ export function useMDPData() {
       hasRealSettlements: (settlementsQuery.data?.length || 0) > 0,
       productsCount: productsQuery.data?.length || 0,
     },
+    rawQueryResults,
   };
 }
