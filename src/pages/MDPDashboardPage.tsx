@@ -32,8 +32,6 @@ import {
   QuickActionCards,
 } from '@/components/mdp/cmo-mode';
 
-// Metric Explainer
-import { MetricExplainerPanel } from '@/components/mdp/MDPMetricExplainer';
 
 export default function MDPDashboardPage() {
   const { 
@@ -241,22 +239,6 @@ export default function MDPDashboardPage() {
           profitData={profitAttribution}
           cashImpact={cashImpact}
           summary={cmoModeSummary}
-        />
-
-        {/* Metric Explainer Panel - CFO/CMO Reference */}
-        <MetricExplainerPanel 
-          title="MDP Metrics - Định nghĩa & Công thức"
-          metrics={[
-            'contribution_margin',
-            'contribution_margin_percent',
-            'profit_roas',
-            'cash_received',
-            'cash_conversion_rate',
-            'avg_days_to_cash',
-            'cogs',
-            'platform_fees',
-            'logistics_cost',
-          ]}
         />
       </div>
     );
