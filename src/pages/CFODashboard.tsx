@@ -11,7 +11,7 @@ import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
 import FinancialTruthCard from '@/components/dashboard/FinancialTruthCard';
-import TodayDecisionSummary from '@/components/dashboard/TodayDecisionSummary';
+
 import { useAllProblematicSKUs } from '@/hooks/useAllProblematicSKUs';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact } from '@/lib/formatters';
@@ -107,17 +107,6 @@ export default function CFODashboard() {
             <DateRangeIndicator variant="compact" />
           </div>
         </motion.div>
-
-        {/* FDP Principle #10: Today's Decision Summary - FIRST for immediate action */}
-        <TodayDecisionSummary 
-          skuMetrics={problematicSKUs}
-          cashPosition={{
-            bankBalance: metrics?.cashOnHand || 500000000,
-            currentAR: 200000000,
-            overdueAR: metrics?.overdueAR || 50000000,
-            inventoryValue: 150000000
-          }}
-        />
 
         {/* Financial Truth - Single Source of Truth */}
         <FinancialTruthCard />
