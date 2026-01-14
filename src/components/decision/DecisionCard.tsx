@@ -223,6 +223,45 @@ function getCostOfDelay(card: DecisionCardType): { hourly: number; label: string
   };
 }
 
+// Get per-unit loss for SKU cards
+function getLossPerUnit(card: DecisionCardType): { value: number; label: string } | null {
+  // Only for SKU-related cards with negative impact
+  if (!card.card_type?.includes('SKU') && card.entity_type !== 'sku') return null;
+  if (card.impact_amount >= 0) return null;
+  
+  // Try to find loss_per_unit from facts
+  const lossPerUnitFact = card.facts?.find(f => 
+    f.fact_key === 'loss_per_unit' || 
+    f.fact_key === 'profit_per_unit'
+  );
+  
+  if (lossPerUnitFact?.numeric_value && lossPerUnitFact.numeric_value < 0) {
+    const loss = Math.abs(lossPerUnitFact.numeric_value);
+    return {
+      value: loss,
+      label: `Mỗi SP bán ra: lỗ ${formatCurrency(loss)}đ`
+    };
+  }
+  
+  // Fallback: estimate from revenue and margin if we have them
+  const marginFact = card.facts?.find(f => f.fact_key === 'margin');
+  const revenueFact = card.facts?.find(f => f.fact_key === 'revenue');
+  
+  if (marginFact?.numeric_value && marginFact.numeric_value < 0 && revenueFact?.numeric_value) {
+    // Estimate: if we have margin % and revenue, assume ~100 units sold
+    const estimatedUnits = 100;
+    const lossPerUnit = Math.abs(card.impact_amount) / estimatedUnits;
+    if (lossPerUnit > 1000) { // Only show if > 1000đ per unit
+      return {
+        value: lossPerUnit,
+        label: `Mỗi SP bán ra: lỗ ~${formatCurrency(lossPerUnit)}đ`
+      };
+    }
+  }
+  
+  return null;
+}
+
 export function DecisionCardComponent({ card, compact = false, onViewDetail }: DecisionCardProps) {
   const [showDecideDialog, setShowDecideDialog] = useState(false);
   const [showDismissDialog, setShowDismissDialog] = useState(false);
@@ -283,6 +322,9 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
   
   // Get cost of delay
   const costOfDelay = getCostOfDelay(card);
+  
+  // Get loss per unit for SKU cards
+  const lossPerUnit = getLossPerUnit(card);
 
   // Compact view (for list)
   if (compact) {
@@ -330,11 +372,21 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
                 {card.entity_label}
               </p>
               {/* Cost of Delay - urgency trigger */}
+              {/* Cost of Delay - urgency trigger */}
               {costOfDelay && (
                 <div className="flex items-center gap-1 mt-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                   <span className="text-[11px] font-medium text-red-400">
                     ⏱ {costOfDelay.label}
+                  </span>
+                </div>
+              )}
+              {/* Loss per unit for SKU cards */}
+              {lossPerUnit && !costOfDelay && (
+                <div className="flex items-center gap-1 mt-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                  <span className="text-[11px] font-medium text-orange-400">
+                    📦 {lossPerUnit.label}
                   </span>
                 </div>
               )}
@@ -422,6 +474,15 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                   <span className="text-xs font-semibold text-red-400">
                     ⏱ {costOfDelay.label}
+                  </span>
+                </div>
+              )}
+              {/* Loss per unit for SKU cards */}
+              {lossPerUnit && !costOfDelay && (
+                <div className="flex items-center gap-1.5 mt-2 justify-end">
+                  <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-orange-400">
+                    📦 {lossPerUnit.label}
                   </span>
                 </div>
               )}
