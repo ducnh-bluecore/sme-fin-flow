@@ -51,6 +51,15 @@ export interface DecisionCardAction {
   display_order: number;
 }
 
+export interface AnalysisMetadata {
+  data_rows?: number;
+  sku_count?: number;
+  transaction_count?: number;
+  order_count?: number;
+  product_count?: number;
+  analyzed_at?: string;
+}
+
 export interface DecisionCard {
   id: string;
   tenant_id: string;
@@ -78,6 +87,7 @@ export interface DecisionCard {
   vertical: string;
   created_at: string;
   updated_at: string;
+  analysis_metadata?: AnalysisMetadata;
   // Joined data
   facts?: DecisionCardFact[];
   actions?: DecisionCardAction[];

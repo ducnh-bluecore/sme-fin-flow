@@ -658,20 +658,53 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
               Cơ sở dữ liệu phân tích
             </div>
             
-            {/* Data summary */}
+            {/* Data volume stats - CEO wants to see real numbers */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               <div className="bg-background/50 rounded-lg p-2">
                 <div className="text-muted-foreground">Thời gian</div>
                 <div className="font-medium">{card.impact_window_days || 7} ngày</div>
               </div>
+              
+              {/* Data rows - from analysis_metadata */}
               <div className="bg-background/50 rounded-lg p-2">
-                <div className="text-muted-foreground">Số chỉ số</div>
-                <div className="font-medium">{card.facts?.length || 0} metrics</div>
+                <div className="text-muted-foreground">Dòng dữ liệu</div>
+                <div className="font-medium">
+                  {(card as any).analysis_metadata?.data_rows 
+                    ? `${((card as any).analysis_metadata.data_rows as number).toLocaleString('vi-VN')} rows`
+                    : `${card.facts?.length || 0} chỉ số`}
+                </div>
               </div>
-              <div className="bg-background/50 rounded-lg p-2">
-                <div className="text-muted-foreground">Nguồn dữ liệu</div>
-                <div className="font-medium">{card.source_modules?.length || 1} nguồn</div>
-              </div>
+              
+              {/* SKU/Product count or Transaction count based on card type */}
+              {(card.card_type?.includes('SKU') || card.entity_type === 'sku') ? (
+                <div className="bg-background/50 rounded-lg p-2">
+                  <div className="text-muted-foreground">SKU phân tích</div>
+                  <div className="font-medium">
+                    {(card as any).analysis_metadata?.sku_count 
+                      ? `${((card as any).analysis_metadata.sku_count as number).toLocaleString('vi-VN')} SKUs`
+                      : '1 SKU'}
+                  </div>
+                </div>
+              ) : card.card_type?.includes('CASH') ? (
+                <div className="bg-background/50 rounded-lg p-2">
+                  <div className="text-muted-foreground">Giao dịch</div>
+                  <div className="font-medium">
+                    {(card as any).analysis_metadata?.transaction_count 
+                      ? `${((card as any).analysis_metadata.transaction_count as number).toLocaleString('vi-VN')} GD`
+                      : 'N/A'}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-background/50 rounded-lg p-2">
+                  <div className="text-muted-foreground">Đơn hàng</div>
+                  <div className="font-medium">
+                    {(card as any).analysis_metadata?.order_count 
+                      ? `${((card as any).analysis_metadata.order_count as number).toLocaleString('vi-VN')} đơn`
+                      : 'N/A'}
+                  </div>
+                </div>
+              )}
+              
               <div className="bg-background/50 rounded-lg p-2">
                 <div className="text-muted-foreground">Độ tin cậy</div>
                 <div className={cn(
@@ -696,13 +729,18 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
             )}
             
             {/* Source modules */}
-            <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <span>Modules:</span>
+            <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+              <span>Nguồn:</span>
               {card.source_modules?.map((mod, i) => (
                 <span key={i} className="bg-primary/10 text-primary px-2 py-0.5 rounded">
                   {mod}
                 </span>
               ))}
+              {(card as any).analysis_metadata?.analyzed_at && (
+                <span className="ml-auto">
+                  Cập nhật: {new Date((card as any).analysis_metadata.analyzed_at).toLocaleString('vi-VN')}
+                </span>
+              )}
             </div>
           </div>
 
