@@ -21,7 +21,8 @@ import {
   AlertCircle,
   ArrowRight,
   Wallet,
-  TrendingDown as ChurnIcon
+  TrendingDown as ChurnIcon,
+  Upload
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -30,6 +31,7 @@ import {
 } from 'recharts';
 import { useAudienceData } from '@/hooks/useAudienceData';
 import { Button } from '@/components/ui/button';
+import { ExportAudienceDialog } from '@/components/mdp/audience/ExportAudienceDialog';
 
 const formatCurrency = (value: number) => {
   if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
@@ -52,6 +54,22 @@ export default function AudienceInsightsPage() {
     error 
   } = useAudienceData();
   const [activeTab, setActiveTab] = useState('insights');
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+
+  // Prepare segments for export dialog
+  const exportSegments = segments.map((s, idx) => ({
+    id: `segment-${idx}`,
+    name: s.name,
+    count: s.size,
+    description: `${s.percentage.toFixed(1)}% of customers, LTV: ${s.ltv.toLocaleString()}`
+  }));
+
+  const exportRfmSegments = rfmSegments.map(s => ({
+    id: s.name.toLowerCase().replace(/\s+/g, '-'),
+    name: s.name,
+    count: s.count,
+    description: s.description
+  }));
 
   if (error) {
     return (
@@ -81,13 +99,27 @@ export default function AudienceInsightsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Users className="h-7 w-7 text-violet-400" />
-          Audience Insights
-        </h1>
-        <p className="text-muted-foreground mt-1">Phân tích RFM, Profit Attribution & Churn Risk theo MDP Manifesto</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Users className="h-7 w-7 text-violet-400" />
+            Audience Insights
+          </h1>
+          <p className="text-muted-foreground mt-1">Phân tích RFM, Profit Attribution & Churn Risk theo MDP Manifesto</p>
+        </div>
+        <Button onClick={() => setExportDialogOpen(true)} className="gap-2">
+          <Upload className="h-4 w-4" />
+          Import to Ads
+        </Button>
       </div>
+
+      {/* Export Audience Dialog */}
+      <ExportAudienceDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        segments={exportSegments}
+        rfmSegments={exportRfmSegments}
+      />
 
       {/* Key Metrics - FDP Connected */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
