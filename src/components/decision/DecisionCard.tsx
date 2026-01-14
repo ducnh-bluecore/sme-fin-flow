@@ -205,6 +205,24 @@ function formatCurrency(value: number): string {
   return value.toFixed(0);
 }
 
+// Calculate cost of delay per hour
+function getCostOfDelay(card: DecisionCardType): { hourly: number; label: string } | null {
+  // Only show for negative impact (losses) 
+  if (card.impact_amount >= 0) return null;
+  
+  const impactWindow = card.impact_window_days || 7;
+  const hoursInWindow = impactWindow * 24;
+  const hourlyLoss = Math.abs(card.impact_amount) / hoursInWindow;
+  
+  // Only show if meaningful (> 100k per hour)
+  if (hourlyLoss < 100000) return null;
+  
+  return {
+    hourly: hourlyLoss,
+    label: `Mỗi giờ trì hoãn: ~–${formatCurrency(hourlyLoss)}đ`
+  };
+}
+
 export function DecisionCardComponent({ card, compact = false, onViewDetail }: DecisionCardProps) {
   const [showDecideDialog, setShowDecideDialog] = useState(false);
   const [showDismissDialog, setShowDismissDialog] = useState(false);
@@ -262,6 +280,9 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
   // Get recommendation type for badge
   const recommendationType = getRecommendationType(card);
   const recommendationBadge = recommendationType ? RECOMMENDATION_CONFIG[recommendationType] : null;
+  
+  // Get cost of delay
+  const costOfDelay = getCostOfDelay(card);
 
   // Compact view (for list)
   if (compact) {
@@ -308,6 +329,15 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
               <p className="text-xs text-muted-foreground truncate mt-0.5">
                 {card.entity_label}
               </p>
+              {/* Cost of Delay - urgency trigger */}
+              {costOfDelay && (
+                <div className="flex items-center gap-1 mt-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[11px] font-medium text-red-400">
+                    ⏱ {costOfDelay.label}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="text-right shrink-0">
               <div className={cn(
@@ -386,6 +416,15 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail }: D
               <p className="text-xs text-muted-foreground">
                 Impact / {card.impact_window_days} ngày
               </p>
+              {/* Cost of Delay - urgency trigger */}
+              {costOfDelay && (
+                <div className="flex items-center gap-1.5 mt-2 justify-end">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-red-400">
+                    ⏱ {costOfDelay.label}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
