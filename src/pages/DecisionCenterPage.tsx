@@ -31,6 +31,7 @@ import {
   DecisionCard,
 } from '@/hooks/useDecisionCards';
 import { useAutoDecisionCards } from '@/hooks/useAutoDecisionCards';
+import { useAutoDecisionCardStates } from '@/hooks/useAutoDecisionCardStates';
 import {
   Select,
   SelectContent,
@@ -67,13 +68,29 @@ export default function DecisionCenterPage() {
   const [showAll, setShowAll] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Track local decisions for auto-generated cards (not in DB) - store full card data for history
+  // Persisted states for auto-generated cards (survive refresh)
+  const { data: autoCardStates } = useAutoDecisionCardStates();
+
+  // Local fallback for instant UI feedback (also survives only until refresh)
   const [localDecidedCardsData, setLocalDecidedCardsData] = useState<DecisionCard[]>([]);
   const [localDismissedCardsData, setLocalDismissedCardsData] = useState<DecisionCard[]>([]);
-  
+
   // IDs for filtering
   const localDecidedCardIds = useMemo(() => new Set(localDecidedCardsData.map(c => c.id)), [localDecidedCardsData]);
   const localDismissedCardIds = useMemo(() => new Set(localDismissedCardsData.map(c => c.id)), [localDismissedCardsData]);
+
+  const persistedDecidedIds = useMemo(
+    () => new Set((autoCardStates || []).filter(s => s.status === 'DECIDED').map(s => s.auto_card_id)),
+    [autoCardStates]
+  );
+  const persistedDismissedIds = useMemo(
+    () => new Set((autoCardStates || []).filter(s => s.status === 'DISMISSED').map(s => s.auto_card_id)),
+    [autoCardStates]
+  );
+  const persistedSnoozedIds = useMemo(
+    () => new Set((autoCardStates || []).filter(s => s.status === 'SNOOZED' && s.snoozed_until && new Date(s.snoozed_until) > new Date()).map(s => s.auto_card_id)),
+    [autoCardStates]
+  );
 
   // Fetch from DB - Open cards
   const { data: dbCards, isLoading: dbLoading, refetch } = useDecisionCards({
@@ -132,7 +149,10 @@ export default function DecisionCenterPage() {
     const filteredAutoCards = (autoCards || []).filter(
       ac => !dbEntityIds.has(ac.entity_id) && 
             !localDecidedCardIds.has(ac.id) && 
-            !localDismissedCardIds.has(ac.id)
+            !localDismissedCardIds.has(ac.id) &&
+            !persistedDecidedIds.has(ac.id) &&
+            !persistedDismissedIds.has(ac.id) &&
+            !persistedSnoozedIds.has(ac.id)
     );
     
     // Cast auto cards to DecisionCard type for compatibility
@@ -151,7 +171,7 @@ export default function DecisionCenterPage() {
       return combinedCards.filter(c => c.priority === priorityFilter);
     }
     return combinedCards;
-  }, [dbCards, autoCards, autoCardsLookup, priorityFilter, localDecidedCardIds, localDismissedCardIds]);
+  }, [dbCards, autoCards, autoCardsLookup, priorityFilter, localDecidedCardIds, localDismissedCardIds, persistedDecidedIds, persistedDismissedIds, persistedSnoozedIds]);
 
   // Handlers for local card decisions - find the card data and store it
   const handleCardDecided = (cardId: string) => {

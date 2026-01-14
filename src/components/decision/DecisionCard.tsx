@@ -332,12 +332,13 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail, onD
     if (!selectedAction) return;
 
     const actionLabel = ACTION_TYPE_CONFIG[selectedAction]?.label || selectedAction;
-    
+
     await decideCard.mutateAsync({
       cardId: card.id,
       actionType: selectedAction,
       actionLabel,
       comment,
+      cardSnapshot: card.id.startsWith('auto-') ? card : undefined,
     });
 
     setShowDecideDialog(false);
@@ -355,6 +356,7 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail, onD
       cardId: card.id,
       reason: dismissReason,
       comment,
+      cardSnapshot: card.id.startsWith('auto-') ? card : undefined,
     });
 
     setShowDismissDialog(false);
@@ -370,6 +372,7 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail, onD
     await snoozeCard.mutateAsync({
       cardId: card.id,
       hours: 24,
+      cardSnapshot: card.id.startsWith('auto-') ? card : undefined,
     });
   };
 
