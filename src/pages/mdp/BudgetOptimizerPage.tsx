@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Wallet, 
   TrendingUp, 
@@ -18,464 +18,664 @@ import {
   CheckCircle2,
   BarChart3,
   PieChart,
-  Zap,
-  RefreshCw
+  RefreshCw,
+  Percent,
+  Users,
+  Banknote,
+  ShieldAlert,
+  Leaf,
+  Scale
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatVNDCompact, formatVND } from '@/lib/formatters';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart as RechartsPieChart, Pie, Cell, Legend
+  PieChart as RechartsPieChart, Pie, Cell, Legend, ComposedChart, Line
 } from 'recharts';
+import { useBudgetOptimizerData } from '@/hooks/useMDPExtendedData';
+import { useMDPData } from '@/hooks/useMDPData';
+import { BudgetOptimizationPanel } from '@/components/whatif/BudgetOptimizationPanel';
 
-interface ChannelBudget {
-  channel: string;
-  currentBudget: number;
-  suggestedBudget: number;
-  currentROAS: number;
-  projectedROAS: number;
-  currentRevenue: number;
-  projectedRevenue: number;
-  confidence: number;
-  action: 'increase' | 'decrease' | 'maintain';
-}
+const CHART_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#ef4444', '#14b8a6'];
 
-const channelBudgets: ChannelBudget[] = [
-  {
-    channel: 'Facebook Ads',
-    currentBudget: 450000000,
-    suggestedBudget: 580000000,
-    currentROAS: 3.2,
-    projectedROAS: 3.8,
-    currentRevenue: 1440000000,
-    projectedRevenue: 2204000000,
-    confidence: 92,
-    action: 'increase',
-  },
-  {
-    channel: 'Google Ads',
-    currentBudget: 380000000,
-    suggestedBudget: 420000000,
-    currentROAS: 4.1,
-    projectedROAS: 4.3,
-    currentRevenue: 1558000000,
-    projectedRevenue: 1806000000,
-    confidence: 88,
-    action: 'increase',
-  },
-  {
-    channel: 'TikTok Ads',
-    currentBudget: 280000000,
-    suggestedBudget: 180000000,
-    currentROAS: 1.8,
-    projectedROAS: 2.4,
-    currentRevenue: 504000000,
-    projectedRevenue: 432000000,
-    confidence: 75,
-    action: 'decrease',
-  },
-  {
-    channel: 'Email Marketing',
-    currentBudget: 85000000,
-    suggestedBudget: 120000000,
-    currentROAS: 8.5,
-    projectedROAS: 7.8,
-    currentRevenue: 722500000,
-    projectedRevenue: 936000000,
-    confidence: 95,
-    action: 'increase',
-  },
-  {
-    channel: 'Shopee Ads',
-    currentBudget: 220000000,
-    suggestedBudget: 220000000,
-    currentROAS: 2.8,
-    projectedROAS: 2.9,
-    currentRevenue: 616000000,
-    projectedRevenue: 638000000,
-    confidence: 82,
-    action: 'maintain',
-  },
-  {
-    channel: 'Lazada Ads',
-    currentBudget: 185000000,
-    suggestedBudget: 140000000,
-    currentROAS: 2.1,
-    projectedROAS: 2.6,
-    currentRevenue: 388500000,
-    projectedRevenue: 364000000,
-    confidence: 78,
-    action: 'decrease',
-  },
-];
-
-const formatCurrency = (value: number) => {
-  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
-  if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-  return value.toString();
-};
-
-const getActionConfig = (action: ChannelBudget['action']) => {
+const getActionConfig = (action: 'increase' | 'decrease' | 'maintain') => {
   const configs = {
-    increase: { label: 'Tăng', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: TrendingUp },
-    decrease: { label: 'Giảm', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: TrendingDown },
-    maintain: { label: 'Giữ', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Target },
+    increase: { label: 'Tăng Budget', color: 'bg-success/20 text-success border-success/30', icon: TrendingUp },
+    decrease: { label: 'Giảm Budget', color: 'bg-destructive/20 text-destructive border-destructive/30', icon: TrendingDown },
+    maintain: { label: 'Giữ nguyên', color: 'bg-primary/20 text-primary border-primary/30', icon: Target },
   };
   return configs[action];
 };
 
 export default function BudgetOptimizerPage() {
-  const [activeTab, setActiveTab] = useState('recommendations');
-  const [optimizationGoal, setOptimizationGoal] = useState<'revenue' | 'roas' | 'profit'>('profit');
-  const [riskTolerance, setRiskTolerance] = useState([50]);
-  const [autoApply, setAutoApply] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  
+  // Fetch real data
+  const { channelBudgets, isLoading: isBudgetLoading, error: budgetError } = useBudgetOptimizerData();
+  const { profitAttribution, cashImpact, riskAlerts, isLoading: isMDPLoading } = useMDPData();
+  
+  const isLoading = isBudgetLoading || isMDPLoading;
 
-  const totalCurrentBudget = channelBudgets.reduce((acc, c) => acc + c.currentBudget, 0);
-  const totalSuggestedBudget = channelBudgets.reduce((acc, c) => acc + c.suggestedBudget, 0);
-  const totalCurrentRevenue = channelBudgets.reduce((acc, c) => acc + c.currentRevenue, 0);
-  const totalProjectedRevenue = channelBudgets.reduce((acc, c) => acc + c.projectedRevenue, 0);
-  const avgConfidence = channelBudgets.reduce((acc, c) => acc + c.confidence, 0) / channelBudgets.length;
-  const revenueLift = totalProjectedRevenue - totalCurrentRevenue;
-  const budgetChange = totalSuggestedBudget - totalCurrentBudget;
+  // Calculate summary metrics
+  const summaryMetrics = useMemo(() => {
+    if (!channelBudgets || channelBudgets.length === 0) {
+      return {
+        totalCurrentBudget: 0,
+        totalSuggestedBudget: 0,
+        totalCurrentRevenue: 0,
+        totalProjectedRevenue: 0,
+        avgConfidence: 0,
+        avgROAS: 0,
+        avgProjectedROAS: 0,
+        budgetChange: 0,
+        revenueLift: 0,
+      };
+    }
 
-  const budgetDistributionData = channelBudgets.map(c => ({
-    name: c.channel,
-    current: c.currentBudget / 1000000,
-    suggested: c.suggestedBudget / 1000000,
-  }));
+    const totalCurrentBudget = channelBudgets.reduce((acc, c) => acc + c.currentBudget, 0);
+    const totalSuggestedBudget = channelBudgets.reduce((acc, c) => acc + c.suggestedBudget, 0);
+    const totalCurrentRevenue = channelBudgets.reduce((acc, c) => acc + c.currentRevenue, 0);
+    const totalProjectedRevenue = channelBudgets.reduce((acc, c) => acc + c.projectedRevenue, 0);
+    const avgConfidence = channelBudgets.reduce((acc, c) => acc + c.confidence, 0) / channelBudgets.length;
+    const avgROAS = totalCurrentBudget > 0 ? totalCurrentRevenue / totalCurrentBudget : 0;
+    const avgProjectedROAS = totalSuggestedBudget > 0 ? totalProjectedRevenue / totalSuggestedBudget : 0;
 
-  const pieData = channelBudgets.map((c, idx) => ({
-    name: c.channel,
-    value: c.suggestedBudget,
-    color: ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#6366f1'][idx],
-  }));
+    return {
+      totalCurrentBudget,
+      totalSuggestedBudget,
+      totalCurrentRevenue,
+      totalProjectedRevenue,
+      avgConfidence,
+      avgROAS,
+      avgProjectedROAS,
+      budgetChange: totalSuggestedBudget - totalCurrentBudget,
+      revenueLift: totalProjectedRevenue - totalCurrentRevenue,
+    };
+  }, [channelBudgets]);
+
+  // Calculate profit metrics from MDP data
+  const profitMetrics = useMemo(() => {
+    if (!profitAttribution || profitAttribution.length === 0) {
+      return {
+        totalProfit: 0,
+        avgMargin: 0,
+        profitableChannels: 0,
+        lossChannels: 0,
+      };
+    }
+
+    const totalProfit = profitAttribution.reduce((acc, p) => acc + p.contribution_margin, 0);
+    const avgMargin = profitAttribution.reduce((acc, p) => acc + p.contribution_margin_percent, 0) / profitAttribution.length;
+    const profitableChannels = profitAttribution.filter(p => p.status === 'profitable').length;
+    const lossChannels = profitAttribution.filter(p => p.status === 'loss' || p.status === 'critical').length;
+
+    return { totalProfit, avgMargin, profitableChannels, lossChannels };
+  }, [profitAttribution]);
+
+  // Calculate cash metrics
+  const cashMetrics = useMemo(() => {
+    if (!cashImpact || cashImpact.length === 0) {
+      return {
+        totalCashReceived: 0,
+        totalPending: 0,
+        avgCashScore: 0,
+      };
+    }
+
+    const totalCashReceived = cashImpact.reduce((acc, c) => acc + c.cash_received, 0);
+    const totalPending = cashImpact.reduce((acc, c) => acc + c.pending_cash, 0);
+    const avgCashScore = cashImpact.reduce((acc, c) => acc + c.cash_impact_score, 0) / cashImpact.length;
+
+    return { totalCashReceived, totalPending, avgCashScore };
+  }, [cashImpact]);
+
+  // Prepare chart data
+  const budgetComparisonData = useMemo(() => {
+    return channelBudgets.map(c => ({
+      name: c.channel.length > 10 ? c.channel.substring(0, 10) + '...' : c.channel,
+      fullName: c.channel,
+      'Hiện tại': c.currentBudget,
+      'Đề xuất': c.suggestedBudget,
+    }));
+  }, [channelBudgets]);
+
+  const roasComparisonData = useMemo(() => {
+    return channelBudgets.map(c => ({
+      name: c.channel.length > 10 ? c.channel.substring(0, 10) + '...' : c.channel,
+      fullName: c.channel,
+      'ROAS Hiện tại': c.currentROAS,
+      'ROAS Dự kiến': c.projectedROAS,
+    }));
+  }, [channelBudgets]);
+
+  const pieData = useMemo(() => {
+    return channelBudgets.map((c, idx) => ({
+      name: c.channel,
+      value: c.suggestedBudget,
+      color: CHART_COLORS[idx % CHART_COLORS.length],
+    }));
+  }, [channelBudgets]);
+
+  // Prepare channel data for AI Panel
+  const channelDataForAI = useMemo(() => {
+    // Merge budget data with profit attribution
+    return channelBudgets.map(budget => {
+      const profitData = profitAttribution?.find(p => 
+        p.campaign_name.toLowerCase().includes(budget.channel.toLowerCase()) ||
+        budget.channel.toLowerCase().includes(p.channel.toLowerCase())
+      );
+      
+      const cashData = cashImpact?.find(c => 
+        c.channel.toLowerCase().includes(budget.channel.toLowerCase()) ||
+        budget.channel.toLowerCase().includes(c.channel.toLowerCase())
+      );
+
+      return {
+        name: budget.channel,
+        key: budget.channel.toLowerCase().replace(/\s+/g, '_'),
+        revenue: budget.currentRevenue,
+        channelCost: budget.currentBudget,
+        grossProfit: profitData?.contribution_margin || (budget.currentRevenue * 0.3),
+        margin: profitData?.contribution_margin_percent || 30,
+        share: summaryMetrics.totalCurrentBudget > 0
+          ? (budget.currentBudget / summaryMetrics.totalCurrentBudget) * 100 
+          : 0,
+        growth: 10, // Default growth
+        commission: 5, // Default commission
+      };
+    });
+  }, [channelBudgets, profitAttribution, cashImpact, summaryMetrics.totalCurrentBudget]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-[400px]" />
+      </div>
+    );
+  }
+
+  if (budgetError) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Không thể tải dữ liệu Budget Optimizer: {budgetError.message}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const hasData = channelBudgets && channelBudgets.length > 0;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Wallet className="h-7 w-7 text-violet-400" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Wallet className="h-7 w-7 text-primary" />
             Budget Optimizer
           </h1>
-          <p className="text-slate-400 mt-1">AI gợi ý phân bổ ngân sách tối ưu theo mục tiêu</p>
+          <p className="text-muted-foreground mt-1">
+            Tối ưu phân bổ ngân sách dựa trên <span className="text-primary font-medium">Profit</span>, 
+            <span className="text-success font-medium"> Cash Flow</span>, và 
+            <span className="text-warning font-medium"> Risk</span>
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Tính lại
-          </Button>
-          <Button className="bg-violet-600 hover:bg-violet-700 gap-2">
-            <Sparkles className="h-4 w-4" />
-            Áp dụng đề xuất
-          </Button>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1">
+            <BarChart3 className="h-3 w-3" />
+            {channelBudgets.length} kênh
+          </Badge>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-500/20">
-                <Wallet className="h-5 w-5 text-violet-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Đề xuất ngân sách</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalSuggestedBudget)}</p>
-                <p className={cn(
-                  "text-xs",
-                  budgetChange >= 0 ? "text-yellow-400" : "text-emerald-400"
-                )}>
-                  {budgetChange >= 0 ? '+' : ''}{formatCurrency(budgetChange)} vs hiện tại
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/20">
-                <TrendingUp className="h-5 w-5 text-emerald-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Revenue Lift dự kiến</p>
-                <p className="text-2xl font-bold text-emerald-400">+{formatCurrency(revenueLift)}</p>
-                <p className="text-xs text-muted-foreground">
-                  +{((revenueLift / totalCurrentRevenue) * 100).toFixed(1)}%
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/20">
-                <BarChart3 className="h-5 w-5 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Projected ROAS</p>
-                <p className="text-2xl font-bold">3.9x</p>
-                <p className="text-xs text-emerald-400">+0.5x vs hiện tại</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-yellow-500/20">
-                <Target className="h-5 w-5 text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Confidence Score</p>
-                <p className="text-2xl font-bold">{avgConfidence.toFixed(0)}%</p>
-                <p className="text-xs text-muted-foreground">AI prediction</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Optimization Settings */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="h-4 w-4 text-violet-400" />
-            Cài đặt tối ưu hóa
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Optimization Goal */}
-            <div className="space-y-3">
-              <Label>Mục tiêu tối ưu</Label>
-              <div className="flex gap-2">
-                {[
-                  { value: 'profit', label: 'Profit', icon: DollarSign },
-                  { value: 'revenue', label: 'Revenue', icon: TrendingUp },
-                  { value: 'roas', label: 'ROAS', icon: Target },
-                ].map((goal) => (
-                  <Button
-                    key={goal.value}
-                    variant={optimizationGoal === goal.value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setOptimizationGoal(goal.value as typeof optimizationGoal)}
-                    className={cn(
-                      "flex-1",
-                      optimizationGoal === goal.value && "bg-violet-600 hover:bg-violet-700"
-                    )}
-                  >
-                    <goal.icon className="h-4 w-4 mr-1" />
-                    {goal.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Risk Tolerance */}
-            <div className="space-y-3">
-              <Label>Mức độ chấp nhận rủi ro</Label>
-              <div className="space-y-2">
-                <Slider
-                  value={riskTolerance}
-                  onValueChange={setRiskTolerance}
-                  max={100}
-                  step={10}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Thận trọng</span>
-                  <span className="font-medium text-violet-400">{riskTolerance}%</span>
-                  <span>Mạo hiểm</span>
+      {!hasData ? (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Chưa có dữ liệu marketing expense. Vui lòng import dữ liệu chi phí marketing để sử dụng tính năng này.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          {/* Summary Cards - Focus on Profit, Cash, Risk per MDP Manifesto */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Budget */}
+            <Card className="border-border bg-card">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/20">
+                    <Wallet className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground truncate">Tổng Chi phí</p>
+                    <p className="text-xl font-bold">{formatVNDCompact(summaryMetrics.totalCurrentBudget)}</p>
+                    <div className="flex items-center gap-1 text-xs">
+                      {summaryMetrics.budgetChange >= 0 ? (
+                        <TrendingUp className="h-3 w-3 text-warning" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3 text-success" />
+                      )}
+                      <span className={summaryMetrics.budgetChange >= 0 ? 'text-warning' : 'text-success'}>
+                        {summaryMetrics.budgetChange >= 0 ? '+' : ''}{formatVNDCompact(summaryMetrics.budgetChange)} đề xuất
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Auto Apply */}
-            <div className="space-y-3">
-              <Label>Tự động áp dụng</Label>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="auto-apply"
-                  checked={autoApply}
-                  onCheckedChange={setAutoApply}
-                />
-                <Label htmlFor="auto-apply" className="text-sm text-muted-foreground">
-                  Tự động cập nhật ngân sách theo đề xuất hàng tuần
-                </Label>
-              </div>
-            </div>
+            {/* Contribution Margin - KEY METRIC per MDP */}
+            <Card className="border-success/30 bg-success/5">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-success/20">
+                    <DollarSign className="h-5 w-5 text-success" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground truncate">Contribution Margin</p>
+                    <p className="text-xl font-bold text-success">{formatVNDCompact(profitMetrics.totalProfit)}</p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Percent className="h-3 w-3" />
+                      <span>CM%: {profitMetrics.avgMargin.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cash Position - REAL CASH per MDP */}
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/20">
+                    <Banknote className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground truncate">Cash đã về</p>
+                    <p className="text-xl font-bold">{formatVNDCompact(cashMetrics.totalCashReceived)}</p>
+                    <div className="flex items-center gap-1 text-xs text-warning">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>{formatVNDCompact(cashMetrics.totalPending)} đang chờ</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Risk Indicator */}
+            <Card className={cn(
+              "border-border",
+              profitMetrics.lossChannels > 0 && "border-destructive/30 bg-destructive/5"
+            )}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg",
+                    profitMetrics.lossChannels > 0 ? "bg-destructive/20" : "bg-success/20"
+                  )}>
+                    <ShieldAlert className={cn(
+                      "h-5 w-5",
+                      profitMetrics.lossChannels > 0 ? "text-destructive" : "text-success"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-muted-foreground truncate">Channel Risk</p>
+                    <p className={cn(
+                      "text-xl font-bold",
+                      profitMetrics.lossChannels > 0 ? "text-destructive" : "text-success"
+                    )}>
+                      {profitMetrics.lossChannels > 0 
+                        ? `${profitMetrics.lossChannels} kênh lỗ` 
+                        : 'Healthy'}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <CheckCircle2 className="h-3 w-3 text-success" />
+                      <span>{profitMetrics.profitableChannels} kênh có lãi</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted/50">
-          <TabsTrigger value="recommendations">Đề xuất theo kênh</TabsTrigger>
-          <TabsTrigger value="comparison">So sánh</TabsTrigger>
-          <TabsTrigger value="distribution">Phân bổ</TabsTrigger>
-        </TabsList>
+          {/* Risk Alerts from MDP */}
+          {riskAlerts && riskAlerts.length > 0 && (
+            <Card className="border-warning/30 bg-warning/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-warning">
+                  <AlertTriangle className="h-4 w-4" />
+                  Cảnh báo Rủi ro Marketing
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                  {riskAlerts.slice(0, 3).map((alert, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm">
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "shrink-0",
+                        alert.severity === 'critical' && "bg-destructive/20 text-destructive",
+                        alert.severity === 'warning' && "bg-warning/20 text-warning"
+                      )}
+                    >
+                      {alert.severity}
+                    </Badge>
+                    <span className="text-muted-foreground">{alert.message}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-        <TabsContent value="recommendations" className="mt-6 space-y-4">
-          {channelBudgets.map((channel, idx) => {
-            const actionConfig = getActionConfig(channel.action);
-            const ActionIcon = actionConfig.icon;
-            const budgetDiff = channel.suggestedBudget - channel.currentBudget;
-            const revenueDiff = channel.projectedRevenue - channel.currentRevenue;
+          {/* Main Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="bg-muted/50">
+              <TabsTrigger value="overview" className="gap-1">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Tổng quan
+              </TabsTrigger>
+              <TabsTrigger value="ai-optimizer" className="gap-1">
+                <Sparkles className="h-3.5 w-3.5" />
+                AI Optimizer
+              </TabsTrigger>
+              <TabsTrigger value="channels" className="gap-1">
+                <Scale className="h-3.5 w-3.5" />
+                Chi tiết kênh
+              </TabsTrigger>
+              <TabsTrigger value="distribution" className="gap-1">
+                <PieChart className="h-3.5 w-3.5" />
+                Phân bổ
+              </TabsTrigger>
+            </TabsList>
 
-            return (
-              <Card key={idx} className="border-border bg-card shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                    {/* Channel Info */}
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-foreground">{channel.channel}</h3>
-                        <Badge variant="outline" className={actionConfig.color}>
-                          <ActionIcon className="h-3 w-3 mr-1" />
-                          {actionConfig.label}
-                        </Badge>
-                        <Badge variant="outline" className="border-slate-600 text-slate-400">
-                          Confidence: {channel.confidence}%
-                        </Badge>
-                      </div>
-                      
-                      {/* Budget Change Visualization */}
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="text-center">
-                          <p className="text-muted-foreground text-xs">Hiện tại</p>
-                          <p className="font-semibold">{formatCurrency(channel.currentBudget)}</p>
-                        </div>
-                        <ArrowRight className={cn(
-                          "h-5 w-5",
-                          channel.action === 'increase' ? "text-emerald-400" :
-                          channel.action === 'decrease' ? "text-red-400" : "text-slate-400"
-                        )} />
-                        <div className="text-center">
-                          <p className="text-muted-foreground text-xs">Đề xuất</p>
-                          <p className={cn(
-                            "font-semibold",
-                            channel.action === 'increase' ? "text-emerald-400" :
-                            channel.action === 'decrease' ? "text-red-400" : ""
-                          )}>
-                            {formatCurrency(channel.suggestedBudget)}
-                          </p>
-                        </div>
-                        <Badge className={cn(
-                          "ml-2",
-                          budgetDiff > 0 ? "bg-emerald-500/20 text-emerald-400" :
-                          budgetDiff < 0 ? "bg-red-500/20 text-red-400" : "bg-slate-500/20 text-slate-400"
-                        )}>
-                          {budgetDiff > 0 ? '+' : ''}{formatCurrency(budgetDiff)}
-                        </Badge>
-                      </div>
+            {/* Tab: Overview */}
+            <TabsContent value="overview" className="mt-6 space-y-6">
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Budget Comparison Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">So sánh Ngân sách: Hiện tại vs Đề xuất</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={budgetComparisonData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis 
+                            type="number" 
+                            className="text-xs fill-muted-foreground"
+                            tickFormatter={(v) => formatVNDCompact(v)}
+                          />
+                          <YAxis 
+                            type="category" 
+                            dataKey="name" 
+                            className="text-xs fill-muted-foreground"
+                            width={100}
+                          />
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null;
+                              return (
+                                <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                  <p className="font-medium mb-2">{payload[0]?.payload?.fullName}</p>
+                                  {payload.map((p, i) => (
+                                    <p key={i} className="text-sm">
+                                      <span style={{ color: p.color }}>{p.name}: </span>
+                                      {formatVND(p.value as number)}
+                                    </p>
+                                  ))}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="Hiện tại" fill="hsl(var(--muted-foreground))" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="Đề xuất" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          <Legend />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Metrics Grid */}
-                    <div className="grid grid-cols-4 gap-4">
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground mb-1">ROAS hiện tại</p>
-                        <p className="font-semibold">{channel.currentROAS}x</p>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground mb-1">ROAS dự kiến</p>
-                        <p className={cn(
-                          "font-semibold",
-                          channel.projectedROAS > channel.currentROAS ? "text-emerald-400" : "text-red-400"
-                        )}>
-                          {channel.projectedROAS}x
-                        </p>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground mb-1">Revenue dự kiến</p>
-                        <p className="font-semibold text-violet-400">{formatCurrency(channel.projectedRevenue)}</p>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground mb-1">Revenue Lift</p>
-                        <p className={cn(
-                          "font-semibold",
-                          revenueDiff >= 0 ? "text-emerald-400" : "text-red-400"
-                        )}>
-                          {revenueDiff >= 0 ? '+' : ''}{formatCurrency(revenueDiff)}
-                        </p>
-                      </div>
+                {/* ROAS Comparison */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">ROAS: Hiện tại vs Dự kiến</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={roasComparisonData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis 
+                            dataKey="name" 
+                            className="text-xs fill-muted-foreground"
+                          />
+                          <YAxis 
+                            className="text-xs fill-muted-foreground"
+                            tickFormatter={(v) => `${v.toFixed(1)}x`}
+                          />
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null;
+                              return (
+                                <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                  <p className="font-medium mb-2">{payload[0]?.payload?.fullName}</p>
+                                  {payload.map((p, i) => (
+                                    <p key={i} className="text-sm">
+                                      <span style={{ color: p.color }}>{p.name}: </span>
+                                      {(p.value as number).toFixed(2)}x
+                                    </p>
+                                  ))}
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="ROAS Hiện tại" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+                          <Line 
+                            type="monotone" 
+                            dataKey="ROAS Dự kiến" 
+                            stroke="hsl(var(--success))" 
+                            strokeWidth={2}
+                            dot={{ fill: 'hsl(var(--success))' }}
+                          />
+                          <Legend />
+                        </ComposedChart>
+                      </ResponsiveContainer>
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {/* Tab: AI Optimizer */}
+            <TabsContent value="ai-optimizer" className="mt-6">
+              <BudgetOptimizationPanel 
+                channels={channelDataForAI}
+                totalBudget={summaryMetrics.totalCurrentBudget}
+              />
+            </TabsContent>
+
+            {/* Tab: Channel Details */}
+            <TabsContent value="channels" className="mt-6 space-y-4">
+              {channelBudgets.map((channel, idx) => {
+                const actionConfig = getActionConfig(channel.action);
+                const ActionIcon = actionConfig.icon;
+                const budgetDiff = channel.suggestedBudget - channel.currentBudget;
+                const revenueDiff = channel.projectedRevenue - channel.currentRevenue;
+
+                // Find matching profit data
+                const profitData = profitAttribution?.find(p => 
+                  p.campaign_name.toLowerCase().includes(channel.channel.toLowerCase()) ||
+                  channel.channel.toLowerCase().includes(p.channel.toLowerCase())
+                );
+
+                return (
+                  <Card key={idx} className="border-border">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                        {/* Channel Info */}
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <h3 className="font-semibold text-foreground">{channel.channel}</h3>
+                            <Badge variant="outline" className={actionConfig.color}>
+                              <ActionIcon className="h-3 w-3 mr-1" />
+                              {actionConfig.label}
+                            </Badge>
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Confidence: {channel.confidence}%
+                            </Badge>
+                            {profitData && (
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  profitData.status === 'profitable' && "bg-success/20 text-success",
+                                  profitData.status === 'marginal' && "bg-warning/20 text-warning",
+                                  (profitData.status === 'loss' || profitData.status === 'critical') && "bg-destructive/20 text-destructive"
+                                )}
+                              >
+                                CM: {profitData.contribution_margin_percent.toFixed(1)}%
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {/* Budget Change Visualization */}
+                          <div className="flex items-center gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground text-xs">Chi phí hiện tại</p>
+                              <p className="font-semibold">{formatVNDCompact(channel.currentBudget)}</p>
+                            </div>
+                            <ArrowRight className={cn(
+                              "h-5 w-5 shrink-0",
+                              channel.action === 'increase' ? "text-success" :
+                              channel.action === 'decrease' ? "text-destructive" : "text-muted-foreground"
+                            )} />
+                            <div>
+                              <p className="text-muted-foreground text-xs">Đề xuất</p>
+                              <p className={cn(
+                                "font-semibold",
+                                channel.action === 'increase' ? "text-success" :
+                                channel.action === 'decrease' ? "text-destructive" : ""
+                              )}>
+                                {formatVNDCompact(channel.suggestedBudget)}
+                              </p>
+                            </div>
+                            <Badge className={cn(
+                              budgetDiff > 0 ? "bg-success/20 text-success" :
+                              budgetDiff < 0 ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"
+                            )}>
+                              {budgetDiff > 0 ? '+' : ''}{formatVNDCompact(budgetDiff)}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Metrics Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="text-center p-2 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground mb-1">ROAS</p>
+                            <p className="font-semibold">{channel.currentROAS.toFixed(2)}x</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground mb-1">ROAS dự kiến</p>
+                            <p className={cn(
+                              "font-semibold",
+                              channel.projectedROAS > channel.currentROAS ? "text-success" : "text-destructive"
+                            )}>
+                              {channel.projectedROAS.toFixed(2)}x
+                            </p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground mb-1">CPA</p>
+                            <p className="font-semibold">{formatVNDCompact(channel.cpa)}</p>
+                          </div>
+                          <div className="text-center p-2 rounded-lg bg-muted/50">
+                            <p className="text-xs text-muted-foreground mb-1">Orders</p>
+                            <p className="font-semibold">{channel.orders.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Progress bar showing efficiency */}
+                      <div className="mt-4">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                          <span>Efficiency Score</span>
+                          <span>{Math.min(channel.currentROAS * 25, 100).toFixed(0)}%</span>
+                        </div>
+                        <Progress 
+                          value={Math.min(channel.currentROAS * 25, 100)} 
+                          className="h-2"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </TabsContent>
+
+            {/* Tab: Distribution */}
+            <TabsContent value="distribution" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Phân bổ Ngân sách Đề xuất</CardTitle>
+                  <CardDescription>Tỷ trọng ngân sách theo từng kênh</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={80}
+                          outerRadius={140}
+                          paddingAngle={2}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                                <p className="font-medium">{data.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatVND(data.value)}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {((data.value / summaryMetrics.totalSuggestedBudget) * 100).toFixed(1)}%
+                                </p>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
-        </TabsContent>
-
-        <TabsContent value="comparison" className="mt-6">
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">So sánh ngân sách hiện tại vs đề xuất</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={budgetDistributionData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis type="number" stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `${v}M`} />
-                    <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={12} width={120} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                      labelStyle={{ color: '#f8fafc' }}
-                      formatter={(value: number) => [`${value.toFixed(0)}M`, '']}
-                    />
-                    <Legend />
-                    <Bar dataKey="current" name="Hiện tại" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                    <Bar dataKey="suggested" name="Đề xuất" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="distribution" className="mt-6">
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Phân bổ ngân sách đề xuất</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={80}
-                      outerRadius={120}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                    />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }
