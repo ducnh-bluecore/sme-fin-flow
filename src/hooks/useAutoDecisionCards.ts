@@ -159,9 +159,9 @@ export function useAutoDecisionCards() {
               vertical: 'ecommerce',
               facts: createFacts(cardId, [
                 { key: 'margin', label: 'Margin %', value: `${marginPercent.toFixed(1)}%`, numeric: marginPercent, unit: '%', trend: 'DOWN' },
+                { key: 'loss_per_unit', label: 'Lỗ/SP', value: `${Math.abs(sku.loss_per_unit || 0).toLocaleString()}đ`, numeric: sku.loss_per_unit || 0, unit: 'VND', trend: 'DOWN' },
+                { key: 'quantity', label: 'SL bán', value: `${(sku.quantity || 0).toLocaleString()}`, numeric: sku.quantity || 0 },
                 { key: 'revenue', label: 'Doanh thu', value: `${sku.revenue.toLocaleString()}đ`, numeric: sku.revenue, unit: 'VND' },
-                { key: 'cogs', label: 'Giá vốn', value: `${sku.cogs.toLocaleString()}đ`, numeric: sku.cogs, unit: 'VND' },
-                { key: 'fees', label: 'Phí sàn', value: `${(sku.fees || 0).toLocaleString()}đ`, numeric: sku.fees || 0, unit: 'VND' },
                 { key: 'profit', label: 'Lợi nhuận', value: `${sku.profit.toLocaleString()}đ`, numeric: sku.profit, unit: 'VND', trend: sku.profit < 0 ? 'DOWN' : 'UP' },
                 { key: 'channel', label: 'Kênh bán', value: sku.channel },
               ]),
