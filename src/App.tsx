@@ -81,7 +81,7 @@ const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
 const CapitalAllocationPage = lazy(() => import("./pages/CapitalAllocationPage"));
 const DecisionSupportPage = lazy(() => import("./pages/DecisionSupportPage"));
 const RiskDashboardPage = lazy(() => import("./pages/RiskDashboardPage"));
-const DecisionCenterPage = lazy(() => import("./pages/DecisionCenterPage"));
+const CommandCenterPage = lazy(() => import("./pages/CommandCenterPage"));
 
 // New retail CFO modules
 const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
@@ -254,8 +254,10 @@ const AppRoutes = () => {
         <Route path="/bank-connections" element={<BankConnectionsPage />} />
         <Route path="/financial-reports" element={<FinancialReportsPage />} />
         <Route path="/pl-report" element={<PLReportPage />} />
-        <Route path="/scenario" element={<ScenarioHubPage />} />
-        <Route path="/scenario-hub" element={<ScenarioHubPage />} />
+        <Route path="/command-center" element={<CommandCenterPage />} />
+        <Route path="/scenario" element={<Navigate to="/command-center" replace />} />
+        <Route path="/scenario-hub" element={<Navigate to="/command-center" replace />} />
+        <Route path="/decision-center" element={<Navigate to="/command-center" replace />} />
         <Route path="/scenario/:id" element={<ScenarioPage />} />
         <Route path="/invoice/create" element={<InvoiceCreatePage />} />
         <Route path="/invoice/tracking" element={<InvoiceTrackingPage />} />
@@ -283,7 +285,7 @@ const AppRoutes = () => {
         <Route path="/capital-allocation" element={<CapitalAllocationPage />} />
         <Route path="/decision-support" element={<DecisionSupportPage />} />
         <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
-        <Route path="/decision-center" element={<DecisionCenterPage />} />
+        
         <Route path="/inventory-aging" element={<InventoryAgingPage />} />
         <Route path="/promotion-roi" element={<PromotionROIPage />} />
         <Route path="/supplier-payments" element={<SupplierPaymentsPage />} />
