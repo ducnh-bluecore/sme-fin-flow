@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMDPData, MarketingRiskAlert } from '@/hooks/useMDPData';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -243,6 +244,7 @@ const generateAIInsights = (alerts: MarketingRiskAlert[]) => {
 };
 
 export default function RiskAlertsPage() {
+  const navigate = useNavigate();
   const { riskAlerts, profitAttribution, cashImpact, dataQuality, thresholds, isLoading, error } = useMDPData();
   
   // Filter & Search state
@@ -838,8 +840,8 @@ export default function RiskAlertsPage() {
                         transition={{ duration: 0.2 }}
                         onClick={() => {
                           setFocusedIndex(index);
+                          handleOpenDetail(alert);
                         }}
-                        onDoubleClick={() => handleOpenDetail(alert)}
                         className={cn(
                           "p-4 rounded-lg border transition-all cursor-pointer group",
                           alert.severity === 'critical' 
@@ -905,17 +907,6 @@ export default function RiskAlertsPage() {
                             </p>
                             
                             <div className="flex gap-1 mt-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 px-2 text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenDetail(alert);
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -1489,7 +1480,10 @@ export default function RiskAlertsPage() {
                   </Button>
                   <Button 
                     variant="default"
-                    onClick={() => window.open(`/mdp/campaigns?search=${encodeURIComponent(selectedAlert.campaign_name)}`, '_blank')}
+                    onClick={() => {
+                      handleCloseDetail();
+                      navigate(`/mdp/campaigns?search=${encodeURIComponent(selectedAlert.campaign_name)}`);
+                    }}
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Xem Campaign
