@@ -657,16 +657,44 @@ export default function BudgetOptimizerPage() {
                         </div>
                       </div>
 
-                      {/* Progress bar showing efficiency */}
+                      {/* Progress bar showing budget utilization (if budget configured) or ROAS efficiency */}
                       <div className="mt-4">
-                        <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                          <span>Efficiency Score</span>
-                          <span>{Math.min(channel.currentROAS * 25, 100).toFixed(0)}%</span>
-                        </div>
-                        <Progress 
-                          value={Math.min(channel.currentROAS * 25, 100)} 
-                          className="h-2"
-                        />
+                        {channel.allocatedBudget > 0 ? (
+                          <>
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                              <span>Budget Utilization</span>
+                              <span className={cn(
+                                channel.spendRate > 100 ? "text-destructive" :
+                                channel.spendRate > 80 ? "text-warning" : "text-muted-foreground"
+                              )}>
+                                {channel.spendRate.toFixed(0)}%
+                              </span>
+                            </div>
+                            <Progress 
+                              value={Math.min(channel.spendRate, 100)} 
+                              className={cn(
+                                "h-2",
+                                channel.spendRate > 100 && "[&>div]:bg-destructive"
+                              )}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                              <span>ROAS vs Target (3x)</span>
+                              <span className={cn(
+                                channel.currentROAS >= 3 ? "text-success" :
+                                channel.currentROAS >= 2 ? "text-warning" : "text-destructive"
+                              )}>
+                                {((channel.currentROAS / 3) * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <Progress 
+                              value={Math.min((channel.currentROAS / 3) * 100, 100)} 
+                              className="h-2"
+                            />
+                          </>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
