@@ -348,10 +348,15 @@ export function useSaveMeasuredOutcome() {
       if (error) throw error;
 
       // Update follow-up status
-      await supabase
+      const { error: updateError } = await supabase
         .from('decision_audit_log')
         .update({ follow_up_status: 'completed' })
-        .eq('id', decisionAuditId);
+        .eq('id', decisionAuditId)
+        .eq('tenant_id', tenantId);
+
+      if (updateError) {
+        console.error('Failed to update follow_up_status:', updateError);
+      }
 
       return data;
     },
