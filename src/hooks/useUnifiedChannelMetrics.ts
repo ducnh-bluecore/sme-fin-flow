@@ -8,10 +8,12 @@ import { useMDPData } from './useMDPData';
  * Hook này là nguồn dữ liệu duy nhất cho tất cả metrics theo kênh.
  * Mọi component đều PHẢI dùng hook này để đảm bảo consistency.
  * 
- * Data sources:
- * - budgetPacingData (from useMDPData): actualSpend = campaign actual_cost + marketing_expenses
- * - channel_budgets (from useChannelBudgets): plannedBudget (only when is_active = true)
- * - marketingPerformance (from useMDPData): revenue, orders, clicks, impressions
+ * Data sources (all from useMDPData - SINGLE SOURCE):
+ * - budgetPacingData: actualSpend = campaign actual_cost + marketing_expenses
+ * - marketingPerformance: revenue, orders, clicks, impressions
+ * - profitAttribution: COGS, fees, CM (using same formula as CMO Mode)
+ * 
+ * + channel_budgets: plannedBudget (only when is_active = true)
  */
 
 export interface UnifiedChannelMetric {
@@ -111,7 +113,10 @@ export function useUnifiedChannelMetrics() {
   const { budgets, budgetsMap, isLoading: budgetsLoading } = useChannelBudgets();
   const { 
     budgetPacingData, 
-    marketingPerformance, 
+    marketingPerformance,
+    profitAttribution,
+    cmoModeSummary,
+    dataQuality,
     isLoading: mdpLoading 
   } = useMDPData();
 
@@ -136,6 +141,17 @@ export function useUnifiedChannelMetrics() {
         orders: existing.orders + c.orders,
         clicks: existing.clicks + c.clicks,
         impressions: existing.impressions + c.impressions,
+      });
+    });
+
+    // Aggregate profit attribution by channel (SINGLE SOURCE OF TRUTH for CM)
+    const cmMap = new Map<string, { cm: number; netRevenue: number }>();
+    profitAttribution.forEach(p => {
+      const ch = normalizeChannel(p.channel);
+      const existing = cmMap.get(ch) || { cm: 0, netRevenue: 0 };
+      cmMap.set(ch, {
+        cm: existing.cm + p.contribution_margin,
+        netRevenue: existing.netRevenue + p.net_revenue,
       });
     });
 
@@ -212,11 +228,12 @@ export function useUnifiedChannelMetrics() {
       const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
       const cvr = clicks > 0 ? (orders / clicks) * 100 : 0;
 
-      // Contribution margin (Revenue - COGS 40% - Fees 15% - Ad Spend)
-      const estimatedCOGS = revenue * 0.40;
-      const estimatedFees = revenue * 0.15;
-      const contributionMargin = revenue - estimatedCOGS - estimatedFees - actualSpend;
-      const cmPercent = revenue > 0 ? (contributionMargin / revenue) * 100 : 0;
+      // CONTRIBUTION MARGIN - Use from profitAttribution (SINGLE SOURCE OF TRUTH)
+      // This ensures consistency with CMO Mode and Channel Analysis pages
+      const cmData = cmMap.get(channel);
+      const contributionMargin = cmData?.cm ?? 0;
+      const netRevenue = cmData?.netRevenue ?? revenue;
+      const cmPercent = netRevenue > 0 ? (contributionMargin / netRevenue) * 100 : 0;
 
       // Targets from channel_budgets
       const targetROAS = isActiveBudget ? (configured?.target_roas || 3) : 3;
@@ -266,7 +283,7 @@ export function useUnifiedChannelMetrics() {
         cmPercent,
       };
     }).sort((a, b) => b.actualSpend - a.actualSpend);
-  }, [budgets, budgetsMap, budgetPacingData, marketingPerformance, hasConfiguredBudgets]);
+  }, [budgets, budgetsMap, budgetPacingData, marketingPerformance, profitAttribution, hasConfiguredBudgets]);
 
   // Summary metrics
   const summary = useMemo<UnifiedSummary>(() => {
