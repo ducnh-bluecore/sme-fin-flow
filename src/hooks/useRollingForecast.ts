@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
 import { addMonths, format, startOfMonth } from 'date-fns';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 
 export interface RollingForecastItem {
   id: string;
@@ -163,37 +164,33 @@ export function useSaveRollingForecast() {
   });
 }
 
+/**
+ * Generate Rolling Forecast - Refactored to use SSOT
+ * Now uses useCentralFinancialMetrics for baseline revenue/expense
+ * instead of calculating independently.
+ */
 export function useGenerateRollingForecast() {
   const queryClient = useQueryClient();
   const { data: tenantId } = useActiveTenantId();
+  const { data: centralMetrics } = useCentralFinancialMetrics();
   
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      // Generate 18 months of forecasts based on historical data
+      // Generate 18 months of forecasts based on SSOT data
       const startDate = startOfMonth(new Date());
       const forecasts: Partial<RollingForecastItem>[] = [];
       
-      // Get historical revenue (last 6 months average)
-      const { data: revenues } = await supabase
-        .from('revenues')
-        .select('amount')
-        .gte('start_date', format(addMonths(startDate, -6), 'yyyy-MM-dd'));
-      
-      const avgRevenue = revenues && revenues.length > 0
-        ? revenues.reduce((sum, r) => sum + Number(r.amount), 0) / 6
-        : 100000000; // Default 100M VND
-      
-      // Get historical expenses
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('amount')
-        .gte('expense_date', format(addMonths(startDate, -6), 'yyyy-MM-dd'));
-      
-      const avgExpense = expenses && expenses.length > 0
-        ? expenses.reduce((sum, e) => sum + Number(e.amount), 0) / 6
-        : 80000000; // Default 80M VND
+      // Use SSOT metrics for baseline (monthly averages from central source)
+      // If centralMetrics available, calculate monthly average; otherwise use defaults
+      const avgRevenue = centralMetrics 
+        ? (centralMetrics.netRevenue / Math.max(centralMetrics.daysInPeriod / 30, 1))
+        : 100000000; // Default 100M VND/month
+        
+      const avgExpense = centralMetrics
+        ? (centralMetrics.totalOpex / Math.max(centralMetrics.daysInPeriod / 30, 1))
+        : 80000000; // Default 80M VND/month
       
       // Generate forecasts with growth assumptions
       for (let i = 0; i < FORECAST_MONTHS; i++) {
