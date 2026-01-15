@@ -389,12 +389,14 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail, onD
   // Calculate hours remaining to deadline
   const hoursRemaining = Math.max(0, Math.round((new Date(card.deadline_at).getTime() - Date.now()) / (1000 * 60 * 60)));
   
-  // Compact view (for list) - CEO 5-10s: "Cái gì nguy hiểm nhất?" - Ultra compact design
+  // Compact view (for list) - CEO design with full context
   if (compact) {
+    const intelligenceTrace = getIntelligenceTrace(card);
+    
     return (
       <div 
         className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors border-l-3",
+          "flex items-start gap-4 px-4 py-4 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors border-l-4 bg-card",
           card.priority === 'P1' && "border-l-red-500 bg-red-500/5",
           card.priority === 'P2' && "border-l-yellow-500 bg-yellow-500/5",
           card.priority === 'P3' && "border-l-blue-500/50 bg-muted/30"
@@ -402,50 +404,81 @@ export function DecisionCardComponent({ card, compact = false, onViewDetail, onD
         onClick={onViewDetail}
       >
         {/* Icon */}
-        <div className={cn("p-1.5 rounded shrink-0", typeConfig.bgColor)}>
-          <TypeIcon className={cn("h-4 w-4", typeConfig.color)} />
+        <div className={cn("p-2 rounded-lg shrink-0 mt-0.5", typeConfig.bgColor)}>
+          <TypeIcon className={cn("h-5 w-5", typeConfig.color)} />
         </div>
         
         {/* Main content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", priorityConfig.color)}>
-              {card.priority}
-            </Badge>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Priority label */}
+          <div className="flex items-center gap-2">
+            <span className={cn("text-xs font-medium", priorityConfig.color)}>
+              {priorityConfig.label}
+            </span>
             {isOverdue && (
               <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
                 Quá hạn
               </Badge>
             )}
-            {recommendationBadge && (
-              <span className={cn("text-[10px] font-medium", recommendationBadge.textColor)}>
-                {recommendationBadge.emoji} {recommendationType}
-              </span>
-            )}
           </div>
-          <h4 className="font-medium text-sm truncate">
+          
+          {/* Title */}
+          <h4 className="font-semibold text-base leading-tight">
             {card.question || card.title}
           </h4>
-          <p className="text-xs text-muted-foreground truncate">
+          
+          {/* Entity label */}
+          <p className="text-sm text-muted-foreground">
             {card.entity_label}
           </p>
+          
+          {/* Recommendation badge */}
+          {recommendationBadge && (
+            <div className={cn(
+              "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium",
+              recommendationBadge.bgColor,
+              recommendationBadge.textColor
+            )}>
+              {recommendationBadge.emoji} System recommends: {recommendationType}
+            </div>
+          )}
+          
+          {/* Time & Status row */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+            <div className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Còn {hoursRemaining} giờ để quyết</span>
+            </div>
+            <div className="flex items-center gap-1 text-red-400">
+              <User className="h-3.5 w-3.5" />
+              <span>Quyết định này đang chờ bạn</span>
+            </div>
+          </div>
+          
+          {/* Data source trace */}
+          {intelligenceTrace && (
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70 pt-0.5">
+              <Timer className="h-3 w-3" />
+              <span>Dựa trên {intelligenceTrace}</span>
+            </div>
+          )}
         </div>
         
-        {/* Impact & Deadline */}
-        <div className="text-right shrink-0">
+        {/* Impact & Deadline - Right side */}
+        <div className="text-right shrink-0 space-y-1">
           <div className={cn(
-            "text-sm font-bold",
+            "text-lg font-bold",
             card.impact_amount > 0 ? "text-green-400" : "text-red-400"
           )}>
             {card.impact_amount > 0 ? '+' : ''}{formatCurrency(card.impact_amount)}đ
           </div>
-          <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
-            <Clock className="h-2.5 w-2.5" />
-            {isOverdue ? 'Quá hạn' : `${hoursRemaining}h`}
+          <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+            <Clock className="h-3 w-3" />
+            <span>khoảng {hoursRemaining} giờ nữa</span>
           </div>
         </div>
         
-        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-2" />
       </div>
     );
   }
