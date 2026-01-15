@@ -127,27 +127,26 @@ export interface ChannelFunnel {
 
 export function useBudgetOptimizerData() {
   const { data: tenantId } = useActiveTenantId();
-  const { startDateStr, endDateStr } = useDateRangeForQuery();
+  const { startDateStr, endDateStr, endDate, dateRange } = useDateRangeForQuery();
   
-  // Use actual current date for budget lookup (not date range filter)
-  // Budget is configured per calendar month, so we use today's month
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth() + 1;
+  // Budget is configured per calendar month.
+  // Default: use current month. If user changes date range, follow the range's end month.
+  const budgetAnchorDate = dateRange === 'all_time' ? new Date() : endDate;
+  const budgetYear = budgetAnchorDate.getFullYear();
+  const budgetMonth = budgetAnchorDate.getMonth() + 1;
 
-  // Fetch allocated budgets from channel_budgets table for CURRENT month
+  // Fetch allocated budgets from channel_budgets table
   const allocatedBudgetsQuery = useQuery({
-    queryKey: ['budget-optimizer-allocated', tenantId, currentYear, currentMonth],
+    queryKey: ['budget-optimizer-allocated', tenantId, budgetYear, budgetMonth],
     queryFn: async () => {
       if (!tenantId) return [];
       const { data, error } = await supabase
         .from('channel_budgets')
         .select('channel, budget_amount')
         .eq('tenant_id', tenantId)
-        .eq('year', currentYear)
-        .eq('month', currentMonth);
+        .eq('year', budgetYear)
+        .eq('month', budgetMonth);
       if (error) throw error;
-      console.log('[BudgetOptimizer] Fetched budgets for', currentYear, currentMonth, ':', data);
       return data || [];
     },
     enabled: !!tenantId,
