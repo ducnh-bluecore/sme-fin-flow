@@ -1,4 +1,4 @@
-import { useState, forwardRef } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -43,15 +43,14 @@ const formatCurrency = (value: number) => {
   return value.toLocaleString();
 };
 
-export const CampaignDetailDialog = forwardRef<HTMLDivElement, CampaignDetailDialogProps>(
-  function CampaignDetailDialog({
-    campaign,
-    open,
-    onOpenChange,
-    onPauseCampaign,
-    onResumeCampaign,
-  }, ref) {
-    const [activeTab, setActiveTab] = useState('overview');
+export function CampaignDetailDialog({
+  campaign,
+  open,
+  onOpenChange,
+  onPauseCampaign,
+  onResumeCampaign,
+}: CampaignDetailDialogProps) {
+  const [activeTab, setActiveTab] = useState('overview');
 
     if (!campaign) return null;
 
@@ -352,4 +351,4 @@ export const CampaignDetailDialog = forwardRef<HTMLDivElement, CampaignDetailDia
       </DialogContent>
     </Dialog>
   );
-});
+}

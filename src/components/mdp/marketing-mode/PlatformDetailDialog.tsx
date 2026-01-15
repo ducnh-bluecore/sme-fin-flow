@@ -1,4 +1,4 @@
-import { useState, forwardRef } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -67,16 +67,15 @@ const getPlatformIcon = (platform: PlatformAdsData['platform_icon']) => {
   return icons[platform] || <BarChart3 className="h-5 w-5" />;
 };
 
-export const PlatformDetailDialog = forwardRef<HTMLDivElement, PlatformDetailDialogProps>(
-  function PlatformDetailDialog({
-    platform,
-    open,
-    onOpenChange,
-    onPausePlatform,
-    onResumePlatform,
-    onAdjustBudget,
-  }, ref) {
-    const [activeTab, setActiveTab] = useState('overview');
+export function PlatformDetailDialog({
+  platform,
+  open,
+  onOpenChange,
+  onPausePlatform,
+  onResumePlatform,
+  onAdjustBudget,
+}: PlatformDetailDialogProps) {
+  const [activeTab, setActiveTab] = useState('overview');
 
     if (!platform) return null;
 
@@ -471,4 +470,4 @@ export const PlatformDetailDialog = forwardRef<HTMLDivElement, PlatformDetailDia
       </DialogContent>
     </Dialog>
   );
-});
+}
