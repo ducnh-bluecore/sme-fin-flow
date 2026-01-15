@@ -126,6 +126,19 @@ export function BudgetPacingCard({
   const config = statusConfig[pacingMetrics.status];
   const StatusIcon = config.icon;
 
+  // Display name mapping for channels
+  const getChannelDisplayName = (channel: string): string => {
+    const lower = channel?.toLowerCase() || '';
+    if (lower === 'all' || lower.includes('multi')) return 'Đa kênh';
+    if (lower.includes('facebook') || lower.includes('fb')) return 'Facebook';
+    if (lower.includes('google')) return 'Google';
+    if (lower.includes('shopee')) return 'Shopee';
+    if (lower.includes('lazada')) return 'Lazada';
+    if (lower.includes('tiktok')) return 'TikTok';
+    if (lower.includes('sendo')) return 'Sendo';
+    return channel.charAt(0).toUpperCase() + channel.slice(1);
+  };
+
   // All channels by spend
   const allChannels = useMemo(() => {
     return [...budgetData]
@@ -135,6 +148,7 @@ export function BudgetPacingCard({
         const expectedPacing = ch.totalDays > 0 ? (ch.daysElapsed / ch.totalDays) * 100 : 0;
         return {
           ...ch,
+          displayName: getChannelDisplayName(ch.channel),
           pacing,
           expectedPacing,
           isOverspend: pacing > expectedPacing + 10,
@@ -251,7 +265,7 @@ export function BudgetPacingCard({
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {allChannels.map((channel) => (
                 <div key={channel.channel} className="flex items-center gap-2">
-                  <span className="text-xs w-20 truncate">{channel.channel}</span>
+                  <span className="text-xs w-20 truncate">{channel.displayName}</span>
                   <div className="flex-1 relative">
                     <Progress 
                       value={Math.min(channel.pacing, 100)} 
