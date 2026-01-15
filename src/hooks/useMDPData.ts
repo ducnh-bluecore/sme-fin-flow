@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useMemo } from 'react';
+import { useChannelBudgets } from './useChannelBudgets';
 
 // ============ MDP CORE - UNIFIED DATA LAYER ============
 // Một data layer duy nhất phục vụ 2 modes: Marketing Mode & CMO Mode
@@ -769,7 +770,7 @@ export function useMDPData() {
     };
   }, [profitAttribution, cashImpact, riskAlerts]);
 
-  // Budget Pacing data
+  // Budget Pacing data - now using channel_budgets as source of truth for planned budget
   const budgetPacingData = useMemo(() => {
     const expenses = expensesQuery.data || [];
     const campaigns = campaignsQuery.data || [];
@@ -777,36 +778,30 @@ export function useMDPData() {
     // Normalize channel names for matching
     const normalizeChannel = (channel: string): string => {
       const lower = channel?.toLowerCase() || 'unknown';
-      if (lower.includes('facebook') || lower.includes('fb')) return 'facebook';
+      if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
       if (lower.includes('google') || lower.includes('gg')) return 'google';
       if (lower.includes('shopee')) return 'shopee';
       if (lower.includes('lazada')) return 'lazada';
       if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
+      if (lower.includes('website') || lower.includes('direct')) return 'website';
+      if (lower.includes('offline') || lower.includes('retail')) return 'offline';
       return lower;
     };
     
-    // Aggregate by normalized channel
-    const channelSpend: Record<string, { actual: number; planned: number }> = {};
+    // Aggregate actual spend by normalized channel
+    const channelSpend: Record<string, number> = {};
     
-    // First, get actual spend from marketing_expenses
+    // Get actual spend from marketing_expenses
     expenses.forEach(exp => {
       const channel = normalizeChannel(exp.channel || 'Unknown');
-      if (!channelSpend[channel]) {
-        channelSpend[channel] = { actual: 0, planned: 0 };
-      }
-      channelSpend[channel].actual += exp.amount || 0;
+      channelSpend[channel] = (channelSpend[channel] || 0) + (exp.amount || 0);
     });
     
-    // Then add planned budget and actual_cost from campaigns
+    // Add actual_cost from campaigns
     campaigns.forEach(camp => {
       const channel = normalizeChannel(camp.channel || 'Unknown');
-      if (!channelSpend[channel]) {
-        channelSpend[channel] = { actual: 0, planned: 0 };
-      }
-      channelSpend[channel].planned += camp.budget || 0;
-      // Also add actual_cost from campaigns if marketing_expenses doesn't have data
       if (camp.actual_cost) {
-        channelSpend[channel].actual += camp.actual_cost;
+        channelSpend[channel] = (channelSpend[channel] || 0) + camp.actual_cost;
       }
     });
     
@@ -814,13 +809,29 @@ export function useMDPData() {
     const daysElapsed = today.getDate();
     const totalDays = 30;
     
-    // Filter out channels with no planned budget
-    return Object.entries(channelSpend)
-      .filter(([_, data]) => data.planned > 0)
-      .map(([channel, data]) => ({
+    // Get all unique channels from both spend data and campaigns
+    const allChannels = new Set<string>();
+    Object.keys(channelSpend).forEach(ch => allChannels.add(ch));
+    campaigns.forEach(camp => {
+      const channel = normalizeChannel(camp.channel || 'Unknown');
+      allChannels.add(channel);
+    });
+    
+    // Build pacing data for each channel
+    // Note: plannedBudget will be enriched from channel_budgets in the component
+    // Here we use campaign budgets as fallback
+    const campaignBudgetByChannel: Record<string, number> = {};
+    campaigns.forEach(camp => {
+      const channel = normalizeChannel(camp.channel || 'Unknown');
+      campaignBudgetByChannel[channel] = (campaignBudgetByChannel[channel] || 0) + (camp.budget || 0);
+    });
+    
+    return Array.from(allChannels)
+      .filter(channel => channelSpend[channel] > 0 || campaignBudgetByChannel[channel] > 0)
+      .map(channel => ({
         channel,
-        plannedBudget: data.planned,
-        actualSpend: data.actual,
+        plannedBudget: campaignBudgetByChannel[channel] || 0,
+        actualSpend: channelSpend[channel] || 0,
         daysElapsed,
         totalDays,
       }));
