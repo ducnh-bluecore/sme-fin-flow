@@ -18,12 +18,14 @@ import {
   Sparkles,
   Bot,
   Settings2,
+  Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
 import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
 import { InlineAIChat } from '@/components/decision/InlineAIChat';
 import { ThresholdConfigDialog } from '@/components/decision/ThresholdConfigDialog';
+import { DecisionFollowupPanel } from '@/components/decision/DecisionFollowupPanel';
 import { 
   useDecisionCards, 
   useDecisionCard,
@@ -596,10 +598,16 @@ export default function DecisionCenterPage() {
         </CardContent>
       </Card>
 
+      {/* Decision Follow-up Panel - Theo dõi kết quả quyết định */}
+      <DecisionFollowupPanel />
+
       {/* Tabs for different views */}
       <Tabs defaultValue="history" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="history">Lịch sử quyết định</TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5">
+            <CheckCircle2 className="h-4 w-4" />
+            Lịch sử quyết định
+          </TabsTrigger>
           <TabsTrigger value="dismissed">Đã bỏ qua</TabsTrigger>
           <TabsTrigger value="expired">Đã hết hạn</TabsTrigger>
         </TabsList>
