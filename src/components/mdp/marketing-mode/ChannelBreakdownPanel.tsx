@@ -95,11 +95,9 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
   // Aggregate by channel
   const channelMap = new Map<string, ChannelData>();
   
-  let totalSpend = 0;
   let totalRevenue = 0;
 
   campaigns.forEach(c => {
-    totalSpend += c.spend;
     totalRevenue += c.revenue;
   });
 
@@ -134,8 +132,8 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
     }
   });
 
-  // Create pacing lookup map
-  const pacingMap = new Map<string, { pacing: number; isOverspend: boolean }>();
+  // Create pacing lookup map (single source for ACTUAL spend)
+  const pacingMap = new Map<string, { pacing: number; isOverspend: boolean; actualSpend: number; plannedBudget: number }>();
   const today = new Date();
   const dayOfMonth = today.getDate();
   const expectedPacingPercent = (dayOfMonth / 30) * 100;
@@ -144,26 +142,39 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
     const normalizedChannel = normalizeChannel(p.channel);
     const configured = budgetsMap.get(normalizedChannel);
     const planned = configured?.is_active ? (configured.budget_amount || 0) : p.plannedBudget;
-    const pacing = planned > 0 ? (p.actualSpend / planned) * 100 : 0;
+    const actual = p.actualSpend || 0;
+
+    const pacing = planned > 0 ? (actual / planned) * 100 : 0;
     const isOverspend = pacing > expectedPacingPercent + 10; // 10% tolerance
-    pacingMap.set(normalizedChannel, { pacing, isOverspend });
+    pacingMap.set(normalizedChannel, { pacing, isOverspend, actualSpend: actual, plannedBudget: planned });
   });
+
+  // Total spend for share calc must use the SAME spend definition as per-channel (single source of truth)
+  const totalSpendUnified = Array.from(channelMap.values()).reduce((sum, ch) => {
+    const pacingInfo = pacingMap.get(ch.channel);
+    const spend = pacingInfo?.actualSpend ?? ch.spend;
+    return sum + spend;
+  }, 0);
 
   // Calculate derived metrics and add target comparison
   const channelData = Array.from(channelMap.values()).map(ch => {
     const pacingInfo = pacingMap.get(ch.channel);
     const budget = budgetsMap.get(ch.channel);
     const isActiveBudget = !!budget?.is_active;
-    
-    const actualROAS = ch.spend > 0 ? ch.revenue / ch.spend : 0;
-    const actualCPA = ch.orders > 0 ? ch.spend / ch.orders : 0;
+
+    // SINGLE SOURCE OF TRUTH for spend in Marketing Mode: budgetPacingData.actualSpend (campaign actual_cost + marketing_expenses)
+    // Fallback to campaign spend when pacing data missing
+    const spend = pacingInfo?.actualSpend ?? ch.spend;
+
+    const actualROAS = spend > 0 ? ch.revenue / spend : 0;
+    const actualCPA = ch.orders > 0 ? spend / ch.orders : 0;
     const actualCTR = ch.impressions > 0 ? (ch.clicks / ch.impressions) * 100 : 0;
     const actualCVR = ch.clicks > 0 ? (ch.orders / ch.clicks) * 100 : 0;
     
     // Calculate contribution margin (Revenue - COGS 40% - Fees 15% - Ad Spend)
     const estimatedCOGS = ch.revenue * 0.40;
     const estimatedFees = ch.revenue * 0.15;
-    const contributionMargin = ch.revenue - estimatedCOGS - estimatedFees - ch.spend;
+    const contributionMargin = ch.revenue - estimatedCOGS - estimatedFees - spend;
     const cmPercent = ch.revenue > 0 ? (contributionMargin / ch.revenue) * 100 : 0;
 
     const budgetAmount = isActiveBudget ? (budget?.budget_amount || 0) : 0;
@@ -176,11 +187,12 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
     
     return {
       ...ch,
+      spend,
       roas: actualROAS,
       cpa: actualCPA,
       ctr: actualCTR,
       cvr: actualCVR,
-      spendShare: totalSpend > 0 ? (ch.spend / totalSpend) * 100 : 0,
+      spendShare: totalSpendUnified > 0 ? (spend / totalSpendUnified) * 100 : 0,
       revenueShare: totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0,
       pacing: pacingInfo?.pacing || 0,
       isOverspend: pacingInfo?.isOverspend || false,
@@ -200,7 +212,7 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
       cvrAchieved: actualCVR >= targetCVR,
       cmAchieved: cmPercent >= targetCM,
       revenueAchieved: revenueTarget > 0 ? ch.revenue >= revenueTarget : true,
-      budgetUtilization: budgetAmount > 0 ? (ch.spend / budgetAmount) * 100 : 0,
+      budgetUtilization: budgetAmount > 0 ? (spend / budgetAmount) * 100 : 0,
       contributionMargin,
       cmPercent,
       isConfigured: isActiveBudget,
