@@ -97,6 +97,12 @@ export interface CentralFinancialMetrics {
   lastUpdated: string;
 }
 
+// Import centralized constants (SSOT for benchmarks and ratios)
+import { 
+  INDUSTRY_BENCHMARKS, 
+  FALLBACK_RATIOS as CENTRAL_FALLBACK_RATIOS 
+} from '@/lib/financial-constants';
+
 // Category mapping for expense classification
 const EXPENSE_CATEGORY_MAP: Record<string, 'cogs' | 'opex' | 'depreciation' | 'interest' | 'tax'> = {
   'cogs': 'cogs',
@@ -111,14 +117,8 @@ const EXPENSE_CATEGORY_MAP: Record<string, 'cogs' | 'opex' | 'depreciation' | 'i
   'other': 'opex',
 };
 
-// Fallback ratios when no expense data exists
-const FALLBACK_RATIOS = {
-  cogs: 0.65,
-  opex: 0.20,
-  depreciation: 0.018,
-  interest: 0.013,
-  tax: 0.20, // Tax rate
-};
+// Use centralized fallback ratios
+const FALLBACK_RATIOS = CENTRAL_FALLBACK_RATIOS;
 
 export function useCentralFinancialMetrics() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
@@ -371,14 +371,14 @@ export function useCentralFinancialMetrics() {
       const dpo = dailyPurchases > 0 ? Math.round(totalAP / dailyPurchases) : 30;
       const ccc = dso + dio - dpo;
 
-      // ========== BENCHMARKS ==========
+      // ========== BENCHMARKS - Use centralized constants (SSOT) ==========
       const industryBenchmark = {
-        dso: 35,
-        dio: 45,
-        dpo: 40,
-        ccc: 40,
-        grossMargin: 35,
-        ebitdaMargin: 15
+        dso: INDUSTRY_BENCHMARKS.dso,
+        dio: INDUSTRY_BENCHMARKS.dio,
+        dpo: INDUSTRY_BENCHMARKS.dpo,
+        ccc: INDUSTRY_BENCHMARKS.ccc,
+        grossMargin: INDUSTRY_BENCHMARKS.grossMargin,
+        ebitdaMargin: INDUSTRY_BENCHMARKS.ebitdaMargin
       };
 
       const metrics: CentralFinancialMetrics = {
@@ -493,7 +493,7 @@ function getEmptyCentralMetrics(startDate: string, endDate: string): CentralFina
     dailyCogs: 0,
     dailyPurchases: 0,
     daysInPeriod: 0,
-    industryBenchmark: { dso: 35, dio: 45, dpo: 40, ccc: 40, grossMargin: 35, ebitdaMargin: 15 },
+    industryBenchmark: { dso: INDUSTRY_BENCHMARKS.dso, dio: INDUSTRY_BENCHMARKS.dio, dpo: INDUSTRY_BENCHMARKS.dpo, ccc: INDUSTRY_BENCHMARKS.ccc, grossMargin: INDUSTRY_BENCHMARKS.grossMargin, ebitdaMargin: INDUSTRY_BENCHMARKS.ebitdaMargin },
     dataStartDate: startDate,
     dataEndDate: endDate,
     lastUpdated: new Date().toISOString()
@@ -542,12 +542,12 @@ function mapCacheToMetrics(
     dailyPurchases: Number(cached.daily_purchases) || 0,
     daysInPeriod: (cached.days_in_period as number) ?? 90,
     industryBenchmark: {
-      dso: 35,
-      dio: 45,
-      dpo: 40,
-      ccc: 40,
-      grossMargin: 35,
-      ebitdaMargin: 15,
+      dso: INDUSTRY_BENCHMARKS.dso,
+      dio: INDUSTRY_BENCHMARKS.dio,
+      dpo: INDUSTRY_BENCHMARKS.dpo,
+      ccc: INDUSTRY_BENCHMARKS.ccc,
+      grossMargin: INDUSTRY_BENCHMARKS.grossMargin,
+      ebitdaMargin: INDUSTRY_BENCHMARKS.ebitdaMargin,
     },
     dataStartDate: (cached.date_range_start as string) || startDate,
     dataEndDate: (cached.date_range_end as string) || endDate,

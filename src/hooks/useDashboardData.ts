@@ -2,7 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
-import { useFinancialMetrics } from './useFinancialMetrics';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+
+/**
+ * Dashboard Data Hooks - REFACTORED FOR SSOT
+ * 
+ * Uses useCentralFinancialMetrics for all financial metrics.
+ * Only calculates dashboard-specific data that isn't covered by central metrics.
+ */
 
 // Types
 export interface DashboardKPIs {
@@ -72,16 +79,25 @@ export interface ARAgingBucket {
 }
 
 /**
- * Dashboard KPIs Hook - REFACTORED
- * Now uses useFinancialMetrics for DSO, DPO, DIO, CCC to ensure consistency
- * across all pages (Dashboard, CashConversionCycle, WorkingCapital, etc.)
+ * Dashboard KPIs Hook - REFACTORED FOR SSOT
+ * 
+ * Uses useCentralFinancialMetrics as the SINGLE SOURCE OF TRUTH for:
+ * - DSO, DPO, DIO, CCC (Cash Conversion Cycle)
+ * - Gross Margin, EBITDA
+ * - AR, AP totals
+ * - Cash on hand
+ * 
+ * Only calculates dashboard-specific metrics not in central metrics:
+ * - Cash 7d forecast
+ * - Auto match rate
+ * - Overdue AR details
  */
 export function useDashboardKPIs() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
   const { startDateStr, endDateStr, dateRange } = useDateRangeForQuery();
   
-  // Use centralized financial metrics for DSO, DPO, DIO, CCC
-  const { data: financialMetrics } = useFinancialMetrics();
+  // Use centralized financial metrics (SINGLE SOURCE OF TRUTH)
+  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
   return useQuery({
     queryKey: ['dashboard-kpis', tenantId, dateRange, startDateStr, endDateStr],
@@ -220,53 +236,33 @@ export function useDashboardKPIs() {
         ? Math.round(((matchedCount + reconciledSettlements) / totalMatchable) * 100)
         : 0;
       
-      // Revenue and COGS calculation
-      const traditionalRevenue = revenues.reduce((sum, r) => sum + (r.amount || 0), 0);
-      const ecommerceRevenue = externalOrders
-        .filter(o => o.status === 'delivered')
-        .reduce((sum, o) => sum + (o.total_amount || 0), 0);
-      const totalRevenue = traditionalRevenue + ecommerceRevenue;
-      
-      const traditionalCogs = expenses.filter(e => e.category === 'cogs').reduce((sum, e) => sum + (e.amount || 0), 0);
-      const ecommerceCogs = externalOrders
-        .filter(o => o.status === 'delivered')
-        .reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
-      const cogs = traditionalCogs + ecommerceCogs;
-      
-      // Fees as operating expenses
-      const ecommerceFees = externalOrders
-        .filter(o => o.status === 'delivered')
-        .reduce((sum, o) => sum + (o.platform_fee || 0) + (o.commission_fee || 0) + (o.payment_fee || 0) + (o.shipping_fee_paid || 0) + (o.other_fees || 0), 0);
-      const operatingExpenses = expenses.filter(e => !['depreciation', 'interest', 'tax'].includes(e.category)).reduce((sum, e) => sum + (e.amount || 0), 0) + ecommerceFees;
-      
-      const grossProfit = totalRevenue - cogs;
-      const grossMargin = totalRevenue > 0 ? Math.round((grossProfit / totalRevenue) * 100 * 10) / 10 : 0;
-      const ebitda = totalRevenue - cogs - operatingExpenses;
-      
-      // USE FINANCIAL METRICS for DSO, DPO, DIO, CCC - Single source of truth!
-      const dso = financialMetrics?.dso ?? 0;
-      const dpo = financialMetrics?.dpo ?? 0;
-      const dio = financialMetrics?.dio ?? 0;
-      const ccc = financialMetrics?.ccc ?? 0;
+      // USE CENTRAL METRICS for DSO, DPO, DIO, CCC, Gross Margin, EBITDA - Single Source of Truth!
+      // This eliminates duplicate calculations and ensures consistency
+      const dso = centralMetrics?.dso ?? 0;
+      const dpo = centralMetrics?.dpo ?? 0;
+      const dio = centralMetrics?.dio ?? 0;
+      const ccc = centralMetrics?.ccc ?? 0;
+      const grossMargin = centralMetrics?.grossMargin ?? 0;
+      const ebitda = centralMetrics?.ebitda ?? 0;
       
       return {
-        cashToday,
-        cash7d: cash7d || cashToday,
-        totalAR,
-        overdueAR,
+        cashToday: centralMetrics?.cashOnHand ?? cashToday,
+        cash7d: cash7d || centralMetrics?.cashOnHand || cashToday,
+        totalAR: centralMetrics?.totalAR ?? totalAR,
+        overdueAR: centralMetrics?.overdueAR ?? overdueAR,
         dso,
         dpo,
         dio,
         ccc,
         grossMargin: grossMargin > 0 ? grossMargin : 0,
-        ebitda: ebitda,
+        ebitda,
         autoMatchRate,
         dateRangeStart: startDateStr,
         dateRangeEnd: endDateStr,
       };
     },
     staleTime: 30000,
-    enabled: !tenantLoading && !!tenantId,
+    enabled: !tenantLoading && !!tenantId && !metricsLoading,
   });
 }
 
