@@ -42,6 +42,11 @@ const analysisTypeIcons: Record<string, typeof Scale> = {
   npv_irr: Calculator,
   payback: Clock,
   sensitivity: TrendingUp,
+  // Marketing decision types
+  marketing_scale: TrendingUp,
+  marketing_pause: XCircle,
+  marketing_reduce: TrendingUp,
+  marketing_investigate: AlertTriangle,
 };
 
 const analysisTypeLabels: Record<string, string> = {
@@ -51,6 +56,11 @@ const analysisTypeLabels: Record<string, string> = {
   npv_irr: 'NPV/IRR',
   payback: 'Payback',
   sensitivity: 'Sensitivity',
+  // Marketing decision types
+  marketing_scale: 'MKT Scale',
+  marketing_pause: 'MKT Pause',
+  marketing_reduce: 'MKT Reduce',
+  marketing_investigate: 'MKT Review',
 };
 
 const priorityConfig = {
