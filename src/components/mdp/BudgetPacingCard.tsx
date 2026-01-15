@@ -45,16 +45,46 @@ export function BudgetPacingCard({
   periodLabel = 'Tháng này'
 }: BudgetPacingCardProps) {
   // Get channel budgets from database as source of truth
-  const { budgets, budgetsMap, isLoading: budgetsLoading } = useChannelBudgets();
+  const { budgets, budgetsMap } = useChannelBudgets();
   
-  // Calculate total planned budget from channel_budgets (source of truth)
+  const hasConfiguredBudgets = useMemo(() => {
+    return budgets.some(b => b.is_active && (b.budget_amount || 0) > 0);
+  }, [budgets]);
+
+  // Total planned budget: single source of truth = active channel_budgets
   const totalPlannedBudget = useMemo(() => {
-    const configuredBudget = budgets
+    if (!hasConfiguredBudgets) return fallbackPlannedBudget;
+    return budgets
       .filter(b => b.is_active)
       .reduce((sum, b) => sum + (b.budget_amount || 0), 0);
-    // Fallback to props if no configured budgets
-    return configuredBudget > 0 ? configuredBudget : fallbackPlannedBudget;
-  }, [budgets, fallbackPlannedBudget]);
+  }, [budgets, fallbackPlannedBudget, hasConfiguredBudgets]);
+
+  // Total actual spend MUST match the same set of channels included in planned budget
+  const effectiveActualSpend = useMemo(() => {
+    if (!hasConfiguredBudgets) return totalActualSpend;
+
+    const normalizeChannel = (channel: string): string => {
+      const lower = channel?.toLowerCase() || 'unknown';
+      if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
+      if (lower.includes('google') || lower.includes('gg')) return 'google';
+      if (lower.includes('shopee')) return 'shopee';
+      if (lower.includes('lazada')) return 'lazada';
+      if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
+      if (lower.includes('website') || lower.includes('direct')) return 'website';
+      if (lower.includes('offline') || lower.includes('retail')) return 'offline';
+      return lower;
+    };
+
+    const activeChannels = new Set(
+      budgets.filter(b => b.is_active).map(b => b.channel.toLowerCase())
+    );
+
+    return budgetData.reduce((sum, row) => {
+      const ch = normalizeChannel(row.channel);
+      if (!activeChannels.has(ch)) return sum;
+      return sum + (row.actualSpend || 0);
+    }, 0);
+  }, [hasConfiguredBudgets, budgets, budgetData, totalActualSpend]);
   
   const pacingMetrics = useMemo(() => {
     const daysInMonth = 30;
@@ -65,15 +95,15 @@ export function BudgetPacingCard({
     
     // Expected spend based on linear pacing
     const expectedSpend = (totalPlannedBudget / daysInMonth) * daysElapsed;
-    const pacingPercent = totalPlannedBudget > 0 ? (totalActualSpend / totalPlannedBudget) * 100 : 0;
+    const pacingPercent = totalPlannedBudget > 0 ? (effectiveActualSpend / totalPlannedBudget) * 100 : 0;
     const expectedPercent = (daysElapsed / daysInMonth) * 100;
     
     // Variance analysis
-    const variance = totalActualSpend - expectedSpend;
+    const variance = effectiveActualSpend - expectedSpend;
     const variancePercent = expectedSpend > 0 ? (variance / expectedSpend) * 100 : 0;
     
     // Projected end-of-month spend
-    const dailyAvgSpend = daysElapsed > 0 ? totalActualSpend / daysElapsed : 0;
+    const dailyAvgSpend = daysElapsed > 0 ? effectiveActualSpend / daysElapsed : 0;
     const projectedTotal = dailyAvgSpend * daysInMonth;
     const projectedOverspend = projectedTotal - totalPlannedBudget;
     
@@ -102,7 +132,7 @@ export function BudgetPacingCard({
       projectedOverspend,
       status,
     };
-  }, [totalPlannedBudget, totalActualSpend]);
+  }, [totalPlannedBudget, effectiveActualSpend]);
 
   const statusConfig = {
     'on-track': {
@@ -170,8 +200,11 @@ export function BudgetPacingCard({
       .map(ch => {
         const normalizedChannel = normalizeChannel(ch.channel);
         const configuredBudget = budgetsMap.get(normalizedChannel);
-        // Use configured budget from channel_budgets if available, else fallback to campaign budget
-        const plannedBudget = configuredBudget?.budget_amount || ch.plannedBudget;
+
+        const plannedBudget = hasConfiguredBudgets
+          ? (configuredBudget?.is_active ? (configuredBudget.budget_amount || 0) : 0)
+          : (configuredBudget?.budget_amount || ch.plannedBudget);
+
         const pacing = plannedBudget > 0 ? (ch.actualSpend / plannedBudget) * 100 : 0;
         const expectedPacing = ch.totalDays > 0 ? (ch.daysElapsed / ch.totalDays) * 100 : 0;
         
@@ -187,7 +220,7 @@ export function BudgetPacingCard({
         };
       })
       .sort((a, b) => b.actualSpend - a.actualSpend);
-  }, [budgetData, budgetsMap]);
+  }, [budgetData, budgetsMap, hasConfiguredBudgets]);
 
   return (
     <Card className={cn("border", config.borderColor, config.bgColor)}>
@@ -220,7 +253,7 @@ export function BudgetPacingCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{periodLabel}</span>
             <span className="font-medium">
-              {formatCurrency(totalActualSpend)}đ / {formatCurrency(totalPlannedBudget)}đ
+              {formatCurrency(effectiveActualSpend)}đ / {formatCurrency(totalPlannedBudget)}đ
             </span>
           </div>
           
@@ -280,12 +313,12 @@ export function BudgetPacingCard({
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Còn lại</p>
-            <p className="text-sm font-medium">{formatCurrency(totalPlannedBudget - totalActualSpend)}đ</p>
+            <p className="text-sm font-medium">{formatCurrency(totalPlannedBudget - effectiveActualSpend)}đ</p>
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Còn {pacingMetrics.daysRemaining} ngày</p>
             <p className="text-sm font-medium">
-              {formatCurrency((totalPlannedBudget - totalActualSpend) / Math.max(pacingMetrics.daysRemaining, 1))}đ/ngày
+              {formatCurrency((totalPlannedBudget - effectiveActualSpend) / Math.max(pacingMetrics.daysRemaining, 1))}đ/ngày
             </p>
           </div>
         </div>
