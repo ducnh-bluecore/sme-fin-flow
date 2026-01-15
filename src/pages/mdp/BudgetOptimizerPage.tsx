@@ -60,7 +60,8 @@ export default function BudgetOptimizerPage() {
   const summaryMetrics = useMemo(() => {
     if (!channelBudgets || channelBudgets.length === 0) {
       return {
-        totalCurrentBudget: 0,
+        totalAllocatedBudget: 0,
+        totalActualSpend: 0,
         totalSuggestedBudget: 0,
         totalCurrentRevenue: 0,
         totalProjectedRevenue: 0,
@@ -69,27 +70,35 @@ export default function BudgetOptimizerPage() {
         avgProjectedROAS: 0,
         budgetChange: 0,
         revenueLift: 0,
+        overallSpendRate: 0,
       };
     }
 
-    const totalCurrentBudget = channelBudgets.reduce((acc, c) => acc + c.currentBudget, 0);
+    const totalAllocatedBudget = channelBudgets.reduce((acc, c) => acc + (c.allocatedBudget || 0), 0);
+    const totalActualSpend = channelBudgets.reduce((acc, c) => acc + c.actualSpend, 0);
     const totalSuggestedBudget = channelBudgets.reduce((acc, c) => acc + c.suggestedBudget, 0);
     const totalCurrentRevenue = channelBudgets.reduce((acc, c) => acc + c.currentRevenue, 0);
     const totalProjectedRevenue = channelBudgets.reduce((acc, c) => acc + c.projectedRevenue, 0);
     const avgConfidence = channelBudgets.reduce((acc, c) => acc + c.confidence, 0) / channelBudgets.length;
-    const avgROAS = totalCurrentBudget > 0 ? totalCurrentRevenue / totalCurrentBudget : 0;
+    const avgROAS = totalActualSpend > 0 ? totalCurrentRevenue / totalActualSpend : 0;
     const avgProjectedROAS = totalSuggestedBudget > 0 ? totalProjectedRevenue / totalSuggestedBudget : 0;
+    const overallSpendRate = totalAllocatedBudget > 0 ? (totalActualSpend / totalAllocatedBudget) * 100 : 0;
+
+    // Budget change: đề xuất so với budget được cấp (hoặc actual spend nếu chưa cấu hình)
+    const baseBudget = totalAllocatedBudget > 0 ? totalAllocatedBudget : totalActualSpend;
 
     return {
-      totalCurrentBudget,
+      totalAllocatedBudget,
+      totalActualSpend,
       totalSuggestedBudget,
       totalCurrentRevenue,
       totalProjectedRevenue,
       avgConfidence,
       avgROAS,
       avgProjectedROAS,
-      budgetChange: totalSuggestedBudget - totalCurrentBudget,
+      budgetChange: totalSuggestedBudget - baseBudget,
       revenueLift: totalProjectedRevenue - totalCurrentRevenue,
+      overallSpendRate,
     };
   }, [channelBudgets]);
 
@@ -174,17 +183,17 @@ export default function BudgetOptimizerPage() {
         name: budget.channel,
         key: budget.channel.toLowerCase().replace(/\s+/g, '_'),
         revenue: budget.currentRevenue,
-        channelCost: budget.currentBudget,
+        channelCost: budget.actualSpend,
         grossProfit: profitData?.contribution_margin || (budget.currentRevenue * 0.3),
         margin: profitData?.contribution_margin_percent || 30,
-        share: summaryMetrics.totalCurrentBudget > 0
-          ? (budget.currentBudget / summaryMetrics.totalCurrentBudget) * 100 
+        share: summaryMetrics.totalActualSpend > 0
+          ? (budget.actualSpend / summaryMetrics.totalActualSpend) * 100 
           : 0,
         growth: 10, // Default growth
         commission: 5, // Default commission
       };
     });
-  }, [channelBudgets, profitAttribution, cashImpact, summaryMetrics.totalCurrentBudget]);
+  }, [channelBudgets, profitAttribution, cashImpact, summaryMetrics.totalActualSpend]);
 
   if (isLoading) {
     return (
@@ -258,8 +267,18 @@ export default function BudgetOptimizerPage() {
                     <Wallet className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-muted-foreground truncate">Tổng Chi phí</p>
-                    <p className="text-xl font-bold">{formatVNDCompact(summaryMetrics.totalCurrentBudget)}</p>
+                    <p className="text-sm text-muted-foreground truncate">Budget / Đã tiêu</p>
+                    <p className="text-xl font-bold">
+                      {summaryMetrics.totalAllocatedBudget > 0 
+                        ? `${formatVNDCompact(summaryMetrics.totalAllocatedBudget)} / ${formatVNDCompact(summaryMetrics.totalActualSpend)}`
+                        : formatVNDCompact(summaryMetrics.totalActualSpend)
+                      }
+                    </p>
+                    {summaryMetrics.totalAllocatedBudget > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        ({summaryMetrics.overallSpendRate.toFixed(0)}% đã tiêu)
+                      </p>
+                    )}
                     <div className="flex items-center gap-1 text-xs">
                       {summaryMetrics.budgetChange >= 0 ? (
                         <TrendingUp className="h-3 w-3 text-warning" />
@@ -503,7 +522,7 @@ export default function BudgetOptimizerPage() {
             <TabsContent value="ai-optimizer" className="mt-6">
               <BudgetOptimizationPanel 
                 channels={channelDataForAI}
-                totalBudget={summaryMetrics.totalCurrentBudget}
+                totalBudget={summaryMetrics.totalAllocatedBudget > 0 ? summaryMetrics.totalAllocatedBudget : summaryMetrics.totalActualSpend}
               />
             </TabsContent>
 
@@ -512,7 +531,7 @@ export default function BudgetOptimizerPage() {
               {channelBudgets.map((channel, idx) => {
                 const actionConfig = getActionConfig(channel.action);
                 const ActionIcon = actionConfig.icon;
-                const budgetDiff = channel.suggestedBudget - channel.currentBudget;
+                const budgetDiff = channel.suggestedBudget - (channel.allocatedBudget || channel.actualSpend);
                 const revenueDiff = channel.projectedRevenue - channel.currentRevenue;
 
                 // Find matching profit data
@@ -550,18 +569,48 @@ export default function BudgetOptimizerPage() {
                             )}
                           </div>
                           
-                          {/* Budget Change Visualization */}
-                          <div className="flex items-center gap-4 text-sm">
-                            <div>
-                              <p className="text-muted-foreground text-xs">Ads đã tiêu</p>
-                              <p className="font-semibold">{formatVNDCompact(channel.currentBudget)}</p>
+                          {/* Budget Change Visualization - Now shows: Budget | Đã tiêu (%) | Đề xuất */}
+                          <div className="flex items-center gap-3 text-sm flex-wrap">
+                            {/* Budget được cấp */}
+                            <div className="min-w-[80px]">
+                              <p className="text-muted-foreground text-xs">Budget</p>
+                              <p className="font-semibold">
+                                {channel.allocatedBudget > 0 
+                                  ? formatVNDCompact(channel.allocatedBudget)
+                                  : <span className="text-muted-foreground text-xs">Chưa cấu hình</span>
+                                }
+                              </p>
                             </div>
+                            
+                            {/* Ads đã tiêu với % */}
+                            <div className="min-w-[100px]">
+                              <p className="text-muted-foreground text-xs">Đã tiêu</p>
+                              <div className="flex items-center gap-1">
+                                <p className="font-semibold">{formatVNDCompact(channel.actualSpend)}</p>
+                                {channel.allocatedBudget > 0 && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-xs px-1.5 py-0",
+                                      channel.spendRate > 100 ? "bg-destructive/20 text-destructive" :
+                                      channel.spendRate > 80 ? "bg-warning/20 text-warning" :
+                                      "bg-muted text-muted-foreground"
+                                    )}
+                                  >
+                                    {channel.spendRate.toFixed(0)}%
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            
                             <ArrowRight className={cn(
                               "h-5 w-5 shrink-0",
                               channel.action === 'increase' ? "text-success" :
                               channel.action === 'decrease' ? "text-destructive" : "text-muted-foreground"
                             )} />
-                            <div>
+                            
+                            {/* Đề xuất Budget mới */}
+                            <div className="min-w-[80px]">
                               <p className="text-muted-foreground text-xs">Đề xuất</p>
                               <p className={cn(
                                 "font-semibold",
@@ -571,6 +620,8 @@ export default function BudgetOptimizerPage() {
                                 {formatVNDCompact(channel.suggestedBudget)}
                               </p>
                             </div>
+                            
+                            {/* Chênh lệch */}
                             <Badge className={cn(
                               budgetDiff > 0 ? "bg-success/20 text-success" :
                               budgetDiff < 0 ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground"
