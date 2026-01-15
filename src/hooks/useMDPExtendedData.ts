@@ -129,12 +129,13 @@ export function useBudgetOptimizerData() {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   
-  // Get current month/year from date range
-  const startDate = new Date(startDateStr);
-  const currentYear = startDate.getFullYear();
-  const currentMonth = startDate.getMonth() + 1;
+  // Use actual current date for budget lookup (not date range filter)
+  // Budget is configured per calendar month, so we use today's month
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
 
-  // Fetch allocated budgets from channel_budgets table
+  // Fetch allocated budgets from channel_budgets table for CURRENT month
   const allocatedBudgetsQuery = useQuery({
     queryKey: ['budget-optimizer-allocated', tenantId, currentYear, currentMonth],
     queryFn: async () => {
@@ -146,6 +147,7 @@ export function useBudgetOptimizerData() {
         .eq('year', currentYear)
         .eq('month', currentMonth);
       if (error) throw error;
+      console.log('[BudgetOptimizer] Fetched budgets for', currentYear, currentMonth, ':', data);
       return data || [];
     },
     enabled: !!tenantId,
