@@ -4128,6 +4128,128 @@ export type Database = {
           },
         ]
       }
+      decision_threshold_configs: {
+        Row: {
+          ar_aging_90_critical_percent: number
+          ar_overdue_critical_percent: number
+          ar_overdue_warning_percent: number
+          ccc_critical_days: number
+          ccc_warning_days: number
+          channel_fee_critical_percent: number
+          channel_fee_warning_percent: number
+          cm_critical_percent: number
+          cm_good_percent: number
+          cm_warning_percent: number
+          created_at: string
+          customer_risk_critical_days: number
+          customer_risk_high_days: number
+          customer_risk_medium_days: number
+          dso_critical_days: number
+          dso_warning_days: number
+          gross_margin_critical_percent: number
+          gross_margin_warning_percent: number
+          id: string
+          impact_approval_threshold: number
+          inventory_critical_days: number
+          inventory_warning_days: number
+          ltv_cac_critical: number
+          ltv_cac_good: number
+          ltv_cac_warning: number
+          roas_critical: number
+          roas_good: number
+          roas_warning: number
+          runway_critical_months: number
+          runway_warning_months: number
+          sku_critical_margin_percent: number
+          sku_review_margin_percent: number
+          sku_stop_margin_percent: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ar_aging_90_critical_percent?: number
+          ar_overdue_critical_percent?: number
+          ar_overdue_warning_percent?: number
+          ccc_critical_days?: number
+          ccc_warning_days?: number
+          channel_fee_critical_percent?: number
+          channel_fee_warning_percent?: number
+          cm_critical_percent?: number
+          cm_good_percent?: number
+          cm_warning_percent?: number
+          created_at?: string
+          customer_risk_critical_days?: number
+          customer_risk_high_days?: number
+          customer_risk_medium_days?: number
+          dso_critical_days?: number
+          dso_warning_days?: number
+          gross_margin_critical_percent?: number
+          gross_margin_warning_percent?: number
+          id?: string
+          impact_approval_threshold?: number
+          inventory_critical_days?: number
+          inventory_warning_days?: number
+          ltv_cac_critical?: number
+          ltv_cac_good?: number
+          ltv_cac_warning?: number
+          roas_critical?: number
+          roas_good?: number
+          roas_warning?: number
+          runway_critical_months?: number
+          runway_warning_months?: number
+          sku_critical_margin_percent?: number
+          sku_review_margin_percent?: number
+          sku_stop_margin_percent?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ar_aging_90_critical_percent?: number
+          ar_overdue_critical_percent?: number
+          ar_overdue_warning_percent?: number
+          ccc_critical_days?: number
+          ccc_warning_days?: number
+          channel_fee_critical_percent?: number
+          channel_fee_warning_percent?: number
+          cm_critical_percent?: number
+          cm_good_percent?: number
+          cm_warning_percent?: number
+          created_at?: string
+          customer_risk_critical_days?: number
+          customer_risk_high_days?: number
+          customer_risk_medium_days?: number
+          dso_critical_days?: number
+          dso_warning_days?: number
+          gross_margin_critical_percent?: number
+          gross_margin_warning_percent?: number
+          id?: string
+          impact_approval_threshold?: number
+          inventory_critical_days?: number
+          inventory_warning_days?: number
+          ltv_cac_critical?: number
+          ltv_cac_good?: number
+          ltv_cac_warning?: number
+          roas_critical?: number
+          roas_good?: number
+          roas_warning?: number
+          runway_critical_months?: number
+          runway_warning_months?: number
+          sku_critical_margin_percent?: number
+          sku_review_margin_percent?: number
+          sku_stop_margin_percent?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_threshold_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       depreciation_schedules: {
         Row: {
           accumulated_amount: number
