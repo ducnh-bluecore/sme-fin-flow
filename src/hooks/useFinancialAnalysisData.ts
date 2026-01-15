@@ -2,6 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { startOfYear, endOfYear, format, startOfMonth, endOfMonth, subMonths, subYears } from 'date-fns';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { INDUSTRY_BENCHMARKS, FALLBACK_RATIOS } from '@/lib/financial-constants';
+
+/**
+ * Financial Analysis Data Hook - REFACTORED FOR SSOT
+ * 
+ * Uses useCentralFinancialMetrics for core financial metrics (DSO, DPO, gross margin, EBITDA, etc.)
+ * Only calculates analysis-specific details (trends, breakdowns, YoY comparisons).
+ * 
+ * Core metrics from SSOT:
+ * - DSO, DPO (from centralMetrics)
+ * - grossMargin, ebitdaMargin, netProfitMargin
+ * - totalAR, totalAP
+ */
 
 export interface MonthlyFinancialData {
   month: string;
@@ -166,6 +180,9 @@ const EXPENSE_LABELS: Record<string, string> = {
 
 export function useFinancialAnalysisData(year: number = new Date().getFullYear()) {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  
+  // Use centralized financial metrics (SINGLE SOURCE OF TRUTH) for DSO, DPO, margins
+  const { data: centralMetrics } = useCentralFinancialMetrics();
 
   return useQuery({
     queryKey: ['financial-analysis-data', tenantId, year],
@@ -422,15 +439,12 @@ export function useFinancialAnalysisData(year: number = new Date().getFullYear()
         });
       }
 
-      // Financial ratios (calculated from real data)
-      const avgDailyRevenue = totalRevenue / 365;
-      const totalAR = invoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled')
+      // USE CENTRAL METRICS for DSO, DPO (SINGLE SOURCE OF TRUTH)
+      const dso = centralMetrics?.dso ?? 0;
+      const dpo = centralMetrics?.dpo ?? 0;
+      const totalAR = centralMetrics?.totalAR ?? invoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled')
         .reduce((sum, inv) => sum + (inv.total_amount || 0) - (inv.paid_amount || 0), 0);
-      const dso = avgDailyRevenue > 0 ? Math.round(totalAR / avgDailyRevenue) : 0;
-      
-      const avgDailyExpense = totalExpense / 365;
-      const totalAP = totalExpense * 0.15;
-      const dpo = avgDailyExpense > 0 ? Math.round(totalAP / avgDailyExpense) : 0;
+      const totalAP = centralMetrics?.totalAP ?? totalExpense * 0.15;
 
       // Only calculate ratios if there's actual data
       const hasFinancialData = totalRevenue > 0 || totalExpense > 0;
@@ -450,8 +464,8 @@ export function useFinancialAnalysisData(year: number = new Date().getFullYear()
         { category: 'Đòn bẩy', name: 'ICR', fullName: 'Interest Coverage Ratio', value: icr, target: 5, benchmark: 4, unit: 'x', trend: icr > 5 ? 'up' : 'stable', description: 'Khả năng trả lãi vay' },
         { category: 'Hiệu suất', name: 'Asset Turnover', fullName: 'Vòng quay tài sản', value: 0, target: 1.5, benchmark: 1.4, unit: 'x', trend: 'stable', description: 'Hiệu suất sử dụng tài sản' },
         { category: 'Hiệu suất', name: 'Inventory Turnover', fullName: 'Vòng quay hàng tồn kho', value: 0, target: 10, benchmark: 8, unit: 'x', trend: 'stable', description: 'Tốc độ xoay vòng hàng tồn kho' },
-        { category: 'Hiệu suất', name: 'DSO', fullName: 'Days Sales Outstanding', value: dso, target: 45, benchmark: 50, unit: 'ngày', trend: dso > 0 && dso < 45 ? 'down' : 'stable', description: 'Số ngày thu hồi công nợ' },
-        { category: 'Hiệu suất', name: 'DPO', fullName: 'Days Payable Outstanding', value: dpo, target: 35, benchmark: 30, unit: 'ngày', trend: 'stable', description: 'Số ngày thanh toán công nợ' },
+        { category: 'Hiệu suất', name: 'DSO', fullName: 'Days Sales Outstanding', value: dso, target: INDUSTRY_BENCHMARKS.dso, benchmark: 50, unit: 'ngày', trend: dso > 0 && dso < INDUSTRY_BENCHMARKS.dso ? 'down' : 'stable', description: 'Số ngày thu hồi công nợ' },
+        { category: 'Hiệu suất', name: 'DPO', fullName: 'Days Payable Outstanding', value: dpo, target: INDUSTRY_BENCHMARKS.dpo, benchmark: 30, unit: 'ngày', trend: 'stable', description: 'Số ngày thanh toán công nợ' },
       ] : [];
 
       // Profit trend data (quarterly)
