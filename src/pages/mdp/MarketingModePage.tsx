@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -140,7 +140,7 @@ export default function MarketingModePage() {
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformAdsData | null>(null);
   const [platformDialogOpen, setPlatformDialogOpen] = useState(false);
 
-  // Mock platform data
+  // Mock platform data (TODO: replace with real data from useMDPData when platform data is available)
   const platformAdsData: PlatformAdsData[] = [
     { platform: 'Shopee Ads', platform_icon: 'shopee', is_active: true, spend_today: 2500000, spend_month: 45000000, budget_month: 60000000, budget_utilization: 75, impressions: 850000, clicks: 12500, orders: 320, revenue: 128000000, cpm: 52941, cpc: 3600, ctr: 1.47, cvr: 2.56, cpa: 140625, roas: 2.84, acos: 35.2, add_to_cart: 2100, atc_rate: 16.8, quality_score: 8, relevance_score: 7, spend_trend: 5, cpa_trend: -3, roas_trend: 8 },
     { platform: 'Lazada Ads', platform_icon: 'lazada', is_active: true, spend_today: 1800000, spend_month: 32000000, budget_month: 40000000, budget_utilization: 80, impressions: 620000, clicks: 8900, orders: 210, revenue: 84000000, cpm: 51613, cpc: 3596, ctr: 1.44, cvr: 2.36, cpa: 152381, roas: 2.63, acos: 38.1, add_to_cart: 1450, atc_rate: 16.3, quality_score: 7, relevance_score: 8, spend_trend: 2, cpa_trend: 5, roas_trend: -2 },
@@ -149,25 +149,59 @@ export default function MarketingModePage() {
     { platform: 'Google Ads', platform_icon: 'google', is_active: false, spend_today: 0, spend_month: 8000000, budget_month: 20000000, budget_utilization: 40, impressions: 150000, clicks: 2100, orders: 42, revenue: 21000000, cpm: 53333, cpc: 3810, ctr: 1.40, cvr: 2.00, cpa: 190476, roas: 2.63, acos: 38.1, add_to_cart: 280, atc_rate: 13.3, quality_score: 6, spend_trend: -100, cpa_trend: 0, roas_trend: 0 },
   ];
 
-  // Marketing Actions
+  // SINGLE SOURCE OF TRUTH: Calculate advanced metrics FROM useMDPData
+  // This ensures consistency with all other MDP pages
+  const advancedMetrics: AdvancedMarketingMetrics = useMemo(() => {
+    const totalSpend = marketingModeSummary.total_spend;
+    const totalRevenue = marketingModeSummary.total_revenue;
+    const totalOrders = marketingModeSummary.total_orders;
+    const totalImpressions = marketingPerformance.reduce((sum, c) => sum + c.impressions, 0);
+    const totalClicks = marketingPerformance.reduce((sum, c) => sum + c.clicks, 0);
+    const totalLeads = marketingModeSummary.total_leads;
+    
+    // Estimate cart metrics based on funnel data
+    const estimatedAddToCarts = Math.round(totalClicks * 0.15);
+    const estimatedCheckouts = Math.round(estimatedAddToCarts * 0.55);
+    
+    return {
+      total_impressions: totalImpressions,
+      total_reach: Math.round(totalImpressions * 0.6), // Estimated
+      frequency: totalImpressions > 0 ? totalImpressions / Math.max(Math.round(totalImpressions * 0.6), 1) : 0,
+      total_clicks: totalClicks,
+      ctr: marketingModeSummary.overall_ctr,
+      cpc: totalClicks > 0 ? totalSpend / totalClicks : 0,
+      cpm: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0,
+      add_to_carts: estimatedAddToCarts,
+      atc_rate: totalClicks > 0 ? (estimatedAddToCarts / totalClicks) * 100 : 0,
+      checkouts: estimatedCheckouts,
+      checkout_rate: estimatedAddToCarts > 0 ? (estimatedCheckouts / estimatedAddToCarts) * 100 : 0,
+      orders: totalOrders,
+      cvr: marketingModeSummary.overall_conversion,
+      revenue: totalRevenue,
+      aov: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+      roas: marketingModeSummary.overall_roas,
+      acos: marketingModeSummary.overall_roas > 0 ? (1 / marketingModeSummary.overall_roas) * 100 : 0,
+      cpa: marketingModeSummary.overall_cpa,
+      total_spend: totalSpend,
+      profit_margin: 18.5, // Will be calculated from CM when available
+      ltv_cac_ratio: 2.8, // Will be calculated from LTV data when available
+      // Trends - would need historical data to calculate properly
+      impressions_trend: 0,
+      clicks_trend: 0,
+      orders_trend: 0,
+      revenue_trend: 0,
+      cpa_trend: 0,
+      roas_trend: 0,
+    };
+  }, [marketingModeSummary, marketingPerformance]);
+
+  // Marketing Actions - mock data for now
   const marketingActions: MarketingAction[] = [
     { id: '1', type: 'scale_up', priority: 'high', campaign_name: 'Flash Sale Weekend', campaign_id: 'c1', channel: 'TikTok Shop', reason: 'ROAS 4.2x - vượt benchmark 40%', expected_impact: 'Tăng revenue 25%', impact_value: 42000000, confidence: 85, is_urgent: true },
     { id: '2', type: 'pause', priority: 'high', campaign_name: 'Brand Awareness Q1', campaign_id: 'c2', channel: 'Meta Ads', reason: 'ROAS 1.2x - dưới ngưỡng sinh lời', expected_impact: 'Tiết kiệm 15M/tuần', impact_value: 15000000, confidence: 92, is_urgent: true },
     { id: '3', type: 'review_creative', priority: 'medium', campaign_name: 'New Collection', campaign_id: 'c3', channel: 'Shopee Ads', reason: 'CTR giảm 25% so với tuần trước', expected_impact: 'Cải thiện CTR 0.5%', confidence: 78, is_urgent: false },
     { id: '4', type: 'optimize_bid', priority: 'medium', campaign_name: 'Retargeting', campaign_id: 'c4', channel: 'Lazada Ads', reason: 'CPA cao hơn target 20%', expected_impact: 'Giảm CPA 15%', impact_value: 8000000, confidence: 72, is_urgent: false },
   ];
-
-  // Advanced Metrics
-  const advancedMetrics: AdvancedMarketingMetrics = {
-    total_impressions: 3300000, total_reach: 1850000, frequency: 1.78,
-    total_clicks: 57700, ctr: 1.75, cpc: 2980, cpm: 52121,
-    add_to_carts: 8450, atc_rate: 14.6, checkouts: 4800, checkout_rate: 56.8, orders: 1147, cvr: 1.99,
-    revenue: 448500000, aov: 391000, roas: 2.61, acos: 38.3, cpa: 149869,
-    total_spend: 172000000, profit_margin: 18.5, ltv_cac_ratio: 2.8,
-    impressions_trend: 8, clicks_trend: 12, orders_trend: 15, revenue_trend: 18, cpa_trend: -5, roas_trend: 10,
-  };
-
-  // Handlers
   const handleViewCampaignDetails = (campaignId: string) => {
     const campaign = marketingPerformance.find(c => c.campaign_id === campaignId);
     if (campaign) {
