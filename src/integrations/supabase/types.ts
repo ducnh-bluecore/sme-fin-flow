@@ -3758,6 +3758,7 @@ export type Database = {
       decision_audit_log: {
         Row: {
           action_label: string | null
+          action_parameters: Json | null
           action_type: string
           auto_card_id: string | null
           card_id: string | null
@@ -3772,6 +3773,10 @@ export type Database = {
           entity_id: string | null
           entity_label: string | null
           entity_type: string
+          expected_impact_amount: number | null
+          expected_outcome: string | null
+          follow_up_date: string | null
+          follow_up_status: string | null
           id: string
           impact_amount: number | null
           impact_currency: string | null
@@ -3779,11 +3784,14 @@ export type Database = {
           outcome_recorded_at: string | null
           outcome_tracking_key: string | null
           outcome_value: number | null
+          selected_action_label: string | null
+          selected_action_type: string | null
           snoozed_until: string | null
           tenant_id: string
         }
         Insert: {
           action_label?: string | null
+          action_parameters?: Json | null
           action_type: string
           auto_card_id?: string | null
           card_id?: string | null
@@ -3798,6 +3806,10 @@ export type Database = {
           entity_id?: string | null
           entity_label?: string | null
           entity_type: string
+          expected_impact_amount?: number | null
+          expected_outcome?: string | null
+          follow_up_date?: string | null
+          follow_up_status?: string | null
           id?: string
           impact_amount?: number | null
           impact_currency?: string | null
@@ -3805,11 +3817,14 @@ export type Database = {
           outcome_recorded_at?: string | null
           outcome_tracking_key?: string | null
           outcome_value?: number | null
+          selected_action_label?: string | null
+          selected_action_type?: string | null
           snoozed_until?: string | null
           tenant_id: string
         }
         Update: {
           action_label?: string | null
+          action_parameters?: Json | null
           action_type?: string
           auto_card_id?: string | null
           card_id?: string | null
@@ -3824,6 +3839,10 @@ export type Database = {
           entity_id?: string | null
           entity_label?: string | null
           entity_type?: string
+          expected_impact_amount?: number | null
+          expected_outcome?: string | null
+          follow_up_date?: string | null
+          follow_up_status?: string | null
           id?: string
           impact_amount?: number | null
           impact_currency?: string | null
@@ -3831,6 +3850,8 @@ export type Database = {
           outcome_recorded_at?: string | null
           outcome_tracking_key?: string | null
           outcome_value?: number | null
+          selected_action_label?: string | null
+          selected_action_type?: string | null
           snoozed_until?: string | null
           tenant_id?: string
         }
@@ -4127,6 +4148,92 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_outcomes: {
+        Row: {
+          actual_impact_amount: number | null
+          created_at: string
+          decision_audit_id: string
+          id: string
+          impact_variance: number | null
+          impact_variance_percent: number | null
+          lessons_learned: string | null
+          measured_at: string
+          measured_by: string | null
+          outcome_details: string | null
+          outcome_status: string
+          outcome_summary: string
+          supporting_metrics: Json | null
+          tenant_id: string
+          updated_at: string
+          would_repeat: boolean | null
+        }
+        Insert: {
+          actual_impact_amount?: number | null
+          created_at?: string
+          decision_audit_id: string
+          id?: string
+          impact_variance?: number | null
+          impact_variance_percent?: number | null
+          lessons_learned?: string | null
+          measured_at?: string
+          measured_by?: string | null
+          outcome_details?: string | null
+          outcome_status: string
+          outcome_summary: string
+          supporting_metrics?: Json | null
+          tenant_id: string
+          updated_at?: string
+          would_repeat?: boolean | null
+        }
+        Update: {
+          actual_impact_amount?: number | null
+          created_at?: string
+          decision_audit_id?: string
+          id?: string
+          impact_variance?: number | null
+          impact_variance_percent?: number | null
+          lessons_learned?: string | null
+          measured_at?: string
+          measured_by?: string | null
+          outcome_details?: string | null
+          outcome_status?: string
+          outcome_summary?: string
+          supporting_metrics?: Json | null
+          tenant_id?: string
+          updated_at?: string
+          would_repeat?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_outcomes_decision_audit_id_fkey"
+            columns: ["decision_audit_id"]
+            isOneToOne: false
+            referencedRelation: "decision_audit_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcomes_decision_audit_id_fkey"
+            columns: ["decision_audit_id"]
+            isOneToOne: false
+            referencedRelation: "decisions_pending_followup"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcomes_decision_audit_id_fkey"
+            columns: ["decision_audit_id"]
+            isOneToOne: false
+            referencedRelation: "unified_decision_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcomes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -11378,6 +11485,71 @@ export type Database = {
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decisions_pending_followup: {
+        Row: {
+          card_type: string | null
+          decided_at: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string | null
+          expected_impact_amount: number | null
+          expected_outcome: string | null
+          follow_up_date: string | null
+          follow_up_status: string | null
+          id: string | null
+          original_impact: number | null
+          outcome_count: number | null
+          selected_action_label: string | null
+          selected_action_type: string | null
+          tenant_id: string | null
+          urgency: string | null
+        }
+        Insert: {
+          card_type?: string | null
+          decided_at?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          expected_impact_amount?: number | null
+          expected_outcome?: string | null
+          follow_up_date?: string | null
+          follow_up_status?: string | null
+          id?: string | null
+          original_impact?: number | null
+          outcome_count?: never
+          selected_action_label?: string | null
+          selected_action_type?: string | null
+          tenant_id?: string | null
+          urgency?: never
+        }
+        Update: {
+          card_type?: string | null
+          decided_at?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          expected_impact_amount?: number | null
+          expected_outcome?: string | null
+          follow_up_date?: string | null
+          follow_up_status?: string | null
+          id?: string | null
+          original_impact?: number | null
+          outcome_count?: never
+          selected_action_label?: string | null
+          selected_action_type?: string | null
+          tenant_id?: string | null
+          urgency?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_audit_log_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
