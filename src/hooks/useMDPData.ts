@@ -166,7 +166,8 @@ export function useMDPData() {
 
   // === DATA QUERIES ===
   
-  // Fetch campaigns
+  // Fetch campaigns - use overlap logic: campaigns that are active during the date range
+  // A campaign overlaps if: start_date <= endDateStr AND end_date >= startDateStr
   const campaignsQuery = useQuery({
     queryKey: ['mdp-campaigns', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
@@ -175,8 +176,8 @@ export function useMDPData() {
         .from('promotion_campaigns')
         .select('*')
         .eq('tenant_id', tenantId)
-        .gte('start_date', startDateStr)
-        .lte('end_date', endDateStr)
+        .lte('start_date', endDateStr)
+        .gte('end_date', startDateStr)
         .order('actual_cost', { ascending: false });
       if (error) throw error;
       return data || [];
