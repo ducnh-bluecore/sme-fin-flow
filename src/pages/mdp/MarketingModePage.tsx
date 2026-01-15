@@ -373,7 +373,8 @@ export default function MarketingModePage() {
         <TabsContent value="overview" className="space-y-4">
           <PerformanceOverview summary={marketingModeSummary} />
           <ChannelBreakdownPanel 
-            campaigns={marketingPerformance} 
+            campaigns={marketingPerformance}
+            budgetPacingData={budgetPacingData}
             onViewChannelDetails={(channel) => navigate(`/mdp/channels?channel=${channel}`)}
           />
           <AdvancedMetricsGrid metrics={advancedMetrics} period="Last 30 days" />
