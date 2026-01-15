@@ -142,7 +142,9 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
   
   budgetPacingData.forEach(p => {
     const normalizedChannel = normalizeChannel(p.channel);
-    const pacing = p.plannedBudget > 0 ? (p.actualSpend / p.plannedBudget) * 100 : 0;
+    const configured = budgetsMap.get(normalizedChannel);
+    const planned = configured?.is_active ? (configured.budget_amount || 0) : p.plannedBudget;
+    const pacing = planned > 0 ? (p.actualSpend / planned) * 100 : 0;
     const isOverspend = pacing > expectedPacingPercent + 10; // 10% tolerance
     pacingMap.set(normalizedChannel, { pacing, isOverspend });
   });
@@ -151,6 +153,7 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
   const channelData = Array.from(channelMap.values()).map(ch => {
     const pacingInfo = pacingMap.get(ch.channel);
     const budget = budgetsMap.get(ch.channel);
+    const isActiveBudget = !!budget?.is_active;
     
     const actualROAS = ch.spend > 0 ? ch.revenue / ch.spend : 0;
     const actualCPA = ch.orders > 0 ? ch.spend / ch.orders : 0;
@@ -162,6 +165,14 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
     const estimatedFees = ch.revenue * 0.15;
     const contributionMargin = ch.revenue - estimatedCOGS - estimatedFees - ch.spend;
     const cmPercent = ch.revenue > 0 ? (contributionMargin / ch.revenue) * 100 : 0;
+
+    const budgetAmount = isActiveBudget ? (budget?.budget_amount || 0) : 0;
+    const revenueTarget = isActiveBudget ? (budget?.revenue_target || 0) : 0;
+    const targetROAS = isActiveBudget ? (budget?.target_roas || 3) : 3;
+    const maxCPA = isActiveBudget ? (budget?.max_cpa || 100000) : 100000;
+    const targetCTR = isActiveBudget ? (budget?.target_ctr || 1.5) : 1.5;
+    const targetCVR = isActiveBudget ? (budget?.target_cvr || 2) : 2;
+    const targetCM = isActiveBudget ? (budget?.min_contribution_margin || 15) : 15;
     
     return {
       ...ch,
@@ -173,26 +184,26 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
       revenueShare: totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0,
       pacing: pacingInfo?.pacing || 0,
       isOverspend: pacingInfo?.isOverspend || false,
-      // Budget config targets
-      budget: budget,
-      targetROAS: budget?.target_roas || 3,
-      maxCPA: budget?.max_cpa || 100000,
-      targetCTR: budget?.target_ctr || 1.5,
-      targetCVR: budget?.target_cvr || 2,
-      targetCM: budget?.min_contribution_margin || 15,
-      budgetAmount: budget?.budget_amount || 0,
-      revenueTarget: budget?.revenue_target || 0,
+      // Budget config targets (ONLY when active)
+      budget,
+      targetROAS,
+      maxCPA,
+      targetCTR,
+      targetCVR,
+      targetCM,
+      budgetAmount,
+      revenueTarget,
       // KPI achievement
-      roasAchieved: budget ? actualROAS >= budget.target_roas : actualROAS >= 3,
-      cpaAchieved: budget ? actualCPA <= budget.max_cpa : actualCPA <= 100000,
-      ctrAchieved: budget ? actualCTR >= budget.target_ctr : actualCTR >= 1.5,
-      cvrAchieved: budget ? actualCVR >= budget.target_cvr : actualCVR >= 2,
-      cmAchieved: budget ? cmPercent >= budget.min_contribution_margin : cmPercent >= 15,
-      revenueAchieved: budget && budget.revenue_target > 0 ? ch.revenue >= budget.revenue_target : true,
-      budgetUtilization: budget && budget.budget_amount > 0 ? (ch.spend / budget.budget_amount) * 100 : 0,
+      roasAchieved: actualROAS >= targetROAS,
+      cpaAchieved: actualCPA <= maxCPA,
+      ctrAchieved: actualCTR >= targetCTR,
+      cvrAchieved: actualCVR >= targetCVR,
+      cmAchieved: cmPercent >= targetCM,
+      revenueAchieved: revenueTarget > 0 ? ch.revenue >= revenueTarget : true,
+      budgetUtilization: budgetAmount > 0 ? (ch.spend / budgetAmount) * 100 : 0,
       contributionMargin,
       cmPercent,
-      isConfigured: !!budget && budget.is_active,
+      isConfigured: isActiveBudget,
     };
   }).sort((a, b) => b.revenue - a.revenue);
 
