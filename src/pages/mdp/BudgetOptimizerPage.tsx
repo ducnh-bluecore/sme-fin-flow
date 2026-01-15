@@ -553,7 +553,7 @@ export default function BudgetOptimizerPage() {
                           {/* Budget Change Visualization */}
                           <div className="flex items-center gap-4 text-sm">
                             <div>
-                              <p className="text-muted-foreground text-xs">Chi phí hiện tại</p>
+                              <p className="text-muted-foreground text-xs">Ads đã tiêu</p>
                               <p className="font-semibold">{formatVNDCompact(channel.currentBudget)}</p>
                             </div>
                             <ArrowRight className={cn(
