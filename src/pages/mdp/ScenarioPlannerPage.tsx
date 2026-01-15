@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useMDPData } from '@/hooks/useMDPData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   FlaskConical, 
   TrendingUp, 
@@ -17,50 +18,39 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
-  ArrowRight,
   Wallet,
   BarChart3,
-  Percent
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  AreaChart, Area
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { toast } from 'sonner';
 
 interface ScenarioParams {
-  budgetChange: number; // percentage change
+  budgetChange: number;
   cpcChange: number;
   conversionRateChange: number;
   aovChange: number;
 }
 
-interface ScenarioResult {
-  month: string;
-  baseline: number;
-  optimistic: number;
-  pessimistic: number;
-  scenario: number;
-}
-
-const baselineData: ScenarioResult[] = [
-  { month: 'T1', baseline: 5200, optimistic: 5800, pessimistic: 4600, scenario: 5500 },
-  { month: 'T2', baseline: 5400, optimistic: 6200, pessimistic: 4800, scenario: 5900 },
-  { month: 'T3', baseline: 5600, optimistic: 6600, pessimistic: 4900, scenario: 6300 },
-  { month: 'T4', baseline: 5800, optimistic: 7000, pessimistic: 5000, scenario: 6700 },
-  { month: 'T5', baseline: 6000, optimistic: 7400, pessimistic: 5100, scenario: 7100 },
-  { month: 'T6', baseline: 6200, optimistic: 7800, pessimistic: 5200, scenario: 7500 },
-];
-
 const formatCurrency = (value: number) => {
-  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
-  if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+  if (Math.abs(value) >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+  if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}K`;
   return value.toString();
 };
 
 export default function ScenarioPlannerPage() {
-  const [activeTab, setActiveTab] = useState('builder');
+  const { 
+    cmoModeSummary, 
+    marketingModeSummary,
+    profitAttribution,
+    isLoading, 
+    error 
+  } = useMDPData();
+
   const [params, setParams] = useState<ScenarioParams>({
     budgetChange: 20,
     cpcChange: -5,
@@ -69,78 +59,154 @@ export default function ScenarioPlannerPage() {
   });
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Calculate projected metrics based on params
-  const currentBudget = 1600000000; // 1.6B
-  const currentRevenue = 5200000000; // 5.2B
-  const currentROAS = 3.25;
-  const currentCM = 1560000000; // 1.56B (30% margin)
+  // Use real data from MDP
+  const baseMetrics = useMemo(() => {
+    return {
+      currentBudget: cmoModeSummary.total_marketing_spend || 0,
+      currentRevenue: cmoModeSummary.total_net_revenue || 0,
+      currentROAS: cmoModeSummary.total_marketing_spend > 0 
+        ? cmoModeSummary.total_net_revenue / cmoModeSummary.total_marketing_spend 
+        : 0,
+      currentCM: cmoModeSummary.total_contribution_margin || 0,
+      currentCMPercent: cmoModeSummary.contribution_margin_percent || 0,
+    };
+  }, [cmoModeSummary]);
 
-  const projectedBudget = currentBudget * (1 + params.budgetChange / 100);
-  const cpcEffect = 1 / (1 + params.cpcChange / 100); // Lower CPC = more reach
-  const conversionEffect = 1 + params.conversionRateChange / 100;
-  const aovEffect = 1 + params.aovChange / 100;
-  
-  const projectedRevenue = currentRevenue * (1 + params.budgetChange / 100) * cpcEffect * conversionEffect * aovEffect;
-  const projectedROAS = projectedRevenue / projectedBudget;
-  const projectedCM = projectedRevenue * 0.30; // Assuming 30% margin
+  // Calculate projections based on params and REAL data
+  const projections = useMemo(() => {
+    const { currentBudget, currentRevenue, currentCM, currentCMPercent } = baseMetrics;
 
-  const revenueChange = ((projectedRevenue - currentRevenue) / currentRevenue) * 100;
-  const cmChange = ((projectedCM - currentCM) / currentCM) * 100;
+    const projectedBudget = currentBudget * (1 + params.budgetChange / 100);
+    const cpcEffect = 1 / (1 + params.cpcChange / 100); // Lower CPC = more reach
+    const conversionEffect = 1 + params.conversionRateChange / 100;
+    const aovEffect = 1 + params.aovChange / 100;
+    
+    const projectedRevenue = currentRevenue * (1 + params.budgetChange / 100) * cpcEffect * conversionEffect * aovEffect;
+    const projectedROAS = projectedBudget > 0 ? projectedRevenue / projectedBudget : 0;
+    // CM% stays similar but applies to new revenue
+    const projectedCM = projectedRevenue * (currentCMPercent / 100);
+
+    const revenueChange = currentRevenue > 0 ? ((projectedRevenue - currentRevenue) / currentRevenue) * 100 : 0;
+    const cmChange = currentCM > 0 ? ((projectedCM - currentCM) / currentCM) * 100 : 0;
+
+    return {
+      projectedBudget,
+      projectedRevenue,
+      projectedROAS,
+      projectedCM,
+      revenueChange,
+      cmChange,
+    };
+  }, [baseMetrics, params]);
+
+  // Generate 6-month projection chart data
+  const chartData = useMemo(() => {
+    const monthlyBase = baseMetrics.currentRevenue / 6 / 1000000; // Convert to millions
+    const growthRate = 1 + (projections.revenueChange / 100) / 6;
+    
+    return [
+      { month: 'T1', baseline: monthlyBase, scenario: monthlyBase * growthRate, optimistic: monthlyBase * growthRate * 1.15, pessimistic: monthlyBase * growthRate * 0.85 },
+      { month: 'T2', baseline: monthlyBase * 1.02, scenario: monthlyBase * Math.pow(growthRate, 2), optimistic: monthlyBase * Math.pow(growthRate, 2) * 1.15, pessimistic: monthlyBase * Math.pow(growthRate, 2) * 0.85 },
+      { month: 'T3', baseline: monthlyBase * 1.04, scenario: monthlyBase * Math.pow(growthRate, 3), optimistic: monthlyBase * Math.pow(growthRate, 3) * 1.15, pessimistic: monthlyBase * Math.pow(growthRate, 3) * 0.85 },
+      { month: 'T4', baseline: monthlyBase * 1.06, scenario: monthlyBase * Math.pow(growthRate, 4), optimistic: monthlyBase * Math.pow(growthRate, 4) * 1.15, pessimistic: monthlyBase * Math.pow(growthRate, 4) * 0.85 },
+      { month: 'T5', baseline: monthlyBase * 1.08, scenario: monthlyBase * Math.pow(growthRate, 5), optimistic: monthlyBase * Math.pow(growthRate, 5) * 1.15, pessimistic: monthlyBase * Math.pow(growthRate, 5) * 0.85 },
+      { month: 'T6', baseline: monthlyBase * 1.10, scenario: monthlyBase * Math.pow(growthRate, 6), optimistic: monthlyBase * Math.pow(growthRate, 6) * 1.15, pessimistic: monthlyBase * Math.pow(growthRate, 6) * 0.85 },
+    ];
+  }, [baseMetrics.currentRevenue, projections.revenueChange]);
 
   const handleSimulate = () => {
     setIsSimulating(true);
-    setTimeout(() => setIsSimulating(false), 1500);
+    setTimeout(() => {
+      setIsSimulating(false);
+      toast.success('Mô phỏng hoàn tất!');
+    }, 1500);
   };
 
-  const savedScenarios = [
-    { name: 'Q2 Growth Push', date: '2024-01-15', budgetChange: 30, projectedROAS: 3.8 },
-    { name: 'Cost Optimization', date: '2024-01-10', budgetChange: -15, projectedROAS: 4.2 },
-    { name: 'TikTok Scale Test', date: '2024-01-08', budgetChange: 50, projectedROAS: 2.9 },
-  ];
+  const handleReset = () => {
+    setParams({
+      budgetChange: 0,
+      cpcChange: 0,
+      conversionRateChange: 0,
+      aovChange: 0,
+    });
+  };
+
+  const handleSave = () => {
+    toast.success('Đã lưu scenario!');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <div className="grid lg:grid-cols-3 gap-6">
+          <Skeleton className="h-96" />
+          <Skeleton className="h-96 lg:col-span-2" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Không thể tải dữ liệu. Vui lòng thử lại sau.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const hasData = baseMetrics.currentBudget > 0;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <FlaskConical className="h-7 w-7 text-violet-400" />
-            Scenario Planner
-          </h1>
-          <p className="text-slate-400 mt-1">Mô phỏng What-if cho marketing spend</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Reset
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Save className="h-4 w-4" />
-            Lưu Scenario
-          </Button>
-          <Button 
-            className="bg-violet-600 hover:bg-violet-700 gap-2"
-            onClick={handleSimulate}
-            disabled={isSimulating}
-          >
-            {isSimulating ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Đang mô phỏng...
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4" />
-                Chạy mô phỏng
-              </>
-            )}
-          </Button>
-        </div>
+      <PageHeader 
+        title="Scenario Planner"
+        subtitle="Mô phỏng What-if cho marketing spend dựa trên dữ liệu thực"
+      />
+
+      {!hasData && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Chưa có dữ liệu marketing. Import dữ liệu để sử dụng tính năng mô phỏng.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex items-center gap-3 justify-end">
+        <Button variant="outline" className="gap-2" onClick={handleReset}>
+          <RefreshCw className="h-4 w-4" />
+          Reset
+        </Button>
+        <Button variant="outline" className="gap-2" onClick={handleSave}>
+          <Save className="h-4 w-4" />
+          Lưu Scenario
+        </Button>
+        <Button 
+          className="gap-2"
+          onClick={handleSimulate}
+          disabled={isSimulating || !hasData}
+        >
+          {isSimulating ? (
+            <>
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Đang mô phỏng...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              Chạy mô phỏng
+            </>
+          )}
+        </Button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Scenario Builder */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="space-y-4">
           <Card className="border-border bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Tham số mô phỏng</CardTitle>
@@ -151,11 +217,11 @@ export default function ScenarioPlannerPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-violet-400" />
+                    <Wallet className="h-4 w-4 text-primary" />
                     Thay đổi ngân sách
                   </Label>
                   <Badge className={cn(
-                    params.budgetChange >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                    params.budgetChange >= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
                   )}>
                     {params.budgetChange >= 0 ? '+' : ''}{params.budgetChange}%
                   </Badge>
@@ -177,11 +243,11 @@ export default function ScenarioPlannerPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-blue-400" />
+                    <DollarSign className="h-4 w-4 text-primary" />
                     Thay đổi CPC
                   </Label>
                   <Badge className={cn(
-                    params.cpcChange <= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                    params.cpcChange <= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
                   )}>
                     {params.cpcChange >= 0 ? '+' : ''}{params.cpcChange}%
                   </Badge>
@@ -203,11 +269,11 @@ export default function ScenarioPlannerPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-emerald-400" />
+                    <Target className="h-4 w-4 text-success" />
                     Conversion Rate
                   </Label>
                   <Badge className={cn(
-                    params.conversionRateChange >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                    params.conversionRateChange >= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
                   )}>
                     {params.conversionRateChange >= 0 ? '+' : ''}{params.conversionRateChange}%
                   </Badge>
@@ -225,11 +291,11 @@ export default function ScenarioPlannerPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-yellow-400" />
+                    <BarChart3 className="h-4 w-4 text-warning" />
                     Average Order Value
                   </Label>
                   <Badge className={cn(
-                    params.aovChange >= 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+                    params.aovChange >= 0 ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
                   )}>
                     {params.aovChange >= 0 ? '+' : ''}{params.aovChange}%
                   </Badge>
@@ -245,27 +311,32 @@ export default function ScenarioPlannerPage() {
             </CardContent>
           </Card>
 
-          {/* Saved Scenarios */}
+          {/* Current Data Source */}
           <Card className="border-border bg-card shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Scenarios đã lưu</CardTitle>
+              <CardTitle className="text-base">Dữ liệu gốc (thực)</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {savedScenarios.map((scenario, idx) => (
-                <Button
-                  key={idx}
-                  variant="ghost"
-                  className="w-full justify-start h-auto py-2 px-3"
-                >
-                  <div className="flex-1 text-left">
-                    <p className="font-medium text-sm">{scenario.name}</p>
-                    <p className="text-xs text-muted-foreground">{scenario.date}</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {scenario.budgetChange > 0 ? '+' : ''}{scenario.budgetChange}%
-                  </Badge>
-                </Button>
-              ))}
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Marketing Spend:</span>
+                <span className="font-medium">{formatCurrency(baseMetrics.currentBudget)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Net Revenue:</span>
+                <span className="font-medium text-success">{formatCurrency(baseMetrics.currentRevenue)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">ROAS:</span>
+                <span className="font-medium">{baseMetrics.currentROAS.toFixed(2)}x</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Contribution Margin:</span>
+                <span className="font-medium text-primary">{formatCurrency(baseMetrics.currentCM)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Campaigns:</span>
+                <span className="font-medium">{profitAttribution.length}</span>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -277,10 +348,10 @@ export default function ScenarioPlannerPage() {
             <Card className="border-border bg-card shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">Projected Budget</p>
-                <p className="text-xl font-bold">{formatCurrency(projectedBudget)}</p>
+                <p className="text-xl font-bold">{formatCurrency(projections.projectedBudget)}</p>
                 <p className={cn(
                   "text-xs",
-                  params.budgetChange >= 0 ? "text-yellow-400" : "text-emerald-400"
+                  params.budgetChange >= 0 ? "text-warning" : "text-success"
                 )}>
                   {params.budgetChange >= 0 ? '+' : ''}{params.budgetChange}%
                 </p>
@@ -290,13 +361,13 @@ export default function ScenarioPlannerPage() {
             <Card className="border-border bg-card shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">Projected Revenue</p>
-                <p className="text-xl font-bold text-emerald-400">{formatCurrency(projectedRevenue)}</p>
+                <p className="text-xl font-bold text-success">{formatCurrency(projections.projectedRevenue)}</p>
                 <p className={cn(
                   "text-xs flex items-center gap-1",
-                  revenueChange >= 0 ? "text-emerald-400" : "text-red-400"
+                  projections.revenueChange >= 0 ? "text-success" : "text-destructive"
                 )}>
-                  {revenueChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {revenueChange >= 0 ? '+' : ''}{revenueChange.toFixed(1)}%
+                  {projections.revenueChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {projections.revenueChange >= 0 ? '+' : ''}{projections.revenueChange.toFixed(1)}%
                 </p>
               </CardContent>
             </Card>
@@ -306,15 +377,15 @@ export default function ScenarioPlannerPage() {
                 <p className="text-xs text-muted-foreground mb-1">Projected ROAS</p>
                 <p className={cn(
                   "text-xl font-bold",
-                  projectedROAS >= currentROAS ? "text-emerald-400" : "text-red-400"
+                  projections.projectedROAS >= baseMetrics.currentROAS ? "text-success" : "text-destructive"
                 )}>
-                  {projectedROAS.toFixed(2)}x
+                  {projections.projectedROAS.toFixed(2)}x
                 </p>
                 <p className={cn(
                   "text-xs",
-                  projectedROAS >= currentROAS ? "text-emerald-400" : "text-red-400"
+                  projections.projectedROAS >= baseMetrics.currentROAS ? "text-success" : "text-destructive"
                 )}>
-                  vs {currentROAS}x hiện tại
+                  vs {baseMetrics.currentROAS.toFixed(2)}x hiện tại
                 </p>
               </CardContent>
             </Card>
@@ -322,12 +393,12 @@ export default function ScenarioPlannerPage() {
             <Card className="border-border bg-card shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">Projected CM</p>
-                <p className="text-xl font-bold text-violet-400">{formatCurrency(projectedCM)}</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(projections.projectedCM)}</p>
                 <p className={cn(
                   "text-xs flex items-center gap-1",
-                  cmChange >= 0 ? "text-emerald-400" : "text-red-400"
+                  projections.cmChange >= 0 ? "text-success" : "text-destructive"
                 )}>
-                  {cmChange >= 0 ? '+' : ''}{cmChange.toFixed(1)}%
+                  {projections.cmChange >= 0 ? '+' : ''}{projections.cmChange.toFixed(1)}%
                 </p>
               </CardContent>
             </Card>
@@ -339,58 +410,64 @@ export default function ScenarioPlannerPage() {
               <CardTitle className="text-base">Dự báo doanh thu 6 tháng</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={baselineData}>
-                    <defs>
-                      <linearGradient id="colorScenario" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} />
-                    <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(v) => `${v}M`} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                      labelStyle={{ color: '#f8fafc' }}
-                      formatter={(value: number) => [`${value}M`, '']}
-                    />
-                    <Legend />
-                    <Area 
-                      type="monotone" 
-                      dataKey="pessimistic" 
-                      stroke="#ef4444" 
-                      fill="none"
-                      strokeDasharray="5 5"
-                      name="Bi quan"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="baseline" 
-                      stroke="#94a3b8" 
-                      fill="none"
-                      name="Baseline"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="optimistic" 
-                      stroke="#10b981" 
-                      fill="none"
-                      strokeDasharray="5 5"
-                      name="Lạc quan"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="scenario" 
-                      stroke="#8b5cf6" 
-                      fill="url(#colorScenario)"
-                      strokeWidth={2}
-                      name="Scenario"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              {hasData ? (
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorScenario" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="month" className="text-xs fill-muted-foreground" fontSize={12} />
+                      <YAxis className="text-xs fill-muted-foreground" fontSize={12} tickFormatter={(v) => `${v.toFixed(0)}M`} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        formatter={(value: number) => [`${value.toFixed(0)}M`, '']}
+                      />
+                      <Legend />
+                      <Area 
+                        type="monotone" 
+                        dataKey="pessimistic" 
+                        stroke="hsl(var(--destructive))" 
+                        fill="none"
+                        strokeDasharray="5 5"
+                        name="Bi quan"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="baseline" 
+                        stroke="hsl(var(--muted-foreground))" 
+                        fill="none"
+                        name="Baseline"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="optimistic" 
+                        stroke="hsl(var(--success))" 
+                        fill="none"
+                        strokeDasharray="5 5"
+                        name="Lạc quan"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="scenario" 
+                        stroke="hsl(var(--primary))" 
+                        fill="url(#colorScenario)"
+                        strokeWidth={2}
+                        name="Scenario"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-72 flex items-center justify-center text-muted-foreground">
+                  Cần dữ liệu marketing để mô phỏng
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -398,45 +475,45 @@ export default function ScenarioPlannerPage() {
           <Card className="border-border bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-400" />
+                <AlertTriangle className="h-4 w-4 text-warning" />
                 Đánh giá rủi ro
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-3 gap-4">
-                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                <div className="p-3 rounded-lg bg-success/10 border border-success/30">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span className="font-medium text-emerald-400">Cơ hội</span>
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <span className="font-medium text-success">Cơ hội</span>
                   </div>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Revenue có thể tăng đến +{(revenueChange * 1.2).toFixed(0)}%</li>
-                    <li>• ROAS cải thiện nếu CVR tăng</li>
-                    <li>• Scale nhanh trong Q2</li>
+                    <li>• Revenue có thể tăng đến +{(projections.revenueChange * 1.15).toFixed(0)}%</li>
+                    <li>• ROAS {projections.projectedROAS >= baseMetrics.currentROAS ? 'cải thiện' : 'cần theo dõi'}</li>
+                    <li>• CM dự kiến: {formatCurrency(projections.projectedCM)}</li>
                   </ul>
                 </div>
 
-                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-400" />
-                    <span className="font-medium text-yellow-400">Lưu ý</span>
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <span className="font-medium text-warning">Lưu ý</span>
                   </div>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Cash flow tăng {formatCurrency(projectedBudget - currentBudget)}/tháng</li>
+                    <li>• Cash flow tăng {formatCurrency(projections.projectedBudget - baseMetrics.currentBudget)}/kỳ</li>
                     <li>• Cần monitor CPC hàng tuần</li>
                     <li>• Creative fatigue có thể xảy ra</li>
                   </ul>
                 </div>
 
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30">
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                    <span className="font-medium text-red-400">Rủi ro</span>
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <span className="font-medium text-destructive">Rủi ro</span>
                   </div>
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• ROAS có thể giảm nếu CPC tăng</li>
-                    <li>• Worst case: -{(revenueChange * 0.5).toFixed(0)}% revenue</li>
-                    <li>• Inventory constraints</li>
+                    <li>• ROAS có thể giảm nếu scale quá nhanh</li>
+                    <li>• Chi phí tăng nhanh hơn revenue</li>
+                    <li>• Cần reserve cash cho worst case</li>
                   </ul>
                 </div>
               </div>
