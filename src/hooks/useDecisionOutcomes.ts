@@ -150,6 +150,7 @@ export function useRecordOutcome() {
       queryClient.invalidateQueries({ queryKey: ['decision-outcomes'] });
       queryClient.invalidateQueries({ queryKey: ['pending-followups'] });
       queryClient.invalidateQueries({ queryKey: ['unified-decision-history'] });
+      queryClient.invalidateQueries({ queryKey: ['outcome-history'] });
       toast.success('Đã ghi nhận kết quả quyết định');
     },
     onError: (error) => {
