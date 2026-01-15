@@ -2771,6 +2771,74 @@ export type Database = {
           },
         ]
       }
+      channel_budgets: {
+        Row: {
+          budget_amount: number | null
+          channel: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          max_cpa: number | null
+          min_contribution_margin: number | null
+          month: number
+          notes: string | null
+          revenue_target: number | null
+          target_ctr: number | null
+          target_cvr: number | null
+          target_roas: number | null
+          tenant_id: string
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          budget_amount?: number | null
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_cpa?: number | null
+          min_contribution_margin?: number | null
+          month?: number
+          notes?: string | null
+          revenue_target?: number | null
+          target_ctr?: number | null
+          target_cvr?: number | null
+          target_roas?: number | null
+          tenant_id: string
+          updated_at?: string
+          year?: number
+        }
+        Update: {
+          budget_amount?: number | null
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_cpa?: number | null
+          min_contribution_margin?: number | null
+          month?: number
+          notes?: string | null
+          revenue_target?: number | null
+          target_ctr?: number | null
+          target_cvr?: number | null
+          target_roas?: number | null
+          tenant_id?: string
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_budgets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_fees: {
         Row: {
           amount: number

@@ -12,7 +12,8 @@ import {
   Crown,
   TrendingUp,
   TrendingDown,
-  Shield
+  Shield,
+  Settings2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import {
   RiskAlertsPanel,
   DecisionPanel,
 } from '@/components/mdp/cmo-mode';
+import { ChannelBudgetConfigPanel } from '@/components/mdp/cmo-mode/ChannelBudgetConfigPanel';
 
 const cmoQuickLinks = [
   { 
@@ -274,7 +276,7 @@ export default function CMOModePage() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="command-center">
             {language === 'vi' ? 'Command Center' : 'Command Center'}
           </TabsTrigger>
@@ -286,6 +288,10 @@ export default function CMOModePage() {
           </TabsTrigger>
           <TabsTrigger value="decisions">
             {language === 'vi' ? 'Decisions' : 'Decisions'}
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-1">
+            <Settings2 className="h-3.5 w-3.5" />
+            {language === 'vi' ? 'Cấu hình' : 'Settings'}
           </TabsTrigger>
         </TabsList>
 
@@ -324,6 +330,10 @@ export default function CMOModePage() {
             cashImpact={cashImpact}
             summary={cmoModeSummary}
           />
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <ChannelBudgetConfigPanel />
         </TabsContent>
       </Tabs>
     </div>
