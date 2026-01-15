@@ -14,6 +14,7 @@ import {
   Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useChannelBudgets } from '@/hooks/useChannelBudgets';
 
 interface BudgetPacingData {
   channel: string;
@@ -39,10 +40,21 @@ const formatCurrency = (value: number) => {
 
 export function BudgetPacingCard({ 
   budgetData, 
-  totalPlannedBudget, 
+  totalPlannedBudget: fallbackPlannedBudget, 
   totalActualSpend,
   periodLabel = 'Tháng này'
 }: BudgetPacingCardProps) {
+  // Get channel budgets from database as source of truth
+  const { budgets, budgetsMap, isLoading: budgetsLoading } = useChannelBudgets();
+  
+  // Calculate total planned budget from channel_budgets (source of truth)
+  const totalPlannedBudget = useMemo(() => {
+    const configuredBudget = budgets
+      .filter(b => b.is_active)
+      .reduce((sum, b) => sum + (b.budget_amount || 0), 0);
+    // Fallback to props if no configured budgets
+    return configuredBudget > 0 ? configuredBudget : fallbackPlannedBudget;
+  }, [budgets, fallbackPlannedBudget]);
   
   const pacingMetrics = useMemo(() => {
     const daysInMonth = 30;
@@ -139,23 +151,43 @@ export function BudgetPacingCard({
     return channel.charAt(0).toUpperCase() + channel.slice(1);
   };
 
-  // All channels by spend
+  // All channels by spend - merge with channel_budgets data
   const allChannels = useMemo(() => {
+    // Normalize channel name
+    const normalizeChannel = (channel: string): string => {
+      const lower = channel?.toLowerCase() || 'unknown';
+      if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
+      if (lower.includes('google') || lower.includes('gg')) return 'google';
+      if (lower.includes('shopee')) return 'shopee';
+      if (lower.includes('lazada')) return 'lazada';
+      if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
+      if (lower.includes('website') || lower.includes('direct')) return 'website';
+      if (lower.includes('offline') || lower.includes('retail')) return 'offline';
+      return lower;
+    };
+
     return [...budgetData]
-      .sort((a, b) => b.actualSpend - a.actualSpend)
       .map(ch => {
-        const pacing = ch.plannedBudget > 0 ? (ch.actualSpend / ch.plannedBudget) * 100 : 0;
+        const normalizedChannel = normalizeChannel(ch.channel);
+        const configuredBudget = budgetsMap.get(normalizedChannel);
+        // Use configured budget from channel_budgets if available, else fallback to campaign budget
+        const plannedBudget = configuredBudget?.budget_amount || ch.plannedBudget;
+        const pacing = plannedBudget > 0 ? (ch.actualSpend / plannedBudget) * 100 : 0;
         const expectedPacing = ch.totalDays > 0 ? (ch.daysElapsed / ch.totalDays) * 100 : 0;
+        
         return {
           ...ch,
           displayName: getChannelDisplayName(ch.channel),
+          plannedBudget,
           pacing,
           expectedPacing,
           isOverspend: pacing > expectedPacing + 10,
           isUnderspend: pacing < expectedPacing - 10,
+          isConfigured: !!configuredBudget?.is_active,
         };
-      });
-  }, [budgetData]);
+      })
+      .sort((a, b) => b.actualSpend - a.actualSpend);
+  }, [budgetData, budgetsMap]);
 
   return (
     <Card className={cn("border", config.borderColor, config.bgColor)}>
