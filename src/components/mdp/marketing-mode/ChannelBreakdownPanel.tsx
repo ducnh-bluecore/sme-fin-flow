@@ -47,7 +47,22 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
     if (lower.includes('lazada')) return 'lazada';
     if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
     if (lower.includes('sendo')) return 'sendo';
+    if (lower === 'all' || lower.includes('multi')) return 'multi-channel';
     return lower;
+  };
+
+  // Display name mapping for channels
+  const getChannelDisplayName = (channel: string): string => {
+    const names: Record<string, string> = {
+      'facebook': 'Facebook',
+      'google': 'Google',
+      'shopee': 'Shopee',
+      'lazada': 'Lazada',
+      'tiktok': 'TikTok',
+      'sendo': 'Sendo',
+      'multi-channel': 'Đa kênh',
+    };
+    return names[channel] || channel.charAt(0).toUpperCase() + channel.slice(1);
   };
 
   // Aggregate by channel
@@ -125,6 +140,7 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
     if (lower.includes('meta') || lower.includes('facebook')) return '📘';
     if (lower.includes('google')) return '🔍';
     if (lower.includes('sendo')) return '🔴';
+    if (lower.includes('multi') || lower === 'all') return '🌐';
     return '📊';
   };
 
@@ -162,7 +178,7 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{getChannelIcon(channel.channel)}</span>
                   <div>
-                    <h4 className="font-semibold">{channel.channel}</h4>
+                    <h4 className="font-semibold">{getChannelDisplayName(channel.channel)}</h4>
                     <p className="text-xs text-muted-foreground">
                       {channel.activeCampaigns}/{channel.campaigns} campaigns đang chạy
                     </p>
