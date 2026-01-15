@@ -125,7 +125,11 @@ export function useWorkingCapitalSummary() {
         target_dso: metrics?.industryBenchmark.dso || 30,
         target_dpo: metrics?.industryBenchmark.dpo || 45,
         target_dio: metrics?.industryBenchmark.dio || 45,
-        potential_cash_release: calculatedDSO > 30 ? (calculatedDSO - 30) * dailyRevenue : 0,
+        // Correct formula: AR × (1 - targetDSO / currentDSO)
+        // This represents how much AR would decrease if DSO improved to target
+        potential_cash_release: calculatedDSO > 30 && calculatedDSO > 0
+          ? totalAR * (1 - 30 / calculatedDSO)
+          : 0,
         created_at: new Date().toISOString(),
       };
       
