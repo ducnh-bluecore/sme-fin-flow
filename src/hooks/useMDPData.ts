@@ -773,36 +773,56 @@ export function useMDPData() {
     const expenses = expensesQuery.data || [];
     const campaigns = campaignsQuery.data || [];
     
-    // Aggregate by channel
+    // Normalize channel names for matching
+    const normalizeChannel = (channel: string): string => {
+      const lower = channel?.toLowerCase() || 'unknown';
+      if (lower.includes('facebook') || lower.includes('fb')) return 'facebook';
+      if (lower.includes('google') || lower.includes('gg')) return 'google';
+      if (lower.includes('shopee')) return 'shopee';
+      if (lower.includes('lazada')) return 'lazada';
+      if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
+      return lower;
+    };
+    
+    // Aggregate by normalized channel
     const channelSpend: Record<string, { actual: number; planned: number }> = {};
     
+    // First, get actual spend from marketing_expenses
     expenses.forEach(exp => {
-      const channel = exp.channel || 'Unknown';
+      const channel = normalizeChannel(exp.channel || 'Unknown');
       if (!channelSpend[channel]) {
         channelSpend[channel] = { actual: 0, planned: 0 };
       }
       channelSpend[channel].actual += exp.amount || 0;
     });
     
+    // Then add planned budget and actual_cost from campaigns
     campaigns.forEach(camp => {
-      const channel = camp.channel || 'Unknown';
+      const channel = normalizeChannel(camp.channel || 'Unknown');
       if (!channelSpend[channel]) {
         channelSpend[channel] = { actual: 0, planned: 0 };
       }
-      channelSpend[channel].planned += camp.budget || camp.actual_cost || 0;
+      channelSpend[channel].planned += camp.budget || 0;
+      // Also add actual_cost from campaigns if marketing_expenses doesn't have data
+      if (camp.actual_cost) {
+        channelSpend[channel].actual += camp.actual_cost;
+      }
     });
     
     const today = new Date();
     const daysElapsed = today.getDate();
     const totalDays = 30;
     
-    return Object.entries(channelSpend).map(([channel, data]) => ({
-      channel,
-      plannedBudget: data.planned,
-      actualSpend: data.actual,
-      daysElapsed,
-      totalDays,
-    }));
+    // Filter out channels with no planned budget
+    return Object.entries(channelSpend)
+      .filter(([_, data]) => data.planned > 0)
+      .map(([channel, data]) => ({
+        channel,
+        plannedBudget: data.planned,
+        actualSpend: data.actual,
+        daysElapsed,
+        totalDays,
+      }));
   }, [expensesQuery.data, campaignsQuery.data]);
 
   const totalPlannedBudget = budgetPacingData.reduce((sum, d) => sum + d.plannedBudget, 0);
