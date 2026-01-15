@@ -80,9 +80,13 @@ async function measureEntityMetrics(
       };
 
     case 'CHANNEL':
-      // Skip channel measurement for now - requires custom query
+      // Return null for channel metrics - no current data available
+      // This ensures variance calculation shows "Chưa có data" properly
       return {
-        revenue_7d: null,
+        ad_spend_7d: null,
+        roas: null,
+        cpa: null,
+        conversions: null,
       };
 
     default:
