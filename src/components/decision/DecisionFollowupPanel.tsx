@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -19,11 +19,14 @@ import {
   Minus,
   CheckCircle2,
   XCircle,
-  Eye
+  Eye,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { usePendingFollowups, useRecordOutcome, type PendingFollowup } from '@/hooks/useDecisionOutcomes';
+import { useAutoMeasureOutcome, useSaveMeasuredOutcome } from '@/hooks/useAutoMeasureOutcome';
 
 const formatCurrency = (value: number | null) => {
   if (value == null) return '-';
@@ -51,9 +54,12 @@ const OUTCOME_STATUS_CONFIG = {
 export function DecisionFollowupPanel() {
   const { data: pendingFollowups = [], isLoading } = usePendingFollowups();
   const recordOutcome = useRecordOutcome();
+  const autoMeasure = useAutoMeasureOutcome();
+  const saveMeasured = useSaveMeasuredOutcome();
   
   const [selectedFollowup, setSelectedFollowup] = useState<PendingFollowup | null>(null);
   const [outcomeDialogOpen, setOutcomeDialogOpen] = useState(false);
+  const [measurementResult, setMeasurementResult] = useState<any>(null);
   
   // Form state
   const [outcomeStatus, setOutcomeStatus] = useState<'positive' | 'neutral' | 'negative' | 'too_early'>('positive');
@@ -62,13 +68,21 @@ export function DecisionFollowupPanel() {
   const [lessonsLearned, setLessonsLearned] = useState('');
   const [wouldRepeat, setWouldRepeat] = useState(true);
 
-  const openOutcomeDialog = (followup: PendingFollowup) => {
+  const openOutcomeDialog = async (followup: PendingFollowup) => {
     setSelectedFollowup(followup);
     setOutcomeDialogOpen(true);
-    // Reset form
-    setOutcomeStatus('positive');
-    setOutcomeSummary('');
-    setActualImpact('');
+    setMeasurementResult(null);
+    
+    // Auto-measure khi mở dialog
+    try {
+      const result = await autoMeasure.mutateAsync(followup.id);
+      setMeasurementResult(result);
+      setOutcomeStatus(result.suggestedStatus);
+      setOutcomeSummary(result.summary);
+    } catch {
+      // Fallback to manual if auto-measure fails
+    }
+    
     setLessonsLearned('');
     setWouldRepeat(true);
   };
@@ -76,18 +90,32 @@ export function DecisionFollowupPanel() {
   const handleRecordOutcome = async () => {
     if (!selectedFollowup || !outcomeSummary) return;
 
-    await recordOutcome.mutateAsync({
-      decisionAuditId: selectedFollowup.id,
-      actualImpactAmount: actualImpact ? parseFloat(actualImpact) : undefined,
-      expectedImpactAmount: selectedFollowup.expected_impact_amount ?? undefined,
-      outcomeStatus,
-      outcomeSummary,
-      lessonsLearned: lessonsLearned || undefined,
-      wouldRepeat,
-    });
+    if (measurementResult) {
+      // Use auto-measured data
+      await saveMeasured.mutateAsync({
+        decisionAuditId: selectedFollowup.id,
+        measurementResult,
+        outcomeSummary,
+        outcomeStatus,
+        lessonsLearned: lessonsLearned || undefined,
+        wouldRepeat,
+      });
+    } else {
+      // Manual entry
+      await recordOutcome.mutateAsync({
+        decisionAuditId: selectedFollowup.id,
+        actualImpactAmount: actualImpact ? parseFloat(actualImpact) : undefined,
+        expectedImpactAmount: selectedFollowup.expected_impact_amount ?? undefined,
+        outcomeStatus,
+        outcomeSummary,
+        lessonsLearned: lessonsLearned || undefined,
+        wouldRepeat,
+      });
+    }
 
     setOutcomeDialogOpen(false);
     setSelectedFollowup(null);
+    setMeasurementResult(null);
   };
 
   // Group by urgency

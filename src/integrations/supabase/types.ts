@@ -3761,6 +3761,7 @@ export type Database = {
           action_parameters: Json | null
           action_type: string
           auto_card_id: string | null
+          baseline_metrics: Json | null
           card_id: string | null
           card_snapshot: Json | null
           card_type: string
@@ -3780,6 +3781,7 @@ export type Database = {
           id: string
           impact_amount: number | null
           impact_currency: string | null
+          measurement_config: Json | null
           outcome_notes: string | null
           outcome_recorded_at: string | null
           outcome_tracking_key: string | null
@@ -3794,6 +3796,7 @@ export type Database = {
           action_parameters?: Json | null
           action_type: string
           auto_card_id?: string | null
+          baseline_metrics?: Json | null
           card_id?: string | null
           card_snapshot?: Json | null
           card_type: string
@@ -3813,6 +3816,7 @@ export type Database = {
           id?: string
           impact_amount?: number | null
           impact_currency?: string | null
+          measurement_config?: Json | null
           outcome_notes?: string | null
           outcome_recorded_at?: string | null
           outcome_tracking_key?: string | null
@@ -3827,6 +3831,7 @@ export type Database = {
           action_parameters?: Json | null
           action_type?: string
           auto_card_id?: string | null
+          baseline_metrics?: Json | null
           card_id?: string | null
           card_snapshot?: Json | null
           card_type?: string
@@ -3846,6 +3851,7 @@ export type Database = {
           id?: string
           impact_amount?: number | null
           impact_currency?: string | null
+          measurement_config?: Json | null
           outcome_notes?: string | null
           outcome_recorded_at?: string | null
           outcome_tracking_key?: string | null
@@ -4158,14 +4164,18 @@ export type Database = {
       decision_outcomes: {
         Row: {
           actual_impact_amount: number | null
+          baseline_metrics: Json | null
           created_at: string
+          current_metrics: Json | null
           decision_audit_id: string
           id: string
           impact_variance: number | null
           impact_variance_percent: number | null
+          is_auto_measured: boolean | null
           lessons_learned: string | null
           measured_at: string
           measured_by: string | null
+          measurement_timestamp: string | null
           outcome_details: string | null
           outcome_status: string
           outcome_summary: string
@@ -4176,14 +4186,18 @@ export type Database = {
         }
         Insert: {
           actual_impact_amount?: number | null
+          baseline_metrics?: Json | null
           created_at?: string
+          current_metrics?: Json | null
           decision_audit_id: string
           id?: string
           impact_variance?: number | null
           impact_variance_percent?: number | null
+          is_auto_measured?: boolean | null
           lessons_learned?: string | null
           measured_at?: string
           measured_by?: string | null
+          measurement_timestamp?: string | null
           outcome_details?: string | null
           outcome_status: string
           outcome_summary: string
@@ -4194,14 +4208,18 @@ export type Database = {
         }
         Update: {
           actual_impact_amount?: number | null
+          baseline_metrics?: Json | null
           created_at?: string
+          current_metrics?: Json | null
           decision_audit_id?: string
           id?: string
           impact_variance?: number | null
           impact_variance_percent?: number | null
+          is_auto_measured?: boolean | null
           lessons_learned?: string | null
           measured_at?: string
           measured_by?: string | null
+          measurement_timestamp?: string | null
           outcome_details?: string | null
           outcome_status?: string
           outcome_summary?: string
