@@ -15,10 +15,8 @@ import {
   List,
   Zap,
   RefreshCw,
-  Sparkles,
-  Bot,
-  Settings2,
   Eye,
+  Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
@@ -433,369 +431,356 @@ export default function DecisionCenterPage() {
         </Card>
       </div>
 
-      {/* Decision Cards Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Zap className="h-5 w-5 text-primary" />
-              <CardTitle>Quyết định cần xử lý</CardTitle>
-              <Badge variant="outline">{visibleCards.length} / {allCards?.length || 0}</Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select 
-                value={priorityFilter} 
-                onValueChange={(v) => setPriorityFilter(v as Priority | 'ALL')}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Tất cả</SelectItem>
-                  <SelectItem value="P1">P1 - Khẩn cấp</SelectItem>
-                  <SelectItem value="P2">P2 - Quan trọng</SelectItem>
-                  <SelectItem value="P3">P3 - Theo dõi</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="flex border rounded-lg">
-                <Button
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-24 bg-muted rounded-lg animate-pulse" />
-              ))}
-            </div>
-          ) : visibleCards.length === 0 ? (
-            <div className="text-center py-12">
-              <CheckCircle2 className="h-12 w-12 mx-auto text-green-400 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Không có quyết định cần xử lý</h3>
-              <p className="text-muted-foreground">
-                Tất cả các vấn đề đã được giải quyết hoặc chưa có cảnh báo mới.
-              </p>
-            </div>
-          ) : viewMode === 'list' ? (
-            <div className="space-y-4">
-              {/* P1 Cards - Always first */}
-              {groupedCards.P1.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-red-400 mb-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Khẩn cấp ({groupedCards.P1.length})
-                  </div>
-                  <div className="space-y-1.5 bg-red-500/5 rounded-lg p-2">
-                    {(showAll ? groupedCards.P1 : groupedCards.P1.slice(0, 3)).map((card) => (
-                      <DecisionCardComponent
-                        key={card.id}
-                        card={card}
-                        compact
-                        onViewDetail={() => setSelectedCardId(card.id)}
-                        onDecided={handleCardDecided}
-                        onDismissed={handleCardDismissed}
-                      />
-                    ))}
-                    {!showAll && groupedCards.P1.length > 3 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="w-full text-xs h-7"
-                        onClick={() => setShowAll(true)}
-                      >
-                        +{groupedCards.P1.length - 3} quyết định khẩn cấp khác
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* P2 Cards */}
-              {groupedCards.P2.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-yellow-400 mb-2">
-                    <Clock className="h-4 w-4" />
-                    Quan trọng ({groupedCards.P2.length})
-                  </div>
-                  <div className="space-y-1.5 bg-yellow-500/5 rounded-lg p-2">
-                    {(showAll ? groupedCards.P2 : groupedCards.P2.slice(0, 4)).map((card) => (
-                      <DecisionCardComponent
-                        key={card.id}
-                        card={card}
-                        compact
-                        onViewDetail={() => setSelectedCardId(card.id)}
-                        onDecided={handleCardDecided}
-                        onDismissed={handleCardDismissed}
-                      />
-                    ))}
-                    {!showAll && groupedCards.P2.length > 4 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="w-full text-xs h-7"
-                        onClick={() => setShowAll(true)}
-                      >
-                        +{groupedCards.P2.length - 4} quyết định quan trọng khác
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* P3 Cards - Collapsible */}
-              {groupedCards.P3.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-blue-400 mb-2">
-                    <Target className="h-4 w-4" />
-                    Theo dõi ({groupedCards.P3.length})
-                  </div>
-                  <div className="space-y-1.5 bg-muted/30 rounded-lg p-2">
-                    {(showAll ? groupedCards.P3 : groupedCards.P3.slice(0, 2)).map((card) => (
-                      <DecisionCardComponent
-                        key={card.id}
-                        card={card}
-                        compact
-                        onViewDetail={() => setSelectedCardId(card.id)}
-                        onDecided={handleCardDecided}
-                        onDismissed={handleCardDismissed}
-                      />
-                    ))}
-                    {!showAll && groupedCards.P3.length > 2 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="w-full text-xs h-7"
-                        onClick={() => setShowAll(true)}
-                      >
-                        +{groupedCards.P3.length - 2} quyết định khác
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Collapse button */}
-              {showAll && (allCards?.length || 0) > 7 && (
-                <div className="text-center">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setShowAll(false)}
-                  >
-                    Thu gọn
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {visibleCards.map((card) => (
-                <DecisionCardComponent
-                  key={card.id}
-                  card={card}
-                  onViewDetail={() => setSelectedCardId(card.id)}
-                  onDecided={handleCardDecided}
-                  onDismissed={handleCardDismissed}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Decision Follow-up Panel - Theo dõi kết quả quyết định */}
-      <DecisionFollowupPanel />
-
-      {/* Tabs for different views */}
-      <Tabs defaultValue="history" className="space-y-4">
-        <TabsList>
+      {/* Main Tabs: Cần xử lý / Theo dõi / Lịch sử */}
+      <Tabs defaultValue="pending" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="pending" className="gap-1.5">
+            <Zap className="h-4 w-4" />
+            Cần xử lý
+            {allCards.length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 text-xs">
+                {allCards.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="followup" className="gap-1.5">
+            <Eye className="h-4 w-4" />
+            Theo dõi
+          </TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5">
             <CheckCircle2 className="h-4 w-4" />
-            Lịch sử quyết định
+            Lịch sử
           </TabsTrigger>
-          <TabsTrigger value="outcomes" className="gap-1.5">
-            <Target className="h-4 w-4" />
-            Kết quả đo lường
-          </TabsTrigger>
-          <TabsTrigger value="dismissed">Đã bỏ qua</TabsTrigger>
-          <TabsTrigger value="expired">Đã hết hạn</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="history">
+        {/* Tab 1: Quyết định cần xử lý */}
+        <TabsContent value="pending">
           <Card>
-            <CardContent className="py-4">
-              {/* Combine DB decided cards + local + persisted auto cards */}
-              {(() => {
-                // Build cards from persisted auto_decision_card_states with DECIDED status
-                const persistedDecidedCards: DecisionCard[] = (autoCardStates || [])
-                  .filter(s => s.status === 'DECIDED' && s.card_snapshot)
-                  .map(s => ({
-                    ...(s.card_snapshot as DecisionCard),
-                    id: s.auto_card_id,
-                    status: 'DECIDED' as const,
-                    updated_at: s.decided_at || s.updated_at,
-                  }));
+            <CardHeader className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Select 
+                    value={priorityFilter} 
+                    onValueChange={(v) => setPriorityFilter(v as Priority | 'ALL')}
+                  >
+                    <SelectTrigger className="w-[130px] h-8">
+                      <Filter className="h-3.5 w-3.5 mr-1.5" />
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Tất cả</SelectItem>
+                      <SelectItem value="P1">P1 - Khẩn cấp</SelectItem>
+                      <SelectItem value="P2">P2 - Quan trọng</SelectItem>
+                      <SelectItem value="P3">P3 - Theo dõi</SelectItem>
+                    </SelectContent>
+                  </Select>
 
-                const allDecidedCards = [
-                  ...persistedDecidedCards,
-                  ...localDecidedCardsData.filter(c => !persistedDecidedIds.has(c.id)),
-                  ...(decidedCards || []),
-                ];
+                  <div className="flex border rounded-lg h-8">
+                    <Button
+                      variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-full px-2"
+                      onClick={() => setViewMode('list')}
+                    >
+                      <List className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-full px-2"
+                      onClick={() => setViewMode('grid')}
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => refetch()} className="h-8">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : visibleCards.length === 0 ? (
+                <div className="text-center py-10">
+                  <CheckCircle2 className="h-10 w-10 mx-auto text-green-400 mb-3" />
+                  <h3 className="font-semibold mb-1">Không có quyết định cần xử lý</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Tất cả các vấn đề đã được giải quyết.
+                  </p>
+                </div>
+              ) : viewMode === 'list' ? (
+                <div className="space-y-3">
+                  {/* P1 Cards */}
+                  {groupedCards.P1.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-medium text-red-400 mb-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Khẩn cấp ({groupedCards.P1.length})
+                      </div>
+                      <div className="space-y-1 bg-red-500/5 rounded-lg p-1.5">
+                        {(showAll ? groupedCards.P1 : groupedCards.P1.slice(0, 3)).map((card) => (
+                          <DecisionCardComponent
+                            key={card.id}
+                            card={card}
+                            compact
+                            onViewDetail={() => setSelectedCardId(card.id)}
+                            onDecided={handleCardDecided}
+                            onDismissed={handleCardDismissed}
+                          />
+                        ))}
+                        {!showAll && groupedCards.P1.length > 3 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full text-xs h-6"
+                            onClick={() => setShowAll(true)}
+                          >
+                            +{groupedCards.P1.length - 3} khác
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-                return allDecidedCards.length > 0 ? (
-                  <div className="space-y-3">
-                    {allDecidedCards.map((card) => (
-                      <div 
-                        key={card.id} 
-                        className="p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => setSelectedCardId(card.id)}
+                  {/* P2 Cards */}
+                  {groupedCards.P2.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-medium text-yellow-400 mb-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        Quan trọng ({groupedCards.P2.length})
+                      </div>
+                      <div className="space-y-1 bg-yellow-500/5 rounded-lg p-1.5">
+                        {(showAll ? groupedCards.P2 : groupedCards.P2.slice(0, 4)).map((card) => (
+                          <DecisionCardComponent
+                            key={card.id}
+                            card={card}
+                            compact
+                            onViewDetail={() => setSelectedCardId(card.id)}
+                            onDecided={handleCardDecided}
+                            onDismissed={handleCardDismissed}
+                          />
+                        ))}
+                        {!showAll && groupedCards.P2.length > 4 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full text-xs h-6"
+                            onClick={() => setShowAll(true)}
+                          >
+                            +{groupedCards.P2.length - 4} khác
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* P3 Cards */}
+                  {groupedCards.P3.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-medium text-blue-400 mb-1.5">
+                        <Target className="h-3.5 w-3.5" />
+                        Theo dõi ({groupedCards.P3.length})
+                      </div>
+                      <div className="space-y-1 bg-muted/30 rounded-lg p-1.5">
+                        {(showAll ? groupedCards.P3 : groupedCards.P3.slice(0, 2)).map((card) => (
+                          <DecisionCardComponent
+                            key={card.id}
+                            card={card}
+                            compact
+                            onViewDetail={() => setSelectedCardId(card.id)}
+                            onDecided={handleCardDecided}
+                            onDismissed={handleCardDismissed}
+                          />
+                        ))}
+                        {!showAll && groupedCards.P3.length > 2 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full text-xs h-6"
+                            onClick={() => setShowAll(true)}
+                          >
+                            +{groupedCards.P3.length - 2} khác
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {showAll && (allCards?.length || 0) > 7 && (
+                    <div className="text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setShowAll(false)}
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3 flex-1">
-                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                            <div className="space-y-1.5 flex-1">
-                              <p className="font-medium text-sm">{card.title}</p>
-                              <p className="text-sm text-muted-foreground">{card.question}</p>
-                              
-                              {/* Decision details */}
-                              <div className="flex flex-wrap items-center gap-2 mt-2">
-                                <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
-                                  ✓ {card.actions?.find(a => a.is_recommended)?.label || 'Đã quyết định'}
-                                </Badge>
-                                {card.id.startsWith('auto-') && (
-                                  <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500">Đã lưu</Badge>
-                                )}
-                                <span className="text-xs text-muted-foreground">
-                                  {card.entity_label}
-                                </span>
-                                <span className="text-xs text-muted-foreground">•</span>
-                                <span className="text-xs text-muted-foreground">
-                                  Impact: {formatCurrency(Math.abs(card.impact_amount))}đ
-                                </span>
+                        Thu gọn
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {visibleCards.map((card) => (
+                    <DecisionCardComponent
+                      key={card.id}
+                      card={card}
+                      onViewDetail={() => setSelectedCardId(card.id)}
+                      onDecided={handleCardDecided}
+                      onDismissed={handleCardDismissed}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Theo dõi quyết định */}
+        <TabsContent value="followup">
+          <DecisionFollowupPanel />
+        </TabsContent>
+
+        {/* Tab 3: Lịch sử quyết định */}
+        <TabsContent value="history">
+          <Tabs defaultValue="decided" className="space-y-3">
+            <TabsList>
+              <TabsTrigger value="decided" className="gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Đã xử lý
+              </TabsTrigger>
+              <TabsTrigger value="outcomes" className="gap-1">
+                <Target className="h-3.5 w-3.5" />
+                Kết quả đo lường
+              </TabsTrigger>
+              <TabsTrigger value="dismissed">Đã bỏ qua</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="decided">
+              <Card>
+                <CardContent className="py-4">
+                  {(() => {
+                    const persistedDecidedCards: DecisionCard[] = (autoCardStates || [])
+                      .filter(s => s.status === 'DECIDED' && s.card_snapshot)
+                      .map(s => ({
+                        ...(s.card_snapshot as DecisionCard),
+                        id: s.auto_card_id,
+                        status: 'DECIDED' as const,
+                        updated_at: s.decided_at || s.updated_at,
+                      }));
+
+                    const allDecidedCards = [
+                      ...persistedDecidedCards,
+                      ...localDecidedCardsData.filter(c => !persistedDecidedIds.has(c.id)),
+                      ...(decidedCards || []),
+                    ];
+
+                    return allDecidedCards.length > 0 ? (
+                      <div className="space-y-2">
+                        {allDecidedCards.map((card) => (
+                          <div 
+                            key={card.id} 
+                            className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedCardId(card.id)}
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{card.title}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{card.entity_label}</span>
+                                  <span>•</span>
+                                  <span>{formatCurrency(Math.abs(card.impact_amount))}đ</span>
+                                </div>
                               </div>
                             </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge variant="outline" className="text-xs">{card.priority}</Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(card.updated_at).toLocaleDateString('vi-VN')}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <Badge variant="outline">{card.priority}</Badge>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(card.updated_at).toLocaleDateString('vi-VN', {
-                                day: '2-digit',
-                                month: '2-digit', 
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-8 text-center text-muted-foreground">
-                    <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
-                    <p>Chưa có quyết định nào được xử lý</p>
-                  </div>
-                );
-              })()}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="outcomes">
-          <Card>
-            <CardContent className="py-4">
-              <OutcomeHistoryPanel />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="dismissed">
-          <Card>
-            <CardContent className="py-4">
-              {/* Combine DB dismissed cards + local + persisted auto cards */}
-              {(() => {
-                // Build cards from persisted auto_decision_card_states with DISMISSED status
-                const persistedDismissedCards: DecisionCard[] = (autoCardStates || [])
-                  .filter(s => s.status === 'DISMISSED' && s.card_snapshot)
-                  .map(s => ({
-                    ...(s.card_snapshot as DecisionCard),
-                    id: s.auto_card_id,
-                    status: 'DISMISSED' as const,
-                    updated_at: s.decided_at || s.updated_at,
-                  }));
-
-                const allDismissedCards = [
-                  ...persistedDismissedCards,
-                  ...localDismissedCardsData.filter(c => !persistedDismissedIds.has(c.id)),
-                  ...(dismissedCards || []),
-                ];
-
-                return allDismissedCards.length > 0 ? (
-                  <div className="space-y-3">
-                    {allDismissedCards.map((card) => (
-                      <div 
-                        key={card.id} 
-                        className="flex items-center justify-between p-4 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-                        onClick={() => setSelectedCardId(card.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Clock className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium text-sm">{card.title}</p>
-                            <p className="text-xs text-muted-foreground">{card.entity_label}</p>
-                          </div>
-                        </div>
-                        <div className="text-right flex items-center gap-2">
-                          {card.id.startsWith('auto-') && (
-                            <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500">Đã lưu</Badge>
-                          )}
-                          <Badge variant="outline">{card.priority}</Badge>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(card.updated_at).toLocaleDateString('vi-VN')}
-                          </p>
-                        </div>
+                    ) : (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                        <p>Chưa có quyết định nào được xử lý</p>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-8 text-center text-muted-foreground">
-                    <p>Chưa có quyết định nào bị bỏ qua</p>
-                  </div>
-                );
-              })()}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-        <TabsContent value="expired">
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-400" />
-              <p>Các quyết định đã hết hạn chưa xử lý</p>
-            </CardContent>
-          </Card>
+            <TabsContent value="outcomes">
+              <Card>
+                <CardContent className="py-4">
+                  <OutcomeHistoryPanel />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="dismissed">
+              <Card>
+                <CardContent className="py-4">
+                  {(() => {
+                    const persistedDismissedCards: DecisionCard[] = (autoCardStates || [])
+                      .filter(s => s.status === 'DISMISSED' && s.card_snapshot)
+                      .map(s => ({
+                        ...(s.card_snapshot as DecisionCard),
+                        id: s.auto_card_id,
+                        status: 'DISMISSED' as const,
+                        updated_at: s.decided_at || s.updated_at,
+                      }));
+
+                    const allDismissedCards = [
+                      ...persistedDismissedCards,
+                      ...localDismissedCardsData.filter(c => !persistedDismissedIds.has(c.id)),
+                      ...(dismissedCards || []),
+                    ];
+
+                    return allDismissedCards.length > 0 ? (
+                      <div className="space-y-2">
+                        {allDismissedCards.map((card) => (
+                          <div 
+                            key={card.id} 
+                            className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedCardId(card.id)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <p className="font-medium text-sm">{card.title}</p>
+                                <p className="text-xs text-muted-foreground">{card.entity_label}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">{card.priority}</Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(card.updated_at).toLocaleDateString('vi-VN')}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <p>Chưa có quyết định nào bị bỏ qua</p>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 
