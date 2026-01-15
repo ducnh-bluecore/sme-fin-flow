@@ -43,6 +43,9 @@ export interface AlertInstance {
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
+  // New fields for Alert ↔ Decision linking
+  linked_decision_card_id: string | null;
+  resolved_by_decision: boolean;
 }
 
 export interface AlertInstanceFilters {
@@ -52,6 +55,7 @@ export interface AlertInstanceFilters {
   alert_type?: string;
   object_type?: string;
   date_from?: string;
+  hideLinkedToDecision?: boolean; // Ẩn alerts đã có decision card
   date_to?: string;
 }
 
@@ -88,6 +92,10 @@ export function useAlertInstances(filters?: AlertInstanceFilters) {
       }
       if (filters?.date_to) {
         query = query.lte('created_at', filters.date_to);
+      }
+      // Ẩn alerts đã được link tới Decision Card khỏi Control Tower
+      if (filters?.hideLinkedToDecision) {
+        query = query.is('linked_decision_card_id', null);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });

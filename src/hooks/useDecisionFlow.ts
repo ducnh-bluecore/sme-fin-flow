@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveTenantId } from "./useActiveTenantId";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
+import { useResolveAlertsByDecision } from "./useLinkedAlertsDecisions";
 
 // Constants
 const IMPACT_THRESHOLD_FOR_APPROVAL = 50000000; // 50M VND
@@ -173,7 +174,8 @@ export function useDecisionFlow() {
         result.taskCreated = true;
       }
 
-      // Step 4: Resolve alert liên quan (nếu decision đến từ risk alert)
+      // Step 4: Resolve tất cả alerts liên quan đến decision card này
+      // Bao gồm cả source_alert_id và các alerts đã link qua linked_decision_card_id
       if (decision.source_alert_id) {
         await supabase.from("alert_instances")
           .update({
@@ -181,8 +183,28 @@ export function useDecisionFlow() {
             resolved_by: user.id,
             resolved_at: now,
             resolution_notes: `Đã xử lý qua CMO Decision: ${decision.type.toUpperCase()} - ${comment || decision.recommended_action}`,
+            resolved_by_decision: true,
           })
           .eq('id', decision.source_alert_id);
+        result.alertResolved = true;
+      }
+
+      // Resolve thêm các alerts đã link tới decision card này
+      const { data: linkedAlerts } = await supabase.from("alert_instances")
+        .update({
+          status: 'resolved',
+          resolved_by: user.id,
+          resolved_at: now,
+          resolution_notes: `Đã xử lý qua Decision Card: ${decision.type.toUpperCase()} - ${comment || decision.recommended_action}`,
+          resolved_by_decision: true,
+        })
+        .eq('tenant_id', tenantId)
+        .eq('linked_decision_card_id', decision.id)
+        .neq('status', 'resolved')
+        .select();
+      
+      if (linkedAlerts && linkedAlerts.length > 0) {
+        console.log(`Auto-resolved ${linkedAlerts.length} linked alerts for decision ${decision.id}`);
         result.alertResolved = true;
       }
 

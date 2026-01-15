@@ -48,6 +48,7 @@ export function AlertInstancesPanel() {
     status: statusTab !== 'all' ? statusTab : undefined,
     severity: severityFilter !== 'all' ? severityFilter : undefined,
     category: categoryFilter !== 'all' ? categoryFilter : undefined,
+    hideLinkedToDecision: true, // Ẩn alerts đã có decision card
   });
   const { data: stats } = useAlertInstanceStats();
   const acknowledgeAlert = useAcknowledgeAlert();

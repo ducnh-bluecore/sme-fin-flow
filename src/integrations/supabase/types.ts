@@ -590,6 +590,7 @@ export type Database = {
           impact_amount: number | null
           impact_currency: string | null
           impact_description: string | null
+          linked_decision_card_id: string | null
           message: string | null
           metadata: Json | null
           metric_name: string | null
@@ -602,6 +603,7 @@ export type Database = {
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          resolved_by_decision: boolean | null
           sent_at: string | null
           sent_to: Json | null
           severity: string
@@ -638,6 +640,7 @@ export type Database = {
           impact_amount?: number | null
           impact_currency?: string | null
           impact_description?: string | null
+          linked_decision_card_id?: string | null
           message?: string | null
           metadata?: Json | null
           metric_name?: string | null
@@ -650,6 +653,7 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          resolved_by_decision?: boolean | null
           sent_at?: string | null
           sent_to?: Json | null
           severity?: string
@@ -686,6 +690,7 @@ export type Database = {
           impact_amount?: number | null
           impact_currency?: string | null
           impact_description?: string | null
+          linked_decision_card_id?: string | null
           message?: string | null
           metadata?: Json | null
           metric_name?: string | null
@@ -698,6 +703,7 @@ export type Database = {
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          resolved_by_decision?: boolean | null
           sent_at?: string | null
           sent_to?: Json | null
           severity?: string
