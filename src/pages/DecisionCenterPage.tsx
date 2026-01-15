@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
+import { DecisionCardExpanded } from '@/components/decision/DecisionCardExpanded';
 import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
 import { InlineAIChat } from '@/components/decision/InlineAIChat';
 import { ThresholdConfigDialog } from '@/components/decision/ThresholdConfigDialog';
@@ -515,97 +516,88 @@ export default function DecisionCenterPage() {
                   </p>
                 </div>
               ) : viewMode === 'list' ? (
-                <div className="space-y-3">
-                  {/* P1 Cards */}
+                <div className="space-y-4">
+                  {/* P1 Cards - Khẩn cấp */}
                   {groupedCards.P1.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-red-400 mb-1.5">
-                        <AlertTriangle className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-2 text-sm font-semibold text-red-400 mb-2">
+                        <AlertTriangle className="h-4 w-4" />
                         Khẩn cấp ({groupedCards.P1.length})
                       </div>
-                      <div className="space-y-1 bg-red-500/5 rounded-lg p-1.5">
+                      <div className="space-y-3">
                         {(showAll ? groupedCards.P1 : groupedCards.P1.slice(0, 3)).map((card) => (
-                          <DecisionCardComponent
+                          <DecisionCardExpanded
                             key={card.id}
                             card={card}
-                            compact
                             onViewDetail={() => setSelectedCardId(card.id)}
-                            onDecided={handleCardDecided}
-                            onDismissed={handleCardDismissed}
                           />
                         ))}
                         {!showAll && groupedCards.P1.length > 3 && (
                           <Button 
-                            variant="ghost" 
+                            variant="outline" 
                             size="sm" 
-                            className="w-full text-xs h-6"
+                            className="w-full"
                             onClick={() => setShowAll(true)}
                           >
-                            +{groupedCards.P1.length - 3} khác
+                            Xem thêm {groupedCards.P1.length - 3} quyết định khẩn cấp
                           </Button>
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* P2 Cards */}
+                  {/* P2 Cards - Quan trọng */}
                   {groupedCards.P2.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-yellow-400 mb-1.5">
-                        <Clock className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-2 text-sm font-semibold text-yellow-400 mb-2">
+                        <Clock className="h-4 w-4" />
                         Quan trọng ({groupedCards.P2.length})
                       </div>
-                      <div className="space-y-1 bg-yellow-500/5 rounded-lg p-1.5">
+                      <div className="space-y-3">
                         {(showAll ? groupedCards.P2 : groupedCards.P2.slice(0, 4)).map((card) => (
-                          <DecisionCardComponent
+                          <DecisionCardExpanded
                             key={card.id}
                             card={card}
-                            compact
                             onViewDetail={() => setSelectedCardId(card.id)}
-                            onDecided={handleCardDecided}
-                            onDismissed={handleCardDismissed}
                           />
                         ))}
                         {!showAll && groupedCards.P2.length > 4 && (
                           <Button 
-                            variant="ghost" 
+                            variant="outline" 
                             size="sm" 
-                            className="w-full text-xs h-6"
+                            className="w-full"
                             onClick={() => setShowAll(true)}
                           >
-                            +{groupedCards.P2.length - 4} khác
+                            Xem thêm {groupedCards.P2.length - 4} quyết định
                           </Button>
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* P3 Cards */}
+                  {/* P3 Cards - Theo dõi */}
                   {groupedCards.P3.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-blue-400 mb-1.5">
-                        <Target className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-2 text-sm font-semibold text-blue-400 mb-2">
+                        <Target className="h-4 w-4" />
                         Theo dõi ({groupedCards.P3.length})
                       </div>
-                      <div className="space-y-1 bg-muted/30 rounded-lg p-1.5">
+                      <div className="space-y-3">
                         {(showAll ? groupedCards.P3 : groupedCards.P3.slice(0, 2)).map((card) => (
-                          <DecisionCardComponent
+                          <DecisionCardExpanded
                             key={card.id}
                             card={card}
-                            compact
                             onViewDetail={() => setSelectedCardId(card.id)}
-                            onDecided={handleCardDecided}
-                            onDismissed={handleCardDismissed}
                           />
                         ))}
                         {!showAll && groupedCards.P3.length > 2 && (
                           <Button 
-                            variant="ghost" 
+                            variant="outline" 
                             size="sm" 
-                            className="w-full text-xs h-6"
+                            className="w-full"
                             onClick={() => setShowAll(true)}
                           >
-                            +{groupedCards.P3.length - 2} khác
+                            Xem thêm {groupedCards.P3.length - 2} quyết định
                           </Button>
                         )}
                       </div>
