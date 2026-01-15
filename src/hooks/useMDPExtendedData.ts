@@ -10,8 +10,10 @@ import { useMemo } from 'react';
 // === BUDGET OPTIMIZER TYPES ===
 export interface ChannelBudgetData {
   channel: string;
-  currentBudget: number;
-  suggestedBudget: number;
+  allocatedBudget: number;      // Budget được cấp từ channel_budgets
+  actualSpend: number;          // Ads đã tiêu thực tế
+  spendRate: number;            // % đã tiêu so với budget
+  suggestedBudget: number;      // Đề xuất (dựa trên allocatedBudget)
   currentROAS: number;
   projectedROAS: number;
   currentRevenue: number;
@@ -20,6 +22,8 @@ export interface ChannelBudgetData {
   action: 'increase' | 'decrease' | 'maintain';
   orders: number;
   cpa: number;
+  // Legacy field for backward compatibility
+  currentBudget: number;
 }
 
 // === CUSTOMER LTV TYPES ===
@@ -124,8 +128,30 @@ export interface ChannelFunnel {
 export function useBudgetOptimizerData() {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
+  
+  // Get current month/year from date range
+  const startDate = new Date(startDateStr);
+  const currentYear = startDate.getFullYear();
+  const currentMonth = startDate.getMonth() + 1;
 
-  // Fetch marketing expenses by channel
+  // Fetch allocated budgets from channel_budgets table
+  const allocatedBudgetsQuery = useQuery({
+    queryKey: ['budget-optimizer-allocated', tenantId, currentYear, currentMonth],
+    queryFn: async () => {
+      if (!tenantId) return [];
+      const { data, error } = await supabase
+        .from('channel_budgets')
+        .select('channel, budget_amount')
+        .eq('tenant_id', tenantId)
+        .eq('year', currentYear)
+        .eq('month', currentMonth);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId,
+  });
+
+  // Fetch marketing expenses by channel (actual spend)
   const expensesQuery = useQuery({
     queryKey: ['budget-optimizer-expenses', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
@@ -177,11 +203,19 @@ export function useBudgetOptimizerData() {
   });
 
   const channelBudgets = useMemo<ChannelBudgetData[]>(() => {
+    const allocatedBudgets = allocatedBudgetsQuery.data || [];
     const expenses = expensesQuery.data || [];
     const campaigns = campaignsQuery.data || [];
     const orders = ordersQuery.data || [];
 
-    // Aggregate by channel
+    // Create map of allocated budgets
+    const allocatedMap = new Map<string, number>();
+    allocatedBudgets.forEach(b => {
+      const channel = (b.channel || 'other').toLowerCase();
+      allocatedMap.set(channel, b.budget_amount || 0);
+    });
+
+    // Aggregate actual spend by channel
     const channelMap = new Map<string, {
       spend: number;
       revenue: number;
@@ -189,14 +223,14 @@ export function useBudgetOptimizerData() {
     }>();
 
     expenses.forEach(exp => {
-      const channel = exp.channel || 'Other';
+      const channel = (exp.channel || 'Other').toLowerCase();
       const existing = channelMap.get(channel) || { spend: 0, revenue: 0, orders: 0 };
       existing.spend += exp.amount || 0;
       channelMap.set(channel, existing);
     });
 
     campaigns.forEach(camp => {
-      const channel = camp.channel || 'Other';
+      const channel = (camp.channel || 'Other').toLowerCase();
       const existing = channelMap.get(channel) || { spend: 0, revenue: 0, orders: 0 };
       existing.spend += camp.actual_cost || 0;
       existing.revenue += camp.total_revenue || 0;
@@ -206,7 +240,7 @@ export function useBudgetOptimizerData() {
 
     // Count orders by channel
     orders.forEach(ord => {
-      const channel = ord.channel || 'Other';
+      const channel = (ord.channel || 'Other').toLowerCase();
       const existing = channelMap.get(channel);
       if (existing && ord.status === 'delivered') {
         existing.revenue += ord.total_amount || 0;
@@ -214,13 +248,24 @@ export function useBudgetOptimizerData() {
       }
     });
 
-    return Array.from(channelMap.entries())
-      .filter(([_, data]) => data.spend > 0)
-      .map(([channel, data]) => {
-        const currentROAS = data.spend > 0 ? data.revenue / data.spend : 0;
-        const cpa = data.orders > 0 ? data.spend / data.orders : 0;
+    // Merge allocated budgets with actual spend data
+    // Include channels that have either allocated budget or actual spend
+    const allChannels = new Set([...allocatedMap.keys(), ...channelMap.keys()]);
+
+    return Array.from(allChannels)
+      .map(channel => {
+        const allocated = allocatedMap.get(channel) || 0;
+        const data = channelMap.get(channel) || { spend: 0, revenue: 0, orders: 0 };
         
-        // AI suggestion logic based on ROAS
+        // Use allocated budget if available, otherwise fall back to actual spend
+        const baseBudget = allocated > 0 ? allocated : data.spend;
+        const actualSpend = data.spend;
+        const spendRate = baseBudget > 0 ? (actualSpend / baseBudget) * 100 : 0;
+        
+        const currentROAS = actualSpend > 0 ? data.revenue / actualSpend : 0;
+        const cpa = data.orders > 0 ? actualSpend / data.orders : 0;
+        
+        // AI suggestion logic based on ROAS - now applied to allocated budget
         let action: ChannelBudgetData['action'];
         let suggestedMultiplier: number;
         let projectedROASMultiplier: number;
@@ -229,7 +274,7 @@ export function useBudgetOptimizerData() {
         if (currentROAS >= 4) {
           action = 'increase';
           suggestedMultiplier = 1.3; // +30%
-          projectedROASMultiplier = 0.95; // Slight decrease due to scale
+          projectedROASMultiplier = 0.95;
           confidence = 88;
         } else if (currentROAS >= 2.5) {
           action = 'increase';
@@ -244,7 +289,7 @@ export function useBudgetOptimizerData() {
         } else if (currentROAS >= 1) {
           action = 'decrease';
           suggestedMultiplier = 0.7; // -30%
-          projectedROASMultiplier = 1.3; // Better efficiency with less spend
+          projectedROASMultiplier = 1.3;
           confidence = 78;
         } else {
           action = 'decrease';
@@ -253,13 +298,16 @@ export function useBudgetOptimizerData() {
           confidence = 85;
         }
 
-        const suggestedBudget = data.spend * suggestedMultiplier;
+        // Đề xuất dựa trên Budget được cấp (allocatedBudget), không phải actualSpend
+        const suggestedBudget = baseBudget * suggestedMultiplier;
         const projectedROAS = currentROAS * projectedROASMultiplier;
         const projectedRevenue = suggestedBudget * projectedROAS;
 
         return {
           channel,
-          currentBudget: data.spend,
+          allocatedBudget: allocated,
+          actualSpend,
+          spendRate,
           suggestedBudget,
           currentROAS,
           projectedROAS,
@@ -269,15 +317,18 @@ export function useBudgetOptimizerData() {
           action,
           orders: data.orders,
           cpa,
+          // Legacy field for backward compatibility
+          currentBudget: actualSpend,
         };
       })
-      .sort((a, b) => b.currentBudget - a.currentBudget);
-  }, [expensesQuery.data, campaignsQuery.data, ordersQuery.data]);
+      .filter(c => c.allocatedBudget > 0 || c.actualSpend > 0)
+      .sort((a, b) => b.allocatedBudget - a.allocatedBudget || b.actualSpend - a.actualSpend);
+  }, [allocatedBudgetsQuery.data, expensesQuery.data, campaignsQuery.data, ordersQuery.data]);
 
   return {
     channelBudgets,
-    isLoading: expensesQuery.isLoading || campaignsQuery.isLoading || ordersQuery.isLoading,
-    error: expensesQuery.error || campaignsQuery.error || ordersQuery.error,
+    isLoading: allocatedBudgetsQuery.isLoading || expensesQuery.isLoading || campaignsQuery.isLoading || ordersQuery.isLoading,
+    error: allocatedBudgetsQuery.error || expensesQuery.error || campaignsQuery.error || ordersQuery.error,
   };
 }
 
