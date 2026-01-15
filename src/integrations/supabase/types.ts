@@ -3749,6 +3749,95 @@ export type Database = {
           },
         ]
       }
+      decision_audit_log: {
+        Row: {
+          action_label: string | null
+          action_type: string
+          auto_card_id: string | null
+          card_id: string | null
+          card_snapshot: Json | null
+          card_type: string
+          comment: string | null
+          created_at: string
+          decided_at: string
+          decided_by: string | null
+          decision_status: string | null
+          dismiss_reason: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string
+          id: string
+          impact_amount: number | null
+          impact_currency: string | null
+          outcome_notes: string | null
+          outcome_recorded_at: string | null
+          outcome_tracking_key: string | null
+          outcome_value: number | null
+          snoozed_until: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_type: string
+          auto_card_id?: string | null
+          card_id?: string | null
+          card_snapshot?: Json | null
+          card_type: string
+          comment?: string | null
+          created_at?: string
+          decided_at?: string
+          decided_by?: string | null
+          decision_status?: string | null
+          dismiss_reason?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type: string
+          id?: string
+          impact_amount?: number | null
+          impact_currency?: string | null
+          outcome_notes?: string | null
+          outcome_recorded_at?: string | null
+          outcome_tracking_key?: string | null
+          outcome_value?: number | null
+          snoozed_until?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action_label?: string | null
+          action_type?: string
+          auto_card_id?: string | null
+          card_id?: string | null
+          card_snapshot?: Json | null
+          card_type?: string
+          comment?: string | null
+          created_at?: string
+          decided_at?: string
+          decided_by?: string | null
+          decision_status?: string | null
+          dismiss_reason?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string
+          id?: string
+          impact_amount?: number | null
+          impact_currency?: string | null
+          outcome_notes?: string | null
+          outcome_recorded_at?: string | null
+          outcome_tracking_key?: string | null
+          outcome_value?: number | null
+          snoozed_until?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decision_card_actions: {
         Row: {
           action_type: string
@@ -3936,6 +4025,8 @@ export type Database = {
         Row: {
           analysis_metadata: Json | null
           assigned_at: string | null
+          auto_card_id: string | null
+          card_source: string | null
           card_type: string
           confidence: string | null
           created_at: string
@@ -3966,6 +4057,8 @@ export type Database = {
         Insert: {
           analysis_metadata?: Json | null
           assigned_at?: string | null
+          auto_card_id?: string | null
+          card_source?: string | null
           card_type: string
           confidence?: string | null
           created_at?: string
@@ -3996,6 +4089,8 @@ export type Database = {
         Update: {
           analysis_metadata?: Json | null
           assigned_at?: string | null
+          auto_card_id?: string | null
+          card_source?: string | null
           card_type?: string
           confidence?: string | null
           created_at?: string
@@ -11216,6 +11311,86 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "gl_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unified_decision_history: {
+        Row: {
+          action_label: string | null
+          action_type: string | null
+          card_identifier: string | null
+          card_source: string | null
+          card_type: string | null
+          comment: string | null
+          created_at: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_status: string | null
+          dismiss_reason: string | null
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string | null
+          id: string | null
+          impact_amount: number | null
+          impact_currency: string | null
+          outcome_notes: string | null
+          outcome_value: number | null
+          snoozed_until: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          action_label?: string | null
+          action_type?: string | null
+          card_identifier?: never
+          card_source?: never
+          card_type?: string | null
+          comment?: string | null
+          created_at?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_status?: string | null
+          dismiss_reason?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          id?: string | null
+          impact_amount?: number | null
+          impact_currency?: string | null
+          outcome_notes?: string | null
+          outcome_value?: number | null
+          snoozed_until?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          action_label?: string | null
+          action_type?: string | null
+          card_identifier?: never
+          card_source?: never
+          card_type?: string | null
+          comment?: string | null
+          created_at?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_status?: string | null
+          dismiss_reason?: string | null
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string | null
+          id?: string | null
+          impact_amount?: number | null
+          impact_currency?: string | null
+          outcome_notes?: string | null
+          outcome_value?: number | null
+          snoozed_until?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_audit_log_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
