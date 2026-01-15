@@ -51,6 +51,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
+    labelKey: 'nav.decisionCenter',
+    icon: Zap,
+    href: '/decision-center',
+  },
+  {
     labelKey: 'nav.cfoOverview',
     icon: LayoutDashboard,
     children: [
@@ -60,11 +65,6 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.workingCapital', href: '/working-capital' },
       { labelKey: 'nav.cashConversion', href: '/cash-conversion-cycle' },
     ],
-  },
-  {
-    labelKey: 'nav.decisionCenter',
-    icon: Zap,
-    href: '/decision-center',
   },
   {
     labelKey: 'nav.strategyDecision',
