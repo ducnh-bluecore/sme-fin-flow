@@ -22,12 +22,13 @@ import {
   DollarSign,
   Timer,
   Target,
+  Send,
+  ListTodo,
 } from 'lucide-react';
 import { ProfitAttribution, CashImpact, CMOModeSummary, MarketingRiskAlert } from '@/hooks/useMDPData';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useUpsertAutoDecisionCardState } from '@/hooks/useAutoDecisionCardStates';
-import { useAuth } from '@/hooks/useAuth';
+import { useDecisionFlow, DecisionPayload } from '@/hooks/useDecisionFlow';
 
 interface CMOCommandCenterProps {
   profitData: ProfitAttribution[];
@@ -36,33 +37,16 @@ interface CMOCommandCenterProps {
   summary: CMOModeSummary;
 }
 
-interface DecisionItem {
-  id: string;
-  type: 'scale' | 'pause' | 'reduce' | 'investigate';
-  entity_type: 'channel' | 'campaign';
-  entity_name: string;
-  entity_id: string;
-  priority: 'critical' | 'high' | 'medium';
-  headline: string;
-  reason: string;
-  impact_amount: number;
-  deadline_hours: number;
-  metrics: {
-    label: string;
-    value: string;
-    status: 'good' | 'warning' | 'bad';
-  }[];
-  recommended_action: string;
+interface DecisionItem extends Omit<DecisionPayload, 'metrics'> {
+  metrics?: { label: string; value: string; status: 'good' | 'warning' | 'bad' }[];
 }
 
 export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }: CMOCommandCenterProps) {
   const [selectedDecision, setSelectedDecision] = useState<DecisionItem | null>(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [comment, setComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { user } = useAuth();
-  const upsertState = useUpsertAutoDecisionCardState();
+  const { processDecision, isProcessing, IMPACT_THRESHOLD_FOR_APPROVAL } = useDecisionFlow();
 
   const formatCurrency = (value: number) => {
     if (Math.abs(value) >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
@@ -149,79 +133,41 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
 
   const handleApprove = async () => {
     if (!selectedDecision) return;
-    setIsSubmitting(true);
 
-    try {
-      await upsertState.mutateAsync({
-        autoCardId: selectedDecision.id,
-        status: 'DECIDED',
-        decidedBy: user?.id || null,
-        decidedAt: new Date().toISOString(),
-        comment: comment || `Approved: ${selectedDecision.recommended_action}`,
-        cardSnapshot: selectedDecision,
-      });
-
-      toast.success(
-        selectedDecision.type === 'scale' 
-          ? `Đã phê duyệt SCALE ${selectedDecision.entity_name}` 
-          : `Đã phê duyệt ${selectedDecision.type.toUpperCase()} ${selectedDecision.entity_name}`,
-        { description: 'Quyết định đã được ghi nhận và feed to Control Tower' }
-      );
-      setActionDialogOpen(false);
-    } catch (err) {
-      toast.error('Không thể lưu quyết định');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await processDecision.mutateAsync({
+      decision: selectedDecision,
+      action: 'approved',
+      comment: comment || `Approved: ${selectedDecision.recommended_action}`,
+    });
+    setActionDialogOpen(false);
   };
 
   const handleReject = async () => {
     if (!selectedDecision) return;
-    setIsSubmitting(true);
 
-    try {
-      await upsertState.mutateAsync({
-        autoCardId: selectedDecision.id,
-        status: 'DISMISSED',
-        decidedBy: user?.id || null,
-        decidedAt: new Date().toISOString(),
-        dismissReason: comment || 'Không thực hiện theo khuyến nghị',
-        cardSnapshot: selectedDecision,
-      });
-
-      toast.info(`Đã bỏ qua khuyến nghị cho ${selectedDecision.entity_name}`);
-      setActionDialogOpen(false);
-    } catch (err) {
-      toast.error('Không thể lưu quyết định');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await processDecision.mutateAsync({
+      decision: selectedDecision,
+      action: 'rejected',
+      comment: comment || 'Không thực hiện theo khuyến nghị',
+    });
+    setActionDialogOpen(false);
   };
 
   const handleSnooze = async () => {
     if (!selectedDecision) return;
-    setIsSubmitting(true);
 
-    try {
-      const snoozedUntil = new Date();
-      snoozedUntil.setHours(snoozedUntil.getHours() + 24);
-
-      await upsertState.mutateAsync({
-        autoCardId: selectedDecision.id,
-        status: 'SNOOZED',
-        snoozedUntil: snoozedUntil.toISOString(),
-        comment: comment || 'Tạm hoãn 24h',
-        cardSnapshot: selectedDecision,
-      });
-
-      toast.info(`Đã tạm hoãn 24h`, { description: 'Sẽ nhắc lại vào ngày mai' });
-      setActionDialogOpen(false);
-    } catch (err) {
-      toast.error('Không thể lưu quyết định');
-    } finally {
-      setIsSubmitting(false);
-    }
+    await processDecision.mutateAsync({
+      decision: selectedDecision,
+      action: 'snoozed',
+      comment: comment || 'Tạm hoãn 24h',
+    });
+    setActionDialogOpen(false);
   };
+
+  // Check if decision requires approval
+  const requiresApproval = selectedDecision 
+    ? selectedDecision.impact_amount >= IMPACT_THRESHOLD_FOR_APPROVAL 
+    : false;
 
   const getTypeConfig = (type: DecisionItem['type']) => {
     const configs = {
@@ -488,6 +434,29 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
                 </div>
               </div>
 
+              {/* Approval Notice */}
+              {requiresApproval && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <Send className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Impact ≥ 50M → Sẽ gửi lên CEO/CFO phê duyệt
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {!requiresApproval && (
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                  <div className="flex items-center gap-2 text-blue-400">
+                    <ListTodo className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Impact &lt; 50M → Tạo task cho Marketing Team
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Reason */}
               <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
                 <p className="text-sm font-medium mb-1">Lý do:</p>
@@ -517,7 +486,7 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
             <Button 
               variant="outline" 
               onClick={handleSnooze}
-              disabled={isSubmitting}
+              disabled={isProcessing}
               className="gap-1"
             >
               <Clock className="h-4 w-4" />
@@ -526,7 +495,7 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
             <Button 
               variant="ghost" 
               onClick={handleReject}
-              disabled={isSubmitting}
+              disabled={isProcessing}
               className="gap-1 text-muted-foreground"
             >
               <XCircle className="h-4 w-4" />
@@ -534,7 +503,7 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
             </Button>
             <Button 
               onClick={handleApprove}
-              disabled={isSubmitting}
+              disabled={isProcessing}
               className={cn(
                 "gap-1",
                 selectedDecision?.type === 'scale' 
@@ -544,9 +513,18 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
                   : ""
               )}
             >
-              <CheckCircle2 className="h-4 w-4" />
-              {selectedDecision?.type === 'scale' ? 'Phê duyệt Scale' : 
-               selectedDecision?.type === 'pause' ? 'Xác nhận Pause' : 'Phê duyệt'}
+              {requiresApproval ? (
+                <>
+                  <Send className="h-4 w-4" />
+                  Gửi phê duyệt
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  {selectedDecision?.type === 'scale' ? 'Phê duyệt & Tạo Task' : 
+                   selectedDecision?.type === 'pause' ? 'Xác nhận & Tạo Task' : 'Phê duyệt'}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
