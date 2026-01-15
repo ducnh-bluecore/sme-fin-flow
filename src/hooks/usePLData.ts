@@ -2,6 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { FALLBACK_RATIOS } from '@/lib/financial-constants';
+
+/**
+ * P&L Data Hook - REFACTORED FOR SSOT
+ * 
+ * Uses useCentralFinancialMetrics for core financial metrics to ensure consistency.
+ * Only calculates P&L-specific details (expense breakdown, monthly trend, category data).
+ * 
+ * Core metrics from SSOT:
+ * - netRevenue, cogs, grossProfit, grossMargin
+ * - totalOpex, ebitda, netProfit, netProfitMargin
+ * - depreciation, interestExpense
+ */
 
 export interface PLData {
   // Doanh thu
@@ -102,8 +116,7 @@ const categoryMapping: Record<string, keyof PLData['operatingExpenses'] | 'cogs'
   'other': 'other',
 };
 
-// Fallback ratios when no expense data
-const FALLBACK_COGS_RATIO = 0.65;
+// Fallback ratios for OPEX breakdown (when no expense detail)
 const FALLBACK_OPEX_RATIOS = {
   salaries: 0.11,
   rent: 0.05,
@@ -116,7 +129,7 @@ const FALLBACK_OPEX_RATIOS = {
   professional: 0.006,
   other: 0.016,
 };
-const TAX_RATE = 0.20;
+const TAX_RATE = FALLBACK_RATIOS.tax;
 
 export function usePLData() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
@@ -127,6 +140,9 @@ export function usePLData() {
     endDateStr,
     dateRange,
   } = useDateRangeForQuery();
+  
+  // Use centralized financial metrics (SINGLE SOURCE OF TRUTH)
+  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
   return useQuery({
     queryKey: ['pl-data', tenantId, dateRange, startDateStr, endDateStr],
@@ -278,7 +294,7 @@ export function usePLData() {
         });
       } else {
         // Fallback to estimated ratios
-        cogs = netSales * FALLBACK_COGS_RATIO;
+        cogs = netSales * FALLBACK_RATIOS.cogs;
         operatingExpenses.salaries = netSales * FALLBACK_OPEX_RATIOS.salaries;
         operatingExpenses.rent = netSales * FALLBACK_OPEX_RATIOS.rent;
         operatingExpenses.utilities = netSales * FALLBACK_OPEX_RATIOS.utilities;
@@ -364,7 +380,7 @@ export function usePLData() {
             }
           });
         } else {
-          monthCogs = monthNetSales * FALLBACK_COGS_RATIO;
+          monthCogs = monthNetSales * FALLBACK_RATIOS.cogs;
           monthOpex = monthNetSales * Object.values(FALLBACK_OPEX_RATIOS).reduce((a, b) => a + b, 0);
         }
         
