@@ -3,11 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
 import { format, subMonths } from 'date-fns';
-import { useFinancialMetrics } from './useFinancialMetrics';
+import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 /**
  * Working Capital Hook - Refactored
- * Now uses useFinancialMetrics for core DSO/DPO calculations.
+ * Now uses useCentralFinancialMetrics for core DSO/DPO calculations (Single Source of Truth).
  * Avoids duplicate calculations with useCashConversionCycle.
  */
 
@@ -74,10 +75,12 @@ export function useWorkingCapitalMetrics() {
 
 export function useWorkingCapitalSummary() {
   const { data: tenantId } = useActiveTenantId();
-  const { data: metrics } = useFinancialMetrics();
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
+  // Use centralized financial metrics (Single Source of Truth)
+  const { data: metrics } = useCentralFinancialMetrics();
   
   return useQuery({
-    queryKey: ['working-capital-summary', tenantId],
+    queryKey: ['working-capital-summary', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       // Get historical metrics from DB
       const { data: dbMetrics, error: metricsError } = await supabase
@@ -88,15 +91,18 @@ export function useWorkingCapitalSummary() {
       
       if (metricsError) throw metricsError;
       
-      // Use centralized metrics for current calculations
-      const totalAR = metrics?.avgAR || 0;
-      const totalAP = metrics?.avgAP || 0;
+      // Use centralized metrics for current calculations (SSOT)
+      const totalAR = metrics?.totalAR || 0;
+      const totalAP = metrics?.totalAP || 0;
       const calculatedDSO = metrics?.dso || 0;
       const calculatedDPO = metrics?.dpo || 0;
+      const calculatedDIO = metrics?.dio || 0;
+      const calculatedCCC = metrics?.ccc || 0;
+      const inventory = metrics?.inventory || 0;
       const dailyRevenue = metrics?.dailySales || 0;
-      const dailyExpenses = metrics?.totalExpenses ? metrics.totalExpenses / metrics.daysInPeriod : 0;
-      const annualRevenue = metrics?.totalSales ? metrics.totalSales * (365 / metrics.daysInPeriod) : 0;
-      const annualExpenses = metrics?.totalExpenses ? metrics.totalExpenses * (365 / metrics.daysInPeriod) : 0;
+      const dailyExpenses = metrics?.totalOpex ? metrics.totalOpex / metrics.daysInPeriod : 0;
+      const annualRevenue = metrics?.netRevenue ? metrics.netRevenue * (365 / metrics.daysInPeriod) : 0;
+      const annualExpenses = metrics?.totalOpex ? metrics.totalOpex * (365 / metrics.daysInPeriod) : 0;
       
       // Build current metric using centralized data
       const current: WorkingCapitalMetric = {
@@ -105,20 +111,20 @@ export function useWorkingCapitalSummary() {
         metric_date: format(new Date(), 'yyyy-MM-dd'),
         dso_days: calculatedDSO,
         dpo_days: calculatedDPO,
-        dio_days: metrics?.dio || 0,
-        ccc_days: metrics?.ccc || (calculatedDSO - calculatedDPO),
+        dio_days: calculatedDIO,
+        ccc_days: calculatedCCC,
         accounts_receivable: totalAR,
         accounts_payable: totalAP,
-        inventory_value: metrics?.avgInventory || 0,
-        current_assets: totalAR,
+        inventory_value: inventory,
+        current_assets: totalAR + inventory,
         current_liabilities: totalAP,
-        net_working_capital: totalAR - totalAP,
+        net_working_capital: totalAR + inventory - totalAP,
         ar_turnover: totalAR > 0 ? annualRevenue / totalAR : 0,
         ap_turnover: totalAP > 0 ? annualExpenses / totalAP : 0,
-        inventory_turnover: 0,
-        target_dso: 30,
-        target_dpo: 45,
-        target_dio: null,
+        inventory_turnover: inventory > 0 ? (metrics?.cogs || 0) / inventory : 0,
+        target_dso: metrics?.industryBenchmark.dso || 30,
+        target_dpo: metrics?.industryBenchmark.dpo || 45,
+        target_dio: metrics?.industryBenchmark.dio || 45,
         potential_cash_release: calculatedDSO > 30 ? (calculatedDSO - 30) * dailyRevenue : 0,
         created_at: new Date().toISOString(),
       };
