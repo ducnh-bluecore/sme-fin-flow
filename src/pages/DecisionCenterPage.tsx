@@ -17,11 +17,13 @@ import {
   RefreshCw,
   Sparkles,
   Bot,
+  Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
 import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
 import { InlineAIChat } from '@/components/decision/InlineAIChat';
+import { ThresholdConfigDialog } from '@/components/decision/ThresholdConfigDialog';
 import { 
   useDecisionCards, 
   useDecisionCard,
@@ -67,6 +69,7 @@ export default function DecisionCenterPage() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showThresholdConfig, setShowThresholdConfig] = useState(false);
   
   // Persisted states for auto-generated cards (survive refresh)
   const { data: autoCardStates } = useAutoDecisionCardStates();
@@ -309,21 +312,37 @@ export default function DecisionCenterPage() {
               )}
             </div>
           </div>
-          <Button 
-            onClick={async () => {
-              setIsRefreshing(true);
-              await refetch();
-              setIsRefreshing(false);
-            }}
-            className="gap-2"
-            variant="outline"
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? 'Đang tải...' : 'Làm mới'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={() => setShowThresholdConfig(true)}
+              variant="outline"
+              size="icon"
+              title="Cấu hình ngưỡng khẩn cấp"
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+            <Button 
+              onClick={async () => {
+                setIsRefreshing(true);
+                await refetch();
+                setIsRefreshing(false);
+              }}
+              className="gap-2"
+              variant="outline"
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              {isRefreshing ? 'Đang tải...' : 'Làm mới'}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Threshold Config Dialog */}
+      <ThresholdConfigDialog 
+        open={showThresholdConfig} 
+        onOpenChange={setShowThresholdConfig} 
+      />
 
       {/* Bluecore Scores - Top level health indicators */}
       <BluecoreScoresPanel layout="compact" showTitle />
