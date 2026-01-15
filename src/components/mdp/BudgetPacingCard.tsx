@@ -126,11 +126,10 @@ export function BudgetPacingCard({
   const config = statusConfig[pacingMetrics.status];
   const StatusIcon = config.icon;
 
-  // Top channels by spend
-  const topChannels = useMemo(() => {
+  // All channels by spend
+  const allChannels = useMemo(() => {
     return [...budgetData]
       .sort((a, b) => b.actualSpend - a.actualSpend)
-      .slice(0, 3)
       .map(ch => {
         const pacing = ch.plannedBudget > 0 ? (ch.actualSpend / ch.plannedBudget) * 100 : 0;
         const expectedPacing = ch.totalDays > 0 ? (ch.daysElapsed / ch.totalDays) * 100 : 0;
@@ -246,13 +245,13 @@ export function BudgetPacingCard({
         </div>
 
         {/* Top Channels Pacing */}
-        {topChannels.length > 0 && (
+        {allChannels.length > 0 && (
           <div className="pt-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground mb-2">Pacing theo kênh</p>
-            <div className="space-y-2">
-              {topChannels.map((channel) => (
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {allChannels.map((channel) => (
                 <div key={channel.channel} className="flex items-center gap-2">
-                  <span className="text-xs w-16 truncate">{channel.channel}</span>
+                  <span className="text-xs w-20 truncate">{channel.channel}</span>
                   <div className="flex-1 relative">
                     <Progress 
                       value={Math.min(channel.pacing, 100)} 
