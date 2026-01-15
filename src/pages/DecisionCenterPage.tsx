@@ -26,6 +26,7 @@ import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
 import { InlineAIChat } from '@/components/decision/InlineAIChat';
 import { ThresholdConfigDialog } from '@/components/decision/ThresholdConfigDialog';
 import { DecisionFollowupPanel } from '@/components/decision/DecisionFollowupPanel';
+import { OutcomeHistoryPanel } from '@/components/decision/OutcomeHistoryPanel';
 import { 
   useDecisionCards, 
   useDecisionCard,
@@ -608,6 +609,10 @@ export default function DecisionCenterPage() {
             <CheckCircle2 className="h-4 w-4" />
             Lịch sử quyết định
           </TabsTrigger>
+          <TabsTrigger value="outcomes" className="gap-1.5">
+            <Target className="h-4 w-4" />
+            Kết quả đo lường
+          </TabsTrigger>
           <TabsTrigger value="dismissed">Đã bỏ qua</TabsTrigger>
           <TabsTrigger value="expired">Đã hết hạn</TabsTrigger>
         </TabsList>
@@ -689,6 +694,14 @@ export default function DecisionCenterPage() {
                   </div>
                 );
               })()}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="outcomes">
+          <Card>
+            <CardContent className="py-4">
+              <OutcomeHistoryPanel />
             </CardContent>
           </Card>
         </TabsContent>
