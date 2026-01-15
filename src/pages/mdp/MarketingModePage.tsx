@@ -276,12 +276,8 @@ export default function MarketingModePage() {
         </div>
       </div>
 
-      {/* Budget Pacing Card */}
-      <BudgetPacingCard 
-        budgetData={budgetPacingData}
-        totalPlannedBudget={totalPlannedBudget}
-        totalActualSpend={totalActualSpend}
-      />
+      {/* Budget Pacing Card - Uses unified data source internally */}
+      <BudgetPacingCard />
 
       {/* Key Metrics Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -373,8 +369,6 @@ export default function MarketingModePage() {
         <TabsContent value="overview" className="space-y-4">
           <PerformanceOverview summary={marketingModeSummary} />
           <ChannelBreakdownPanel 
-            campaigns={marketingPerformance}
-            budgetPacingData={budgetPacingData}
             onViewChannelDetails={(channel) => navigate(`/mdp/channels?channel=${channel}`)}
           />
           <AdvancedMetricsGrid metrics={advancedMetrics} period="Last 30 days" />

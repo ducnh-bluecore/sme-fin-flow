@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -9,25 +8,12 @@ import {
   TrendingDown, 
   AlertTriangle,
   CheckCircle2,
-  Clock,
-  Target,
   Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useChannelBudgets } from '@/hooks/useChannelBudgets';
-
-interface BudgetPacingData {
-  channel: string;
-  plannedBudget: number;
-  actualSpend: number;
-  daysElapsed: number;
-  totalDays: number;
-}
+import { useUnifiedChannelMetrics } from '@/hooks/useUnifiedChannelMetrics';
 
 interface BudgetPacingCardProps {
-  budgetData: BudgetPacingData[];
-  totalPlannedBudget: number;
-  totalActualSpend: number;
   periodLabel?: string;
 }
 
@@ -38,101 +24,9 @@ const formatCurrency = (value: number) => {
   return value.toLocaleString();
 };
 
-export function BudgetPacingCard({ 
-  budgetData, 
-  totalPlannedBudget: fallbackPlannedBudget, 
-  totalActualSpend,
-  periodLabel = 'Tháng này'
-}: BudgetPacingCardProps) {
-  // Get channel budgets from database as source of truth
-  const { budgets, budgetsMap } = useChannelBudgets();
-  
-  const hasConfiguredBudgets = useMemo(() => {
-    return budgets.some(b => b.is_active && (b.budget_amount || 0) > 0);
-  }, [budgets]);
-
-  // Total planned budget: single source of truth = active channel_budgets
-  const totalPlannedBudget = useMemo(() => {
-    if (!hasConfiguredBudgets) return fallbackPlannedBudget;
-    return budgets
-      .filter(b => b.is_active)
-      .reduce((sum, b) => sum + (b.budget_amount || 0), 0);
-  }, [budgets, fallbackPlannedBudget, hasConfiguredBudgets]);
-
-  // Total actual spend MUST match the same set of channels included in planned budget
-  const effectiveActualSpend = useMemo(() => {
-    if (!hasConfiguredBudgets) return totalActualSpend;
-
-    const normalizeChannel = (channel: string): string => {
-      const lower = channel?.toLowerCase() || 'unknown';
-      if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
-      if (lower.includes('google') || lower.includes('gg')) return 'google';
-      if (lower.includes('shopee')) return 'shopee';
-      if (lower.includes('lazada')) return 'lazada';
-      if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
-      if (lower.includes('website') || lower.includes('direct')) return 'website';
-      if (lower.includes('offline') || lower.includes('retail')) return 'offline';
-      return lower;
-    };
-
-    const activeChannels = new Set(
-      budgets.filter(b => b.is_active).map(b => b.channel.toLowerCase())
-    );
-
-    return budgetData.reduce((sum, row) => {
-      const ch = normalizeChannel(row.channel);
-      if (!activeChannels.has(ch)) return sum;
-      return sum + (row.actualSpend || 0);
-    }, 0);
-  }, [hasConfiguredBudgets, budgets, budgetData, totalActualSpend]);
-  
-  const pacingMetrics = useMemo(() => {
-    const daysInMonth = 30;
-    const today = new Date();
-    const dayOfMonth = today.getDate();
-    const daysElapsed = dayOfMonth;
-    const daysRemaining = daysInMonth - daysElapsed;
-    
-    // Expected spend based on linear pacing
-    const expectedSpend = (totalPlannedBudget / daysInMonth) * daysElapsed;
-    const pacingPercent = totalPlannedBudget > 0 ? (effectiveActualSpend / totalPlannedBudget) * 100 : 0;
-    const expectedPercent = (daysElapsed / daysInMonth) * 100;
-    
-    // Variance analysis
-    const variance = effectiveActualSpend - expectedSpend;
-    const variancePercent = expectedSpend > 0 ? (variance / expectedSpend) * 100 : 0;
-    
-    // Projected end-of-month spend
-    const dailyAvgSpend = daysElapsed > 0 ? effectiveActualSpend / daysElapsed : 0;
-    const projectedTotal = dailyAvgSpend * daysInMonth;
-    const projectedOverspend = projectedTotal - totalPlannedBudget;
-    
-    // Status determination
-    let status: 'on-track' | 'underspend' | 'overspend' | 'critical';
-    if (Math.abs(variancePercent) <= 10) {
-      status = 'on-track';
-    } else if (variancePercent < -10) {
-      status = 'underspend';
-    } else if (variancePercent > 20) {
-      status = 'critical';
-    } else {
-      status = 'overspend';
-    }
-    
-    return {
-      daysElapsed,
-      daysRemaining,
-      expectedSpend,
-      pacingPercent,
-      expectedPercent,
-      variance,
-      variancePercent,
-      dailyAvgSpend,
-      projectedTotal,
-      projectedOverspend,
-      status,
-    };
-  }, [totalPlannedBudget, effectiveActualSpend]);
+export function BudgetPacingCard({ periodLabel = 'Tháng này' }: BudgetPacingCardProps) {
+  // SINGLE SOURCE OF TRUTH: useUnifiedChannelMetrics
+  const { channelMetrics, summary, isLoading } = useUnifiedChannelMetrics();
 
   const statusConfig = {
     'on-track': {
@@ -165,67 +59,18 @@ export function BudgetPacingCard({
     },
   };
 
-  const config = statusConfig[pacingMetrics.status];
+  const config = statusConfig[summary.status];
   const StatusIcon = config.icon;
 
-  // Display name mapping for channels
-  const getChannelDisplayName = (channel: string): string => {
-    const lower = channel?.toLowerCase() || '';
-    if (lower === 'all' || lower.includes('multi')) return 'Đa kênh';
-    if (lower.includes('facebook') || lower.includes('fb')) return 'Facebook';
-    if (lower.includes('google')) return 'Google';
-    if (lower.includes('shopee')) return 'Shopee';
-    if (lower.includes('lazada')) return 'Lazada';
-    if (lower.includes('tiktok')) return 'TikTok';
-    if (lower.includes('sendo')) return 'Sendo';
-    return channel.charAt(0).toUpperCase() + channel.slice(1);
-  };
-
-  // All channels by spend - merge with channel_budgets data
-  const allChannels = useMemo(() => {
-    // Normalize channel name
-    const normalizeChannel = (channel: string): string => {
-      const lower = channel?.toLowerCase() || 'unknown';
-      if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
-      if (lower.includes('google') || lower.includes('gg')) return 'google';
-      if (lower.includes('shopee')) return 'shopee';
-      if (lower.includes('lazada')) return 'lazada';
-      if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
-      if (lower.includes('website') || lower.includes('direct')) return 'website';
-      if (lower.includes('offline') || lower.includes('retail')) return 'offline';
-      return lower;
-    };
-
-    return [...budgetData]
-      .map(ch => {
-        const normalizedChannel = normalizeChannel(ch.channel);
-        const configuredBudget = budgetsMap.get(normalizedChannel);
-
-        const plannedBudget = hasConfiguredBudgets
-          ? (configuredBudget?.is_active ? (configuredBudget.budget_amount || 0) : 0)
-          : (configuredBudget?.budget_amount || ch.plannedBudget);
-
-        const hasBudget = plannedBudget > 0;
-        const pacing = hasBudget ? (ch.actualSpend / plannedBudget) * 100 : null;
-        const expectedPacing = ch.totalDays > 0 ? (ch.daysElapsed / ch.totalDays) * 100 : 0;
-
-        const isOverspend = hasBudget ? (pacing! > expectedPacing + 10) : false;
-        const isUnderspend = hasBudget ? (pacing! < expectedPacing - 10) : false;
-
-        return {
-          ...ch,
-          displayName: getChannelDisplayName(ch.channel),
-          plannedBudget,
-          pacing,
-          expectedPacing,
-          isOverspend,
-          isUnderspend,
-          isConfigured: !!configuredBudget?.is_active,
-          hasBudget,
-        };
-      })
-      .sort((a, b) => b.actualSpend - a.actualSpend);
-  }, [budgetData, budgetsMap, hasConfiguredBudgets]);
+  if (isLoading) {
+    return (
+      <Card className="border">
+        <CardContent className="py-8 text-center text-muted-foreground">
+          Đang tải...
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn("border", config.borderColor, config.bgColor)}>
@@ -258,33 +103,33 @@ export function BudgetPacingCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{periodLabel}</span>
             <span className="font-medium">
-              {formatCurrency(effectiveActualSpend)}đ / {formatCurrency(totalPlannedBudget)}đ
+              {formatCurrency(summary.totalActualSpend)}đ / {formatCurrency(summary.totalPlannedBudget)}đ
             </span>
           </div>
           
           <div className="relative">
             <Progress 
-              value={Math.min(pacingMetrics.pacingPercent, 100)} 
+              value={Math.min(summary.overallPacing, 100)} 
               className="h-3"
             />
             {/* Expected position marker */}
             <div 
               className="absolute top-0 w-0.5 h-3 bg-foreground/50"
-              style={{ left: `${pacingMetrics.expectedPercent}%` }}
+              style={{ left: `${summary.expectedPacing}%` }}
             />
           </div>
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Ngày {pacingMetrics.daysElapsed}/30</span>
+            <span>Ngày {summary.daysElapsed}/30</span>
             <span>
-              {pacingMetrics.pacingPercent.toFixed(0)}% đã chi 
-              (kỳ vọng: {pacingMetrics.expectedPercent.toFixed(0)}%)
+              {summary.overallPacing.toFixed(0)}% đã chi 
+              (kỳ vọng: {summary.expectedPacing.toFixed(0)}%)
             </span>
           </div>
         </div>
 
         {/* Variance Alert */}
-        {pacingMetrics.status !== 'on-track' && (
+        {summary.status !== 'on-track' && (
           <div className={cn(
             "p-3 rounded-lg border text-sm",
             config.bgColor,
@@ -294,15 +139,15 @@ export function BudgetPacingCard({
               <StatusIcon className={cn("h-4 w-4 mt-0.5", config.color)} />
               <div>
                 <span className={cn("font-medium", config.color)}>
-                  {pacingMetrics.variance > 0 ? '+' : ''}{formatCurrency(pacingMetrics.variance)}đ
+                  {summary.variance > 0 ? '+' : ''}{formatCurrency(summary.variance)}đ
                 </span>
                 <span className="text-muted-foreground ml-1">
-                  ({pacingMetrics.variancePercent > 0 ? '+' : ''}{pacingMetrics.variancePercent.toFixed(0)}% so với kế hoạch)
+                  ({summary.variancePercent > 0 ? '+' : ''}{summary.variancePercent.toFixed(0)}% so với kế hoạch)
                 </span>
-                {pacingMetrics.projectedOverspend > 0 && (
+                {summary.projectedOverspend > 0 && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Dự kiến cuối tháng: {formatCurrency(pacingMetrics.projectedTotal)}đ 
-                    (vượt {formatCurrency(pacingMetrics.projectedOverspend)}đ)
+                    Dự kiến cuối tháng: {formatCurrency(summary.projectedTotal)}đ 
+                    (vượt {formatCurrency(summary.projectedOverspend)}đ)
                   </p>
                 )}
               </div>
@@ -314,28 +159,30 @@ export function BudgetPacingCard({
         <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/50">
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Chi/ngày TB</p>
-            <p className="text-sm font-medium">{formatCurrency(pacingMetrics.dailyAvgSpend)}đ</p>
+            <p className="text-sm font-medium">{formatCurrency(summary.dailyAvgSpend)}đ</p>
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Còn lại</p>
-            <p className="text-sm font-medium">{formatCurrency(totalPlannedBudget - effectiveActualSpend)}đ</p>
+            <p className="text-sm font-medium">{formatCurrency(summary.totalPlannedBudget - summary.totalActualSpend)}đ</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-muted-foreground mb-1">Còn {pacingMetrics.daysRemaining} ngày</p>
+            <p className="text-xs text-muted-foreground mb-1">Còn {summary.daysRemaining} ngày</p>
             <p className="text-sm font-medium">
-              {formatCurrency((totalPlannedBudget - effectiveActualSpend) / Math.max(pacingMetrics.daysRemaining, 1))}đ/ngày
+              {formatCurrency((summary.totalPlannedBudget - summary.totalActualSpend) / Math.max(summary.daysRemaining, 1))}đ/ngày
             </p>
           </div>
         </div>
 
         {/* Top Channels Pacing */}
-        {allChannels.length > 0 && (
+        {channelMetrics.length > 0 && (
           <div className="pt-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground mb-2">Pacing theo kênh</p>
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {allChannels.map((channel) => {
+              {channelMetrics.map((channel) => {
                 const progressValue = channel.pacing === null ? 0 : Math.min(channel.pacing, 100);
                 const pacingLabel = channel.pacing === null ? '—' : `${channel.pacing.toFixed(0)}%`;
+                const isOverspend = channel.status === 'overspend' || channel.status === 'critical';
+                const isUnderspend = channel.status === 'underspend';
 
                 return (
                   <div key={channel.channel} className="flex items-center gap-2">
@@ -346,16 +193,16 @@ export function BudgetPacingCard({
                         className={cn(
                           "h-1.5",
                           channel.pacing === null && "opacity-40",
-                          channel.isOverspend && "[&>div]:bg-yellow-500",
-                          channel.isUnderspend && "[&>div]:bg-blue-500"
+                          isOverspend && "[&>div]:bg-yellow-500",
+                          isUnderspend && "[&>div]:bg-blue-500"
                         )}
                       />
                     </div>
                     <span className={cn(
                       "text-xs w-12 text-right",
                       channel.pacing === null && "text-muted-foreground",
-                      channel.isOverspend && "text-yellow-400",
-                      channel.isUnderspend && "text-blue-400"
+                      isOverspend && "text-yellow-400",
+                      isUnderspend && "text-blue-400"
                     )}>
                       {pacingLabel}
                     </span>

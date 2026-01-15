@@ -17,8 +17,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { MarketingPerformance } from '@/hooks/useMDPData';
-import { useChannelBudgets, ChannelBudget } from '@/hooks/useChannelBudgets';
+import { useUnifiedChannelMetrics } from '@/hooks/useUnifiedChannelMetrics';
 import {
   Tooltip,
   TooltipContent,
@@ -26,198 +25,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-interface BudgetPacingData {
-  channel: string;
-  plannedBudget: number;
-  actualSpend: number;
-  daysElapsed: number;
-  totalDays: number;
-}
-
 interface ChannelBreakdownPanelProps {
-  campaigns: MarketingPerformance[];
-  budgetPacingData?: BudgetPacingData[];
   onViewChannelDetails?: (channel: string) => void;
 }
 
-interface ChannelData {
-  channel: string;
-  campaigns: number;
-  activeCampaigns: number;
-  spend: number;
-  revenue: number;
-  orders: number;
-  clicks: number;
-  impressions: number;
-  roas: number;
-  cpa: number;
-  ctr: number;
-  cvr: number;
-  spendShare: number;
-  revenueShare: number;
-}
-
-export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onViewChannelDetails }: ChannelBreakdownPanelProps) {
-  // Get channel budget configurations
-  const { budgets, budgetsMap, isLoading: budgetsLoading } = useChannelBudgets();
-
-  // Normalize channel name for consistent grouping
-  const normalizeChannel = (channel: string): string => {
-    const lower = channel?.toLowerCase() || 'unknown';
-    if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
-    if (lower.includes('google') || lower.includes('gg')) return 'google';
-    if (lower.includes('shopee')) return 'shopee';
-    if (lower.includes('lazada')) return 'lazada';
-    if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
-    if (lower.includes('sendo')) return 'sendo';
-    if (lower.includes('website') || lower.includes('direct')) return 'website';
-    if (lower.includes('offline') || lower.includes('retail')) return 'offline';
-    if (lower === 'all' || lower.includes('multi')) return 'multi-channel';
-    return lower;
-  };
-
-  // Display name mapping for channels
-  const getChannelDisplayName = (channel: string): string => {
-    const names: Record<string, string> = {
-      'facebook': 'Facebook',
-      'google': 'Google',
-      'shopee': 'Shopee',
-      'lazada': 'Lazada',
-      'tiktok': 'TikTok',
-      'sendo': 'Sendo',
-      'website': 'Website',
-      'offline': 'Offline/Retail',
-      'multi-channel': 'Đa kênh',
-    };
-    return names[channel] || channel.charAt(0).toUpperCase() + channel.slice(1);
-  };
-
-  // Aggregate by channel
-  const channelMap = new Map<string, ChannelData>();
-  
-  let totalRevenue = 0;
-
-  campaigns.forEach(c => {
-    totalRevenue += c.revenue;
-  });
-
-  campaigns.forEach(campaign => {
-    const normalizedChannel = normalizeChannel(campaign.channel);
-    const existing = channelMap.get(normalizedChannel);
-    if (existing) {
-      existing.campaigns += 1;
-      existing.activeCampaigns += campaign.status === 'active' ? 1 : 0;
-      existing.spend += campaign.spend;
-      existing.revenue += campaign.revenue;
-      existing.orders += campaign.orders;
-      existing.clicks += campaign.clicks;
-      existing.impressions += campaign.impressions;
-    } else {
-      channelMap.set(normalizedChannel, {
-        channel: normalizedChannel,
-        campaigns: 1,
-        activeCampaigns: campaign.status === 'active' ? 1 : 0,
-        spend: campaign.spend,
-        revenue: campaign.revenue,
-        orders: campaign.orders,
-        clicks: campaign.clicks,
-        impressions: campaign.impressions,
-        roas: 0,
-        cpa: 0,
-        ctr: 0,
-        cvr: 0,
-        spendShare: 0,
-        revenueShare: 0,
-      });
-    }
-  });
-
-  // Create pacing lookup map (single source for ACTUAL spend)
-  const pacingMap = new Map<string, { pacing: number; isOverspend: boolean; actualSpend: number; plannedBudget: number }>();
-  const today = new Date();
-  const dayOfMonth = today.getDate();
-  const expectedPacingPercent = (dayOfMonth / 30) * 100;
-  
-  budgetPacingData.forEach(p => {
-    const normalizedChannel = normalizeChannel(p.channel);
-    const configured = budgetsMap.get(normalizedChannel);
-    const planned = configured?.is_active ? (configured.budget_amount || 0) : p.plannedBudget;
-    const actual = p.actualSpend || 0;
-
-    const pacing = planned > 0 ? (actual / planned) * 100 : 0;
-    const isOverspend = pacing > expectedPacingPercent + 10; // 10% tolerance
-    pacingMap.set(normalizedChannel, { pacing, isOverspend, actualSpend: actual, plannedBudget: planned });
-  });
-
-  // Total spend for share calc must use the SAME spend definition as per-channel (single source of truth)
-  const totalSpendUnified = Array.from(channelMap.values()).reduce((sum, ch) => {
-    const pacingInfo = pacingMap.get(ch.channel);
-    const spend = pacingInfo?.actualSpend ?? ch.spend;
-    return sum + spend;
-  }, 0);
-
-  // Calculate derived metrics and add target comparison
-  const channelData = Array.from(channelMap.values()).map(ch => {
-    const pacingInfo = pacingMap.get(ch.channel);
-    const budget = budgetsMap.get(ch.channel);
-    const isActiveBudget = !!budget?.is_active;
-
-    // SINGLE SOURCE OF TRUTH for spend in Marketing Mode: budgetPacingData.actualSpend (campaign actual_cost + marketing_expenses)
-    // Fallback to campaign spend when pacing data missing
-    const spend = pacingInfo?.actualSpend ?? ch.spend;
-
-    const actualROAS = spend > 0 ? ch.revenue / spend : 0;
-    const actualCPA = ch.orders > 0 ? spend / ch.orders : 0;
-    const actualCTR = ch.impressions > 0 ? (ch.clicks / ch.impressions) * 100 : 0;
-    const actualCVR = ch.clicks > 0 ? (ch.orders / ch.clicks) * 100 : 0;
-    
-    // Calculate contribution margin (Revenue - COGS 40% - Fees 15% - Ad Spend)
-    const estimatedCOGS = ch.revenue * 0.40;
-    const estimatedFees = ch.revenue * 0.15;
-    const contributionMargin = ch.revenue - estimatedCOGS - estimatedFees - spend;
-    const cmPercent = ch.revenue > 0 ? (contributionMargin / ch.revenue) * 100 : 0;
-
-    const budgetAmount = isActiveBudget ? (budget?.budget_amount || 0) : 0;
-    const revenueTarget = isActiveBudget ? (budget?.revenue_target || 0) : 0;
-    const targetROAS = isActiveBudget ? (budget?.target_roas || 3) : 3;
-    const maxCPA = isActiveBudget ? (budget?.max_cpa || 100000) : 100000;
-    const targetCTR = isActiveBudget ? (budget?.target_ctr || 1.5) : 1.5;
-    const targetCVR = isActiveBudget ? (budget?.target_cvr || 2) : 2;
-    const targetCM = isActiveBudget ? (budget?.min_contribution_margin || 15) : 15;
-    
-    return {
-      ...ch,
-      spend,
-      roas: actualROAS,
-      cpa: actualCPA,
-      ctr: actualCTR,
-      cvr: actualCVR,
-      spendShare: totalSpendUnified > 0 ? (spend / totalSpendUnified) * 100 : 0,
-      revenueShare: totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0,
-      pacing: pacingInfo?.pacing || 0,
-      isOverspend: pacingInfo?.isOverspend || false,
-      // Budget config targets (ONLY when active)
-      budget,
-      targetROAS,
-      maxCPA,
-      targetCTR,
-      targetCVR,
-      targetCM,
-      budgetAmount,
-      revenueTarget,
-      // KPI achievement
-      roasAchieved: actualROAS >= targetROAS,
-      cpaAchieved: actualCPA <= maxCPA,
-      ctrAchieved: actualCTR >= targetCTR,
-      cvrAchieved: actualCVR >= targetCVR,
-      cmAchieved: cmPercent >= targetCM,
-      revenueAchieved: revenueTarget > 0 ? ch.revenue >= revenueTarget : true,
-      budgetUtilization: budgetAmount > 0 ? (spend / budgetAmount) * 100 : 0,
-      contributionMargin,
-      cmPercent,
-      isConfigured: isActiveBudget,
-    };
-  }).sort((a, b) => b.revenue - a.revenue);
+export function ChannelBreakdownPanel({ onViewChannelDetails }: ChannelBreakdownPanelProps) {
+  // SINGLE SOURCE OF TRUTH: useUnifiedChannelMetrics
+  const { channelMetrics, hasConfiguredBudgets, isLoading } = useUnifiedChannelMetrics();
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
@@ -276,7 +90,17 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
     </TooltipProvider>
   );
 
-  if (channelData.length === 0) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          Đang tải dữ liệu...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (channelMetrics.length === 0) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
@@ -286,6 +110,9 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
     );
   }
 
+  // Sort by revenue for display
+  const sortedChannels = [...channelMetrics].sort((a, b) => b.revenue - a.revenue);
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -293,15 +120,15 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
           <CardTitle className="text-lg flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
             Hiệu suất theo Kênh vs Target KPIs
-            <Badge variant="secondary" className="ml-2">{channelData.length} kênh</Badge>
+            <Badge variant="secondary" className="ml-2">{sortedChannels.length} kênh</Badge>
           </CardTitle>
           <Badge variant="outline" className="text-xs">
-            {budgets.filter(b => b.is_active).length} kênh đã cấu hình KPI
+            {channelMetrics.filter(ch => ch.isConfigured).length} kênh đã cấu hình KPI
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {channelData.map((channel) => {
+        {sortedChannels.map((channel) => {
           const roasStatus = getROASStatus(channel.roas, channel.targetROAS);
           const isEfficient = channel.revenueShare > channel.spendShare;
           const kpisAchieved = [
@@ -325,7 +152,7 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
                   <span className="text-2xl">{getChannelIcon(channel.channel)}</span>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold">{getChannelDisplayName(channel.channel)}</h4>
+                      <h4 className="font-semibold">{channel.displayName}</h4>
                       {channel.isConfigured ? (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
                           KPI Configured
@@ -337,7 +164,7 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {channel.activeCampaigns}/{channel.campaigns} campaigns đang chạy
+                      Pacing: {channel.pacing !== null ? `${channel.pacing.toFixed(0)}%` : '—'}
                     </p>
                   </div>
                 </div>
@@ -412,7 +239,7 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
                     <DollarSign className="h-3 w-3" />
                     Chi tiêu
                   </div>
-                  <div className="font-bold">{formatCurrency(channel.spend)}đ</div>
+                  <div className="font-bold">{formatCurrency(channel.actualSpend)}đ</div>
                   {channel.isConfigured && channel.budgetAmount > 0 && (
                     <div className="text-xs text-muted-foreground">
                       {channel.budgetUtilization.toFixed(0)}% of {formatCurrency(channel.budgetAmount)}đ
@@ -426,7 +253,7 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
                   </div>
                   <div className={cn(
                     "font-bold",
-                    channel.revenueAchieved ? "text-green-500" : "text-yellow-500"
+                    channel.revenueTarget > 0 && channel.revenue >= channel.revenueTarget ? "text-green-500" : "text-yellow-500"
                   )}>
                     {formatCurrency(channel.revenue)}đ
                   </div>
@@ -455,8 +282,20 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
                 </div>
                 <div className="space-y-1">
                   <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    CM%
+                    <Eye className="h-3 w-3" />
+                    CTR / CVR
                   </div>
+                  <div className="font-medium text-sm">
+                    {channel.ctr.toFixed(2)}% / {channel.cvr.toFixed(2)}%
+                  </div>
+                  {channel.isConfigured && (
+                    <div className="text-xs text-muted-foreground">
+                      {channel.targetCTR}% / {channel.targetCVR}%
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">CM%</div>
                   <div className={cn(
                     "font-bold",
                     channel.cmAchieved ? "text-green-500" : "text-red-500"
@@ -469,84 +308,71 @@ export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onView
                     </div>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    CTR / CVR
-                  </div>
-                  <div className="font-bold">
-                    <span className={channel.ctrAchieved ? "text-green-500" : ""}>{channel.ctr.toFixed(2)}%</span>
-                    {" / "}
-                    <span className={channel.cvrAchieved ? "text-green-500" : ""}>{channel.cvr.toFixed(2)}%</span>
-                  </div>
-                  {channel.isConfigured && (channel.targetCTR > 0 || channel.targetCVR > 0) && (
-                    <div className="text-xs text-muted-foreground">
-                      Target: {channel.targetCTR}% / {channel.targetCVR}%
-                    </div>
-                  )}
-                </div>
               </div>
 
-              {/* Budget Progress Bar */}
-              {channel.isConfigured && channel.budgetAmount > 0 && (
-                <div className="space-y-2 mb-3">
+              {/* Budget Pacing Progress */}
+              {channel.hasBudget && (
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Budget Utilization</span>
                     <span className={cn(
-                      "font-medium",
-                      channel.budgetUtilization > 100 ? "text-red-500" :
-                      channel.budgetUtilization > 80 ? "text-yellow-500" :
-                      "text-green-500"
+                      channel.pacing !== null && channel.pacing > 100 ? "text-red-500" : 
+                      channel.pacing !== null && channel.pacing > 80 ? "text-yellow-500" : 
+                      "text-muted-foreground"
                     )}>
-                      {formatCurrency(channel.spend)}đ / {formatCurrency(channel.budgetAmount)}đ ({channel.budgetUtilization.toFixed(0)}%)
+                      {channel.pacing !== null ? `${channel.pacing.toFixed(0)}%` : '—'}
                     </span>
                   </div>
                   <Progress 
-                    value={Math.min(channel.budgetUtilization, 100)} 
+                    value={Math.min(channel.pacing || 0, 100)} 
                     className={cn(
-                      "h-2",
-                      channel.budgetUtilization > 100 ? "[&>div]:bg-red-500" :
-                      channel.budgetUtilization > 80 ? "[&>div]:bg-yellow-500" :
-                      "[&>div]:bg-green-500"
+                      "h-1.5",
+                      channel.pacing !== null && channel.pacing > 100 && "[&>div]:bg-red-500",
+                      channel.pacing !== null && channel.pacing > 80 && channel.pacing <= 100 && "[&>div]:bg-yellow-500"
                     )}
                   />
                 </div>
               )}
 
-              {/* Revenue Progress Bar */}
-              {channel.isConfigured && channel.revenueTarget > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Revenue Achievement</span>
-                    <span className={cn(
-                      "font-medium",
-                      channel.revenueAchieved ? "text-green-500" : "text-orange-500"
-                    )}>
-                      {formatCurrency(channel.revenue)}đ / {formatCurrency(channel.revenueTarget)}đ ({((channel.revenue / channel.revenueTarget) * 100).toFixed(0)}%)
-                    </span>
+              {/* Efficiency Indicator */}
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                <div className="flex items-center gap-4 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Share chi tiêu:</span>
+                    <span className="ml-1 font-medium">{channel.spendShare.toFixed(1)}%</span>
                   </div>
-                  <Progress 
-                    value={Math.min((channel.revenue / channel.revenueTarget) * 100, 100)} 
-                    className={cn(
-                      "h-2",
-                      channel.revenueAchieved ? "[&>div]:bg-green-500" : "[&>div]:bg-orange-500"
+                  <div>
+                    <span className="text-muted-foreground">Share doanh thu:</span>
+                    <span className="ml-1 font-medium">{channel.revenueShare.toFixed(1)}%</span>
+                  </div>
+                  <div className={cn(
+                    "flex items-center gap-1",
+                    isEfficient ? "text-green-500" : "text-red-500"
+                  )}>
+                    {isEfficient ? (
+                      <>
+                        <TrendingUp className="h-3 w-3" />
+                        <span>Hiệu quả</span>
+                      </>
+                    ) : (
+                      <>
+                        <TrendingDown className="h-3 w-3" />
+                        <span>Cần cải thiện</span>
+                      </>
                     )}
-                  />
+                  </div>
                 </div>
-              )}
-
-              {/* Action */}
-              {onViewChannelDetails && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="w-full mt-3 text-xs"
-                  onClick={() => onViewChannelDetails(channel.channel)}
-                >
-                  Xem chi tiết kênh
-                  <ArrowRight className="h-3 w-3 ml-1" />
-                </Button>
-              )}
+                {onViewChannelDetails && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => onViewChannelDetails(channel.channel)}
+                    className="text-xs"
+                  >
+                    Chi tiết <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
