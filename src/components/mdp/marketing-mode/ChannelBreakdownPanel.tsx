@@ -10,13 +10,23 @@ import {
   DollarSign,
   MousePointerClick,
   ShoppingCart,
-  Eye
+  Eye,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarketingPerformance } from '@/hooks/useMDPData';
 
+interface BudgetPacingData {
+  channel: string;
+  plannedBudget: number;
+  actualSpend: number;
+  daysElapsed: number;
+  totalDays: number;
+}
+
 interface ChannelBreakdownPanelProps {
   campaigns: MarketingPerformance[];
+  budgetPacingData?: BudgetPacingData[];
   onViewChannelDetails?: (channel: string) => void;
 }
 
@@ -37,7 +47,7 @@ interface ChannelData {
   revenueShare: number;
 }
 
-export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: ChannelBreakdownPanelProps) {
+export function ChannelBreakdownPanel({ campaigns, budgetPacingData = [], onViewChannelDetails }: ChannelBreakdownPanelProps) {
   // Normalize channel name for consistent grouping
   const normalizeChannel = (channel: string): string => {
     const lower = channel?.toLowerCase() || 'unknown';
@@ -107,16 +117,34 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
     }
   });
 
+  // Create pacing lookup map
+  const pacingMap = new Map<string, { pacing: number; isOverspend: boolean }>();
+  const today = new Date();
+  const dayOfMonth = today.getDate();
+  const expectedPacingPercent = (dayOfMonth / 30) * 100;
+  
+  budgetPacingData.forEach(p => {
+    const normalizedChannel = normalizeChannel(p.channel);
+    const pacing = p.plannedBudget > 0 ? (p.actualSpend / p.plannedBudget) * 100 : 0;
+    const isOverspend = pacing > expectedPacingPercent + 10; // 10% tolerance
+    pacingMap.set(normalizedChannel, { pacing, isOverspend });
+  });
+
   // Calculate derived metrics
-  const channelData = Array.from(channelMap.values()).map(ch => ({
-    ...ch,
-    roas: ch.spend > 0 ? ch.revenue / ch.spend : 0,
-    cpa: ch.orders > 0 ? ch.spend / ch.orders : 0,
-    ctr: ch.impressions > 0 ? (ch.clicks / ch.impressions) * 100 : 0,
-    cvr: ch.clicks > 0 ? (ch.orders / ch.clicks) * 100 : 0,
-    spendShare: totalSpend > 0 ? (ch.spend / totalSpend) * 100 : 0,
-    revenueShare: totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0,
-  })).sort((a, b) => b.revenue - a.revenue);
+  const channelData = Array.from(channelMap.values()).map(ch => {
+    const pacingInfo = pacingMap.get(ch.channel);
+    return {
+      ...ch,
+      roas: ch.spend > 0 ? ch.revenue / ch.spend : 0,
+      cpa: ch.orders > 0 ? ch.spend / ch.orders : 0,
+      ctr: ch.impressions > 0 ? (ch.clicks / ch.impressions) * 100 : 0,
+      cvr: ch.clicks > 0 ? (ch.orders / ch.clicks) * 100 : 0,
+      spendShare: totalSpend > 0 ? (ch.spend / totalSpend) * 100 : 0,
+      revenueShare: totalRevenue > 0 ? (ch.revenue / totalRevenue) * 100 : 0,
+      pacing: pacingInfo?.pacing || 0,
+      isOverspend: pacingInfo?.isOverspend || false,
+    };
+  }).sort((a, b) => b.revenue - a.revenue);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
@@ -184,14 +212,19 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                   <Badge className={cn("text-xs", roasStatus.bg, roasStatus.color)}>
                     ROAS {channel.roas.toFixed(2)}x
                   </Badge>
-                  {isEfficient ? (
+                  {isEfficient && !channel.isOverspend ? (
                     <Badge className="bg-green-500/10 text-green-500 text-xs">
                       <TrendingUp className="h-3 w-3 mr-1" />
                       Hiệu quả
+                    </Badge>
+                  ) : isEfficient && channel.isOverspend ? (
+                    <Badge className="bg-yellow-500/10 text-yellow-600 text-xs">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Hiệu quả - Vượt ngân sách
                     </Badge>
                   ) : (
                     <Badge className="bg-orange-500/10 text-orange-500 text-xs">
