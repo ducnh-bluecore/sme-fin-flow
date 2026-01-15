@@ -1,7 +1,23 @@
+/**
+ * ============================================
+ * CHANNEL P&L HOOK - Refactored for SSOT Compliance
+ * ============================================
+ * 
+ * This hook provides channel-specific P&L analysis.
+ * 
+ * SSOT Notes:
+ * - Channel-level calculations are necessary because central metrics are aggregated
+ * - Margin thresholds use INDUSTRY_BENCHMARKS from financial-constants.ts
+ * - For total revenue/margin comparisons, use useCentralFinancialMetrics
+ * 
+ * Data Source: external_orders (per-channel) + expenses (marketing)
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { startOfMonth, endOfMonth, subMonths, format, parseISO, eachMonthOfInterval } from 'date-fns';
+import { INDUSTRY_BENCHMARKS, THRESHOLD_LEVELS, getMetricStatus, MetricStatus } from '@/lib/financial-constants';
 
 export interface ChannelPLData {
   channel: string;
@@ -45,6 +61,12 @@ export interface ChannelPLSummary {
     shippingSubsidy: number;  // hỗ trợ vận chuyển
     couponSubsidy: number;    // hỗ trợ voucher/coupon
     platformAds: number;      // quảng cáo nội sàn
+  };
+  // SSOT: Health indicators based on centralized thresholds
+  health: {
+    marginStatus: MetricStatus;
+    marginBenchmark: number;
+    isAboveBenchmark: boolean;
   };
 }
 
@@ -193,6 +215,14 @@ export function useChannelPL(channelName: string, months: number = 12) {
         totalOrdersIncludingReturns: 0,
       });
 
+      // Calculate margins
+      const grossMargin = totals.totalRevenue > 0 ? (totals.grossProfit / totals.totalRevenue) * 100 : 0;
+      const operatingMargin = totals.totalRevenue > 0 ? (totals.operatingProfit / totals.totalRevenue) * 100 : 0;
+
+      // SSOT: Use centralized thresholds for health indicators
+      const marginStatus = getMetricStatus('grossMargin', grossMargin, true);
+      const marginBenchmark = INDUSTRY_BENCHMARKS.grossMargin;
+
       return {
         channel: channelName,
         totalRevenue: totals.totalRevenue,
@@ -206,17 +236,23 @@ export function useChannelPL(channelName: string, months: number = 12) {
         returnRate: totals.totalOrdersIncludingReturns > 0 
           ? (totals.returnedCount / totals.totalOrdersIncludingReturns) * 100 
           : 0,
-        grossMargin: totals.totalRevenue > 0 ? (totals.grossProfit / totals.totalRevenue) * 100 : 0,
-        operatingMargin: totals.totalRevenue > 0 ? (totals.operatingProfit / totals.totalRevenue) * 100 : 0,
+        grossMargin,
+        operatingMargin,
         monthlyData,
         feeBreakdown: {
           platform: totals.platformFee,
           commission: totals.commissionFee,
           payment: totals.paymentFee,
           shipping: totals.shippingFee,
-          shippingSubsidy: 0, // Will be populated from channel_fees if available
-          couponSubsidy: 0,   // Will be populated from channel_fees if available
-          platformAds: 0,     // Will be populated from channel_fees if available
+          shippingSubsidy: 0,
+          couponSubsidy: 0,
+          platformAds: 0,
+        },
+        // SSOT: Health indicators using centralized benchmarks
+        health: {
+          marginStatus,
+          marginBenchmark,
+          isAboveBenchmark: grossMargin >= marginBenchmark,
         },
       };
     },
