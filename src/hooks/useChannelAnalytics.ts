@@ -1,3 +1,11 @@
+/**
+ * Channel Analytics Hooks - Refactored to use SSOT
+ * 
+ * Note: This hook primarily handles channel-specific data aggregation.
+ * Core financial metrics (total revenue, margins) should be sourced from
+ * useCentralFinancialMetrics for cross-page consistency.
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';

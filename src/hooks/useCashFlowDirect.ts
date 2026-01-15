@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
+import { useCashRunway } from './useCashRunway';
 
 export interface CashFlowDirect {
   id: string;
@@ -89,8 +90,16 @@ export const useCashFlowDirect = (periodType?: string) => {
   });
 };
 
+/**
+ * Cash Flow Analysis Hook - Refactored to use SSOT
+ * Now uses useCashRunway for burn rate and runway calculations
+ * to ensure consistency across all pages.
+ */
 export const useCashFlowAnalysis = () => {
-  const { data: cashFlows = [], isLoading, error } = useCashFlowDirect();
+  const { data: cashFlows = [], isLoading: cashFlowsLoading, error } = useCashFlowDirect();
+  const { data: runwayData, isLoading: runwayLoading } = useCashRunway();
+
+  const isLoading = cashFlowsLoading || runwayLoading;
 
   // Calculate summary from all periods
   const summary: CashFlowSummary = cashFlows.reduce((acc, cf) => {
@@ -125,19 +134,10 @@ export const useCashFlowAnalysis = () => {
     runway: 0,
   });
 
-  // Calculate burn rate and runway
-  const monthlyFlows = cashFlows.filter(cf => cf.period_type === 'monthly');
-  if (monthlyFlows.length > 0) {
-    const avgMonthlyOutflow = monthlyFlows.reduce((sum, cf) => {
-      return sum + cf.cash_to_suppliers + cf.cash_to_employees + cf.cash_for_rent + 
-             cf.cash_for_utilities + cf.cash_for_taxes + cf.cash_for_interest_paid + 
-             cf.cash_for_other_operating;
-    }, 0) / monthlyFlows.length;
-
-    summary.burnRate = avgMonthlyOutflow;
-    
-    const latestClosingBalance = monthlyFlows[0]?.closing_cash_balance || 0;
-    summary.runway = avgMonthlyOutflow > 0 ? latestClosingBalance / avgMonthlyOutflow : 0;
+  // Use SSOT for burn rate and runway from useCashRunway
+  if (runwayData) {
+    summary.burnRate = runwayData.avgMonthlyBurn;
+    summary.runway = runwayData.runwayMonths ?? 0;
   }
 
   // Cash conversion ratio (Operating CF / Net Income approximation)

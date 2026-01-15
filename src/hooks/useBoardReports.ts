@@ -1,3 +1,11 @@
+/**
+ * Board Reports Hook - Refactored to use SSOT
+ * 
+ * Key metrics (DSO, DPO, margins, EBITDA) now use dashboard_kpi_cache
+ * which is populated by useCentralFinancialMetrics.
+ * This ensures consistent metrics across all reports.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
@@ -5,6 +13,7 @@ import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { subMonths, subQuarters, subYears, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays } from 'date-fns';
+import { INDUSTRY_BENCHMARKS, THRESHOLD_LEVELS } from '@/lib/financial-constants';
 
 export interface FinancialHighlight {
   total_revenue: number;
@@ -538,21 +547,26 @@ async function generateKeyMetrics(
       percentage: totalCustomerRevenue > 0 ? (c.amount / totalCustomerRevenue) * 100 : 0,
     }));
 
-  // Use kpiCache for DSO/CCC - these come from the cached central calculations
-  // DPO and DIO are not in cache, so we calculate them here or default to 0
-  // For accurate real-time values, use useCentralFinancialMetrics directly in components
+  // Use kpiCache for all metrics - SSOT approach
+  // The dashboard_kpi_cache is populated by useCentralFinancialMetrics
+  // This ensures consistency with the rest of the application
+  
   return {
     dso: kpiCache?.dso || 0,
-    dpo: 0, // Not available in cache - use useCentralFinancialMetrics for real-time value
-    dio: 0, // Not available in cache - use useCentralFinancialMetrics for real-time value
+    dpo: kpiCache?.dpo || 0,
+    dio: kpiCache?.dio || 0,
     ccc: kpiCache?.ccc || 0,
     current_ratio: Number(currentRatio.toFixed(2)),
     quick_ratio: Number(quickRatio.toFixed(2)),
     debt_ratio: totalAP > 0 && currentAssets > 0 ? Number((totalAP / currentAssets).toFixed(2)) : 0,
-    total_ar: totalAR,
+    total_ar: kpiCache?.total_ar || totalAR,
     overdue_ar: kpiCache?.overdue_ar || 0,
-    collection_rate: totalAR > 0 ? ((totalAR - (kpiCache?.overdue_ar || 0)) / totalAR) * 100 : 100,
-    ar_turnover: totalAR > 0 ? (kpiCache?.total_revenue || 0) / totalAR : 0,
+    collection_rate: (kpiCache?.total_ar || totalAR) > 0 
+      ? (((kpiCache?.total_ar || totalAR) - (kpiCache?.overdue_ar || 0)) / (kpiCache?.total_ar || totalAR)) * 100 
+      : 100,
+    ar_turnover: (kpiCache?.total_ar || totalAR) > 0 
+      ? (kpiCache?.total_revenue || 0) / (kpiCache?.total_ar || totalAR) 
+      : 0,
     invoice_count: invoiceCount,
     paid_invoice_count: paidInvoices.length,
     overdue_invoice_count: overdueInvoices.length,
@@ -605,14 +619,14 @@ async function generateRiskAssessment(
     });
   }
 
-  // DSO risk
-  if (metrics.dso > 60) {
+  // DSO risk - Use threshold from SSOT constants
+  if (metrics.dso > THRESHOLD_LEVELS.dso.warning) {
     risks.push({
       id: crypto.randomUUID(),
       category: 'operational',
       title: 'DSO cao - Chu kỳ thu tiền dài',
-      description: `DSO hiện tại là ${metrics.dso} ngày, cao hơn benchmark 45 ngày`,
-      severity: 'medium',
+      description: `DSO hiện tại là ${metrics.dso} ngày, cao hơn benchmark ${INDUSTRY_BENCHMARKS.dso} ngày`,
+      severity: metrics.dso > THRESHOLD_LEVELS.dso.critical ? 'high' : 'medium',
       probability: 0.5,
       impact: 0.5,
       risk_score: 0.25,
@@ -622,6 +636,8 @@ async function generateRiskAssessment(
       due_date: null,
     });
   }
+
+
 
   // Revenue decline risk
   if (financials.revenue_growth < -10) {
@@ -641,14 +657,14 @@ async function generateRiskAssessment(
     });
   }
 
-  // Margin compression
-  if (financials.gross_margin < 20) {
+  // Margin compression - Use threshold from SSOT constants
+  if (financials.gross_margin < THRESHOLD_LEVELS.grossMargin.warning) {
     risks.push({
       id: crypto.randomUUID(),
       category: 'operational',
       title: 'Biên lợi nhuận gộp thấp',
-      description: `Biên LN gộp ${financials.gross_margin.toFixed(1)}% thấp hơn mục tiêu 25%`,
-      severity: 'medium',
+      description: `Biên LN gộp ${financials.gross_margin.toFixed(1)}% thấp hơn benchmark ${INDUSTRY_BENCHMARKS.grossMargin}%`,
+      severity: financials.gross_margin < THRESHOLD_LEVELS.grossMargin.critical ? 'high' : 'medium',
       probability: 0.6,
       impact: 0.6,
       risk_score: 0.36,
