@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useMDPData } from '@/hooks/useMDPData';
+import { useBudgetOptimizerData } from '@/hooks/useMDPExtendedData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,9 +48,14 @@ export default function ScenarioPlannerPage() {
     cmoModeSummary, 
     marketingModeSummary,
     profitAttribution,
-    isLoading, 
+    isLoading: isMDPLoading, 
     error 
   } = useMDPData();
+
+  // Also fetch from Budget Optimizer data source for fallback
+  const { channelBudgets, isLoading: isBudgetLoading } = useBudgetOptimizerData();
+
+  const isLoading = isMDPLoading || isBudgetLoading;
 
   const [params, setParams] = useState<ScenarioParams>({
     budgetChange: 20,
@@ -59,18 +65,34 @@ export default function ScenarioPlannerPage() {
   });
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Use real data from MDP
+  // Use real data from MDP, with fallback to Budget Optimizer data
   const baseMetrics = useMemo(() => {
+    // First try CMO Mode Summary
+    const cmoSpend = cmoModeSummary.total_marketing_spend || 0;
+    const cmoRevenue = cmoModeSummary.total_net_revenue || 0;
+    const cmoCM = cmoModeSummary.total_contribution_margin || 0;
+    const cmoCMPercent = cmoModeSummary.contribution_margin_percent || 0;
+
+    // Fallback: aggregate from channelBudgets (Budget Optimizer source)
+    const budgetSpend = channelBudgets.reduce((sum, c) => sum + c.actualSpend, 0);
+    const budgetRevenue = channelBudgets.reduce((sum, c) => sum + c.currentRevenue, 0);
+
+    // Use whichever has data
+    const currentBudget = cmoSpend > 0 ? cmoSpend : budgetSpend;
+    const currentRevenue = cmoRevenue > 0 ? cmoRevenue : budgetRevenue;
+    const currentCM = cmoCM;
+    // Estimate CM% if not available: assume 15% default
+    const currentCMPercent = cmoCMPercent > 0 ? cmoCMPercent : (currentRevenue > 0 ? 15 : 0);
+
     return {
-      currentBudget: cmoModeSummary.total_marketing_spend || 0,
-      currentRevenue: cmoModeSummary.total_net_revenue || 0,
-      currentROAS: cmoModeSummary.total_marketing_spend > 0 
-        ? cmoModeSummary.total_net_revenue / cmoModeSummary.total_marketing_spend 
-        : 0,
-      currentCM: cmoModeSummary.total_contribution_margin || 0,
-      currentCMPercent: cmoModeSummary.contribution_margin_percent || 0,
+      currentBudget,
+      currentRevenue,
+      currentROAS: currentBudget > 0 ? currentRevenue / currentBudget : 0,
+      currentCM,
+      currentCMPercent,
+      campaignCount: profitAttribution.length + channelBudgets.length,
     };
-  }, [cmoModeSummary]);
+  }, [cmoModeSummary, channelBudgets, profitAttribution]);
 
   // Calculate projections based on params and REAL data
   const projections = useMemo(() => {
@@ -334,8 +356,8 @@ export default function ScenarioPlannerPage() {
                 <span className="font-medium text-primary">{formatCurrency(baseMetrics.currentCM)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Campaigns:</span>
-                <span className="font-medium">{profitAttribution.length}</span>
+                <span className="text-muted-foreground">Data sources:</span>
+                <span className="font-medium">{baseMetrics.campaignCount}</span>
               </div>
             </CardContent>
           </Card>
