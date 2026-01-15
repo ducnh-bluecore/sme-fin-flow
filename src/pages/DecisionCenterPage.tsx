@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DecisionCardComponent } from '@/components/decision/DecisionCard';
-import { DecisionCardExpanded } from '@/components/decision/DecisionCardExpanded';
 import { BluecoreScoresPanel } from '@/components/decision/BluecoreScoresPanel';
 import { InlineAIChat } from '@/components/decision/InlineAIChat';
 import { ThresholdConfigDialog } from '@/components/decision/ThresholdConfigDialog';
@@ -524,12 +523,15 @@ export default function DecisionCenterPage() {
                         <AlertTriangle className="h-4 w-4" />
                         Khẩn cấp ({groupedCards.P1.length})
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-1">
                         {(showAll ? groupedCards.P1 : groupedCards.P1.slice(0, 3)).map((card) => (
-                          <DecisionCardExpanded
+                          <DecisionCardComponent
                             key={card.id}
                             card={card}
+                            compact
                             onViewDetail={() => setSelectedCardId(card.id)}
+                            onDecided={handleCardDecided}
+                            onDismissed={handleCardDismissed}
                           />
                         ))}
                         {!showAll && groupedCards.P1.length > 3 && (
@@ -553,12 +555,15 @@ export default function DecisionCenterPage() {
                         <Clock className="h-4 w-4" />
                         Quan trọng ({groupedCards.P2.length})
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-1">
                         {(showAll ? groupedCards.P2 : groupedCards.P2.slice(0, 4)).map((card) => (
-                          <DecisionCardExpanded
+                          <DecisionCardComponent
                             key={card.id}
                             card={card}
+                            compact
                             onViewDetail={() => setSelectedCardId(card.id)}
+                            onDecided={handleCardDecided}
+                            onDismissed={handleCardDismissed}
                           />
                         ))}
                         {!showAll && groupedCards.P2.length > 4 && (
@@ -582,12 +587,15 @@ export default function DecisionCenterPage() {
                         <Target className="h-4 w-4" />
                         Theo dõi ({groupedCards.P3.length})
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-1">
                         {(showAll ? groupedCards.P3 : groupedCards.P3.slice(0, 2)).map((card) => (
-                          <DecisionCardExpanded
+                          <DecisionCardComponent
                             key={card.id}
                             card={card}
+                            compact
                             onViewDetail={() => setSelectedCardId(card.id)}
+                            onDecided={handleCardDecided}
+                            onDismissed={handleCardDismissed}
                           />
                         ))}
                         {!showAll && groupedCards.P3.length > 2 && (
