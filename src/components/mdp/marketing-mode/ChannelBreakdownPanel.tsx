@@ -38,6 +38,18 @@ interface ChannelData {
 }
 
 export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: ChannelBreakdownPanelProps) {
+  // Normalize channel name for consistent grouping
+  const normalizeChannel = (channel: string): string => {
+    const lower = channel?.toLowerCase() || 'unknown';
+    if (lower.includes('facebook') || lower.includes('fb') || lower.includes('meta')) return 'facebook';
+    if (lower.includes('google') || lower.includes('gg')) return 'google';
+    if (lower.includes('shopee')) return 'shopee';
+    if (lower.includes('lazada')) return 'lazada';
+    if (lower.includes('tiktok') || lower.includes('tik')) return 'tiktok';
+    if (lower.includes('sendo')) return 'sendo';
+    return lower;
+  };
+
   // Aggregate by channel
   const channelMap = new Map<string, ChannelData>();
   
@@ -50,7 +62,8 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
   });
 
   campaigns.forEach(campaign => {
-    const existing = channelMap.get(campaign.channel);
+    const normalizedChannel = normalizeChannel(campaign.channel);
+    const existing = channelMap.get(normalizedChannel);
     if (existing) {
       existing.campaigns += 1;
       existing.activeCampaigns += campaign.status === 'active' ? 1 : 0;
@@ -60,8 +73,8 @@ export function ChannelBreakdownPanel({ campaigns, onViewChannelDetails }: Chann
       existing.clicks += campaign.clicks;
       existing.impressions += campaign.impressions;
     } else {
-      channelMap.set(campaign.channel, {
-        channel: campaign.channel,
+      channelMap.set(normalizedChannel, {
+        channel: normalizedChannel,
         campaigns: 1,
         activeCampaigns: campaign.status === 'active' ? 1 : 0,
         spend: campaign.spend,
