@@ -9,6 +9,9 @@ import type { DecisionCard, DecisionCardFact, DecisionCardAction, Priority, Conf
 interface AutoDecisionCard extends Omit<DecisionCard, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
   id: string; // Generated ID for auto cards
   isAuto: true; // Mark as auto-generated
+  // Liên kết với entity để tìm alerts liên quan
+  linkedEntityType?: string;
+  linkedEntityId?: string;
 }
 
 // Generate unique ID for auto cards
@@ -135,6 +138,8 @@ export function useAutoDecisionCards() {
             const card: AutoDecisionCard = {
               id: cardId,
               isAuto: true,
+              linkedEntityType: 'sku', // Để link alerts liên quan
+              linkedEntityId: sku.sku,
               card_type: 'GROWTH_SCALE_SKU',
               title: `DỪNG BÁN: ${sku.product_name || sku.sku}`,
               question: `SKU ${sku.sku} đang lỗ ${Math.abs(marginPercent).toFixed(1)}% - tiếp tục bán = đốt tiền?`,
