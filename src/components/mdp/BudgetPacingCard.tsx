@@ -205,18 +205,23 @@ export function BudgetPacingCard({
           ? (configuredBudget?.is_active ? (configuredBudget.budget_amount || 0) : 0)
           : (configuredBudget?.budget_amount || ch.plannedBudget);
 
-        const pacing = plannedBudget > 0 ? (ch.actualSpend / plannedBudget) * 100 : 0;
+        const hasBudget = plannedBudget > 0;
+        const pacing = hasBudget ? (ch.actualSpend / plannedBudget) * 100 : null;
         const expectedPacing = ch.totalDays > 0 ? (ch.daysElapsed / ch.totalDays) * 100 : 0;
-        
+
+        const isOverspend = hasBudget ? (pacing! > expectedPacing + 10) : false;
+        const isUnderspend = hasBudget ? (pacing! < expectedPacing - 10) : false;
+
         return {
           ...ch,
           displayName: getChannelDisplayName(ch.channel),
           plannedBudget,
           pacing,
           expectedPacing,
-          isOverspend: pacing > expectedPacing + 10,
-          isUnderspend: pacing < expectedPacing - 10,
+          isOverspend,
+          isUnderspend,
           isConfigured: !!configuredBudget?.is_active,
+          hasBudget,
         };
       })
       .sort((a, b) => b.actualSpend - a.actualSpend);
@@ -328,28 +333,35 @@ export function BudgetPacingCard({
           <div className="pt-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground mb-2">Pacing theo kênh</p>
             <div className="space-y-2 max-h-48 overflow-y-auto">
-              {allChannels.map((channel) => (
-                <div key={channel.channel} className="flex items-center gap-2">
-                  <span className="text-xs w-20 truncate">{channel.displayName}</span>
-                  <div className="flex-1 relative">
-                    <Progress 
-                      value={Math.min(channel.pacing, 100)} 
-                      className={cn(
-                        "h-1.5",
-                        channel.isOverspend && "[&>div]:bg-yellow-500",
-                        channel.isUnderspend && "[&>div]:bg-blue-500"
-                      )}
-                    />
+              {allChannels.map((channel) => {
+                const progressValue = channel.pacing === null ? 0 : Math.min(channel.pacing, 100);
+                const pacingLabel = channel.pacing === null ? '—' : `${channel.pacing.toFixed(0)}%`;
+
+                return (
+                  <div key={channel.channel} className="flex items-center gap-2">
+                    <span className="text-xs w-20 truncate">{channel.displayName}</span>
+                    <div className="flex-1 relative">
+                      <Progress 
+                        value={progressValue}
+                        className={cn(
+                          "h-1.5",
+                          channel.pacing === null && "opacity-40",
+                          channel.isOverspend && "[&>div]:bg-yellow-500",
+                          channel.isUnderspend && "[&>div]:bg-blue-500"
+                        )}
+                      />
+                    </div>
+                    <span className={cn(
+                      "text-xs w-12 text-right",
+                      channel.pacing === null && "text-muted-foreground",
+                      channel.isOverspend && "text-yellow-400",
+                      channel.isUnderspend && "text-blue-400"
+                    )}>
+                      {pacingLabel}
+                    </span>
                   </div>
-                  <span className={cn(
-                    "text-xs w-12 text-right",
-                    channel.isOverspend && "text-yellow-400",
-                    channel.isUnderspend && "text-blue-400"
-                  )}>
-                    {channel.pacing.toFixed(0)}%
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
