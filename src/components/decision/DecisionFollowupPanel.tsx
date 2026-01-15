@@ -265,9 +265,26 @@ export function DecisionFollowupPanel() {
 
       {/* Outcome Recording Dialog */}
       <Dialog open={outcomeDialogOpen} onOpenChange={setOutcomeDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Ghi nhận kết quả quyết định</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {autoMeasure.isPending ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Đang đo lường tự động...
+                </>
+              ) : measurementResult ? (
+                <>
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Kết quả đo lường tự động
+                </>
+              ) : (
+                'Ghi nhận kết quả quyết định'
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Hệ thống tự động so sánh metrics trước và sau quyết định. Bạn có thể chỉnh sửa trước khi lưu.
+            </DialogDescription>
           </DialogHeader>
           
           {selectedFollowup && (
@@ -285,9 +302,63 @@ export function DecisionFollowupPanel() {
                 )}
               </div>
 
+              {/* Auto-measured Variance Display */}
+              {measurementResult && measurementResult.variance && (
+                <div className="p-4 rounded-lg border bg-gradient-to-br from-primary/5 to-transparent">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">So sánh Trước vs Sau</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {Object.entries(measurementResult.variance).map(([key, v]: [string, any]) => {
+                      if (v.baseline === 0 && v.current === 0) return null;
+                      const isPositive = v.change > 0;
+                      const isNegative = v.change < 0;
+                      // For some metrics, negative is good (e.g., monthly_burn)
+                      const invertedMetrics = ['monthly_burn'];
+                      const displayPositive = invertedMetrics.includes(key) ? isNegative : isPositive;
+                      
+                      return (
+                        <div key={key} className="flex items-center justify-between p-2 rounded bg-background/50">
+                          <span className="text-sm text-muted-foreground capitalize">
+                            {key.replace(/_/g, ' ')}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-mono">{formatCurrency(v.baseline)}</span>
+                            <span className="text-muted-foreground">→</span>
+                            <span className="text-sm font-mono font-medium">{formatCurrency(v.current)}</span>
+                            <Badge 
+                              variant="outline" 
+                              className={displayPositive ? 'text-green-600 border-green-600/30' : isNegative ? 'text-red-600 border-red-600/30' : ''}
+                            >
+                              {v.changePercent >= 0 ? '+' : ''}{v.changePercent}%
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Loading state */}
+              {autoMeasure.isPending && (
+                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  Đang đo lường metrics hiện tại...
+                </div>
+              )}
+
               {/* Outcome status */}
               <div className="space-y-2">
-                <Label>Kết quả thực tế</Label>
+                <Label className="flex items-center gap-2">
+                  Kết quả thực tế
+                  {measurementResult && (
+                    <Badge variant="secondary" className="text-xs">
+                      Gợi ý: {OUTCOME_STATUS_CONFIG[measurementResult.suggestedStatus]?.label}
+                    </Badge>
+                  )}
+                </Label>
                 <Select value={outcomeStatus} onValueChange={(v: any) => setOutcomeStatus(v)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -308,25 +379,34 @@ export function DecisionFollowupPanel() {
                 </Select>
               </div>
 
-              {/* Actual impact */}
-              <div className="space-y-2">
-                <Label>Tác động thực tế (VND)</Label>
-                <Input 
-                  type="number"
-                  placeholder="Nhập số tiền tác động thực tế"
-                  value={actualImpact}
-                  onChange={(e) => setActualImpact(e.target.value)}
-                />
-                {selectedFollowup.expected_impact_amount && (
-                  <p className="text-sm text-muted-foreground">
-                    Kỳ vọng ban đầu: {formatCurrency(selectedFollowup.expected_impact_amount)}đ
-                  </p>
-                )}
-              </div>
+              {/* Actual impact - hide if auto-measured */}
+              {!measurementResult && (
+                <div className="space-y-2">
+                  <Label>Tác động thực tế (VND)</Label>
+                  <Input 
+                    type="number"
+                    placeholder="Nhập số tiền tác động thực tế"
+                    value={actualImpact}
+                    onChange={(e) => setActualImpact(e.target.value)}
+                  />
+                  {selectedFollowup.expected_impact_amount && (
+                    <p className="text-sm text-muted-foreground">
+                      Kỳ vọng ban đầu: {formatCurrency(selectedFollowup.expected_impact_amount)}đ
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Summary */}
               <div className="space-y-2">
-                <Label>Tóm tắt kết quả *</Label>
+                <Label className="flex items-center gap-2">
+                  Tóm tắt kết quả *
+                  {measurementResult && (
+                    <Badge variant="outline" className="text-xs text-primary">
+                      Tự động tạo
+                    </Badge>
+                  )}
+                </Label>
                 <Textarea
                   placeholder="Mô tả ngắn gọn kết quả của quyết định này..."
                   value={outcomeSummary}
@@ -360,9 +440,22 @@ export function DecisionFollowupPanel() {
             </Button>
             <Button 
               onClick={handleRecordOutcome}
-              disabled={!outcomeSummary || recordOutcome.isPending}
+              disabled={!outcomeSummary || recordOutcome.isPending || saveMeasured.isPending || autoMeasure.isPending}
+              className="gap-2"
             >
-              {recordOutcome.isPending ? 'Đang lưu...' : 'Ghi nhận'}
+              {(recordOutcome.isPending || saveMeasured.isPending) ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : measurementResult ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Xác nhận kết quả
+                </>
+              ) : (
+                'Ghi nhận'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
