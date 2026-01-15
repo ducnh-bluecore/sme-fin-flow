@@ -312,27 +312,51 @@ export function DecisionFollowupPanel() {
                   <div className="grid grid-cols-1 gap-2">
                     {Object.entries(measurementResult.variance).map(([key, v]: [string, any]) => {
                       if (v.baseline === 0 && v.current === 0) return null;
+                      
+                      // Check if we have current data
+                      const hasData = v.hasCurrentData !== false && v.current !== 0;
                       const isPositive = v.change > 0;
                       const isNegative = v.change < 0;
-                      // For some metrics, negative is good (e.g., monthly_burn)
-                      const invertedMetrics = ['monthly_burn'];
+                      // For some metrics, negative is good (e.g., monthly_burn, ad_spend when PAUSE)
+                      const invertedMetrics = ['monthly_burn', 'cpa', 'ad_spend_7d'];
                       const displayPositive = invertedMetrics.includes(key) ? isNegative : isPositive;
+                      
+                      // Format metric name nicely
+                      const metricLabels: Record<string, string> = {
+                        'ad_spend_7d': 'Chi phí Ads (7d)',
+                        'roas': 'ROAS',
+                        'cpa': 'CPA',
+                        'conversions': 'Conversions',
+                        'cash_balance': 'Số dư tiền mặt',
+                        'runway_days': 'Runway (ngày)',
+                        'monthly_burn': 'Chi phí/tháng',
+                        'gross_margin_percent': 'Gross Margin %',
+                        'daily_revenue': 'Doanh thu/ngày',
+                      };
                       
                       return (
                         <div key={key} className="flex items-center justify-between p-2 rounded bg-background/50">
-                          <span className="text-sm text-muted-foreground capitalize">
-                            {key.replace(/_/g, ' ')}
+                          <span className="text-sm text-muted-foreground">
+                            {metricLabels[key] || key.replace(/_/g, ' ')}
                           </span>
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-mono">{formatCurrency(v.baseline)}</span>
                             <span className="text-muted-foreground">→</span>
-                            <span className="text-sm font-mono font-medium">{formatCurrency(v.current)}</span>
-                            <Badge 
-                              variant="outline" 
-                              className={displayPositive ? 'text-green-600 border-green-600/30' : isNegative ? 'text-red-600 border-red-600/30' : ''}
-                            >
-                              {v.changePercent >= 0 ? '+' : ''}{v.changePercent}%
-                            </Badge>
+                            {hasData ? (
+                              <>
+                                <span className="text-sm font-mono font-medium">{formatCurrency(v.current)}</span>
+                                <Badge 
+                                  variant="outline" 
+                                  className={displayPositive ? 'text-green-600 border-green-600/30' : isNegative ? 'text-red-600 border-red-600/30' : ''}
+                                >
+                                  {v.changePercent >= 0 ? '+' : ''}{v.changePercent}%
+                                </Badge>
+                              </>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">
+                                Chưa có data
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       );

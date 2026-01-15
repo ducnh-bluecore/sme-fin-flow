@@ -13,9 +13,16 @@ interface EntityMetrics {
 interface MeasurementResult {
   baseline: EntityMetrics;
   current: EntityMetrics;
-  variance: Record<string, { baseline: number; current: number; change: number; changePercent: number }>;
+  variance: Record<string, { 
+    baseline: number; 
+    current: number; 
+    change: number; 
+    changePercent: number;
+    hasCurrentData: boolean;  // New flag
+  }>;
   summary: string;
   suggestedStatus: 'positive' | 'neutral' | 'negative' | 'too_early';
+  hasCurrentData: boolean;  // Overall flag
 }
 
 // Hàm đo lường metrics theo entity type
@@ -87,38 +94,48 @@ async function measureEntityMetrics(
 function calculateVariance(
   baseline: Record<string, any>,
   current: Record<string, any>
-): Record<string, { baseline: number; current: number; change: number; changePercent: number }> {
-  const variance: Record<string, { baseline: number; current: number; change: number; changePercent: number }> = {};
+): { 
+  variance: Record<string, { baseline: number; current: number; change: number; changePercent: number; hasCurrentData: boolean }>;
+  hasAnyCurrentData: boolean;
+} {
+  const variance: Record<string, { baseline: number; current: number; change: number; changePercent: number; hasCurrentData: boolean }> = {};
+  let hasAnyCurrentData = false;
   
   const allKeys = new Set([...Object.keys(baseline), ...Object.keys(current)]);
   
   for (const key of allKeys) {
     const baseVal = typeof baseline[key] === 'number' ? baseline[key] : 0;
-    const currVal = typeof current[key] === 'number' ? current[key] : 0;
-    const change = currVal - baseVal;
-    const changePercent = baseVal !== 0 ? (change / Math.abs(baseVal)) * 100 : (currVal !== 0 ? 100 : 0);
+    const currVal = typeof current[key] === 'number' ? current[key] : null;
+    const hasCurrentData = currVal !== null && currVal !== 0;
+    
+    if (hasCurrentData) hasAnyCurrentData = true;
+    
+    const actualCurrent = currVal ?? 0;
+    const change = actualCurrent - baseVal;
+    const changePercent = baseVal !== 0 ? (change / Math.abs(baseVal)) * 100 : (actualCurrent !== 0 ? 100 : 0);
     
     variance[key] = {
       baseline: baseVal,
-      current: currVal,
+      current: actualCurrent,
       change,
       changePercent: Math.round(changePercent * 10) / 10,
+      hasCurrentData,
     };
   }
   
-  return variance;
+  return { variance, hasAnyCurrentData };
 }
 
 // Đề xuất status dựa trên variance
 function suggestOutcomeStatus(
   entityType: string,
-  variance: Record<string, { baseline: number; current: number; change: number; changePercent: number }>,
+  variance: Record<string, { baseline: number; current: number; change: number; changePercent: number; hasCurrentData: boolean }>,
   actionType: string | null
 ): 'positive' | 'neutral' | 'negative' | 'too_early' {
   // Logic cơ bản dựa trên entity type
   switch (entityType.toUpperCase()) {
     case 'SKU':
-      const marginChange = variance.margin_percent?.change || 0;
+      const marginChange = variance.gross_margin_percent?.change || variance.margin_percent?.change || 0;
       if (marginChange > 5) return 'positive';
       if (marginChange < -5) return 'negative';
       return 'neutral';
@@ -131,9 +148,12 @@ function suggestOutcomeStatus(
       return 'neutral';
 
     case 'CHANNEL':
-      const revenueChange = variance.revenue_7d?.changePercent || 0;
-      if (revenueChange > 10) return 'positive';
-      if (revenueChange < -10) return 'negative';
+      // For ads channels, lower spend can be positive if PAUSE was the action
+      const adSpendChange = variance.ad_spend_7d?.change || 0;
+      const roasChange = variance.roas?.change || 0;
+      if (actionType === 'PAUSE' && adSpendChange < 0) return 'positive'; // Successfully reduced spend
+      if (roasChange > 0.5) return 'positive';
+      if (roasChange < -0.5) return 'negative';
       return 'neutral';
 
     default:
@@ -145,7 +165,7 @@ function suggestOutcomeStatus(
 function generateSummary(
   entityType: string,
   entityLabel: string | null,
-  variance: Record<string, { baseline: number; current: number; change: number; changePercent: number }>,
+  variance: Record<string, { baseline: number; current: number; change: number; changePercent: number; hasCurrentData: boolean }>,
   suggestedStatus: string
 ): string {
   const formatNum = (n: number) => {
@@ -170,10 +190,18 @@ function generateSummary(
       return `Cash position đã thay đổi`;
 
     case 'CHANNEL':
-      const rev = variance.revenue_7d;
-      return rev
-        ? `Revenue 7d ${entityLabel || 'Channel'}: ${formatNum(rev.baseline)}đ → ${formatNum(rev.current)}đ (${rev.changePercent >= 0 ? '+' : ''}${rev.changePercent}%)`
-        : `Không đủ dữ liệu channel`;
+      // For ads channels, show relevant metrics
+      const adSpend = variance.ad_spend_7d;
+      const roas = variance.roas;
+      const cpa = variance.cpa;
+      
+      if (adSpend?.hasCurrentData && roas?.hasCurrentData) {
+        return `${entityLabel || 'Channel'}: Ad Spend ${formatNum(adSpend.baseline)}đ → ${formatNum(adSpend.current)}đ | ROAS ${roas.baseline} → ${roas.current}`;
+      }
+      if (adSpend?.baseline && !adSpend?.hasCurrentData) {
+        return `${entityLabel || 'Channel'}: Baseline Ad Spend ${formatNum(adSpend.baseline)}đ, ROAS ${roas?.baseline || 'N/A'}. Chưa có data hiện tại để so sánh.`;
+      }
+      return `Chưa có đủ dữ liệu để đo lường ${entityLabel || 'Channel'}`;
 
     default:
       return `Đã đo lường ${entityLabel || entityType}`;
@@ -222,13 +250,17 @@ export function useAutoMeasureOutcome() {
       const currentMetrics = await measureEntityMetrics(tenantId, entityType, entityId);
 
       // 4. Tính variance
-      const variance = calculateVariance(baselineMetrics, currentMetrics);
+      const { variance, hasAnyCurrentData } = calculateVariance(baselineMetrics, currentMetrics);
 
-      // 5. Suggest status
-      const suggestedStatus = suggestOutcomeStatus(entityType, variance, decision.selected_action_type);
+      // 5. Suggest status - nếu không có data hiện tại, suggest "too_early"
+      const suggestedStatus = hasAnyCurrentData 
+        ? suggestOutcomeStatus(entityType, variance, decision.selected_action_type)
+        : 'too_early';
 
       // 6. Generate summary
-      const summary = generateSummary(entityType, entityLabel, variance, suggestedStatus);
+      const summary = hasAnyCurrentData 
+        ? generateSummary(entityType, entityLabel, variance, suggestedStatus)
+        : `Chưa có đủ dữ liệu để đo lường ${entityLabel || entityType}. Vui lòng nhập thủ công hoặc thử lại sau.`;
 
       return {
         baseline: {
@@ -246,6 +278,7 @@ export function useAutoMeasureOutcome() {
         variance,
         summary,
         suggestedStatus,
+        hasCurrentData: hasAnyCurrentData,
       };
     },
     onError: (error) => {
