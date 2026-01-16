@@ -49,6 +49,8 @@ const DATE_SENSITIVE_QUERY_KEYS = [
   'debit-notes',
   'analytics-data',
   'kpi-data',
+  'central-financial-metrics', // SSOT hook
+  'central-metrics-cache',
 ];
 
 export function DateRangeProvider({ children }: { children: ReactNode }) {
