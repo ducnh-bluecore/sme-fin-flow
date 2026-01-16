@@ -114,7 +114,6 @@ export function useDashboardKPIs() {
         transactionsRes,
         revenuesRes,
         expensesRes,
-        externalOrdersRes,
         settlementsRes
       ] = await Promise.all([
         supabase
@@ -154,13 +153,7 @@ export function useDashboardKPIs() {
           .eq('tenant_id', tenantId)
           .gte('expense_date', startDateStr)
           .lte('expense_date', endDateStr),
-        supabase
-          .from('external_orders')
-          .select('total_amount, status, order_date, cost_of_goods, platform_fee, commission_fee, payment_fee, shipping_fee_paid, other_fees, seller_income, gross_profit')
-          .eq('tenant_id', tenantId)
-          .gte('order_date', startDateStr)
-          .lte('order_date', endDateStr)
-          .limit(50000),
+        // Removed external_orders query - use centralMetrics SSOT instead
         supabase
           .from('channel_settlements')
           .select('net_amount, payout_date, is_reconciled')
@@ -175,7 +168,6 @@ export function useDashboardKPIs() {
       const allTransactions = transactionsRes.data || [];
       const revenues = revenuesRes.data || [];
       const expenses = expensesRes.data || [];
-      const externalOrders = externalOrdersRes.data || [];
       const settlements = settlementsRes.data || [];
       
       // Calculate cash today from bank accounts
