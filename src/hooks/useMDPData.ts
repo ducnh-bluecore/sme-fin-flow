@@ -472,12 +472,18 @@ export function useMDPData() {
   const profitAttribution = useMemo<ProfitAttribution[]>(() => {
     if (!campaignsQuery.data) return [];
     
-    const totalCampaigns = campaignsQuery.data.length;
+    // Filter out planned campaigns or campaigns with no revenue (no real data yet)
+    const activeCampaigns = campaignsQuery.data.filter(c => 
+      c.status !== 'planned' && (c.total_revenue || 0) > 0
+    );
+    
+    const totalCampaigns = activeCampaigns.length;
+    if (totalCampaigns === 0) return [];
     const hasRealFees = (channelFeesQuery.data?.length || 0) > 0;
     const hasRealCOGS = Object.keys(cogsLookup).length > 0;
     const hasRealSettlements = (settlementsQuery.data?.length || 0) > 0;
 
-    return campaignsQuery.data.map(campaign => {
+    return activeCampaigns.map(campaign => {
       const grossRevenue = campaign.total_revenue || 0;
       const discount = campaign.total_discount_given || 0;
       const netRevenue = grossRevenue - discount;
@@ -502,7 +508,7 @@ export function useMDPData() {
       let platformFees: number;
       if (hasRealFees) {
         const totalFees = feesByType.commission + feesByType.service;
-        const totalCampaignRevenue = campaignsQuery.data.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
+        const totalCampaignRevenue = activeCampaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
         const revenueShare = totalCampaignRevenue > 0 ? netRevenue / totalCampaignRevenue : 1 / totalCampaigns;
         platformFees = totalFees * revenueShare;
       } else if (hasRealSettlements) {
@@ -518,7 +524,7 @@ export function useMDPData() {
       let logisticsCost: number;
       if (hasRealFees) {
         const totalShipping = feesByType.shipping;
-        const totalCampaignOrders = campaignsQuery.data.reduce((sum, c) => sum + (c.total_orders || 0), 0);
+        const totalCampaignOrders = activeCampaigns.reduce((sum, c) => sum + (c.total_orders || 0), 0);
         const orderShare = totalCampaignOrders > 0 ? orders / totalCampaignOrders : 1 / totalCampaigns;
         logisticsCost = totalShipping * orderShare;
       } else if (hasRealSettlements) {
@@ -534,7 +540,7 @@ export function useMDPData() {
       let paymentFees: number;
       if (hasRealFees) {
         const totalPaymentFees = feesByType.payment;
-        const totalCampaignRevenue = campaignsQuery.data.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
+        const totalCampaignRevenue = activeCampaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
         const revenueShare = totalCampaignRevenue > 0 ? netRevenue / totalCampaignRevenue : 1 / totalCampaigns;
         paymentFees = totalPaymentFees * revenueShare;
       } else if (hasRealSettlements) {
