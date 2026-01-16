@@ -107,7 +107,12 @@ export function useAllChannelsPL(months: number = 12) {
       }>();
 
       channelSummary.forEach(ch => {
-        const normalizedChannel = (ch.channel || 'Unknown').toUpperCase().trim();
+        let normalizedChannel = (ch.channel || 'Unknown').toUpperCase().trim();
+        
+        // Normalize channel aliases (e.g., TIKTOK and TIKTOKSHOP are the same)
+        if (normalizedChannel === 'TIKTOKSHOP' || normalizedChannel === 'TIKTOK SHOP') {
+          normalizedChannel = 'TIKTOK';
+        }
         const existing = channelMap.get(normalizedChannel) || {
           totalRevenue: 0,
           totalCogs: 0,
