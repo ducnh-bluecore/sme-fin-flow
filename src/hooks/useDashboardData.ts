@@ -159,7 +159,8 @@ export function useDashboardKPIs() {
           .select('total_amount, status, order_date, cost_of_goods, platform_fee, commission_fee, payment_fee, shipping_fee_paid, other_fees, seller_income, gross_profit')
           .eq('tenant_id', tenantId)
           .gte('order_date', startDateStr)
-          .lte('order_date', endDateStr),
+          .lte('order_date', endDateStr)
+          .limit(50000),
         supabase
           .from('channel_settlements')
           .select('net_amount, payout_date, is_reconciled')

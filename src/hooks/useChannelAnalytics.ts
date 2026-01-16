@@ -68,12 +68,14 @@ export function useAllRevenueData() {
         supabase
           .from('external_orders')
           .select('id, channel, order_date, total_amount, seller_income, cost_of_goods, platform_fee, commission_fee, payment_fee, gross_profit, status')
-          .eq('tenant_id', tenantId),
+          .eq('tenant_id', tenantId)
+          .limit(50000),
         supabase
           .from('invoices')
           .select('id, invoice_number, customer_id, issue_date, total_amount, paid_amount, status')
           .eq('tenant_id', tenantId)
-          .in('status', ['sent', 'paid', 'partial']),
+          .in('status', ['sent', 'paid', 'partial'])
+          .limit(50000),
         supabase
           .from('revenues')
           .select('id, description, source, amount, start_date, is_active')

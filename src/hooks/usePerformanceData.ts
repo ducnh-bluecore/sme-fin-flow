@@ -62,7 +62,7 @@ export function usePerformanceData() {
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(10000);
 
       if (error) throw error;
 

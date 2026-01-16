@@ -164,7 +164,8 @@ export function useAudienceData() {
         .select('id, customer_name, customer_email, customer_phone, channel, status, total_amount, payment_status, order_date, province_name, shipping_fee, order_discount, cost_of_goods, net_profit')
         .eq('tenant_id', tenantId)
         .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .lte('order_date', endDateStr)
+        .limit(50000);
       if (error) throw error;
       return (data || []) as OrderData[];
     },

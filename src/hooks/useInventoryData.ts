@@ -50,7 +50,8 @@ export function useInventoryData() {
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('object_type', 'product')
-        .order('object_name', { ascending: true });
+        .order('object_name', { ascending: true })
+        .limit(10000);
 
       if (error) throw error;
 

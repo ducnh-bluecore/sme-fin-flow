@@ -114,7 +114,8 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
           .eq('tenant_id', tenantId)
           .eq('status', 'delivered')
           .gte('order_date', startDateStr)
-          .lte('order_date', endDateStr),
+          .lte('order_date', endDateStr)
+          .limit(50000),
         supabase
           .from('expenses')
           .select('amount, expense_date, category, is_recurring')

@@ -40,7 +40,8 @@ export function useOrders(sourceFilter?: string, statusFilter?: string) {
         .from('orders')
         .select('*')
         .eq('tenant_id', tenantId)
-        .order('order_date', { ascending: false });
+        .order('order_date', { ascending: false })
+        .limit(50000);
 
       if (sourceFilter && sourceFilter !== 'all') {
         query = query.eq('source', sourceFilter);

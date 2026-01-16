@@ -59,13 +59,13 @@ export function useKPIData(dateRange: string = '90') {
       ] = await Promise.all([
         supabase.from('bank_accounts').select('*').eq('tenant_id', tenantId).eq('status', 'active'),
         supabase.from('invoices').select('*').eq('tenant_id', tenantId)
-          .gte('issue_date', startDateStr).lte('issue_date', endDateStr),
+          .gte('issue_date', startDateStr).lte('issue_date', endDateStr).limit(50000),
         supabase.from('bank_transactions').select('*').eq('tenant_id', tenantId)
-          .gte('transaction_date', startDateStr).lte('transaction_date', endDateStr),
-        supabase.from('customers').select('*').eq('tenant_id', tenantId).eq('status', 'active'),
+          .gte('transaction_date', startDateStr).lte('transaction_date', endDateStr).limit(50000),
+        supabase.from('customers').select('*').eq('tenant_id', tenantId).eq('status', 'active').limit(50000),
         supabase.from('cash_forecasts').select('*').eq('tenant_id', tenantId).order('forecast_date', { ascending: false }).limit(7),
         supabase.from('expenses').select('*').eq('tenant_id', tenantId)
-          .gte('expense_date', startDateStr).lte('expense_date', endDateStr)
+          .gte('expense_date', startDateStr).lte('expense_date', endDateStr).limit(50000)
       ]);
 
       const bankAccounts = bankAccountsRes.data || [];

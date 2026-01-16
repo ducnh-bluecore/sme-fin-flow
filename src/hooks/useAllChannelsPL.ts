@@ -51,7 +51,8 @@ export function useAllChannelsPL(months: number = 12) {
         .select('*')
         .eq('tenant_id', tenantId)
         .gte('order_date', startDate.toISOString())
-        .lte('order_date', endDate.toISOString());
+        .lte('order_date', endDate.toISOString())
+        .limit(50000);
 
       if (ordersError) {
         console.error('Error fetching orders:', ordersError);
