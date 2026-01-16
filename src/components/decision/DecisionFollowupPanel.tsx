@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { usePendingFollowups, useRecordOutcome, type PendingFollowup } from '@/hooks/useDecisionOutcomes';
 import { useAutoMeasureOutcome, useSaveMeasuredOutcome } from '@/hooks/useAutoMeasureOutcome';
 
@@ -127,11 +128,17 @@ export function DecisionFollowupPanel() {
   const renderFollowupItem = (followup: PendingFollowup) => {
     const urgencyConfig = URGENCY_CONFIG[followup.urgency];
     const UrgencyIcon = urgencyConfig.icon;
+    const isOverdue = followup.urgency === 'overdue';
+    const isDueToday = followup.urgency === 'due_today';
 
     return (
       <div 
         key={followup.id}
-        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+        className={cn(
+          "flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors",
+          isOverdue && "border-destructive/50 bg-destructive/5",
+          isDueToday && "border-orange-500/50 bg-orange-500/5"
+        )}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className={`p-2 rounded-lg ${urgencyConfig.color}`}>
@@ -153,6 +160,13 @@ export function DecisionFollowupPanel() {
                 </>
               )}
             </div>
+            {/* Auto-measure notice for overdue */}
+            {isOverdue && (
+              <div className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Sẽ tự động đo nếu không ghi nhận thủ công
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -160,9 +174,17 @@ export function DecisionFollowupPanel() {
             <div className="font-medium">{format(new Date(followup.follow_up_date), 'dd/MM')}</div>
             <div className="text-muted-foreground text-xs">{urgencyConfig.label}</div>
           </div>
-          <Button size="sm" onClick={() => openOutcomeDialog(followup)}>
-            <ClipboardCheck className="h-4 w-4 mr-1" />
-            Ghi nhận
+          <Button 
+            size="sm" 
+            onClick={() => openOutcomeDialog(followup)}
+            className={cn(
+              "gap-1.5",
+              isOverdue && "bg-destructive hover:bg-destructive/90",
+              isDueToday && "bg-orange-500 hover:bg-orange-600"
+            )}
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Đo kết quả
           </Button>
         </div>
       </div>
