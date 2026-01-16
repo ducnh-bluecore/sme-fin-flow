@@ -11575,6 +11575,141 @@ export type Database = {
           },
         ]
       }
+      fdp_channel_summary: {
+        Row: {
+          avg_order_value: number | null
+          channel: string | null
+          contribution_margin: number | null
+          order_count: number | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_commission_fee: number | null
+          total_payment_fee: number | null
+          total_platform_fee: number | null
+          total_revenue: number | null
+          total_shipping_fee: number | null
+          unique_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fdp_daily_metrics: {
+        Row: {
+          channel: string | null
+          contribution_margin: number | null
+          metric_date: string | null
+          order_count: number | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_commission_fee: number | null
+          total_payment_fee: number | null
+          total_platform_fee: number | null
+          total_revenue: number | null
+          total_shipping_fee: number | null
+          unique_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fdp_expense_summary: {
+        Row: {
+          category: Database["public"]["Enums"]["expense_category"] | null
+          expense_month: string | null
+          tenant_id: string | null
+          total_amount: number | null
+          transaction_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fdp_invoice_summary: {
+        Row: {
+          invoice_count: number | null
+          invoice_month: string | null
+          outstanding_amount: number | null
+          status: string | null
+          tenant_id: string | null
+          total_amount: number | null
+          total_paid: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fdp_monthly_metrics: {
+        Row: {
+          channel: string | null
+          contribution_margin: number | null
+          metric_month: string | null
+          order_count: number | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_commission_fee: number | null
+          total_payment_fee: number | null
+          total_platform_fee: number | null
+          total_revenue: number | null
+          total_shipping_fee: number | null
+          unique_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fdp_sku_summary: {
+        Row: {
+          gross_profit: number | null
+          margin_percent: number | null
+          order_count: number | null
+          product_name: string | null
+          sku: string | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_quantity: number | null
+          total_revenue: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pl_summary: {
         Row: {
           account_type: string | null
