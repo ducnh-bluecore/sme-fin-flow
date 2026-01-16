@@ -48,7 +48,7 @@ function generateOrdersForMonth(
   const items: any[] = [];
   
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const statuses = ['delivered', 'delivered', 'delivered', 'shipped', 'cancelled', 'returned'];
+  const statuses = ['delivered', 'delivered', 'delivered', 'shipping', 'cancelled', 'returned'];
   const statusWeights = [0.75, 0.10, 0.05, 0.05, 0.03, 0.02];
   
   for (let day = 1; day <= daysInMonth; day++) {
@@ -129,7 +129,6 @@ function generateOrdersForMonth(
         commission_fee: commissionFee,
         payment_fee: paymentFee,
         shipping_fee: shippingFee,
-        gross_profit: orderTotal - orderCogs - platformFee - commissionFee - paymentFee - shippingFee,
         created_at: formatDate(orderDate),
       });
     }
