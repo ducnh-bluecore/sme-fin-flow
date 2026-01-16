@@ -40,9 +40,10 @@ interface MetricItemProps {
   status: 'healthy' | 'warning' | 'critical' | 'neutral';
   icon: React.ReactNode;
   tooltip?: string;
+  isSnapshot?: boolean; // true = real-time snapshot, false = period-based
 }
 
-function MetricItem({ label, value, subtext, trend, status, icon, tooltip }: MetricItemProps) {
+function MetricItem({ label, value, subtext, trend, status, icon, tooltip, isSnapshot }: MetricItemProps) {
   const statusColors = {
     healthy: 'text-emerald-400',
     warning: 'text-amber-400',
@@ -69,12 +70,26 @@ function MetricItem({ label, value, subtext, trend, status, icon, tooltip }: Met
               <div className={`p-2 rounded-lg ${statusBgColors[status]}`}>
                 {icon}
               </div>
-              {trend !== undefined && (
-                <div className={`flex items-center gap-1 text-xs ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {trend >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                  {Math.abs(trend).toFixed(1)}%
-                </div>
-              )}
+              <div className="flex items-center gap-1">
+                {isSnapshot !== undefined && (
+                  <Badge 
+                    variant="outline" 
+                    className={`text-[10px] px-1.5 py-0 h-4 ${
+                      isSnapshot 
+                        ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10' 
+                        : 'border-violet-500/50 text-violet-400 bg-violet-500/10'
+                    }`}
+                  >
+                    {isSnapshot ? 'Live' : 'Period'}
+                  </Badge>
+                )}
+                {trend !== undefined && (
+                  <div className={`flex items-center gap-1 text-xs ${trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {trend >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                    {Math.abs(trend).toFixed(1)}%
+                  </div>
+                )}
+              </div>
             </div>
             <p className="text-xs text-slate-400 mb-1">{label}</p>
             <p className={`text-2xl font-bold ${statusColors[status]}`}>{value}</p>
@@ -84,6 +99,13 @@ function MetricItem({ label, value, subtext, trend, status, icon, tooltip }: Met
         {tooltip && (
           <TooltipContent className="max-w-xs">
             <p>{tooltip}</p>
+            {isSnapshot !== undefined && (
+              <p className="text-xs mt-1 italic text-muted-foreground">
+                {isSnapshot 
+                  ? '📍 Snapshot hiện tại - không thay đổi theo date range' 
+                  : '📊 Dữ liệu theo period được chọn'}
+              </p>
+            )}
           </TooltipContent>
         )}
       </Tooltip>
@@ -214,6 +236,7 @@ export default function FinancialTruthCard() {
               status={getRevenueStatus()}
               icon={<DollarSign className={`h-5 w-5 ${getRevenueStatus() === 'healthy' ? 'text-emerald-400' : 'text-slate-400'}`} />}
               tooltip="Doanh thu thực tế sau khi trừ tất cả các loại phí: phí sàn, phí thanh toán, phí vận chuyển, phí quảng cáo..."
+              isSnapshot={false}
             />
             
             <MetricItem
@@ -223,6 +246,7 @@ export default function FinancialTruthCard() {
               status={getMarginStatus()}
               icon={<TrendingUp className={`h-5 w-5 ${getMarginStatus() === 'healthy' ? 'text-emerald-400' : getMarginStatus() === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />}
               tooltip="Tỷ lệ lợi nhuận gộp trên doanh thu thuần. Dưới 10% là cảnh báo, dưới 0% là nguy hiểm."
+              isSnapshot={false}
             />
             
             <MetricItem
@@ -232,6 +256,7 @@ export default function FinancialTruthCard() {
               status={getCashStatus()}
               icon={<Wallet className={`h-5 w-5 ${getCashStatus() === 'healthy' ? 'text-emerald-400' : getCashStatus() === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />}
               tooltip="Số dư tiền mặt thực tế trong các tài khoản ngân hàng. Không bao gồm AR chưa thu."
+              isSnapshot={true}
             />
             
             <MetricItem
@@ -241,6 +266,7 @@ export default function FinancialTruthCard() {
               status={getRunwayStatus()}
               icon={<Clock className={`h-5 w-5 ${getRunwayStatus() === 'healthy' ? 'text-emerald-400' : getRunwayStatus() === 'critical' ? 'text-red-400' : 'text-amber-400'}`} />}
               tooltip="Số tháng công ty có thể hoạt động với tiền mặt hiện có, dựa trên burn rate trung bình 3 tháng gần nhất."
+              isSnapshot={true}
             />
           </div>
 

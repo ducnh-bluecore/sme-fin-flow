@@ -150,9 +150,17 @@ export default function RealCashBreakdown() {
                 <Wallet className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Real Cash Breakdown</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  Real Cash Breakdown
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] px-1.5 py-0 h-4 border-cyan-500/50 text-cyan-400 bg-cyan-500/10"
+                  >
+                    Live Snapshot
+                  </Badge>
+                </CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  Tiền thật vs Tiền trên giấy - FDP Principle #4
+                  Tiền thật vs Tiền trên giấy - Không đổi theo date range
                 </p>
               </div>
             </div>
