@@ -894,7 +894,8 @@ export function useFunnelData() {
         .select('*')
         .eq('tenant_id', tenantId)
         .gte('analytics_date', startDateStr)
-        .lte('analytics_date', endDateStr);
+        .lte('analytics_date', endDateStr)
+        .limit(50000);
       if (error) throw error;
       return data || [];
     },
@@ -1044,7 +1045,8 @@ export function useChannelsPageData() {
         .select('*')
         .eq('tenant_id', tenantId)
         .gte('analytics_date', startDateStr)
-        .lte('analytics_date', endDateStr);
+        .lte('analytics_date', endDateStr)
+        .limit(50000);
       if (error) throw error;
       return data || [];
     },

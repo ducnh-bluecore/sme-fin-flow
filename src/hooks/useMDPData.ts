@@ -213,7 +213,8 @@ export function useMDPData() {
         .select('*')
         .eq('tenant_id', tenantId)
         .gte('analytics_date', startDateStr)
-        .lte('analytics_date', endDateStr);
+        .lte('analytics_date', endDateStr)
+        .limit(50000);
       if (error) throw error;
       return data || [];
     },
@@ -230,7 +231,8 @@ export function useMDPData() {
         .select('id, channel, status, total_amount, payment_status, order_date, shipping_fee')
         .eq('tenant_id', tenantId)
         .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .lte('order_date', endDateStr)
+        .limit(50000);
       if (error) throw error;
       return data || [];
     },
@@ -263,7 +265,7 @@ export function useMDPData() {
         .from('external_order_items')
         .select('external_order_id, sku, quantity, unit_price, total_amount, unit_cogs, total_cogs, gross_profit')
         .eq('tenant_id', tenantId)
-        .limit(1000);
+        .limit(100000);
       if (error) throw error;
       return data || [];
     },

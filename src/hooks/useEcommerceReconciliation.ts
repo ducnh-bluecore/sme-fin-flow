@@ -133,7 +133,7 @@ export function useEcommerceOrders() {
         .gte('order_date', startDateStr)
         .lte('order_date', endDateStr)
         .order('order_date', { ascending: false })
-        .limit(200);
+        .limit(50000);
 
       if (error) throw error;
 
@@ -243,7 +243,7 @@ export function useShippingOrders() {
         .gte('order_date', startDateStr)
         .lte('order_date', endDateStr)
         .order('order_date', { ascending: false })
-        .limit(200);
+        .limit(50000);
 
       if (error) throw error;
 

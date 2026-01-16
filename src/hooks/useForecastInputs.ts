@@ -122,7 +122,8 @@ export function useForecastInputs() {
         .from('external_orders')
         .select('id, seller_income, status, delivered_at')
         .eq('tenant_id', tenantId)
-        .eq('status', 'delivered');
+        .eq('status', 'delivered')
+        .limit(50000);
       return data || [];
     },
     enabled: !!tenantId,

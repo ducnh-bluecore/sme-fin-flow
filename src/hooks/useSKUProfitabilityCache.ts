@@ -161,7 +161,8 @@ export function useRecalculateSKUProfitability() {
       const { data: orderItems, error: itemsError } = await supabase
         .from('external_order_items')
         .select('*')
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .limit(100000);
 
       if (itemsError) throw itemsError;
 
