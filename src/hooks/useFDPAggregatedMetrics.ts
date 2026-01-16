@@ -136,6 +136,7 @@ export function useFDPAggregatedMetrics() {
       if (!tenantId) return null;
 
       // Fetch from pre-aggregated views in parallel
+      // Note: Views may not be in auto-generated types, so we cast to 'any' 
       const [
         dailyRes,
         channelRes,
@@ -146,7 +147,7 @@ export function useFDPAggregatedMetrics() {
       ] = await Promise.all([
         // Daily metrics for the date range
         supabase
-          .from('fdp_daily_metrics')
+          .from('fdp_daily_metrics' as any)
           .select('*')
           .eq('tenant_id', tenantId)
           .gte('metric_date', startDateStr)
@@ -154,13 +155,13 @@ export function useFDPAggregatedMetrics() {
         
         // Channel summary (all-time, we'll filter in memory if needed)
         supabase
-          .from('fdp_channel_summary')
+          .from('fdp_channel_summary' as any)
           .select('*')
           .eq('tenant_id', tenantId),
         
         // SKU summary
         supabase
-          .from('fdp_sku_summary')
+          .from('fdp_sku_summary' as any)
           .select('*')
           .eq('tenant_id', tenantId)
           .order('total_revenue', { ascending: false })
@@ -168,7 +169,7 @@ export function useFDPAggregatedMetrics() {
         
         // Expense summary
         supabase
-          .from('fdp_expense_summary')
+          .from('fdp_expense_summary' as any)
           .select('*')
           .eq('tenant_id', tenantId)
           .gte('expense_month', startDateStr)
@@ -176,7 +177,7 @@ export function useFDPAggregatedMetrics() {
         
         // Invoice summary
         supabase
-          .from('fdp_invoice_summary')
+          .from('fdp_invoice_summary' as any)
           .select('*')
           .eq('tenant_id', tenantId)
           .gte('invoice_month', startDateStr)
@@ -192,11 +193,11 @@ export function useFDPAggregatedMetrics() {
           .lte('expense_date', endDateStr)
       ]);
 
-      const dailyMetrics = (dailyRes.data || []) as DailyMetric[];
-      const channelSummary = (channelRes.data || []) as ChannelSummary[];
-      const skuSummary = (skuRes.data || []) as SKUSummary[];
-      const expenseSummary = (expenseRes.data || []) as ExpenseSummary[];
-      const invoiceSummary = (invoiceRes.data || []) as InvoiceSummary[];
+      const dailyMetrics = (dailyRes.data as unknown as DailyMetric[]) || [];
+      const channelSummary = (channelRes.data as unknown as ChannelSummary[]) || [];
+      const skuSummary = (skuRes.data as unknown as SKUSummary[]) || [];
+      const expenseSummary = (expenseRes.data as unknown as ExpenseSummary[]) || [];
+      const invoiceSummary = (invoiceRes.data as unknown as InvoiceSummary[]) || [];
       const marketingExpenses = marketingRes.data || [];
 
       // Aggregate daily metrics for the period
@@ -285,7 +286,7 @@ export function useFDPQuickMetrics() {
 
       // Just fetch daily aggregates - typically < 365 rows per year
       const { data, error } = await supabase
-        .from('fdp_daily_metrics')
+        .from('fdp_daily_metrics' as any)
         .select('order_count, total_revenue, total_cogs, total_platform_fee, total_commission_fee, total_payment_fee, total_shipping_fee, contribution_margin')
         .eq('tenant_id', tenantId)
         .gte('metric_date', startDateStr)
@@ -293,7 +294,12 @@ export function useFDPQuickMetrics() {
 
       if (error) throw error;
 
-      const metrics = data || [];
+      interface QuickMetric {
+        order_count: number;
+        total_revenue: number;
+        contribution_margin: number;
+      }
+      const metrics = (data as unknown as QuickMetric[]) || [];
       const totalOrders = metrics.reduce((sum, d) => sum + (d.order_count || 0), 0);
       const totalRevenue = metrics.reduce((sum, d) => sum + (d.total_revenue || 0), 0);
       const contributionMargin = metrics.reduce((sum, d) => sum + (d.contribution_margin || 0), 0);

@@ -51,9 +51,9 @@ export function useSKUProfitabilityFromView() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Use pre-aggregated SKU summary view
+      // Use pre-aggregated SKU summary view (cast to any since views not in types)
       const { data, error } = await supabase
-        .from('fdp_sku_summary')
+        .from('fdp_sku_summary' as any)
         .select('*')
         .eq('tenant_id', tenantId)
         .order('total_revenue', { ascending: false })
@@ -61,7 +61,18 @@ export function useSKUProfitabilityFromView() {
 
       if (error) throw error;
 
-      const skuMetrics: CachedSKUMetrics[] = (data || []).map((row, idx) => {
+      interface SKUViewRow {
+        sku: string | null;
+        product_name: string | null;
+        total_quantity: number;
+        total_revenue: number;
+        total_cogs: number;
+        gross_profit: number;
+        margin_percent: number;
+      }
+      const viewData = (data as unknown as SKUViewRow[]) || [];
+
+      const skuMetrics: CachedSKUMetrics[] = viewData.map((row, idx) => {
         const profit = row.gross_profit || 0;
         const revenue = row.total_revenue || 0;
         const margin = row.margin_percent || 0;
@@ -123,12 +134,23 @@ export function useCachedSKUProfitability() {
       if (!tenantId) return null;
 
       // First try pre-aggregated view for quick data
-      const { data: viewData, error: viewError } = await supabase
-        .from('fdp_sku_summary')
+      const { data: rawViewData, error: viewError } = await supabase
+        .from('fdp_sku_summary' as any)
         .select('*')
         .eq('tenant_id', tenantId)
         .order('total_revenue', { ascending: false })
         .limit(500);
+
+      interface SKUViewRow {
+        sku: string | null;
+        product_name: string | null;
+        total_quantity: number;
+        total_revenue: number;
+        total_cogs: number;
+        gross_profit: number;
+        margin_percent: number;
+      }
+      const viewData = (rawViewData as unknown as SKUViewRow[]) || [];
 
       // If view has data, use it
       if (!viewError && viewData && viewData.length > 0) {
@@ -256,15 +278,26 @@ export function useRecalculateSKUProfitability() {
       if (!tenantId) throw new Error('No tenant');
 
       // Use fdp_sku_summary view data to populate cache
-      const { data: skuData, error: skuError } = await supabase
-        .from('fdp_sku_summary')
+      const { data: rawSkuData, error: skuError } = await supabase
+        .from('fdp_sku_summary' as any)
         .select('*')
         .eq('tenant_id', tenantId);
 
       if (skuError) throw skuError;
 
+      interface SKUViewRow {
+        sku: string | null;
+        product_name: string | null;
+        total_quantity: number;
+        total_revenue: number;
+        total_cogs: number;
+        gross_profit: number;
+        margin_percent: number;
+      }
+      const skuData = (rawSkuData as unknown as SKUViewRow[]) || [];
+
       const now = new Date().toISOString();
-      const cacheRecords = (skuData || []).map(row => {
+      const cacheRecords = skuData.map(row => {
         const profit = row.gross_profit || 0;
         const revenue = row.total_revenue || 0;
         const margin = row.margin_percent || 0;

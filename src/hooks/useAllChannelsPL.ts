@@ -52,9 +52,9 @@ export function useAllChannelsPL(months: number = 12) {
     queryFn: async (): Promise<AllChannelsPLData | null> => {
       if (!tenantId) return null;
 
-      // Use pre-aggregated channel summary view
-      const { data: channelSummary, error } = await supabase
-        .from('fdp_channel_summary')
+      // Use pre-aggregated channel summary view (cast to any since views not in types)
+      const { data: rawData, error } = await supabase
+        .from('fdp_channel_summary' as any)
         .select('*')
         .eq('tenant_id', tenantId);
 
@@ -63,7 +63,21 @@ export function useAllChannelsPL(months: number = 12) {
         return null;
       }
 
-      if (!channelSummary || channelSummary.length === 0) {
+      interface ChannelViewRow {
+        channel: string | null;
+        order_count: number;
+        total_revenue: number;
+        total_cogs: number;
+        total_platform_fee: number;
+        total_commission_fee: number;
+        total_payment_fee: number;
+        total_shipping_fee: number;
+        contribution_margin: number;
+        avg_order_value: number;
+      }
+      const channelSummary = (rawData as unknown as ChannelViewRow[]) || [];
+
+      if (channelSummary.length === 0) {
         return {
           channels: [],
           totals: {
