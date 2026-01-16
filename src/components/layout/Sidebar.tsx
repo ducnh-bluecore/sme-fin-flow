@@ -62,8 +62,7 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.dashboard', href: '/dashboard' },
       { labelKey: 'nav.cashForecast', href: '/cash-forecast' },
       { labelKey: 'nav.cashFlowDirect', href: '/cash-flow-direct' },
-      { labelKey: 'nav.workingCapital', href: '/working-capital' },
-      { labelKey: 'nav.cashConversion', href: '/cash-conversion-cycle' },
+      { labelKey: 'nav.workingCapitalHub', href: '/working-capital-hub' },
     ],
   },
   {
@@ -82,8 +81,7 @@ const navItems: NavItem[] = [
     children: [
       { labelKey: 'nav.plReport', href: '/pl-report' },
       { labelKey: 'nav.analysis', href: '/financial-reports' },
-      { labelKey: 'nav.budgetVsActual', href: '/budget-vs-actual' },
-      { labelKey: 'nav.varianceAnalysis', href: '/variance-analysis' },
+      { labelKey: 'nav.performanceAnalysis', href: '/performance-analysis' },
       { labelKey: 'nav.boardReports', href: '/board-reports' },
     ],
   },

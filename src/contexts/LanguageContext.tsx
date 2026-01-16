@@ -57,6 +57,7 @@ const vi: Record<string, string> = {
   'nav.cashForecast': 'Cash Flow Forecast',
   'nav.cashFlowDirect': 'Dòng tiền trực tiếp',
   'nav.workingCapital': 'Tối ưu vốn lưu động',
+  'nav.workingCapitalHub': 'Vốn lưu động & CCC',
   'nav.cashConversion': 'Cash Conversion Cycle',
   'nav.retailOps': 'Vận hành bán lẻ',
   'nav.inventoryAging': 'Tuổi tồn kho',
@@ -76,6 +77,7 @@ const vi: Record<string, string> = {
   'nav.analysis': 'Phân tích tổng hợp',
   'nav.budgetVsActual': 'Budget vs Actual',
   'nav.varianceAnalysis': 'Phân tích chênh lệch',
+  'nav.performanceAnalysis': 'Phân tích hiệu quả',
   'nav.boardReports': 'Báo cáo HĐQT',
 
   'nav.planSimulation': 'Kế hoạch & Mô phỏng',
@@ -1725,6 +1727,7 @@ const en: Record<string, string> = {
   'nav.dashboard': 'Dashboard',
   'nav.cashForecast': 'Cash Flow Forecast',
   'nav.workingCapital': 'Working Capital Optimization',
+  'nav.workingCapitalHub': 'Working Capital & CCC',
   'nav.cashConversion': 'Cash Conversion Cycle',
 
   'nav.decisionCenter': 'Decision Center',
@@ -1740,6 +1743,7 @@ const en: Record<string, string> = {
   'nav.analysis': 'Comprehensive Analysis',
   'nav.budgetVsActual': 'Budget vs Actual',
   'nav.varianceAnalysis': 'Variance Analysis',
+  'nav.performanceAnalysis': 'Performance Analysis',
   'nav.boardReports': 'Board Reports',
 
   'nav.planSimulation': 'Planning & Simulation',

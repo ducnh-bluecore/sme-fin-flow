@@ -74,6 +74,8 @@ const ScenarioHubPage = lazy(() => import("./pages/ScenarioHubPage"));
 const ScenarioPage = lazy(() => import("./pages/ScenarioPage"));
 const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
 const FormulasPage = lazy(() => import("./pages/FormulasPage"));
+const WorkingCapitalHubPage = lazy(() => import("./pages/WorkingCapitalHubPage"));
+const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPage"));
 
 
 // Strategy & Decision pages
@@ -275,12 +277,15 @@ const AppRoutes = () => {
         <Route path="/channel/:channelId" element={<ChannelPLPage />} />
         <Route path="/channel/:channelId/whatif" element={<ChannelWhatIfPage />} />
         <Route path="/unit-economics" element={<UnitEconomicsPage />} />
-        <Route path="/cash-conversion-cycle" element={<CashConversionCyclePage />} />
-        <Route path="/budget-vs-actual" element={<BudgetVsActualPage />} />
+        <Route path="/working-capital-hub" element={<WorkingCapitalHubPage />} />
+        <Route path="/performance-analysis" element={<PerformanceAnalysisPage />} />
+        {/* Legacy routes - redirect to new hubs */}
+        <Route path="/cash-conversion-cycle" element={<Navigate to="/working-capital-hub" replace />} />
+        <Route path="/working-capital" element={<Navigate to="/working-capital-hub" replace />} />
+        <Route path="/budget-vs-actual" element={<Navigate to="/performance-analysis" replace />} />
+        <Route path="/variance-analysis" element={<Navigate to="/performance-analysis" replace />} />
         <Route path="/rolling-forecast" element={<RollingForecastPage />} />
         <Route path="/covenant-tracking" element={<CovenantTrackingPage />} />
-        <Route path="/working-capital" element={<WorkingCapitalPage />} />
-        <Route path="/variance-analysis" element={<VarianceAnalysisPage />} />
         <Route path="/board-reports" element={<BoardReportsPage />} />
         <Route path="/strategic-initiatives" element={<StrategicInitiativesPage />} />
         <Route path="/executive-summary" element={<ExecutiveSummaryPage />} />
