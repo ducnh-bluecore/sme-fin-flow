@@ -321,11 +321,11 @@ export function useFDPMetrics() {
       const totalContributionMargin = cmResult.value;
       const totalContributionMarginPercent = netRevenue > 0 ? (totalContributionMargin / netRevenue) * 100 : 0;
 
-      // Contribution Margin PER ORDER - KHÔNG trừ marketing 
-      // Vì marketing không phải biến phí per order, mà là chi phí cố định theo thời gian
-      // Công thức Unit Economics đúng: CM/Order = AOV - COGS/Order - Fees/Order - Shipping/Order
-      const orderLevelCM = netRevenue - totalCogs - orderShippingFees; // KHÔNG trừ marketing
-      const orderLevelCMPercent = netRevenue > 0 ? (orderLevelCM / netRevenue) * 100 : 0;
+      // Contribution Margin PER ORDER - Tính từ GROSS revenue
+      // Công thức Unit Economics: CM/Order = AOV - COGS/Order - Fees/Order - Shipping/Order
+      // KHÔNG dùng Net Revenue vì UI hiển thị breakdown từ Gross
+      const orderLevelCM = orderRevenue - totalCogs - totalPlatformFees - orderShippingFees;
+      const orderLevelCMPercent = orderRevenue > 0 ? (orderLevelCM / orderRevenue) * 100 : 0;
 
       // Per Order
       const aovResult = calculateAOV(orderRevenue, totalOrders);
@@ -334,7 +334,7 @@ export function useFDPMetrics() {
       const feesPerOrder = totalOrders > 0 ? totalPlatformFees / totalOrders : 0;
       const shippingPerOrder = totalOrders > 0 ? orderShippingFees / totalOrders : 0;
       
-      // CM per order dùng order-level CM (không có marketing)
+      // CM per order = AOV - COGS/order - Fees/order - Shipping/order
       const contributionMarginPerOrder = totalOrders > 0 ? orderLevelCM / totalOrders : 0;
 
       // ========== CUSTOMER METRICS ==========
