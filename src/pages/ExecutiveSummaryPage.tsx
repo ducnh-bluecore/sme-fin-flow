@@ -184,26 +184,38 @@ function FinancialHealthRadar({ metrics, runwayData, t }: { metrics: any; runway
   // Calculate individual health dimensions
   const calculateDimensions = (): HealthDimension[] => {
     // Liquidity Score (based on cash runway and current ratio)
-    const runwayMonths = runwayData?.runwayMonths || 4;
+    const runwayMonths = runwayData?.runwayMonths ?? 4;
     const liquidityScore = Math.min(100, runwayMonths * 15); // 6+ months = 90+
     
     // Receivables Health (based on DSO)
-    const dso = metrics?.dso || 45;
-    const receivablesScore = Math.max(0, 100 - (dso - 30) * 2); // DSO 30 = 100, DSO 65 = 30
+    // Use ?? (nullish coalescing) to properly handle 0 as a valid value
+    // DSO = 0 would incorrectly fallback to 45 with || operator
+    const dso = (metrics?.dso !== undefined && metrics?.dso !== null && metrics.dso > 0) 
+      ? metrics.dso 
+      : 45; // Default DSO when no data
+    const receivablesScore = Math.min(100, Math.max(0, 100 - (dso - 30) * 2)); // DSO 30 = 100, DSO 65 = 30
     
     // Profitability (based on gross margin)
-    const grossMargin = metrics?.grossMargin || 28;
+    const grossMargin = (metrics?.grossMargin !== undefined && metrics?.grossMargin !== null && metrics.grossMargin > 0)
+      ? metrics.grossMargin
+      : 28; // Default margin when no data
     const profitabilityScore = Math.min(100, grossMargin * 2.5); // 40% margin = 100
     
     // Efficiency (based on CCC)
-    const ccc = metrics?.ccc || 45;
-    const efficiencyScore = Math.max(0, 100 - ccc); // CCC 0 = 100, CCC 100 = 0
+    // CCC can be negative (good - means getting paid before paying suppliers)
+    // CCC = 0 is a valid value
+    const ccc = (metrics?.ccc !== undefined && metrics?.ccc !== null && (metrics.ccc !== 0 || metrics.dso > 0))
+      ? metrics.ccc
+      : 45; // Default CCC when no data
+    const efficiencyScore = Math.min(100, Math.max(0, 100 - ccc)); // CCC 0 = 100, CCC 100 = 0
     
     // Growth (simulated - would come from revenue trends)
     const growthScore = 72; // Sample data
     
     // Stability (based on EBITDA margin)
-    const ebitdaMargin = metrics?.ebitdaMargin || 15;
+    const ebitdaMargin = (metrics?.ebitdaMargin !== undefined && metrics?.ebitdaMargin !== null && metrics.ebitdaMargin > 0)
+      ? metrics.ebitdaMargin
+      : 15; // Default EBITDA margin when no data
     const stabilityScore = Math.min(100, ebitdaMargin * 4); // 25% EBITDA = 100
 
     return [
