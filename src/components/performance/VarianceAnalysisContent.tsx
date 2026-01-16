@@ -334,8 +334,8 @@ export default function VarianceAnalysisContent() {
                       <td className={`py-2 px-2 text-right font-mono ${v.yoy_variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {v.yoy_variance >= 0 ? '+' : ''}{formatCurrency(v.yoy_variance)}
                       </td>
-                      <td className={`py-2 px-2 text-right ${v.variance_pct_yoy >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {v.variance_pct_yoy >= 0 ? '+' : ''}{formatPercent(v.variance_pct_yoy)}
+                      <td className={`py-2 px-2 text-right ${v.yoy_variance_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {v.yoy_variance_pct >= 0 ? '+' : ''}{formatPercent(v.yoy_variance_pct)}
                       </td>
                     </tr>
                   ))}
