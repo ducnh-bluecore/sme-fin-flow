@@ -96,32 +96,65 @@ export function useAllChannelsPL(months: number = 12) {
         };
       }
 
-      // Calculate totals from aggregated data
-      const grandTotalRevenue = channelSummary.reduce((sum, ch) => sum + (ch.total_revenue || 0), 0);
+      // Merge channels with same name (case-insensitive) to avoid duplicates like "Shopee" and "shopee"
+      const channelMap = new Map<string, {
+        totalRevenue: number;
+        totalCogs: number;
+        totalFees: number;
+        shippingFees: number;
+        orderCount: number;
+        contributionMargin: number;
+      }>();
 
-      // Transform aggregated data to ChannelPLSummaryItem format
-      const channelData: ChannelPLSummaryItem[] = channelSummary.map(ch => {
-        const totalRevenue = ch.total_revenue || 0;
-        const totalCogs = ch.total_cogs || 0;
-        const totalFees = (ch.total_platform_fee || 0) + (ch.total_commission_fee || 0) + (ch.total_payment_fee || 0);
-        const shippingFees = ch.total_shipping_fee || 0;
-        const orderCount = ch.order_count || 0;
+      channelSummary.forEach(ch => {
+        const normalizedChannel = (ch.channel || 'Unknown').toUpperCase().trim();
+        const existing = channelMap.get(normalizedChannel) || {
+          totalRevenue: 0,
+          totalCogs: 0,
+          totalFees: 0,
+          shippingFees: 0,
+          orderCount: 0,
+          contributionMargin: 0,
+        };
+
+        existing.totalRevenue += ch.total_revenue || 0;
+        existing.totalCogs += ch.total_cogs || 0;
+        existing.totalFees += (ch.total_platform_fee || 0) + (ch.total_commission_fee || 0) + (ch.total_payment_fee || 0);
+        existing.shippingFees += ch.total_shipping_fee || 0;
+        existing.orderCount += ch.order_count || 0;
+        existing.contributionMargin += ch.contribution_margin || 0;
+
+        channelMap.set(normalizedChannel, existing);
+      });
+
+      // Calculate totals from merged data
+      let grandTotalRevenue = 0;
+      channelMap.forEach(ch => {
+        grandTotalRevenue += ch.totalRevenue;
+      });
+
+      // Transform merged data to ChannelPLSummaryItem format
+      const channelData: ChannelPLSummaryItem[] = Array.from(channelMap.entries()).map(([channelName, ch]) => {
+        const totalRevenue = ch.totalRevenue;
+        const totalCogs = ch.totalCogs;
+        const totalFees = ch.totalFees + ch.shippingFees;
+        const orderCount = ch.orderCount;
 
         // Gross Profit = Revenue - COGS
         const grossProfit = totalRevenue - totalCogs;
         
         // Operating Profit = Gross Profit - Fees - Shipping (same as contribution_margin)
-        const operatingProfit = ch.contribution_margin || (grossProfit - totalFees - shippingFees);
+        const operatingProfit = ch.contributionMargin || (grossProfit - totalFees);
 
         return {
-          channel: (ch.channel || 'Unknown').toUpperCase(),
+          channel: channelName,
           totalRevenue,
-          totalFees: totalFees + shippingFees,
+          totalFees,
           totalCogs,
           grossProfit,
           operatingProfit,
           orderCount,
-          avgOrderValue: ch.avg_order_value || 0,
+          avgOrderValue: orderCount > 0 ? totalRevenue / orderCount : 0,
           grossMargin: totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0,
           operatingMargin: totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0,
           revenueShare: grandTotalRevenue > 0 ? (totalRevenue / grandTotalRevenue) * 100 : 0,
