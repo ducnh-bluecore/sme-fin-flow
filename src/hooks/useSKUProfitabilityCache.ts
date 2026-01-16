@@ -46,7 +46,8 @@ export function useCachedSKUProfitability() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      // First try exact match
+      let { data, error } = await supabase
         .from('sku_profitability_cache')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -55,6 +56,19 @@ export function useCachedSKUProfitability() {
         .order('profit', { ascending: false });
 
       if (error) throw error;
+
+      // If no exact match, get the most recent cached data for any period
+      if (!data || data.length === 0) {
+        const { data: latestData, error: latestError } = await supabase
+          .from('sku_profitability_cache')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('calculated_at', { ascending: false })
+          .order('profit', { ascending: false });
+
+        if (latestError) throw latestError;
+        data = latestData;
+      }
 
       const skuMetrics: CachedSKUMetrics[] = (data || []).map(row => ({
         id: row.id,
