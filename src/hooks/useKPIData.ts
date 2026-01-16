@@ -58,23 +58,26 @@ export function useKPIData(dateRange: string = '90') {
         expenseSummaryRes
       ] = await Promise.all([
         supabase.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId).eq('status', 'active'),
-        // Use invoice summary view
-        supabase.from('fdp_invoice_summary').select('*').eq('tenant_id', tenantId),
+        // Use invoice summary view (cast to any since views not in types)
+        supabase.from('fdp_invoice_summary' as any).select('*').eq('tenant_id', tenantId),
         supabase.from('bank_transactions').select('match_status').eq('tenant_id', tenantId)
           .gte('transaction_date', startDateStr).lte('transaction_date', endDateStr),
         supabase.from('customers').select('id').eq('tenant_id', tenantId).eq('status', 'active'),
         supabase.from('cash_forecasts').select('closing_balance').eq('tenant_id', tenantId).order('forecast_date', { ascending: false }).limit(7),
-        // Use expense summary view
-        supabase.from('fdp_expense_summary').select('*').eq('tenant_id', tenantId)
+        // Use expense summary view (cast to any since views not in types)
+        supabase.from('fdp_expense_summary' as any).select('*').eq('tenant_id', tenantId)
           .gte('expense_month', startDateStr).lte('expense_month', endDateStr)
       ]);
 
       const bankAccounts = bankAccountsRes.data || [];
-      const invoiceSummary = invoiceSummaryRes.data || [];
+      // Cast view results to proper types
+      interface InvoiceSummaryItem { status: string; outstanding_amount: number; total_amount: number; invoice_count: number; }
+      interface ExpenseSummaryItem { category: string; total_amount: number; }
+      const invoiceSummary = (invoiceSummaryRes.data as unknown as InvoiceSummaryItem[]) || [];
       const bankTransactions = bankTransactionsRes.data || [];
       const customers = customersRes.data || [];
       const cashForecasts = cashForecastsRes.data || [];
-      const expenseSummary = expenseSummaryRes.data || [];
+      const expenseSummary = (expenseSummaryRes.data as unknown as ExpenseSummaryItem[]) || [];
 
       // Cash calculations
       const cashToday = bankAccounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
