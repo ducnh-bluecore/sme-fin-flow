@@ -48,14 +48,43 @@ export const useInventoryItems = () => {
     queryFn: async () => {
       if (!tenantId) return [];
 
+      // Query from alert_objects where products are stored
       const { data, error } = await supabase
-        .from('inventory_items' as any)
+        .from('alert_objects')
         .select('*')
         .eq('tenant_id', tenantId)
-        .order('received_date', { ascending: true });
+        .eq('object_type', 'product')
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return (data as unknown) as InventoryItem[];
+
+      // Transform alert_objects to InventoryItem format
+      return (data || []).map(obj => {
+        const metrics = (obj.current_metrics || {}) as Record<string, unknown>;
+        const objData = (obj.object_data || {}) as Record<string, unknown>;
+        const quantity = (metrics.stock_quantity as number) || (metrics.quantity as number) || (metrics.stock as number) || 0;
+        const unitCost = (metrics.unit_cost as number) || (metrics.selling_price as number) || 0;
+        
+        return {
+          id: obj.id,
+          tenant_id: obj.tenant_id,
+          sku: obj.external_id || obj.id.slice(0, 8).toUpperCase(),
+          product_name: obj.object_name,
+          category: obj.object_category,
+          quantity,
+          unit_cost: unitCost,
+          total_value: quantity * unitCost,
+          received_date: (objData.received_date as string) || obj.created_at,
+          warehouse_location: (objData.warehouse as string) || (objData.location as string) || null,
+          supplier_id: (objData.supplier_id as string) || null,
+          last_sold_date: obj.last_sale_date,
+          reorder_point: obj.reorder_point,
+          status: obj.alert_status || 'normal',
+          notes: (objData.notes as string) || null,
+          created_at: obj.created_at,
+          updated_at: obj.updated_at,
+        } as InventoryItem;
+      });
     },
     enabled: !!tenantId,
   });
