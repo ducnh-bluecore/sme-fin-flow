@@ -176,10 +176,13 @@ export function useCentralFinancialMetrics() {
           .select('id, total_amount, paid_amount, status, bill_date, due_date')
           .eq('tenant_id', tenantId)
           .not('status', 'eq', 'cancelled'),
-        // E-commerce orders
+        // E-commerce orders with items for accurate COGS
         supabase
           .from('external_orders')
-          .select('total_amount, cost_of_goods, order_date, status, platform_fee, commission_fee, payment_fee, shipping_fee')
+          .select(`
+            id, total_amount, order_date, status, platform_fee, commission_fee, payment_fee, shipping_fee,
+            external_order_items(total_amount, total_cogs, gross_profit, quantity, unit_price, unit_cogs)
+          `)
           .eq('tenant_id', tenantId)
           .gte('order_date', startDateStr)
           .lte('order_date', endDateStr),
@@ -238,10 +241,16 @@ export function useCentralFinancialMetrics() {
       const invoiceRevenue = periodInvoices.reduce((sum, inv) => 
         sum + (inv.subtotal || inv.total_amount || 0) - (inv.discount_amount || 0), 0);
 
-      // E-commerce order revenue
+      // E-commerce order revenue - calculate COGS from order items for accuracy
       const completedOrders = orders.filter(o => o.status === 'delivered');
       const orderRevenue = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-      const orderCogs = completedOrders.reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
+      
+      // Calculate COGS from external_order_items (more accurate than order-level)
+      const orderCogs = completedOrders.reduce((sum, o) => {
+        const items = (o as any).external_order_items || [];
+        return sum + items.reduce((itemSum: number, item: any) => itemSum + (item.total_cogs || 0), 0);
+      }, 0);
+      
       const orderFees = completedOrders.reduce((sum, o) => 
         sum + (o.platform_fee || 0) + (o.commission_fee || 0) + (o.payment_fee || 0) + (o.shipping_fee || 0), 0);
 
