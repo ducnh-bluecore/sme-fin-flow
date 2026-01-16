@@ -311,15 +311,21 @@ export function useFDPMetrics() {
       const grossProfit = netRevenue - totalCogs;
       const grossMarginPercent = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
 
-      // Contribution Margin using FDP formula
+      // Contribution Margin for TOTAL (includes marketing for P&L view)
       const cmResult = calculateContributionMargin(
         netRevenue,
         totalCogs,
         orderShippingFees,
         totalMarketingSpend
       );
-      const contributionMargin = cmResult.value;
-      const contributionMarginPercent = netRevenue > 0 ? (contributionMargin / netRevenue) * 100 : 0;
+      const totalContributionMargin = cmResult.value;
+      const totalContributionMarginPercent = netRevenue > 0 ? (totalContributionMargin / netRevenue) * 100 : 0;
+
+      // Contribution Margin PER ORDER - KHÔNG trừ marketing 
+      // Vì marketing không phải biến phí per order, mà là chi phí cố định theo thời gian
+      // Công thức Unit Economics đúng: CM/Order = AOV - COGS/Order - Fees/Order - Shipping/Order
+      const orderLevelCM = netRevenue - totalCogs - orderShippingFees; // KHÔNG trừ marketing
+      const orderLevelCMPercent = netRevenue > 0 ? (orderLevelCM / netRevenue) * 100 : 0;
 
       // Per Order
       const aovResult = calculateAOV(orderRevenue, totalOrders);
@@ -328,8 +334,8 @@ export function useFDPMetrics() {
       const feesPerOrder = totalOrders > 0 ? totalPlatformFees / totalOrders : 0;
       const shippingPerOrder = totalOrders > 0 ? orderShippingFees / totalOrders : 0;
       
-      const cmPerOrderResult = calculateCMPerOrder(contributionMargin, totalOrders);
-      const contributionMarginPerOrder = cmPerOrderResult.value;
+      // CM per order dùng order-level CM (không có marketing)
+      const contributionMarginPerOrder = totalOrders > 0 ? orderLevelCM / totalOrders : 0;
 
       // ========== CUSTOMER METRICS ==========
       const uniqueBuyers = new Set(deliveredOrders.map(o => o.customer_name || o.external_order_id)).size;
@@ -349,7 +355,8 @@ export function useFDPMetrics() {
       const cacResult = calculateCAC(totalMarketingSpend, newCustomers);
       const cac = cacResult.value;
 
-      const ltvResult = calculateLTV(aov, avgOrdersPerCustomer, contributionMarginPercent);
+      // LTV uses order-level CM% (without marketing) for accurate per-customer value
+      const ltvResult = calculateLTV(aov, avgOrdersPerCustomer, orderLevelCMPercent);
       const ltv = ltvResult.value;
 
       const ltvCacResult = calculateLTVCACRatio(ltv, cac);
@@ -358,7 +365,7 @@ export function useFDPMetrics() {
       const roasResult = calculateROAS(orderRevenue, totalMarketingSpend);
       const roas = roasResult.value;
 
-      const profitRoas = totalMarketingSpend > 0 ? contributionMargin / totalMarketingSpend : 0;
+      const profitRoas = totalMarketingSpend > 0 ? totalContributionMargin / totalMarketingSpend : 0;
       const costPerOrder = totalOrders > 0 ? totalMarketingSpend / totalOrders : 0;
 
       // ========== CHANNEL METRICS ==========
@@ -460,8 +467,8 @@ export function useFDPMetrics() {
         profit: {
           grossProfit,
           grossMarginPercent,
-          contributionMargin,
-          contributionMarginPercent,
+          contributionMargin: orderLevelCM, // For per-order display (without marketing)
+          contributionMarginPercent: orderLevelCMPercent,
           contributionMarginPerOrder,
         },
         marketing: {
@@ -495,9 +502,15 @@ export function useFDPMetrics() {
         channelMetrics,
         formulas: {
           netRevenue: netRevenueResult,
-          contributionMargin: cmResult,
+          contributionMargin: cmResult, // Total CM formula (with marketing for P&L)
           aov: aovResult,
-          cmPerOrder: cmPerOrderResult,
+          cmPerOrder: {
+            value: contributionMarginPerOrder,
+            formula: 'CM/Order = (Net Revenue - COGS - Shipping) / Orders',
+            interpretation: 'Lợi nhuận gộp trung bình mỗi đơn hàng (không trừ marketing)',
+            status: contributionMarginPerOrder > 0 ? 'good' as const : 'critical' as const,
+            action: contributionMarginPerOrder <= 0 ? 'Mỗi đơn hàng đang lỗ tiền!' : undefined
+          },
           cac: cacResult,
           ltv: ltvResult,
           ltvCacRatio: ltvCacResult,
