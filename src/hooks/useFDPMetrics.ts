@@ -190,12 +190,15 @@ export function useFDPMetrics() {
       if (!tenantId) return null;
 
       // Fetch data - split into smaller groups to avoid TypeScript deep instantiation error
+      // Use RPC or aggregate query to avoid row limits
+      // For now, fetch with explicit large limit to get all orders
       const ordersRes = await supabase
         .from('external_orders')
         .select('id, channel, status, total_amount, cost_of_goods, platform_fee, commission_fee, payment_fee, shipping_fee, customer_name, external_order_id, order_date')
         .eq('tenant_id', tenantId)
         .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .lte('order_date', endDateStr)
+        .limit(50000); // Override default 1000 limit
 
       const invoicesRes = await supabase
         .from('invoices')
