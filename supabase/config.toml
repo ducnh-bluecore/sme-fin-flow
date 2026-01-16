@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.generate-decision-cards]
 verify_jwt = false
+
+[functions.batch-import-data]
+verify_jwt = false
