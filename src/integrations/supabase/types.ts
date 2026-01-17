@@ -7912,6 +7912,107 @@ export type Database = {
           },
         ]
       }
+      product_metrics: {
+        Row: {
+          avg_daily_orders: number | null
+          avg_daily_quantity: number | null
+          avg_daily_revenue: number | null
+          brand: string | null
+          category: string | null
+          channel_breakdown: Json | null
+          created_at: string
+          current_stock: number | null
+          days_of_stock: number | null
+          gross_margin: number | null
+          gross_margin_percent: number | null
+          gross_profit_30d: number | null
+          id: string
+          is_profitable: boolean | null
+          last_calculated_at: string | null
+          last_order_date: string | null
+          product_name: string
+          profit_per_unit: number | null
+          profit_status: string | null
+          sku: string
+          tenant_id: string
+          total_cost_30d: number | null
+          total_orders_30d: number | null
+          total_quantity_30d: number | null
+          total_revenue_30d: number | null
+          unit_cost: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          avg_daily_orders?: number | null
+          avg_daily_quantity?: number | null
+          avg_daily_revenue?: number | null
+          brand?: string | null
+          category?: string | null
+          channel_breakdown?: Json | null
+          created_at?: string
+          current_stock?: number | null
+          days_of_stock?: number | null
+          gross_margin?: number | null
+          gross_margin_percent?: number | null
+          gross_profit_30d?: number | null
+          id?: string
+          is_profitable?: boolean | null
+          last_calculated_at?: string | null
+          last_order_date?: string | null
+          product_name: string
+          profit_per_unit?: number | null
+          profit_status?: string | null
+          sku: string
+          tenant_id: string
+          total_cost_30d?: number | null
+          total_orders_30d?: number | null
+          total_quantity_30d?: number | null
+          total_revenue_30d?: number | null
+          unit_cost?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_daily_orders?: number | null
+          avg_daily_quantity?: number | null
+          avg_daily_revenue?: number | null
+          brand?: string | null
+          category?: string | null
+          channel_breakdown?: Json | null
+          created_at?: string
+          current_stock?: number | null
+          days_of_stock?: number | null
+          gross_margin?: number | null
+          gross_margin_percent?: number | null
+          gross_profit_30d?: number | null
+          id?: string
+          is_profitable?: boolean | null
+          last_calculated_at?: string | null
+          last_order_date?: string | null
+          product_name?: string
+          profit_per_unit?: number | null
+          profit_status?: string | null
+          sku?: string
+          tenant_id?: string
+          total_cost_30d?: number | null
+          total_orders_30d?: number | null
+          total_quantity_30d?: number | null
+          total_revenue_30d?: number | null
+          unit_cost?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           avg_daily_sales: number | null
@@ -12149,6 +12250,10 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
+      recalculate_product_metrics: {
+        Args: { p_sku?: string; p_tenant_id: string }
+        Returns: number
+      }
       refresh_central_metrics_cache: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: undefined
