@@ -369,7 +369,7 @@ export function generateForecast(inputs: ForecastInputs, days: number = 90, meth
     // Confidence intervals
     let upperBound: number;
     let lowerBound: number;
-    
+
     if (method === 'simple') {
       // Simple method: No confidence bands
       upperBound = balance;
@@ -379,12 +379,21 @@ export function generateForecast(inputs: ForecastInputs, days: number = 90, meth
       const uncertainty = Math.min(0.6, i * 0.012);
       upperBound = balance * (1 + uncertainty);
       lowerBound = balance * (1 - uncertainty);
+
+      // If balance is negative, math above can invert bounds; normalize.
+      if (upperBound < lowerBound) {
+        const tmp = upperBound;
+        upperBound = lowerBound;
+        lowerBound = tmp;
+      }
     }
-    
+
     forecast.push({
       date: date.toISOString().split('T')[0],
       displayDate: `${date.getDate()}/${date.getMonth() + 1}`,
-      balance: Math.max(0, balance),
+      // IMPORTANT: do not clamp negative balances to 0.
+      // Negative cash is a critical signal and must be surfaced.
+      balance,
       inflow,
       outflow,
       netFlow: inflow - outflow,
