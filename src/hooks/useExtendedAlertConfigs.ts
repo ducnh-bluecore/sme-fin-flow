@@ -183,10 +183,34 @@ export function useSaveExtendedAlertConfig() {
         .single();
 
       if (error) throw error;
+
+      // Trigger alert detection immediately after config change
+      if (config.enabled && config.notify_immediately) {
+        try {
+          // Run detect-alerts to create alert_instances based on new config
+          await supabase.functions.invoke('detect-alerts', {
+            body: { tenant_id: tenantId, use_precalculated: true },
+          });
+
+          // Run process-alert-notifications to create actual notifications
+          await supabase.functions.invoke('process-alert-notifications', {
+            body: { tenant_id: tenantId },
+          });
+
+          console.log('Alert detection and notification processing triggered');
+        } catch (triggerError) {
+          console.warn('Failed to trigger alert processing:', triggerError);
+          // Don't fail the save operation if triggering fails
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['extended-alert-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-instances'] });
+      toast.success('Đã lưu cấu hình cảnh báo');
     },
     onError: (error) => {
       console.error('Error saving alert config:', error);
