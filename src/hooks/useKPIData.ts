@@ -1,13 +1,18 @@
+/**
+ * ============================================
+ * DEPRECATED: Use useCentralFinancialMetrics instead
+ * ============================================
+ * 
+ * This hook is kept for backwards compatibility only.
+ * All new code should use useCentralFinancialMetrics as the Single Source of Truth.
+ * 
+ * @deprecated Use useCentralFinancialMetrics from './useCentralFinancialMetrics'
+ */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { getDateRangeFromFilter, formatDateForQuery } from '@/lib/dateUtils';
 import { useFinancialMetrics } from './useFinancialMetrics';
-
-/**
- * KPI Data Hook - Refactored
- * Uses useFinancialMetrics for DSO, CCC calculations to avoid duplication.
- */
 
 export interface KPISummary {
   cashToday: number;
@@ -27,6 +32,9 @@ export interface KPISummary {
   overdueInvoices: number;
 }
 
+/**
+ * @deprecated Use useCentralFinancialMetrics instead for Single Source of Truth
+ */
 export function useKPIData(dateRange: string = '90') {
   const { data: tenantId } = useActiveTenantId();
   const { startDate, endDate } = getDateRangeFromFilter(dateRange);
