@@ -41,13 +41,17 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
     return value.toLocaleString();
   };
 
-  // Calculate estimated contribution margin
-  // CM = Revenue - COGS(40%) - Channel Fees(15%) - Ad Spend
+  // Calculate contribution margin using same formula as CMO Mode for consistency
+  // CM = Revenue - COGS(40%) - Fees(15%) - Ad Spend
+  // Note: MarketingModeSummary doesn't have CM, so we calculate it the same way as CMO Mode
   const estimatedCOGS = summary.total_revenue * 0.40;
-  const estimatedChannelFees = summary.total_revenue * 0.15;
-  const contributionMargin = summary.total_revenue - estimatedCOGS - estimatedChannelFees - summary.total_spend;
+  const estimatedFees = summary.total_revenue * 0.15;
+  const contributionMargin = summary.total_revenue - estimatedCOGS - estimatedFees - summary.total_spend;
   const cmPercent = summary.total_revenue > 0 ? (contributionMargin / summary.total_revenue) * 100 : 0;
   const profitROAS = summary.total_spend > 0 ? contributionMargin / summary.total_spend : 0;
+  
+  // For display - total costs breakdown
+  const totalCosts = estimatedCOGS + estimatedFees + summary.total_spend;
 
   const kpis = [
     {
@@ -217,7 +221,7 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
               </span>
               <span className="text-muted-foreground">-</span>
               <span className="text-muted-foreground">
-                Costs: <span className="text-foreground font-medium">{formatCurrency(estimatedCOGS + estimatedChannelFees + summary.total_spend)}đ</span>
+                Costs: <span className="text-foreground font-medium">{formatCurrency(totalCosts)}đ</span>
               </span>
               <span className="text-muted-foreground">=</span>
               <span className={cn(

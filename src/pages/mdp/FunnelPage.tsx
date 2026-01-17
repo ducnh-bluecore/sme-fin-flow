@@ -9,7 +9,7 @@ import { FunnelChart } from '@/components/mdp/marketing-mode';
 import { cn } from '@/lib/utils';
 
 export default function FunnelPage() {
-  const { funnelData, isLoading, error } = useMDPData();
+  const { funnelData, marketingPerformance, marketingModeSummary, isLoading, error } = useMDPData();
 
   if (error) {
     return (
@@ -35,22 +35,27 @@ export default function FunnelPage() {
     );
   }
 
-  // Calculate funnel metrics
+  // Calculate funnel metrics from SSOT funnelData
+  const impressionsStage = funnelData.find(s => s.stage === 'Impressions');
+  const clicksStage = funnelData.find(s => s.stage === 'Clicks');
+  const addToCartStage = funnelData.find(s => s.stage === 'Add to Cart');
+  const ordersStage = funnelData.find(s => s.stage === 'Orders');
+
   const funnelMetrics = {
-    impressions: 3300000,
-    clicks: 57700,
-    addToCart: 8450,
-    checkout: 4800,
-    orders: 1147,
-    revenue: 448500000,
+    impressions: impressionsStage?.count || 0,
+    clicks: clicksStage?.count || 0,
+    addToCart: addToCartStage?.count || 0,
+    checkout: Math.round((addToCartStage?.count || 0) * 0.57), // Derived from ATC
+    orders: ordersStage?.count || 0,
+    revenue: marketingModeSummary?.total_revenue || 0,
   };
 
   const conversionRates = {
-    ctr: (funnelMetrics.clicks / funnelMetrics.impressions * 100).toFixed(2),
-    atcRate: (funnelMetrics.addToCart / funnelMetrics.clicks * 100).toFixed(2),
-    checkoutRate: (funnelMetrics.checkout / funnelMetrics.addToCart * 100).toFixed(2),
-    orderRate: (funnelMetrics.orders / funnelMetrics.checkout * 100).toFixed(2),
-    overallCvr: (funnelMetrics.orders / funnelMetrics.clicks * 100).toFixed(2),
+    ctr: funnelMetrics.impressions > 0 ? (funnelMetrics.clicks / funnelMetrics.impressions * 100).toFixed(2) : '0.00',
+    atcRate: funnelMetrics.clicks > 0 ? (funnelMetrics.addToCart / funnelMetrics.clicks * 100).toFixed(2) : '0.00',
+    checkoutRate: funnelMetrics.addToCart > 0 ? (funnelMetrics.checkout / funnelMetrics.addToCart * 100).toFixed(2) : '0.00',
+    orderRate: funnelMetrics.checkout > 0 ? (funnelMetrics.orders / funnelMetrics.checkout * 100).toFixed(2) : '0.00',
+    overallCvr: funnelMetrics.clicks > 0 ? (funnelMetrics.orders / funnelMetrics.clicks * 100).toFixed(2) : '0.00',
   };
 
   const formatNumber = (value: number) => {
@@ -64,6 +69,44 @@ export default function FunnelPage() {
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
     return value.toLocaleString();
   };
+
+  // Build channel funnel data from SSOT marketingPerformance, aggregating by channel
+  const channelAggregation = marketingPerformance.reduce((acc, perf) => {
+    const channel = perf.channel;
+    if (!acc[channel]) {
+      acc[channel] = { impressions: 0, clicks: 0, orders: 0 };
+    }
+    acc[channel].impressions += perf.impressions;
+    acc[channel].clicks += perf.clicks;
+    acc[channel].orders += perf.orders;
+    return acc;
+  }, {} as Record<string, { impressions: number; clicks: number; orders: number }>);
+
+  const colorMap: Record<string, string> = {
+    'tiktok': 'text-pink-400',
+    'shopee': 'text-orange-400',
+    'lazada': 'text-purple-400',
+    'meta': 'text-blue-400',
+    'google': 'text-green-400',
+    'facebook': 'text-blue-400',
+  };
+
+  const channelFunnelData = Object.entries(channelAggregation).map(([channel, data]) => {
+    const cvr = data.clicks > 0 ? (data.orders / data.clicks * 100) : 0;
+    const channelKey = channel.toLowerCase();
+    const color = Object.keys(colorMap).find(k => channelKey.includes(k)) 
+      ? colorMap[Object.keys(colorMap).find(k => channelKey.includes(k))!]
+      : 'text-blue-400';
+    
+    return {
+      channel,
+      impressions: data.impressions,
+      clicks: data.clicks,
+      orders: data.orders,
+      cvr,
+      color,
+    };
+  }).sort((a, b) => b.orders - a.orders);
 
   return (
     <div className="space-y-6">
@@ -215,48 +258,48 @@ export default function FunnelPage() {
         </CardContent>
       </Card>
 
-      {/* Funnel by Channel */}
+      {/* Funnel by Channel - Using SSOT data */}
       <Card className="border-border bg-card">
         <CardHeader>
           <CardTitle className="text-base">Funnel theo Kênh</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[
-              { channel: 'TikTok Shop', impressions: 1200000, clicks: 28000, orders: 480, cvr: 1.71, color: 'text-pink-400' },
-              { channel: 'Shopee Ads', impressions: 850000, clicks: 12500, orders: 320, cvr: 2.56, color: 'text-orange-400' },
-              { channel: 'Lazada Ads', impressions: 620000, clicks: 8900, orders: 210, cvr: 2.36, color: 'text-purple-400' },
-              { channel: 'Meta Ads', impressions: 480000, clicks: 6200, orders: 95, cvr: 1.53, color: 'text-blue-400' },
-              { channel: 'Google Ads', impressions: 150000, clicks: 2100, orders: 42, cvr: 2.00, color: 'text-green-400' },
-            ].map((item) => (
-              <div key={item.channel} className="flex items-center gap-4 p-3 rounded-lg bg-muted/20">
-                <span className={cn("font-medium w-32", item.color)}>{item.channel}</span>
-                <div className="flex-1 grid grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Impressions: </span>
-                    <span className="font-medium">{formatNumber(item.impressions)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Clicks: </span>
-                    <span className="font-medium">{formatNumber(item.clicks)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Orders: </span>
-                    <span className="font-medium">{item.orders}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">CVR: </span>
-                    <span className={cn(
-                      "font-medium",
-                      item.cvr >= 2 ? "text-green-400" : "text-yellow-400"
-                    )}>
-                      {item.cvr.toFixed(2)}%
-                    </span>
+          {channelFunnelData.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Chưa có dữ liệu channel performance
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {channelFunnelData.map((item) => (
+                <div key={item.channel} className="flex items-center gap-4 p-3 rounded-lg bg-muted/20">
+                  <span className={cn("font-medium w-32", item.color)}>{item.channel}</span>
+                  <div className="flex-1 grid grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Impressions: </span>
+                      <span className="font-medium">{formatNumber(item.impressions)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Clicks: </span>
+                      <span className="font-medium">{formatNumber(item.clicks)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Orders: </span>
+                      <span className="font-medium">{item.orders}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">CVR: </span>
+                      <span className={cn(
+                        "font-medium",
+                        item.cvr >= 2 ? "text-green-400" : "text-yellow-400"
+                      )}>
+                        {item.cvr.toFixed(2)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
