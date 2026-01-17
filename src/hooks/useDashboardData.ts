@@ -1,15 +1,21 @@
+/**
+ * ============================================
+ * PARTIALLY DEPRECATED: See notes below
+ * ============================================
+ * 
+ * useDashboardKPIs: DEPRECATED - Use useCentralFinancialMetrics instead
+ * useCashForecasts: Still active - no central equivalent
+ * useOverdueInvoices: Still active - no central equivalent
+ * useARAgingData: Still active - no central equivalent
+ * useScenarios: Still active - no central equivalent
+ * 
+ * @see useCentralFinancialMetrics for Single Source of Truth
+ */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
-
-/**
- * Dashboard Data Hooks - REFACTORED FOR SSOT
- * 
- * Uses useCentralFinancialMetrics for all financial metrics.
- * Only calculates dashboard-specific data that isn't covered by central metrics.
- */
 
 // Types
 export interface DashboardKPIs {
@@ -79,18 +85,14 @@ export interface ARAgingBucket {
 }
 
 /**
- * Dashboard KPIs Hook - REFACTORED FOR SSOT
+ * @deprecated Use useCentralFinancialMetrics instead for Single Source of Truth
  * 
- * Uses useCentralFinancialMetrics as the SINGLE SOURCE OF TRUTH for:
- * - DSO, DPO, DIO, CCC (Cash Conversion Cycle)
- * - Gross Margin, EBITDA
- * - AR, AP totals
- * - Cash on hand
- * 
- * Only calculates dashboard-specific metrics not in central metrics:
+ * This hook is kept for backwards compatibility.
+ * It now wraps useCentralFinancialMetrics and only adds dashboard-specific calculations:
  * - Cash 7d forecast
  * - Auto match rate
- * - Overdue AR details
+ * 
+ * For new code, use useCentralFinancialMetrics directly.
  */
 export function useDashboardKPIs() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
