@@ -1,6 +1,10 @@
 /**
  * Hook to fetch ALL problematic SKUs (margin < 10%) regardless of date range
  * Used for Today's Decision Summary on CFO Dashboard
+ * 
+ * SSOT: Reads from product_metrics table which is calculated from:
+ * - Master products table (pricing)
+ * - external_orders (sales data)
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -28,41 +32,47 @@ export function useAllProblematicSKUs() {
     queryFn: async (): Promise<ProblematicSKU[]> => {
       if (!tenantId) return [];
 
-      // Fetch SKUs with margin < 10% (problematic) and revenue > 0 (has actual sales)
+      // SSOT: Read from product_metrics table
+      // Fetch products with margin < 10% (problematic) and has actual sales
       const { data, error } = await supabase
-        .from('sku_profitability_cache')
-        .select('sku, product_name, channel, profit, margin_percent, revenue, cogs, fees, quantity')
+        .from('product_metrics')
+        .select(`
+          sku, product_name, 
+          gross_profit_30d, gross_margin_percent,
+          total_revenue_30d, total_cost_30d, total_quantity_30d,
+          profit_per_unit, profit_status
+        `)
         .eq('tenant_id', tenantId)
-        .lt('margin_percent', 10) // Margin < 10% needs attention
-        .gt('revenue', 0) // Only SKUs with actual sales
-        .order('margin_percent', { ascending: true })
+        .or('profit_status.eq.critical,profit_status.eq.marginal')
+        .gt('total_quantity_30d', 0) // Only products with actual sales
+        .order('gross_margin_percent', { ascending: true })
         .limit(50);
 
       if (error) {
-        console.error('Error fetching problematic SKUs:', error);
+        console.error('Error fetching problematic SKUs from product_metrics:', error);
         return [];
       }
 
       return (data || []).map(row => {
-        const quantity = Number(row.quantity || 0);
-        const profit = Number(row.profit || 0);
-        const lossPerUnit = quantity > 0 && profit < 0 ? profit / quantity : 0;
+        const quantity = Number(row.total_quantity_30d || 0);
+        const profit = Number(row.gross_profit_30d || 0);
+        const profitPerUnit = Number(row.profit_per_unit || 0);
         
         return {
           sku: row.sku,
           product_name: row.product_name || row.sku,
-          channel: row.channel,
+          channel: 'ALL', // product_metrics aggregates across channels
           profit,
-          margin_percent: Number(row.margin_percent || 0),
-          revenue: Number(row.revenue || 0),
-          cogs: Number(row.cogs || 0),
-          fees: Number(row.fees || 0),
+          margin_percent: Number(row.gross_margin_percent || 0),
+          revenue: Number(row.total_revenue_30d || 0),
+          cogs: Number(row.total_cost_30d || 0),
+          fees: 0, // Not tracked at product level
           quantity,
-          loss_per_unit: lossPerUnit,
+          loss_per_unit: profitPerUnit < 0 ? profitPerUnit : 0,
         };
       });
     },
     enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 2 * 60 * 1000 // 2 minutes - more responsive to recalculations
   });
 }
