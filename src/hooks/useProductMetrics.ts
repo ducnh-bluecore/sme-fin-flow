@@ -33,7 +33,7 @@ export interface ProductMetric {
   profit_per_unit: number;
   avg_daily_quantity: number;
   is_profitable: boolean;
-  profit_status: 'profitable' | 'marginal' | 'critical';
+  profit_status: 'healthy' | 'warning' | 'critical';
   last_order_date: string | null;
   last_calculated_at: string | null;
 }
@@ -84,13 +84,14 @@ export function useProductMetrics() {
         profit_per_unit: Number(row.profit_per_unit || 0),
         avg_daily_quantity: Number(row.avg_daily_quantity || 0),
         is_profitable: row.is_profitable ?? true,
-        profit_status: (row.profit_status as 'profitable' | 'marginal' | 'critical') || 'profitable',
+        // DB uses: 'critical', 'warning', 'healthy'
+        profit_status: (row.profit_status as 'healthy' | 'warning' | 'critical') || 'healthy',
         last_order_date: row.last_order_date,
         last_calculated_at: row.last_calculated_at,
       }));
 
-      const profitable = metrics.filter(m => m.profit_status === 'profitable');
-      const marginal = metrics.filter(m => m.profit_status === 'marginal');
+      const profitable = metrics.filter(m => m.profit_status === 'healthy');
+      const marginal = metrics.filter(m => m.profit_status === 'warning');
       const critical = metrics.filter(m => m.profit_status === 'critical');
 
       const summary: ProductMetricsSummary = {
@@ -122,12 +123,12 @@ export function useProblematicProducts() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Get products with profit_status = 'critical' or 'marginal'
+      // profit_status: 'critical', 'warning', 'healthy'
       const { data, error } = await supabase
         .from('product_metrics')
         .select('*')
         .eq('tenant_id', tenantId)
-        .in('profit_status', ['critical', 'marginal'])
+        .or('profit_status.eq.critical,profit_status.eq.warning')
         .order('gross_margin_percent', { ascending: true })
         .limit(50);
 
