@@ -29,7 +29,6 @@ import { formatVNDCompact } from '@/lib/formatters';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useCashRunway } from '@/hooks/useCashRunway';
-import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface MetricItemProps {
@@ -131,23 +130,24 @@ function HealthIndicator({ status }: { status: 'healthy' | 'warning' | 'critical
 }
 
 export default function FinancialTruthCard() {
+  // SINGLE SOURCE OF TRUTH - Chỉ dùng useCentralFinancialMetrics và useCashRunway
   const { data: metrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: runwayLoading } = useCashRunway();
-  const { data: channelPL, isLoading: plLoading } = useAllChannelsPL();
 
-  const isLoading = metricsLoading || runwayLoading || plLoading;
+  const isLoading = metricsLoading || runwayLoading;
 
-  // Calculate Net Revenue from channel P&L
-  const netRevenue = channelPL?.totals?.totalRevenue || 0;
+  // Net Revenue - from central metrics (totalRevenue đã được tính sau phí)
+  const netRevenue = metrics?.totalRevenue || 0;
   
-  // Calculate Contribution Margin
-  const grossProfit = channelPL?.totals?.grossProfit || 0;
-  const contributionMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+  // Contribution Margin - sử dụng grossMargin từ central metrics
+  // grossMargin = (revenue - cogs) / revenue * 100
+  const contributionMargin = metrics?.grossMargin || 0;
+  const grossProfit = metrics?.grossProfit || 0;
 
-  // Cash Position
+  // Cash Position - from central metrics (đã là SSOT)
   const cashPosition = metrics?.cashOnHand || 0;
 
-  // Runway
+  // Runway - from useCashRunway (SSOT cho runway)
   const runwayMonths = cashRunway?.runwayMonths || 0;
   const runwayDays = cashRunway?.runwayDays || 0;
 

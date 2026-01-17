@@ -19,6 +19,7 @@ import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
 import { useCashRunway } from '@/hooks/useCashRunway';
+import { useCashForecasts } from '@/hooks/useDashboardData';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,6 +41,7 @@ export default function CFODashboard() {
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
   const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
+  const { data: cashForecasts } = useCashForecasts();
   const { data: problematicSKUs } = useAllProblematicSKUs();
   const { t } = useLanguage();
 
@@ -51,6 +53,41 @@ export default function CFODashboard() {
 
   // Enable realtime updates for dashboard data
   useRealtimeDashboard();
+
+  // Calculate real trends from data
+  const trends = useMemo(() => {
+    // Cash trend - compare current cash position with 7-day forecast
+    const currentCash = metrics?.cashOnHand || 0;
+    const cash7Days = cashForecasts?.[6]?.closing_balance || currentCash;
+    const cashTrend = currentCash > 0 ? ((cash7Days - currentCash) / currentCash) * 100 : 0;
+
+    // AR trend - calculate from current vs previous period overdue
+    // Without historical data, show 0 (no fake trends)
+    const arTrend = 0; // Will be calculated when we have historical comparison
+
+    // CCC trend - compare current with industry benchmark
+    const cccCurrent = metrics?.ccc || 0;
+    const cccBenchmark = 45; // Industry benchmark from financial-constants
+    const cccTrend = cccBenchmark > 0 ? ((cccBenchmark - cccCurrent) / cccBenchmark) * 100 : 0;
+
+    return {
+      cash: cashTrend,
+      cash7Days: cashTrend,
+      ar: arTrend,
+      ccc: cccTrend
+    };
+  }, [metrics, cashForecasts]);
+
+  // Calculate cash position for next 7 days from actual forecast data
+  const cashNext7Days = useMemo(() => {
+    if (cashForecasts && cashForecasts.length > 0) {
+      // Use the 7th day forecast if available
+      const day7Forecast = cashForecasts[6] || cashForecasts[cashForecasts.length - 1];
+      return day7Forecast?.closing_balance || metrics?.cashOnHand || 0;
+    }
+    // Fallback: current cash
+    return metrics?.cashOnHand || 0;
+  }, [cashForecasts, metrics]);
 
   // Format runway display
   const formatRunway = () => {
@@ -126,7 +163,7 @@ export default function CFODashboard() {
               <KPICard
                 title={t('cfo.cashToday')}
                 value={formatVNDCompact(metrics?.cashOnHand || 0)}
-                trend={{ value: 5.2, label: t('cfo.vsYesterday') }}
+                trend={trends.cash !== 0 ? { value: Number(trends.cash.toFixed(1)), label: t('cfo.vsYesterday') } : undefined}
                 icon={Wallet}
                 variant="success"
               />
@@ -142,21 +179,21 @@ export default function CFODashboard() {
               />
               <KPICard
                 title={t('cfo.cashNext7Days')}
-                value={formatVNDCompact((metrics?.cashOnHand || 0) + (metrics?.cashFlow || 0))}
-                trend={{ value: 12.3 }}
+                value={formatVNDCompact(cashNext7Days)}
+                trend={trends.cash7Days !== 0 ? { value: Number(trends.cash7Days.toFixed(1)) } : undefined}
                 icon={ArrowUpRight}
               />
               <KPICard
                 title={t('cfo.overdueAR')}
                 value={formatVNDCompact(metrics?.overdueAR || 0)}
-                trend={{ value: -8.5 }}
+                trend={trends.ar !== 0 ? { value: Number(trends.ar.toFixed(1)) } : undefined}
                 icon={ArrowDownRight}
                 variant="warning"
               />
               <KPICard
                 title={t('cfo.ccc')}
                 value={`${metrics?.ccc || 0} ${t('cfo.days')}`}
-                trend={{ value: -3 }}
+                trend={trends.ccc !== 0 ? { value: Number(trends.ccc.toFixed(1)) } : undefined}
                 icon={RefreshCw}
               />
             </>
