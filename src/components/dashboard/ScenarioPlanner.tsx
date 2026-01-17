@@ -2,43 +2,63 @@ import { useMemo, memo, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Slider } from '@/components/ui/slider';
 import { formatVNDCompact } from '@/lib/formatters';
-import { useKPIData } from '@/hooks/useKPIData';
+import { useCashRunway } from '@/hooks/useCashRunway';
+import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { Loader2 } from 'lucide-react';
 
 function ScenarioPlannerComponent() {
   const [revenueChange, setRevenueChange] = useState(0);
   const [dsoChange, setDsoChange] = useState(0);
-  const { data: kpiData, isLoading } = useKPIData();
+  const { data: cashRunwayData, isLoading: isCashLoading } = useCashRunway();
+  const { data: metrics, isLoading: isMetricsLoading } = useCentralFinancialMetrics();
+
+  const isLoading = isCashLoading || isMetricsLoading;
 
   const projections = useMemo(() => {
-    if (!kpiData) {
+    if (!cashRunwayData || !metrics) {
       return {
         projectedRevenue: 0,
         projectedDSO: 0,
         cashRunway: 'N/A',
         netCashFlow: 0,
         arChange: 0,
+        baseRunwayMonths: 0,
       };
     }
 
-    const baseRevenue = kpiData.totalRevenue > 0 ? kpiData.totalRevenue / 12 : 12_000_000_000; // Monthly revenue
-    const baseOpex = baseRevenue * 0.67; // Estimated 67% OpEx
+    // Use actual data from central metrics
+    const baseRevenue = metrics.totalRevenue > 0 ? metrics.totalRevenue / 6 : 0; // Monthly revenue (data is 6 months)
+    const baseDSO = metrics.dso || 0;
+    const currentCash = cashRunwayData.currentCash;
+    const avgMonthlyBurn = cashRunwayData.avgMonthlyBurn;
+    const baseRunwayMonths = cashRunwayData.runwayMonths;
     
     const newRevenue = baseRevenue * (1 + revenueChange / 100);
-    const newDSO = kpiData.dso + dsoChange;
+    const newDSO = baseDSO + dsoChange;
     
-    // Cash conversion impact
+    // Cash conversion impact - DSO change affects AR
     const dailySales = newRevenue / 30;
     const arImpact = dailySales * dsoChange;
     
-    const monthlyFreeCash = newRevenue - baseOpex - arImpact;
-    const currentCash = kpiData.cashToday;
+    // Adjusted burn rate based on revenue change (assuming some costs scale with revenue)
+    const variableCostRatio = 0.4; // 40% of costs are variable
+    const fixedBurn = avgMonthlyBurn * (1 - variableCostRatio);
+    const variableBurn = avgMonthlyBurn * variableCostRatio * (1 + revenueChange / 100);
+    const adjustedBurn = fixedBurn + variableBurn;
     
-    // Runway calculation (months)
-    const monthlyBurn = baseOpex;
-    const runway = monthlyFreeCash > 0 
+    // Net cash impact from revenue change and AR change
+    const revenueImpact = (newRevenue - baseRevenue);
+    const monthlyFreeCash = revenueImpact - arImpact;
+    
+    // Adjusted runway calculation
+    const effectiveBurn = adjustedBurn - monthlyFreeCash;
+    const newRunwayMonths = effectiveBurn > 0 
+      ? currentCash / effectiveBurn 
+      : baseRunwayMonths + 12; // If positive cash flow, add 12 months
+    
+    const runway = newRunwayMonths > 24 
       ? 'Tích cực' 
-      : Math.abs(currentCash / monthlyBurn).toFixed(1) + ' tháng';
+      : newRunwayMonths.toFixed(1) + ' tháng';
     
     return {
       projectedRevenue: newRevenue,
@@ -46,8 +66,9 @@ function ScenarioPlannerComponent() {
       cashRunway: runway,
       netCashFlow: monthlyFreeCash,
       arChange: arImpact,
+      baseRunwayMonths,
     };
-  }, [revenueChange, dsoChange, kpiData]);
+  }, [revenueChange, dsoChange, cashRunwayData, metrics]);
 
   const handleRevenueChange = useCallback((value: number[]) => setRevenueChange(value[0]), []);
   const handleDsoChange = useCallback((value: number[]) => setDsoChange(value[0]), []);
