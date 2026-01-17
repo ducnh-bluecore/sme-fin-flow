@@ -7930,6 +7930,7 @@ export type Database = {
           is_profitable: boolean | null
           last_calculated_at: string | null
           last_order_date: string | null
+          product_id: string | null
           product_name: string
           profit_per_unit: number | null
           profit_status: string | null
@@ -7960,6 +7961,7 @@ export type Database = {
           is_profitable?: boolean | null
           last_calculated_at?: string | null
           last_order_date?: string | null
+          product_id?: string | null
           product_name: string
           profit_per_unit?: number | null
           profit_status?: string | null
@@ -7990,6 +7992,7 @@ export type Database = {
           is_profitable?: boolean | null
           last_calculated_at?: string | null
           last_order_date?: string | null
+          product_id?: string | null
           product_name?: string
           profit_per_unit?: number | null
           profit_status?: string | null
@@ -8004,6 +8007,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_metrics_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_metrics_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -8022,8 +8032,11 @@ export type Database = {
           created_at: string | null
           current_stock: number | null
           description: string | null
+          gross_margin: number | null
+          gross_margin_percent: number | null
           id: string
           is_active: boolean | null
+          is_profitable: boolean | null
           last_sale_date: string | null
           name: string
           platform_stock: Json | null
@@ -8045,8 +8058,11 @@ export type Database = {
           created_at?: string | null
           current_stock?: number | null
           description?: string | null
+          gross_margin?: number | null
+          gross_margin_percent?: number | null
           id?: string
           is_active?: boolean | null
+          is_profitable?: boolean | null
           last_sale_date?: string | null
           name: string
           platform_stock?: Json | null
@@ -8068,8 +8084,11 @@ export type Database = {
           created_at?: string | null
           current_stock?: number | null
           description?: string | null
+          gross_margin?: number | null
+          gross_margin_percent?: number | null
           id?: string
           is_active?: boolean | null
+          is_profitable?: boolean | null
           last_sale_date?: string | null
           name?: string
           platform_stock?: Json | null
