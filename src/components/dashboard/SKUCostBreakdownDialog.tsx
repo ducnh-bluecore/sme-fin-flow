@@ -428,111 +428,113 @@ export function SKUCostBreakdownDialog({
             </TabsContent>
 
             {/* Channels Tab */}
-            <TabsContent value="channels" className="space-y-4">
-              {/* Channel cards with fee breakdown */}
-              <div className="space-y-4">
-                {data.channelSummaries.map((ch, idx) => (
-                  <div key={idx} className="p-4 rounded-lg bg-muted/30 border">
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge variant="outline" className="text-sm px-3 py-1">
-                        {ch.channel}
-                      </Badge>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-muted-foreground">{ch.orderCount} đơn</span>
-                        <span className="text-muted-foreground">{ch.quantity} SP</span>
-                        <span className={`font-medium ${ch.margin >= 10 ? 'text-emerald-600' : ch.margin >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-                          Margin: {ch.margin.toFixed(1)}%
-                        </span>
+            <TabsContent value="channels" className="space-y-0">
+              <ScrollArea className="h-[60vh] pr-4">
+                <div className="space-y-4">
+                  {/* Channel cards with fee breakdown */}
+                  {data.channelSummaries.map((ch, idx) => (
+                    <div key={idx} className="p-4 rounded-lg bg-muted/30 border">
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge variant="outline" className="text-sm px-3 py-1">
+                          {ch.channel}
+                        </Badge>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-muted-foreground">{ch.orderCount} đơn</span>
+                          <span className="text-muted-foreground">{ch.quantity} SP</span>
+                          <span className={`font-medium ${ch.margin >= 10 ? 'text-emerald-600' : ch.margin >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
+                            Margin: {ch.margin.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Main metrics */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div className="p-2 rounded bg-background border">
+                          <p className="text-xs text-muted-foreground">Doanh thu</p>
+                          <p className="text-sm font-medium">{formatVNDCompact(ch.revenue)}</p>
+                        </div>
+                        <div className="p-2 rounded bg-background border">
+                          <p className="text-xs text-muted-foreground">COGS</p>
+                          <p className="text-sm font-medium text-amber-600">{formatVNDCompact(ch.cogs)}</p>
+                        </div>
+                        <div className="p-2 rounded bg-background border">
+                          <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
+                          <p className="text-sm font-medium text-orange-600">{formatVNDCompact(ch.fees)}</p>
+                        </div>
+                        <div className="p-2 rounded bg-background border">
+                          <p className="text-xs text-muted-foreground">Lợi nhuận ròng</p>
+                          <p className={`text-sm font-medium ${ch.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {formatVNDCompact(ch.profit)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Fee breakdown */}
+                      <div className="pt-3 border-t">
+                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                          <Percent className="h-3 w-3" />
+                          Chi tiết phí sàn phân bổ
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="flex items-center gap-2">
+                            <Store className="h-3.5 w-3.5 text-purple-500" />
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">Platform</p>
+                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.platform)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Percent className="h-3.5 w-3.5 text-orange-500" />
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">Commission</p>
+                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.commission)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-3.5 w-3.5 text-blue-500" />
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">Payment</p>
+                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.payment)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-3.5 w-3.5 text-green-500" />
+                            <div>
+                              <p className="text-[10px] text-muted-foreground">Shipping</p>
+                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.shipping)}</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  ))}
 
-                    {/* Main metrics */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                      <div className="p-2 rounded bg-background border">
-                        <p className="text-xs text-muted-foreground">Doanh thu</p>
-                        <p className="text-sm font-medium">{formatVNDCompact(ch.revenue)}</p>
+                  {/* Total Summary */}
+                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <h4 className="text-sm font-medium mb-3">Tổng cộng tất cả kênh</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Tổng doanh thu</p>
+                        <p className="text-sm font-bold">{formatVNDCompact(data.summary.totalRevenue)}</p>
                       </div>
-                      <div className="p-2 rounded bg-background border">
-                        <p className="text-xs text-muted-foreground">COGS</p>
-                        <p className="text-sm font-medium text-amber-600">{formatVNDCompact(ch.cogs)}</p>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Tổng COGS</p>
+                        <p className="text-sm font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
                       </div>
-                      <div className="p-2 rounded bg-background border">
+                      <div>
                         <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
-                        <p className="text-sm font-medium text-orange-600">{formatVNDCompact(ch.fees)}</p>
+                        <p className="text-sm font-bold text-orange-600">{formatVNDCompact(data.summary.totalFees)}</p>
                       </div>
-                      <div className="p-2 rounded bg-background border">
-                        <p className="text-xs text-muted-foreground">Lợi nhuận ròng</p>
-                        <p className={`text-sm font-medium ${ch.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {formatVNDCompact(ch.profit)}
+                      <div>
+                        <p className="text-xs text-muted-foreground">Tổng lợi nhuận</p>
+                        <p className={`text-sm font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {formatVNDCompact(data.summary.totalProfit)}
                         </p>
                       </div>
                     </div>
-
-                    {/* Fee breakdown */}
-                    <div className="pt-3 border-t">
-                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                        <Percent className="h-3 w-3" />
-                        Chi tiết phí sàn phân bổ
-                      </p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="flex items-center gap-2">
-                          <Store className="h-3.5 w-3.5 text-purple-500" />
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Platform</p>
-                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.platform)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Percent className="h-3.5 w-3.5 text-orange-500" />
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Commission</p>
-                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.commission)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-3.5 w-3.5 text-blue-500" />
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Payment</p>
-                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.payment)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Truck className="h-3.5 w-3.5 text-green-500" />
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Shipping</p>
-                            <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.shipping)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Total Summary */}
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <h4 className="text-sm font-medium mb-3">Tổng cộng tất cả kênh</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tổng doanh thu</p>
-                    <p className="text-sm font-bold">{formatVNDCompact(data.summary.totalRevenue)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tổng COGS</p>
-                    <p className="text-sm font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
-                    <p className="text-sm font-bold text-orange-600">{formatVNDCompact(data.summary.totalFees)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Tổng lợi nhuận</p>
-                    <p className={`text-sm font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {formatVNDCompact(data.summary.totalProfit)}
-                    </p>
                   </div>
                 </div>
-              </div>
+              </ScrollArea>
             </TabsContent>
 
             {/* Orders Tab */}
