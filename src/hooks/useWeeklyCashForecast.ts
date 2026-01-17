@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
+import { useCashRunway } from './useCashRunway';
 import { format, addWeeks, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
 
 export type WeeklyForecastMethod = 'ai' | 'simple';
@@ -73,29 +74,28 @@ export interface ScenarioComparison {
 export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr, startDate, endDate } = useDateRangeForQuery();
+  // SSOT: Use useCashRunway for current cash position
+  const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
 
   return useQuery({
-    queryKey: ['weekly-cash-forecast', tenantId, startDateStr, endDateStr, method],
+    queryKey: ['weekly-cash-forecast', tenantId, startDateStr, endDateStr, method, cashRunway?.currentCash],
     queryFn: async (): Promise<WeeklyCashForecastData> => {
       if (!tenantId) {
         return getEmptyData();
       }
 
       const today = new Date();
+      
+      // SSOT: Get current cash from useCashRunway instead of calculating independently
+      const currentCash = cashRunway?.currentCash || 0;
 
-      // Fetch historical data for projections
+      // Fetch historical data for projections (excluding bank_accounts as we use SSOT)
       const [
-        bankAccountsRes,
         invoicesRes,
         billsRes,
         ordersRes,
         expensesRes
       ] = await Promise.all([
-        supabase
-          .from('bank_accounts')
-          .select('current_balance')
-          .eq('tenant_id', tenantId)
-          .eq('status', 'active'),
         supabase
           .from('invoices')
           .select('id, total_amount, paid_amount, status, due_date')
@@ -124,14 +124,10 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
           .lte('expense_date', endDateStr)
       ]);
 
-      const bankAccounts = bankAccountsRes.data || [];
       const invoices = invoicesRes.data || [];
       const bills = billsRes.data || [];
       const orders = ordersRes.data || [];
       const expenses = expensesRes.data || [];
-
-      // Current cash
-      const currentCash = bankAccounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
 
       // Calculate averages from historical data
       const daysInPeriod = Math.max(differenceInDays(endDate, startDate), 1);
@@ -288,7 +284,7 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
           }
         },
         rawData: {
-          bankAccountCount: bankAccounts.length,
+          bankAccountCount: cashRunway?.hasEnoughData ? 1 : 0, // Indicate cash data available from SSOT
           pendingAR,
           pendingAP,
           historicalOrders: orders.length,
@@ -297,7 +293,7 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
         method
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && !isLoadingRunway, // Wait for cashRunway to load first
     staleTime: 5 * 60 * 1000
   });
 }
