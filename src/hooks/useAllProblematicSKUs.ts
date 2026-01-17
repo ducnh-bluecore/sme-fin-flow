@@ -36,6 +36,7 @@ export function useAllProblematicSKUs() {
       const seenSKUs = new Set<string>();
 
       // 1. SSOT: First try product_metrics (real-time calculated from orders + products)
+      // profit_status values from DB: 'critical', 'warning', 'healthy'
       const { data: metricsData, error: metricsError } = await supabase
         .from('product_metrics')
         .select(`
@@ -45,7 +46,7 @@ export function useAllProblematicSKUs() {
           profit_per_unit, profit_status
         `)
         .eq('tenant_id', tenantId)
-        .or('profit_status.eq.critical,profit_status.eq.marginal')
+        .or('profit_status.eq.critical,profit_status.eq.warning')
         .gt('total_quantity_30d', 0)
         .order('gross_margin_percent', { ascending: true })
         .limit(50);
