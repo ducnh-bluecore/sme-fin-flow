@@ -407,19 +407,41 @@ export function analyzeSKU(
   fees: number,
   profit: number
 ): SKUAnalysis {
+  return analyzeSKUWithThresholds(marginPercent, revenue, cogs, fees, profit, {
+    skuCriticalMarginPercent: FDP_THRESHOLDS.SKU_CRITICAL_MARGIN_PERCENT,
+    skuStopMarginPercent: FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT,
+    skuReviewMarginPercent: FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT,
+  });
+}
+
+/**
+ * Analyze SKU với custom thresholds từ tenant config
+ */
+export function analyzeSKUWithThresholds(
+  marginPercent: number,
+  revenue: number,
+  cogs: number,
+  fees: number,
+  profit: number,
+  thresholds: {
+    skuCriticalMarginPercent: number;
+    skuStopMarginPercent: number;
+    skuReviewMarginPercent: number;
+  }
+): SKUAnalysis {
   const reasons: string[] = [];
   let decision: SKUDecision = 'continue';
   
   // Check margin
-  if (marginPercent < FDP_THRESHOLDS.SKU_CRITICAL_MARGIN_PERCENT) {
+  if (marginPercent < thresholds.skuCriticalMarginPercent) {
     decision = 'stop_immediately';
     reasons.push(`Margin ${marginPercent.toFixed(1)}% - bán càng nhiều càng lỗ nặng`);
-  } else if (marginPercent < FDP_THRESHOLDS.SKU_STOP_MARGIN_PERCENT) {
+  } else if (marginPercent < thresholds.skuStopMarginPercent) {
     decision = 'stop_immediately';
     reasons.push(`Margin âm ${marginPercent.toFixed(1)}%`);
-  } else if (marginPercent < FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT) {
+  } else if (marginPercent < thresholds.skuReviewMarginPercent) {
     decision = 'review';
-    reasons.push(`Margin thấp (< ${FDP_THRESHOLDS.SKU_REVIEW_MARGIN_PERCENT}%), cần xem xét giá bán`);
+    reasons.push(`Margin thấp (< ${thresholds.skuReviewMarginPercent}%), cần xem xét giá bán`);
   }
   
   // Check COGS ratio

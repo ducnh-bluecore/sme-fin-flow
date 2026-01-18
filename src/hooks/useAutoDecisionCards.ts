@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { FDP_THRESHOLDS, analyzeSKU } from '@/lib/fdp-formulas';
+import { analyzeSKUWithThresholds } from '@/lib/fdp-formulas';
 import { useAllProblematicSKUs, ProblematicSKU } from './useAllProblematicSKUs';
 import { useCashFlowAnalysis } from './useCashFlowDirect';
 import { useInvoiceTracking } from './useInvoiceData';
 import { useMDPData, MDP_THRESHOLDS } from './useMDPData';
+import { useEffectiveThresholds } from './useDecisionThresholds';
 import type { DecisionCard, DecisionCardFact, DecisionCardAction, Priority, Confidence, OwnerRole, ActionType } from './useDecisionCards';
 
 interface AutoDecisionCard extends Omit<DecisionCard, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
@@ -96,6 +97,9 @@ function createActions(cardId: string, actionsData: Array<{
 }
 
 export function useAutoDecisionCards() {
+  // Get effective thresholds (from DB config or defaults)
+  const { thresholds: effectiveThresholds, isLoading: thresholdsLoading } = useEffectiveThresholds();
+  
   // Get real data from existing hooks
   const { data: skuData } = useAllProblematicSKUs();
   const { summary: cashSummary, cashFlows } = useCashFlowAnalysis();
@@ -113,6 +117,14 @@ export function useAutoDecisionCards() {
     const burnRate = cashSummary?.burnRate || 0;
     const currentRunway = cashSummary?.runway || 0;
     const latestCashBalance = cashFlows?.[0]?.closing_cash_balance || 0;
+    
+    // Use effective thresholds from config
+    const runwayCriticalMonths = effectiveThresholds.runway_critical_months;
+    const skuThresholds = {
+      skuCriticalMarginPercent: effectiveThresholds.sku_critical_margin_percent,
+      skuStopMarginPercent: effectiveThresholds.sku_stop_margin_percent,
+      skuReviewMarginPercent: effectiveThresholds.sku_review_margin_percent,
+    };
 
     // 1. Analyze SKU Profitability - Generate STOP/REVIEW decisions
     if (skuData && skuData.length > 0) {
@@ -120,12 +132,13 @@ export function useAutoDecisionCards() {
         .filter((sku: ProblematicSKU) => sku.revenue > 0) // Only process SKUs with actual sales
         .forEach((sku: ProblematicSKU) => {
           const marginPercent = sku.margin_percent ?? ((sku.profit / sku.revenue) * 100);
-          const analysis = analyzeSKU(
+          const analysis = analyzeSKUWithThresholds(
             marginPercent,
             sku.revenue,
             sku.cogs,
             sku.fees || 0,
-            sku.profit
+            sku.profit,
+            skuThresholds
           );
 
           if (analysis.decision === 'stop_immediately') {
@@ -255,7 +268,7 @@ export function useAutoDecisionCards() {
 
     // 2. Analyze Cash Position - Generate CASH_SURVIVAL decisions (from REAL data)
     if (latestCashBalance > 0 && burnRate > 0) {
-      if (currentRunway < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) {
+      if (currentRunway < runwayCriticalMonths) {
         const cardId = generateAutoId('cash', 'runway');
         const daysLeft = Math.floor(currentRunway * 30);
         
@@ -538,7 +551,7 @@ export function useAutoDecisionCards() {
       if (priorityDiff !== 0) return priorityDiff;
       return b.severity_score - a.severity_score;
     });
-  }, [skuData, cashSummary, cashFlows, invoicesData, profitAttribution, riskAlerts]);
+  }, [skuData, cashSummary, cashFlows, invoicesData, profitAttribution, riskAlerts, effectiveThresholds]);
 
   // Create lookup map by entity_id for SSOT enrichment
   const autoCardsLookup = useMemo(() => {
@@ -554,6 +567,6 @@ export function useAutoDecisionCards() {
   return {
     data: autoCards,
     autoCardsLookup,
-    isLoading: false,
+    isLoading: thresholdsLoading,
   };
 }
