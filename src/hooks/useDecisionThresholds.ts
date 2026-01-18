@@ -271,8 +271,14 @@ export function useSaveDecisionThresholds() {
       }
     },
     onSuccess: () => {
+      // Invalidate thresholds to refetch the saved config
       queryClient.invalidateQueries({ queryKey: ['decision-thresholds', tenantId] });
-      toast.success('Đã lưu cấu hình ngưỡng khẩn cấp');
+      // Force re-render of auto decision cards with new thresholds
+      queryClient.invalidateQueries({ queryKey: ['all-problematic-skus'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-flow'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['mdp-data'] });
+      toast.success('Đã lưu cấu hình ngưỡng - Các quyết định sẽ được cập nhật');
     },
     onError: (error) => {
       console.error('Error saving thresholds:', error);
@@ -301,7 +307,12 @@ export function useResetDecisionThresholds() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['decision-thresholds', tenantId] });
-      toast.success('Đã khôi phục về ngưỡng mặc định');
+      // Force re-render of auto decision cards with default thresholds
+      queryClient.invalidateQueries({ queryKey: ['all-problematic-skus'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-flow'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['mdp-data'] });
+      toast.success('Đã khôi phục về ngưỡng mặc định - Các quyết định sẽ được cập nhật');
     },
     onError: (error) => {
       console.error('Error resetting thresholds:', error);
