@@ -336,12 +336,15 @@ export function calculateROAS(
 
 /**
  * Days Sales Outstanding = (AR / Daily Sales)
+ * With constraint: 0-365 days
  */
 export function calculateDSO(
   accountsReceivable: number,
   dailySales: number
 ): FormulaResult {
-  const value = dailySales > 0 ? Math.round(accountsReceivable / dailySales) : 0;
+  const rawValue = dailySales > 0 ? accountsReceivable / dailySales : 0;
+  // Apply constraint: 0-365 days (realistic range for e-commerce)
+  const value = Math.max(0, Math.min(365, Math.round(rawValue)));
   
   let status: 'good' | 'warning' | 'critical' = 'good';
   let action: string | undefined;
@@ -356,8 +359,106 @@ export function calculateDSO(
   
   return {
     value,
-    formula: 'DSO = AR / Daily Sales',
+    formula: 'DSO = AR / Daily Sales (constrained: 0-365 days)',
     interpretation: `Trung bình ${value} ngày để thu tiền`,
+    status,
+    action
+  };
+}
+
+/**
+ * Days Inventory Outstanding = (Inventory / Daily COGS)
+ * With constraint: 0-180 days
+ */
+export function calculateDIO(
+  inventory: number,
+  dailyCogs: number
+): FormulaResult {
+  const rawValue = dailyCogs > 0 ? inventory / dailyCogs : 0;
+  // Apply constraint: 0-180 days (fast retail typically 15-60)
+  const value = Math.max(0, Math.min(180, Math.round(rawValue)));
+  
+  let status: 'good' | 'warning' | 'critical' = 'good';
+  let action: string | undefined;
+  
+  if (value > FDP_THRESHOLDS.INVENTORY_CRITICAL_DAYS) {
+    status = 'critical';
+    action = '🚨 DIO quá cao - Hàng tồn quá lâu';
+  } else if (value > FDP_THRESHOLDS.INVENTORY_WARNING_DAYS) {
+    status = 'warning';
+    action = '⚠️ DIO cao - Cần giải phóng tồn kho';
+  }
+  
+  return {
+    value,
+    formula: 'DIO = Inventory / Daily COGS (constrained: 0-180 days)',
+    interpretation: `Hàng tồn trung bình ${value} ngày`,
+    status,
+    action
+  };
+}
+
+/**
+ * Days Payable Outstanding = (AP / Daily COGS)
+ * With constraint: 0-180 days
+ */
+export function calculateDPO(
+  accountsPayable: number,
+  dailyCogs: number
+): FormulaResult {
+  const rawValue = dailyCogs > 0 ? accountsPayable / dailyCogs : 0;
+  // Apply constraint: 0-180 days
+  const value = Math.max(0, Math.min(180, Math.round(rawValue)));
+  
+  // For DPO, HIGHER is better (paying suppliers later)
+  let status: 'good' | 'warning' | 'critical' = 'good';
+  let action: string | undefined;
+  
+  if (value < 15) {
+    status = 'warning';
+    action = '⚠️ DPO thấp - Đang thanh toán NCC quá nhanh';
+  }
+  
+  return {
+    value,
+    formula: 'DPO = AP / Daily COGS (constrained: 0-180 days)',
+    interpretation: `Trung bình ${value} ngày để thanh toán NCC`,
+    status,
+    action
+  };
+}
+
+/**
+ * Cash Conversion Cycle = DSO + DIO - DPO
+ * With constraint: -100 to 365 days
+ */
+export function calculateCCC(
+  dso: number,
+  dio: number,
+  dpo: number
+): FormulaResult {
+  const rawValue = dso + dio - dpo;
+  // Apply constraint: -100 to 365 days (negative = suppliers finance you)
+  const value = Math.max(-100, Math.min(365, Math.round(rawValue)));
+  
+  let status: 'good' | 'warning' | 'critical' = 'good';
+  let action: string | undefined;
+  
+  if (value > FDP_THRESHOLDS.CCC_CRITICAL_DAYS) {
+    status = 'critical';
+    action = '🚨 CCC quá cao - Tiền bị khóa trong vốn lưu động quá lâu';
+  } else if (value > FDP_THRESHOLDS.CCC_WARNING_DAYS) {
+    status = 'warning';
+    action = '⚠️ CCC cao - Cần tối ưu chu kỳ tiền mặt';
+  } else if (value < 0) {
+    status = 'good';
+    action = '✅ CCC âm - Nhà cung cấp đang tài trợ vốn cho bạn';
+  }
+  
+  return {
+    value,
+    formula: 'CCC = DSO + DIO - DPO (constrained: -100 to 365 days)',
+    interpretation: `Chu kỳ chuyển đổi tiền: ${value} ngày`,
     status,
     action
   };
@@ -579,27 +680,32 @@ export const FORMULA_REGISTRY = {
   },
   DSO: {
     name: 'Days Sales Outstanding',
-    formula: 'AR / Daily Sales',
-    description: 'Số ngày trung bình để thu tiền'
+    formula: 'AR / Daily Sales (constrained: 0-365 days)',
+    description: 'Số ngày trung bình để thu tiền. Giới hạn 0-365 ngày.'
   },
   DPO: {
     name: 'Days Payable Outstanding',
-    formula: 'AP / Daily Purchases',
-    description: 'Số ngày trung bình để trả tiền'
+    formula: 'AP / Daily COGS (constrained: 0-180 days)',
+    description: 'Số ngày trung bình để trả tiền. Giới hạn 0-180 ngày.'
   },
   DIO: {
     name: 'Days Inventory Outstanding',
-    formula: 'Inventory / Daily COGS',
-    description: 'Số ngày tồn kho trung bình'
+    formula: 'Inventory / Daily COGS (constrained: 0-180 days)',
+    description: 'Số ngày tồn kho trung bình. Giới hạn 0-180 ngày.'
   },
   CCC: {
     name: 'Cash Conversion Cycle',
-    formula: 'DSO + DIO - DPO',
-    description: 'Chu kỳ chuyển đổi tiền mặt'
+    formula: 'DSO + DIO - DPO (constrained: -100 to 365 days)',
+    description: 'Chu kỳ chuyển đổi tiền mặt. Âm = NCC tài trợ vốn. Giới hạn -100 đến 365 ngày.'
   },
   CASH_RUNWAY: {
     name: 'Cash Runway',
     formula: 'Cash / Monthly Burn Rate',
     description: 'Số tháng công ty có thể hoạt động với cash hiện có'
+  },
+  TURNOVER_FROM_DAYS: {
+    name: 'Turnover Ratio',
+    formula: '365 / Days Outstanding',
+    description: 'Vòng quay = 365 / Số ngày. VD: DSO=30 → AR Turnover = 12.2x/năm'
   }
 } as const;

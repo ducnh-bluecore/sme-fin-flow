@@ -110,7 +110,10 @@ export interface CentralFinancialMetrics {
 // Import centralized constants (SSOT for benchmarks and ratios)
 import { 
   INDUSTRY_BENCHMARKS, 
-  FALLBACK_RATIOS as CENTRAL_FALLBACK_RATIOS 
+  FALLBACK_RATIOS as CENTRAL_FALLBACK_RATIOS,
+  constrainDays,
+  constrainPercent,
+  METRIC_BOUNDS
 } from '@/lib/financial-constants';
 
 // Use centralized fallback ratios
@@ -332,31 +335,36 @@ export function useCentralFinancialMetrics() {
       // These vary DIRECTLY with sales volume
       const variableCosts = platformFees + shippingCosts + marketingSpend;
 
-      // ========== PROFITABILITY CALCULATIONS - CORRECT FORMULAS ==========
+      // ========== PROFITABILITY CALCULATIONS - WITH CONSTRAINTS ==========
       // Gross Profit = Net Revenue - COGS (only COGS, no variable costs)
       const grossProfit = netRevenue - cogs;
       // Gross Margin = (Net Revenue - COGS) / Net Revenue * 100%
-      const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+      const rawGrossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+      const grossMargin = constrainPercent(rawGrossMargin, 'grossMargin');
 
       // Contribution Profit = Net Revenue - COGS - Variable Costs (shipping, marketing)
       const contributionProfit = netRevenue - cogs - variableCosts;
       // Contribution Margin = (Net Revenue - COGS - Variable Costs) / Net Revenue * 100%
-      const contributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+      const rawContributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+      const contributionMargin = constrainPercent(rawContributionMargin, 'contributionMargin');
 
       // Operating Income = Contribution Profit - Fixed Opex
       // (Operating Income is after ALL operating costs: variable + fixed)
       const operatingIncome = contributionProfit - totalOpex;
-      const operatingMargin = netRevenue > 0 ? (operatingIncome / netRevenue) * 100 : 0;
+      const rawOperatingMargin = netRevenue > 0 ? (operatingIncome / netRevenue) * 100 : 0;
+      const operatingMargin = constrainPercent(rawOperatingMargin, 'operatingMargin');
 
       // EBITDA = Operating Income + Depreciation (add back non-cash expense)
       // This measures operating profitability before non-cash and financing costs
       const ebitda = operatingIncome + depreciation;
-      const ebitdaMargin = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
+      const rawEbitdaMargin = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
+      const ebitdaMargin = constrainPercent(rawEbitdaMargin, 'ebitdaMargin');
 
       const incomeBeforeTax = operatingIncome - interestExpense;
       const calculatedTax = taxExpense > 0 ? taxExpense : (incomeBeforeTax > 0 ? incomeBeforeTax * FALLBACK_RATIOS.tax : 0);
       const netProfit = incomeBeforeTax - calculatedTax;
-      const netProfitMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
+      const rawNetProfitMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
+      const netProfitMargin = constrainPercent(rawNetProfitMargin, 'netProfitMargin');
 
       // ========== WORKING CAPITAL CALCULATIONS ==========
       // AR - unpaid invoices
@@ -399,7 +407,7 @@ export function useCentralFinancialMetrics() {
       const forecastedSalesInflow = (netRevenue / daysInPeriod) * 7 * 0.8; // 80% of weekly sales collected
       const cashNext7Days = cashOnHand + forecastedCollections + forecastedSalesInflow - forecastedPayments;
 
-      // ========== CYCLE METRICS - CORRECT DSO/DIO/DPO FORMULAS ==========
+      // ========== CYCLE METRICS - CORRECT FORMULAS WITH CONSTRAINTS ==========
       // DSO = (AR / Net Revenue) * Days in Period
       // DIO = (Inventory / COGS) * Days in Period  
       // DPO = (AP / COGS) * Days in Period
@@ -415,13 +423,24 @@ export function useCentralFinancialMetrics() {
       const dailyPurchases = daysInPeriod > 0 ? totalPurchases / daysInPeriod : 0;
 
       // DSO = (AR / Net Revenue) * Days - measures how long to collect revenue
-      const dso = netRevenue > 0 ? Math.round((totalAR / netRevenue) * daysInPeriod) : 0;
+      // Apply constraint: 0-365 days for e-commerce (realistic range)
+      const rawDso = netRevenue > 0 ? (totalAR / netRevenue) * daysInPeriod : 0;
+      const dso = constrainDays(rawDso, 'dso');
+      
       // DIO = (Inventory / COGS) * Days - measures how long inventory sits
-      const dio = cogs > 0 ? Math.round((inventory / cogs) * daysInPeriod) : 0;
+      // Apply constraint: 0-180 days (fast retail typically 15-60)
+      const rawDio = cogs > 0 ? (inventory / cogs) * daysInPeriod : 0;
+      const dio = constrainDays(rawDio, 'dio');
+      
       // DPO = (AP / COGS) * Days - measures how long to pay suppliers
-      const dpo = cogs > 0 ? Math.round((totalAP / cogs) * daysInPeriod) : 0;
+      // Apply constraint: 0-180 days (supplier terms typically 30-90)
+      const rawDpo = cogs > 0 ? (totalAP / cogs) * daysInPeriod : 0;
+      const dpo = constrainDays(rawDpo, 'dpo');
+      
       // CCC = DSO + DIO - DPO
-      const ccc = dso + dio - dpo;
+      // Apply constraint: -100 to 365 days (negative = suppliers finance you)
+      const rawCcc = dso + dio - dpo;
+      const ccc = constrainDays(rawCcc, 'ccc');
 
       // ========== BENCHMARKS - Use centralized constants (SSOT) ==========
       const industryBenchmark = {
@@ -562,6 +581,7 @@ function getEmptyCentralMetrics(startDate: string, endDate: string): CentralFina
 
 /**
  * Map cached row to CentralFinancialMetrics
+ * IMPORTANT: Apply constraints to cached values too for consistency
  */
 function mapCacheToMetrics(
   cached: Record<string, unknown>, 
@@ -573,20 +593,32 @@ function mapCacheToMetrics(
   const variableCosts = Number(cached.variable_costs) || 0;
   const netRevenue = Number(cached.net_revenue) || 0;
   const contributionProfit = grossProfit - variableCosts;
-  const contributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+  const rawContributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+  
+  // Apply constraints to cached values for consistency
+  const dso = constrainDays(Number(cached.dso) || 0, 'dso');
+  const dpo = constrainDays(Number(cached.dpo) || 0, 'dpo');
+  const dio = constrainDays(Number(cached.dio) || 0, 'dio');
+  const ccc = constrainDays(Number(cached.ccc) || 0, 'ccc');
+  
+  const grossMargin = constrainPercent(Number(cached.gross_margin) || 0, 'grossMargin');
+  const contributionMargin = constrainPercent(rawContributionMargin, 'contributionMargin');
+  const ebitdaMargin = constrainPercent(Number(cached.ebitda_margin) || 0, 'ebitdaMargin');
+  const netProfitMargin = constrainPercent(Number(cached.net_profit_margin) || 0, 'netProfitMargin');
+  const operatingMargin = constrainPercent(Number(cached.operating_margin) || 0, 'operatingMargin');
   
   return {
-    dso: (cached.dso as number) ?? 0,
-    dpo: (cached.dpo as number) ?? 0,
-    dio: (cached.dio as number) ?? 0,
-    ccc: (cached.ccc as number) ?? 0,
-    grossMargin: Number(cached.gross_margin) || 0,
+    dso,
+    dpo,
+    dio,
+    ccc,
+    grossMargin,
     contributionMargin,
     ebitda: Number(cached.ebitda) || 0,
-    ebitdaMargin: Number(cached.ebitda_margin) || 0,
+    ebitdaMargin,
     netProfit: Number(cached.net_profit) || 0,
-    netProfitMargin: Number(cached.net_profit_margin) || 0,
-    operatingMargin: Number(cached.operating_margin) || 0,
+    netProfitMargin,
+    operatingMargin,
     totalRevenue: Number(cached.total_revenue) || 0,
     netRevenue,
     cogs: Number(cached.total_cogs) || 0,
