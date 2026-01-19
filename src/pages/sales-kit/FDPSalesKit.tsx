@@ -39,6 +39,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
+// Import screenshots
+import fdpDashboard from '@/assets/sales-kit/fdp-dashboard.jpg';
+import fdpAlerts from '@/assets/sales-kit/fdp-alerts.jpg';
+import fdpReports from '@/assets/sales-kit/fdp-reports.jpg';
+import fdpDecisions from '@/assets/sales-kit/fdp-decisions.jpg';
+
 // FDP Manifesto Points
 const manifestoPoints = [
   { 
@@ -166,32 +172,22 @@ const screenshots = [
   {
     title: 'CFO Dashboard',
     description: 'Tổng quan tài chính với Net Revenue, Cash Position, Contribution Margin, Cash Runway',
-    placeholder: 'bg-gradient-to-br from-emerald-600/20 to-teal-600/20'
+    image: fdpDashboard
   },
   {
-    title: 'Real Cash Breakdown',
-    description: 'Phân loại cash theo trạng thái: Available, Pending, At Risk, Locked',
-    placeholder: 'bg-gradient-to-br from-blue-600/20 to-indigo-600/20'
+    title: 'Control Tower - Alerts',
+    description: 'Hệ thống cảnh báo thông minh với severity levels và action tracking',
+    image: fdpAlerts
   },
   {
-    title: 'Unit Economics Panel',
-    description: 'P&L đến từng SKU với Profit Status (Profitable, Warning, Critical, Loss)',
-    placeholder: 'bg-gradient-to-br from-orange-600/20 to-amber-600/20'
+    title: 'Financial Reports',
+    description: 'Báo cáo P&L, Financial Statement với charts và tables chi tiết',
+    image: fdpReports
   },
   {
-    title: 'Cash Forecast Chart',
-    description: 'Dự báo dòng tiền 90 ngày với confidence interval',
-    placeholder: 'bg-gradient-to-br from-purple-600/20 to-pink-600/20'
-  },
-  {
-    title: 'Working Capital Hub',
-    description: 'DSO, DIO, DPO, CCC với trend analysis',
-    placeholder: 'bg-gradient-to-br from-cyan-600/20 to-sky-600/20'
-  },
-  {
-    title: 'Decision Center',
-    description: 'ROI/NPV analysis với AI recommendations',
-    placeholder: 'bg-gradient-to-br from-rose-600/20 to-red-600/20'
+    title: 'Decision Support Center',
+    description: 'AI-powered recommendations với Approve/Reject workflow',
+    image: fdpDecisions
   }
 ];
 
@@ -646,14 +642,15 @@ export default function FDPSalesKit() {
             </div>
             <p className="text-muted-foreground mb-8 ml-14">Giao diện thực tế của FDP</p>
             
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
               {screenshots.map((screenshot, index) => (
                 <Card key={index} className="overflow-hidden print-avoid-break">
-                  <div className={`h-40 ${screenshot.placeholder} flex items-center justify-center`}>
-                    <div className="text-center">
-                      <BarChart3 className="w-10 h-10 text-muted-foreground/50 mx-auto mb-2" />
-                      <span className="text-xs text-muted-foreground">Screenshot</span>
-                    </div>
+                  <div className="h-52 overflow-hidden">
+                    <img 
+                      src={screenshot.image} 
+                      alt={screenshot.title}
+                      className="w-full h-full object-cover object-top"
+                    />
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold text-foreground text-sm">{screenshot.title}</h3>
