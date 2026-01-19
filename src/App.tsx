@@ -90,6 +90,11 @@ const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
 const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
+
+// Sales Kit pages
+const DataWarehouseSalesKit = lazy(() => import("./pages/sales-kit/DataWarehouseSalesKit"));
+const FDPSalesKit = lazy(() => import("./pages/sales-kit/FDPSalesKit"));
+
 // MDP pages - eager import to avoid reload issues
 import MDPDashboardPage from "./pages/MDPDashboardPage";
 import MarketingModePage from "./pages/mdp/MarketingModePage";
@@ -160,6 +165,18 @@ const AppRoutes = () => {
       <Route path="/documentation" element={
         <ProtectedRoute>
           <DocumentationPage />
+        </ProtectedRoute>
+      } />
+
+      {/* Sales Kit Routes - PDF-style pages */}
+      <Route path="/sales-kit/data-warehouse" element={
+        <ProtectedRoute>
+          <DataWarehouseSalesKit />
+        </ProtectedRoute>
+      } />
+      <Route path="/sales-kit/fdp" element={
+        <ProtectedRoute>
+          <FDPSalesKit />
         </ProtectedRoute>
       } />
 
