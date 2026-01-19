@@ -113,20 +113,6 @@ import {
   FALLBACK_RATIOS as CENTRAL_FALLBACK_RATIOS 
 } from '@/lib/financial-constants';
 
-// Category mapping for expense classification
-const EXPENSE_CATEGORY_MAP: Record<string, 'cogs' | 'opex' | 'depreciation' | 'interest' | 'tax'> = {
-  'cogs': 'cogs',
-  'salary': 'opex',
-  'rent': 'opex',
-  'utilities': 'opex',
-  'marketing': 'opex',
-  'logistics': 'opex',
-  'depreciation': 'depreciation',
-  'interest': 'interest',
-  'tax': 'tax',
-  'other': 'opex',
-};
-
 // Use centralized fallback ratios
 const FALLBACK_RATIOS = CENTRAL_FALLBACK_RATIOS;
 
@@ -287,6 +273,11 @@ export function useCentralFinancialMetrics() {
       const netRevenue = totalRevenue - salesReturns;
 
       // ========== EXPENSE CALCULATIONS ==========
+      // Variable costs from order fees (platform fee, commission, shipping in orders)
+      const platformFeesFromOrders = completedOrders.reduce((sum, o) => 
+        sum + (o.platform_fee || 0) + (o.commission_fee || 0) + (o.payment_fee || 0), 0);
+      const shippingFromOrders = completedOrders.reduce((sum, o) => sum + (o.shipping_fee || 0), 0);
+      
       const hasExpenseData = expenses.length > 0;
       let cogs = orderCogs;
       let totalOpex = 0;
@@ -294,27 +285,25 @@ export function useCentralFinancialMetrics() {
       let interestExpense = 0;
       let taxExpense = 0;
       let marketingSpend = 0;
-      let shippingCosts = orderFees; // Include platform fees in variable costs
+      let shippingCosts = shippingFromOrders; // Shipping from orders
+      let platformFees = platformFeesFromOrders; // Platform fees from orders
 
       if (hasExpenseData) {
         expenses.forEach(exp => {
           const amount = Number(exp.amount) || 0;
-          const category = exp.category || 'other';
-          const type = EXPENSE_CATEGORY_MAP[category] || 'opex';
+          const category = exp.category?.toLowerCase() || 'other';
           
-          switch (type) {
+          switch (category) {
             case 'cogs':
               cogs += amount;
               break;
-            case 'opex':
-              // Marketing is a variable cost, not opex
-              if (category === 'marketing') {
-                marketingSpend += amount;
-              } else if (category === 'logistics') {
-                shippingCosts += amount;
-              } else {
-                totalOpex += amount;
-              }
+            case 'marketing':
+              // Marketing is a VARIABLE cost, not fixed opex
+              marketingSpend += amount;
+              break;
+            case 'logistics':
+              // Logistics/Shipping is a VARIABLE cost
+              shippingCosts += amount;
               break;
             case 'depreciation':
               depreciation += amount;
@@ -325,18 +314,23 @@ export function useCentralFinancialMetrics() {
             case 'tax':
               taxExpense += amount;
               break;
+            default:
+              // salary, rent, utilities, other = FIXED opex
+              totalOpex += amount;
+              break;
           }
         });
       } else {
-        // Use fallback ratios
+        // Use fallback ratios when no expense data
         cogs = orderCogs > 0 ? orderCogs : netRevenue * FALLBACK_RATIOS.cogs;
         totalOpex = netRevenue * FALLBACK_RATIOS.opex;
         depreciation = netRevenue * FALLBACK_RATIOS.depreciation;
         interestExpense = netRevenue * FALLBACK_RATIOS.interest;
       }
 
-      // Variable costs = Marketing + Shipping (these are NOT in COGS or OPEX)
-      const variableCosts = marketingSpend + shippingCosts;
+      // Variable Costs = Platform Fees + Shipping + Marketing
+      // These vary DIRECTLY with sales volume
+      const variableCosts = platformFees + shippingCosts + marketingSpend;
 
       // ========== PROFITABILITY CALCULATIONS - CORRECT FORMULAS ==========
       // Gross Profit = Net Revenue - COGS (only COGS, no variable costs)
@@ -349,12 +343,13 @@ export function useCentralFinancialMetrics() {
       // Contribution Margin = (Net Revenue - COGS - Variable Costs) / Net Revenue * 100%
       const contributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
 
-      // Operating Income = Gross Profit - Total Opex (fixed costs)
-      const operatingIncome = grossProfit - totalOpex;
+      // Operating Income = Contribution Profit - Fixed Opex
+      // (Operating Income is after ALL operating costs: variable + fixed)
+      const operatingIncome = contributionProfit - totalOpex;
       const operatingMargin = netRevenue > 0 ? (operatingIncome / netRevenue) * 100 : 0;
 
-      // EBITDA = Net Revenue - COGS - Opex (before depreciation, interest, taxes)
-      // OR = Operating Income + Depreciation (add back depreciation)
+      // EBITDA = Operating Income + Depreciation (add back non-cash expense)
+      // This measures operating profitability before non-cash and financing costs
       const ebitda = operatingIncome + depreciation;
       const ebitdaMargin = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
 

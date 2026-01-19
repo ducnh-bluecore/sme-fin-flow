@@ -139,17 +139,52 @@ export function calculateNetRevenue(
 }
 
 /**
- * Contribution Margin = Net Revenue - COGS - Variable Costs
+ * Gross Margin = (Net Revenue - COGS) / Net Revenue * 100%
+ * Chỉ tính COGS, KHÔNG tính biến phí khác
+ */
+export function calculateGrossMargin(
+  netRevenue: number,
+  cogs: number
+): FormulaResult {
+  const grossProfit = netRevenue - cogs;
+  const percent = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+  
+  let status: 'good' | 'warning' | 'critical' = 'good';
+  let action: string | undefined;
+  
+  if (percent < FDP_THRESHOLDS.GROSS_MARGIN_CRITICAL_PERCENT) {
+    status = 'critical';
+    action = '🚨 Gross Margin quá thấp - Kiểm tra giá vốn hàng bán';
+  } else if (percent < FDP_THRESHOLDS.GROSS_MARGIN_WARNING_PERCENT) {
+    status = 'warning';
+    action = '⚠️ Gross Margin thấp - Cần tối ưu COGS';
+  }
+  
+  return {
+    value: grossProfit,
+    formula: 'Gross Margin = (Net Revenue - COGS) / Net Revenue × 100%',
+    interpretation: `Gross Margin: ${percent.toFixed(1)}%`,
+    status,
+    action
+  };
+}
+
+/**
+ * Contribution Margin = (Net Revenue - COGS - Variable Costs) / Net Revenue * 100%
+ * Variable Costs = Platform Fees + Shipping + Marketing
  * Lợi nhuận gộp sau biến phí
  */
 export function calculateContributionMargin(
   netRevenue: number,
   cogs: number,
+  platformFees: number = 0,
   shippingCosts: number = 0,
   marketingSpend: number = 0
 ): FormulaResult {
-  const value = netRevenue - cogs - shippingCosts - marketingSpend;
-  const percent = netRevenue > 0 ? (value / netRevenue) * 100 : 0;
+  // Variable costs = costs that vary DIRECTLY with sales volume
+  const variableCosts = platformFees + shippingCosts + marketingSpend;
+  const contributionProfit = netRevenue - cogs - variableCosts;
+  const percent = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
   
   let status: 'good' | 'warning' | 'critical' = 'good';
   let action: string | undefined;
@@ -159,13 +194,13 @@ export function calculateContributionMargin(
     action = '🚨 MARGIN ÂM - Đang bán lỗ! Tăng giá hoặc cắt chi phí NGAY';
   } else if (percent < FDP_THRESHOLDS.CM_WARNING_PERCENT) {
     status = 'warning';
-    action = '⚠️ Margin thấp - Cần tối ưu chi phí';
+    action = '⚠️ Margin thấp - Cần tối ưu chi phí biến đổi';
   }
   
   return {
-    value,
-    formula: 'CM = Net Revenue - COGS - Shipping - Marketing',
-    interpretation: `Contribution Margin: ${percent.toFixed(1)}%`,
+    value: contributionProfit,
+    formula: 'CM = Net Revenue - COGS - Platform Fees - Shipping - Marketing',
+    interpretation: `Contribution Margin: ${percent.toFixed(1)}% (Variable Costs: ${(variableCosts / 1000000).toFixed(1)}M)`,
     status,
     action
   };
