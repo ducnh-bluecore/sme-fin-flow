@@ -39,6 +39,12 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 
+// Import screenshots
+import dwDashboard from '@/assets/sales-kit/dw-dashboard.jpg';
+import dwConnectors from '@/assets/sales-kit/dw-connectors.jpg';
+import dwSchema from '@/assets/sales-kit/dw-schema.jpg';
+import dwRealtime from '@/assets/sales-kit/dw-realtime.jpg';
+
 // Features data
 const coreFeatures = [
   {
@@ -309,22 +315,22 @@ const screenshots = [
   {
     title: 'Data Hub Dashboard',
     description: 'Trung tâm quản lý tất cả data sources, theo dõi sync status và data quality',
-    placeholder: 'bg-gradient-to-br from-blue-600/20 to-purple-600/20'
+    image: dwDashboard
   },
   {
-    title: 'Sync Manager',
-    description: 'Quản lý lịch sync, xem sync history, retry failed syncs',
-    placeholder: 'bg-gradient-to-br from-green-600/20 to-teal-600/20'
-  },
-  {
-    title: 'Data Model Builder',
-    description: 'Tạo custom data models với drag-and-drop interface',
-    placeholder: 'bg-gradient-to-br from-orange-600/20 to-red-600/20'
+    title: 'API Connectors',
+    description: 'Kết nối với Shopee, Lazada, TikTok và 20+ nguồn dữ liệu khác',
+    image: dwConnectors
   },
   {
     title: 'Schema Manager',
     description: 'Xem và quản lý schema của tất cả tables trong warehouse',
-    placeholder: 'bg-gradient-to-br from-pink-600/20 to-rose-600/20'
+    image: dwSchema
+  },
+  {
+    title: 'Real-time Sync',
+    description: 'Theo dõi sync progress và data streaming real-time',
+    image: dwRealtime
   }
 ];
 
@@ -580,11 +586,12 @@ export default function DataWarehouseSalesKit() {
             <div className="grid md:grid-cols-2 gap-6">
               {screenshots.map((screenshot, index) => (
                 <Card key={index} className="overflow-hidden print-avoid-break">
-                  <div className={`h-48 ${screenshot.placeholder} flex items-center justify-center`}>
-                    <div className="text-center">
-                      <Database className="w-12 h-12 text-muted-foreground/50 mx-auto mb-2" />
-                      <span className="text-sm text-muted-foreground">Screenshot placeholder</span>
-                    </div>
+                  <div className="h-52 overflow-hidden">
+                    <img 
+                      src={screenshot.image} 
+                      alt={screenshot.title}
+                      className="w-full h-full object-cover object-top"
+                    />
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold text-foreground">{screenshot.title}</h3>
