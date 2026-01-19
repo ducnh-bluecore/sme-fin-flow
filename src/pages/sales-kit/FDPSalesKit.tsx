@@ -40,10 +40,11 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 // Import screenshots
-import fdpDashboard from '@/assets/sales-kit/fdp-dashboard.jpg';
-import fdpAlerts from '@/assets/sales-kit/fdp-alerts.jpg';
-import fdpReports from '@/assets/sales-kit/fdp-reports.jpg';
-import fdpDecisions from '@/assets/sales-kit/fdp-decisions.jpg';
+import fdpDashboard from '@/assets/sales-kit/fdp-dashboard.png';
+import fdpDecisionCard from '@/assets/sales-kit/fdp-decision-card.png';
+import fdpMeasurement from '@/assets/sales-kit/fdp-measurement.png';
+import fdpPnlReport from '@/assets/sales-kit/fdp-pnl-report.png';
+import fdpScenario from '@/assets/sales-kit/fdp-scenario.png';
 
 // FDP Manifesto Points
 const manifestoPoints = [
@@ -170,24 +171,29 @@ const coreFeatures = [
 // Screenshots
 const screenshots = [
   {
-    title: 'CFO Dashboard',
-    description: 'Tổng quan tài chính với Net Revenue, Cash Position, Contribution Margin, Cash Runway',
+    title: 'CFO Dashboard - Financial Truth',
+    description: 'Tổng quan tài chính với Net Revenue 12.7 tỷ, Contribution Margin 91.2%, Cash Position 4.3 tỷ, Cash Runway 1.2 tháng - Single Source of Truth',
     image: fdpDashboard
   },
   {
-    title: 'Control Tower - Alerts',
-    description: 'Hệ thống cảnh báo thông minh với severity levels và action tracking',
-    image: fdpAlerts
+    title: 'Decision Card - AI-Powered',
+    description: 'Chi tiết quyết định AR quá hạn 3.4Bđ với AI Advisor khuyến nghị hành động, deadline và impact analysis',
+    image: fdpDecisionCard
   },
   {
-    title: 'Financial Reports',
-    description: 'Báo cáo P&L, Financial Statement với charts và tables chi tiết',
-    image: fdpReports
+    title: 'Kết quả Đo lường Tự động',
+    description: 'So sánh Before vs After với Cash Balance, Runway và Chi phí/tháng - tracking outcome của mọi quyết định',
+    image: fdpMeasurement
   },
   {
-    title: 'Decision Support Center',
-    description: 'AI-powered recommendations với Approve/Reject workflow',
-    image: fdpDecisions
+    title: 'Báo cáo P&L - AI Analysis',
+    description: 'Profit & Loss Statement với AI phân tích: Doanh thu 9.3 tỷ, Chi phí 105.8 tỷ, breakdown chi tiết theo nguồn',
+    image: fdpPnlReport
+  },
+  {
+    title: 'Kịch bản & Mô phỏng What-If',
+    description: 'Scenario Planning so sánh Thực tế vs Mục tiêu với các KPIs: DSO, DPO, DIO, EBITDA - hỗ trợ quyết định đầu tư',
+    image: fdpScenario
   }
 ];
 
