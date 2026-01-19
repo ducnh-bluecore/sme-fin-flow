@@ -157,25 +157,35 @@ function mapCacheToMetrics(
   startDate: string, 
   endDate: string
 ): CentralFinancialMetrics {
+  // Calculate contribution margin from gross profit and variable costs
+  const grossProfit = Number(cached.gross_profit) || 0;
+  const variableCosts = 0; // Not stored in cache, estimate from available data
+  const netRevenue = Number(cached.net_revenue) || 0;
+  const contributionProfit = grossProfit - variableCosts;
+  const contributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+  
   return {
     dso: cached.dso ?? 0,
     dpo: cached.dpo ?? 0,
     dio: cached.dio ?? 0,
     ccc: cached.ccc ?? 0,
     grossMargin: Number(cached.gross_margin) || 0,
+    contributionMargin,
     ebitda: Number(cached.ebitda) || 0,
     ebitdaMargin: Number(cached.ebitda_margin) || 0,
     netProfit: Number(cached.net_profit) || 0,
     netProfitMargin: Number(cached.net_profit_margin) || 0,
     operatingMargin: Number(cached.operating_margin) || 0,
     totalRevenue: Number(cached.total_revenue) || 0,
-    netRevenue: Number(cached.net_revenue) || 0,
+    netRevenue,
     cogs: Number(cached.total_cogs) || 0,
-    grossProfit: Number(cached.gross_profit) || 0,
+    grossProfit,
+    contributionProfit,
     invoiceRevenue: Number(cached.invoice_revenue) || 0,
     orderRevenue: Number(cached.order_revenue) || 0,
     contractRevenue: Number(cached.contract_revenue) || 0,
     totalOpex: Number(cached.total_opex) || 0,
+    variableCosts,
     depreciation: Number(cached.depreciation) || 0,
     interestExpense: Number(cached.interest_expense) || 0,
     taxExpense: Number(cached.tax_expense) || 0,
@@ -186,6 +196,7 @@ function mapCacheToMetrics(
     workingCapital: Number(cached.working_capital) || 0,
     cashOnHand: Number(cached.cash_today) || 0,
     cashFlow: Number(cached.cash_flow) || 0,
+    cashNext7Days: Number(cached.cash_today) || 0, // Will be recalculated if not in cache
     dailySales: Number(cached.daily_sales) || 0,
     dailyCogs: Number(cached.daily_cogs) || 0,
     dailyPurchases: Number(cached.daily_purchases) || 0,

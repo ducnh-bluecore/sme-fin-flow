@@ -78,14 +78,18 @@ export default function CFODashboard() {
     };
   }, [metrics, cashForecasts]);
 
-  // Calculate cash position for next 7 days from actual forecast data
+  // Use cashNext7Days from centralized metrics (properly calculated from forecast)
   const cashNext7Days = useMemo(() => {
+    // Primary: Use centralized metric which calculates from AR/AP forecast
+    if (metrics?.cashNext7Days && metrics.cashNext7Days !== metrics.cashOnHand) {
+      return metrics.cashNext7Days;
+    }
+    // Fallback: Use cash_forecasts table data
     if (cashForecasts && cashForecasts.length > 0) {
-      // Use the 7th day forecast if available
       const day7Forecast = cashForecasts[6] || cashForecasts[cashForecasts.length - 1];
       return day7Forecast?.closing_balance || metrics?.cashOnHand || 0;
     }
-    // Fallback: current cash
+    // Final fallback: current cash
     return metrics?.cashOnHand || 0;
   }, [cashForecasts, metrics]);
 
@@ -201,7 +205,7 @@ export default function CFODashboard() {
         </div>
 
         {/* Secondary KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="data-card text-center">
             <p className="text-xs text-muted-foreground mb-1">{t('cfo.dso')}</p>
             <p className="text-2xl font-bold text-foreground">{metrics?.dso || 0}</p>
@@ -210,7 +214,12 @@ export default function CFODashboard() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="data-card text-center">
             <p className="text-xs text-muted-foreground mb-1">{t('cfo.grossMargin')}</p>
             <p className="text-2xl font-bold text-success">{metrics?.grossMargin?.toFixed(1) || 0}%</p>
-            <p className="text-xs text-muted-foreground">{t('cfo.thisPeriod')}</p>
+            <p className="text-xs text-muted-foreground">Rev - COGS</p>
+          </motion.div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.28 }} className="data-card text-center">
+            <p className="text-xs text-muted-foreground mb-1">Contribution Margin</p>
+            <p className="text-2xl font-bold text-primary">{metrics?.contributionMargin?.toFixed(1) || 0}%</p>
+            <p className="text-xs text-muted-foreground">Rev - COGS - Variable</p>
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="data-card text-center">
             <p className="text-xs text-muted-foreground mb-1">{t('cfo.ebitdaMargin')}</p>

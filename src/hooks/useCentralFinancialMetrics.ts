@@ -34,24 +34,32 @@ const CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 
 export interface CentralFinancialMetrics {
   // ========== CASH CONVERSION CYCLE ==========
+  // DSO = (AR / Net Revenue) * Days in Period
+  // DIO = (Inventory / COGS) * Days in Period
+  // DPO = (AP / COGS) * Days in Period
+  // CCC = DSO + DIO - DPO
   dso: number;              // Days Sales Outstanding
   dpo: number;              // Days Payable Outstanding  
   dio: number;              // Days Inventory Outstanding
   ccc: number;              // Cash Conversion Cycle = DSO + DIO - DPO
 
   // ========== PROFITABILITY ==========
-  grossMargin: number;      // Gross Profit / Net Sales (%)
+  // Gross Margin = (Net Revenue - COGS) / Net Revenue * 100%
+  // Contribution Margin = (Net Revenue - COGS - Variable Costs) / Net Revenue * 100%
+  grossMargin: number;      // Gross Profit / Net Revenue (%) - ONLY COGS
+  contributionMargin: number; // CM / Net Revenue (%) - COGS + Variable Costs (shipping, marketing)
   ebitda: number;           // Earnings Before Interest, Taxes, Depreciation, Amortization
-  ebitdaMargin: number;     // EBITDA / Net Sales (%)
+  ebitdaMargin: number;     // EBITDA / Net Revenue (%)
   netProfit: number;        // Net Income
-  netProfitMargin: number;  // Net Income / Net Sales (%)
-  operatingMargin: number;  // Operating Income / Net Sales (%)
+  netProfitMargin: number;  // Net Income / Net Revenue (%)
+  operatingMargin: number;  // Operating Income / Net Revenue (%)
 
   // ========== REVENUE ==========
   totalRevenue: number;     // Gross revenue from all sources
   netRevenue: number;       // Net revenue after returns/discounts
   cogs: number;             // Cost of Goods Sold
   grossProfit: number;      // Net Revenue - COGS
+  contributionProfit: number; // Net Revenue - COGS - Variable Costs
   
   // Revenue breakdown
   invoiceRevenue: number;   // From B2B invoices
@@ -59,7 +67,8 @@ export interface CentralFinancialMetrics {
   contractRevenue: number;  // From recurring contracts
 
   // ========== EXPENSES ==========
-  totalOpex: number;        // Total operating expenses
+  totalOpex: number;        // Total operating expenses (fixed)
+  variableCosts: number;    // Variable costs (shipping, marketing)
   depreciation: number;     // Depreciation expense
   interestExpense: number;  // Interest expense
   taxExpense: number;       // Tax expense
@@ -74,6 +83,7 @@ export interface CentralFinancialMetrics {
   // ========== CASH ==========
   cashOnHand: number;       // Total cash in bank accounts
   cashFlow: number;         // Net cash flow for period
+  cashNext7Days: number;    // Forecasted cash position in 7 days
 
   // ========== UNDERLYING VALUES ==========
   dailySales: number;
@@ -283,18 +293,28 @@ export function useCentralFinancialMetrics() {
       let depreciation = 0;
       let interestExpense = 0;
       let taxExpense = 0;
+      let marketingSpend = 0;
+      let shippingCosts = orderFees; // Include platform fees in variable costs
 
       if (hasExpenseData) {
         expenses.forEach(exp => {
           const amount = Number(exp.amount) || 0;
-          const type = EXPENSE_CATEGORY_MAP[exp.category] || 'opex';
+          const category = exp.category || 'other';
+          const type = EXPENSE_CATEGORY_MAP[category] || 'opex';
           
           switch (type) {
             case 'cogs':
               cogs += amount;
               break;
             case 'opex':
-              totalOpex += amount;
+              // Marketing is a variable cost, not opex
+              if (category === 'marketing') {
+                marketingSpend += amount;
+              } else if (category === 'logistics') {
+                shippingCosts += amount;
+              } else {
+                totalOpex += amount;
+              }
               break;
             case 'depreciation':
               depreciation += amount;
@@ -315,13 +335,26 @@ export function useCentralFinancialMetrics() {
         interestExpense = netRevenue * FALLBACK_RATIOS.interest;
       }
 
-      // ========== PROFITABILITY CALCULATIONS ==========
+      // Variable costs = Marketing + Shipping (these are NOT in COGS or OPEX)
+      const variableCosts = marketingSpend + shippingCosts;
+
+      // ========== PROFITABILITY CALCULATIONS - CORRECT FORMULAS ==========
+      // Gross Profit = Net Revenue - COGS (only COGS, no variable costs)
       const grossProfit = netRevenue - cogs;
+      // Gross Margin = (Net Revenue - COGS) / Net Revenue * 100%
       const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
 
+      // Contribution Profit = Net Revenue - COGS - Variable Costs (shipping, marketing)
+      const contributionProfit = netRevenue - cogs - variableCosts;
+      // Contribution Margin = (Net Revenue - COGS - Variable Costs) / Net Revenue * 100%
+      const contributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+
+      // Operating Income = Gross Profit - Total Opex (fixed costs)
       const operatingIncome = grossProfit - totalOpex;
       const operatingMargin = netRevenue > 0 ? (operatingIncome / netRevenue) * 100 : 0;
 
+      // EBITDA = Net Revenue - COGS - Opex (before depreciation, interest, taxes)
+      // OR = Operating Income + Depreciation (add back depreciation)
       const ebitda = operatingIncome + depreciation;
       const ebitdaMargin = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
 
@@ -347,7 +380,7 @@ export function useCentralFinancialMetrics() {
         sum + ((b.total_amount || 0) - (b.paid_amount || 0)), 0);
 
       // Inventory estimate (using COGS * 30 days as proxy)
-      const dailyCogs = cogs / daysInPeriod;
+      const dailyCogs = daysInPeriod > 0 ? cogs / daysInPeriod : 0;
       const inventory = dailyCogs * 30;
 
       // Working capital
@@ -364,20 +397,35 @@ export function useCentralFinancialMetrics() {
         .reduce((sum, t) => sum + (t.amount || 0), 0);
       const cashFlow = cashInflows - cashOutflows;
 
-      // ========== CYCLE METRICS ==========
-      const dailySales = netRevenue / daysInPeriod;
+      // Cash Next 7 Days = Cash Today + Forecast Inflows (AR collections) - Outflows (AP payments)
+      // Estimate: 15% of AR collected per week, 20% of AP paid per week
+      const forecastedCollections = totalAR * 0.15;
+      const forecastedPayments = totalAP * 0.20;
+      const forecastedSalesInflow = (netRevenue / daysInPeriod) * 7 * 0.8; // 80% of weekly sales collected
+      const cashNext7Days = cashOnHand + forecastedCollections + forecastedSalesInflow - forecastedPayments;
+
+      // ========== CYCLE METRICS - CORRECT DSO/DIO/DPO FORMULAS ==========
+      // DSO = (AR / Net Revenue) * Days in Period
+      // DIO = (Inventory / COGS) * Days in Period  
+      // DPO = (AP / COGS) * Days in Period
+      // CCC = DSO + DIO - DPO
+      
+      const dailySales = daysInPeriod > 0 ? netRevenue / daysInPeriod : 0;
       
       // Total purchases for DPO calculation
       const totalBillAmount = periodBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
       const cogsExpenses = expenses.filter(e => e.category === 'cogs');
       const totalCogsExpenses = cogsExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
       const totalPurchases = totalBillAmount + totalCogsExpenses + orderCogs;
-      const dailyPurchases = totalPurchases / daysInPeriod;
+      const dailyPurchases = daysInPeriod > 0 ? totalPurchases / daysInPeriod : 0;
 
-      // Calculate DSO, DIO, DPO
-      const dso = dailySales > 0 ? Math.round(totalAR / dailySales) : 45;
-      const dio = dailyCogs > 0 ? Math.round(inventory / dailyCogs) : 30;
-      const dpo = dailyPurchases > 0 ? Math.round(totalAP / dailyPurchases) : 30;
+      // DSO = (AR / Net Revenue) * Days - measures how long to collect revenue
+      const dso = netRevenue > 0 ? Math.round((totalAR / netRevenue) * daysInPeriod) : 0;
+      // DIO = (Inventory / COGS) * Days - measures how long inventory sits
+      const dio = cogs > 0 ? Math.round((inventory / cogs) * daysInPeriod) : 0;
+      // DPO = (AP / COGS) * Days - measures how long to pay suppliers
+      const dpo = cogs > 0 ? Math.round((totalAP / cogs) * daysInPeriod) : 0;
+      // CCC = DSO + DIO - DPO
       const ccc = dso + dio - dpo;
 
       // ========== BENCHMARKS - Use centralized constants (SSOT) ==========
@@ -399,6 +447,7 @@ export function useCentralFinancialMetrics() {
         
         // Profitability
         grossMargin,
+        contributionMargin,
         ebitda,
         ebitdaMargin,
         netProfit,
@@ -410,12 +459,14 @@ export function useCentralFinancialMetrics() {
         netRevenue,
         cogs,
         grossProfit,
+        contributionProfit,
         invoiceRevenue,
         orderRevenue,
         contractRevenue,
         
         // Expenses
         totalOpex,
+        variableCosts,
         depreciation,
         interestExpense,
         taxExpense,
@@ -430,6 +481,7 @@ export function useCentralFinancialMetrics() {
         // Cash
         cashOnHand,
         cashFlow,
+        cashNext7Days,
         
         // Underlying values
         dailySales,
@@ -475,6 +527,7 @@ function getEmptyCentralMetrics(startDate: string, endDate: string): CentralFina
     dio: 0,
     ccc: 0,
     grossMargin: 0,
+    contributionMargin: 0,
     ebitda: 0,
     ebitdaMargin: 0,
     netProfit: 0,
@@ -484,10 +537,12 @@ function getEmptyCentralMetrics(startDate: string, endDate: string): CentralFina
     netRevenue: 0,
     cogs: 0,
     grossProfit: 0,
+    contributionProfit: 0,
     invoiceRevenue: 0,
     orderRevenue: 0,
     contractRevenue: 0,
     totalOpex: 0,
+    variableCosts: 0,
     depreciation: 0,
     interestExpense: 0,
     taxExpense: 0,
@@ -498,6 +553,7 @@ function getEmptyCentralMetrics(startDate: string, endDate: string): CentralFina
     workingCapital: 0,
     cashOnHand: 0,
     cashFlow: 0,
+    cashNext7Days: 0,
     dailySales: 0,
     dailyCogs: 0,
     dailyPurchases: 0,
@@ -517,25 +573,35 @@ function mapCacheToMetrics(
   startDate: string, 
   endDate: string
 ): CentralFinancialMetrics {
+  // Calculate contribution margin from gross profit
+  const grossProfit = Number(cached.gross_profit) || 0;
+  const variableCosts = Number(cached.variable_costs) || 0;
+  const netRevenue = Number(cached.net_revenue) || 0;
+  const contributionProfit = grossProfit - variableCosts;
+  const contributionMargin = netRevenue > 0 ? (contributionProfit / netRevenue) * 100 : 0;
+  
   return {
     dso: (cached.dso as number) ?? 0,
     dpo: (cached.dpo as number) ?? 0,
     dio: (cached.dio as number) ?? 0,
     ccc: (cached.ccc as number) ?? 0,
     grossMargin: Number(cached.gross_margin) || 0,
+    contributionMargin,
     ebitda: Number(cached.ebitda) || 0,
     ebitdaMargin: Number(cached.ebitda_margin) || 0,
     netProfit: Number(cached.net_profit) || 0,
     netProfitMargin: Number(cached.net_profit_margin) || 0,
     operatingMargin: Number(cached.operating_margin) || 0,
     totalRevenue: Number(cached.total_revenue) || 0,
-    netRevenue: Number(cached.net_revenue) || 0,
+    netRevenue,
     cogs: Number(cached.total_cogs) || 0,
-    grossProfit: Number(cached.gross_profit) || 0,
+    grossProfit,
+    contributionProfit,
     invoiceRevenue: Number(cached.invoice_revenue) || 0,
     orderRevenue: Number(cached.order_revenue) || 0,
     contractRevenue: Number(cached.contract_revenue) || 0,
     totalOpex: Number(cached.total_opex) || 0,
+    variableCosts,
     depreciation: Number(cached.depreciation) || 0,
     interestExpense: Number(cached.interest_expense) || 0,
     taxExpense: Number(cached.tax_expense) || 0,
@@ -546,6 +612,7 @@ function mapCacheToMetrics(
     workingCapital: Number(cached.working_capital) || 0,
     cashOnHand: Number(cached.cash_today) || 0,
     cashFlow: Number(cached.cash_flow) || 0,
+    cashNext7Days: Number(cached.cash_next_7_days) || Number(cached.cash_today) || 0,
     dailySales: Number(cached.daily_sales) || 0,
     dailyCogs: Number(cached.daily_cogs) || 0,
     dailyPurchases: Number(cached.daily_purchases) || 0,
