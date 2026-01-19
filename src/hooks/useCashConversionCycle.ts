@@ -2,21 +2,34 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
-import { format, startOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, subMonths, getDaysInMonth } from 'date-fns';
 import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { 
+  constrainDays, 
+  calculateTurnoverFromDays,
+  INDUSTRY_BENCHMARKS 
+} from '@/lib/financial-constants';
 
 /**
  * Cash Conversion Cycle Hook - Refactored
- * Now uses useFinancialMetrics for core calculations to avoid duplication.
- * Adds CCC-specific features: trends, working capital impact.
+ * Now uses useCentralFinancialMetrics for core calculations to avoid duplication.
+ * Adds CCC-specific features: trends, working capital impact, turnover ratios.
+ * 
+ * FDP Manifesto: Single Source of Truth
+ * All DSO/DIO/DPO/CCC values come from central metrics with constraints applied.
  */
 
 export interface CashConversionCycleData {
-  // Core Metrics (from useFinancialMetrics)
+  // Core Metrics (from useCentralFinancialMetrics - CONSTRAINED)
   dso: number;
   dio: number;  
   dpo: number;
   ccc: number;
+
+  // Turnover Ratios (calculated from days: 365/days)
+  arTurnover: number;      // 365 / DSO
+  inventoryTurnover: number; // 365 / DIO
+  apTurnover: number;      // 365 / DPO
 
   // Details
   avgAR: number;
@@ -98,18 +111,22 @@ export function useCashConversionCycle() {
       const bills = billsRes.data || [];
       const orders = ordersRes.data || [];
 
-      // Calculate monthly trends
+      // Calculate monthly trends using CORRECT formulas with constraints
       const trends: CCCTrend[] = [];
       for (let i = 5; i >= 0; i--) {
         const monthStart = startOfMonth(subMonths(today, i));
         const monthStr = format(monthStart, 'yyyy-MM');
+        const daysInMonth = getDaysInMonth(monthStart);
         
         const monthInvoices = invoices.filter(inv => inv.issue_date?.startsWith(monthStr));
         const monthBills = bills.filter(b => b.bill_date?.startsWith(monthStr));
         const monthOrders = orders.filter(o => o.order_date?.startsWith(monthStr));
         
+        // Revenue and COGS for the month
         const monthSales = monthOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
         const monthCogs = monthOrders.reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
+        
+        // AR and AP at end of month (unpaid balances)
         const monthAR = monthInvoices
           .filter(i => i.status !== 'paid')
           .reduce((sum, i) => sum + ((i.total_amount || 0) - (i.paid_amount || 0)), 0);
@@ -117,22 +134,37 @@ export function useCashConversionCycle() {
           .filter(b => b.status !== 'paid')
           .reduce((sum, b) => sum + ((b.total_amount || 0) - (b.paid_amount || 0)), 0);
 
-        const monthDailySales = monthSales / 30;
-        const monthDailyCogs = monthCogs / 30;
-        const monthInventory = monthDailyCogs * 30;
-
-        const monthDso = monthDailySales > 0 ? Math.round(monthAR / monthDailySales) : metrics.dso;
-        const monthDio = monthDailyCogs > 0 ? Math.round(monthInventory / monthDailyCogs) : metrics.dio;
-        const monthDpo = 30;
+        // Correct formulas: DSO = (AR / Revenue) * Days
+        // Use month's actual days for accurate calculation
+        const rawMonthDso = monthSales > 0 ? (monthAR / monthSales) * daysInMonth : metrics.dso;
+        const monthDso = constrainDays(rawMonthDso, 'dso');
+        
+        // DIO = (Inventory / COGS) * Days - estimate inventory as COGS * 30 days
+        const monthInventory = monthCogs > 0 ? (monthCogs / daysInMonth) * 30 : 0;
+        const rawMonthDio = monthCogs > 0 ? (monthInventory / monthCogs) * daysInMonth : metrics.dio;
+        const monthDio = constrainDays(rawMonthDio, 'dio');
+        
+        // DPO = (AP / COGS) * Days - use actual AP and COGS
+        const rawMonthDpo = monthCogs > 0 ? (monthAP / monthCogs) * daysInMonth : 30;
+        const monthDpo = constrainDays(rawMonthDpo, 'dpo');
+        
+        // CCC = DSO + DIO - DPO (with constraint)
+        const rawMonthCcc = monthDso + monthDio - monthDpo;
+        const monthCcc = constrainDays(rawMonthCcc, 'ccc');
         
         trends.push({
           month: format(monthStart, 'MM/yyyy'),
           dso: monthDso,
           dio: monthDio,
           dpo: monthDpo,
-          ccc: monthDso + monthDio - monthDpo
+          ccc: monthCcc
         });
       }
+
+      // Calculate turnover ratios from days (correct formula: 365 / Days)
+      const arTurnover = calculateTurnoverFromDays(metrics.dso);
+      const inventoryTurnover = calculateTurnoverFromDays(metrics.dio);
+      const apTurnover = calculateTurnoverFromDays(metrics.dpo);
 
       // Working capital impact
       const workingCapitalTied = (metrics.totalAR || 0) + (metrics.inventory || 0) - (metrics.totalAP || 0);
@@ -145,6 +177,9 @@ export function useCashConversionCycle() {
         dio: metrics.dio,
         dpo: metrics.dpo,
         ccc: metrics.ccc,
+        arTurnover,
+        inventoryTurnover,
+        apTurnover,
         avgAR: metrics.totalAR,
         avgInventory: metrics.inventory,
         avgAP: metrics.totalAP,
@@ -179,6 +214,9 @@ function getEmptyData(): CashConversionCycleData {
     dio: 0,
     dpo: 0,
     ccc: 0,
+    arTurnover: 0,
+    inventoryTurnover: 0,
+    apTurnover: 0,
     avgAR: 0,
     avgInventory: 0,
     avgAP: 0,
@@ -186,7 +224,12 @@ function getEmptyData(): CashConversionCycleData {
     dailyCogs: 0,
     dailyPurchases: 0,
     trends: [],
-    industryBenchmark: { dso: 35, dio: 45, dpo: 40, ccc: 40 },
+    industryBenchmark: { 
+      dso: INDUSTRY_BENCHMARKS.dso, 
+      dio: INDUSTRY_BENCHMARKS.dio, 
+      dpo: INDUSTRY_BENCHMARKS.dpo, 
+      ccc: INDUSTRY_BENCHMARKS.ccc 
+    },
     workingCapitalTied: 0,
     potentialSavings: 0,
     rawData: {

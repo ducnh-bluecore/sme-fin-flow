@@ -115,6 +115,120 @@ export const THRESHOLD_LEVELS = {
 } as const;
 
 // ============================================
+// METRIC BOUNDS - CONSTRAINTS
+// ============================================
+
+/**
+ * Physical/mathematical limits for metrics
+ * Prevents impossible values from appearing in UI
+ * 
+ * FDP Manifesto: TRUTH > FLEXIBILITY
+ * Values outside these bounds indicate data errors, not real business conditions
+ */
+export const METRIC_BOUNDS = {
+  // Days metrics - realistic operational limits
+  dso: { min: 0, max: 365 },      // 0-365 days (E-commerce: typically 1-60)
+  dio: { min: 0, max: 180 },      // 0-180 days (Fast retail: typically 15-60)
+  dpo: { min: 0, max: 180 },      // 0-180 days (Supplier terms: typically 30-90)
+  ccc: { min: -100, max: 365 },   // Negative = suppliers finance you; Max 1 year
+  
+  // Percentage metrics - mathematical limits
+  grossMargin: { min: -100, max: 100 },       // Cannot exceed ±100%
+  contributionMargin: { min: -100, max: 100 },
+  ebitdaMargin: { min: -100, max: 100 },
+  netProfitMargin: { min: -100, max: 100 },
+  operatingMargin: { min: -100, max: 100 },
+  
+  // Turnover ratios - realistic operational limits
+  arTurnover: { min: 0.5, max: 365 },    // 0.5-365x/year
+  apTurnover: { min: 0.5, max: 365 },    // 0.5-365x/year
+  inventoryTurnover: { min: 0.5, max: 52 }, // 0.5-52x/year (weekly max)
+  
+  // Cash metrics
+  burnRatePercent: { min: -100, max: 100 },
+  forecastPercent: { min: -500, max: 500 },  // 500% = 5x change
+  cashRunwayMonths: { min: 0, max: 120 },    // 0-10 years
+} as const;
+
+// ============================================
+// CONSTRAINT FUNCTIONS
+// ============================================
+
+/**
+ * Constrain a value within bounds
+ * Returns constrained value + warning if out of bounds
+ */
+export function constrainValue(
+  value: number,
+  bounds: { min: number; max: number },
+  metricName?: string
+): { value: number; isConstrained: boolean; originalValue: number } {
+  const constrained = Math.max(bounds.min, Math.min(bounds.max, value));
+  const isConstrained = constrained !== value;
+  
+  if (isConstrained && metricName && process.env.NODE_ENV === 'development') {
+    console.warn(`[FDP] ${metricName} constrained: ${value} → ${constrained} (bounds: ${bounds.min}-${bounds.max})`);
+  }
+  
+  return {
+    value: constrained,
+    isConstrained,
+    originalValue: value
+  };
+}
+
+/**
+ * Constrain days metric (DSO, DIO, DPO, CCC)
+ */
+export function constrainDays(
+  value: number,
+  type: 'dso' | 'dio' | 'dpo' | 'ccc'
+): number {
+  const bounds = METRIC_BOUNDS[type];
+  return Math.max(bounds.min, Math.min(bounds.max, Math.round(value)));
+}
+
+/**
+ * Constrain percentage metric (margins, rates)
+ */
+export function constrainPercent(
+  value: number,
+  type: 'grossMargin' | 'contributionMargin' | 'ebitdaMargin' | 'netProfitMargin' | 'operatingMargin' | 'burnRatePercent' | 'forecastPercent' = 'grossMargin'
+): number {
+  const bounds = METRIC_BOUNDS[type];
+  return Math.max(bounds.min, Math.min(bounds.max, value));
+}
+
+/**
+ * Constrain turnover ratio
+ */
+export function constrainTurnover(
+  value: number,
+  type: 'arTurnover' | 'apTurnover' | 'inventoryTurnover'
+): number {
+  const bounds = METRIC_BOUNDS[type];
+  return Math.max(bounds.min, Math.min(bounds.max, value));
+}
+
+/**
+ * Calculate turnover from days (correct formula)
+ * Turnover = 365 / Days Outstanding
+ */
+export function calculateTurnoverFromDays(days: number): number {
+  if (days <= 0) return 0;
+  return Math.round((365 / days) * 10) / 10; // 1 decimal
+}
+
+/**
+ * Calculate days from turnover (inverse)
+ * Days = 365 / Turnover
+ */
+export function calculateDaysFromTurnover(turnover: number): number {
+  if (turnover <= 0) return 0;
+  return Math.round(365 / turnover);
+}
+
+// ============================================
 // FALLBACK RATIOS
 // ============================================
 
