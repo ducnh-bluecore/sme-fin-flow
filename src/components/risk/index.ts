@@ -1,0 +1,1 @@
+export { RiskAppetiteConsole } from './RiskAppetiteConsole';
