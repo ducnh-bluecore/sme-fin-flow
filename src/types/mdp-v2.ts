@@ -182,32 +182,72 @@ export const MDP_V2_THRESHOLDS = {
   SCALE_MIN_DAYS_PROFITABLE: 7, // 7 days of profit
 };
 
-// === UI LANGUAGE (Pain-focused) ===
+// === UI LANGUAGE (Pain-focused, Aggressive) ===
 export const DECISION_LANGUAGE = {
   CAMPAIGN_BURNING_CASH: {
-    title: 'ĐANG ĐỐT TIỀN',
-    headline: (amount: number) => `Mất ${formatVND(amount)} mỗi ngày`,
-    action: 'DỪNG NGAY',
+    title: '🔥 ĐANG ĐỐT CHÁY TIỀN',
+    headline: (amount: number) => `Mỗi giờ trôi qua = thêm ${formatVND(amount / 24)} bay hơi`,
+    subhead: 'Campaign này đang phá hủy margin của bạn',
+    action: 'GIẾT NGAY',
+    consequence: 'Không hành động = tiếp tục mất tiền',
   },
   FAKE_GROWTH_ALERT: {
-    title: 'TĂNG TRƯỞNG GIẢ',
-    headline: (amount: number) => `Doanh thu cao nhưng lỗ ${formatVND(amount)}`,
-    action: 'ĐIỀU TRA',
+    title: '💀 TĂNG TRƯỞNG ẢO',
+    headline: (amount: number) => `Doanh thu "đẹp" che giấu lỗ ${formatVND(amount)}`,
+    subhead: 'Số liệu marketing đang NÓI DỐI bạn',
+    action: 'ĐIỀU TRA GẤP',
+    consequence: 'Càng scale = càng chết nhanh',
   },
   DELAYED_CASH_TRAP: {
-    title: 'BẪY TIỀN CHẬM',
-    headline: (amount: number) => `${formatVND(amount)} đang bị khóa`,
-    action: 'TẠM DỪNG',
+    title: '🔒 TIỀN BỊ GIAM',
+    headline: (amount: number) => `${formatVND(amount)} đang bị KHÓA CHẶT`,
+    subhead: 'Tiền chi ra nhưng không quay về',
+    action: 'DỪNG CHI TIỀN',
+    consequence: 'Cash flow đang bị bóp nghẹt',
   },
   RETURN_BOMB_RISK: {
-    title: 'NGUY CƠ HOÀN TRẢ',
-    headline: (rate: number) => `Tỷ lệ hoàn ${(rate * 100).toFixed(0)}% - cao bất thường`,
-    action: 'GIỚI HẠN',
+    title: '💣 BOM HOÀN TRẢ',
+    headline: (rate: number) => `${(rate * 100).toFixed(0)}% đơn hàng đang BỊ TRẢ LẠI`,
+    subhead: 'Doanh thu hôm nay = Hoàn tiền ngày mai',
+    action: 'CẮT GIẢM NGAY',
+    consequence: 'Revenue ảo, chi phí thật',
   },
   SKU_POISONING_CAMPAIGN: {
-    title: 'SKU ĐỘC HẠI',
-    headline: (sku: string) => `Campaign đang đẩy SKU lỗ: ${sku}`,
-    action: 'LOẠI SKU',
+    title: '☠️ SKU ĐỘC HẠI',
+    headline: (sku: string) => `Campaign đang bơm tiền vào SKU LỖ: ${sku}`,
+    subhead: 'Mỗi đơn bán thêm = thêm tiền mất',
+    action: 'LOẠI BỎ SKU',
+    consequence: 'Bán nhiều = lỗ nhiều',
+  },
+};
+
+// === PAIN COPY FOR CEO VIEW ===
+export const CEO_PAIN_COPY = {
+  destroying: {
+    title: 'ĐANG PHÁ HỦY TIỀN',
+    subtitle: 'Marketing đang LÀM HẠI doanh nghiệp',
+    warning: 'Mỗi phút chậm trễ = thêm tiền mất',
+  },
+  creating: {
+    title: 'ĐANG TẠO GIÁ TRỊ',
+    subtitle: 'Marketing đang hoạt động hiệu quả',
+    warning: 'Theo dõi để duy trì',
+  },
+  cashLocked: {
+    title: 'TIỀN ĐANG BỊ GIAM',
+    warning: 'Không thể sử dụng cho việc khác',
+  },
+  cashPending: {
+    title: 'TIỀN CHƯA VỀ',
+    warning: 'Có thể không bao giờ thu được',
+  },
+  immediateAction: {
+    title: 'CẦN HÀNH ĐỘNG NGAY',
+    subtitle: 'Mỗi giờ chậm = thêm tiền bay',
+  },
+  noIssues: {
+    title: 'KHÔNG CÓ VẤN ĐỀ KHẨN CẤP',
+    subtitle: 'Nhưng vẫn cần theo dõi liên tục',
   },
 };
 
@@ -222,19 +262,19 @@ export function formatVND(amount: number): string {
 
 export function getUrgencyColor(urgency: DecisionUrgency): string {
   switch (urgency) {
-    case 'IMMEDIATE': return 'bg-red-500 text-white animate-pulse';
-    case 'TODAY': return 'bg-orange-500 text-white';
-    case '48H': return 'bg-yellow-500 text-black';
+    case 'IMMEDIATE': return 'bg-red-600 text-white animate-pulse font-black';
+    case 'TODAY': return 'bg-orange-500 text-white font-bold';
+    case '48H': return 'bg-yellow-500 text-black font-medium';
     case 'THIS_WEEK': return 'bg-blue-500 text-white';
   }
 }
 
 export function getActionColor(action: DecisionAction): string {
   switch (action) {
-    case 'KILL': return 'bg-red-600 hover:bg-red-700 text-white';
-    case 'PAUSE': return 'bg-orange-600 hover:bg-orange-700 text-white';
-    case 'CAP': return 'bg-yellow-600 hover:bg-yellow-700 text-black';
+    case 'KILL': return 'bg-red-600 hover:bg-red-700 text-white font-black';
+    case 'PAUSE': return 'bg-orange-600 hover:bg-orange-700 text-white font-bold';
+    case 'CAP': return 'bg-yellow-600 hover:bg-yellow-700 text-black font-bold';
     case 'INVESTIGATE': return 'bg-blue-600 hover:bg-blue-700 text-white';
-    case 'SCALE': return 'bg-green-600 hover:bg-green-700 text-white';
+    case 'SCALE': return 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold';
   }
 }
