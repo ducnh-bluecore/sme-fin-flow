@@ -5105,6 +5105,138 @@ export type Database = {
           },
         ]
       }
+      early_warning_alerts: {
+        Row: {
+          acceleration: number | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          action_url: string | null
+          alert_class: string
+          breach_threshold: number | null
+          confidence_factors: Json | null
+          confidence_level: string
+          confidence_score: number | null
+          created_at: string | null
+          current_value: number
+          days_to_breach: number | null
+          dimension_key: string | null
+          estimated_breach_date: string | null
+          expires_at: string | null
+          exposure_amount: number | null
+          exposure_currency: string | null
+          id: string
+          impact_description: string | null
+          message: string | null
+          metadata: Json | null
+          metric_code: string
+          priority: number | null
+          r_squared: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          rule_id: string | null
+          severity: string | null
+          slope: number | null
+          status: string | null
+          suggested_action: string | null
+          tenant_id: string
+          title: string
+          trajectory: Json
+          updated_at: string | null
+        }
+        Insert: {
+          acceleration?: number | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_url?: string | null
+          alert_class: string
+          breach_threshold?: number | null
+          confidence_factors?: Json | null
+          confidence_level: string
+          confidence_score?: number | null
+          created_at?: string | null
+          current_value: number
+          days_to_breach?: number | null
+          dimension_key?: string | null
+          estimated_breach_date?: string | null
+          expires_at?: string | null
+          exposure_amount?: number | null
+          exposure_currency?: string | null
+          id?: string
+          impact_description?: string | null
+          message?: string | null
+          metadata?: Json | null
+          metric_code: string
+          priority?: number | null
+          r_squared?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_id?: string | null
+          severity?: string | null
+          slope?: number | null
+          status?: string | null
+          suggested_action?: string | null
+          tenant_id: string
+          title: string
+          trajectory: Json
+          updated_at?: string | null
+        }
+        Update: {
+          acceleration?: number | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_url?: string | null
+          alert_class?: string
+          breach_threshold?: number | null
+          confidence_factors?: Json | null
+          confidence_level?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          current_value?: number
+          days_to_breach?: number | null
+          dimension_key?: string | null
+          estimated_breach_date?: string | null
+          expires_at?: string | null
+          exposure_amount?: number | null
+          exposure_currency?: string | null
+          id?: string
+          impact_description?: string | null
+          message?: string | null
+          metadata?: Json | null
+          metric_code?: string
+          priority?: number | null
+          r_squared?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          rule_id?: string | null
+          severity?: string | null
+          slope?: number | null
+          status?: string | null
+          suggested_action?: string | null
+          tenant_id?: string
+          title?: string
+          trajectory?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "early_warning_alerts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "predictive_alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warning_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enterprise_policies: {
         Row: {
           approver_roles: string[]
@@ -7819,6 +7951,47 @@ export type Database = {
           },
         ]
       }
+      metric_trend_snapshots: {
+        Row: {
+          created_at: string | null
+          dimension_key: string | null
+          id: string
+          metric_code: string
+          metric_value: number
+          period_date: string
+          period_type: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dimension_key?: string | null
+          id?: string
+          metric_code: string
+          metric_value: number
+          period_date: string
+          period_type?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dimension_key?: string | null
+          id?: string
+          metric_code?: string
+          metric_value?: number
+          period_date?: string
+          period_type?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metric_trend_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ml_calibration_snapshots: {
         Row: {
           accuracy: number
@@ -9007,6 +9180,89 @@ export type Database = {
           },
           {
             foreignKeyName: "pos_terminals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      predictive_alert_rules: {
+        Row: {
+          breach_threshold: number
+          consecutive_periods: number | null
+          cooldown_hours: number | null
+          created_at: string | null
+          description: string | null
+          dimension_filter: string | null
+          id: string
+          is_enabled: boolean | null
+          lookback_periods: number | null
+          metric_code: string
+          min_acceleration_trigger: number | null
+          min_data_points: number | null
+          min_slope_trigger: number | null
+          priority: number | null
+          rule_code: string
+          rule_name: string
+          severity: string | null
+          suggested_actions: Json | null
+          tenant_id: string
+          threshold_direction: string | null
+          trend_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          breach_threshold: number
+          consecutive_periods?: number | null
+          cooldown_hours?: number | null
+          created_at?: string | null
+          description?: string | null
+          dimension_filter?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          lookback_periods?: number | null
+          metric_code: string
+          min_acceleration_trigger?: number | null
+          min_data_points?: number | null
+          min_slope_trigger?: number | null
+          priority?: number | null
+          rule_code: string
+          rule_name: string
+          severity?: string | null
+          suggested_actions?: Json | null
+          tenant_id: string
+          threshold_direction?: string | null
+          trend_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          breach_threshold?: number
+          consecutive_periods?: number | null
+          cooldown_hours?: number | null
+          created_at?: string | null
+          description?: string | null
+          dimension_filter?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          lookback_periods?: number | null
+          metric_code?: string
+          min_acceleration_trigger?: number | null
+          min_data_points?: number | null
+          min_slope_trigger?: number | null
+          priority?: number | null
+          rule_code?: string
+          rule_name?: string
+          severity?: string | null
+          suggested_actions?: Json | null
+          tenant_id?: string
+          threshold_direction?: string | null
+          trend_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "predictive_alert_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14740,6 +14996,7 @@ export type Database = {
         Args: { p_object_id: string }
         Returns: undefined
       }
+      calculate_trend_metrics: { Args: { p_values: number[] }; Returns: Json }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
         Returns: {
