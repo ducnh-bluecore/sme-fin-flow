@@ -182,99 +182,99 @@ export const MDP_V2_THRESHOLDS = {
   SCALE_MIN_DAYS_PROFITABLE: 7, // 7 days of profit
 };
 
-// === UI LANGUAGE (Pain-focused, Aggressive) ===
+// === UI LANGUAGE (Authoritative, Not Dramatic) ===
 export const DECISION_LANGUAGE = {
   CAMPAIGN_BURNING_CASH: {
-    title: '🔥 ĐANG ĐỐT CHÁY TIỀN',
-    headline: (amount: number) => `Mỗi giờ trôi qua = thêm ${formatVND(amount / 24)} bay hơi`,
-    subhead: 'Campaign này đang phá hủy margin của bạn',
-    action: 'GIẾT NGAY',
-    consequence: 'Không hành động = tiếp tục mất tiền',
+    title: 'Operating at Loss',
+    headline: (amount: number) => `Campaign losing ${formatVND(amount)}/day`,
+    subhead: 'Negative contribution margin detected',
+    action: 'Stop Campaign',
+    consequence: 'Continued operation increases loss',
   },
   FAKE_GROWTH_ALERT: {
-    title: '💀 TĂNG TRƯỞNG ẢO',
-    headline: (amount: number) => `Doanh thu "đẹp" che giấu lỗ ${formatVND(amount)}`,
-    subhead: 'Số liệu marketing đang NÓI DỐI bạn',
-    action: 'ĐIỀU TRA GẤP',
-    consequence: 'Càng scale = càng chết nhanh',
+    title: 'Revenue Without Profit',
+    headline: (amount: number) => `${formatVND(amount)} revenue masking loss`,
+    subhead: 'High revenue with negative margin',
+    action: 'Review Required',
+    consequence: 'Scaling will accelerate losses',
   },
   DELAYED_CASH_TRAP: {
-    title: '🔒 TIỀN BỊ GIAM',
-    headline: (amount: number) => `${formatVND(amount)} đang bị KHÓA CHẶT`,
-    subhead: 'Tiền chi ra nhưng không quay về',
-    action: 'DỪNG CHI TIỀN',
-    consequence: 'Cash flow đang bị bóp nghẹt',
+    title: 'Cash Conversion Issue',
+    headline: (amount: number) => `${formatVND(amount)} pending collection`,
+    subhead: 'Low cash conversion rate',
+    action: 'Pause Spend',
+    consequence: 'Cash flow constraint risk',
   },
   RETURN_BOMB_RISK: {
-    title: '💣 BOM HOÀN TRẢ',
-    headline: (rate: number) => `${(rate * 100).toFixed(0)}% đơn hàng đang BỊ TRẢ LẠI`,
-    subhead: 'Doanh thu hôm nay = Hoàn tiền ngày mai',
-    action: 'CẮT GIẢM NGAY',
-    consequence: 'Revenue ảo, chi phí thật',
+    title: 'High Return Rate',
+    headline: (rate: number) => `${(rate * 100).toFixed(0)}% return rate detected`,
+    subhead: 'Revenue at risk of reversal',
+    action: 'Reduce Budget',
+    consequence: 'Net revenue impact pending',
   },
   SKU_POISONING_CAMPAIGN: {
-    title: '☠️ SKU ĐỘC HẠI',
-    headline: (sku: string) => `Campaign đang bơm tiền vào SKU LỖ: ${sku}`,
-    subhead: 'Mỗi đơn bán thêm = thêm tiền mất',
-    action: 'LOẠI BỎ SKU',
-    consequence: 'Bán nhiều = lỗ nhiều',
+    title: 'Unprofitable SKU',
+    headline: (sku: string) => `Campaign promoting loss-making SKU: ${sku}`,
+    subhead: 'Negative unit economics',
+    action: 'Exclude SKU',
+    consequence: 'Each sale increases loss',
   },
 };
 
-// === PAIN COPY FOR CEO VIEW ===
-export const CEO_PAIN_COPY = {
-  destroying: {
-    title: 'ĐANG PHÁ HỦY TIỀN',
-    subtitle: 'Marketing đang LÀM HẠI doanh nghiệp',
-    warning: 'Mỗi phút chậm trễ = thêm tiền mất',
+// === CALM COPY FOR CEO VIEW ===
+export const CEO_VIEW_COPY = {
+  status: {
+    negative: 'Negative Marketing Contribution',
+    positive: 'Positive Marketing Contribution',
   },
-  creating: {
-    title: 'ĐANG TẠO GIÁ TRỊ',
-    subtitle: 'Marketing đang hoạt động hiệu quả',
-    warning: 'Theo dõi để duy trì',
+  sections: {
+    netImpact: 'Net Marketing Impact',
+    cashPosition: 'Cash Position',
+    decisions: 'Required Decisions',
   },
-  cashLocked: {
-    title: 'TIỀN ĐANG BỊ GIAM',
-    warning: 'Không thể sử dụng cho việc khác',
+  actions: {
+    none: 'No immediate actions required',
+    pending: (count: number) => `${count} decision${count > 1 ? 's' : ''} pending`,
   },
-  cashPending: {
-    title: 'TIỀN CHƯA VỀ',
-    warning: 'Có thể không bao giờ thu được',
-  },
-  immediateAction: {
-    title: 'CẦN HÀNH ĐỘNG NGAY',
-    subtitle: 'Mỗi giờ chậm = thêm tiền bay',
-  },
-  noIssues: {
-    title: 'KHÔNG CÓ VẤN ĐỀ KHẨN CẤP',
-    subtitle: 'Nhưng vẫn cần theo dõi liên tục',
+  confidence: {
+    high: 'High confidence',
+    medium: 'Medium confidence',
+    low: 'Low confidence',
   },
 };
 
 // === HELPER ===
 export function formatVND(amount: number): string {
   const abs = Math.abs(amount);
-  if (abs >= 1000000000) return `${(amount / 1000000000).toFixed(1)}B đ`;
-  if (abs >= 1000000) return `${(amount / 1000000).toFixed(1)}M đ`;
-  if (abs >= 1000) return `${(amount / 1000).toFixed(0)}K đ`;
-  return `${amount.toLocaleString('vi-VN')} đ`;
+  if (abs >= 1000000000) return `${(amount / 1000000000).toFixed(1)}B`;
+  if (abs >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+  if (abs >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+  return amount.toLocaleString('vi-VN');
 }
 
-export function getUrgencyColor(urgency: DecisionUrgency): string {
+export function getUrgencyStyle(urgency: DecisionUrgency): string {
   switch (urgency) {
-    case 'IMMEDIATE': return 'bg-red-600 text-white animate-pulse font-black';
-    case 'TODAY': return 'bg-orange-500 text-white font-bold';
-    case '48H': return 'bg-yellow-500 text-black font-medium';
-    case 'THIS_WEEK': return 'bg-blue-500 text-white';
+    case 'IMMEDIATE': return 'text-destructive font-medium';
+    case 'TODAY': return 'text-amber-600 dark:text-amber-400 font-medium';
+    case '48H': return 'text-muted-foreground';
+    case 'THIS_WEEK': return 'text-muted-foreground';
   }
 }
 
-export function getActionColor(action: DecisionAction): string {
+export function getActionStyle(action: DecisionAction, isPrimary: boolean = false): string {
+  if (!isPrimary) {
+    return 'bg-secondary text-secondary-foreground hover:bg-secondary/80';
+  }
   switch (action) {
-    case 'KILL': return 'bg-red-600 hover:bg-red-700 text-white font-black';
-    case 'PAUSE': return 'bg-orange-600 hover:bg-orange-700 text-white font-bold';
-    case 'CAP': return 'bg-yellow-600 hover:bg-yellow-700 text-black font-bold';
-    case 'INVESTIGATE': return 'bg-blue-600 hover:bg-blue-700 text-white';
-    case 'SCALE': return 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold';
+    case 'KILL': return 'bg-destructive hover:bg-destructive/90 text-destructive-foreground';
+    case 'PAUSE': return 'bg-amber-600 hover:bg-amber-700 text-white';
+    case 'CAP': return 'bg-secondary text-secondary-foreground hover:bg-secondary/80';
+    case 'INVESTIGATE': return 'bg-primary hover:bg-primary/90 text-primary-foreground';
+    case 'SCALE': return 'bg-emerald-600 hover:bg-emerald-700 text-white';
   }
 }
+
+// Legacy exports for backward compatibility
+export const CEO_PAIN_COPY = CEO_VIEW_COPY;
+export const getUrgencyColor = getUrgencyStyle;
+export const getActionColor = (action: DecisionAction) => getActionStyle(action, true);
