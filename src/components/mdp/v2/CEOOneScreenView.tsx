@@ -1,23 +1,29 @@
-import { Card, CardContent } from '@/components/ui/card';
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
-  Skull, 
   TrendingUp, 
   TrendingDown,
-  Wallet,
-  AlertTriangle,
-  Clock,
+  ChevronDown,
+  ChevronRight,
   ArrowRight,
-  Flame,
-  Lock,
-  CheckCircle,
-  XCircle,
-  Zap,
+  CheckCircle2,
+  Clock,
+  Banknote,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CEOMarketingSnapshot, MarketingDecisionCard, formatVND, getUrgencyColor, getActionColor } from '@/types/mdp-v2';
+import { 
+  CEOMarketingSnapshot, 
+  MarketingDecisionCard, 
+  formatVND, 
+  getUrgencyStyle, 
+  getActionStyle,
+  CEO_VIEW_COPY,
+  DECISION_LANGUAGE,
+} from '@/types/mdp-v2';
 
 interface CEOOneScreenViewProps {
   snapshot: CEOMarketingSnapshot;
@@ -25,337 +31,370 @@ interface CEOOneScreenViewProps {
 }
 
 /**
- * CEO ONE-SCREEN VIEW
+ * CEO ONE-SCREEN VIEW - CFO-GRADE DECISION SURFACE
  * 
- * Shows ONLY:
- * 1. Is marketing creating or destroying money?
- * 2. How much cash is at risk or locked?
- * 3. Which campaigns must be paused/killed NOW?
- * 
- * 30-second rule: CEO must know exactly what to do
+ * Design Principles:
+ * - Calm, authoritative, surgical
+ * - One primary signal per screen
+ * - Red is a scalpel, not a paint bucket
+ * - Numbers > icons
  */
 export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenViewProps) {
+  const [showSecondaryCards, setShowSecondaryCards] = useState(false);
+  
+  // Split cards: first critical one + rest
+  const primaryCard = snapshot.criticalCards[0];
+  const secondaryCards = snapshot.criticalCards.slice(1);
+  
   return (
-    <div className="space-y-6">
-      {/* === HEADER: Overall Verdict - PAINFUL === */}
-      <div className={cn(
-        "p-6 rounded-xl border-2 transition-all",
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* === HEADER: Net Impact - Single Dominant Signal === */}
+      <Card className={cn(
+        "border",
         snapshot.isCreatingMoney 
-          ? "bg-emerald-500/10 border-emerald-500/30" 
-          : "bg-red-500/10 border-red-500/50 animate-pulse shadow-lg shadow-red-500/20"
+          ? "border-emerald-500/30" 
+          : "border-destructive/30"
       )}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={cn(
-              "p-4 rounded-full",
-              snapshot.isCreatingMoney ? "bg-emerald-500/20" : "bg-red-500/30"
-            )}>
-              {snapshot.isCreatingMoney ? (
-                <TrendingUp className="h-10 w-10 text-emerald-400" />
-              ) : (
-                <Skull className="h-10 w-10 text-red-400 animate-pulse" />
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground font-medium uppercase tracking-wide">
-                {snapshot.isCreatingMoney ? 'Tình trạng' : '⚠️ CẢNH BÁO'}
-              </p>
-              <h1 className={cn(
-                "text-4xl font-black tracking-tight",
-                snapshot.isCreatingMoney ? "text-emerald-400" : "text-red-400"
-              )}>
-                {snapshot.isCreatingMoney ? 'ĐANG TẠO GIÁ TRỊ' : 'ĐANG PHÁ HỦY TIỀN'}
-              </h1>
-              {!snapshot.isCreatingMoney && (
-                <p className="text-sm text-red-400/80 font-medium mt-1">
-                  Mỗi phút chậm trễ = thêm tiền mất
-                </p>
-              )}
-            </div>
-          </div>
-          
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Net Margin</p>
-            <p className={cn(
-              "text-5xl font-black",
-              snapshot.netMarginPosition >= 0 ? "text-emerald-400" : "text-red-400"
-            )}>
-              {snapshot.netMarginPosition >= 0 ? '+' : ''}{formatVND(snapshot.netMarginPosition)}
-            </p>
-            <Badge className={cn(
-              "mt-2",
-              snapshot.marginTrend === 'improving' ? "bg-emerald-500/20 text-emerald-400" : 
-              snapshot.marginTrend === 'deteriorating' ? "bg-red-500/20 text-red-400 animate-pulse" : 
-              "bg-muted text-muted-foreground"
-            )}>
-              {snapshot.marginTrend === 'improving' ? '📈 Đang cải thiện' : 
-               snapshot.marginTrend === 'deteriorating' ? '📉 ĐANG XẤU ĐI' : '→ Ổn định'}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Margin Breakdown - More aggressive */}
-        <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-border/50">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10">
-            <div className="p-2 rounded-lg bg-emerald-500/20">
-              <TrendingUp className="h-6 w-6 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Margin tạo ra</p>
-              <p className="text-2xl font-black text-emerald-400">+{formatVND(snapshot.totalMarginCreated)}</p>
-            </div>
-          </div>
-          <div className={cn(
-            "flex items-center gap-3 p-3 rounded-lg",
-            snapshot.totalMarginDestroyed > 0 ? "bg-red-500/10" : "bg-muted/30"
-          )}>
-            <div className={cn(
-              "p-2 rounded-lg",
-              snapshot.totalMarginDestroyed > 0 ? "bg-red-500/20" : "bg-muted"
-            )}>
-              <TrendingDown className={cn(
-                "h-6 w-6",
-                snapshot.totalMarginDestroyed > 0 ? "text-red-400" : "text-muted-foreground"
-              )} />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                {snapshot.totalMarginDestroyed > 0 ? '💀 ĐANG BỊ PHÁ HỦY' : 'Margin mất'}
-              </p>
-              <p className={cn(
-                "text-2xl font-black",
-                snapshot.totalMarginDestroyed > 0 ? "text-red-400" : "text-muted-foreground"
-              )}>
-                -{formatVND(snapshot.totalMarginDestroyed)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* === CASH STATUS - PAINFUL COPY === */}
-      <Card className="border-blue-500/30 bg-gradient-to-br from-blue-500/5 to-transparent">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Wallet className="h-6 w-6 text-blue-400" />
-            <h2 className="text-lg font-bold">Tiền của bạn đang ở đâu?</h2>
-            {snapshot.totalCashAtRisk > 0 && (
-              <Badge className="bg-red-500/20 text-red-400 border-red-500/30 animate-pulse">
-                ⚠️ {formatVND(snapshot.totalCashAtRisk)} ĐANG BỊ GIAM
-              </Badge>
-            )}
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium uppercase tracking-wide mb-1">
+                {CEO_VIEW_COPY.sections.netImpact}
+              </p>
+              <div className="flex items-center gap-3">
+                <h1 className={cn(
+                  "text-4xl font-bold tracking-tight tabular-nums",
+                  snapshot.netMarginPosition >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
+                )}>
+                  {snapshot.netMarginPosition >= 0 ? '+' : ''}{formatVND(snapshot.netMarginPosition)}
+                </h1>
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-xs",
+                    snapshot.marginTrend === 'improving' && "text-emerald-600 border-emerald-500/30",
+                    snapshot.marginTrend === 'deteriorating' && "text-destructive border-destructive/30",
+                  )}
+                >
+                  {snapshot.marginTrend === 'improving' && <TrendingUp className="h-3 w-3 mr-1" />}
+                  {snapshot.marginTrend === 'deteriorating' && <TrendingDown className="h-3 w-3 mr-1" />}
+                  {snapshot.marginTrend === 'improving' ? 'Improving' : 
+                   snapshot.marginTrend === 'deteriorating' ? 'Declining' : 'Stable'}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                {snapshot.isCreatingMoney 
+                  ? CEO_VIEW_COPY.status.positive
+                  : CEO_VIEW_COPY.status.negative}
+              </p>
+            </div>
+            
+            {/* Margin Breakdown - Compact */}
+            <div className="flex gap-6 text-right">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Created</p>
+                <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  +{formatVND(snapshot.totalMarginCreated)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Lost</p>
+                <p className={cn(
+                  "text-xl font-semibold tabular-nums",
+                  snapshot.totalMarginDestroyed > 0 ? "text-destructive" : "text-muted-foreground"
+                )}>
+                  -{formatVND(snapshot.totalMarginDestroyed)}
+                </p>
+              </div>
+            </div>
           </div>
+        </CardContent>
+      </Card>
 
+      {/* === CASH POSITION - Clean Grid === */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Banknote className="h-4 w-4 text-muted-foreground" />
+            {CEO_VIEW_COPY.sections.cashPosition}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="grid grid-cols-4 gap-4">
             {/* Cash Received */}
-            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-4 w-4 text-emerald-400" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">✅ Đã về tài khoản</span>
-              </div>
-              <p className="text-2xl font-black text-emerald-400">{formatVND(snapshot.cashReceived)}</p>
-              <p className="text-xs text-emerald-400/60 mt-1">Tiền thật, có thể sử dụng</p>
+            <div className="p-4 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Received</p>
+              <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                {formatVND(snapshot.cashReceived)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Available</p>
             </div>
 
             {/* Cash Pending */}
-            <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-yellow-400" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">⏳ CHƯA VỀ</span>
-              </div>
-              <p className="text-2xl font-black text-yellow-400">{formatVND(snapshot.cashPending)}</p>
-              <p className="text-xs text-yellow-400/60 mt-1">Có thể không thu được</p>
+            <div className="p-4 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Pending</p>
+              <p className="text-2xl font-semibold text-amber-600 dark:text-amber-400 tabular-nums">
+                {formatVND(snapshot.cashPending)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting collection</p>
             </div>
 
             {/* Cash Locked */}
-            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Lock className="h-4 w-4 text-red-400" />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">🔒 BỊ KHÓA</span>
-              </div>
-              <p className="text-2xl font-black text-red-400">{formatVND(snapshot.cashLocked)}</p>
-              <p className="text-xs text-red-400/60 mt-1">Không thể rút về</p>
+            <div className={cn(
+              "p-4 rounded-lg",
+              snapshot.cashLocked > 0 ? "bg-muted/30" : "bg-muted/30"
+            )}>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Locked</p>
+              <p className={cn(
+                "text-2xl font-semibold tabular-nums",
+                snapshot.cashLocked > 0 ? "text-foreground" : "text-muted-foreground"
+              )}>
+                {formatVND(snapshot.cashLocked)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">In ads/inventory</p>
             </div>
 
-            {/* Cash Conversion */}
-            <div className={cn(
-              "p-4 rounded-lg border",
-              snapshot.cashConversionRate < 0.5 ? "bg-red-500/10 border-red-500/20" : "bg-muted/50 border-border"
-            )}>
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className={cn(
-                  "h-4 w-4",
-                  snapshot.cashConversionRate < 0.5 ? "text-red-400" : "text-primary"
-                )} />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Tỷ lệ thu về</span>
-              </div>
+            {/* Cash Conversion Rate */}
+            <div className="p-4 rounded-lg bg-muted/30">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Conversion</p>
               <p className={cn(
-                "text-2xl font-black",
-                snapshot.cashConversionRate >= 0.7 ? "text-emerald-400" :
-                snapshot.cashConversionRate >= 0.5 ? "text-yellow-400" : "text-red-400"
+                "text-2xl font-semibold tabular-nums",
+                snapshot.cashConversionRate >= 0.7 ? "text-emerald-600 dark:text-emerald-400" :
+                snapshot.cashConversionRate >= 0.5 ? "text-amber-600 dark:text-amber-400" : "text-destructive"
               )}>
                 {(snapshot.cashConversionRate * 100).toFixed(0)}%
               </p>
               <Progress 
                 value={snapshot.cashConversionRate * 100} 
-                className="h-1.5 mt-2" 
+                className="h-1 mt-2" 
               />
-              {snapshot.cashConversionRate < 0.5 && (
-                <p className="text-xs text-red-400 mt-1 font-medium">⚠️ QUÁ THẤP</p>
-              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* === IMMEDIATE ACTIONS === */}
+      {/* === REQUIRED DECISIONS === */}
       <Card className={cn(
-        "border-2 transition-all",
-        snapshot.immediateActions > 0 
-          ? "border-red-500/50 bg-red-500/5" 
-          : "border-emerald-500/30 bg-emerald-500/5"
+        "border",
+        snapshot.immediateActions > 0 && primaryCard?.urgency === 'IMMEDIATE'
+          ? "border-destructive/30" 
+          : ""
       )}>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {snapshot.immediateActions > 0 ? (
-                <Flame className="h-8 w-8 text-red-400 animate-pulse" />
-              ) : (
-                <CheckCircle className="h-8 w-8 text-emerald-400" />
-              )}
-              <div>
-                <h2 className={cn(
-                  "text-xl font-black",
-                  snapshot.immediateActions > 0 ? "text-red-400" : "text-emerald-400"
-                )}>
-                  {snapshot.immediateActions > 0 
-                    ? `🚨 ${snapshot.immediateActions} VẤN ĐỀ CẦN GIẢI QUYẾT NGAY` 
-                    : '✅ Không có lửa cần dập'}
-                </h2>
-                <p className={cn(
-                  "text-sm font-medium",
-                  snapshot.immediateActions > 0 ? "text-red-400/80" : "text-muted-foreground"
-                )}>
-                  {snapshot.immediateActions > 0 
-                    ? 'MỖI GIỜ CHẬM TRỄ = THÊM TIỀN MẤT' 
-                    : 'Marketing đang vận hành ổn định'}
-                </p>
-              </div>
-            </div>
-            
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <AlertCircle className={cn(
+                "h-4 w-4",
+                snapshot.immediateActions > 0 ? "text-destructive" : "text-muted-foreground"
+              )} />
+              {CEO_VIEW_COPY.sections.decisions}
+            </CardTitle>
             {snapshot.immediateActions > 0 && (
-              <Badge className="bg-red-600 text-white text-xl px-6 py-3 animate-pulse font-black">
-                {snapshot.immediateActions} LỬA
+              <Badge variant="outline" className="text-xs font-normal">
+                {CEO_VIEW_COPY.actions.pending(snapshot.immediateActions)}
               </Badge>
             )}
           </div>
-
-          {/* Decision Cards */}
+        </CardHeader>
+        <CardContent>
           {snapshot.criticalCards.length > 0 ? (
             <div className="space-y-3">
-              {snapshot.criticalCards.map((card) => (
-                <div 
-                  key={card.id}
-                  className={cn(
-                    "p-4 rounded-lg border-2 transition-all",
-                    card.urgency === 'IMMEDIATE' 
-                      ? "border-red-500/50 bg-red-500/10" 
-                      : "border-orange-500/30 bg-orange-500/5"
+              {/* PRIMARY DECISION CARD - Full attention */}
+              {primaryCard && (
+                <PrimaryDecisionCard 
+                  card={primaryCard} 
+                  onAction={onDecisionAction}
+                />
+              )}
+
+              {/* SECONDARY CARDS - Collapsed by default */}
+              {secondaryCards.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setShowSecondaryCards(!showSecondaryCards)}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2"
+                  >
+                    {showSecondaryCards ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <span>{secondaryCards.length} additional issue{secondaryCards.length > 1 ? 's' : ''}</span>
+                  </button>
+                  
+                  {showSecondaryCards && (
+                    <div className="space-y-2 mt-2">
+                      {secondaryCards.map((card) => (
+                        <SecondaryDecisionCard 
+                          key={card.id}
+                          card={card}
+                          onAction={onDecisionAction}
+                        />
+                      ))}
+                    </div>
                   )}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className={getUrgencyColor(card.urgency)}>
-                          {card.urgency === 'IMMEDIATE' ? '🔥 NGAY LÚC NÀY' : `⏰ Còn ${card.deadlineHours}h`}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs font-bold">
-                          {card.channel}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          👤 {card.owner}
-                        </Badge>
-                      </div>
-
-                      {/* Problem - PAINFUL */}
-                      <p className="font-black text-xl text-red-400 mb-1">{card.title}</p>
-                      <p className="text-base font-bold mb-1">{card.headline}</p>
-                      <p className="text-sm text-muted-foreground font-medium">{card.campaignName}</p>
-
-                      {/* Metrics */}
-                      <div className="flex gap-4 mt-3 pt-3 border-t border-border/30">
-                        {card.metrics.slice(0, 3).map((m, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground">{m.label}:</span>
-                            <span className={cn(
-                              "text-sm font-black",
-                              m.severity === 'critical' ? "text-red-400" :
-                              m.severity === 'warning' ? "text-yellow-400" : "text-emerald-400"
-                            )}>
-                              {m.value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Action Side - MORE AGGRESSIVE */}
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-red-400/80 uppercase tracking-wide font-bold mb-1">💸 Đang mất</p>
-                      <p className="text-3xl font-black text-red-400">
-                        -{formatVND(card.impactAmount)}
-                      </p>
-                      <p className="text-xs text-orange-400 mt-1 font-medium">
-                        +{formatVND(card.projectedLoss)} nếu không xử lý
-                      </p>
-                      
-                      <Button 
-                        size="lg"
-                        className={cn("mt-4 gap-2 font-black text-base", getActionColor(card.recommendedAction))}
-                        onClick={() => onDecisionAction(card)}
-                      >
-                        {card.recommendedAction === 'KILL' ? '☠️ GIẾT NGAY' :
-                         card.recommendedAction === 'PAUSE' ? '⏸️ DỪNG' :
-                         card.recommendedAction === 'CAP' ? '🔻 CẮT GIẢM' :
-                         card.recommendedAction}
-                        <ArrowRight className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
                 </div>
-              ))}
+              )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-emerald-400" />
+            <div className="flex items-center gap-3 py-6">
+              <div className="p-2 rounded-full bg-emerald-500/10">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <p className="text-lg font-medium text-emerald-400">Tất cả campaigns đang hoạt động bình thường</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Tiếp tục theo dõi - system sẽ cảnh báo khi có vấn đề
-              </p>
+              <div>
+                <p className="font-medium text-emerald-600 dark:text-emerald-400">
+                  {CEO_VIEW_COPY.actions.none}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  All campaigns operating within thresholds
+                </p>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* === DATA CONFIDENCE === */}
-      <div className="flex items-center justify-between px-4 py-2 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+      {/* === DATA CONFIDENCE - Minimal Footer === */}
+      <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <div className={cn(
-            "w-2 h-2 rounded-full",
-            snapshot.dataConfidence === 'high' ? "bg-emerald-400" :
-            snapshot.dataConfidence === 'medium' ? "bg-yellow-400" : "bg-red-400"
+            "w-1.5 h-1.5 rounded-full",
+            snapshot.dataConfidence === 'high' ? "bg-emerald-500" :
+            snapshot.dataConfidence === 'medium' ? "bg-amber-500" : "bg-destructive"
           )} />
-          <span>
-            Độ tin cậy dữ liệu: {
-              snapshot.dataConfidence === 'high' ? 'Cao' :
-              snapshot.dataConfidence === 'medium' ? 'Trung bình' : 'Thấp'
-            }
+          <span>{CEO_VIEW_COPY.confidence[snapshot.dataConfidence]}</span>
+        </div>
+        <span>Updated {new Date(snapshot.lastUpdated).toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })}</span>
+      </div>
+    </div>
+  );
+}
+
+// === PRIMARY DECISION CARD ===
+function PrimaryDecisionCard({ 
+  card, 
+  onAction 
+}: { 
+  card: MarketingDecisionCard; 
+  onAction: (card: MarketingDecisionCard) => void;
+}) {
+  const language = DECISION_LANGUAGE[card.type];
+  
+  return (
+    <div className={cn(
+      "p-5 rounded-lg border",
+      card.urgency === 'IMMEDIATE' 
+        ? "border-destructive/40 bg-destructive/5" 
+        : "border-border bg-muted/20"
+    )}>
+      <div className="flex items-start justify-between gap-6">
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className={cn("text-sm", getUrgencyStyle(card.urgency))}>
+              {card.urgency === 'IMMEDIATE' ? 'Immediate' : 
+               card.urgency === 'TODAY' ? 'Today' : 
+               `Within ${card.deadlineHours}h`}
+            </span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-sm text-muted-foreground">{card.channel}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-sm text-muted-foreground">{card.owner}</span>
+          </div>
+
+          {/* Problem Statement */}
+          <h3 className={cn(
+            "text-lg font-semibold mb-1",
+            card.urgency === 'IMMEDIATE' ? "text-destructive" : "text-foreground"
+          )}>
+            {language.title}
+          </h3>
+          <p className="text-sm text-muted-foreground mb-3">{card.campaignName}</p>
+
+          {/* Key Metrics */}
+          <div className="flex gap-4">
+            {card.metrics.slice(0, 3).map((m, idx) => (
+              <div key={idx} className="text-sm">
+                <span className="text-muted-foreground">{m.label}: </span>
+                <span className={cn(
+                  "font-medium",
+                  m.severity === 'critical' ? "text-destructive" :
+                  m.severity === 'warning' ? "text-amber-600 dark:text-amber-400" : ""
+                )}>
+                  {m.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Action Side */}
+        <div className="text-right shrink-0">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Impact</p>
+          <p className={cn(
+            "text-2xl font-bold tabular-nums",
+            card.urgency === 'IMMEDIATE' ? "text-destructive" : "text-foreground"
+          )}>
+            -{formatVND(card.impactAmount)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            +{formatVND(card.projectedLoss)} if unresolved
+          </p>
+          
+          <Button 
+            size="sm"
+            className={cn("mt-4 gap-1.5", getActionStyle(card.recommendedAction, card.urgency === 'IMMEDIATE'))}
+            onClick={() => onAction(card)}
+          >
+            {language.action}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === SECONDARY DECISION CARD (Compact) ===
+function SecondaryDecisionCard({ 
+  card, 
+  onAction 
+}: { 
+  card: MarketingDecisionCard; 
+  onAction: (card: MarketingDecisionCard) => void;
+}) {
+  const language = DECISION_LANGUAGE[card.type];
+  
+  return (
+    <div className="flex items-center justify-between gap-4 p-3 rounded-lg border border-border bg-muted/10 hover:bg-muted/20 transition-colors">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className={cn("text-xs", getUrgencyStyle(card.urgency))}>
+            {card.deadlineHours}h
           </span>
         </div>
-        <span>Cập nhật: {new Date(snapshot.lastUpdated).toLocaleTimeString('vi-VN')}</span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{language.title}</p>
+          <p className="text-xs text-muted-foreground truncate">{card.campaignName}</p>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4 shrink-0">
+        <span className="text-sm font-medium tabular-nums text-muted-foreground">
+          -{formatVND(card.impactAmount)}
+        </span>
+        <Button 
+          size="sm"
+          variant="outline"
+          className="text-xs h-7"
+          onClick={() => onAction(card)}
+        >
+          {language.action}
+        </Button>
       </div>
     </div>
   );
