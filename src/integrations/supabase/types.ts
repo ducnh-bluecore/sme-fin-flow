@@ -13845,6 +13845,7 @@ export type Database = {
           reference: string | null
           tenant_id: string | null
           transaction_date: string | null
+          txn_abs_amount: number | null
           unmatched_amount: number | null
         }
         Relationships: [
@@ -13898,11 +13899,8 @@ export type Database = {
       v_invoice_settled_paid: {
         Row: {
           invoice_id: string | null
-          invoice_number: string | null
-          remaining_amount: number | null
-          settled_paid_amount: number | null
+          paid_amount_settled: number | null
           tenant_id: string | null
-          total_amount: number | null
         }
         Relationships: [
           {

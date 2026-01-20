@@ -361,7 +361,17 @@ Deno.serve(async (req) => {
         manualReviewRequired: riskBreaches.some(b => b.severity === 'critical'),
       };
 
-      // Save scenario
+      /**
+       * GOVERNANCE ISOLATION (v3.1):
+       * Scenario outputs are stored ONLY in board_scenarios table.
+       * 
+       * CRITICAL: DO NOT write scenario data to:
+       * - decision_snapshots (truth ledger)
+       * - risk_breach_events (actual breaches)
+       * - Any other SSOT table
+       * 
+       * Scenario data is simulation-only and must never pollute financial truth.
+       */
       const { data: scenario, error } = await supabaseClient
         .from('board_scenarios')
         .insert({
@@ -370,8 +380,8 @@ Deno.serve(async (req) => {
           scenario_type: scenarioType,
           description,
           assumptions,
-          projected_outcomes: projectedOutcomes,
-          risk_breaches: riskBreaches,
+          projected_outcomes: projectedOutcomes, // JSON only, not in SSOT
+          risk_breaches: riskBreaches, // Simulated breaches, not actual
           control_impacts: controlImpacts,
           baseline_snapshot: baseline,
           created_by: user.id,
@@ -395,6 +405,9 @@ Deno.serve(async (req) => {
         riskBreaches,
         controlImpacts,
         simulatedAt: new Date().toISOString(),
+        // Explicitly mark as simulation - NOT truth data
+        isSimulation: true,
+        truthLevel: 'simulated', // Never 'settled' or 'provisional'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

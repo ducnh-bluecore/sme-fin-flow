@@ -419,7 +419,17 @@ export function useAutoMatchSSOT() {
       }, [] as MatchResult[]);
   }, [invoices, transactions, invoiceStatus, bankTxnState]);
 
-  const runAutoMatch = useCallback(async (autoApply: boolean = false) => {
+  /**
+   * GOVERNANCE FIX (v3.1): Auto-match NO LONGER writes to ledger
+   * 
+   * High-confidence matches are SUGGESTED ONLY - ledger writes only via:
+   * 1. User explicitly confirms via applyMatch()
+   * 2. Guardrails auto-confirm path (with audit trail)
+   * 
+   * This ensures enterprise safety and prevents bypass of governance controls.
+   */
+  const runAutoMatch = useCallback(async (_autoApply: boolean = false) => {
+    // GOVERNANCE: autoApply parameter is now ignored - all matches are suggestions only
     if (!invoices || !transactions) {
       toast.error('Dữ liệu chưa sẵn sàng');
       return [];
@@ -431,30 +441,14 @@ export function useAutoMatchSSOT() {
       const matches = findMatches();
       setMatchResults(matches);
 
-      if (autoApply && matches.length > 0) {
-        const highConfidenceMatches = matches.filter(m => m.confidence >= 80);
+      const highConfidenceCount = matches.filter(m => m.confidence >= 80).length;
 
-        for (const match of highConfidenceMatches) {
-          const txn = transactions.find(t => t.id === match.transactionId);
-          if (txn) {
-            await createLink.mutateAsync({
-              bankTransactionId: txn.id,
-              invoiceId: match.invoiceId,
-              settlementAmount: Math.abs(txn.amount),
-              matchType: match.matchType === 'exact' ? 'exact' : 'probabilistic',
-              confidence: match.confidence,
-              matchEvidence: {
-                source: 'auto_match',
-                reason: match.reason,
-                algorithm_version: '2.0_ssot',
-              },
-            });
-          }
-        }
-
-        toast.success(`Đã tự động khớp ${highConfidenceMatches.length} giao dịch`);
-      } else if (matches.length > 0) {
-        toast.info(`Tìm thấy ${matches.length} giao dịch có thể khớp`);
+      if (matches.length > 0) {
+        // GOVERNANCE: Never auto-apply - only suggest
+        toast.info(
+          `Tìm thấy ${matches.length} giao dịch có thể khớp` +
+          (highConfidenceCount > 0 ? ` (${highConfidenceCount} độ tin cậy cao)` : '')
+        );
       } else {
         toast.info('Không tìm thấy giao dịch phù hợp để khớp');
       }
@@ -466,7 +460,7 @@ export function useAutoMatchSSOT() {
     } finally {
       setIsMatching(false);
     }
-  }, [invoices, transactions, findMatches, createLink]);
+  }, [invoices, transactions, findMatches]);
 
   const applyMatch = useCallback(async (match: MatchResult) => {
     if (!transactions) return;

@@ -5,11 +5,89 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/**
+ * GOVERNANCE PATCH v3.1 - Investor Disclosure Sanitization
+ * 
+ * CRITICAL SANITIZATION RULES:
+ * Investor disclosures MUST NEVER include:
+ * - Customer names
+ * - Invoice numbers
+ * - Bank references
+ * - Any PII or transaction-level details
+ * 
+ * ALLOWED content:
+ * - Ratios
+ * - Percentages
+ * - Buckets (e.g., "0-30 days", "30-60 days")
+ * - Status statements (e.g., "within appetite", "breached")
+ */
+
 interface RiskMetric {
   metric: string;
   value: string;
   withinAppetite: boolean;
   domain: string;
+}
+
+// Sanitization patterns to detect and block
+const SENSITIVE_PATTERNS = [
+  /invoice[_\s-]*(number|num|no|id)/i,
+  /customer[_\s-]*(name|id)/i,
+  /bank[_\s-]*(reference|ref|account)/i,
+  /transaction[_\s-]*(id|ref)/i,
+  /order[_\s-]*(number|num|id)/i,
+  /[A-Z]{2,4}[-_]?\d{4,}/i, // Invoice/order numbers like INV-12345
+  /@[a-zA-Z0-9]+\.[a-zA-Z]+/i, // Email addresses
+  /\d{10,}/i, // Long numbers (account numbers, phone numbers)
+];
+
+/**
+ * Check if a value contains sensitive information
+ */
+function containsSensitiveData(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  return SENSITIVE_PATTERNS.some(pattern => pattern.test(value));
+}
+
+/**
+ * Recursively sanitize an object, removing any sensitive fields
+ */
+function sanitizeForInvestor<T>(obj: T, path = ''): T {
+  if (obj === null || obj === undefined) return obj;
+  
+  if (typeof obj === 'string') {
+    if (containsSensitiveData(obj)) {
+      console.warn(`[DISCLOSURE SANITIZATION] Blocked sensitive data at ${path}`);
+      return '[REDACTED]' as T;
+    }
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map((item, i) => sanitizeForInvestor(item, `${path}[${i}]`)) as T;
+  }
+  
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Block known sensitive field names
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey.includes('customer') ||
+        lowerKey.includes('invoice_number') ||
+        lowerKey.includes('bank_reference') ||
+        lowerKey.includes('transaction_id') ||
+        lowerKey.includes('account_number')
+      ) {
+        console.warn(`[DISCLOSURE SANITIZATION] Blocked field: ${key}`);
+        continue; // Skip this field entirely
+      }
+      result[key] = sanitizeForInvestor(value, `${path}.${key}`);
+    }
+    return result as T;
+  }
+  
+  return obj;
 }
 
 // Map internal metrics to investor-safe descriptions
@@ -27,7 +105,8 @@ function sanitizeMetricForInvestor(
     },
     'ar_overdue_amount': {
       metric: 'Overdue receivables value',
-      formatter: (v) => `$${(v / 1000000).toFixed(2)}M`
+      // Sanitize to bucket, not exact amount
+      formatter: (v) => v > 1000000 ? '>$1M' : v > 500000 ? '$500K-$1M' : v > 100000 ? '$100K-$500K' : '<$100K'
     },
     'false_auto_rate': {
       metric: 'Automated transaction accuracy',
@@ -47,11 +126,12 @@ function sanitizeMetricForInvestor(
     },
     'cash_runway_days': {
       metric: 'Cash runway',
-      formatter: (v) => `${Math.round(v)} days`
+      // Bucket, not exact days
+      formatter: (v) => v > 180 ? '>6 months' : v > 90 ? '3-6 months' : v > 30 ? '1-3 months' : '<1 month'
     },
     'pending_approvals': {
       metric: 'Governance queue',
-      formatter: (v) => `${v} items pending review`
+      formatter: (v) => v === 0 ? 'Clear' : v < 5 ? 'Minimal' : v < 10 ? 'Moderate' : 'High volume'
     },
   };
 
