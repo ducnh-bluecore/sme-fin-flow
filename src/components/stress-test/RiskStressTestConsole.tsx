@@ -17,7 +17,7 @@ import {
   RotateCcw,
   Info
 } from 'lucide-react';
-import { useRiskAppetites, useActiveRiskAppetite } from '@/hooks/useRiskAppetite';
+import { useRiskAppetites, useRiskAppetiteRules } from '@/hooks/useRiskAppetite';
 import { 
   useRunStressTest, 
   usePreviewStressTest, 
@@ -46,6 +46,7 @@ export function RiskStressTestConsole() {
 
   const { data: appetites } = useRiskAppetites();
   const activeAppetite = appetites?.find(a => a.status === 'active');
+  const { data: appetiteRules } = useRiskAppetiteRules(activeAppetite?.id || null);
   const { data: history } = useStressTestHistory();
   
   const runStressTest = useRunStressTest();
@@ -53,10 +54,9 @@ export function RiskStressTestConsole() {
 
   // Initialize simulated changes from active appetite rules
   useEffect(() => {
-    if (activeAppetite?.risk_appetite_rules) {
-      const rules = activeAppetite.risk_appetite_rules as any[];
+    if (appetiteRules && appetiteRules.length > 0) {
       setSimulatedChanges(
-        rules
+        appetiteRules
           .filter(r => r.is_enabled)
           .map(r => ({
             metricCode: r.metric_code,
@@ -68,7 +68,7 @@ export function RiskStressTestConsole() {
           }))
       );
     }
-  }, [activeAppetite]);
+  }, [appetiteRules]);
 
   const handleThresholdChange = async (metricCode: string, value: number) => {
     const updated = simulatedChanges.map(c => 

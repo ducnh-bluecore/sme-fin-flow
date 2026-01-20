@@ -25,7 +25,7 @@ interface ImpactResult {
 
 // Re-evaluate metrics with simulated thresholds
 async function simulateRuleImpact(
-  supabaseClient: ReturnType<typeof createClient>,
+  supabaseClient: any,
   tenantId: string,
   originalRules: Array<{
     metric_code: string;
@@ -93,7 +93,7 @@ function evaluateThreshold(value: number, operator: string, threshold: number): 
 }
 
 async function estimateAutomationImpact(
-  supabaseClient: ReturnType<typeof createClient>,
+  supabaseClient: any,
   tenantId: string,
   simulatedChanges: SimulatedRule[]
 ): Promise<{ current: number; simulated: number; delta: number }> {
@@ -107,7 +107,7 @@ async function estimateAutomationImpact(
     .gte('created_at', thirtyDaysAgo);
 
   const total = outcomes?.length || 0;
-  const autoConfirmed = outcomes?.filter((o: { outcome: string }) => o.outcome === 'AUTO_CONFIRMED').length || 0;
+  const autoConfirmed = outcomes?.filter((o: any) => o.outcome === 'AUTO_CONFIRMED').length || 0;
   const currentRate = total > 0 ? (autoConfirmed / total) * 100 : 0;
 
   // Simulate: if thresholds are tighter, fewer transactions would auto-confirm
@@ -133,7 +133,7 @@ async function estimateAutomationImpact(
 }
 
 async function estimateApprovalImpact(
-  supabaseClient: ReturnType<typeof createClient>,
+  supabaseClient: any,
   tenantId: string,
   simulatedChanges: SimulatedRule[]
 ): Promise<{ current: number; simulated: number; delta: number }> {
@@ -424,8 +424,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
