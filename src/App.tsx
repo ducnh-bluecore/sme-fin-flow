@@ -113,6 +113,8 @@ import ProfitAttributionPage from "./pages/mdp/ProfitAttributionPage";
 import CashImpactPage from "./pages/mdp/CashImpactPage";
 import RiskAlertsPage from "./pages/mdp/RiskAlertsPage";
 import MDPDecisionSupportPage from "./pages/mdp/DecisionSupportPage";
+// MDP V2 - CEO Decision View
+import MDPV2CEOPage from "./pages/mdp/MDPV2CEOPage";
 
 // Control Tower pages - Manifesto compliant: only alert-focused pages
 import CTTasksPage from "./pages/control-tower/TasksPage";
@@ -221,7 +223,8 @@ const AppRoutes = () => {
         }
       >
         {/* MDP Manifesto: Profit before Performance. Cash before Clicks. */}
-        <Route path="/mdp" element={<Navigate to="/mdp/marketing-mode" replace />} />
+        <Route path="/mdp" element={<Navigate to="/mdp/ceo" replace />} />
+        <Route path="/mdp/ceo" element={<MDPV2CEOPage />} />
         <Route path="/mdp/marketing-mode" element={<MarketingModePage />} />
         <Route path="/mdp/cmo-mode" element={<CMOModePage />} />
         <Route path="/mdp/campaigns" element={<CampaignsPage />} />
