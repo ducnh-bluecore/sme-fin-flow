@@ -309,6 +309,146 @@ export type Database = {
           },
         ]
       }
+      ai_advisor_config: {
+        Row: {
+          allow_multiple_options: boolean | null
+          allow_questions: boolean | null
+          created_at: string | null
+          default_response: string | null
+          id: string
+          max_actions_per_response: number | null
+          min_confidence_to_speak: number | null
+          min_samples_to_speak: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          allow_multiple_options?: boolean | null
+          allow_questions?: boolean | null
+          created_at?: string | null
+          default_response?: string | null
+          id?: string
+          max_actions_per_response?: number | null
+          min_confidence_to_speak?: number | null
+          min_samples_to_speak?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          allow_multiple_options?: boolean | null
+          allow_questions?: boolean | null
+          created_at?: string | null
+          default_response?: string | null
+          id?: string
+          max_actions_per_response?: number | null
+          min_confidence_to_speak?: number | null
+          min_samples_to_speak?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_advisor_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_advisor_responses: {
+        Row: {
+          action_target: string | null
+          action_verb: string | null
+          actioned_at: string | null
+          alert_id: string | null
+          based_on_pattern_id: string | null
+          based_on_samples: number | null
+          confidence_score: number
+          created_at: string | null
+          decision_type: string | null
+          id: string
+          is_silent: boolean | null
+          metric_code: string | null
+          outcome_measured: boolean | null
+          recommendation: string | null
+          surfaced_at: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action_target?: string | null
+          action_verb?: string | null
+          actioned_at?: string | null
+          alert_id?: string | null
+          based_on_pattern_id?: string | null
+          based_on_samples?: number | null
+          confidence_score: number
+          created_at?: string | null
+          decision_type?: string | null
+          id?: string
+          is_silent?: boolean | null
+          metric_code?: string | null
+          outcome_measured?: boolean | null
+          recommendation?: string | null
+          surfaced_at?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action_target?: string | null
+          action_verb?: string | null
+          actioned_at?: string | null
+          alert_id?: string | null
+          based_on_pattern_id?: string | null
+          based_on_samples?: number | null
+          confidence_score?: number
+          created_at?: string | null
+          decision_type?: string | null
+          id?: string
+          is_silent?: boolean | null
+          metric_code?: string | null
+          outcome_measured?: boolean | null
+          recommendation?: string | null
+          surfaced_at?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_advisor_responses_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_based_on_pattern_id_fkey"
+            columns: ["based_on_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "decision_learning_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_usage_logs: {
         Row: {
           completion_tokens: number
@@ -15228,6 +15368,102 @@ export type Database = {
           },
         ]
       }
+      v_ai_advisor_active: {
+        Row: {
+          action_target: string | null
+          action_verb: string | null
+          actioned_at: string | null
+          alert_id: string | null
+          based_on_pattern_id: string | null
+          based_on_samples: number | null
+          confidence_score: number | null
+          created_at: string | null
+          decision_type: string | null
+          display_text: string | null
+          id: string | null
+          is_silent: boolean | null
+          metric_code: string | null
+          outcome_measured: boolean | null
+          recommendation: string | null
+          surfaced_at: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          action_target?: string | null
+          action_verb?: string | null
+          actioned_at?: string | null
+          alert_id?: string | null
+          based_on_pattern_id?: string | null
+          based_on_samples?: number | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type?: string | null
+          display_text?: never
+          id?: string | null
+          is_silent?: boolean | null
+          metric_code?: string | null
+          outcome_measured?: boolean | null
+          recommendation?: string | null
+          surfaced_at?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          action_target?: string | null
+          action_verb?: string | null
+          actioned_at?: string | null
+          alert_id?: string | null
+          based_on_pattern_id?: string | null
+          based_on_samples?: number | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type?: string | null
+          display_text?: never
+          id?: string | null
+          is_silent?: boolean | null
+          metric_code?: string | null
+          outcome_measured?: boolean | null
+          recommendation?: string | null
+          surfaced_at?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_advisor_responses_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_based_on_pattern_id_fkey"
+            columns: ["based_on_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "decision_learning_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_advisor_responses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_alerts_pending_escalation: {
         Row: {
           acknowledged_at: string | null
@@ -15802,6 +16038,15 @@ export type Database = {
         Returns: string
       }
       get_active_tenant_id: { Args: never; Returns: string }
+      get_ai_recommendation: {
+        Args: {
+          p_alert_id?: string
+          p_decision_type?: string
+          p_metric_code?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       get_decision_insight: {
         Args: {
           p_decision_type: string
