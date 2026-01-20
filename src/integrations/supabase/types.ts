@@ -5148,10 +5148,17 @@ export type Database = {
           confidence_level: string
           confidence_score: number | null
           created_at: string | null
+          current_owner_role: string | null
           current_value: number
           days_to_breach: number | null
+          decision_deadline: string | null
           decision_framing: Json | null
           dimension_key: string | null
+          escalated_at: string | null
+          escalated_from_role: string | null
+          escalation_history: Json | null
+          escalation_level: number | null
+          escalation_reason: string | null
           estimated_breach_date: string | null
           expires_at: string | null
           exposure_amount: number | null
@@ -5160,6 +5167,7 @@ export type Database = {
           id: string
           impact_description: string | null
           is_parent: boolean | null
+          last_action_at: string | null
           message: string | null
           metadata: Json | null
           metric_code: string
@@ -5194,10 +5202,17 @@ export type Database = {
           confidence_level: string
           confidence_score?: number | null
           created_at?: string | null
+          current_owner_role?: string | null
           current_value: number
           days_to_breach?: number | null
+          decision_deadline?: string | null
           decision_framing?: Json | null
           dimension_key?: string | null
+          escalated_at?: string | null
+          escalated_from_role?: string | null
+          escalation_history?: Json | null
+          escalation_level?: number | null
+          escalation_reason?: string | null
           estimated_breach_date?: string | null
           expires_at?: string | null
           exposure_amount?: number | null
@@ -5206,6 +5221,7 @@ export type Database = {
           id?: string
           impact_description?: string | null
           is_parent?: boolean | null
+          last_action_at?: string | null
           message?: string | null
           metadata?: Json | null
           metric_code: string
@@ -5240,10 +5256,17 @@ export type Database = {
           confidence_level?: string
           confidence_score?: number | null
           created_at?: string | null
+          current_owner_role?: string | null
           current_value?: number
           days_to_breach?: number | null
+          decision_deadline?: string | null
           decision_framing?: Json | null
           dimension_key?: string | null
+          escalated_at?: string | null
+          escalated_from_role?: string | null
+          escalation_history?: Json | null
+          escalation_level?: number | null
+          escalation_reason?: string | null
           estimated_breach_date?: string | null
           expires_at?: string | null
           exposure_amount?: number | null
@@ -5252,6 +5275,7 @@ export type Database = {
           id?: string
           impact_description?: string | null
           is_parent?: boolean | null
+          last_action_at?: string | null
           message?: string | null
           metadata?: Json | null
           metric_code?: string
@@ -5287,6 +5311,13 @@ export type Database = {
             columns: ["parent_alert_id"]
             isOneToOne: false
             referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warning_alerts_parent_alert_id_fkey"
+            columns: ["parent_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
             referencedColumns: ["id"]
           },
           {
@@ -5354,6 +5385,140 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "enterprise_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_events: {
+        Row: {
+          alert_id: string
+          escalated_at: string | null
+          escalation_reason: string
+          exposure_at_escalation: number | null
+          from_role: string
+          hours_elapsed: number | null
+          id: string
+          notification_channel: string | null
+          notified_at: string | null
+          policy_id: string | null
+          tenant_id: string
+          to_role: string
+        }
+        Insert: {
+          alert_id: string
+          escalated_at?: string | null
+          escalation_reason: string
+          exposure_at_escalation?: number | null
+          from_role: string
+          hours_elapsed?: number | null
+          id?: string
+          notification_channel?: string | null
+          notified_at?: string | null
+          policy_id?: string | null
+          tenant_id: string
+          to_role: string
+        }
+        Update: {
+          alert_id?: string
+          escalated_at?: string | null
+          escalation_reason?: string
+          exposure_at_escalation?: number | null
+          from_role?: string
+          hours_elapsed?: number | null
+          id?: string
+          notification_channel?: string | null
+          notified_at?: string | null
+          policy_id?: string | null
+          tenant_id?: string
+          to_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_events_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_events_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_events_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_events_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "escalation_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_policies: {
+        Row: {
+          applies_to_hierarchy_levels: number[] | null
+          created_at: string | null
+          from_role: string
+          id: string
+          is_enabled: boolean | null
+          min_exposure_amount: number | null
+          no_decision_threshold_hours: number | null
+          policy_name: string
+          tenant_id: string
+          to_role: string
+          unacknowledged_threshold_hours: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          applies_to_hierarchy_levels?: number[] | null
+          created_at?: string | null
+          from_role: string
+          id?: string
+          is_enabled?: boolean | null
+          min_exposure_amount?: number | null
+          no_decision_threshold_hours?: number | null
+          policy_name: string
+          tenant_id: string
+          to_role: string
+          unacknowledged_threshold_hours?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          applies_to_hierarchy_levels?: number[] | null
+          created_at?: string | null
+          from_role?: string
+          id?: string
+          is_enabled?: boolean | null
+          min_exposure_amount?: number | null
+          no_decision_threshold_hours?: number | null
+          policy_name?: string
+          tenant_id?: string
+          to_role?: string
+          unacknowledged_threshold_hours?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_policies_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14705,6 +14870,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "early_warning_alerts_parent_alert_id_fkey"
+            columns: ["parent_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "early_warning_alerts_rule_id_fkey"
             columns: ["rule_id"]
             isOneToOne: false
@@ -14766,6 +14938,33 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "risk_appetites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_alerts_pending_escalation: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string | null
+          current_owner_role: string | null
+          escalates_to: string | null
+          exposure_amount: number | null
+          hierarchy_level: number | null
+          hours_since_created: number | null
+          hours_since_last_action: number | null
+          hours_until_escalation: number | null
+          id: string | null
+          no_decision_threshold_hours: number | null
+          tenant_id: string | null
+          title: string | null
+          unacknowledged_threshold_hours: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "early_warning_alerts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -15244,6 +15443,7 @@ export type Database = {
         Returns: undefined
       }
       calculate_trend_metrics: { Args: { p_values: number[] }; Returns: Json }
+      check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
         Returns: {
