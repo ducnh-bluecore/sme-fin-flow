@@ -10387,6 +10387,47 @@ export type Database = {
           },
         ]
       }
+      risk_stress_results: {
+        Row: {
+          created_at: string
+          id: string
+          period_month: string
+          scenario_id: string
+          stress_parameters: Json | null
+          stressed_cash_settled: number | null
+          stressed_open_exceptions: number | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_month: string
+          scenario_id: string
+          stress_parameters?: Json | null
+          stressed_cash_settled?: number | null
+          stressed_open_exceptions?: number | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_month?: string
+          scenario_id?: string
+          stress_parameters?: Json | null
+          stressed_cash_settled?: number | null
+          stressed_open_exceptions?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_stress_results_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "board_scenarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_stress_tests: {
         Row: {
           base_risk_appetite_id: string | null
@@ -13623,6 +13664,28 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "external_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_board_summary: {
+        Row: {
+          auto_actions: number | null
+          bank_txns_used: number | null
+          cash_settled: number | null
+          invoices_settled: number | null
+          manual_actions: number | null
+          open_exceptions: number | null
+          open_exceptions_value: number | null
+          period_month: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_links_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
