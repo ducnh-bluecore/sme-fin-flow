@@ -124,7 +124,64 @@ export function SKUCostBreakdownDialog({
         .or(`sku.eq.${sku},product_name.ilike.%${productName || sku}%`);
 
       if (itemsError) throw itemsError;
-      if (!items || items.length === 0) return { breakdowns: [], summary: null, channelSummaries: [] };
+      
+      // FALLBACK: If no order items found, use sku_profitability_cache
+      if (!items || items.length === 0) {
+        const { data: cacheData, error: cacheError } = await supabase
+          .from('sku_profitability_cache')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('sku', sku);
+        
+        if (cacheError || !cacheData || cacheData.length === 0) {
+          return { breakdowns: [], summary: null, channelSummaries: [], fromCache: true };
+        }
+        
+        // Build channel summaries from cache
+        const channelSummaries: ChannelSummary[] = cacheData.map(row => ({
+          channel: row.channel || 'Unknown',
+          orderCount: Math.ceil(Number(row.quantity || 0) / 2), // Estimate
+          quantity: Number(row.quantity || 0),
+          revenue: Number(row.revenue || 0),
+          cogs: Number(row.cogs || 0),
+          fees: Number(row.fees || 0),
+          profit: Number(row.profit || 0),
+          margin: Number(row.margin_percent || 0),
+          feeBreakdown: {
+            platform: Number(row.fees || 0) * 0.3,
+            commission: Number(row.fees || 0) * 0.4,
+            payment: Number(row.fees || 0) * 0.15,
+            shipping: Number(row.fees || 0) * 0.15,
+          }
+        }));
+        
+        const totalRevenue = channelSummaries.reduce((s, c) => s + c.revenue, 0);
+        const totalCogs = channelSummaries.reduce((s, c) => s + c.cogs, 0);
+        const totalFees = channelSummaries.reduce((s, c) => s + c.fees, 0);
+        const totalProfit = channelSummaries.reduce((s, c) => s + c.profit, 0);
+        const totalQuantity = channelSummaries.reduce((s, c) => s + c.quantity, 0);
+        
+        return {
+          breakdowns: [], // No order-level breakdown available from cache
+          summary: {
+            totalOrders: channelSummaries.reduce((s, c) => s + c.orderCount, 0),
+            totalQuantity,
+            totalRevenue,
+            totalCogs,
+            totalFees,
+            totalProfit,
+            avgMargin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
+            feeBreakdown: {
+              platform: totalFees * 0.3,
+              commission: totalFees * 0.4,
+              payment: totalFees * 0.15,
+              shipping: totalFees * 0.15,
+            }
+          },
+          channelSummaries,
+          fromCache: true
+        };
+      }
 
       // Get order IDs
       const orderIds = [...new Set(items.map(i => i.external_order_id))];
@@ -293,7 +350,7 @@ export function SKUCostBreakdownDialog({
         }
       };
 
-      return { breakdowns, summary, channelSummaries };
+      return { breakdowns, summary, channelSummaries, fromCache: false };
     },
     enabled: open && !!tenantId && !!sku
   });
@@ -318,6 +375,16 @@ export function SKUCostBreakdownDialog({
           </div>
         ) : data?.summary ? (
           <Tabs defaultValue="overview" className="space-y-4">
+            {/* Cache notice */}
+            {data.fromCache && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                <span>
+                  Dữ liệu từ bộ nhớ đệm (cache). Chi tiết từng đơn hàng không khả dụng vì chưa có dữ liệu chi tiết line-item.
+                </span>
+              </div>
+            )}
+            
             <TabsList>
               <TabsTrigger value="overview">
                 <BarChart3 className="h-4 w-4 mr-2" />
@@ -327,10 +394,12 @@ export function SKUCostBreakdownDialog({
                 <Store className="h-4 w-4 mr-2" />
                 Theo kênh ({data.channelSummaries.length})
               </TabsTrigger>
-              <TabsTrigger value="orders">
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Chi tiết đơn ({data.breakdowns.length})
-              </TabsTrigger>
+              {!data.fromCache && (
+                <TabsTrigger value="orders">
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Chi tiết đơn ({data.breakdowns.length})
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* Overview Tab */}
