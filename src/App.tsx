@@ -123,6 +123,7 @@ import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
 import CTTeamPage from "./pages/control-tower/TeamPage";
 import CTSettingsPage from "./pages/control-tower/SettingsPage";
 import CTSituationRoomPage from "./pages/control-tower/SituationRoomPage";
+import CTDecisionsPage from "./pages/control-tower/DecisionsPage";
 
 
 // Mobile App pages
@@ -208,6 +209,7 @@ const AppRoutes = () => {
         {/* Control Tower Manifesto: Situation Room is the primary view */}
         <Route path="/control-tower" element={<Navigate to="/control-tower/situation" replace />} />
         <Route path="/control-tower/situation" element={<CTSituationRoomPage />} />
+        <Route path="/control-tower/decisions" element={<CTDecisionsPage />} />
         <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
         <Route path="/control-tower/tasks" element={<CTTasksPage />} />
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
