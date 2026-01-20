@@ -567,7 +567,7 @@ export default function PLReportPage() {
                     Hiệu suất theo Kênh bán
                   </h3>
                   <Link 
-                    to="/channel-pl" 
+                    to="/mdp/channels" 
                     className="text-sm text-primary hover:underline flex items-center gap-1"
                   >
                     Chi tiết <ExternalLink className="w-3 h-3" />
@@ -642,7 +642,7 @@ export default function PLReportPage() {
                     {channelsPLData.channels.length > 5 && (
                       <div className="mt-3 text-center">
                         <Link 
-                          to="/channel-pl" 
+                          to="/mdp/channels" 
                           className="text-sm text-muted-foreground hover:text-primary"
                         >
                           Xem thêm {channelsPLData.channels.length - 5} kênh khác →
@@ -793,7 +793,7 @@ export default function PLReportPage() {
                 >
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-lg">Chi tiết P&L theo Kênh</h3>
-                    <Link to="/channel-pl">
+                    <Link to="/mdp/channels">
                       <Button variant="outline" size="sm">
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Xem chi tiết kênh
