@@ -1,13 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Rocket, 
-  TrendingUp,
-  CheckCircle,
-  ArrowRight,
-  Wallet,
-} from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfitAttribution } from '@/hooks/useMDPData';
 import { formatVND } from '@/types/mdp-v2';
@@ -25,104 +18,81 @@ interface ScaleOpportunitiesProps {
 /**
  * SCALE OPPORTUNITIES
  * 
- * Shows campaigns that are:
+ * Shows campaigns safe to scale:
  * - CM% >= 15%
  * - Cash Conversion >= 70%
  * - Profit ROAS > 0.5
- * 
- * These are SAFE to scale
  */
 export function ScaleOpportunities({ opportunities, onScale }: ScaleOpportunitiesProps) {
   if (opportunities.length === 0) {
     return (
-      <Card className="border-muted">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Rocket className="h-5 w-5 text-muted-foreground" />
-            Scale Opportunities
-          </CardTitle>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-medium">Scale Opportunities</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-6 text-muted-foreground">
-            <p>Chưa có campaign đủ điều kiện scale</p>
-            <p className="text-xs mt-1">Cần: CM% ≥15%, Cash Convert ≥70%, Profit ROAS ≥0.5</p>
-          </div>
+          <p className="text-sm text-muted-foreground py-4">
+            No campaigns currently meet scaling criteria
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Requirements: CM% ≥15%, Cash Conversion ≥70%, Profit ROAS ≥0.5
+          </p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-transparent">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Rocket className="h-5 w-5 text-emerald-400" />
-          Scale Opportunities
-          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 ml-2">
-            {opportunities.length} campaigns
-          </Badge>
-        </CardTitle>
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-medium">Scale Opportunities</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            {opportunities.length} eligible
+          </span>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {opportunities.map((opp) => (
           <div 
             key={opp.campaign_id}
-            className="p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-all"
+            className="flex items-center justify-between gap-4 p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                    <TrendingUp className="h-3 w-3 mr-1" />
-                    SCALE SAFE
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">{opp.channel}</Badge>
-                </div>
-                
-                <p className="font-bold">{opp.campaign_name}</p>
-                
-                <div className="flex items-center gap-4 mt-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">CM%</p>
-                    <p className="font-bold text-emerald-400">{opp.contribution_margin_percent.toFixed(1)}%</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Profit ROAS</p>
-                    <p className="font-bold text-emerald-400">{opp.profit_roas.toFixed(2)}x</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Cash Convert</p>
-                    <p className="font-bold text-emerald-400">{(opp.cashConversion * 100).toFixed(0)}%</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Wallet className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Cash+:</span>
-                    <CheckCircle className="h-3 w-3 text-emerald-400" />
-                  </div>
-                </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="text-xs text-emerald-600 font-medium uppercase">Eligible</span>
               </div>
+              
+              <p className="font-medium truncate">{opp.campaign_name}</p>
+              
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                <span>CM: <span className="text-emerald-600 font-medium">{opp.contribution_margin_percent.toFixed(1)}%</span></span>
+                <span>ROAS: <span className="text-emerald-600 font-medium">{opp.profit_roas.toFixed(2)}x</span></span>
+                <span>Cash: <span className="text-emerald-600 font-medium">{(opp.cashConversion * 100).toFixed(0)}%</span></span>
+              </div>
+            </div>
 
-              <div className="text-right shrink-0">
-                <p className="text-xs text-muted-foreground">Current CM</p>
-                <p className="text-xl font-bold text-emerald-400">
-                  +{formatVND(opp.contribution_margin)}
-                </p>
-                <Button 
-                  size="sm"
-                  className="mt-2 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => onScale(opp)}
-                >
-                  SCALE 30%
-                  <ArrowRight className="h-3 w-3" />
-                </Button>
-              </div>
+            <div className="text-right shrink-0">
+              <p className="text-xs text-muted-foreground">Current CM</p>
+              <p className="text-lg font-medium text-emerald-600 tabular-nums">
+                +{formatVND(opp.contribution_margin)}
+              </p>
+              <Button 
+                size="sm"
+                variant="outline"
+                className="mt-2 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
+                onClick={() => onScale(opp)}
+              >
+                Scale +30%
+              </Button>
             </div>
           </div>
         ))}
 
-        <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border/50">
-          ✓ Tất cả campaigns trên đều đáp ứng: CM% ≥15% + Cash Convert ≥70% + Profit ROAS ≥0.5
-        </div>
+        <p className="text-[11px] text-muted-foreground text-center pt-2">
+          All campaigns meet: CM% ≥15% + Cash Conversion ≥70% + Profit ROAS ≥0.5
+        </p>
       </CardContent>
     </Card>
   );
