@@ -1,6 +1,7 @@
 # BLUECORE FDP - COMPLETE SYSTEM REVIEW
 > **Financial Data Platform** - Single Source of Truth for CEO/CFO
-> Version: 3.0 | Updated: 2026-01-20
+> Version: 3.1 | Updated: 2026-01-20
+> **Governance Patch v3.1 Applied** - SSOT Views Fix, Auto-Apply Disabled, Metric Normalization
 
 ---
 
@@ -526,7 +527,7 @@ interface CentralFinancialMetrics {
 | `useCreateReconciliationLink()` | INSERT | manual → no bank_txn_id |
 | `useVoidReconciliationLink()` | UPDATE is_voided=true | Never delete |
 
-#### Auto-Match Algorithm
+#### Auto-Match Algorithm (v3.1 GOVERNANCE FIX)
 
 ```typescript
 // Matching criteria (scored 0-100)
@@ -535,7 +536,12 @@ interface CentralFinancialMetrics {
 3. Customer name match (+25)
 4. Date proximity (≤7 days: +15, ≤30 days: +5)
 
-// Threshold: confidence ≥ 40 → suggest, ≥ 80 → auto-apply
+// GOVERNANCE v3.1: Auto-apply DISABLED
+// All matches are now SUGGESTIONS ONLY
+// Ledger writes require explicit user confirmation or Guardrails path
+
+// OLD (removed): confidence ≥ 80 → auto-apply ❌
+// NEW: confidence ≥ 40 → suggest, user must confirm ✅
 ```
 
 ---
@@ -634,16 +640,21 @@ interface CentralFinancialMetrics {
 | GET | /current-status | Get current risk status vs thresholds |
 | POST | /check-breaches | Check for threshold breaches |
 
-#### Risk Metrics
+#### Risk Metrics (v3.1 NORMALIZED - snake_case)
 
 | Metric Code | Description | Default Threshold |
 |-------------|-------------|-------------------|
-| AR_OVERDUE_RATIO | % AR quá hạn | ≤ 15% |
-| AUTO_RECON_RATE | % tự động đối soát | ≥ 80% |
-| ML_DECISION_RATE | % quyết định ML | ≤ 20% |
-| CASH_RUNWAY_DAYS | Số ngày cash runway | ≥ 90 |
-| DSO_DAYS | Days Sales Outstanding | ≤ 45 |
-| GROSS_MARGIN | Gross margin % | ≥ 25% |
+| ar_overdue_ratio | % AR quá hạn | ≤ 15% |
+| auto_reconciliation_rate | % tự động đối soát | ≥ 80% |
+| ml_accuracy | % độ chính xác ML | ≥ 95% |
+| cash_runway_days | Số ngày cash runway | ≥ 90 |
+| dso_days | Days Sales Outstanding | ≤ 45 |
+| gross_margin | Gross margin % | ≥ 25% |
+| false_auto_rate | % lỗi tự động | ≤ 1% |
+| guardrail_block_rate | % bị chặn bởi Guardrail | ≤ 10% |
+
+> **GOVERNANCE v3.1**: All metric codes MUST be snake_case lowercase.
+> See `src/lib/metric-normalization.ts` for utilities.
 
 ---
 
@@ -1216,13 +1227,73 @@ const { data: scenarios } = useScenarioList();
 
 ---
 
+## XII. GOVERNANCE PATCH v3.1 SUMMARY
+
+### A. SSOT Views Fix (CRITICAL)
+
+| View | Problem Fixed | Solution |
+|------|---------------|----------|
+| `v_invoice_settled_paid` | Used `settlement_amount` from links | Now uses `SUM(allocated_amount)` from allocations |
+| `v_bank_txn_match_state` | Failed on negative amounts (debits) | Now uses `ABS(amount)` and allocation-based matching |
+
+### B. Auto-Apply Disabled (MANDATORY)
+
+```typescript
+// ❌ OLD (REMOVED - Governance violation)
+if (confidence >= 80) {
+  await createLink.mutateAsync(...); // Direct ledger write
+}
+
+// ✅ NEW (v3.1 - Governance compliant)
+if (confidence >= 40) {
+  createSuggestion(); // Suggest only
+  // Ledger writes ONLY via:
+  // 1. User explicit confirmation (applyMatch)
+  // 2. Guardrails auto-confirm path (with audit)
+}
+```
+
+### C. Metric Code Normalization
+
+| Old Code | New Code (snake_case) |
+|----------|----------------------|
+| AR_OVERDUE_RATIO | ar_overdue_ratio |
+| AUTO_RECON_RATE | auto_reconciliation_rate |
+| FALSE_AUTO_RATE | false_auto_rate |
+| CASH_RUNWAY_DAYS | cash_runway_days |
+
+**Utility:** `src/lib/metric-normalization.ts`
+
+### D. Scenario Isolation
+
+Scenario & stress test outputs:
+- ✅ Stored in `board_scenarios.projected_outcomes` (JSON)
+- ❌ NEVER written to `decision_snapshots` with `truth_level = settled/provisional`
+- All scenario responses include `isSimulation: true, truthLevel: 'simulated'`
+
+### E. Investor Disclosure Sanitization
+
+**BLOCKED fields:**
+- Customer names
+- Invoice numbers
+- Bank references
+- Transaction IDs
+- Email addresses
+
+**Allowed (bucketed):**
+- Ratios and percentages
+- Buckets (">6 months", "$500K-$1M")
+- Status ("within appetite", "breached")
+
+---
+
 ## 📁 FILE LOCATIONS
 
 ```
 src/
 ├── hooks/
 │   ├── useCentralFinancialMetrics.ts   # SSOT for all financial metrics
-│   ├── useReconciliationSSOT.ts        # Reconciliation ledger hooks
+│   ├── useReconciliationSSOT.ts        # Reconciliation ledger hooks (v3.1 fixed)
 │   ├── useDecisionSnapshots.ts         # Decision snapshot hooks
 │   ├── useCashConversionCycle.ts       # CCC metrics
 │   ├── useCashRunway.ts                # Cash runway
@@ -1238,6 +1309,7 @@ src/
 ├── lib/
 │   ├── fdp-formulas.ts                 # Locked formulas
 │   ├── financial-constants.ts          # Benchmarks, thresholds
+│   ├── metric-normalization.ts         # v3.1: Metric code normalization
 │   └── formatters.ts                   # VND formatting
 │
 ├── components/
@@ -1271,12 +1343,13 @@ supabase/
 │   ├── detect-alerts/                  # Alert detection
 │   ├── generate-decision-cards/        # Decision card generation
 │   ├── risk-appetite/index.ts          # Risk appetite management
-│   ├── investor-disclosure/index.ts    # Investor disclosure
+│   ├── investor-disclosure/index.ts    # Investor disclosure (v3.1 sanitization)
 │   ├── risk-stress-test/index.ts       # Stress testing
-│   └── board-scenarios/index.ts        # Board scenarios
+│   └── board-scenarios/index.ts        # Board scenarios (v3.1 isolation)
 │
 └── migrations/
     ├── ..._reconciliation_ledger.sql   # SSOT ledger tables
+    ├── ..._ssot_views_v31.sql          # v3.1 fixed views
     ├── ..._decision_snapshots.sql      # Decision snapshots table
     ├── ..._risk_appetite.sql           # Risk appetite tables
     ├── ..._investor_disclosures.sql    # Investor disclosure tables
@@ -1301,6 +1374,16 @@ public/docs/
 | **Control Tower** | Operations | Alerts, Tasks, KPI monitoring |
 | **CDP** | Customer Data Platform | Customer insights (planned) |
 
+### Governance Controls (v3.1)
+
+| Control | Status | Enforcement |
+|---------|--------|-------------|
+| Auto-Apply Disabled | ✅ Active | Hooks block direct ledger writes |
+| Metric Normalization | ✅ Active | snake_case required |
+| Scenario Isolation | ✅ Active | Never pollutes truth tables |
+| Disclosure Sanitization | ✅ Active | PII/transaction details blocked |
+| SSOT Views Fixed | ✅ Active | Allocation-based accuracy |
+
 ### Navigation Structure
 
 | Section | Routes | Description |
@@ -1323,5 +1406,6 @@ public/docs/
 
 ---
 
-*Document generated for Bluecore FDP v3.0 - Financial Governance Operating System*
+*Document generated for Bluecore FDP v3.1 - Financial Governance Operating System*
+*Governance Patch v3.1 Applied: SSOT correctness, Auto-apply disabled, Metric normalization*
 *Last updated: 2026-01-20*
