@@ -53,7 +53,7 @@ export function useMarketingDecisionEngine() {
           id: `burn-${campaign.campaign_id}`,
           type: 'CAMPAIGN_BURNING_CASH',
           title: DECISION_LANGUAGE.CAMPAIGN_BURNING_CASH.title,
-          headline: `${campaign.campaign_name} đang phá hủy ${formatVND(Math.abs(campaign.contribution_margin))} margin`,
+          headline: `Negative contribution: ${formatVND(Math.abs(campaign.contribution_margin))}`,
           impactAmount: Math.abs(campaign.contribution_margin),
           projectedLoss: dailyLoss * 7, // Next 7 days if no action
           cashAtRisk: campaign.ad_spend,
@@ -62,13 +62,13 @@ export function useMarketingDecisionEngine() {
           daysSinceIssueStart: 3, // Minimum to trigger
           owner: 'CEO',
           recommendedAction: 'KILL',
-          actionDescription: `Dừng ngay campaign "${campaign.campaign_name}" - đang lỗ ${(campaign.contribution_margin_percent).toFixed(1)}% margin`,
+          actionDescription: `Stop campaign "${campaign.campaign_name}" — CM%: ${(campaign.contribution_margin_percent).toFixed(1)}%`,
           campaignName: campaign.campaign_name,
           channel: campaign.channel,
           metrics: [
             { label: 'Profit ROAS', value: `${campaign.profit_roas.toFixed(2)}x`, trend: 'down', severity: 'critical' },
             { label: 'CM%', value: `${campaign.contribution_margin_percent.toFixed(1)}%`, trend: 'down', severity: 'critical' },
-            { label: 'Đã chi', value: formatVND(campaign.ad_spend), trend: 'flat', severity: 'warning' },
+            { label: 'Spend', value: formatVND(campaign.ad_spend), trend: 'flat', severity: 'warning' },
           ],
           status: 'PENDING',
           createdAt: now,
@@ -84,7 +84,7 @@ export function useMarketingDecisionEngine() {
           id: `fake-${campaign.campaign_id}`,
           type: 'FAKE_GROWTH_ALERT',
           title: DECISION_LANGUAGE.FAKE_GROWTH_ALERT.title,
-          headline: `Doanh thu ${formatVND(campaign.gross_revenue)} nhưng LỖ ${formatVND(Math.abs(campaign.contribution_margin))}`,
+          headline: `Revenue ${formatVND(campaign.gross_revenue)} with negative margin`,
           impactAmount: Math.abs(campaign.contribution_margin),
           projectedLoss: Math.abs(campaign.contribution_margin) * 2, // Will double if not addressed
           cashAtRisk: campaign.gross_revenue * 0.4, // COGS + fees locked
@@ -93,7 +93,7 @@ export function useMarketingDecisionEngine() {
           daysSinceIssueStart: 1,
           owner: 'CFO',
           recommendedAction: 'INVESTIGATE',
-          actionDescription: `Kiểm tra cấu trúc chi phí "${campaign.campaign_name}" - doanh thu cao nhưng margin âm`,
+          actionDescription: `Review cost structure for "${campaign.campaign_name}" — high revenue, negative margin`,
           campaignName: campaign.campaign_name,
           channel: campaign.channel,
           metrics: [
@@ -117,7 +117,7 @@ export function useMarketingDecisionEngine() {
           id: `cash-trap-${channel.channel}`,
           type: 'DELAYED_CASH_TRAP',
           title: DECISION_LANGUAGE.DELAYED_CASH_TRAP.title,
-          headline: `${formatVND(lockedCash)} đang bị khóa tại ${channel.channel}`,
+          headline: `${formatVND(lockedCash)} locked in ${channel.channel}`,
           impactAmount: lockedCash,
           projectedLoss: lockedCash * 0.1, // 10% opportunity cost
           cashAtRisk: lockedCash,
@@ -126,13 +126,13 @@ export function useMarketingDecisionEngine() {
           daysSinceIssueStart: channel.avg_days_to_cash || 14,
           owner: 'CFO',
           recommendedAction: 'PAUSE',
-          actionDescription: `Tạm dừng spend tại ${channel.channel} cho đến khi tiền về - chỉ ${(channel.cash_conversion_rate * 100).toFixed(0)}% đã thu`,
+          actionDescription: `Pause spend on ${channel.channel} — ${(channel.cash_conversion_rate * 100).toFixed(0)}% cash collected`,
           campaignName: channel.campaign_name || channel.channel,
           channel: channel.channel,
           metrics: [
-            { label: 'Đã chi', value: formatVND(channel.total_spend), trend: 'flat', severity: 'warning' },
-            { label: 'Đã thu', value: formatVND(channel.cash_received), trend: 'flat', severity: channel.cash_conversion_rate > 0.5 ? 'ok' : 'critical' },
-            { label: 'Cash Convert', value: `${(channel.cash_conversion_rate * 100).toFixed(0)}%`, trend: 'down', severity: 'critical' },
+            { label: 'Spent', value: formatVND(channel.total_spend), trend: 'flat', severity: 'warning' },
+            { label: 'Collected', value: formatVND(channel.cash_received), trend: 'flat', severity: channel.cash_conversion_rate > 0.5 ? 'ok' : 'critical' },
+            { label: 'Conversion', value: `${(channel.cash_conversion_rate * 100).toFixed(0)}%`, trend: 'down', severity: 'critical' },
           ],
           status: 'PENDING',
           createdAt: now,
