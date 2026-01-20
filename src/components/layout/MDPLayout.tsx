@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { Outlet, useLocation, useNavigate, NavLink as RouterNavLink } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart2, 
   DollarSign,
@@ -8,19 +8,24 @@ import {
   TrendingUp,
   Target,
   Wallet,
-  ChevronLeft,
+  ChevronDown,
   ChevronRight,
   Home,
   Settings,
   BookOpen,
   Layers,
-  Database
+  Database,
+  Megaphone,
+  Activity,
+  PieChart,
+  Users,
+  Zap,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
@@ -28,61 +33,108 @@ import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 
-interface NavItemConfig {
-  id: string;
+interface NavItem {
+  labelKey: string;
   label: string;
-  labelEn: string;
   icon: React.ElementType;
-  path: string;
-  badgeKey?: string;
-  section?: 'primary' | 'financial' | 'analytics' | 'system';
-}
-
-interface NavItemWithBadge extends NavItemConfig {
+  href?: string;
   badge?: number;
+  children?: { labelKey: string; label: string; href: string }[];
 }
 
-// MDP Navigation - CEO/CFO Grade
-// Primary: Financial Impact, Risks, Decisions
-// De-emphasized: Marketing analytics, performance details
-const navItemsConfig: NavItemConfig[] = [
-  // PRIMARY - Financial Decision Surface
-  { id: 'overview', label: 'Overview', labelEn: 'Overview', icon: Target, path: '/mdp/ceo', section: 'primary' },
-  
-  // FINANCIAL IMPACT - CEO/CFO Focus
-  { id: 'financial-impact', label: 'Financial Impact', labelEn: 'Financial Impact', icon: DollarSign, path: '/mdp/profit', section: 'financial' },
-  { id: 'cash-position', label: 'Cash Position', labelEn: 'Cash Position', icon: Wallet, path: '/mdp/cash-impact', section: 'financial' },
-  { id: 'risks', label: 'Risks', labelEn: 'Risks', icon: AlertCircle, path: '/mdp/risks', section: 'financial', badgeKey: 'risks' },
-  { id: 'decisions', label: 'Decisions', labelEn: 'Decisions', icon: TrendingUp, path: '/mdp/decisions', section: 'financial' },
-  
-  // ANALYTICS - De-emphasized (CMO/Team level)
-  { id: 'campaigns', label: 'Campaigns', labelEn: 'Campaigns', icon: BarChart2, path: '/mdp/campaigns', section: 'analytics' },
-  { id: 'channels', label: 'Channels', labelEn: 'Channels', icon: Layers, path: '/mdp/channels', section: 'analytics' },
+// CMO Mode - Financial accountability & decisions
+const cmoModeItems: NavItem[] = [
+  {
+    labelKey: 'mdp.overview',
+    label: 'Overview',
+    icon: Target,
+    href: '/mdp/ceo',
+  },
+  {
+    labelKey: 'mdp.profitAttribution',
+    label: 'Profit Attribution',
+    icon: DollarSign,
+    href: '/mdp/profit',
+  },
+  {
+    labelKey: 'mdp.cashImpact',
+    label: 'Cash Impact',
+    icon: Wallet,
+    href: '/mdp/cash-impact',
+  },
+  {
+    labelKey: 'mdp.risks',
+    label: 'Risks',
+    icon: AlertCircle,
+    href: '/mdp/risks',
+  },
+  {
+    labelKey: 'mdp.decisions',
+    label: 'Decision Center',
+    icon: Zap,
+    href: '/mdp/decisions',
+  },
 ];
 
-const systemNavItems: NavItemConfig[] = [
-  { id: 'data-sources', label: 'Data Sources', labelEn: 'Data Sources', icon: Database, path: '/mdp/data-sources', section: 'system' },
-  { id: 'docs', label: 'Documentation', labelEn: 'Documentation', icon: BookOpen, path: '/mdp/docs', section: 'system' },
-  { id: 'settings', label: 'Settings', labelEn: 'Settings', icon: Settings, path: '/mdp/settings', section: 'system' },
+// Marketing Mode - Execution & monitoring
+const marketingModeItems: NavItem[] = [
+  {
+    labelKey: 'mdp.performance',
+    label: 'Performance',
+    icon: Activity,
+    href: '/mdp/performance',
+  },
+  {
+    labelKey: 'mdp.campaigns',
+    label: 'Campaigns',
+    icon: Megaphone,
+    href: '/mdp/campaigns',
+  },
+  {
+    labelKey: 'mdp.channels',
+    label: 'Channels',
+    icon: Layers,
+    href: '/mdp/channels',
+  },
+  {
+    labelKey: 'mdp.funnel',
+    label: 'Funnel',
+    icon: PieChart,
+    href: '/mdp/funnel',
+  },
+  {
+    labelKey: 'mdp.audience',
+    label: 'Audience',
+    icon: Users,
+    href: '/mdp/audience',
+  },
+];
+
+// System items
+const systemItems: NavItem[] = [
+  { labelKey: 'mdp.dataSources', label: 'Data Sources', icon: Database, href: '/mdp/data-sources' },
+  { labelKey: 'mdp.docs', label: 'Documentation', icon: BookOpen, href: '/mdp/docs' },
+  { labelKey: 'mdp.settings', label: 'Settings', icon: Settings, href: '/mdp/settings' },
 ];
 
 export function MDPLayout() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['cmo', 'marketing']);
   const location = useLocation();
   const navigate = useNavigate();
   const { language } = useLanguage();
 
-  // Risk count from data
+  // Risk count from data (mock)
   const riskCount = 1;
 
-  const navItems = useMemo((): NavItemWithBadge[] => {
-    const badgeCounts: Record<string, number> = { risks: riskCount };
-    return navItemsConfig.map(item => ({
-      ...item,
-      badge: item.badgeKey ? badgeCounts[item.badgeKey] : undefined,
-    }));
-  }, [riskCount]);
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section)
+        : [...prev, section]
+    );
+  };
 
   const isActive = (path: string) => {
     if (path === '/mdp/ceo') {
@@ -91,103 +143,166 @@ export function MDPLayout() {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  const NavLink = ({ item }: { item: NavItemWithBadge }) => {
-    const isPrimary = item.section === 'primary';
-    
-    return (
-      <button
-        onClick={() => {
-          navigate(item.path);
-          setMobileDrawerOpen(false);
-        }}
-        className={cn(
-          'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
-          'text-sm',
-          isPrimary && 'py-2.5',
-          isActive(item.path)
-            ? 'bg-primary/10 text-primary font-medium'
-            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-        )}
-      >
-        <item.icon className="h-4 w-4 flex-shrink-0" />
-        {!collapsed && (
-          <>
-            <span className="flex-1 text-left">
-              {language === 'vi' ? item.label : item.labelEn}
-            </span>
-            {item.badge && item.badge > 0 && (
-              <Badge variant="secondary" className="h-5 min-w-5 text-xs">
-                {item.badge}
-              </Badge>
-            )}
-          </>
-        )}
-      </button>
-    );
+  const hasSectionActiveItem = (items: NavItem[]) => {
+    return items.some(item => item.href && isActive(item.href));
   };
 
-  const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-    !collapsed && (
-      <div className="px-3 py-2 mt-4 first:mt-0">
-        <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
-          {children}
-        </span>
+  const NavItemLink = ({ item }: { item: NavItem }) => (
+    <RouterNavLink
+      to={item.href!}
+      onClick={() => setMobileDrawerOpen(false)}
+      className={({ isActive: active }) =>
+        cn(
+          'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors',
+          active || isActive(item.href!)
+            ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
+            : 'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent'
+        )
+      }
+    >
+      <item.icon className="w-4 h-4 flex-shrink-0" />
+      <span className="flex-1">{item.label}</span>
+      {item.badge && item.badge > 0 && (
+        <Badge 
+          variant="secondary" 
+          className="h-5 min-w-5 text-xs bg-amber-500/20 text-amber-300 border-amber-500/30"
+        >
+          {item.badge}
+        </Badge>
+      )}
+    </RouterNavLink>
+  );
+
+  const SectionHeader = ({ 
+    title, 
+    section, 
+    isExpanded, 
+    hasActive,
+    icon: Icon 
+  }: { 
+    title: string; 
+    section: string; 
+    isExpanded: boolean;
+    hasActive: boolean;
+    icon: React.ElementType;
+  }) => (
+    <button
+      onClick={() => toggleSection(section)}
+      className={cn(
+        'nav-item w-full justify-between',
+        hasActive && 'text-sidebar-accent-foreground'
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className="w-5 h-5" />
+        <span className="text-sm font-medium">{title}</span>
       </div>
-    )
+      {isExpanded ? (
+        <ChevronDown className="w-4 h-4" />
+      ) : (
+        <ChevronRight className="w-4 h-4" />
+      )}
+    </button>
   );
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Target className="h-4 w-4 text-primary" />
-        </div>
-        {!collapsed && (
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold text-foreground">Marketing</h1>
-            <p className="text-[11px] text-muted-foreground">Decision Platform</p>
+    <div className="w-[280px] h-full flex flex-col">
+      {/* Logo */}
+      <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+            <BarChart2 className="w-5 h-5 text-primary-foreground" />
           </div>
-        )}
+          <div>
+            <h1 className="text-lg font-bold text-sidebar-accent-foreground">Bluecore</h1>
+            <p className="text-[10px] text-sidebar-foreground/60 -mt-0.5">Marketing Data Platform</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent"
+        >
+          <X className="w-5 h-5" />
+        </Button>
       </div>
 
-      <Separator />
-
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-2 py-3">
-        <nav className="space-y-0.5">
-          {/* Primary */}
-          {navItems.filter(item => item.section === 'primary').map((item) => (
-            <NavLink key={item.id} item={item} />
-          ))}
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-1">
+          {/* CMO MODE - Financial accountability & decisions */}
+          <div>
+            <SectionHeader 
+              title="CMO Mode" 
+              section="cmo" 
+              isExpanded={expandedSections.includes('cmo')}
+              hasActive={hasSectionActiveItem(cmoModeItems)}
+              icon={Target}
+            />
+            <AnimatePresence>
+              {expandedSections.includes('cmo') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-4">
+                    {cmoModeItems.map((item) => (
+                      <NavItemLink 
+                        key={item.labelKey} 
+                        item={{ ...item, badge: item.labelKey === 'mdp.risks' ? riskCount : undefined }} 
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-          {/* Financial */}
-          <SectionLabel>Financial</SectionLabel>
-          {navItems.filter(item => item.section === 'financial').map((item) => (
-            <NavLink key={item.id} item={item} />
-          ))}
-
-          {/* Analytics - De-emphasized */}
-          <SectionLabel>Analytics</SectionLabel>
-          {navItems.filter(item => item.section === 'analytics').map((item) => (
-            <NavLink key={item.id} item={item} />
-          ))}
+          {/* MARKETING MODE - Execution & monitoring */}
+          <div>
+            <SectionHeader 
+              title="Marketing Mode" 
+              section="marketing" 
+              isExpanded={expandedSections.includes('marketing')}
+              hasActive={hasSectionActiveItem(marketingModeItems)}
+              icon={Megaphone}
+            />
+            <AnimatePresence>
+              {expandedSections.includes('marketing') && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-4">
+                    {marketingModeItems.map((item) => (
+                      <NavItemLink key={item.labelKey} item={item} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </nav>
       </ScrollArea>
 
-      <Separator />
-
-      {/* System Navigation */}
-      <div className="p-2 space-y-0.5">
-        {systemNavItems.map((item) => (
-          <NavLink key={item.id} item={item as NavItemWithBadge} />
+      {/* Bottom Navigation */}
+      <div className="border-t border-sidebar-border px-3 py-4 space-y-1">
+        {systemItems.map((item) => (
+          <NavItemLink key={item.labelKey} item={item} />
         ))}
         <button
           onClick={() => navigate('/portal')}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="nav-item w-full"
         >
-          <Home className="h-4 w-4 flex-shrink-0" />
-          {!collapsed && <span>Back to Portal</span>}
+          <Home className="w-5 h-5" />
+          <span className="text-sm">Back to Portal</span>
         </button>
       </div>
     </div>
@@ -215,34 +330,44 @@ export function MDPLayout() {
 
       {/* Sidebar - Desktop */}
       <motion.aside
-        animate={{ width: collapsed ? 64 : 240 }}
-        transition={{ duration: 0.15 }}
+        initial={false}
+        animate={{ 
+          width: sidebarOpen ? 280 : 0,
+          x: 0 
+        }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'hidden lg:flex flex-col bg-card border-r',
-          'fixed left-0 top-0 bottom-0 z-30'
+          'hidden lg:flex flex-col overflow-hidden',
+          'fixed left-0 top-0 bottom-0 z-50',
+          'bg-sidebar text-sidebar-foreground'
         )}
+        style={{
+          background: 'linear-gradient(180deg, hsl(224 55% 12%) 0%, hsl(224 55% 8%) 100%)',
+        }}
       >
         <SidebarContent />
-        
-        {/* Collapse Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-16 h-6 w-6 rounded-full bg-background border shadow-sm"
-        >
-          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-        </Button>
       </motion.aside>
 
       {/* Main Content */}
       <div className={cn(
-        'flex-1 flex flex-col min-h-screen transition-all duration-150',
-        collapsed ? 'lg:ml-16' : 'lg:ml-60'
+        'flex-1 flex flex-col min-h-screen transition-all duration-200',
+        sidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'
       )}>
         {/* Header - Desktop */}
         <header className="hidden lg:flex sticky top-0 z-20 h-14 bg-background/95 backdrop-blur border-b items-center justify-between px-6">
-          <TenantSwitcher />
+          <div className="flex items-center gap-4">
+            {!sidebarOpen && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+            <TenantSwitcher />
+          </div>
           <div className="flex items-center gap-2">
             <QuickDateSelector />
             <LanguageSwitcher />
