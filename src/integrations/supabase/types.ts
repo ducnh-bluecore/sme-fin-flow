@@ -8900,6 +8900,105 @@ export type Database = {
           },
         ]
       }
+      reconciliation_suggestions: {
+        Row: {
+          bank_transaction_id: string | null
+          confidence: number
+          created_at: string
+          currency: string
+          exception_id: string
+          id: string
+          invoice_id: string | null
+          rationale: Json
+          suggested_amount: number
+          suggestion_type: string
+          tenant_id: string
+        }
+        Insert: {
+          bank_transaction_id?: string | null
+          confidence?: number
+          created_at?: string
+          currency?: string
+          exception_id: string
+          id?: string
+          invoice_id?: string | null
+          rationale?: Json
+          suggested_amount: number
+          suggestion_type: string
+          tenant_id: string
+        }
+        Update: {
+          bank_transaction_id?: string | null
+          confidence?: number
+          created_at?: string
+          currency?: string
+          exception_id?: string
+          id?: string
+          invoice_id?: string | null
+          rationale?: Json
+          suggested_amount?: number
+          suggestion_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_suggestions_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_txn_match_state"
+            referencedColumns: ["bank_transaction_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_exception_id_fkey"
+            columns: ["exception_id"]
+            isOneToOne: false
+            referencedRelation: "exceptions_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_aging"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_templates: {
         Row: {
           auto_post: boolean | null

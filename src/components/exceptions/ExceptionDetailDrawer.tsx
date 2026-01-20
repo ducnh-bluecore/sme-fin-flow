@@ -43,6 +43,7 @@ import {
   useSnoozeException,
   useResolveException 
 } from '@/hooks/useExceptions';
+import { SuggestedReconciliationPanel } from './SuggestedReconciliationPanel';
 import { formatCurrency } from '@/lib/format';
 import { format, addDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -262,14 +263,28 @@ export function ExceptionDetailDrawer({
                 </motion.div>
               )}
 
-              {/* Suggested Actions */}
+              {/* Suggested Reconciliation */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
+                className="mb-6"
+              >
+                <SuggestedReconciliationPanel
+                  exceptionId={exceptionId}
+                  exceptionStatus={detail.status}
+                  onReconciled={onClose}
+                />
+              </motion.div>
+
+              {/* Suggested Actions */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
                 className="space-y-4 mb-6"
               >
-                <h4 className="font-medium">Suggested Actions</h4>
+                <h4 className="font-medium">Manual Actions</h4>
                 <ul className="space-y-2">
                   {detail.suggested_actions.map((action, idx) => (
                     <li 
