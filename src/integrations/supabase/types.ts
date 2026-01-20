@@ -1220,6 +1220,127 @@ export type Database = {
           },
         ]
       }
+      approval_decisions: {
+        Row: {
+          approval_request_id: string
+          comment: string | null
+          decided_at: string
+          decided_by: string
+          decision: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          approval_request_id: string
+          comment?: string | null
+          decided_at?: string
+          decided_by: string
+          decision: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          approval_request_id?: string
+          comment?: string | null
+          decided_at?: string
+          decided_by?: string
+          decision?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_decisions_approval_request_id_fkey"
+            columns: ["approval_request_id"]
+            isOneToOne: false
+            referencedRelation: "approval_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_decisions_approval_request_id_fkey"
+            columns: ["approval_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_requests: {
+        Row: {
+          action: string
+          created_at: string
+          current_approvals: number
+          expires_at: string | null
+          id: string
+          policy_id: string
+          requested_by: string
+          required_approvals: number
+          resolved_at: string | null
+          resource_data: Json | null
+          resource_id: string | null
+          resource_type: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          current_approvals?: number
+          expires_at?: string | null
+          id?: string
+          policy_id: string
+          requested_by: string
+          required_approvals?: number
+          resolved_at?: string | null
+          resource_data?: Json | null
+          resource_id?: string | null
+          resource_type: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          current_approvals?: number
+          expires_at?: string | null
+          id?: string
+          policy_id?: string
+          requested_by?: string
+          required_approvals?: number
+          resolved_at?: string | null
+          resource_data?: Json | null
+          resource_id?: string | null
+          resource_type?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           action: string
@@ -4765,6 +4886,62 @@ export type Database = {
           },
           {
             foreignKeyName: "depreciation_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enterprise_policies: {
+        Row: {
+          approver_roles: string[]
+          condition: Json
+          created_at: string
+          created_by: string
+          enabled: boolean
+          id: string
+          policy_name: string
+          policy_type: string
+          priority: number
+          required_approvals: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          approver_roles?: string[]
+          condition: Json
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          id?: string
+          policy_name: string
+          policy_type: string
+          priority?: number
+          required_approvals?: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          approver_roles?: string[]
+          condition?: Json
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          id?: string
+          policy_name?: string
+          policy_type?: string
+          priority?: number
+          required_approvals?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enterprise_policies_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -13293,6 +13470,43 @@ export type Database = {
           },
         ]
       }
+      v_pending_approvals: {
+        Row: {
+          action: string | null
+          approvals_remaining: number | null
+          created_at: string | null
+          current_approvals: number | null
+          expires_at: string | null
+          id: string | null
+          policy_id: string | null
+          policy_name: string | null
+          policy_type: string | null
+          requested_by: string | null
+          requester_name: string | null
+          required_approvals: number | null
+          resource_data: Json | null
+          resource_id: string | null
+          resource_type: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_credit_notes_view: {
         Row: {
           applied_amount: number | null
@@ -13522,6 +13736,16 @@ export type Database = {
       calculate_object_metrics: {
         Args: { p_object_id: string }
         Returns: undefined
+      }
+      check_policy_approval: {
+        Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
+        Returns: {
+          approver_roles: string[]
+          policy_id: string
+          policy_name: string
+          required_approvals: number
+          requires_approval: boolean
+        }[]
       }
       close_financial_period: {
         Args: { p_period_id: string }
