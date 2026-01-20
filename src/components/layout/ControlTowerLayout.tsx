@@ -51,11 +51,11 @@ interface NavItemWithBadge extends NavItemConfig {
 // "What's wrong and needs action RIGHT NOW?"
 const navItemsConfig: NavItemConfig[] = [
   { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
+  { id: 'decisions', label: 'Quyết định', icon: FileText, path: '/control-tower/decisions' },
   { id: 'alerts', label: 'Tất cả cảnh báo', icon: Bell, path: '/control-tower/alerts' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
   { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
   { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
-  { id: 'docs', label: 'Hướng dẫn', icon: BookOpen, path: '/control-tower/docs' },
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [
