@@ -3132,6 +3132,56 @@ export type Database = {
           },
         ]
       }
+      confidence_calibration_stats: {
+        Row: {
+          confidence_band: string
+          confirmed_correct: number
+          empirical_success_rate: number
+          id: string
+          last_computed_at: string
+          rejected: number
+          signal_signature: string
+          suggestion_type: string
+          tenant_id: string
+          timed_out: number
+          total_suggestions: number
+        }
+        Insert: {
+          confidence_band: string
+          confirmed_correct?: number
+          empirical_success_rate?: number
+          id?: string
+          last_computed_at?: string
+          rejected?: number
+          signal_signature: string
+          suggestion_type: string
+          tenant_id: string
+          timed_out?: number
+          total_suggestions?: number
+        }
+        Update: {
+          confidence_band?: string
+          confirmed_correct?: number
+          empirical_success_rate?: number
+          id?: string
+          last_computed_at?: string
+          rejected?: number
+          signal_signature?: string
+          suggestion_type?: string
+          tenant_id?: string
+          timed_out?: number
+          total_suggestions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confidence_calibration_stats_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connector_integrations: {
         Row: {
           connector_name: string
@@ -8893,6 +8943,56 @@ export type Database = {
           },
           {
             foreignKeyName: "reconciliation_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_suggestion_outcomes: {
+        Row: {
+          confidence_at_time: number
+          created_at: string
+          decided_at: string
+          decided_by: string | null
+          exception_id: string
+          final_result: string
+          id: string
+          outcome: string
+          rationale_snapshot: Json
+          suggestion_id: string
+          tenant_id: string
+        }
+        Insert: {
+          confidence_at_time: number
+          created_at?: string
+          decided_at?: string
+          decided_by?: string | null
+          exception_id: string
+          final_result: string
+          id?: string
+          outcome: string
+          rationale_snapshot?: Json
+          suggestion_id: string
+          tenant_id: string
+        }
+        Update: {
+          confidence_at_time?: number
+          created_at?: string
+          decided_at?: string
+          decided_by?: string | null
+          exception_id?: string
+          final_result?: string
+          id?: string
+          outcome?: string
+          rationale_snapshot?: Json
+          suggestion_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_suggestion_outcomes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
