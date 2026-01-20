@@ -1346,7 +1346,9 @@ export type Database = {
           action: string
           actor_id: string | null
           actor_role: string | null
+          actor_service_id: string | null
           actor_type: string
+          actor_user_id: string | null
           after_state: Json | null
           before_state: Json | null
           created_at: string
@@ -1365,7 +1367,9 @@ export type Database = {
           action: string
           actor_id?: string | null
           actor_role?: string | null
+          actor_service_id?: string | null
           actor_type: string
+          actor_user_id?: string | null
           after_state?: Json | null
           before_state?: Json | null
           created_at?: string
@@ -1384,7 +1388,9 @@ export type Database = {
           action?: string
           actor_id?: string | null
           actor_role?: string | null
+          actor_service_id?: string | null
           actor_type?: string
+          actor_user_id?: string | null
           after_state?: Json | null
           before_state?: Json | null
           created_at?: string
@@ -9700,6 +9706,7 @@ export type Database = {
           features_hash: string | null
           final_confidence: number | null
           id: string
+          is_latest: boolean
           model_version: string
           predicted_confidence: number
           suggestion_id: string
@@ -9711,6 +9718,7 @@ export type Database = {
           features_hash?: string | null
           final_confidence?: number | null
           id?: string
+          is_latest?: boolean
           model_version: string
           predicted_confidence: number
           suggestion_id: string
@@ -9722,6 +9730,7 @@ export type Database = {
           features_hash?: string | null
           final_confidence?: number | null
           id?: string
+          is_latest?: boolean
           model_version?: string
           predicted_confidence?: number
           suggestion_id?: string

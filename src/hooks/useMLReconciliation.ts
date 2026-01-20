@@ -48,6 +48,15 @@ export function useMLPrediction(suggestionId: string | null) {
         }
       );
 
+      // Handle kill-switch (403) gracefully - not an error, just disabled
+      if (response.status === 403) {
+        const data = await response.json();
+        return { 
+          mlEnabled: false, 
+          error: data.error || 'ML is disabled (kill-switch active)' 
+        };
+      }
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'ML prediction failed');

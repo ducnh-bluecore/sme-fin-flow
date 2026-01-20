@@ -269,13 +269,16 @@ serve(async (req) => {
         .eq('tenant_id', tenantId)
         .maybeSingle();
 
+      // P0-CRITICAL: Kill-switch defense-in-depth at edge function level
       if (!mlSettings?.ml_enabled) {
+        console.warn(`[ML-KILLSWITCH] ML is disabled for tenant ${tenantId} - rejecting predict request`);
         return new Response(
           JSON.stringify({ 
-            error: 'ML not enabled for tenant',
-            mlEnabled: false 
+            error: 'ML is disabled (kill-switch active)',
+            mlEnabled: false,
+            code: 'ML_DISABLED'
           }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
