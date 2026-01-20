@@ -42,7 +42,8 @@ interface NavItemConfig {
   icon: React.ElementType;
   path: string;
   badgeKey?: string;
-  mode?: 'marketing' | 'cmo';
+  mode?: 'ceo' | 'marketing' | 'cmo';
+  isPrimary?: boolean;
 }
 
 interface NavItemWithBadge extends NavItemConfig {
@@ -50,8 +51,11 @@ interface NavItemWithBadge extends NavItemConfig {
 }
 
 // MDP Manifesto: Profit before Performance. Cash before Clicks.
-// Two main entry points: Marketing Mode and CMO Mode
+// CEO View is the primary entry point - Decision-First System
 const navItemsConfig: NavItemConfig[] = [
+  // CEO Decision View - Primary Entry Point
+  { id: 'ceo-view', label: 'CEO Decision View', labelEn: 'CEO Decision View', icon: Target, path: '/mdp/ceo', mode: 'ceo', isPrimary: true },
+  
   // Marketing Mode (Execution) - includes Marketing Mode page
   { id: 'marketing-mode', label: 'Marketing Mode', labelEn: 'Marketing Mode', icon: Megaphone, path: '/mdp/marketing-mode', mode: 'marketing' },
   { id: 'campaigns', label: 'Hiệu suất Campaigns', labelEn: 'Campaign Performance', icon: BarChart3, path: '/mdp/campaigns', mode: 'marketing' },
@@ -122,15 +126,25 @@ export function MDPLayout() {
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
         'text-sm font-medium',
+        item.isPrimary && 'py-3',
         isActive(item.path)
-          ? 'bg-sidebar-primary/15 text-sidebar-primary-foreground border border-sidebar-primary/30'
-          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+          ? item.isPrimary
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-sidebar-primary/15 text-sidebar-primary-foreground border border-sidebar-primary/30'
+          : item.isPrimary
+            ? 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
       )}
     >
-      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-sidebar-primary' : '')} />
+      <item.icon className={cn(
+        'h-5 w-5 flex-shrink-0', 
+        isActive(item.path) 
+          ? item.isPrimary ? '' : 'text-sidebar-primary' 
+          : item.isPrimary ? 'text-primary' : ''
+      )} />
       {!collapsed && (
         <>
-          <span className="flex-1 text-left truncate">
+          <span className={cn("flex-1 text-left truncate", item.isPrimary && "font-semibold")}>
             {language === 'vi' ? item.label : item.labelEn}
           </span>
           {item.badge && item.badge > 0 && (
@@ -178,6 +192,15 @@ export function MDPLayout() {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
+          {/* CEO Decision View - Primary Entry */}
+          <div className="pb-3">
+            {navItems.filter(item => item.mode === 'ceo').map((item) => (
+              <NavLink key={item.id} item={item} />
+            ))}
+          </div>
+
+          <Separator className="bg-sidebar-border mb-3" />
+
           {/* Marketing Mode Section */}
           <div>
             <SectionHeader title={language === 'vi' ? 'Marketing Mode' : 'Marketing Mode'} collapsed={collapsed} />
