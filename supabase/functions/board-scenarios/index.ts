@@ -31,7 +31,7 @@ interface RiskBreach {
 }
 
 async function getBaselineMetrics(
-  supabaseClient: ReturnType<typeof createClient>,
+  supabaseClient: any,
   tenantId: string
 ): Promise<Record<string, number>> {
   const baseline: Record<string, number> = {};
@@ -221,7 +221,7 @@ function projectScenario(
 }
 
 async function checkRiskBreaches(
-  supabaseClient: ReturnType<typeof createClient>,
+  supabaseClient: any,
   tenantId: string,
   projectedOutcomes: ProjectedOutcome[]
 ): Promise<RiskBreach[]> {
@@ -574,8 +574,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
