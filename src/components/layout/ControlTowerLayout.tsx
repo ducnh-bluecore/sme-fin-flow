@@ -19,7 +19,8 @@ import {
   Bot,
   Target,
   BookOpen,
-  FileText
+  FileText,
+  MonitorCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,7 @@ interface NavItemWithBadge extends NavItemConfig {
 // "What's wrong and needs action RIGHT NOW?"
 const navItemsConfig: NavItemConfig[] = [
   { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
+  { id: 'board', label: 'Board View', icon: MonitorCheck, path: '/control-tower/board' },
   { id: 'decisions', label: 'Quyết định', icon: FileText, path: '/control-tower/decisions' },
   { id: 'alerts', label: 'Tất cả cảnh báo', icon: Bell, path: '/control-tower/alerts' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
