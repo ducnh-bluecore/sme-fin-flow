@@ -130,6 +130,9 @@ const MobileHomePage = lazy(() => import("./pages/mobile/MobileHomePage"));
 const MobileAlertsPage = lazy(() => import("./pages/mobile/MobileAlertsPage"));
 const MobileSettingsPage = lazy(() => import("./pages/mobile/MobileSettingsPage"));
 
+// Docs Download page
+const DocsDownload = lazy(() => import("./pages/DocsDownload"));
+
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
 import { MDPLayout } from "@/components/layout/MDPLayout";
 
@@ -326,6 +329,7 @@ const AppRoutes = () => {
         <Route path="/tenant" element={<TenantManagementPage />} />
         <Route path="/tenant/members" element={<TenantMembersPage />} />
         <Route path="/tenant/settings" element={<TenantSettingsPage />} />
+        <Route path="/docs-download" element={<DocsDownload />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
