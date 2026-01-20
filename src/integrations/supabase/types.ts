@@ -4776,6 +4776,289 @@ export type Database = {
           },
         ]
       }
+      decision_insight_queue: {
+        Row: {
+          confidence_score: number
+          created_at: string | null
+          current_alert_id: string | null
+          dismissed: boolean | null
+          expires_at: string | null
+          id: string
+          insight_text: string
+          insight_type: string
+          pattern_id: string | null
+          surfaced: boolean | null
+          surfaced_at: string | null
+          tenant_id: string
+          trigger_condition: Json | null
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string | null
+          current_alert_id?: string | null
+          dismissed?: boolean | null
+          expires_at?: string | null
+          id?: string
+          insight_text: string
+          insight_type: string
+          pattern_id?: string | null
+          surfaced?: boolean | null
+          surfaced_at?: string | null
+          tenant_id: string
+          trigger_condition?: Json | null
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string | null
+          current_alert_id?: string | null
+          dismissed?: boolean | null
+          expires_at?: string | null
+          id?: string
+          insight_text?: string
+          insight_type?: string
+          pattern_id?: string | null
+          surfaced?: boolean | null
+          surfaced_at?: string | null
+          tenant_id?: string
+          trigger_condition?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_insight_queue_current_alert_id_fkey"
+            columns: ["current_alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_insight_queue_current_alert_id_fkey"
+            columns: ["current_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_insight_queue_current_alert_id_fkey"
+            columns: ["current_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_insight_queue_pattern_id_fkey"
+            columns: ["pattern_id"]
+            isOneToOne: false
+            referencedRelation: "decision_learning_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_insight_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_learning_patterns: {
+        Row: {
+          avg_financial_delta: number | null
+          avg_resolution_hours_by_role: Json | null
+          best_performing_role: string | null
+          confidence_score: number | null
+          created_at: string | null
+          decision_type: string
+          delay_penalty_per_day: number | null
+          failure_count: number | null
+          id: string
+          insight_applicable_when: string | null
+          insight_text: string | null
+          last_calculated_at: string | null
+          metric_code: string
+          optimal_action_window_hours: number | null
+          pattern_code: string
+          sample_count: number | null
+          success_count: number | null
+          success_rate_by_role: Json | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avg_financial_delta?: number | null
+          avg_resolution_hours_by_role?: Json | null
+          best_performing_role?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type: string
+          delay_penalty_per_day?: number | null
+          failure_count?: number | null
+          id?: string
+          insight_applicable_when?: string | null
+          insight_text?: string | null
+          last_calculated_at?: string | null
+          metric_code: string
+          optimal_action_window_hours?: number | null
+          pattern_code: string
+          sample_count?: number | null
+          success_count?: number | null
+          success_rate_by_role?: Json | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avg_financial_delta?: number | null
+          avg_resolution_hours_by_role?: Json | null
+          best_performing_role?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_type?: string
+          delay_penalty_per_day?: number | null
+          failure_count?: number | null
+          id?: string
+          insight_applicable_when?: string | null
+          insight_text?: string | null
+          last_calculated_at?: string | null
+          metric_code?: string
+          optimal_action_window_hours?: number | null
+          pattern_code?: string
+          sample_count?: number | null
+          success_count?: number | null
+          success_rate_by_role?: Json | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_learning_patterns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decision_outcome_records: {
+        Row: {
+          action_speed: string | null
+          action_taken: string | null
+          alert_id: string | null
+          context_snapshot: Json | null
+          created_at: string | null
+          decided_by_role: string
+          decided_by_user_id: string | null
+          decision_date: string
+          decision_id: string | null
+          decision_type: string
+          dimension_key: string | null
+          exposure_before: number | null
+          financial_delta_14d: number | null
+          financial_delta_30d: number | null
+          financial_delta_7d: number | null
+          id: string
+          metric_after_14d: number | null
+          metric_after_30d: number | null
+          metric_after_7d: number | null
+          metric_before: number | null
+          metric_code: string
+          outcome_confidence: number | null
+          outcome_measured_at: string | null
+          outcome_verdict: string | null
+          side_effects_detected: Json | null
+          tenant_id: string
+          unintended_impact_score: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          action_speed?: string | null
+          action_taken?: string | null
+          alert_id?: string | null
+          context_snapshot?: Json | null
+          created_at?: string | null
+          decided_by_role: string
+          decided_by_user_id?: string | null
+          decision_date: string
+          decision_id?: string | null
+          decision_type: string
+          dimension_key?: string | null
+          exposure_before?: number | null
+          financial_delta_14d?: number | null
+          financial_delta_30d?: number | null
+          financial_delta_7d?: number | null
+          id?: string
+          metric_after_14d?: number | null
+          metric_after_30d?: number | null
+          metric_after_7d?: number | null
+          metric_before?: number | null
+          metric_code: string
+          outcome_confidence?: number | null
+          outcome_measured_at?: string | null
+          outcome_verdict?: string | null
+          side_effects_detected?: Json | null
+          tenant_id: string
+          unintended_impact_score?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          action_speed?: string | null
+          action_taken?: string | null
+          alert_id?: string | null
+          context_snapshot?: Json | null
+          created_at?: string | null
+          decided_by_role?: string
+          decided_by_user_id?: string | null
+          decision_date?: string
+          decision_id?: string | null
+          decision_type?: string
+          dimension_key?: string | null
+          exposure_before?: number | null
+          financial_delta_14d?: number | null
+          financial_delta_30d?: number | null
+          financial_delta_7d?: number | null
+          id?: string
+          metric_after_14d?: number | null
+          metric_after_30d?: number | null
+          metric_after_7d?: number | null
+          metric_before?: number | null
+          metric_code?: string
+          outcome_confidence?: number | null
+          outcome_measured_at?: string | null
+          outcome_verdict?: string | null
+          side_effects_detected?: Json | null
+          tenant_id?: string
+          unintended_impact_score?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_outcome_records_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decision_outcomes: {
         Row: {
           actual_impact_amount: number | null
@@ -15438,6 +15721,10 @@ export type Database = {
           remaining_value: number
         }[]
       }
+      calculate_decision_patterns: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       calculate_object_metrics: {
         Args: { p_object_id: string }
         Returns: undefined
@@ -15515,6 +15802,14 @@ export type Database = {
         Returns: string
       }
       get_active_tenant_id: { Args: never; Returns: string }
+      get_decision_insight: {
+        Args: {
+          p_decision_type: string
+          p_metric_code: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       get_exchange_rate: {
         Args: {
           p_date?: string
