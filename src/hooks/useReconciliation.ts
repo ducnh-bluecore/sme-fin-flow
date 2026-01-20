@@ -252,7 +252,17 @@ export function useAutoMatch() {
   const matchMutation = useMatchTransaction();
   const queryClient = useQueryClient();
 
-  const runAutoMatch = useCallback(async (autoApply: boolean = false) => {
+  /**
+   * GOVERNANCE FIX (v3.1): Auto-match NO LONGER writes to ledger
+   * 
+   * High-confidence matches are SUGGESTED ONLY - ledger writes only via:
+   * 1. User explicitly confirms via applyMatch()
+   * 2. Guardrails auto-confirm path (with audit trail)
+   * 
+   * This ensures enterprise safety and prevents bypass of governance controls.
+   */
+  const runAutoMatch = useCallback(async (_autoApply: boolean = false) => {
+    // GOVERNANCE: autoApply parameter is now ignored - all matches are suggestions only
     if (!invoices || !transactions) {
       toast.error('Dữ liệu chưa sẵn sàng');
       return [];
@@ -264,24 +274,14 @@ export function useAutoMatch() {
       const matches = findMatches(invoices, transactions);
       setMatchResults(matches);
 
-      if (autoApply && matches.length > 0) {
-        // Only auto-apply high confidence matches (>=80%)
-        const highConfidenceMatches = matches.filter(m => m.confidence >= 80);
-        
-        for (const match of highConfidenceMatches) {
-          const txn = transactions.find(t => t.id === match.transactionId);
-          if (txn) {
-            await matchMutation.mutateAsync({
-              invoiceId: match.invoiceId,
-              transactionId: match.transactionId,
-              amount: Math.abs(txn.amount)
-            });
-          }
-        }
+      const highConfidenceCount = matches.filter(m => m.confidence >= 80).length;
 
-        toast.success(`Đã tự động khớp ${highConfidenceMatches.length} giao dịch`);
-      } else if (matches.length > 0) {
-        toast.info(`Tìm thấy ${matches.length} giao dịch có thể khớp`);
+      if (matches.length > 0) {
+        // GOVERNANCE: Never auto-apply - only suggest
+        toast.info(
+          `Tìm thấy ${matches.length} giao dịch có thể khớp` +
+          (highConfidenceCount > 0 ? ` (${highConfidenceCount} độ tin cậy cao)` : '')
+        );
       } else {
         toast.info('Không tìm thấy giao dịch phù hợp để khớp');
       }
@@ -293,7 +293,7 @@ export function useAutoMatch() {
     } finally {
       setIsMatching(false);
     }
-  }, [invoices, transactions, matchMutation]);
+  }, [invoices, transactions]);
 
   const applyMatch = useCallback(async (match: MatchResult) => {
     if (!transactions) return;

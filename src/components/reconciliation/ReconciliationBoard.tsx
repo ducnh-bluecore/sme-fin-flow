@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { motion, useDragControls } from 'framer-motion';
 import { 
   CheckCircle2, 
@@ -272,11 +273,23 @@ export function ReconciliationBoard() {
     setShowAutoMatchDialog(true);
   };
 
+  /**
+   * GOVERNANCE FIX (v3.1): Apply all requires explicit user action
+   * This is now an intentional user action, not automated.
+   * Each match is applied individually with full audit trail.
+   */
   const handleApplyAll = async () => {
     const highConfidenceMatches = matchResults.filter(m => m.confidence >= 80);
+    if (highConfidenceMatches.length === 0) {
+      toast.info('Không có giao dịch độ tin cậy cao để áp dụng');
+      return;
+    }
+    
+    // Apply each match explicitly - this is user-initiated, not auto-apply
     for (const match of highConfidenceMatches) {
       await applyMatch(match);
     }
+    toast.success(`Đã áp dụng ${highConfidenceMatches.length} giao dịch`);
     setShowAutoMatchDialog(false);
   };
 
