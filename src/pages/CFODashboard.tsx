@@ -11,6 +11,7 @@ import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
 import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
 import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
 import FinancialTruthCard from '@/components/dashboard/FinancialTruthCard';
+import { ExceptionStatsCard } from '@/components/exceptions';
 
 import { useAllProblematicSKUs } from '@/hooks/useAllProblematicSKUs';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -151,6 +152,9 @@ export default function CFODashboard() {
 
         {/* Financial Truth - Single Source of Truth */}
         <FinancialTruthCard />
+
+        {/* Exception Stats - Workflow alerts */}
+        <ExceptionStatsCard />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

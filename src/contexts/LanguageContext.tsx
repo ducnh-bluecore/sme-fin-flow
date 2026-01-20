@@ -106,6 +106,7 @@ const vi: Record<string, string> = {
   'nav.covenantTracking': 'Covenant Tracking',
 
   'nav.alerts': 'Cảnh báo',
+  'nav.exceptions': 'Exception Board',
 
   'nav.admin': 'Quản trị',
   'nav.companyManagement': 'Quản lý công ty',
