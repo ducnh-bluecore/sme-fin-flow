@@ -3,3 +3,4 @@ export { default as AlertsPage } from './AlertsPage';
 export { default as KPINotificationRulesPage } from './KPINotificationRulesPage';
 export { default as TeamPage } from './TeamPage';
 export { default as SettingsPage } from './SettingsPage';
+export { default as SituationRoomPage } from './SituationRoomPage';
