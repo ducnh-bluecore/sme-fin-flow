@@ -1,6 +1,6 @@
 # BLUECORE FDP - COMPLETE SYSTEM REVIEW
 > **Financial Data Platform** - Single Source of Truth for CEO/CFO
-> Version: 2.0 | Updated: 2026-01-20
+> Version: 3.0 | Updated: 2026-01-20
 
 ---
 
@@ -14,7 +14,9 @@
 6. [Edge Functions](#vi-edge-functions)
 7. [UI Components](#vii-ui-components)
 8. [Công thức & Constants](#viii-công-thức--constants)
-9. [Test Checklist](#ix-test-checklist)
+9. [Risk Appetite & Governance](#ix-risk-appetite--governance)
+10. [Investor Disclosure & Stress Testing](#x-investor-disclosure--stress-testing)
+11. [Test Checklist](#xi-test-checklist)
 
 ---
 
@@ -564,6 +566,10 @@ interface CentralFinancialMetrics {
 | detect-alerts | /detect-alerts | Detect financial alerts |
 | generate-decision-cards | /generate-decision-cards | Generate decision cards |
 | analyze-financial-data | /analyze-financial-data | AI financial analysis |
+| risk-appetite | /risk-appetite/* | Board-defined risk appetite management |
+| investor-disclosure | /investor-disclosure/* | Investor risk disclosure generation |
+| risk-stress-test | /risk-stress-test/* | Risk appetite stress testing |
+| board-scenarios | /board-scenarios/* | Board scenario simulation |
 
 ---
 
@@ -606,6 +612,173 @@ interface CentralFinancialMetrics {
   },
   "formula": "cash_today + (AR * 0.15) + (weekly_sales * 0.80) - (AP * 0.20)",
   "sources": ["bank_accounts", "invoices", "external_orders", "bills"]
+}
+```
+
+---
+
+### 6.3 `risk-appetite` Edge Function
+
+**Location:** `supabase/functions/risk-appetite/index.ts`
+
+#### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | /configs | List all risk appetite configurations |
+| POST | /configs | Create new risk appetite configuration |
+| PUT | /configs/:id | Update configuration |
+| GET | /configs/:id | Get specific configuration |
+| GET | /rules | Get rules for a configuration |
+| POST | /rules | Create/update rules |
+| GET | /current-status | Get current risk status vs thresholds |
+| POST | /check-breaches | Check for threshold breaches |
+
+#### Risk Metrics
+
+| Metric Code | Description | Default Threshold |
+|-------------|-------------|-------------------|
+| AR_OVERDUE_RATIO | % AR quá hạn | ≤ 15% |
+| AUTO_RECON_RATE | % tự động đối soát | ≥ 80% |
+| ML_DECISION_RATE | % quyết định ML | ≤ 20% |
+| CASH_RUNWAY_DAYS | Số ngày cash runway | ≥ 90 |
+| DSO_DAYS | Days Sales Outstanding | ≤ 45 |
+| GROSS_MARGIN | Gross margin % | ≥ 25% |
+
+---
+
+### 6.4 `investor-disclosure` Edge Function
+
+**Location:** `supabase/functions/investor-disclosure/index.ts`
+
+#### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | /generate | Generate disclosure from risk appetite |
+| POST | /save | Save disclosure draft |
+| PUT | /:id/approve | Approve disclosure |
+| PUT | /:id/publish | Publish to investor portal |
+| GET | /list | List all disclosures |
+| GET | /:id | Get specific disclosure |
+
+#### Disclosure Output Format
+
+```json
+{
+  "summary": "Board-approved narrative...",
+  "key_risks": {
+    "arRisk": {
+      "metric": "Overdue receivables",
+      "value": "12%",
+      "withinAppetite": true
+    },
+    "automationRisk": {
+      "metric": "Automated reconciliations", 
+      "value": "38%",
+      "withinAppetite": true
+    }
+  },
+  "mitigations": [
+    {
+      "risk": "ar_overdue_ratio",
+      "control": "Automated collection reminders",
+      "effectiveness": "high"
+    }
+  ]
+}
+```
+
+---
+
+### 6.5 `risk-stress-test` Edge Function
+
+**Location:** `supabase/functions/risk-stress-test/index.ts`
+
+#### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | /simulate | Run stress test simulation |
+| POST | /preview | Preview impact without saving |
+| GET | /history | Get stress test history |
+| GET | /:id | Get specific test result |
+
+#### Simulation Output
+
+```json
+{
+  "autoReconciliationRate": {
+    "current": 38,
+    "simulated": 21,
+    "delta": -17
+  },
+  "approvalsRequired": {
+    "current": 12,
+    "simulated": 47,
+    "delta": 35
+  },
+  "riskExposure": {
+    "current": 1200000000,
+    "simulated": 700000000,
+    "delta": -500000000
+  }
+}
+```
+
+---
+
+### 6.6 `board-scenarios` Edge Function
+
+**Location:** `supabase/functions/board-scenarios/index.ts`
+
+#### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | /simulate | Run scenario simulation |
+| POST | /compare | Compare multiple scenarios |
+| GET | /list | List all scenarios |
+| GET | /templates | Get scenario templates |
+| PUT | /:id/archive | Archive scenario |
+| GET | /:id | Get specific scenario |
+
+#### Scenario Types
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| revenue_shock | Revenue decrease | shock_percent (e.g., -20%) |
+| ar_delay | AR collection delay | delay_days (e.g., +15 days) |
+| cost_inflation | Cost increase | inflation_percent (e.g., +10%) |
+| automation_pause | Disable automation | duration_days |
+
+#### Scenario Output
+
+```json
+{
+  "projected_outcomes": [
+    {
+      "metric": "cash_position",
+      "baseline": 5000000000,
+      "projected": 3800000000,
+      "change_percent": -24
+    }
+  ],
+  "risk_breaches": [
+    {
+      "rule_name": "Minimum Cash Runway",
+      "breached": true,
+      "threshold": 90,
+      "projected_value": 65
+    }
+  ],
+  "control_impacts": [
+    {
+      "control": "auto_reconciliation",
+      "impact": "reduced",
+      "reason": "Lower volume"
+    }
+  ]
 }
 ```
 
@@ -764,9 +937,173 @@ Cash Next 7 Days = Cash Today
 
 ---
 
-## IX. TEST CHECKLIST
+## IX. RISK APPETITE & GOVERNANCE
 
-### 9.1 Database Tests
+### 9.1 Risk Appetite Configuration
+
+**Database Tables:**
+
+| Table | Purpose |
+|-------|---------|
+| `risk_appetite_configs` | Board-defined risk appetite versions |
+| `risk_appetite_rules` | Individual risk thresholds |
+| `risk_breach_events` | Historical breach records |
+
+#### Risk Appetite Config Schema
+
+```sql
+CREATE TABLE risk_appetite_configs (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  version INT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'draft', -- draft, active, archived
+  approved_by UUID,
+  approved_at TIMESTAMPTZ,
+  effective_from DATE,
+  effective_to DATE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+#### Risk Appetite Rules Schema
+
+```sql
+CREATE TABLE risk_appetite_rules (
+  id UUID PRIMARY KEY,
+  config_id UUID NOT NULL REFERENCES risk_appetite_configs(id),
+  metric_code TEXT NOT NULL,
+  metric_name TEXT NOT NULL,
+  threshold_type TEXT NOT NULL, -- max, min, range
+  threshold_value NUMERIC NOT NULL,
+  warning_threshold NUMERIC,
+  severity TEXT DEFAULT 'warning', -- info, warning, critical
+  is_enabled BOOLEAN DEFAULT true
+);
+```
+
+### 9.2 Hooks
+
+| Hook | File | Purpose |
+|------|------|---------|
+| `useRiskAppetites` | useRiskAppetite.ts | List all risk appetite configs |
+| `useRiskAppetiteRules` | useRiskAppetite.ts | Get rules for a config |
+| `useRiskStatus` | useRiskAppetite.ts | Current status vs thresholds |
+| `useCheckBreaches` | useRiskAppetite.ts | Detect threshold breaches |
+| `useCreateRiskAppetite` | useRiskAppetite.ts | Create new config |
+| `useActivateRiskAppetite` | useRiskAppetite.ts | Activate a config |
+
+### 9.3 UI Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `RiskAppetiteConfig` | components/risk/ | Configure risk thresholds |
+| `RiskStatusDashboard` | components/risk/ | Current risk status |
+| `RiskBreachHistory` | components/risk/ | Historical breaches |
+
+---
+
+## X. INVESTOR DISCLOSURE & STRESS TESTING
+
+### 10.1 Investor Risk Disclosures
+
+**Database Table:**
+
+```sql
+CREATE TABLE investor_risk_disclosures (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  risk_appetite_version INT NOT NULL,
+  disclosure_period_start DATE NOT NULL,
+  disclosure_period_end DATE NOT NULL,
+  summary TEXT NOT NULL,
+  key_risks JSONB NOT NULL,
+  mitigations JSONB NOT NULL,
+  status TEXT DEFAULT 'draft', -- draft, approved, published
+  approved_by UUID,
+  approved_at TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### 10.2 Hooks
+
+| Hook | File | Purpose |
+|------|------|---------|
+| `useGenerateDisclosure` | useInvestorDisclosure.ts | Generate from risk appetite |
+| `useDisclosureList` | useInvestorDisclosure.ts | List disclosures |
+| `useSaveDisclosure` | useInvestorDisclosure.ts | Save draft |
+| `useApproveDisclosure` | useInvestorDisclosure.ts | Board approval |
+| `usePublishDisclosure` | useInvestorDisclosure.ts | Publish to investor portal |
+
+### 10.3 Risk Stress Testing
+
+**Database Table:**
+
+```sql
+CREATE TABLE risk_stress_tests (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  base_risk_appetite_id UUID NOT NULL,
+  simulated_risk_appetite JSONB NOT NULL,
+  impact_summary JSONB NOT NULL,
+  simulated_at TIMESTAMPTZ DEFAULT now(),
+  created_by UUID NOT NULL
+);
+```
+
+### 10.4 Hooks
+
+| Hook | File | Purpose |
+|------|------|---------|
+| `useRunStressTest` | useStressTest.ts | Run simulation |
+| `usePreviewStressTest` | useStressTest.ts | Preview without saving |
+| `useStressTestHistory` | useStressTest.ts | Historical tests |
+
+### 10.5 Board Scenarios
+
+**Database Table:**
+
+```sql
+CREATE TABLE board_scenarios (
+  id UUID PRIMARY KEY,
+  tenant_id UUID NOT NULL,
+  scenario_name TEXT NOT NULL,
+  scenario_type TEXT NOT NULL,
+  assumptions JSONB NOT NULL,
+  projected_outcomes JSONB NOT NULL,
+  risk_breaches JSONB NOT NULL,
+  control_impacts JSONB,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  created_by UUID NOT NULL
+);
+```
+
+### 10.6 Scenario Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `revenue_shock` | Revenue decrease simulation | "What if sales drop 20%?" |
+| `ar_delay` | AR collection delay | "What if customers pay 15 days later?" |
+| `cost_inflation` | Cost increase | "What if costs increase 10%?" |
+| `automation_pause` | Disable automation | "What if we pause auto-recon?" |
+
+### 10.7 UI Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `InvestorRiskDisclosure` | components/investor/ | Generate & manage disclosures |
+| `RiskStressTestConsole` | components/stress-test/ | Slider-based threshold testing |
+| `BoardScenarioRoom` | components/scenarios/ | Scenario simulation & comparison |
+
+---
+
+## XI. TEST CHECKLIST
+
+### 11.1 Database Tests
 
 ```sql
 -- 1. Verify SSOT tables exist
@@ -787,9 +1124,18 @@ SELECT * FROM v_decision_latest LIMIT 5;
 SELECT tablename, rowsecurity FROM pg_tables 
 WHERE schemaname = 'public' 
 AND tablename IN ('reconciliation_links', 'decision_snapshots');
+
+-- 5. Verify risk appetite tables
+SELECT * FROM risk_appetite_configs LIMIT 5;
+SELECT * FROM risk_appetite_rules LIMIT 5;
+
+-- 6. Verify investor disclosure tables
+SELECT * FROM investor_risk_disclosures LIMIT 5;
+SELECT * FROM risk_stress_tests LIMIT 5;
+SELECT * FROM board_scenarios LIMIT 5;
 ```
 
-### 9.2 Edge Function Tests
+### 11.2 Edge Function Tests
 
 ```bash
 # 1. Compute cash snapshots
@@ -802,12 +1148,30 @@ curl -X POST \
 curl -X GET \
   'https://{project-id}.supabase.co/functions/v1/decision-snapshots/latest?tenantId={tenant-uuid}&metricCode=cash_today'
 
-# 3. Explain snapshot
+# 3. Risk appetite status
 curl -X GET \
-  'https://{project-id}.supabase.co/functions/v1/decision-snapshots/explain/{snapshot-id}'
+  'https://{project-id}.supabase.co/functions/v1/risk-appetite/current-status?tenantId={tenant-uuid}'
+
+# 4. Generate investor disclosure
+curl -X POST \
+  'https://{project-id}.supabase.co/functions/v1/investor-disclosure/generate' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{"tenantId": "{tenant-uuid}", "periodStart": "2026-01-01", "periodEnd": "2026-03-31"}'
+
+# 5. Run stress test
+curl -X POST \
+  'https://{project-id}.supabase.co/functions/v1/risk-stress-test/simulate' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{"tenantId": "{tenant-uuid}", "simulatedChanges": [...]}'
+
+# 6. Run board scenario
+curl -X POST \
+  'https://{project-id}.supabase.co/functions/v1/board-scenarios/simulate' \
+  -H 'Authorization: Bearer {token}' \
+  -d '{"tenantId": "{tenant-uuid}", "scenarioName": "Revenue Shock", "scenarioType": "revenue_shock", "assumptions": {"shock_percent": -20}}'
 ```
 
-### 9.3 Hook Tests
+### 11.3 Hook Tests
 
 ```typescript
 // 1. Central Financial Metrics
@@ -821,14 +1185,34 @@ const { data: bankState } = useBankTxnMatchState();
 // 3. Decision Snapshots
 const { data: cashMetrics } = useCashSnapshots();
 console.log(cashMetrics.cashToday, cashMetrics.isStale);
+
+// 4. Risk Appetite
+const { data: appetites } = useRiskAppetites();
+const { data: status } = useRiskStatus();
+
+// 5. Investor Disclosure
+const generateDisclosure = useGenerateDisclosure();
+const { data: disclosures } = useDisclosureList();
+
+// 6. Stress Testing
+const runStressTest = useRunStressTest();
+const { data: history } = useStressTestHistory();
+
+// 7. Board Scenarios
+const runScenario = useRunScenario();
+const { data: scenarios } = useScenarioList();
 ```
 
-### 9.4 UI Tests
+### 11.4 UI Tests
 
 1. **TruthBadge**: Import vào dashboard card, verify hiển thị đúng màu/label
 2. **Explain Dialog**: Click info button, verify shows formula + assumptions
 3. **Reconciliation Board**: Verify reads from SSOT views
 4. **CFO Dashboard**: Verify all metrics load correctly
+5. **Risk Appetite Config**: Verify can create/edit/activate configs
+6. **Investor Disclosure**: Verify generate/approve/publish flow
+7. **Stress Test Console**: Verify slider adjustments update preview
+8. **Board Scenario Room**: Verify scenario comparison works
 
 ---
 
@@ -845,7 +1229,11 @@ src/
 │   ├── usePLData.ts                    # P&L data
 │   ├── useInvoiceData.ts               # Invoice CRUD
 │   ├── useBillsData.ts                 # Bills CRUD
-│   └── useBankData.ts                  # Bank data
+│   ├── useBankData.ts                  # Bank data
+│   ├── useRiskAppetite.ts              # Risk appetite management
+│   ├── useInvestorDisclosure.ts        # Investor disclosure
+│   ├── useStressTest.ts                # Stress testing
+│   └── useBoardScenarios.ts            # Board scenarios
 │
 ├── lib/
 │   ├── fdp-formulas.ts                 # Locked formulas
@@ -853,32 +1241,87 @@ src/
 │   └── formatters.ts                   # VND formatting
 │
 ├── components/
-│   └── dashboard/
-│       └── TruthBadge.tsx              # Truth level badge
+│   ├── dashboard/
+│   │   └── TruthBadge.tsx              # Truth level badge
+│   ├── risk/
+│   │   ├── RiskAppetiteConfig.tsx      # Risk appetite configuration
+│   │   ├── RiskStatusDashboard.tsx     # Current risk status
+│   │   └── RiskBreachHistory.tsx       # Breach history
+│   ├── investor/
+│   │   └── InvestorRiskDisclosure.tsx  # Investor disclosure UI
+│   ├── stress-test/
+│   │   └── RiskStressTestConsole.tsx   # Stress test console
+│   └── scenarios/
+│       └── BoardScenarioRoom.tsx       # Board scenario room
 │
 ├── pages/
 │   ├── Dashboard.tsx                   # CFO Dashboard
 │   ├── Reconciliation.tsx              # Reconciliation Hub
 │   ├── DecisionCenter.tsx              # Decision Center
 │   ├── UnitEconomics.tsx               # Unit Economics
-│   └── PLReport.tsx                    # P&L Report
+│   ├── PLReport.tsx                    # P&L Report
+│   ├── ExpensesPage.tsx                # Expenses management
+│   ├── RevenuePage.tsx                 # Revenue management
+│   ├── RiskDashboardPage.tsx           # Risk dashboard
+│   └── BoardReportsPage.tsx            # Board reports
 
 supabase/
 ├── functions/
 │   ├── decision-snapshots/index.ts     # Decision snapshots API
 │   ├── detect-alerts/                  # Alert detection
-│   └── generate-decision-cards/        # Decision card generation
+│   ├── generate-decision-cards/        # Decision card generation
+│   ├── risk-appetite/index.ts          # Risk appetite management
+│   ├── investor-disclosure/index.ts    # Investor disclosure
+│   ├── risk-stress-test/index.ts       # Stress testing
+│   └── board-scenarios/index.ts        # Board scenarios
 │
 └── migrations/
     ├── ..._reconciliation_ledger.sql   # SSOT ledger tables
-    └── ..._decision_snapshots.sql      # Decision snapshots table
+    ├── ..._decision_snapshots.sql      # Decision snapshots table
+    ├── ..._risk_appetite.sql           # Risk appetite tables
+    ├── ..._investor_disclosures.sql    # Investor disclosure tables
+    └── ..._board_scenarios.sql         # Board scenarios tables
 
 public/docs/
 ├── system-documentation-complete.md    # Full system docs
-├── database-schema.md                  # 163 tables reference
+├── database-schema.md                  # 163+ tables reference
 └── fdp-complete-system-review.md       # This file
 ```
 
 ---
 
-*Document generated for Bluecore FDP v2.0 - Single Source of Truth*
+## 📊 SYSTEM SUMMARY
+
+### Platform Modules
+
+| Module | Purpose | Key Features |
+|--------|---------|--------------|
+| **FDP** | Financial Data Platform | SSOT metrics, P&L, Cash Flow, Working Capital |
+| **MDP** | Marketing Data Platform | Profit attribution, Cash impact, ROI |
+| **Control Tower** | Operations | Alerts, Tasks, KPI monitoring |
+| **CDP** | Customer Data Platform | Customer insights (planned) |
+
+### Navigation Structure
+
+| Section | Routes | Description |
+|---------|--------|-------------|
+| CFO Overview | /dashboard, /cash-forecast, /working-capital-hub | Core financial dashboards |
+| Strategy & Decision | /executive-summary, /capital-allocation, /risk-dashboard | Strategic planning |
+| Financial Reports | /pl-report, /financial-reports, /expenses, /revenue | Reporting |
+| AR/AP | /invoice/tracking, /ar-operations, /bills, /reconciliation | Receivables & Payables |
+| Data Hub | /data-hub, /data-warehouse, /chart-of-accounts, /bank-connections | Data management |
+| Admin | /tenant, /rbac, /audit-log | Administration |
+
+### Key Integrations
+
+| Integration | Type | Status |
+|-------------|------|--------|
+| Shopee/Lazada | E-commerce | Active |
+| TikTok/Meta Ads | Marketing | Active |
+| Bank APIs | Banking | Active |
+| Google BigQuery | Data Warehouse | Active |
+
+---
+
+*Document generated for Bluecore FDP v3.0 - Financial Governance Operating System*
+*Last updated: 2026-01-20*
