@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMarketingDecisionEngine } from '@/hooks/useMarketingDecisionEngine';
 import { CEOOneScreenView, DecisionCardStack, ScaleOpportunities } from '@/components/mdp/v2';
+import { ChannelBudgetConfigPanel } from '@/components/mdp/cmo-mode/ChannelBudgetConfigPanel';
 import { MarketingDecisionCard } from '@/types/mdp-v2';
 import { toast } from 'sonner';
+import { Target, Settings2 } from 'lucide-react';
 
 /**
  * MDP CEO VIEW
@@ -14,6 +18,7 @@ import { toast } from 'sonner';
  * 3. Which campaign must be paused/killed?
  */
 export default function MDPV2CEOPage() {
+  const [activeTab, setActiveTab] = useState('overview');
   const {
     decisionCards,
     ceoSnapshot,
@@ -55,31 +60,53 @@ export default function MDPV2CEOPage() {
 
   return (
     <div className="space-y-6">
-      {/* CEO One-Screen View */}
-      <CEOOneScreenView 
-        snapshot={ceoSnapshot} 
-        onDecisionAction={(card) => handleDecisionAction(card, 'APPROVE')} 
-      />
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="bg-muted/50 border">
+          <TabsTrigger value="overview" className="gap-2">
+            <Target className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings2 className="h-4 w-4" />
+            Channel KPI Setup
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Scale Opportunities */}
-      {scaleOpportunities.length > 0 && (
-        <div className="max-w-4xl">
-          <ScaleOpportunities 
-            opportunities={scaleOpportunities} 
-            onScale={handleScale} 
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="mt-6 space-y-6">
+          {/* CEO One-Screen View */}
+          <CEOOneScreenView 
+            snapshot={ceoSnapshot} 
+            onDecisionAction={(card) => handleDecisionAction(card, 'APPROVE')} 
           />
-        </div>
-      )}
 
-      {/* Decision Queue - Secondary */}
-      {decisionCards.length > 0 && (
-        <div className="max-w-4xl">
-          <DecisionCardStack 
-            cards={decisionCards} 
-            onAction={handleDecisionAction} 
-          />
-        </div>
-      )}
+          {/* Scale Opportunities */}
+          {scaleOpportunities.length > 0 && (
+            <div className="max-w-4xl">
+              <ScaleOpportunities 
+                opportunities={scaleOpportunities} 
+                onScale={handleScale} 
+              />
+            </div>
+          )}
+
+          {/* Decision Queue - Secondary */}
+          {decisionCards.length > 0 && (
+            <div className="max-w-4xl">
+              <DecisionCardStack 
+                cards={decisionCards} 
+                onAction={handleDecisionAction} 
+              />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Channel KPI Setup Tab */}
+        <TabsContent value="settings" className="mt-6">
+          <ChannelBudgetConfigPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
