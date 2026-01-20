@@ -1,0 +1,1 @@
+export { BoardScenarioRoom } from './BoardScenarioRoom';

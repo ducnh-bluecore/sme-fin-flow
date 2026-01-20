@@ -1,0 +1,1 @@
+export { InvestorRiskDisclosure } from './InvestorRiskDisclosure';
