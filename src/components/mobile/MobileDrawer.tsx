@@ -41,6 +41,7 @@ const navItems: NavItem[] = [
   { id: 'kpi-rules', label: 'Rules KPI', icon: Target, path: '/control-tower/kpi-rules' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badge: 12 },
   { id: 'alerts', label: 'Cảnh báo', icon: AlertTriangle, path: '/control-tower/alerts', badge: 3 },
+  { id: 'exceptions', label: 'Exceptions', icon: AlertTriangle, path: '/exceptions' },
   { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
   { id: 'stores', label: 'Cửa hàng', icon: Store, path: '/control-tower/stores' },
   { id: 'inventory', label: 'Tồn kho', icon: Package, path: '/control-tower/inventory' },

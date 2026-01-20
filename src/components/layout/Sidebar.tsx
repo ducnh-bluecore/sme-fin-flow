@@ -103,6 +103,7 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.apOverview', href: '/bills' },
       { labelKey: 'nav.creditDebitNotes', href: '/credit-debit-notes' },
       { labelKey: 'nav.reconciliation', href: '/reconciliation' },
+      { labelKey: 'nav.exceptions', href: '/exceptions' },
     ],
   },
   {

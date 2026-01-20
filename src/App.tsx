@@ -48,6 +48,7 @@ const BudgetVsActualPage = lazy(() => import("./pages/BudgetVsActualPage"));
 const RollingForecastPage = lazy(() => import("./pages/RollingForecastPage"));
 const CovenantTrackingPage = lazy(() => import("./pages/CovenantTrackingPage"));
 const WorkingCapitalPage = lazy(() => import("./pages/WorkingCapitalPage"));
+const ExceptionsPage = lazy(() => import("./pages/ExceptionsPage"));
 const VarianceAnalysisPage = lazy(() => import("./pages/VarianceAnalysisPage"));
 const BoardReportsPage = lazy(() => import("./pages/BoardReportsPage"));
 const StrategicInitiativesPage = lazy(() => import("./pages/StrategicInitiativesPage"));
@@ -273,6 +274,7 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<CFODashboard />} />
         <Route path="/ar-operations" element={<AROperations />} />
         <Route path="/reconciliation" element={<ReconciliationHubPage />} />
+        <Route path="/exceptions" element={<ExceptionsPage />} />
         <Route path="/chart-of-accounts" element={<ChartOfAccountsPage />} />
         <Route path="/bills" element={<BillsPage />} />
         <Route path="/credit-debit-notes" element={<CreditDebitNotesPage />} />
