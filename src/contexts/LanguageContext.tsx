@@ -79,6 +79,8 @@ const vi: Record<string, string> = {
   'nav.varianceAnalysis': 'Phân tích chênh lệch',
   'nav.performanceAnalysis': 'Phân tích hiệu quả',
   'nav.boardReports': 'Báo cáo HĐQT',
+  'nav.expenses': 'Chi phí',
+  'nav.revenue': 'Doanh thu',
 
   'nav.planSimulation': 'Kế hoạch & Mô phỏng',
   'nav.scenario': 'Kịch bản & What-If',
@@ -99,7 +101,10 @@ const vi: Record<string, string> = {
 
   'nav.dataHub': 'Data Hub',
   'nav.dataCenter': 'Trung tâm dữ liệu',
+  'nav.dataWarehouse': 'Data Warehouse',
   'nav.etlRules': 'Quy tắc ETL',
+  'nav.chartOfAccounts': 'Hệ thống tài khoản',
+  'nav.bankConnections': 'Kết nối ngân hàng',
 
   'nav.taxCompliance': 'Thuế & Tuân thủ',
   'nav.taxTracking': 'Tax Compliance',
@@ -120,6 +125,8 @@ const vi: Record<string, string> = {
   'nav.formulas': 'Công thức tính',
   'nav.formulasOverview': 'Tổng hợp công thức',
   'nav.formulaSettings': 'Cài đặt tham số',
+  'nav.documentation': 'Tài liệu',
+  'nav.userGuide': 'Hướng dẫn sử dụng',
   'nav.superAdmin': 'Super Admin',
   'nav.tenantManagement': 'Quản lý Tenants',
   'nav.userManagement': 'Quản lý Users',
@@ -1746,6 +1753,8 @@ const en: Record<string, string> = {
   'nav.varianceAnalysis': 'Variance Analysis',
   'nav.performanceAnalysis': 'Performance Analysis',
   'nav.boardReports': 'Board Reports',
+  'nav.expenses': 'Expenses',
+  'nav.revenue': 'Revenue',
 
   'nav.planSimulation': 'Planning & Simulation',
   'nav.scenario': 'Scenario & What-If',
@@ -1766,7 +1775,10 @@ const en: Record<string, string> = {
 
   'nav.dataHub': 'Data Hub',
   'nav.dataCenter': 'Data Center',
+  'nav.dataWarehouse': 'Data Warehouse',
   'nav.etlRules': 'ETL Rules',
+  'nav.chartOfAccounts': 'Chart of Accounts',
+  'nav.bankConnections': 'Bank Connections',
 
   'nav.taxCompliance': 'Tax & Compliance',
   'nav.taxTracking': 'Tax Compliance',
@@ -1786,6 +1798,8 @@ const en: Record<string, string> = {
   'nav.formulas': 'Formulas',
   'nav.formulasOverview': 'Formula Overview',
   'nav.formulaSettings': 'Formula Settings',
+  'nav.documentation': 'Documentation',
+  'nav.userGuide': 'User Guide',
   'nav.superAdmin': 'Super Admin',
   'nav.tenantManagement': 'Tenant Management',
   'nav.userManagement': 'User Management',
