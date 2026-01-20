@@ -10036,6 +10036,221 @@ export type Database = {
           },
         ]
       }
+      risk_appetite_rules: {
+        Row: {
+          action_on_breach: string
+          created_at: string
+          id: string
+          is_enabled: boolean
+          metric_code: string
+          metric_label: string
+          operator: string
+          risk_appetite_id: string
+          risk_domain: string
+          severity: string
+          tenant_id: string
+          threshold: number
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          action_on_breach: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          metric_code: string
+          metric_label: string
+          operator: string
+          risk_appetite_id: string
+          risk_domain: string
+          severity: string
+          tenant_id: string
+          threshold: number
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          action_on_breach?: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          metric_code?: string
+          metric_label?: string
+          operator?: string
+          risk_appetite_id?: string
+          risk_domain?: string
+          severity?: string
+          tenant_id?: string
+          threshold?: number
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_appetite_rules_risk_appetite_id_fkey"
+            columns: ["risk_appetite_id"]
+            isOneToOne: false
+            referencedRelation: "risk_appetites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_appetite_rules_risk_appetite_id_fkey"
+            columns: ["risk_appetite_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_risk_appetite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_appetite_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_appetites: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          defined_by: string
+          description: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          name: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          defined_by: string
+          description?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          name?: string
+          status: string
+          tenant_id: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          defined_by?: string
+          description?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          name?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_appetites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_breach_events: {
+        Row: {
+          action_result: Json | null
+          action_taken: string
+          breached_at: string
+          created_at: string
+          id: string
+          is_resolved: boolean
+          metric_code: string
+          metric_value: number
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          risk_appetite_id: string
+          rule_id: string
+          severity: string
+          tenant_id: string
+          threshold: number
+        }
+        Insert: {
+          action_result?: Json | null
+          action_taken: string
+          breached_at?: string
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          metric_code: string
+          metric_value: number
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          risk_appetite_id: string
+          rule_id: string
+          severity: string
+          tenant_id: string
+          threshold: number
+        }
+        Update: {
+          action_result?: Json | null
+          action_taken?: string
+          breached_at?: string
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          metric_code?: string
+          metric_value?: number
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          risk_appetite_id?: string
+          rule_id?: string
+          severity?: string
+          tenant_id?: string
+          threshold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_breach_events_risk_appetite_id_fkey"
+            columns: ["risk_appetite_id"]
+            isOneToOne: false
+            referencedRelation: "risk_appetites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_breach_events_risk_appetite_id_fkey"
+            columns: ["risk_appetite_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_risk_appetite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_breach_events_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "risk_appetite_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_breach_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rolling_forecasts: {
         Row: {
           actual_amount: number | null
@@ -13343,6 +13558,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "decision_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_active_risk_appetite: {
+        Row: {
+          active_breaches: number | null
+          approved_at: string | null
+          approved_by: string | null
+          defined_by: string | null
+          description: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string | null
+          name: string | null
+          rule_count: number | null
+          tenant_id: string | null
+          version: number | null
+        }
+        Insert: {
+          active_breaches?: never
+          approved_at?: string | null
+          approved_by?: string | null
+          defined_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string | null
+          name?: string | null
+          rule_count?: never
+          tenant_id?: string | null
+          version?: number | null
+        }
+        Update: {
+          active_breaches?: never
+          approved_at?: string | null
+          approved_by?: string | null
+          defined_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string | null
+          name?: string | null
+          rule_count?: never
+          tenant_id?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_appetites_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
