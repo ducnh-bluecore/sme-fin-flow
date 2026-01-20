@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  Megaphone,
-  BarChart3, 
+  BarChart2, 
   DollarSign,
-  AlertTriangle,
+  AlertCircle,
   TrendingUp,
   Target,
   Wallet,
@@ -14,12 +13,7 @@ import {
   Home,
   Settings,
   BookOpen,
-  Bell,
   Layers,
-  PieChart,
-  Zap,
-  LineChart,
-  Gauge,
   Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,7 +25,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
-import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 
@@ -42,45 +35,35 @@ interface NavItemConfig {
   icon: React.ElementType;
   path: string;
   badgeKey?: string;
-  mode?: 'ceo' | 'marketing' | 'cmo';
-  isPrimary?: boolean;
+  section?: 'primary' | 'financial' | 'analytics' | 'system';
 }
 
 interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
-// MDP Manifesto: Profit before Performance. Cash before Clicks.
-// CEO View is the primary entry point - Decision-First System
+// MDP Navigation - CEO/CFO Grade
+// Primary: Financial Impact, Risks, Decisions
+// De-emphasized: Marketing analytics, performance details
 const navItemsConfig: NavItemConfig[] = [
-  // CEO Decision View - Primary Entry Point
-  { id: 'ceo-view', label: 'CEO Decision View', labelEn: 'CEO Decision View', icon: Target, path: '/mdp/ceo', mode: 'ceo', isPrimary: true },
+  // PRIMARY - Financial Decision Surface
+  { id: 'overview', label: 'Overview', labelEn: 'Overview', icon: Target, path: '/mdp/ceo', section: 'primary' },
   
-  // Marketing Mode (Execution) - includes Marketing Mode page
-  { id: 'marketing-mode', label: 'Marketing Mode', labelEn: 'Marketing Mode', icon: Megaphone, path: '/mdp/marketing-mode', mode: 'marketing' },
-  { id: 'campaigns', label: 'Hiệu suất Campaigns', labelEn: 'Campaign Performance', icon: BarChart3, path: '/mdp/campaigns', mode: 'marketing' },
-  { id: 'channels', label: 'Phân tích Kênh', labelEn: 'Channel Analysis', icon: Layers, path: '/mdp/channels', mode: 'marketing' },
-  { id: 'funnel', label: 'Marketing Funnel', labelEn: 'Marketing Funnel', icon: TrendingUp, path: '/mdp/funnel', mode: 'marketing' },
-  { id: 'ab-testing', label: 'A/B Testing', labelEn: 'A/B Testing', icon: Gauge, path: '/mdp/ab-testing', mode: 'marketing' },
-  { id: 'audience', label: 'Audience Insights', labelEn: 'Audience Insights', icon: PieChart, path: '/mdp/audience', mode: 'marketing' },
-  { id: 'roi-analytics', label: 'ROI Analytics', labelEn: 'ROI Analytics', icon: LineChart, path: '/mdp/roi-analytics', mode: 'marketing' },
-  { id: 'customer-ltv', label: 'Customer LTV', labelEn: 'Customer LTV', icon: DollarSign, path: '/mdp/customer-ltv', mode: 'marketing' },
+  // FINANCIAL IMPACT - CEO/CFO Focus
+  { id: 'financial-impact', label: 'Financial Impact', labelEn: 'Financial Impact', icon: DollarSign, path: '/mdp/profit', section: 'financial' },
+  { id: 'cash-position', label: 'Cash Position', labelEn: 'Cash Position', icon: Wallet, path: '/mdp/cash-impact', section: 'financial' },
+  { id: 'risks', label: 'Risks', labelEn: 'Risks', icon: AlertCircle, path: '/mdp/risks', section: 'financial', badgeKey: 'risks' },
+  { id: 'decisions', label: 'Decisions', labelEn: 'Decisions', icon: TrendingUp, path: '/mdp/decisions', section: 'financial' },
   
-  // CMO Mode (Decision) - includes CMO Mode page
-  { id: 'cmo-mode', label: 'CMO Mode', labelEn: 'CMO Mode', icon: Target, path: '/mdp/cmo-mode', mode: 'cmo' },
-  { id: 'profit', label: 'Profit Attribution', labelEn: 'Profit Attribution', icon: DollarSign, path: '/mdp/profit', mode: 'cmo' },
-  { id: 'cash-impact', label: 'Cash Impact', labelEn: 'Cash Impact', icon: Wallet, path: '/mdp/cash-impact', mode: 'cmo' },
-  { id: 'risks', label: 'Marketing Risks', labelEn: 'Marketing Risks', icon: AlertTriangle, path: '/mdp/risks', mode: 'cmo', badgeKey: 'risks' },
-  { id: 'decisions', label: 'Decision Center', labelEn: 'Decision Center', icon: Target, path: '/mdp/decisions', mode: 'cmo' },
-  { id: 'budget-optimizer', label: 'Budget Optimizer', labelEn: 'Budget Optimizer', icon: Zap, path: '/mdp/budget-optimizer', mode: 'cmo' },
-  { id: 'scenario-planner', label: 'Scenario Planner', labelEn: 'Scenario Planner', icon: LineChart, path: '/mdp/scenario-planner', mode: 'cmo' },
+  // ANALYTICS - De-emphasized (CMO/Team level)
+  { id: 'campaigns', label: 'Campaigns', labelEn: 'Campaigns', icon: BarChart2, path: '/mdp/campaigns', section: 'analytics' },
+  { id: 'channels', label: 'Channels', labelEn: 'Channels', icon: Layers, path: '/mdp/channels', section: 'analytics' },
 ];
 
-const bottomNavItemsConfig: NavItemConfig[] = [
-  { id: 'data-readiness', label: 'Kiểm tra dữ liệu', labelEn: 'Data Readiness', icon: Database, path: '/mdp/data-readiness' },
-  { id: 'data-sources', label: 'Nguồn dữ liệu', labelEn: 'Data Sources', icon: Layers, path: '/mdp/data-sources' },
-  { id: 'docs', label: 'Hướng dẫn', labelEn: 'Documentation', icon: BookOpen, path: '/mdp/docs' },
-  { id: 'settings', label: 'Cài đặt', labelEn: 'Settings', icon: Settings, path: '/mdp/settings' },
+const systemNavItems: NavItemConfig[] = [
+  { id: 'data-sources', label: 'Data Sources', labelEn: 'Data Sources', icon: Database, path: '/mdp/data-sources', section: 'system' },
+  { id: 'docs', label: 'Documentation', labelEn: 'Documentation', icon: BookOpen, path: '/mdp/docs', section: 'system' },
+  { id: 'settings', label: 'Settings', labelEn: 'Settings', icon: Settings, path: '/mdp/settings', section: 'system' },
 ];
 
 export function MDPLayout() {
@@ -89,168 +72,135 @@ export function MDPLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { activeTenant } = useTenantContext();
 
-  // Mock badge counts - in real app, fetch from useMDPData
-  const riskAlertsCount = 2;
+  // Risk count from data
+  const riskCount = 1;
 
-  // Build navItems with badge counts
   const navItems = useMemo((): NavItemWithBadge[] => {
-    const badgeCounts: Record<string, number> = {
-      risks: riskAlertsCount,
-    };
-    
+    const badgeCounts: Record<string, number> = { risks: riskCount };
     return navItemsConfig.map(item => ({
       ...item,
       badge: item.badgeKey ? badgeCounts[item.badgeKey] : undefined,
     }));
-  }, [riskAlertsCount]);
-
-  const bottomNavItems: NavItemWithBadge[] = bottomNavItemsConfig.map(item => ({ ...item }));
+  }, [riskCount]);
 
   const isActive = (path: string) => {
-    if (path === '/mdp') {
-      return location.pathname === '/mdp';
+    if (path === '/mdp/ceo') {
+      return location.pathname === '/mdp' || location.pathname === '/mdp/ceo';
     }
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  const NavLink = ({ item }: { item: NavItemWithBadge }) => (
-    <motion.button
-      whileHover={{ x: 4 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => {
-        navigate(item.path);
-        setMobileDrawerOpen(false);
-      }}
-      className={cn(
-        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-        'text-sm font-medium',
-        item.isPrimary && 'py-3',
-        isActive(item.path)
-          ? item.isPrimary
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-sidebar-primary/15 text-sidebar-primary-foreground border border-sidebar-primary/30'
-          : item.isPrimary
-            ? 'bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20'
-            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-      )}
-    >
-      <item.icon className={cn(
-        'h-5 w-5 flex-shrink-0', 
-        isActive(item.path) 
-          ? item.isPrimary ? '' : 'text-sidebar-primary' 
-          : item.isPrimary ? 'text-primary' : ''
-      )} />
-      {!collapsed && (
-        <>
-          <span className={cn("flex-1 text-left truncate", item.isPrimary && "font-semibold")}>
-            {language === 'vi' ? item.label : item.labelEn}
-          </span>
-          {item.badge && item.badge > 0 && (
-            <Badge 
-              className={cn(
-                'h-5 min-w-5 flex items-center justify-center text-xs font-semibold',
-                isActive(item.path)
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'bg-sidebar-accent text-sidebar-accent-foreground'
-              )}
-            >
-              {item.badge}
-            </Badge>
-          )}
-        </>
-      )}
-    </motion.button>
-  );
+  const NavLink = ({ item }: { item: NavItemWithBadge }) => {
+    const isPrimary = item.section === 'primary';
+    
+    return (
+      <button
+        onClick={() => {
+          navigate(item.path);
+          setMobileDrawerOpen(false);
+        }}
+        className={cn(
+          'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+          'text-sm',
+          isPrimary && 'py-2.5',
+          isActive(item.path)
+            ? 'bg-primary/10 text-primary font-medium'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+        )}
+      >
+        <item.icon className="h-4 w-4 flex-shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="flex-1 text-left">
+              {language === 'vi' ? item.label : item.labelEn}
+            </span>
+            {item.badge && item.badge > 0 && (
+              <Badge variant="secondary" className="h-5 min-w-5 text-xs">
+                {item.badge}
+              </Badge>
+            )}
+          </>
+        )}
+      </button>
+    );
+  };
 
-  const SectionHeader = ({ title, collapsed }: { title: string; collapsed: boolean }) => (
+  const SectionLabel = ({ children }: { children: React.ReactNode }) => (
     !collapsed && (
-      <div className="px-3 py-2">
-        <span className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">{title}</span>
+      <div className="px-3 py-2 mt-4 first:mt-0">
+        <span className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+          {children}
+        </span>
       </div>
     )
   );
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
+      {/* Header */}
       <div className="p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-          <Megaphone className="h-5 w-5 text-primary-foreground" />
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Target className="h-4 w-4 text-primary" />
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-sidebar-foreground truncate">MDP</h1>
-            <p className="text-xs text-sidebar-foreground/60 truncate">Marketing Data Platform</p>
+            <h1 className="text-sm font-semibold text-foreground">Marketing</h1>
+            <p className="text-[11px] text-muted-foreground">Decision Platform</p>
           </div>
         )}
       </div>
 
-      <Separator className="bg-sidebar-border" />
+      <Separator />
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-4">
-        <nav className="space-y-1">
-          {/* CEO Decision View - Primary Entry */}
-          <div className="pb-3">
-            {navItems.filter(item => item.mode === 'ceo').map((item) => (
-              <NavLink key={item.id} item={item} />
-            ))}
-          </div>
+      <ScrollArea className="flex-1 px-2 py-3">
+        <nav className="space-y-0.5">
+          {/* Primary */}
+          {navItems.filter(item => item.section === 'primary').map((item) => (
+            <NavLink key={item.id} item={item} />
+          ))}
 
-          <Separator className="bg-sidebar-border mb-3" />
+          {/* Financial */}
+          <SectionLabel>Financial</SectionLabel>
+          {navItems.filter(item => item.section === 'financial').map((item) => (
+            <NavLink key={item.id} item={item} />
+          ))}
 
-          {/* Marketing Mode Section */}
-          <div>
-            <SectionHeader title={language === 'vi' ? 'Marketing Mode' : 'Marketing Mode'} collapsed={collapsed} />
-            <div className="space-y-1">
-              {navItems.filter(item => item.mode === 'marketing').map((item) => (
-                <NavLink key={item.id} item={item} />
-              ))}
-            </div>
-          </div>
-
-          {/* CMO Mode Section */}
-          <div className="pt-4">
-            <SectionHeader title={language === 'vi' ? 'CMO Mode' : 'CMO Mode'} collapsed={collapsed} />
-            <div className="space-y-1">
-              {navItems.filter(item => item.mode === 'cmo').map((item) => (
-                <NavLink key={item.id} item={item} />
-              ))}
-            </div>
-          </div>
+          {/* Analytics - De-emphasized */}
+          <SectionLabel>Analytics</SectionLabel>
+          {navItems.filter(item => item.section === 'analytics').map((item) => (
+            <NavLink key={item.id} item={item} />
+          ))}
         </nav>
       </ScrollArea>
 
-      <Separator className="bg-sidebar-border" />
+      <Separator />
 
-      {/* Bottom Navigation */}
-      <div className="p-3 space-y-1">
-        {bottomNavItems.map((item) => (
-          <NavLink key={item.id} item={item} />
+      {/* System Navigation */}
+      <div className="p-2 space-y-0.5">
+        {systemNavItems.map((item) => (
+          <NavLink key={item.id} item={item as NavItemWithBadge} />
         ))}
-        <motion.button
-          whileHover={{ x: 4 }}
-          whileTap={{ scale: 0.98 }}
+        <button
           onClick={() => navigate('/portal')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <Home className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">{language === 'vi' ? 'Về Portal' : 'Back to Portal'}</span>}
-        </motion.button>
+          <Home className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span>Back to Portal</span>}
+        </button>
       </div>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Mobile Header - Only on mobile */}
+      {/* Mobile Header */}
       <div className="lg:hidden">
         <MobileHeader
           showSearch
           showNotifications
-          notificationCount={riskAlertsCount}
+          notificationCount={riskCount}
           onNotificationClick={() => navigate('/mdp/risks')}
           onSearchClick={() => {}}
           onProfileClick={() => setMobileDrawerOpen(true)}
@@ -263,12 +213,12 @@ export function MDPLayout() {
         onClose={() => setMobileDrawerOpen(false)}
       />
 
-      {/* Sidebar - Desktop Only */}
+      {/* Sidebar - Desktop */}
       <motion.aside
-        animate={{ width: collapsed ? 72 : 260 }}
-        transition={{ duration: 0.2, ease: 'easeInOut' }}
+        animate={{ width: collapsed ? 64 : 240 }}
+        transition={{ duration: 0.15 }}
         className={cn(
-          'hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border',
+          'hidden lg:flex flex-col bg-card border-r',
           'fixed left-0 top-0 bottom-0 z-30'
         )}
       >
@@ -279,40 +229,28 @@ export function MDPLayout() {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-sidebar-accent border border-sidebar-border text-sidebar-foreground hover:text-sidebar-primary-foreground hover:bg-sidebar-primary"
+          className="absolute -right-3 top-16 h-6 w-6 rounded-full bg-background border shadow-sm"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </Button>
       </motion.aside>
 
       {/* Main Content */}
-      <div 
-        className={cn(
-          'flex-1 flex flex-col min-h-screen transition-all duration-200',
-          'lg:ml-0',
-          collapsed ? 'lg:ml-[72px]' : 'lg:ml-[260px]'
-        )}
-      >
-        {/* Header - Desktop Only */}
-        <header className="hidden lg:flex sticky top-0 z-20 h-16 bg-background/80 backdrop-blur-xl border-b border-border items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
-            <TenantSwitcher />
-          </div>
-
-          <div className="flex items-center gap-3">
+      <div className={cn(
+        'flex-1 flex flex-col min-h-screen transition-all duration-150',
+        collapsed ? 'lg:ml-16' : 'lg:ml-60'
+      )}>
+        {/* Header - Desktop */}
+        <header className="hidden lg:flex sticky top-0 z-20 h-14 bg-background/95 backdrop-blur border-b items-center justify-between px-6">
+          <TenantSwitcher />
+          <div className="flex items-center gap-2">
             <QuickDateSelector />
             <LanguageSwitcher />
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-              <Bell className="h-5 w-5" />
-              {riskAlertsCount > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full" />
-              )}
-            </Button>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto pb-20 lg:pb-6">
+        <main className="flex-1 p-6 overflow-auto pb-20 lg:pb-6">
           <Outlet />
         </main>
       </div>
