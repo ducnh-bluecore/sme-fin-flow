@@ -47,10 +47,11 @@ interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
-// Control Tower Manifesto: Only pages that answer "What's wrong and needs action?"
-// Dashboard merged into Alerts - single source of truth
+// Control Tower Manifesto: Situation Room is the primary view
+// "What's wrong and needs action RIGHT NOW?"
 const navItemsConfig: NavItemConfig[] = [
-  { id: 'alerts', label: 'Alert Center', icon: AlertTriangle, path: '/control-tower/alerts', badgeKey: 'alerts' },
+  { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
+  { id: 'alerts', label: 'Tất cả cảnh báo', icon: Bell, path: '/control-tower/alerts' },
   { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
   { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
   { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
