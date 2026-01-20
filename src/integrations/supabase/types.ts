@@ -4654,6 +4654,86 @@ export type Database = {
           },
         ]
       }
+      exceptions_queue: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          currency: string
+          description: string
+          detected_at: string
+          evidence: Json
+          exception_type: string
+          id: string
+          impact_amount: number
+          last_seen_at: string
+          payload: Json
+          ref_id: string
+          ref_type: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          snoozed_until: string | null
+          status: string
+          tenant_id: string
+          title: string
+          triage_notes: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          currency?: string
+          description: string
+          detected_at?: string
+          evidence?: Json
+          exception_type: string
+          id?: string
+          impact_amount?: number
+          last_seen_at?: string
+          payload?: Json
+          ref_id: string
+          ref_type: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          snoozed_until?: string | null
+          status?: string
+          tenant_id: string
+          title: string
+          triage_notes?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          currency?: string
+          description?: string
+          detected_at?: string
+          evidence?: Json
+          exception_type?: string
+          id?: string
+          impact_amount?: number
+          last_seen_at?: string
+          payload?: Json
+          ref_id?: string
+          ref_type?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          snoozed_until?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string
+          triage_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exceptions_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_rates: {
         Row: {
           created_at: string
