@@ -1220,6 +1220,133 @@ export type Database = {
           },
         ]
       }
+      audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_role: string | null
+          actor_type: string
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          decision_context: string | null
+          evidence_hash: string | null
+          id: string
+          ip_address: string | null
+          reason_code: string | null
+          reason_detail: string | null
+          resource_id: string | null
+          resource_type: string
+          session_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_role?: string | null
+          actor_type: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          decision_context?: string | null
+          evidence_hash?: string | null
+          id?: string
+          ip_address?: string | null
+          reason_code?: string | null
+          reason_detail?: string | null
+          resource_id?: string | null
+          resource_type: string
+          session_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_role?: string | null
+          actor_type?: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          decision_context?: string | null
+          evidence_hash?: string | null
+          id?: string
+          ip_address?: string | null
+          reason_code?: string | null
+          reason_detail?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          session_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_exports: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          download_url: string | null
+          expires_at: string | null
+          export_type: string
+          file_hash: string | null
+          filters: Json | null
+          id: string
+          period_end: string
+          period_start: string
+          record_count: number
+          requested_by: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          download_url?: string | null
+          expires_at?: string | null
+          export_type: string
+          file_hash?: string | null
+          filters?: Json | null
+          id?: string
+          period_end: string
+          period_start: string
+          record_count?: number
+          requested_by: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          download_url?: string | null
+          expires_at?: string | null
+          export_type?: string
+          file_hash?: string | null
+          filters?: Json | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          record_count?: number
+          requested_by?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_exports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -1260,6 +1387,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auditor_access: {
+        Row: {
+          access_scope: string[]
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          access_scope?: string[]
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          access_scope?: string[]
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditor_access_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -10214,6 +10388,65 @@ export type Database = {
           },
         ]
       }
+      soc_control_attestations: {
+        Row: {
+          control_description: string
+          control_id: string
+          control_name: string
+          created_at: string
+          evidence_reference: string | null
+          evidence_type: string
+          id: string
+          implementation_status: string
+          last_tested_at: string | null
+          notes: string | null
+          tenant_id: string
+          test_result: string | null
+          tested_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          control_description: string
+          control_id: string
+          control_name: string
+          created_at?: string
+          evidence_reference?: string | null
+          evidence_type: string
+          id?: string
+          implementation_status: string
+          last_tested_at?: string | null
+          notes?: string | null
+          tenant_id: string
+          test_result?: string | null
+          tested_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          control_description?: string
+          control_id?: string
+          control_name?: string
+          created_at?: string
+          evidence_reference?: string | null
+          evidence_type?: string
+          id?: string
+          implementation_status?: string
+          last_tested_at?: string | null
+          notes?: string | null
+          tenant_id?: string
+          test_result?: string | null
+          tested_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soc_control_attestations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_mentions: {
         Row: {
           author_handle: string | null
@@ -12940,6 +13173,25 @@ export type Database = {
           },
         ]
       }
+      v_audit_summary: {
+        Row: {
+          action: string | null
+          actor_type: string | null
+          audit_date: string | null
+          event_count: number | null
+          resource_type: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_bank_txn_match_state: {
         Row: {
           bank_amount: number | null
@@ -13352,6 +13604,23 @@ export type Database = {
       is_authenticated: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
+      log_audit_event: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_actor_role: string
+          p_actor_type: string
+          p_after_state?: Json
+          p_before_state?: Json
+          p_decision_context?: string
+          p_reason_code?: string
+          p_reason_detail?: string
+          p_resource_id: string
+          p_resource_type: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
       recalculate_product_metrics:
         | { Args: { p_sku?: string; p_tenant_id: string }; Returns: number }
