@@ -287,6 +287,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1546,6 +1560,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_matched_invoice_id_fkey"
+            columns: ["matched_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_matched_invoice_id_fkey"
+            columns: ["matched_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "bank_transactions_tenant_id_fkey"
@@ -5175,6 +5203,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "external_orders_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "external_orders_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "external_orders_internal_order_id_fkey"
             columns: ["internal_order_id"]
             isOneToOne: false
@@ -6436,6 +6478,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "invoice_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -6492,6 +6548,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_promotions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoice_promotions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "invoice_promotions_tenant_id_fkey"
@@ -7412,6 +7482,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "orders_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -7518,6 +7602,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "payments_tenant_id_fkey"
@@ -8562,6 +8660,88 @@ export type Database = {
           },
         ]
       }
+      reconciliation_links: {
+        Row: {
+          bank_transaction_id: string | null
+          confidence: number
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          id: string
+          is_voided: boolean
+          match_evidence: Json | null
+          match_type: string
+          settlement_amount: number
+          settlement_date: string
+          target_id: string
+          target_type: string
+          tenant_id: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          bank_transaction_id?: string | null
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          is_voided?: boolean
+          match_evidence?: Json | null
+          match_type: string
+          settlement_amount: number
+          settlement_date?: string
+          target_id: string
+          target_type?: string
+          tenant_id: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          bank_transaction_id?: string | null
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          is_voided?: boolean
+          match_evidence?: Json | null
+          match_type?: string
+          settlement_amount?: number
+          settlement_date?: string
+          target_id?: string
+          target_type?: string
+          tenant_id?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_links_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_links_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_bank_txn_match_state"
+            referencedColumns: ["bank_transaction_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_templates: {
         Row: {
           auto_post: boolean | null
@@ -9155,6 +9335,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "scheduled_notifications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlement_allocations: {
+        Row: {
+          allocated_amount: number
+          allocation_type: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          reconciliation_link_id: string
+          tenant_id: string
+        }
+        Insert: {
+          allocated_amount: number
+          allocation_type?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reconciliation_link_id: string
+          tenant_id: string
+        }
+        Update: {
+          allocated_amount?: number
+          allocation_type?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reconciliation_link_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_allocations_reconciliation_link_id_fkey"
+            columns: ["reconciliation_link_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_allocations_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -11434,6 +11659,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
+          },
+          {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -11620,6 +11859,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
@@ -11971,6 +12224,69 @@ export type Database = {
           },
         ]
       }
+      v_bank_txn_match_state: {
+        Row: {
+          bank_amount: number | null
+          bank_transaction_id: string | null
+          description: string | null
+          link_count: number | null
+          match_state: string | null
+          matched_amount: number | null
+          reference: string | null
+          tenant_id: string | null
+          transaction_date: string | null
+          unmatched_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_invoice_settled_paid: {
+        Row: {
+          invoice_id: string | null
+          invoice_number: string | null
+          remaining_amount: number | null
+          settled_paid_amount: number | null
+          tenant_id: string | null
+          total_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_invoice_settled_status: {
+        Row: {
+          invoice_id: string | null
+          invoice_number: string | null
+          remaining_amount: number | null
+          settled_paid_amount: number | null
+          settled_status: string | null
+          tenant_id: string | null
+          total_amount: number | null
+          truth_level: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_credit_notes_view: {
         Row: {
           applied_amount: number | null
@@ -12128,6 +12444,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_paid"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_settled_status"
+            referencedColumns: ["invoice_id"]
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"

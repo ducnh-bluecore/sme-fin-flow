@@ -11,6 +11,7 @@ import {
   Search,
   Sparkles,
   Loader2,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,8 +19,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatVND, formatDate } from '@/lib/formatters';
-import { useAutoMatch } from '@/hooks/useReconciliation';
+import { useAutoMatchSSOT, type InvoiceSettledStatus, type BankTxnMatchState } from '@/hooks/useReconciliationSSOT';
 import { AutoMatchDialog } from './AutoMatchDialog';
 
 const matchStatusConfig = {
@@ -32,17 +34,23 @@ const matchStatusConfig = {
 interface ReconciliationItemProps {
   invoice: any;
   matchedTransactions: any[];
+  settledStatus?: InvoiceSettledStatus;
   onMatch?: (invoiceId: string, transactionId: string) => void;
 }
 
-function ReconciliationItem({ invoice, matchedTransactions }: ReconciliationItemProps) {
-  const paidAmount = invoice.paid_amount || 0;
-  const remaining = invoice.total_amount - paidAmount;
+function ReconciliationItem({ invoice, matchedTransactions, settledStatus }: ReconciliationItemProps) {
+  // Use SSOT settled status if available, otherwise fallback to invoice fields
+  const paidAmount = settledStatus?.settled_paid_amount ?? (invoice.paid_amount || 0);
+  const remaining = settledStatus?.remaining_amount ?? (invoice.total_amount - paidAmount);
   const matchPercent = invoice.total_amount > 0 ? (paidAmount / invoice.total_amount) * 100 : 0;
   
-  const matchStatus = paidAmount >= invoice.total_amount ? 'matched' : 
-                      paidAmount > 0 ? 'partial' : 
-                      invoice.status === 'draft' ? 'pending' : 'unmatched';
+  // Derive match status from SSOT view
+  const matchStatus = settledStatus 
+    ? (settledStatus.settled_status === 'paid' ? 'matched' : 
+       settledStatus.settled_status === 'partially_paid' ? 'partial' : 'unmatched')
+    : (paidAmount >= invoice.total_amount ? 'matched' : 
+       paidAmount > 0 ? 'partial' : 
+       invoice.status === 'draft' ? 'pending' : 'unmatched');
   const config = matchStatusConfig[matchStatus];
   const StatusIcon = config.icon;
 
@@ -212,6 +220,7 @@ export function ReconciliationBoard() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAutoMatchDialog, setShowAutoMatchDialog] = useState(false);
 
+  // Use SSOT hook instead of legacy hook
   const { 
     isMatching, 
     matchResults, 
@@ -219,15 +228,29 @@ export function ReconciliationBoard() {
     applyMatch, 
     getStats,
     invoices,
-    transactions
-  } = useAutoMatch();
+    transactions,
+    // SSOT data
+    invoiceStatus,
+    bankTxnState,
+  } = useAutoMatchSSOT();
 
   const stats = getStats();
 
+  // Create lookup maps from SSOT views
+  const invoiceStatusMap = new Map(
+    (invoiceStatus || []).map(s => [s.invoice_id, s])
+  );
+  const bankTxnStateMap = new Map(
+    (bankTxnState || []).map(s => [s.bank_transaction_id, s])
+  );
+
   const filteredInvoices = (invoices || []).filter((inv) => {
-    const paidAmount = inv.paid_amount || 0;
-    const matchStatus = paidAmount >= inv.total_amount ? 'matched' : 
-                        paidAmount > 0 ? 'partial' : 'unmatched';
+    // Use SSOT status for filtering
+    const ssotStatus = invoiceStatusMap.get(inv.id);
+    const matchStatus = ssotStatus 
+      ? (ssotStatus.settled_status === 'paid' ? 'matched' : 
+         ssotStatus.settled_status === 'partially_paid' ? 'partial' : 'unmatched')
+      : 'unmatched';
 
     const matchesSearch = inv.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (inv.customers?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -235,7 +258,11 @@ export function ReconciliationBoard() {
     return matchesSearch && matchesFilter;
   });
 
-  const unmatchedTransactions = (transactions || []).filter((t) => t.match_status === 'unmatched');
+  // Use SSOT view for unmatched transactions
+  const unmatchedTransactions = (transactions || []).filter((t) => {
+    const txnState = bankTxnStateMap.get(t.id);
+    return txnState ? txnState.match_state === 'unmatched' : t.match_status === 'unmatched';
+  });
 
   const getMatchedTransactions = (invoiceId: string) => 
     (transactions || []).filter((t) => t.matched_invoice_id === invoiceId);
@@ -256,7 +283,7 @@ export function ReconciliationBoard() {
   const isLoading = !invoices || !transactions;
 
   return (
-    <>
+    <TooltipProvider>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Invoice List */}
         <div className="lg:col-span-2 space-y-4">
@@ -316,6 +343,7 @@ export function ReconciliationBoard() {
                     key={invoice.id}
                     invoice={invoice}
                     matchedTransactions={getMatchedTransactions(invoice.id)}
+                    settledStatus={invoiceStatusMap.get(invoice.id)}
                   />
                 ))
               )}
@@ -385,6 +413,6 @@ export function ReconciliationBoard() {
         onApplyAll={handleApplyAll}
         isMatching={isMatching}
       />
-    </>
+    </TooltipProvider>
   );
 }
