@@ -8868,6 +8868,65 @@ export type Database = {
           },
         ]
       }
+      reconciliation_kpi_snapshots: {
+        Row: {
+          auto_confirmed_count: number
+          avg_confidence: number | null
+          cash_acceleration_amount: number | null
+          cash_acceleration_days: number | null
+          created_at: string
+          estimated_cost_saved: number | null
+          estimated_minutes_saved: number | null
+          false_auto_count: number
+          id: string
+          manual_confirmed_count: number
+          period_end: string
+          period_start: string
+          tenant_id: string
+          total_suggestions: number
+        }
+        Insert: {
+          auto_confirmed_count?: number
+          avg_confidence?: number | null
+          cash_acceleration_amount?: number | null
+          cash_acceleration_days?: number | null
+          created_at?: string
+          estimated_cost_saved?: number | null
+          estimated_minutes_saved?: number | null
+          false_auto_count?: number
+          id?: string
+          manual_confirmed_count?: number
+          period_end: string
+          period_start: string
+          tenant_id: string
+          total_suggestions?: number
+        }
+        Update: {
+          auto_confirmed_count?: number
+          avg_confidence?: number | null
+          cash_acceleration_amount?: number | null
+          cash_acceleration_days?: number | null
+          created_at?: string
+          estimated_cost_saved?: number | null
+          estimated_minutes_saved?: number | null
+          false_auto_count?: number
+          id?: string
+          manual_confirmed_count?: number
+          period_end?: string
+          period_start?: string
+          tenant_id?: string
+          total_suggestions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_kpi_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reconciliation_links: {
         Row: {
           bank_transaction_id: string | null
