@@ -52,11 +52,11 @@ export default function PerformanceAnalysisPage() {
           <TabsList className="grid w-full max-w-lg grid-cols-2">
             <TabsTrigger value="budget" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              {t('performance.tabBudget') || 'Kế hoạch vs Thực tế'}
+              Kế hoạch vs Thực tế
             </TabsTrigger>
             <TabsTrigger value="variance" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              {t('performance.tabVariance') || 'Phân tích Biến động'}
+              Phân tích Biến động
             </TabsTrigger>
           </TabsList>
 
