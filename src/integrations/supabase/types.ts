@@ -14270,6 +14270,91 @@ export type Database = {
           },
         ]
       }
+      v_audit_auto_reconcile_evidence: {
+        Row: {
+          action: string | null
+          actor_service_id: string | null
+          actor_type: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          actor_service_id?: string | null
+          actor_type?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          actor_service_id?: string | null
+          actor_type?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_audit_risk_breaches: {
+        Row: {
+          action_taken: string | null
+          detected_at: string | null
+          is_resolved: boolean | null
+          metric_code: string | null
+          metric_value: number | null
+          severity: string | null
+          tenant_id: string | null
+          threshold: number | null
+        }
+        Insert: {
+          action_taken?: string | null
+          detected_at?: string | null
+          is_resolved?: boolean | null
+          metric_code?: string | null
+          metric_value?: number | null
+          severity?: string | null
+          tenant_id?: string | null
+          threshold?: number | null
+        }
+        Update: {
+          action_taken?: string | null
+          detected_at?: string | null
+          is_resolved?: boolean | null
+          metric_code?: string | null
+          metric_value?: number | null
+          severity?: string | null
+          tenant_id?: string | null
+          threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_breach_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_audit_summary: {
         Row: {
           action: string | null
