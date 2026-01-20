@@ -7819,6 +7819,36 @@ export type Database = {
           },
         ]
       }
+      ml_calibration_snapshots: {
+        Row: {
+          accuracy: number
+          calibration_error: number
+          created_at: string
+          id: string
+          model_version: string
+          sample_size: number
+          tenant_id: string
+        }
+        Insert: {
+          accuracy: number
+          calibration_error: number
+          created_at?: string
+          id?: string
+          model_version: string
+          sample_size: number
+          tenant_id: string
+        }
+        Update: {
+          accuracy?: number
+          calibration_error?: number
+          created_at?: string
+          id?: string
+          model_version?: string
+          sample_size?: number
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       ml_drift_events: {
         Row: {
           detected_at: string
