@@ -83,6 +83,8 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.analysis', href: '/financial-reports' },
       { labelKey: 'nav.performanceAnalysis', href: '/performance-analysis' },
       { labelKey: 'nav.boardReports', href: '/board-reports' },
+      { labelKey: 'nav.expenses', href: '/expenses' },
+      { labelKey: 'nav.revenue', href: '/revenue' },
     ],
   },
   {
@@ -128,7 +130,10 @@ const navItems: NavItem[] = [
     icon: Database,
     children: [
       { labelKey: 'nav.dataCenter', href: '/data-hub' },
+      { labelKey: 'nav.dataWarehouse', href: '/data-warehouse' },
       { labelKey: 'nav.etlRules', href: '/etl-rules' },
+      { labelKey: 'nav.chartOfAccounts', href: '/chart-of-accounts' },
+      { labelKey: 'nav.bankConnections', href: '/bank-connections' },
     ],
   },
   {
@@ -176,6 +181,8 @@ const superAdminItems: NavItem = {
 const bottomNavItems: NavItem[] = [
   { labelKey: 'nav.integrationGuide', icon: BookOpen, href: '/data-guide' },
   { labelKey: 'nav.formulas', icon: PenSquare, href: '/formulas' },
+  { labelKey: 'nav.documentation', icon: FileText, href: '/documentation' },
+  { labelKey: 'nav.userGuide', icon: BookOpen, href: '/user-guide' },
   { labelKey: 'common.settings', icon: Settings, href: '/settings' },
   { labelKey: 'common.help', icon: HelpCircle, href: '/help' },
 ];
