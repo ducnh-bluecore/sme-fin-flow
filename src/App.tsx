@@ -23,7 +23,7 @@ import NotFound from "./pages/NotFound";
 
 // Lazy loaded pages (chart-heavy and complex pages)
 const PortalPage = lazy(() => import("./pages/PortalPage"));
-const DocumentationPage = lazy(() => import("./pages/DocumentationPage"));
+
 const AROperations = lazy(() => import("./pages/AROperations"));
 const ChartOfAccountsPage = lazy(() => import("./pages/ChartOfAccountsPage"));
 const BillsPage = lazy(() => import("./pages/BillsPage"));
@@ -56,9 +56,6 @@ const RBACPage = lazy(() => import("./pages/RBACPage"));
 const AuditLogPage = lazy(() => import("./pages/AuditLogPage"));
 const APIPage = lazy(() => import("./pages/APIPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const HelpPage = lazy(() => import("./pages/HelpPage"));
-const DataEntryGuidePage = lazy(() => import("./pages/DataEntryGuidePage"));
-const UserGuidePage = lazy(() => import("./pages/UserGuidePage"));
 const TenantManagementPage = lazy(() => import("./pages/TenantManagementPage"));
 const TenantMembersPage = lazy(() => import("./pages/TenantMembersPage"));
 const TenantSettingsPage = lazy(() => import("./pages/TenantSettingsPage"));
@@ -74,7 +71,7 @@ const DataWarehousePage = lazy(() => import("./pages/DataWarehousePage"));
 const ScenarioHubPage = lazy(() => import("./pages/ScenarioHubPage"));
 const ScenarioPage = lazy(() => import("./pages/ScenarioPage"));
 const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
-const FormulasPage = lazy(() => import("./pages/FormulasPage"));
+
 const WorkingCapitalHubPage = lazy(() => import("./pages/WorkingCapitalHubPage"));
 const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPage"));
 
@@ -123,7 +120,7 @@ import CTAlertsPage from "./pages/control-tower/AlertsPage";
 import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
 import CTTeamPage from "./pages/control-tower/TeamPage";
 import CTSettingsPage from "./pages/control-tower/SettingsPage";
-import CTDocumentationPage from "./pages/control-tower/DocumentationPage";
+
 
 // Mobile App pages
 const MobileLayout = lazy(() => import("./pages/mobile/MobileLayout"));
@@ -132,7 +129,7 @@ const MobileAlertsPage = lazy(() => import("./pages/mobile/MobileAlertsPage"));
 const MobileSettingsPage = lazy(() => import("./pages/mobile/MobileSettingsPage"));
 
 // Docs Download page
-const DocsDownload = lazy(() => import("./pages/DocsDownload"));
+
 
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
 import { MDPLayout } from "@/components/layout/MDPLayout";
@@ -164,11 +161,6 @@ const AppRoutes = () => {
       <Route path="/portal" element={
         <ProtectedRoute>
           <PortalPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/documentation" element={
-        <ProtectedRoute>
-          <DocumentationPage />
         </ProtectedRoute>
       } />
 
@@ -212,7 +204,7 @@ const AppRoutes = () => {
         <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
         <Route path="/control-tower/team" element={<CTTeamPage />} />
         <Route path="/control-tower/settings" element={<CTSettingsPage />} />
-        <Route path="/control-tower/docs" element={<CTDocumentationPage />} />
+        
       </Route>
 
       {/* MDP Routes - Independent system like Control Tower */}
@@ -323,15 +315,11 @@ const AppRoutes = () => {
         <Route path="/audit-log" element={<AuditLogPage />} />
         <Route path="/api" element={<APIPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/help" element={<HelpPage />} />
-        <Route path="/user-guide" element={<UserGuidePage />} />
-        <Route path="/data-guide" element={<DataEntryGuidePage />} />
-        <Route path="/formulas" element={<FormulasPage />} />
         
         <Route path="/tenant" element={<TenantManagementPage />} />
         <Route path="/tenant/members" element={<TenantMembersPage />} />
         <Route path="/tenant/settings" element={<TenantSettingsPage />} />
-        <Route path="/docs-download" element={<DocsDownload />} />
+        
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
