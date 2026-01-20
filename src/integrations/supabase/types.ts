@@ -7191,6 +7191,171 @@ export type Database = {
           },
         ]
       }
+      ml_drift_signals: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          auto_action_taken: string | null
+          baseline_value: number | null
+          current_value: number | null
+          delta: number | null
+          details: Json
+          detected_at: string
+          drift_type: string
+          id: string
+          metric: string
+          model_version: string
+          severity: string
+          tenant_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          auto_action_taken?: string | null
+          baseline_value?: number | null
+          current_value?: number | null
+          delta?: number | null
+          details: Json
+          detected_at?: string
+          drift_type: string
+          id?: string
+          metric: string
+          model_version: string
+          severity: string
+          tenant_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          auto_action_taken?: string | null
+          baseline_value?: number | null
+          current_value?: number | null
+          delta?: number | null
+          details?: Json
+          detected_at?: string
+          drift_type?: string
+          id?: string
+          metric?: string
+          model_version?: string
+          severity?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_drift_signals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ml_performance_snapshots: {
+        Row: {
+          accuracy: number
+          calibration_error: number
+          confirmed_correct: number
+          confirmed_incorrect: number
+          created_at: string
+          false_auto_rate: number
+          guardrail_block_rate: number
+          id: string
+          model_version: string
+          period_end: string
+          period_start: string
+          tenant_id: string
+          total_predictions: number
+          unknown_outcomes: number
+        }
+        Insert: {
+          accuracy: number
+          calibration_error: number
+          confirmed_correct: number
+          confirmed_incorrect: number
+          created_at?: string
+          false_auto_rate: number
+          guardrail_block_rate: number
+          id?: string
+          model_version: string
+          period_end: string
+          period_start: string
+          tenant_id: string
+          total_predictions: number
+          unknown_outcomes: number
+        }
+        Update: {
+          accuracy?: number
+          calibration_error?: number
+          confirmed_correct?: number
+          confirmed_incorrect?: number
+          created_at?: string
+          false_auto_rate?: number
+          guardrail_block_rate?: number
+          id?: string
+          model_version?: string
+          period_end?: string
+          period_start?: string
+          tenant_id?: string
+          total_predictions?: number
+          unknown_outcomes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_performance_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ml_prediction_logs: {
+        Row: {
+          created_at: string
+          exception_id: string
+          explanation: Json
+          features_hash: string
+          final_confidence: number
+          id: string
+          model_version: string
+          predicted_confidence: number
+          suggestion_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          exception_id: string
+          explanation: Json
+          features_hash: string
+          final_confidence: number
+          id?: string
+          model_version: string
+          predicted_confidence: number
+          suggestion_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          exception_id?: string
+          explanation?: Json
+          features_hash?: string
+          final_confidence?: number
+          id?: string
+          model_version?: string
+          predicted_confidence?: number
+          suggestion_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_prediction_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monte_carlo_results: {
         Row: {
           created_at: string
@@ -10913,9 +11078,12 @@ export type Database = {
           created_at: string
           enabled_at: string | null
           enabled_by: string | null
+          last_fallback_at: string | null
+          last_fallback_reason: string | null
           min_confidence_threshold: number
           ml_enabled: boolean
           ml_model_version: string
+          ml_status: string
           tenant_id: string
           updated_at: string
         }
@@ -10923,9 +11091,12 @@ export type Database = {
           created_at?: string
           enabled_at?: string | null
           enabled_by?: string | null
+          last_fallback_at?: string | null
+          last_fallback_reason?: string | null
           min_confidence_threshold?: number
           ml_enabled?: boolean
           ml_model_version?: string
+          ml_status?: string
           tenant_id: string
           updated_at?: string
         }
@@ -10933,9 +11104,12 @@ export type Database = {
           created_at?: string
           enabled_at?: string | null
           enabled_by?: string | null
+          last_fallback_at?: string | null
+          last_fallback_reason?: string | null
           min_confidence_threshold?: number
           ml_enabled?: boolean
           ml_model_version?: string
+          ml_status?: string
           tenant_id?: string
           updated_at?: string
         }
