@@ -43,7 +43,11 @@ export interface AlertInstance {
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
-  // New fields for Alert ↔ Decision linking
+  // Financial impact fields
+  impact_amount: number | null;
+  impact_currency: string | null;
+  deadline_at: string | null;
+  // Alert ↔ Decision linking
   linked_decision_card_id: string | null;
   resolved_by_decision: boolean;
 }
