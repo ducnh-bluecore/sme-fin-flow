@@ -59,11 +59,11 @@ export default function WorkingCapitalHubPage() {
           <TabsList className="grid w-full max-w-lg grid-cols-2">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
-              {t('workingCapital.tabOverview') || 'Tổng quan & Đề xuất'}
+              Tổng quan & Đề xuất
             </TabsTrigger>
             <TabsTrigger value="ccc" className="flex items-center gap-2">
               <Target className="w-4 h-4" />
-              {t('workingCapital.tabCCC') || 'CCC & Benchmark'}
+              CCC & Benchmark
             </TabsTrigger>
           </TabsList>
 
