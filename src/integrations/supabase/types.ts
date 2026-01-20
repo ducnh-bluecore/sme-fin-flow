@@ -7675,6 +7675,51 @@ export type Database = {
           },
         ]
       }
+      ml_drift_events: {
+        Row: {
+          detected_at: string
+          drift_metric: string
+          drift_value: number
+          id: string
+          model_version: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          tenant_id: string
+          threshold: number
+        }
+        Insert: {
+          detected_at?: string
+          drift_metric: string
+          drift_value: number
+          id?: string
+          model_version: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          tenant_id: string
+          threshold: number
+        }
+        Update: {
+          detected_at?: string
+          drift_metric?: string
+          drift_value?: number
+          id?: string
+          model_version?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          tenant_id?: string
+          threshold?: number
+        }
+        Relationships: []
+      }
       ml_drift_signals: {
         Row: {
           acknowledged_at: string | null
@@ -7836,6 +7881,47 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ml_training_samples: {
+        Row: {
+          created_at: string
+          exception_type: string
+          features: Json
+          id: string
+          label: boolean
+          outcome_source: string | null
+          suggestion_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          exception_type: string
+          features: Json
+          id?: string
+          label: boolean
+          outcome_source?: string | null
+          suggestion_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          exception_type?: string
+          features?: Json
+          id?: string
+          label?: boolean
+          outcome_source?: string | null
+          suggestion_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_training_samples_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "reconciliation_suggestions"
             referencedColumns: ["id"]
           },
         ]
