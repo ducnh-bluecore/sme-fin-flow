@@ -5119,6 +5119,7 @@ export type Database = {
           created_at: string | null
           current_value: number
           days_to_breach: number | null
+          decision_framing: Json | null
           dimension_key: string | null
           estimated_breach_date: string | null
           expires_at: string | null
@@ -5157,6 +5158,7 @@ export type Database = {
           created_at?: string | null
           current_value: number
           days_to_breach?: number | null
+          decision_framing?: Json | null
           dimension_key?: string | null
           estimated_breach_date?: string | null
           expires_at?: string | null
@@ -5195,6 +5197,7 @@ export type Database = {
           created_at?: string | null
           current_value?: number
           days_to_breach?: number | null
+          decision_framing?: Json | null
           dimension_key?: string | null
           estimated_breach_date?: string | null
           expires_at?: string | null
@@ -9193,6 +9196,7 @@ export type Database = {
           consecutive_periods: number | null
           cooldown_hours: number | null
           created_at: string | null
+          decision_framing_template: Json | null
           description: string | null
           dimension_filter: string | null
           id: string
@@ -9217,6 +9221,7 @@ export type Database = {
           consecutive_periods?: number | null
           cooldown_hours?: number | null
           created_at?: string | null
+          decision_framing_template?: Json | null
           description?: string | null
           dimension_filter?: string | null
           id?: string
@@ -9241,6 +9246,7 @@ export type Database = {
           consecutive_periods?: number | null
           cooldown_hours?: number | null
           created_at?: string | null
+          decision_framing_template?: Json | null
           description?: string | null
           dimension_filter?: string | null
           id?: string
