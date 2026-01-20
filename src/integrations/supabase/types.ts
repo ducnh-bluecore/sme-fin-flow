@@ -580,6 +580,36 @@ export type Database = {
           },
         ]
       }
+      alert_hierarchy_rules: {
+        Row: {
+          child_metric_code: string
+          collapse_threshold: number | null
+          created_at: string | null
+          hierarchy_level: number
+          id: string
+          parent_metric_code: string
+          root_cause_template: string | null
+        }
+        Insert: {
+          child_metric_code: string
+          collapse_threshold?: number | null
+          created_at?: string | null
+          hierarchy_level: number
+          id?: string
+          parent_metric_code: string
+          root_cause_template?: string | null
+        }
+        Update: {
+          child_metric_code?: string
+          collapse_threshold?: number | null
+          created_at?: string | null
+          hierarchy_level?: number
+          id?: string
+          parent_metric_code?: string
+          root_cause_template?: string | null
+        }
+        Relationships: []
+      }
       alert_instances: {
         Row: {
           acknowledged_at: string | null
@@ -5113,6 +5143,7 @@ export type Database = {
           action_url: string | null
           alert_class: string
           breach_threshold: number | null
+          child_count: number | null
           confidence_factors: Json | null
           confidence_level: string
           confidence_score: number | null
@@ -5125,21 +5156,27 @@ export type Database = {
           expires_at: string | null
           exposure_amount: number | null
           exposure_currency: string | null
+          hierarchy_level: number | null
           id: string
           impact_description: string | null
+          is_parent: boolean | null
           message: string | null
           metadata: Json | null
           metric_code: string
+          parent_alert_id: string | null
           priority: number | null
           r_squared: number | null
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          root_cause_explanation: string | null
+          root_cause_metric: string | null
           rule_id: string | null
           severity: string | null
           slope: number | null
           status: string | null
           suggested_action: string | null
+          suppressed_children: Json | null
           tenant_id: string
           title: string
           trajectory: Json
@@ -5152,6 +5189,7 @@ export type Database = {
           action_url?: string | null
           alert_class: string
           breach_threshold?: number | null
+          child_count?: number | null
           confidence_factors?: Json | null
           confidence_level: string
           confidence_score?: number | null
@@ -5164,21 +5202,27 @@ export type Database = {
           expires_at?: string | null
           exposure_amount?: number | null
           exposure_currency?: string | null
+          hierarchy_level?: number | null
           id?: string
           impact_description?: string | null
+          is_parent?: boolean | null
           message?: string | null
           metadata?: Json | null
           metric_code: string
+          parent_alert_id?: string | null
           priority?: number | null
           r_squared?: number | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          root_cause_explanation?: string | null
+          root_cause_metric?: string | null
           rule_id?: string | null
           severity?: string | null
           slope?: number | null
           status?: string | null
           suggested_action?: string | null
+          suppressed_children?: Json | null
           tenant_id: string
           title: string
           trajectory: Json
@@ -5191,6 +5235,7 @@ export type Database = {
           action_url?: string | null
           alert_class?: string
           breach_threshold?: number | null
+          child_count?: number | null
           confidence_factors?: Json | null
           confidence_level?: string
           confidence_score?: number | null
@@ -5203,27 +5248,47 @@ export type Database = {
           expires_at?: string | null
           exposure_amount?: number | null
           exposure_currency?: string | null
+          hierarchy_level?: number | null
           id?: string
           impact_description?: string | null
+          is_parent?: boolean | null
           message?: string | null
           metadata?: Json | null
           metric_code?: string
+          parent_alert_id?: string | null
           priority?: number | null
           r_squared?: number | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          root_cause_explanation?: string | null
+          root_cause_metric?: string | null
           rule_id?: string | null
           severity?: string | null
           slope?: number | null
           status?: string | null
           suggested_action?: string | null
+          suppressed_children?: Json | null
           tenant_id?: string
           title?: string
           trajectory?: Json
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "early_warning_alerts_parent_alert_id_fkey"
+            columns: ["parent_alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warning_alerts_parent_alert_id_fkey"
+            columns: ["parent_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "early_warning_alerts_rule_id_fkey"
             columns: ["rule_id"]
@@ -14479,6 +14544,182 @@ export type Database = {
           },
         ]
       }
+      v_active_alerts_hierarchy: {
+        Row: {
+          acceleration: number | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          action_url: string | null
+          alert_class: string | null
+          breach_threshold: number | null
+          child_count: number | null
+          confidence_factors: Json | null
+          confidence_level: string | null
+          confidence_score: number | null
+          created_at: string | null
+          current_value: number | null
+          days_to_breach: number | null
+          decision_framing: Json | null
+          dimension_key: string | null
+          display_status: string | null
+          estimated_breach_date: string | null
+          expires_at: string | null
+          exposure_amount: number | null
+          exposure_currency: string | null
+          hierarchy_category: string | null
+          hierarchy_level: number | null
+          id: string | null
+          impact_description: string | null
+          is_parent: boolean | null
+          message: string | null
+          metadata: Json | null
+          metric_code: string | null
+          parent_alert_id: string | null
+          priority: number | null
+          r_squared: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          root_cause_explanation: string | null
+          root_cause_metric: string | null
+          rule_id: string | null
+          severity: string | null
+          slope: number | null
+          status: string | null
+          suggested_action: string | null
+          suppressed_children: Json | null
+          tenant_id: string | null
+          title: string | null
+          trajectory: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          acceleration?: number | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_url?: string | null
+          alert_class?: string | null
+          breach_threshold?: number | null
+          child_count?: number | null
+          confidence_factors?: Json | null
+          confidence_level?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          current_value?: number | null
+          days_to_breach?: number | null
+          decision_framing?: Json | null
+          dimension_key?: string | null
+          display_status?: never
+          estimated_breach_date?: string | null
+          expires_at?: string | null
+          exposure_amount?: number | null
+          exposure_currency?: string | null
+          hierarchy_category?: never
+          hierarchy_level?: number | null
+          id?: string | null
+          impact_description?: string | null
+          is_parent?: boolean | null
+          message?: string | null
+          metadata?: Json | null
+          metric_code?: string | null
+          parent_alert_id?: string | null
+          priority?: number | null
+          r_squared?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          root_cause_explanation?: string | null
+          root_cause_metric?: string | null
+          rule_id?: string | null
+          severity?: string | null
+          slope?: number | null
+          status?: string | null
+          suggested_action?: string | null
+          suppressed_children?: Json | null
+          tenant_id?: string | null
+          title?: string | null
+          trajectory?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          acceleration?: number | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_url?: string | null
+          alert_class?: string | null
+          breach_threshold?: number | null
+          child_count?: number | null
+          confidence_factors?: Json | null
+          confidence_level?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          current_value?: number | null
+          days_to_breach?: number | null
+          decision_framing?: Json | null
+          dimension_key?: string | null
+          display_status?: never
+          estimated_breach_date?: string | null
+          expires_at?: string | null
+          exposure_amount?: number | null
+          exposure_currency?: string | null
+          hierarchy_category?: never
+          hierarchy_level?: number | null
+          id?: string | null
+          impact_description?: string | null
+          is_parent?: boolean | null
+          message?: string | null
+          metadata?: Json | null
+          metric_code?: string | null
+          parent_alert_id?: string | null
+          priority?: number | null
+          r_squared?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          root_cause_explanation?: string | null
+          root_cause_metric?: string | null
+          rule_id?: string | null
+          severity?: string | null
+          slope?: number | null
+          status?: string | null
+          suggested_action?: string | null
+          suppressed_children?: Json | null
+          tenant_id?: string | null
+          title?: string | null
+          trajectory?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "early_warning_alerts_parent_alert_id_fkey"
+            columns: ["parent_alert_id"]
+            isOneToOne: false
+            referencedRelation: "early_warning_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warning_alerts_parent_alert_id_fkey"
+            columns: ["parent_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_alerts_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warning_alerts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "predictive_alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "early_warning_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_active_risk_appetite: {
         Row: {
           active_breaches: number | null
@@ -15016,6 +15257,14 @@ export type Database = {
       close_financial_period: {
         Args: { p_period_id: string }
         Returns: boolean
+      }
+      collapse_alerts_to_parent: {
+        Args: {
+          p_child_metric: string
+          p_parent_metric: string
+          p_tenant_id: string
+        }
+        Returns: Json
       }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
