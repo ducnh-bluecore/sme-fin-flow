@@ -62,42 +62,43 @@ const formatCurrency = (value: number) => {
   return value.toLocaleString();
 };
 
+// Unified Decision Config - CFO/Boardroom language
 const DECISION_CONFIG = {
   scale: {
-    label: 'SCALE',
+    label: 'Scale',
     shortLabel: 'Scale',
     icon: TrendingUp,
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/30',
-    action: 'Tăng budget 30-50%',
+    color: 'text-emerald-600 dark:text-emerald-500',
+    bgColor: 'bg-emerald-500/5',
+    borderColor: 'border-emerald-500/20',
+    action: 'Increase budget 30-50%',
   },
   maintain: {
-    label: 'GIỮ NGUYÊN',
+    label: 'Maintain',
     shortLabel: 'Maintain',
     icon: Pause,
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/30',
-    action: 'Theo dõi thêm 1 tuần',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted/30',
+    borderColor: 'border-border',
+    action: 'Continue monitoring',
   },
   reduce: {
-    label: 'GIẢM',
+    label: 'Reduce',
     shortLabel: 'Reduce',
     icon: TrendingDown,
-    color: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/10',
-    borderColor: 'border-yellow-500/30',
-    action: 'Giảm budget 30-50%',
+    color: 'text-amber-600 dark:text-amber-500',
+    bgColor: 'bg-amber-500/5',
+    borderColor: 'border-amber-500/20',
+    action: 'Reduce budget 30-50%',
   },
   stop: {
-    label: 'DỪNG',
+    label: 'Stop',
     shortLabel: 'Stop',
     icon: XCircle,
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/10',
-    borderColor: 'border-red-500/30',
-    action: 'Pause ngay lập tức',
+    color: 'text-foreground',
+    bgColor: 'bg-muted/30',
+    borderColor: 'border-border',
+    action: 'Pause campaign',
   },
 };
 
@@ -248,90 +249,56 @@ export default function DecisionSupportPage() {
         subtitle="Scale kênh nào? Cắt kênh nào? Dựa trên profit & cash thật"
       />
 
-      {/* Hero Decision - The ONE Question */}
-      <Card className={cn(
-        "border-2 overflow-hidden",
-        canScale 
-          ? "border-green-500/50" 
-          : hasMargin
-          ? "border-yellow-500/50"
-          : "border-red-500/50"
-      )}>
-        <div className={cn(
-          "px-6 py-8",
-          canScale 
-            ? "bg-gradient-to-r from-green-500/10 to-green-500/5" 
-            : hasMargin
-            ? "bg-gradient-to-r from-yellow-500/10 to-yellow-500/5"
-            : "bg-gradient-to-r from-red-500/10 to-red-500/5"
-        )}>
-          <div className="flex items-center justify-between">
+      {/* Marketing Scaling Decision - Calm, Authoritative */}
+      <Card className="border overflow-hidden">
+        <CardContent className="pt-6">
+          <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <div className={cn(
-                  "p-2 rounded-lg",
-                  canScale ? "bg-green-500/20" : hasMargin ? "bg-yellow-500/20" : "bg-red-500/20"
-                )}>
-                  <Scale className={cn(
-                    "h-6 w-6",
-                    canScale ? "text-green-400" : hasMargin ? "text-yellow-400" : "text-red-400"
-                  )} />
-                </div>
-                <span className="text-sm text-muted-foreground font-medium">CÂU HỎI LỚN</span>
-              </div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">
+                Marketing Scaling Decision
+              </p>
               
-              <h2 className="text-2xl font-bold mb-2">Marketing có nên scale?</h2>
+              <h2 className="text-xl font-semibold mb-2">
+                Scale: {canScale ? "Recommended" : hasMargin ? "Not Recommended" : "Not Recommended"}
+              </h2>
               
-              <div className={cn(
-                "text-3xl font-bold mb-4",
-                canScale ? "text-green-400" : hasMargin ? "text-yellow-400" : "text-red-400"
-              )}>
-                {canScale 
-                  ? "✓ CÓ" 
-                  : hasMargin
-                  ? "⚠ THẬN TRỌNG"
-                  : "✗ KHÔNG"
-                }
-              </div>
-
-              <p className="text-muted-foreground max-w-lg">
+              <p className="text-sm text-muted-foreground max-w-lg">
                 {canScale
-                  ? "Margin tốt + Cash flow dương. Có thể tăng ngân sách với các kênh được đề xuất Scale."
+                  ? "Positive contribution margin and healthy cash conversion. Scale-eligible channels identified."
                   : hasMargin
-                  ? "Có margin nhưng cash về chậm. Tối ưu collection trước khi scale."
-                  : "Đang phá huỷ giá trị. Dừng các kênh lỗ và review chiến lược."
+                  ? "Positive margin but low cash conversion. Optimize collection before scaling."
+                  : "Negative contribution detected. Review loss-making channels before proceeding."
                 }
               </p>
             </div>
             
-            <div className="hidden md:flex flex-col items-center gap-2">
-              {canScale ? (
-                <ThumbsUp className="h-20 w-20 text-green-400" />
-              ) : (
-                <ThumbsDown className={cn(
-                  "h-20 w-20",
-                  hasMargin ? "text-yellow-400" : "text-red-400"
-                )} />
-              )}
+            {/* Decision Badge */}
+            <div className={cn(
+              "px-4 py-2 rounded-lg text-sm font-medium",
+              canScale 
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" 
+                : "bg-muted text-muted-foreground border border-border"
+            )}>
+              {canScale ? "Scale Ready" : hasMargin ? "Review Required" : "Action Required"}
             </div>
           </div>
 
           {/* Key Metrics Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border/50">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Contribution Margin</p>
               <p className={cn(
-                "text-lg font-bold",
-                cmoModeSummary.total_contribution_margin >= 0 ? "text-green-400" : "text-red-400"
+                "text-lg font-semibold tabular-nums",
+                cmoModeSummary.total_contribution_margin >= 0 ? "text-emerald-600 dark:text-emerald-500" : "text-foreground"
               )}>
-                {cmoModeSummary.total_contribution_margin >= 0 ? '+' : ''}{formatCurrency(cmoModeSummary.total_contribution_margin)}đ
+                {cmoModeSummary.total_contribution_margin >= 0 ? '+' : ''}{formatCurrency(cmoModeSummary.total_contribution_margin)}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">CM %</p>
               <p className={cn(
-                "text-lg font-bold",
-                cmoModeSummary.contribution_margin_percent >= thresholds.MIN_CM_PERCENT ? "text-green-400" : "text-yellow-400"
+                "text-lg font-semibold tabular-nums",
+                cmoModeSummary.contribution_margin_percent >= thresholds.MIN_CM_PERCENT ? "text-emerald-600 dark:text-emerald-500" : "text-muted-foreground"
               )}>
                 {cmoModeSummary.contribution_margin_percent.toFixed(1)}%
               </p>
@@ -339,44 +306,40 @@ export default function DecisionSupportPage() {
             <div>
               <p className="text-xs text-muted-foreground mb-1">Cash Conversion</p>
               <p className={cn(
-                "text-lg font-bold",
-                cmoModeSummary.cash_conversion_rate >= 0.7 ? "text-green-400" : "text-yellow-400"
+                "text-lg font-semibold tabular-nums",
+                cmoModeSummary.cash_conversion_rate >= 0.7 ? "text-emerald-600 dark:text-emerald-500" : "text-amber-600 dark:text-amber-500"
               )}>
                 {(cmoModeSummary.cash_conversion_rate * 100).toFixed(0)}%
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Risk Alerts</p>
+              <p className="text-xs text-muted-foreground mb-1">Pending Actions</p>
               <p className={cn(
-                "text-lg font-bold",
-                cmoModeSummary.critical_alerts_count > 0 ? "text-red-400" : 
-                cmoModeSummary.risk_alerts_count > 0 ? "text-yellow-400" : "text-green-400"
+                "text-lg font-semibold tabular-nums",
+                cmoModeSummary.risk_alerts_count > 0 ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"
               )}>
                 {cmoModeSummary.risk_alerts_count}
               </p>
             </div>
           </div>
-        </div>
+        </CardContent>
       </Card>
 
-      {/* Quick Stats */}
+      {/* Decision Summary Cards - Calm, Professional */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card 
           className={cn(
-            "cursor-pointer transition-all hover:shadow-md",
-            filterType === 'scale' && "ring-2 ring-green-500"
+            "cursor-pointer transition-all hover:shadow-sm",
+            filterType === 'scale' && "ring-1 ring-emerald-500/50"
           )}
           onClick={() => setFilterType(filterType === 'scale' ? 'all' : 'scale')}
         >
           <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-green-400" />
-              <span className="text-xs text-muted-foreground">Nên Scale</span>
-            </div>
-            <p className="text-2xl font-bold text-green-400">{stats.scaleCount}</p>
+            <p className="text-xs text-muted-foreground mb-1">Scale</p>
+            <p className="text-2xl font-semibold tabular-nums">{stats.scaleCount}</p>
             {stats.scaleCount > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                +{formatCurrency(stats.totalPotentialGain)}đ tiềm năng
+                +{formatCurrency(stats.totalPotentialGain)} potential
               </p>
             )}
           </CardContent>
@@ -384,11 +347,8 @@ export default function DecisionSupportPage() {
 
         <Card>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Pause className="h-4 w-4 text-blue-400" />
-              <span className="text-xs text-muted-foreground">Giữ nguyên</span>
-            </div>
-            <p className="text-2xl font-bold text-blue-400">
+            <p className="text-xs text-muted-foreground mb-1">Maintain</p>
+            <p className="text-2xl font-semibold tabular-nums text-muted-foreground">
               {channelDecisions.filter(d => d.recommendation === 'maintain').length}
             </p>
           </CardContent>
@@ -396,30 +356,24 @@ export default function DecisionSupportPage() {
 
         <Card>
           <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingDown className="h-4 w-4 text-yellow-400" />
-              <span className="text-xs text-muted-foreground">Nên Giảm</span>
-            </div>
-            <p className="text-2xl font-bold text-yellow-400">{stats.reduceCount}</p>
+            <p className="text-xs text-muted-foreground mb-1">Reduce</p>
+            <p className="text-2xl font-semibold tabular-nums text-amber-600 dark:text-amber-500">{stats.reduceCount}</p>
           </CardContent>
         </Card>
 
         <Card 
           className={cn(
-            "cursor-pointer transition-all hover:shadow-md",
-            filterType === 'stop' && "ring-2 ring-red-500"
+            "cursor-pointer transition-all hover:shadow-sm",
+            filterType === 'stop' && "ring-1 ring-border"
           )}
           onClick={() => setFilterType(filterType === 'stop' ? 'all' : 'stop')}
         >
           <CardContent className="pt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <XCircle className="h-4 w-4 text-red-400" />
-              <span className="text-xs text-muted-foreground">Nên Dừng</span>
-            </div>
-            <p className="text-2xl font-bold text-red-400">{stats.stopCount}</p>
+            <p className="text-xs text-muted-foreground mb-1">Stop</p>
+            <p className="text-2xl font-semibold tabular-nums">{stats.stopCount}</p>
             {stats.stopCount > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                -{formatCurrency(stats.totalPotentialLoss)}đ thiệt hại
+                -{formatCurrency(stats.totalPotentialLoss)} impact
               </p>
             )}
           </CardContent>
@@ -430,105 +384,73 @@ export default function DecisionSupportPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-purple-400" />
-              <CardTitle className="text-lg">Quyết định theo kênh</CardTitle>
-            </div>
+            <CardTitle className="text-base font-medium">Channel Decisions</CardTitle>
             <div className="flex items-center gap-2">
               {filterType !== 'all' && (
                 <Button variant="ghost" size="sm" onClick={() => setFilterType('all')}>
-                  Xóa filter
+                  Clear filter
                 </Button>
               )}
-              <Badge variant="outline">
-                {filteredDecisions.length} kênh
+              <Badge variant="secondary" className="text-xs font-normal">
+                {filteredDecisions.length} channels
               </Badge>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           {filteredDecisions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <Scale className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Không có kênh nào phù hợp với filter</p>
-              <Button variant="link" onClick={() => setFilterType('all')}>
-                Xem tất cả
+              <p className="text-sm">No channels match current filter</p>
+              <Button variant="link" size="sm" onClick={() => setFilterType('all')}>
+                View all
               </Button>
             </div>
           ) : (
             filteredDecisions.map((decision) => {
               const config = DECISION_CONFIG[decision.recommendation];
-              const Icon = config.icon;
               
               return (
-                <div 
+                <button 
                   key={decision.channel}
                   onClick={() => openDetail(decision)}
-                  className={cn(
-                    "p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md group",
-                    config.bgColor,
-                    config.borderColor
-                  )}
+                  className="w-full flex items-center justify-between gap-4 p-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors text-left"
                 >
-                  <div className="flex items-center gap-4">
-                    {/* Score Indicator */}
-                    <div className="hidden sm:flex flex-col items-center gap-1 w-16">
-                      <div className={cn(
-                        "text-2xl font-bold",
-                        decision.overallScore >= 60 ? "text-green-400" :
-                        decision.overallScore >= 30 ? "text-yellow-400" : "text-red-400"
-                      )}>
-                        {decision.overallScore.toFixed(0)}
-                      </div>
-                      <span className="text-[10px] text-muted-foreground">SCORE</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">{decision.channel}</span>
+                      <Badge variant="secondary" className="text-xs font-normal">
+                        {config.shortLabel}
+                      </Badge>
                     </div>
-
-                    {/* Main Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="font-semibold">
-                          {decision.channel}
-                        </Badge>
-                        <Badge className={cn("gap-1", config.bgColor, config.color, "border", config.borderColor)}>
-                          <Icon className="h-3 w-3" />
-                          {config.shortLabel}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{decision.reason}</p>
-                      
-                      {/* Metrics Row */}
-                      <div className="flex flex-wrap gap-4 mt-2 text-xs">
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">Margin:</span>
-                          <span className={cn("font-medium", decision.margin >= 0 ? "text-green-400" : "text-red-400")}>
-                            {decision.margin >= 0 ? '+' : ''}{formatCurrency(decision.margin)}đ
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <BarChart3 className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">CM%:</span>
-                          <span className={cn("font-medium", decision.marginPercent >= thresholds.MIN_CM_PERCENT ? "text-green-400" : "text-yellow-400")}>
-                            {decision.marginPercent.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Wallet className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-muted-foreground">Cash:</span>
-                          <span className={cn("font-medium", decision.cashConversion >= 0.7 ? "text-green-400" : "text-yellow-400")}>
-                            {(decision.cashConversion * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Hint */}
-                    <div className="hidden md:flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{config.action}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    
+                    {/* Financial Facts Only */}
+                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                      <span>
+                        CM: <span className={cn(
+                          "font-medium",
+                          decision.margin >= 0 ? "text-emerald-600 dark:text-emerald-500" : "text-foreground"
+                        )}>
+                          {formatCurrency(decision.margin)}
+                        </span>
+                      </span>
+                      <span>
+                        CM%: <span className="font-medium">
+                          {decision.marginPercent.toFixed(1)}%
+                        </span>
+                      </span>
+                      <span>
+                        Cash: <span className={cn(
+                          "font-medium",
+                          decision.cashConversion >= 0.7 ? "text-emerald-600 dark:text-emerald-500" : "text-amber-600 dark:text-amber-500"
+                        )}>
+                          {(decision.cashConversion * 100).toFixed(0)}%
+                        </span>
+                      </span>
                     </div>
                   </div>
-                </div>
+
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
               );
             })
           )}
