@@ -79,10 +79,10 @@ const cmoModeItems: NavItem[] = [
 // Marketing Mode - Execution & monitoring
 const marketingModeItems: NavItem[] = [
   {
-    labelKey: 'mdp.performance',
-    label: 'Performance',
+    labelKey: 'mdp.marketingOverview',
+    label: 'Overview',
     icon: Activity,
-    href: '/mdp/performance',
+    href: '/mdp/marketing-mode',
   },
   {
     labelKey: 'mdp.campaigns',
