@@ -38,7 +38,7 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
   const secondaryCards = snapshot.criticalCards.slice(1);
   
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* === NET IMPACT - Single Dominant Signal === */}
       <Card>
         <CardContent className="pt-6">
