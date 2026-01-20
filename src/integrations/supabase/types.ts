@@ -1260,6 +1260,13 @@ export type Database = {
             foreignKeyName: "approval_decisions_approval_request_id_fkey"
             columns: ["approval_request_id"]
             isOneToOne: false
+            referencedRelation: "mv_audit_approval_evidence"
+            referencedColumns: ["approval_request_id"]
+          },
+          {
+            foreignKeyName: "approval_decisions_approval_request_id_fkey"
+            columns: ["approval_request_id"]
+            isOneToOne: false
             referencedRelation: "v_pending_approvals"
             referencedColumns: ["id"]
           },
@@ -11172,6 +11179,98 @@ export type Database = {
           },
         ]
       }
+      soc_controls: {
+        Row: {
+          category: string
+          control_code: string
+          control_name: string
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          last_validated_at: string | null
+          mapped_column: string | null
+          mapped_table: string
+          tenant_id: string | null
+          updated_at: string
+          validation_query: string | null
+          validation_status: string | null
+        }
+        Insert: {
+          category?: string
+          control_code: string
+          control_name: string
+          created_at?: string
+          description: string
+          id?: string
+          is_active?: boolean
+          last_validated_at?: string | null
+          mapped_column?: string | null
+          mapped_table: string
+          tenant_id?: string | null
+          updated_at?: string
+          validation_query?: string | null
+          validation_status?: string | null
+        }
+        Update: {
+          category?: string
+          control_code?: string
+          control_name?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          last_validated_at?: string | null
+          mapped_column?: string | null
+          mapped_table?: string
+          tenant_id?: string | null
+          updated_at?: string
+          validation_query?: string | null
+          validation_status?: string | null
+        }
+        Relationships: []
+      }
+      soc_validation_logs: {
+        Row: {
+          control_id: string | null
+          created_at: string
+          evidence_hash: string | null
+          id: string
+          notes: string | null
+          tenant_id: string
+          validated_by: string
+          validation_result: string
+        }
+        Insert: {
+          control_id?: string | null
+          created_at?: string
+          evidence_hash?: string | null
+          id?: string
+          notes?: string | null
+          tenant_id: string
+          validated_by?: string
+          validation_result: string
+        }
+        Update: {
+          control_id?: string | null
+          created_at?: string
+          evidence_hash?: string | null
+          id?: string
+          notes?: string | null
+          tenant_id?: string
+          validated_by?: string
+          validation_result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soc_validation_logs_control_id_fkey"
+            columns: ["control_id"]
+            isOneToOne: false
+            referencedRelation: "soc_controls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_mentions: {
         Row: {
           author_handle: string | null
@@ -13750,6 +13849,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "external_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_audit_approval_evidence: {
+        Row: {
+          action: string | null
+          approval_request_id: string | null
+          current_approvals: number | null
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          decision_comment: string | null
+          decision_id: string | null
+          policy_id: string | null
+          requested_at: string | null
+          requested_by: string | null
+          required_approvals: number | null
+          resolved_at: string | null
+          resource_data: Json | null
+          resource_id: string | null
+          resource_type: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
