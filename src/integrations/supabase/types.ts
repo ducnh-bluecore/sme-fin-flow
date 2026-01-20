@@ -9009,6 +9009,91 @@ export type Database = {
           },
         ]
       }
+      reconciliation_ml_features: {
+        Row: {
+          created_at: string
+          exception_type: string
+          features: Json
+          id: string
+          label: string | null
+          suggestion_id: string
+          suggestion_type: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          exception_type: string
+          features: Json
+          id?: string
+          label?: string | null
+          suggestion_id: string
+          suggestion_type: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          exception_type?: string
+          features?: Json
+          id?: string
+          label?: string | null
+          suggestion_id?: string
+          suggestion_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_ml_features_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_ml_predictions: {
+        Row: {
+          created_at: string
+          explanation: Json
+          features_hash: string | null
+          final_confidence: number | null
+          id: string
+          model_version: string
+          predicted_confidence: number
+          suggestion_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          explanation: Json
+          features_hash?: string | null
+          final_confidence?: number | null
+          id?: string
+          model_version: string
+          predicted_confidence: number
+          suggestion_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          explanation?: Json
+          features_hash?: string | null
+          final_confidence?: number | null
+          id?: string
+          model_version?: string
+          predicted_confidence?: number
+          suggestion_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_ml_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reconciliation_suggestion_outcomes: {
         Row: {
           confidence_at_time: number
@@ -10818,6 +10903,47 @@ export type Database = {
             foreignKeyName: "team_members_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_ml_settings: {
+        Row: {
+          created_at: string
+          enabled_at: string | null
+          enabled_by: string | null
+          min_confidence_threshold: number
+          ml_enabled: boolean
+          ml_model_version: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          min_confidence_threshold?: number
+          ml_enabled?: boolean
+          ml_model_version?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          min_confidence_threshold?: number
+          ml_enabled?: boolean
+          ml_model_version?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_ml_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
