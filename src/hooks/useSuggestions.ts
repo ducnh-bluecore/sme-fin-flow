@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useActiveTenantId } from './useActiveTenantId';
 
 export interface ReconciliationSuggestion {
   id: string;
@@ -27,6 +28,26 @@ export interface ReconciliationSuggestion {
     [key: string]: unknown;
   };
   created_at: string;
+}
+
+export interface CalibrationData {
+  calibration_stats: Array<{
+    suggestion_type: string;
+    confidence_band: string;
+    signal_signature: string;
+    total_suggestions: number;
+    confirmed_correct: number;
+    rejected: number;
+    empirical_success_rate: number;
+  }>;
+  recent_outcomes: {
+    total: number;
+    confirmed: number;
+    rejected: number;
+    timed_out: number;
+  };
+  empirical_success_rate: number;
+  sample_size: number;
 }
 
 // Hook: Fetch suggestions for an exception
@@ -61,6 +82,40 @@ export function useSuggestions(exceptionId: string | null) {
   });
 }
 
+// Hook: Get calibration data
+export function useCalibrationData() {
+  const { data: tenantId } = useActiveTenantId();
+
+  return useQuery({
+    queryKey: ['calibration', tenantId],
+    queryFn: async (): Promise<CalibrationData | null> => {
+      if (!tenantId) return null;
+
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reconciliation-suggestions/calibration?tenant_id=${tenantId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return response.json();
+    },
+    enabled: !!tenantId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
 // Hook: Confirm a suggestion
 export function useConfirmSuggestion() {
   const queryClient = useQueryClient();
@@ -91,14 +146,66 @@ export function useConfirmSuggestion() {
       return response.json();
     },
     onSuccess: () => {
-      // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['suggestions'] });
       queryClient.invalidateQueries({ queryKey: ['exceptions'] });
       queryClient.invalidateQueries({ queryKey: ['exception-stats'] });
       queryClient.invalidateQueries({ queryKey: ['exception-detail'] });
       queryClient.invalidateQueries({ queryKey: ['reconciliation'] });
+      queryClient.invalidateQueries({ queryKey: ['calibration'] });
     },
   });
+}
+
+// Hook: Reject a suggestion
+export function useRejectSuggestion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (suggestionId: string) => {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reconciliation-suggestions/reject`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ suggestionId }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to reject suggestion');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['calibration'] });
+    },
+  });
+}
+
+// Helper: Get calibrated confidence
+export function getCalibratedConfidence(
+  originalConfidence: number,
+  empiricalSuccessRate: number | null,
+  sampleSize: number
+): number {
+  // If we don't have enough samples, use original confidence
+  if (!empiricalSuccessRate || sampleSize < 10) {
+    return originalConfidence;
+  }
+  
+  // Calibrate: use the lower of original and empirical rate
+  // This is conservative - we don't inflate confidence
+  return Math.min(originalConfidence, empiricalSuccessRate);
 }
 
 // Helper: Get confidence color

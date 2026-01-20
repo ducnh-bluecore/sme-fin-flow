@@ -548,6 +548,21 @@ serve(async (req: Request) => {
         // Don't fail completely, reconciliation link was created
       }
 
+      // Record outcome for calibration
+      await supabase
+        .from("reconciliation_suggestion_outcomes")
+        .insert({
+          tenant_id: suggestion.tenant_id,
+          suggestion_id: suggestion.id,
+          exception_id: suggestion.exception_id,
+          outcome: "CONFIRMED_MANUAL",
+          confidence_at_time: suggestion.confidence,
+          final_result: "CORRECT",
+          rationale_snapshot: suggestion.rationale,
+          decided_by: userId,
+          decided_at: new Date().toISOString(),
+        });
+
       // Mark exception as resolved
       const { error: exUpdateError } = await supabase
         .from("exceptions_queue")
@@ -574,6 +589,122 @@ serve(async (req: Request) => {
           success: true,
           reconciliation_link_id: reconLink.id,
           exception_resolved: !exUpdateError,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST /reconciliation-suggestions/reject - Reject a suggestion
+    if (req.method === "POST" && pathParts[1] === "reject") {
+      const body = await req.json();
+      const { suggestionId } = body;
+
+      if (!suggestionId) {
+        return new Response(
+          JSON.stringify({ error: "suggestionId is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const authHeader = req.headers.get("Authorization");
+      let userId = null;
+      if (authHeader) {
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
+        userId = user?.id;
+      }
+
+      // Get suggestion
+      const { data: suggestion, error: sugError } = await supabase
+        .from("reconciliation_suggestions")
+        .select("*")
+        .eq("id", suggestionId)
+        .single();
+
+      if (sugError || !suggestion) {
+        return new Response(
+          JSON.stringify({ error: "Suggestion not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Record outcome for calibration
+      await supabase
+        .from("reconciliation_suggestion_outcomes")
+        .insert({
+          tenant_id: suggestion.tenant_id,
+          suggestion_id: suggestion.id,
+          exception_id: suggestion.exception_id,
+          outcome: "REJECTED",
+          confidence_at_time: suggestion.confidence,
+          final_result: "INCORRECT",
+          rationale_snapshot: suggestion.rationale,
+          decided_by: userId,
+          decided_at: new Date().toISOString(),
+        });
+
+      // Delete suggestion
+      await supabase
+        .from("reconciliation_suggestions")
+        .delete()
+        .eq("id", suggestionId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET /reconciliation-suggestions/calibration - Get calibration stats
+    if (req.method === "GET" && pathParts[1] === "calibration") {
+      const tenantId = url.searchParams.get("tenant_id");
+
+      if (!tenantId) {
+        return new Response(
+          JSON.stringify({ error: "tenant_id is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get calibration stats
+      const { data: stats, error: statsError } = await supabase
+        .from("confidence_calibration_stats")
+        .select("*")
+        .eq("tenant_id", tenantId);
+
+      if (statsError) {
+        return new Response(
+          JSON.stringify({ error: statsError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get recent outcomes for additional context
+      const { data: outcomes } = await supabase
+        .from("reconciliation_suggestion_outcomes")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      // Calculate real-time stats from outcomes
+      const outcomeStats = {
+        total: outcomes?.length || 0,
+        confirmed: outcomes?.filter(o => o.outcome === "CONFIRMED_MANUAL" || o.outcome === "AUTO_CONFIRMED").length || 0,
+        rejected: outcomes?.filter(o => o.outcome === "REJECTED").length || 0,
+        timed_out: outcomes?.filter(o => o.outcome === "TIMED_OUT").length || 0,
+      };
+
+      const empiricalSuccessRate = outcomeStats.total > 0 
+        ? (outcomeStats.confirmed / outcomeStats.total) * 100 
+        : 0;
+
+      return new Response(
+        JSON.stringify({
+          calibration_stats: stats || [],
+          recent_outcomes: outcomeStats,
+          empirical_success_rate: Math.round(empiricalSuccessRate * 100) / 100,
+          sample_size: outcomeStats.total,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
