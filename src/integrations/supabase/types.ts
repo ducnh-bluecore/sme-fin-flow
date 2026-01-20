@@ -2402,6 +2402,54 @@ export type Database = {
           },
         ]
       }
+      board_meeting_snapshots: {
+        Row: {
+          action_items: Json | null
+          attendees: Json | null
+          created_at: string
+          created_by: string | null
+          decisions: Json | null
+          finalized_at: string | null
+          finalized_by: string | null
+          id: string
+          meeting_date: string
+          meeting_title: string | null
+          snapshot: Json
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          action_items?: Json | null
+          attendees?: Json | null
+          created_at?: string
+          created_by?: string | null
+          decisions?: Json | null
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          meeting_date: string
+          meeting_title?: string | null
+          snapshot: Json
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          action_items?: Json | null
+          attendees?: Json | null
+          created_at?: string
+          created_by?: string | null
+          decisions?: Json | null
+          finalized_at?: string | null
+          finalized_by?: string | null
+          id?: string
+          meeting_date?: string
+          meeting_title?: string | null
+          snapshot?: Json
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       board_reports: {
         Row: {
           approved_at: string | null
@@ -2537,6 +2585,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      board_simulation_results: {
+        Row: {
+          baseline_metrics: Json | null
+          created_at: string
+          delta_metrics: Json | null
+          id: string
+          period_month: string
+          risk_breaches: Json | null
+          simulated_metrics: Json
+          simulation_id: string
+          tenant_id: string
+          truth_level: string
+        }
+        Insert: {
+          baseline_metrics?: Json | null
+          created_at?: string
+          delta_metrics?: Json | null
+          id?: string
+          period_month: string
+          risk_breaches?: Json | null
+          simulated_metrics: Json
+          simulation_id: string
+          tenant_id: string
+          truth_level?: string
+        }
+        Update: {
+          baseline_metrics?: Json | null
+          created_at?: string
+          delta_metrics?: Json | null
+          id?: string
+          period_month?: string
+          risk_breaches?: Json | null
+          simulated_metrics?: Json
+          simulation_id?: string
+          tenant_id?: string
+          truth_level?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_simulation_results_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "board_simulations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_simulations: {
+        Row: {
+          assumptions: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          simulation_type: string
+          status: string
+          tenant_id: string
+          truth_level: string
+          updated_at: string
+        }
+        Insert: {
+          assumptions: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          simulation_type?: string
+          status?: string
+          tenant_id: string
+          truth_level?: string
+          updated_at?: string
+        }
+        Update: {
+          assumptions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          simulation_type?: string
+          status?: string
+          tenant_id?: string
+          truth_level?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       budgets: {
         Row: {
