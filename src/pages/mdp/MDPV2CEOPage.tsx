@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMarketingDecisionEngine } from '@/hooks/useMarketingDecisionEngine';
-import { CEOOneScreenView, DecisionCardStack, ScaleOpportunities } from '@/components/mdp/v2';
+import { CEOOneScreenView, DecisionCardStack, ScaleOpportunities, DecisionContextRail } from '@/components/mdp/v2';
 import { ChannelBudgetConfigPanel } from '@/components/mdp/cmo-mode/ChannelBudgetConfigPanel';
 import { MarketingDecisionCard } from '@/types/mdp-v2';
 import { toast } from 'sonner';
@@ -50,13 +50,26 @@ export default function MDPV2CEOPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 max-w-4xl">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-24" />
-        <Skeleton className="h-48" />
+      <div className="flex gap-6">
+        <div className="flex-1 space-y-6">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-48" />
+        </div>
+        <div className="w-72 shrink-0 space-y-4">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-32" />
+        </div>
       </div>
     );
   }
+
+  // Calculate exposure values from snapshot
+  const totalCashAtRisk = ceoSnapshot.cashReceived * 0.15 + ceoSnapshot.cashPending * 0.3;
+  const totalLockedCash = ceoSnapshot.cashLocked;
+  const worstCaseLoss = ceoSnapshot.totalMarginDestroyed;
+  const pendingDecisionsCount = decisionCards.filter(c => c.status === 'PENDING').length;
 
   return (
     <div className="space-y-6">
@@ -73,33 +86,45 @@ export default function MDPV2CEOPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="mt-6 space-y-6">
-          {/* CEO One-Screen View */}
-          <CEOOneScreenView 
-            snapshot={ceoSnapshot} 
-            onDecisionAction={(card) => handleDecisionAction(card, 'APPROVE')} 
-          />
+        {/* Overview Tab - Two Column Layout */}
+        <TabsContent value="overview" className="mt-6">
+          <div className="flex gap-6">
+            {/* Main Content - Left */}
+            <div className="flex-1 min-w-0 space-y-6">
+              {/* CEO One-Screen View */}
+              <CEOOneScreenView 
+                snapshot={ceoSnapshot} 
+                onDecisionAction={(card) => handleDecisionAction(card, 'APPROVE')} 
+              />
 
-          {/* Scale Opportunities */}
-          {scaleOpportunities.length > 0 && (
-            <div className="max-w-4xl">
-              <ScaleOpportunities 
-                opportunities={scaleOpportunities} 
-                onScale={handleScale} 
+              {/* Scale Opportunities */}
+              {scaleOpportunities.length > 0 && (
+                <ScaleOpportunities 
+                  opportunities={scaleOpportunities} 
+                  onScale={handleScale} 
+                />
+              )}
+
+              {/* Decision Queue - Secondary */}
+              {decisionCards.length > 0 && (
+                <DecisionCardStack 
+                  cards={decisionCards} 
+                  onAction={handleDecisionAction} 
+                />
+              )}
+            </div>
+
+            {/* Context Rail - Right */}
+            <div className="w-72 shrink-0">
+              <DecisionContextRail 
+                totalCashAtRisk={totalCashAtRisk}
+                totalLockedCash={totalLockedCash}
+                worstCaseLoss={worstCaseLoss}
+                activeRulesCount={4}
+                pendingDecisionsCount={pendingDecisionsCount}
               />
             </div>
-          )}
-
-          {/* Decision Queue - Secondary */}
-          {decisionCards.length > 0 && (
-            <div className="max-w-4xl">
-              <DecisionCardStack 
-                cards={decisionCards} 
-                onAction={handleDecisionAction} 
-              />
-            </div>
-          )}
+          </div>
         </TabsContent>
 
         {/* Channel KPI Setup Tab */}

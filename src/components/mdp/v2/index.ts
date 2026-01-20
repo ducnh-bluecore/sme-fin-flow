@@ -2,3 +2,4 @@
 export { CEOOneScreenView } from './CEOOneScreenView';
 export { DecisionCardStack } from './DecisionCardStack';
 export { ScaleOpportunities } from './ScaleOpportunities';
+export { DecisionContextRail } from './DecisionContextRail';
