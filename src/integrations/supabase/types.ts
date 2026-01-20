@@ -2463,6 +2463,68 @@ export type Database = {
           },
         ]
       }
+      board_scenarios: {
+        Row: {
+          assumptions: Json
+          baseline_snapshot: Json | null
+          comparison_notes: string | null
+          control_impacts: Json | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_archived: boolean | null
+          projected_outcomes: Json
+          risk_breaches: Json
+          scenario_name: string
+          scenario_type: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          assumptions: Json
+          baseline_snapshot?: Json | null
+          comparison_notes?: string | null
+          control_impacts?: Json | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean | null
+          projected_outcomes: Json
+          risk_breaches?: Json
+          scenario_name: string
+          scenario_type: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          assumptions?: Json
+          baseline_snapshot?: Json | null
+          comparison_notes?: string | null
+          control_impacts?: Json | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean | null
+          projected_outcomes?: Json
+          risk_breaches?: Json
+          scenario_name?: string
+          scenario_type?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_scenarios_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budgets: {
         Row: {
           actual_amount: number | null
@@ -6984,6 +7046,71 @@ export type Database = {
           },
         ]
       }
+      investor_risk_disclosures: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          compliance_statement: string | null
+          created_at: string
+          created_by: string
+          disclosure_period_end: string
+          disclosure_period_start: string
+          id: string
+          key_risks: Json
+          mitigations: Json
+          published_at: string | null
+          risk_appetite_version: number
+          status: string
+          summary: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          compliance_statement?: string | null
+          created_at?: string
+          created_by: string
+          disclosure_period_end: string
+          disclosure_period_start: string
+          id?: string
+          key_risks?: Json
+          mitigations?: Json
+          published_at?: string | null
+          risk_appetite_version: number
+          status?: string
+          summary: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          compliance_statement?: string | null
+          created_at?: string
+          created_by?: string
+          disclosure_period_end?: string
+          disclosure_period_start?: string
+          id?: string
+          key_risks?: Json
+          mitigations?: Json
+          published_at?: string | null
+          risk_appetite_version?: number
+          status?: string
+          summary?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investor_risk_disclosures_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           amount: number
@@ -10244,6 +10371,76 @@ export type Database = {
           },
           {
             foreignKeyName: "risk_breach_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_stress_tests: {
+        Row: {
+          base_risk_appetite_id: string | null
+          baseline_metrics: Json | null
+          created_at: string
+          created_by: string
+          description: string | null
+          detailed_impacts: Json | null
+          id: string
+          impact_summary: Json
+          simulated_at: string
+          simulated_metrics: Json | null
+          simulated_risk_appetite: Json
+          tenant_id: string
+          test_name: string
+        }
+        Insert: {
+          base_risk_appetite_id?: string | null
+          baseline_metrics?: Json | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          detailed_impacts?: Json | null
+          id?: string
+          impact_summary: Json
+          simulated_at?: string
+          simulated_metrics?: Json | null
+          simulated_risk_appetite: Json
+          tenant_id: string
+          test_name: string
+        }
+        Update: {
+          base_risk_appetite_id?: string | null
+          baseline_metrics?: Json | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          detailed_impacts?: Json | null
+          id?: string
+          impact_summary?: Json
+          simulated_at?: string
+          simulated_metrics?: Json | null
+          simulated_risk_appetite?: Json
+          tenant_id?: string
+          test_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_stress_tests_base_risk_appetite_id_fkey"
+            columns: ["base_risk_appetite_id"]
+            isOneToOne: false
+            referencedRelation: "risk_appetites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_stress_tests_base_risk_appetite_id_fkey"
+            columns: ["base_risk_appetite_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_risk_appetite"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_stress_tests_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
