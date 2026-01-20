@@ -4287,6 +4287,84 @@ export type Database = {
           },
         ]
       }
+      decision_snapshots: {
+        Row: {
+          as_of: string
+          authority: string
+          calculation_hash: string | null
+          confidence: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          derived_from: Json
+          dimensions: Json
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metric_code: string
+          metric_version: number
+          supersedes_id: string | null
+          tenant_id: string
+          truth_level: string
+          value: number
+        }
+        Insert: {
+          as_of?: string
+          authority: string
+          calculation_hash?: string | null
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          derived_from?: Json
+          dimensions?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metric_code: string
+          metric_version?: number
+          supersedes_id?: string | null
+          tenant_id: string
+          truth_level: string
+          value: number
+        }
+        Update: {
+          as_of?: string
+          authority?: string
+          calculation_hash?: string | null
+          confidence?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          derived_from?: Json
+          dimensions?: Json
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metric_code?: string
+          metric_version?: number
+          supersedes_id?: string | null
+          tenant_id?: string
+          truth_level?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_snapshots_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "decision_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_snapshots_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_latest"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decision_threshold_configs: {
         Row: {
           ar_aging_90_critical_percent: number
@@ -12243,6 +12321,44 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_decision_latest: {
+        Row: {
+          as_of: string | null
+          authority: string | null
+          calculation_hash: string | null
+          confidence: number | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          derived_from: Json | null
+          dimensions: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string | null
+          metric_code: string | null
+          metric_version: number | null
+          supersedes_id: string | null
+          tenant_id: string | null
+          truth_level: string | null
+          value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_snapshots_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "decision_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_snapshots_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_latest"
             referencedColumns: ["id"]
           },
         ]
