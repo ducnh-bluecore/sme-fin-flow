@@ -14063,25 +14063,18 @@ export type Database = {
       }
       mv_board_summary: {
         Row: {
+          allocations_count: number | null
           auto_actions: number | null
           bank_txns_used: number | null
           cash_settled: number | null
           invoices_settled: number | null
-          manual_actions: number | null
           open_exceptions: number | null
-          open_exceptions_value: number | null
-          period_month: string | null
+          period_end: string | null
+          period_start: string | null
           tenant_id: string | null
+          total_exceptions: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "reconciliation_links_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       pl_summary: {
         Row: {
