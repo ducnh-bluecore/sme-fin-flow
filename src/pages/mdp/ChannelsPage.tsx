@@ -151,24 +151,44 @@ export default function ChannelsPage() {
       ch.cashConversionRate = totalCash > 0 ? ch.cashReceived / totalCash : 0;
       ch.isCashPositive = ch.cashConversionRate >= MDP_THRESHOLDS.MIN_CASH_CONVERSION;
 
-      // Score calculations (-100 to 100)
-      // Margin Score: based on contribution margin %
-      if (ch.contributionMarginPercent >= MDP_THRESHOLDS.MIN_CM_PERCENT) {
-        ch.marginScore = Math.min(100, ch.contributionMarginPercent * 5);
+      // Score calculations (-100 to 100) with quadrant-based placement
+      // Instead of continuous scores, we place items clearly within quadrants
+      // to avoid clustering on axes
+      
+      const isGoodMargin = ch.contributionMarginPercent >= MDP_THRESHOLDS.MIN_CM_PERCENT;
+      const isGoodCash = ch.cashConversionRate >= MDP_THRESHOLDS.MIN_CASH_CONVERSION;
+      
+      // Margin Score: place within left or right half with variation
+      // Use actual CM% to create spread within the quadrant
+      const marginVariation = Math.min(40, Math.abs(ch.contributionMarginPercent) * 2);
+      if (isGoodMargin) {
+        // Right half: 20 to 90 (good margin)
+        ch.marginScore = 20 + marginVariation + Math.random() * 10;
       } else if (ch.contributionMarginPercent >= 0) {
-        ch.marginScore = ch.contributionMarginPercent * 5;
+        // Left half: -10 to -40 (low positive margin)
+        ch.marginScore = -10 - marginVariation - Math.random() * 10;
       } else {
-        ch.marginScore = Math.max(-100, ch.contributionMarginPercent * 5);
+        // Left half: -30 to -80 (negative margin)
+        ch.marginScore = -30 - marginVariation - Math.random() * 10;
       }
-
-      // Cash Score: based on cash conversion rate
-      if (ch.cashConversionRate >= MDP_THRESHOLDS.MIN_CASH_CONVERSION) {
-        ch.cashScore = 50 + (ch.cashConversionRate - 0.7) * 166; // 0.7 = 50, 1.0 = 100
+      
+      // Cash Score: place within top or bottom half with variation
+      // Use actual cash conversion to create spread within the quadrant
+      const cashVariation = Math.min(40, ch.cashConversionRate * 50);
+      if (isGoodCash) {
+        // Top half: 20 to 80 (good cash)
+        ch.cashScore = 20 + cashVariation + Math.random() * 10;
       } else if (ch.cashConversionRate >= 0.5) {
-        ch.cashScore = (ch.cashConversionRate - 0.5) * 250; // 0.5 = 0, 0.7 = 50
+        // Bottom half: -10 to -40 (moderate cash)
+        ch.cashScore = -10 - cashVariation - Math.random() * 10;
       } else {
-        ch.cashScore = (ch.cashConversionRate - 0.5) * 200; // Below 0.5 = negative
+        // Bottom half: -30 to -70 (poor cash)
+        ch.cashScore = -30 - (0.5 - ch.cashConversionRate) * 100 - Math.random() * 10;
       }
+      
+      // Clamp scores to valid range
+      ch.marginScore = Math.max(-100, Math.min(100, ch.marginScore));
+      ch.cashScore = Math.max(-100, Math.min(100, ch.cashScore));
 
       // Overall Score (weighted average)
       ch.overallScore = ch.marginScore * 0.6 + ch.cashScore * 0.4;
