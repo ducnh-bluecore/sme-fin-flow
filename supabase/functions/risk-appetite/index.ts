@@ -17,8 +17,6 @@ async function getMetricValue(
   tenantId: string,
   metricCode: string
 ): Promise<MetricValue | null> {
-  metricCode: string
-): Promise<MetricValue | null> {
   switch (metricCode) {
     // AR Metrics
     case 'ar_overdue_ratio': {
@@ -28,8 +26,8 @@ async function getMetricValue(
         .eq('tenant_id', tenantId)
         .eq('status', 'open');
       
-      const arOverdue = exceptions?.filter(e => e.exception_type === 'AR_OVERDUE')
-        .reduce((sum, e) => sum + (Number(e.impact_amount) || 0), 0) || 0;
+      const arOverdue = exceptions?.filter((e: { exception_type: string }) => e.exception_type === 'AR_OVERDUE')
+        .reduce((sum: number, e: { impact_amount: number }) => sum + (Number(e.impact_amount) || 0), 0) || 0;
       
       const { data: invoices } = await supabaseClient
         .from('invoices')
@@ -37,7 +35,7 @@ async function getMetricValue(
         .eq('tenant_id', tenantId)
         .in('status', ['sent', 'overdue']);
       
-      const totalAR = invoices?.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0) || 1;
+      const totalAR = invoices?.reduce((sum: number, i: { total_amount: number }) => sum + (Number(i.total_amount) || 0), 0) || 1;
       
       return { code: metricCode, value: (arOverdue / totalAR) * 100, source: 'exceptions_queue + invoices' };
     }
@@ -50,7 +48,7 @@ async function getMetricValue(
         .eq('status', 'open')
         .eq('exception_type', 'AR_OVERDUE');
       
-      const total = exceptions?.reduce((sum, e) => sum + (Number(e.impact_amount) || 0), 0) || 0;
+      const total = exceptions?.reduce((sum: number, e: { impact_amount: number }) => sum + (Number(e.impact_amount) || 0), 0) || 0;
       return { code: metricCode, value: total, source: 'exceptions_queue' };
     }
     
@@ -85,8 +83,8 @@ async function getMetricValue(
         .eq('tenant_id', tenantId)
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       
-      const autoConfirmed = outcomes?.filter(o => o.outcome === 'AUTO_CONFIRMED').length || 0;
-      const falseAuto = outcomes?.filter(o => o.outcome === 'FALSE_AUTO').length || 0;
+      const autoConfirmed = outcomes?.filter((o: { outcome: string }) => o.outcome === 'AUTO_CONFIRMED').length || 0;
+      const falseAuto = outcomes?.filter((o: { outcome: string }) => o.outcome === 'FALSE_AUTO').length || 0;
       
       const rate = autoConfirmed > 0 ? (falseAuto / autoConfirmed) * 100 : 0;
       return { code: metricCode, value: rate, source: 'reconciliation_suggestion_outcomes' };
@@ -100,7 +98,7 @@ async function getMetricValue(
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       
       const total = outcomes?.length || 0;
-      const autoConfirmed = outcomes?.filter(o => o.outcome === 'AUTO_CONFIRMED').length || 0;
+      const autoConfirmed = outcomes?.filter((o: { outcome: string }) => o.outcome === 'AUTO_CONFIRMED').length || 0;
       
       const rate = total > 0 ? (autoConfirmed / total) * 100 : 0;
       return { code: metricCode, value: rate, source: 'reconciliation_suggestion_outcomes' };
@@ -119,7 +117,7 @@ async function getMetricValue(
         .eq('tenant_id', tenantId)
         .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       
-      const blocked = events?.filter(e => e.event_type === 'BLOCKED').length || 0;
+      const blocked = events?.filter((e: { event_type: string }) => e.event_type === 'BLOCKED').length || 0;
       const total = outcomes?.length || 1;
       
       return { code: metricCode, value: (blocked / total) * 100, source: 'reconciliation_guardrail_events' };
