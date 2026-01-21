@@ -6,3 +6,5 @@ export { default as SettingsPage } from './SettingsPage';
 export { default as SituationRoomPage } from './SituationRoomPage';
 export { default as DecisionsPage } from './DecisionsPage';
 export { default as BoardViewPage } from './BoardViewPage';
+export { default as CEOControlTowerPage } from './CEOControlTowerPage';
+export { default as COOControlTowerPage } from './COOControlTowerPage';

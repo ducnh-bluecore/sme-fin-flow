@@ -48,9 +48,11 @@ interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
-// Control Tower Manifesto: Situation Room is the primary view
-// "What's wrong and needs action RIGHT NOW?"
+// Control Tower with role-based views
+// CEO = Strategic Command | COO = Execution Control
 const navItemsConfig: NavItemConfig[] = [
+  { id: 'ceo', label: 'CEO View', icon: Target, path: '/control-tower/ceo' },
+  { id: 'coo', label: 'COO View', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'tasks' },
   { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
   { id: 'board', label: 'Board View', icon: MonitorCheck, path: '/control-tower/board' },
   { id: 'decisions', label: 'Quyết định', icon: FileText, path: '/control-tower/decisions' },

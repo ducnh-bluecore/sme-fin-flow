@@ -116,7 +116,7 @@ import MDPDecisionSupportPage from "./pages/mdp/DecisionSupportPage";
 // MDP V2 - CEO Decision View
 import MDPV2CEOPage from "./pages/mdp/MDPV2CEOPage";
 
-// Control Tower pages - Manifesto compliant: only alert-focused pages
+// Control Tower pages - CEO = Strategic | COO = Execution
 import CTTasksPage from "./pages/control-tower/TasksPage";
 import CTAlertsPage from "./pages/control-tower/AlertsPage";
 import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
@@ -125,6 +125,8 @@ import CTSettingsPage from "./pages/control-tower/SettingsPage";
 import CTSituationRoomPage from "./pages/control-tower/SituationRoomPage";
 import CTDecisionsPage from "./pages/control-tower/DecisionsPage";
 import CTBoardViewPage from "./pages/control-tower/BoardViewPage";
+import CTCEOPage from "./pages/control-tower/CEOControlTowerPage";
+import CTCOOPage from "./pages/control-tower/COOControlTowerPage";
 
 
 // Mobile App pages
@@ -207,8 +209,10 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        {/* Control Tower Manifesto: Situation Room is the primary view */}
-        <Route path="/control-tower" element={<Navigate to="/control-tower/situation" replace />} />
+        {/* Control Tower: CEO = Strategic | COO = Execution */}
+        <Route path="/control-tower" element={<Navigate to="/control-tower/ceo" replace />} />
+        <Route path="/control-tower/ceo" element={<CTCEOPage />} />
+        <Route path="/control-tower/coo" element={<CTCOOPage />} />
         <Route path="/control-tower/situation" element={<CTSituationRoomPage />} />
         <Route path="/control-tower/board" element={<CTBoardViewPage />} />
         <Route path="/control-tower/decisions" element={<CTDecisionsPage />} />
