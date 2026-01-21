@@ -17,28 +17,36 @@ import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { toast } from 'sonner';
 
 /**
- * COO CONTROL TOWER - Execution View
+ * EXECUTION CONTROL TOWER (COO / Ops)
  * 
- * PURPOSE: Enable delivery, accountability, and speed
+ * PURPOSE: Answer "What execution is at risk right now?"
  * 
- * ANSWERS THESE QUESTIONS:
- * - "What must be done today?"
- * - "What is blocked?"
- * - "What is overdue?"
+ * SHOWS:
+ * - Execution streams grouped by Strategic Decision
+ * - SLA risk, Blockers, Overdue actions
  * 
- * RULES:
- * - Task streams grouped by Strategic Decision
- * - Dense but readable
- * - Clear SLA/overdue color coding
- * - NO strategic objective editing
+ * RENAMED CONCEPTS:
+ * - "Task" → "Execution Action"
+ * - "Task list" → "Execution Queue"
+ * 
+ * ALLOWED ACTIONS:
+ * - Assign owner
+ * - Update execution state
+ * - Escalate blockers
+ * - Attach evidence
+ * 
+ * NOT ALLOWED:
+ * - Edit strategic objectives
+ * - Change decision scope
+ * - View CEO-only metrics
  */
 
-type ViewMode = 'streams' | 'tasks';
-type TaskFilter = 'all' | 'today' | 'blocked' | 'overdue';
+type ViewMode = 'streams' | 'actions';
+type ExecutionFilter = 'all' | 'today' | 'blocked' | 'sla_risk';
 
 export default function COOControlTowerPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('streams');
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
+  const [executionFilter, setExecutionFilter] = useState<ExecutionFilter>('all');
   const [selectedStreamId, setSelectedStreamId] = useState<string | null>(null);
   
   const { data: tenantId } = useActiveTenantId();
@@ -110,7 +118,7 @@ export default function COOControlTowerPage() {
     }));
   }, [tasks, cards]);
 
-  // Filter tasks
+  // Filter execution actions
   const filteredTasks = useMemo(() => {
     let filtered = taskItems;
     
@@ -118,7 +126,7 @@ export default function COOControlTowerPage() {
       filtered = filtered.filter(t => t.linkedDecisionTitle);
     }
     
-    switch (taskFilter) {
+    switch (executionFilter) {
       case 'today':
         const today = new Date().toISOString().split('T')[0];
         filtered = filtered.filter(t => t.dueDate?.startsWith(today));
@@ -126,13 +134,13 @@ export default function COOControlTowerPage() {
       case 'blocked':
         filtered = filtered.filter(t => t.hasBlocker);
         break;
-      case 'overdue':
+      case 'sla_risk':
         filtered = filtered.filter(t => t.isOverdue);
         break;
     }
     
     return filtered;
-  }, [taskItems, taskFilter, selectedStreamId]);
+  }, [taskItems, executionFilter, selectedStreamId]);
 
   // Stats
   const stats = useMemo(() => ({
@@ -207,10 +215,10 @@ export default function COOControlTowerPage() {
               Execution Streams
             </Button>
             <Button
-              variant={viewMode === 'tasks' ? 'default' : 'outline'}
+              variant={viewMode === 'actions' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setViewMode('tasks')}
-              className={viewMode === 'tasks' 
+              onClick={() => setViewMode('actions')}
+              className={viewMode === 'actions' 
                 ? 'bg-slate-700 text-slate-100' 
                 : 'border-slate-700 text-slate-400'
               }
@@ -223,32 +231,32 @@ export default function COOControlTowerPage() {
         {/* Quick Stats Badges */}
         <div className="flex flex-wrap gap-2 mb-6">
           <Badge
-            variant={taskFilter === 'all' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'all' ? 'bg-slate-700' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setTaskFilter('all')}
+            variant={executionFilter === 'all' ? 'default' : 'outline'}
+            className={`cursor-pointer ${executionFilter === 'all' ? 'bg-slate-700' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            onClick={() => setExecutionFilter('all')}
           >
             All actions ({stats.total})
           </Badge>
           <Badge
-            variant={taskFilter === 'today' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'today' ? 'bg-blue-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setTaskFilter('today')}
+            variant={executionFilter === 'today' ? 'default' : 'outline'}
+            className={`cursor-pointer ${executionFilter === 'today' ? 'bg-blue-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            onClick={() => setExecutionFilter('today')}
           >
             <Clock className="h-3 w-3 mr-1" />
             Due today ({stats.today})
           </Badge>
           <Badge
-            variant={taskFilter === 'blocked' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'blocked' ? 'bg-amber-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setTaskFilter('blocked')}
+            variant={executionFilter === 'blocked' ? 'default' : 'outline'}
+            className={`cursor-pointer ${executionFilter === 'blocked' ? 'bg-amber-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            onClick={() => setExecutionFilter('blocked')}
           >
             <AlertTriangle className="h-3 w-3 mr-1" />
             Blocked – attention required ({stats.blocked})
           </Badge>
           <Badge
-            variant={taskFilter === 'overdue' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'overdue' ? 'bg-red-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setTaskFilter('overdue')}
+            variant={executionFilter === 'sla_risk' ? 'default' : 'outline'}
+            className={`cursor-pointer ${executionFilter === 'sla_risk' ? 'bg-red-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            onClick={() => setExecutionFilter('sla_risk')}
           >
             <Clock className="h-3 w-3 mr-1" />
             SLA risk detected ({stats.overdue})
@@ -264,7 +272,7 @@ export default function COOControlTowerPage() {
                 stream={stream}
                 onClick={() => {
                   setSelectedStreamId(stream.id);
-                  setViewMode('tasks');
+                  setViewMode('actions');
                 }}
               />
             ))}
@@ -279,8 +287,8 @@ export default function COOControlTowerPage() {
           </div>
         )}
 
-        {/* TASKS VIEW */}
-        {viewMode === 'tasks' && (
+        {/* ACTIONS VIEW */}
+        {viewMode === 'actions' && (
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-lg overflow-hidden">
             {selectedStreamId && (
               <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-800/50 flex items-center justify-between">
@@ -312,9 +320,9 @@ export default function COOControlTowerPage() {
               <div className="p-12 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
                 <p className="text-slate-400">
-                  {taskFilter === 'all' ? 'No execution actions' : 
-                   taskFilter === 'blocked' ? 'No blocked actions' :
-                   taskFilter === 'overdue' ? 'No SLA risks detected' :
+                  {executionFilter === 'all' ? 'No execution actions' : 
+                   executionFilter === 'blocked' ? 'No blocked actions' :
+                   executionFilter === 'sla_risk' ? 'No SLA risks detected' :
                    'No actions due today'}
                 </p>
                 <p className="text-slate-500 text-sm mt-1">Systems are monitoring in real time.</p>
