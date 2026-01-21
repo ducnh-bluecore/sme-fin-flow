@@ -48,22 +48,24 @@ interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
-// Control Tower with role-based views
+// Control Tower - Decision OS for Leadership
 // CEO = Strategic Command | COO = Execution Control
 const navItemsConfig: NavItemConfig[] = [
-  { id: 'ceo', label: 'CEO View', icon: Target, path: '/control-tower/ceo' },
-  { id: 'coo', label: 'COO View', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'tasks' },
-  { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
-  { id: 'board', label: 'Board View', icon: MonitorCheck, path: '/control-tower/board' },
-  { id: 'decisions', label: 'Quyết định', icon: FileText, path: '/control-tower/decisions' },
-  { id: 'alerts', label: 'Tất cả cảnh báo', icon: Bell, path: '/control-tower/alerts' },
-  { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
-  { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
-  { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
+  // PRIMARY: Role-based entry points
+  { id: 'ceo', label: 'CEO Control Tower', icon: Target, path: '/control-tower/ceo' },
+  { id: 'coo', label: 'Execution Control Tower', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'execution' },
+  
+  // SECONDARY: Decision & Signal flows  
+  { id: 'decisions', label: 'Decision Workspace', icon: FileText, path: '/control-tower/decisions' },
+  { id: 'signals', label: 'Signals & Alerts', icon: Bell, path: '/control-tower/signals', badgeKey: 'alerts' },
+  
+  // TERTIARY: Governance & Config
+  { id: 'rules', label: 'Rules & Governance', icon: Target, path: '/control-tower/rules' },
+  { id: 'teams', label: 'Teams', icon: Users, path: '/control-tower/teams' },
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [
-  { id: 'settings', label: 'Cài đặt', icon: Settings, path: '/control-tower/settings' },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/control-tower/settings' },
 ];
 
 export function ControlTowerLayout() {
@@ -78,15 +80,15 @@ export function ControlTowerLayout() {
   const { data: alertsData } = useActiveAlertsCount();
   const activeAlertsCount = alertsData?.total ?? 0;
   
-  const { data: pendingTasksCount = 0 } = useQuery({
-    queryKey: ['pending-tasks-count', activeTenant?.id],
+  const { data: pendingExecutionCount = 0 } = useQuery({
+    queryKey: ['pending-execution-count', activeTenant?.id],
     queryFn: async () => {
       if (!activeTenant?.id) return 0;
       const { count } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', activeTenant.id)
-        .in('status', ['todo', 'pending', 'in_progress']);
+        .in('status', ['todo', 'pending', 'in_progress', 'blocked']);
       return count || 0;
     },
     enabled: !!activeTenant?.id,
@@ -96,14 +98,14 @@ export function ControlTowerLayout() {
   const navItems = useMemo((): NavItemWithBadge[] => {
     const badgeCounts: Record<string, number> = {
       alerts: activeAlertsCount,
-      tasks: pendingTasksCount,
+      execution: pendingExecutionCount,
     };
     
     return navItemsConfig.map(item => ({
       ...item,
       badge: item.badgeKey ? badgeCounts[item.badgeKey] : undefined,
     }));
-  }, [activeAlertsCount, pendingTasksCount]);
+  }, [activeAlertsCount, pendingExecutionCount]);
 
   const bottomNavItems: NavItemWithBadge[] = bottomNavItemsConfig.map(item => ({ ...item }));
 
@@ -188,7 +190,7 @@ export function ControlTowerLayout() {
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all"
         >
           <Home className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Về Portal</span>}
+          {!collapsed && <span className="text-sm font-medium">Back to Portal</span>}
         </motion.button>
       </div>
     </div>

@@ -57,21 +57,21 @@ const typeConfig = {
     color: 'text-red-400', 
     bg: 'bg-red-500/10', 
     border: 'border-red-500/30',
-    label: 'Nghiêm trọng'
+    label: 'Critical'
   },
   warning: { 
     icon: AlertTriangle, 
     color: 'text-amber-400', 
     bg: 'bg-amber-500/10', 
     border: 'border-amber-500/30',
-    label: 'Cảnh báo'
+    label: 'Warning'
   },
   info: { 
     icon: Bell, 
     color: 'text-blue-400', 
     bg: 'bg-blue-500/10', 
     border: 'border-blue-500/30',
-    label: 'Thông tin'
+    label: 'Signal'
   },
 };
 
@@ -261,17 +261,17 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
             <div className="flex flex-col items-end gap-1">
               {alert.status === 'active' && (
                 <Badge className="bg-red-500/10 text-red-400 border border-red-500/30 text-xs">
-                  Đang xảy ra
+                  Active
                 </Badge>
               )}
               {alert.status === 'acknowledged' && (
                 <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs">
-                  Đã nhận
+                  Acknowledged
                 </Badge>
               )}
               {alert.status === 'resolved' && (
                 <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs">
-                  Đã xử lý
+                  Resolved
                 </Badge>
               )}
             </div>
@@ -312,10 +312,21 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
             </div>
           </div>
 
-          {/* Actions - Simplified per Control Tower Manifesto */}
+          {/* Actions - SIGNALS & ALERTS: Only Acknowledge and Escalate */}
           {alert.status === 'active' && (
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {/* Primary: Owner Assignment (Manifesto #5) */}
+              {/* Acknowledge Signal */}
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="h-7 border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
+                onClick={() => onAcknowledge(alert.id)}
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Acknowledge signal
+              </Button>
+              
+              {/* Escalate to Decision Context */}
               {onAssign && (
                 <AssignOwnerDropdown
                   alertId={alert.id}
@@ -323,47 +334,6 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
                   onAssign={onAssign}
                   isLoading={isAssigning}
                 />
-              )}
-              
-              {/* Secondary: Quick actions */}
-              {(alert as any).assigned_to ? (
-                // If owner assigned, show task + resolve buttons
-                <>
-                  {onCreateTask && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="h-7 border-primary/50 text-primary hover:bg-primary/10 text-xs"
-                      onClick={() => onCreateTask(alert)}
-                      disabled={isCreatingTask}
-                    >
-                      {isCreatingTask ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        <ClipboardList className="h-3 w-3 mr-1" />
-                      )}
-                      Tạo Task
-                    </Button>
-                  )}
-                  <Button 
-                    size="sm" 
-                    className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
-                    onClick={() => onResolve(alert.id)}
-                  >
-                    <Zap className="h-3 w-3 mr-1" />
-                    Xử lý xong
-                  </Button>
-                </>
-              ) : (
-                // No owner yet - gentle nudge to assign first
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="h-7 border-slate-700 text-slate-400 text-xs"
-                  onClick={() => onAcknowledge(alert.id)}
-                >
-                  Tạm bỏ qua
-                </Button>
               )}
               
               {/* View details for summary alerts */}
@@ -375,14 +345,14 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
                   onClick={() => onViewDetails(alert)}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
-                  Chi tiết
+                  Details
                 </Button>
               )}
             </div>
           )}
           {alert.status === 'acknowledged' && (
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              {/* Owner still needed for acknowledged alerts */}
+              {/* Escalate to decision context */}
               {onAssign && (
                 <AssignOwnerDropdown
                   alertId={alert.id}
@@ -392,15 +362,6 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
                 />
               )}
               
-              <Button 
-                size="sm" 
-                className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white text-xs"
-                onClick={() => onResolve(alert.id)}
-              >
-                <Zap className="h-3 w-3 mr-1" />
-                Xử lý xong
-              </Button>
-              
               {isSummaryAlert && onViewDetails && (
                 <Button 
                   size="sm" 
@@ -409,7 +370,7 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
                   onClick={() => onViewDetails(alert)}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
-                  Chi tiết
+                  Details
                 </Button>
               )}
             </div>
@@ -560,7 +521,7 @@ export default function AlertsPage() {
   return (
     <>
       <Helmet>
-        <title>Alert Center | Control Tower</title>
+        <title>Signals & Alerts | Control Tower</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -569,10 +530,12 @@ export default function AlertsPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-amber-400" />
-              Alert Center
+              Signals & Alerts
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              {stats.active > 0 ? `${stats.active} cảnh báo cần xử lý` : 'Không có cảnh báo nào'}
+              {stats.active > 0 
+                ? `${stats.active} risk signal${stats.active > 1 ? 's' : ''} requiring leadership attention` 
+                : 'No active signals detected. Systems are monitoring in real time.'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -583,7 +546,7 @@ export default function AlertsPage() {
               className="border-slate-700 text-slate-300"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Làm mới
+              Refresh
             </Button>
           </div>
         </div>
