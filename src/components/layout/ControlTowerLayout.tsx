@@ -1,24 +1,33 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Target, 
-  CheckSquare, 
-  FileText, 
+  LayoutDashboard, 
   Bell, 
-  Shield, 
+  CheckSquare, 
+  BarChart3, 
   Users, 
   Settings, 
-  Home,
   ChevronLeft,
   ChevronRight,
-  Activity
+  Menu,
+  X,
+  Home,
+  AlertTriangle,
+  TrendingUp,
+  Store,
+  Bot,
+  Target,
+  BookOpen,
+  FileText,
+  MonitorCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
@@ -27,120 +36,134 @@ import { useActiveAlertsCount } from '@/hooks/useNotificationCenter';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-/**
- * CONTROL TOWER LAYOUT - Bluecore Executive Navigation
- * 
- * BLUECORE DNA: Dark executive system, financial control room
- * NOT a generic SaaS sidebar
- * 
- * Visual weight, authority, seriousness
- */
-
-interface NavItem {
+interface NavItemConfig {
   id: string;
   label: string;
   icon: React.ElementType;
   path: string;
-  badgeCount?: number;
+  badgeKey?: string;
 }
+
+interface NavItemWithBadge extends NavItemConfig {
+  badge?: number;
+}
+
+// Control Tower with role-based views
+// CEO = Strategic Command | COO = Execution Control
+const navItemsConfig: NavItemConfig[] = [
+  { id: 'ceo', label: 'CEO View', icon: Target, path: '/control-tower/ceo' },
+  { id: 'coo', label: 'COO View', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'tasks' },
+  { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
+  { id: 'board', label: 'Board View', icon: MonitorCheck, path: '/control-tower/board' },
+  { id: 'decisions', label: 'Quyết định', icon: FileText, path: '/control-tower/decisions' },
+  { id: 'alerts', label: 'Tất cả cảnh báo', icon: Bell, path: '/control-tower/alerts' },
+  { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
+  { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
+  { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
+];
+
+const bottomNavItemsConfig: NavItemConfig[] = [
+  { id: 'settings', label: 'Cài đặt', icon: Settings, path: '/control-tower/settings' },
+];
 
 export function ControlTowerLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { activeTenant } = useTenantContext();
 
-  // Force dark mode for Control Tower
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    return () => {
-      document.documentElement.classList.remove('dark');
-    };
-  }, []);
-
-  // Fetch badge counts
+  // Fetch real counts from database
   const { data: alertsData } = useActiveAlertsCount();
   const activeAlertsCount = alertsData?.total ?? 0;
   
-  const { data: executionCount = 0 } = useQuery({
-    queryKey: ['execution-count', activeTenant?.id],
+  const { data: pendingTasksCount = 0 } = useQuery({
+    queryKey: ['pending-tasks-count', activeTenant?.id],
     queryFn: async () => {
       if (!activeTenant?.id) return 0;
       const { count } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', activeTenant.id)
-        .in('status', ['todo', 'pending', 'in_progress', 'blocked']);
+        .in('status', ['todo', 'pending', 'in_progress']);
       return count || 0;
     },
     enabled: !!activeTenant?.id,
   });
 
-  // Navigation items
-  const navItems = useMemo((): NavItem[] => [
-    { id: 'ceo', label: 'CEO Control Tower', icon: Target, path: '/control-tower/ceo' },
-    { id: 'coo', label: 'Execution Control', icon: CheckSquare, path: '/control-tower/coo', badgeCount: executionCount > 0 ? executionCount : undefined },
-    { id: 'decisions', label: 'Decision Workspace', icon: FileText, path: '/control-tower/decisions' },
-    { id: 'signals', label: 'Signals', icon: Bell, path: '/control-tower/signals', badgeCount: activeAlertsCount > 0 ? activeAlertsCount : undefined },
-    { id: 'rules', label: 'Rules & Governance', icon: Shield, path: '/control-tower/rules' },
-    { id: 'teams', label: 'Teams', icon: Users, path: '/control-tower/teams' },
-  ], [activeAlertsCount, executionCount]);
+  // Build navItems with real badge counts
+  const navItems = useMemo((): NavItemWithBadge[] => {
+    const badgeCounts: Record<string, number> = {
+      alerts: activeAlertsCount,
+      tasks: pendingTasksCount,
+    };
+    
+    return navItemsConfig.map(item => ({
+      ...item,
+      badge: item.badgeKey ? badgeCounts[item.badgeKey] : undefined,
+    }));
+  }, [activeAlertsCount, pendingTasksCount]);
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
+  const bottomNavItems: NavItemWithBadge[] = bottomNavItemsConfig.map(item => ({ ...item }));
 
-  const NavLink = ({ item }: { item: NavItem }) => (
-    <button
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  const NavLink = ({ item }: { item: NavItemWithBadge }) => (
+    <motion.button
+      whileHover={{ x: 4 }}
+      whileTap={{ scale: 0.98 }}
       onClick={() => {
         navigate(item.path);
         setMobileDrawerOpen(false);
       }}
       className={cn(
-        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150',
+        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
         'text-sm font-medium',
         isActive(item.path)
-          ? 'bg-primary/15 text-primary border border-primary/25'
-          : 'text-muted-foreground hover:bg-[hsl(var(--surface-overlay))] hover:text-foreground'
+          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
       )}
     >
-      <item.icon className="h-4 w-4 flex-shrink-0" />
+      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-amber-400' : '')} />
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">{item.label}</span>
-          {item.badgeCount && (
+          {item.badge && item.badge > 0 && (
             <Badge 
-              variant="secondary" 
               className={cn(
-                'h-5 min-w-5 text-xs',
-                isActive(item.path) 
-                  ? 'bg-primary/20 text-primary' 
-                  : 'bg-[hsl(var(--surface-overlay))] text-muted-foreground'
+                'h-5 min-w-5 flex items-center justify-center text-xs font-semibold',
+                isActive(item.path)
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-slate-700 text-slate-300'
               )}
             >
-              {item.badgeCount}
+              {item.badge}
             </Badge>
           )}
         </>
       )}
-    </button>
+    </motion.button>
   );
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-4 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-          <Activity className="h-4 w-4 text-primary" />
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+          <LayoutDashboard className="h-5 w-5 text-white" />
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-bold text-foreground truncate">Control Tower</h1>
-            <p className="text-xs text-muted-foreground truncate">{activeTenant?.name || 'Executive OS'}</p>
+            <h1 className="text-lg font-bold text-slate-100 truncate">Control Tower</h1>
+            <p className="text-xs text-slate-500 truncate">{activeTenant?.name || 'Operation System'}</p>
           </div>
         )}
       </div>
 
-      <Separator className="bg-border/30" />
+      <Separator className="bg-slate-700/50" />
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
@@ -151,45 +174,52 @@ export function ControlTowerLayout() {
         </nav>
       </ScrollArea>
 
-      <Separator className="bg-border/30" />
+      <Separator className="bg-slate-700/50" />
 
-      {/* Bottom */}
+      {/* Bottom Navigation */}
       <div className="p-3 space-y-1">
-        <NavLink item={{ id: 'settings', label: 'Settings', icon: Settings, path: '/control-tower/settings' }} />
-        <button
+        {bottomNavItems.map((item) => (
+          <NavLink key={item.id} item={item} />
+        ))}
+        <motion.button
+          whileHover={{ x: 4 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/portal')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-[hsl(var(--surface-overlay))] hover:text-foreground transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all"
         >
-          <Home className="h-4 w-4 flex-shrink-0" />
-          {!collapsed && <span>Back to Portal</span>}
-        </button>
+          <Home className="h-5 w-5 flex-shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">Về Portal</span>}
+        </motion.button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Mobile Header */}
+    <div className="min-h-screen bg-[#0F1117] flex">
+      {/* Mobile Header - Only on mobile */}
       <div className="lg:hidden">
         <MobileHeader
           showSearch
           showNotifications
-          notificationCount={activeAlertsCount}
-          onNotificationClick={() => navigate('/control-tower/signals')}
+          notificationCount={5}
+          onNotificationClick={() => navigate('/control-tower/notifications')}
           onSearchClick={() => {}}
           onProfileClick={() => setMobileDrawerOpen(true)}
         />
       </div>
 
       {/* Mobile Drawer */}
-      <MobileDrawer isOpen={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)} />
+      <MobileDrawer
+        isOpen={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+      />
 
-      {/* Sidebar - Desktop */}
+      {/* Sidebar - Desktop Only */}
       <motion.aside
-        animate={{ width: collapsed ? 64 : 240 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
+        animate={{ width: collapsed ? 72 : 260 }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'hidden lg:flex flex-col bg-card border-r border-border/40',
+          'hidden lg:flex flex-col bg-[#13151C] border-r border-slate-800/50',
           'fixed left-0 top-0 bottom-0 z-30'
         )}
       >
@@ -200,32 +230,42 @@ export function ControlTowerLayout() {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-16 h-6 w-6 rounded-full bg-[hsl(var(--surface-raised))] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-overlay))]"
+          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </Button>
       </motion.aside>
 
       {/* Main Content */}
-      <div className={cn(
-        'flex-1 flex flex-col min-h-screen transition-all duration-150',
-        collapsed ? 'lg:ml-16' : 'lg:ml-60'
-      )}>
-        {/* Header - Desktop */}
-        <header className="hidden lg:flex sticky top-0 z-20 h-14 bg-background/90 backdrop-blur-sm border-b border-border/40 items-center justify-between px-6">
-          <TenantSwitcher />
+      <div 
+        className={cn(
+          'flex-1 flex flex-col min-h-screen transition-all duration-200',
+          'lg:ml-0',
+          collapsed ? 'lg:ml-[72px]' : 'lg:ml-[260px]'
+        )}
+      >
+        {/* Header - Desktop Only */}
+        <header className="hidden lg:flex sticky top-0 z-20 h-16 bg-[#0F1117]/80 backdrop-blur-xl border-b border-slate-800/50 items-center justify-between px-4 lg:px-6">
+          <div className="flex items-center gap-4">
+            <TenantSwitcher />
+          </div>
+
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
+            <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-slate-200">
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1 right-1 h-2 w-2 bg-amber-500 rounded-full" />
+            </Button>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto pb-20 lg:pb-0">
+        <main className="flex-1 p-4 lg:p-6 overflow-auto pb-20 lg:pb-6">
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile Bottom Nav */}
+      {/* Mobile Bottom Navigation */}
       <MobileBottomNav onMoreClick={() => setMobileDrawerOpen(true)} />
     </div>
   );

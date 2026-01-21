@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate, NavLink as RouterNavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -307,15 +307,6 @@ export function MDPLayout() {
       </div>
     </div>
   );
-
-  // BLUECORE DESIGN PHILOSOPHY: Dark Executive System (KHÔNG THỎA HIỆP)
-  // Enforce dark mode for MDP - same as Control Tower
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    return () => {
-      // Don't remove dark class - let other layouts handle their own theme
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-background flex">

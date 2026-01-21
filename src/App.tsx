@@ -127,7 +127,6 @@ import CTDecisionsPage from "./pages/control-tower/DecisionsPage";
 import CTBoardViewPage from "./pages/control-tower/BoardViewPage";
 import CTCEOPage from "./pages/control-tower/CEOControlTowerPage";
 import CTCOOPage from "./pages/control-tower/COOControlTowerPage";
-import CTSignalsPage from "./pages/control-tower/SignalsPage";
 
 
 // Mobile App pages
@@ -202,7 +201,7 @@ const AppRoutes = () => {
         <Route path="/mobile/settings" element={<MobileSettingsPage />} />
       </Route>
 
-      {/* Control Tower Routes - Decision OS for Leadership */}
+      {/* Control Tower Routes */}
       <Route
         element={
           <ProtectedRoute>
@@ -210,23 +209,19 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        {/* CEO = Strategic Command | COO = Execution Control */}
+        {/* Control Tower: CEO = Strategic | COO = Execution */}
         <Route path="/control-tower" element={<Navigate to="/control-tower/ceo" replace />} />
         <Route path="/control-tower/ceo" element={<CTCEOPage />} />
         <Route path="/control-tower/coo" element={<CTCOOPage />} />
+        <Route path="/control-tower/situation" element={<CTSituationRoomPage />} />
+        <Route path="/control-tower/board" element={<CTBoardViewPage />} />
         <Route path="/control-tower/decisions" element={<CTDecisionsPage />} />
-        <Route path="/control-tower/signals" element={<CTSignalsPage />} />
-        <Route path="/control-tower/rules" element={<CTKPIRulesPage />} />
-        <Route path="/control-tower/teams" element={<CTTeamPage />} />
+        <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
+        <Route path="/control-tower/tasks" element={<CTTasksPage />} />
+        <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
+        <Route path="/control-tower/team" element={<CTTeamPage />} />
         <Route path="/control-tower/settings" element={<CTSettingsPage />} />
         
-        {/* Legacy redirects - maintain compatibility */}
-        <Route path="/control-tower/situation" element={<Navigate to="/control-tower/ceo" replace />} />
-        <Route path="/control-tower/board" element={<Navigate to="/control-tower/ceo" replace />} />
-        <Route path="/control-tower/alerts" element={<Navigate to="/control-tower/signals" replace />} />
-        <Route path="/control-tower/tasks" element={<Navigate to="/control-tower/coo" replace />} />
-        <Route path="/control-tower/kpi-rules" element={<Navigate to="/control-tower/rules" replace />} />
-        <Route path="/control-tower/team" element={<Navigate to="/control-tower/teams" replace />} />
       </Route>
 
       {/* MDP Routes - Independent system like Control Tower */}

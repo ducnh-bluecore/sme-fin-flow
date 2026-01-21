@@ -1,24 +1,18 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Loader2, FileText, CheckCircle2, BarChart3 } from 'lucide-react';
+import { Loader2, FileText, CheckCircle2 } from 'lucide-react';
 import { useDecisionCards, useDecideCard, useDismissCard, useSnoozeCard } from '@/hooks/useDecisionCards';
 import { DecisionDocument } from '@/components/control-tower/DecisionDocument';
 import { DecisionListItem } from '@/components/control-tower/DecisionListItem';
 
 /**
- * DECISION WORKSPACE
+ * DECISIONS PAGE
  * 
- * PURPOSE: Answer "What decision should we make next?"
- * 
- * INCLUDES:
- * - Decision Cards (analytics only)
- * - Scenario comparison
- * - Impact simulation
- * 
- * MUST NOT:
- * - Create tasks
- * - Assign people
- * - Resolve alerts
+ * Control Tower Manifesto:
+ * - Decisions are heavier than alerts
+ * - No tabs, no filters, no customization
+ * - Most urgent decision shown first
+ * - List of pending decisions below
  */
 
 export default function DecisionsPage() {
@@ -98,17 +92,16 @@ export default function DecisionsPage() {
     return (
       <>
         <Helmet>
-          <title>Decision Workspace | Control Tower</title>
+          <title>Quyết định | Control Tower</title>
         </Helmet>
         
         <div className="min-h-[calc(100vh-200px)] flex flex-col items-center justify-center text-center px-6">
           <CheckCircle2 className="h-16 w-16 text-emerald-400/50 mb-6" />
           <h1 className="text-xl font-medium text-slate-200 mb-2">
-            No pending decisions
+            Không có quyết định chờ xử lý
           </h1>
-          <p className="text-slate-500 text-sm max-w-md">
-            Decision cards will appear here when analytics indicate action is required.
-            <br />This is an analysis workspace, not a task queue.
+          <p className="text-slate-500 text-sm">
+            Tất cả các quyết định đã được xử lý.
           </p>
         </div>
       </>
@@ -118,7 +111,7 @@ export default function DecisionsPage() {
   return (
     <>
       <Helmet>
-        <title>Decision Workspace ({sortedCards.length}) | Control Tower</title>
+        <title>Quyết định ({sortedCards.length}) | Control Tower</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -127,11 +120,11 @@ export default function DecisionsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-slate-400" />
-              Decision Workspace
+              <FileText className="h-5 w-5 text-slate-400" />
+              Quyết định chờ xử lý
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              {sortedCards.length} decision{sortedCards.length > 1 ? 's' : ''} requiring analysis
+              {sortedCards.length} quyết định cần ký duyệt
             </p>
           </div>
         </div>
@@ -151,7 +144,7 @@ export default function DecisionsPage() {
         {remainingCards.length > 0 && (
           <div className="mt-8">
             <h2 className="text-xs text-slate-500 uppercase tracking-widest mb-3 px-1">
-              Next in queue ({remainingCards.length})
+              Quyết định tiếp theo ({remainingCards.length})
             </h2>
             <div className="space-y-0">
               {remainingCards.map((card) => (

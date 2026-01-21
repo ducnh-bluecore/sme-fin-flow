@@ -1,182 +1,185 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Shield, Activity } from 'lucide-react';
-import { StatusStrip, SystemPosture } from '@/components/control-tower/executive/StatusStrip';
-import { DecisionRow, StrategicDecisionData, ConfidenceLevel, TrendDirection } from '@/components/control-tower/executive/DecisionRow';
+import { CheckCircle2 } from 'lucide-react';
+import { 
+  StrategicDecisionCard, 
+  StrategicDecision, 
+  ExecutionHealth 
+} from '@/components/control-tower/ceo/StrategicDecisionCard';
+import { StrategicDecisionDetail } from '@/components/control-tower/ceo/StrategicDecisionDetail';
 import { useDecisionCards } from '@/hooks/useDecisionCards';
-import { useActiveAlerts } from '@/hooks/useAlertInstances';
-import { differenceInHours, formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 /**
  * CEO CONTROL TOWER - Strategic Command View
  * 
- * BLUECORE DNA: Dark executive system, financial control room
+ * PURPOSE: Give CEO confidence and control, not operational detail
  * 
- * ANSWERS ONE QUESTION: "Is the business under control, or do I need to intervene?"
+ * ANSWERS THESE QUESTIONS:
+ * - "Are my key decisions working?"
+ * - "Where should I intervene?"
+ * - "What is getting worse?"
  * 
- * VISUAL:
- * - Dark canvas with subtle elevation
- * - Clear hierarchy, no empty spaces
- * - Feels like a cockpit, not a productivity app
+ * RULES:
+ * - Max 5-7 strategic decisions visible
+ * - NO charts, tables, task counts, user names
+ * - Calm, confident, minimal visual language
  */
 
-function mapToDecisionData(card: any): StrategicDecisionData {
+// Map decision cards to strategic decisions format
+function mapToStrategicDecision(card: any): StrategicDecision {
+  // Determine execution health based on status and variance
+  let executionHealth: ExecutionHealth = 'on_track';
   const targetValue = card.impact_amount || 0;
   const actualValue = card.facts?.find((f: any) => f.fact_key === 'actual_value')?.numeric_value || targetValue * 0.85;
   const variance = targetValue > 0 ? (actualValue - targetValue) / targetValue : 0;
   
-  let confidence: ConfidenceLevel = 'high';
-  if (card.status === 'OPEN' && variance < -0.2) confidence = 'low';
-  else if (card.status === 'IN_PROGRESS' || variance < -0.1) confidence = 'medium';
+  if (card.status === 'OPEN' && variance < -0.2) {
+    executionHealth = 'off_track';
+  } else if (card.status === 'IN_PROGRESS' || variance < -0.1) {
+    executionHealth = 'friction';
+  }
 
+  // Determine trend
   const trendFact = card.facts?.find((f: any) => f.fact_key === 'trend');
-  let trend: TrendDirection = 'flat';
+  let trend: 'up' | 'down' | 'flat' = 'flat';
   if (trendFact?.trend === 'UP' || variance > 0.05) trend = 'up';
   else if (trendFact?.trend === 'DOWN' || variance < -0.05) trend = 'down';
 
   return {
     id: card.id,
     title: card.title,
-    objective: card.question || card.impact_description || 'Achieve strategic target',
-    targetValue,
-    actualValue,
+    objective: card.question || card.impact_description || 'Đạt mục tiêu chiến lược',
+    targetValue: targetValue,
+    actualValue: actualValue,
     unit: card.impact_currency || 'VND',
     trend,
-    confidence,
+    executionHealth,
+    blockedStreams: card.status === 'OPEN' ? 2 : card.status === 'IN_PROGRESS' ? 1 : 0,
+    createdAt: card.created_at,
   };
 }
 
-const formatCurrency = (amount: number): string => {
-  if (amount >= 1_000_000_000) return `₫${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `₫${(amount / 1_000_000).toFixed(0)}M`;
-  return `₫${amount.toLocaleString('vi-VN')}`;
-};
-
 export default function CEOControlTowerPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
   
-  const { data: cards, isLoading: cardsLoading } = useDecisionCards({
+  // Fetch decision cards for CEO (all owner roles, focus on high priority)
+  const { data: cards, isLoading } = useDecisionCards({
     status: ['OPEN', 'IN_PROGRESS'],
     priority: ['P1', 'P2'],
   });
 
-  const { data: alerts = [], isLoading: alertsLoading } = useActiveAlerts();
-
-  // Calculate system posture
-  const systemStatus = useMemo(() => {
-    const criticalCount = alerts.filter(a => a.severity === 'critical').length;
-    const warningCount = alerts.filter(a => a.severity === 'warning').length;
-    const totalExposure = alerts.reduce((sum, a) => sum + (a.impact_amount || 0), 0);
-    
-    const alertsWithDeadline = alerts
-      .filter(a => a.deadline_at)
-      .sort((a, b) => new Date(a.deadline_at!).getTime() - new Date(b.deadline_at!).getTime());
-    
-    const nearestDeadline = alertsWithDeadline[0]?.deadline_at;
-    const hoursToDeadline = nearestDeadline 
-      ? differenceInHours(new Date(nearestDeadline), new Date())
-      : null;
-
-    let posture: SystemPosture = 'stable';
-    if (criticalCount > 0) posture = 'intervention';
-    else if (warningCount > 0) posture = 'watch';
-
-    const decisionsAtRisk = cards?.filter(c => 
-      c.status === 'OPEN' && c.priority === 'P1'
-    ).length || 0;
-
-    const timeToImpact = nearestDeadline && hoursToDeadline !== null
-      ? hoursToDeadline <= 0 
-        ? 'Overdue'
-        : formatDistanceToNow(new Date(nearestDeadline), { addSuffix: false })
-      : undefined;
-
-    return { 
-      posture, 
-      decisionsAtRisk, 
-      totalExposure: totalExposure > 0 ? formatCurrency(totalExposure) : undefined,
-      timeToImpact 
-    };
-  }, [alerts, cards]);
-
-  // Map and sort decisions
-  const decisions = useMemo(() => {
+  // Map to strategic decisions format and limit to 7
+  const strategicDecisions = useMemo(() => {
     if (!cards) return [];
     return cards
       .slice(0, 7)
-      .map(mapToDecisionData)
+      .map(mapToStrategicDecision)
       .sort((a, b) => {
-        const confOrder = { low: 0, medium: 1, high: 2 };
-        return confOrder[a.confidence] - confOrder[b.confidence];
+        // Sort by health (off_track first, then friction, then on_track)
+        const healthOrder = { off_track: 0, friction: 1, on_track: 2 };
+        return healthOrder[a.executionHealth] - healthOrder[b.executionHealth];
       });
   }, [cards]);
 
-  const isLoading = cardsLoading || alertsLoading;
+  const selectedDecision = useMemo(() => {
+    if (!selectedDecisionId) return null;
+    return strategicDecisions.find(d => d.id === selectedDecisionId) || null;
+  }, [selectedDecisionId, strategicDecisions]);
 
+  // CEO Actions (placeholder implementations)
+  const handleAdjustTarget = () => toast.info('Điều chỉnh mục tiêu - Coming soon');
+  const handleExtend = () => toast.info('Gia hạn quyết định - Coming soon');
+  const handlePause = () => toast.info('Tạm dừng quyết định - Coming soon');
+  const handleEscalate = () => toast.info('Escalate - Coming soon');
+  const handleRequestReview = () => toast.info('Yêu cầu review - Coming soon');
+
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center bg-[hsl(var(--surface-sunken))]">
-        <div className="flex items-center gap-3">
-          <Activity className="h-5 w-5 text-primary animate-pulse" />
-          <span className="text-muted-foreground">Loading strategic overview...</span>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-3 h-3 bg-slate-500 rounded-full animate-pulse mx-auto" />
+          <p className="text-slate-500 text-sm mt-4">Đang tải...</p>
         </div>
       </div>
+    );
+  }
+
+  // Empty state - All decisions on track
+  if (strategicDecisions.length === 0) {
+    return (
+      <>
+        <Helmet>
+          <title>CEO Control Tower</title>
+        </Helmet>
+        <div className="min-h-[calc(100vh-120px)] flex flex-col items-center justify-center text-center px-6">
+          <CheckCircle2 className="h-16 w-16 text-emerald-400/60 mb-6" />
+          <h1 className="text-2xl font-medium text-slate-200 mb-2">
+            Các quyết định đang đạt mục tiêu
+          </h1>
+          <p className="text-slate-500 text-sm max-w-md">
+            Không có quyết định nào cần can thiệp vào lúc này.
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
       <Helmet>
-        <title>CEO Control Tower | Bluecore</title>
+        <title>CEO Control Tower</title>
       </Helmet>
 
-      <div className="min-h-[calc(100vh-120px)] bg-[hsl(var(--surface-sunken))]">
-        {/* Status Strip - System Posture */}
-        <StatusStrip 
-          posture={systemStatus.posture}
-          decisionsAtRisk={systemStatus.decisionsAtRisk}
-          totalExposure={systemStatus.totalExposure}
-          timeToImpact={systemStatus.timeToImpact}
-        />
-
-        {/* Page Header */}
-        <div className="py-6 px-6 border-b border-border/30 bg-background">
-          <h1 className="text-xl font-bold text-foreground">
-            Strategic Decisions
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Active decisions and their real-world outcomes
+      <div className="min-h-[calc(100vh-120px)]">
+        {/* Header - Minimal */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-100">Quyết định chiến lược</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            {strategicDecisions.filter(d => d.executionHealth !== 'on_track').length} quyết định cần chú ý
           </p>
         </div>
 
-        {/* Decision List */}
-        <div className="bg-card">
-          {decisions.map((decision) => (
-            <DecisionRow
-              key={decision.id}
-              decision={decision}
-              isSelected={selectedId === decision.id}
-              onClick={() => setSelectedId(
-                selectedId === decision.id ? null : decision.id
-              )}
-            />
-          ))}
-        </div>
-
-        {/* Empty State - Reassuring, not empty */}
-        {decisions.length === 0 && (
-          <div className="py-16 px-6 text-center bg-card border-t border-border/30">
-            <div className="w-14 h-14 rounded-xl bg-[hsl(158,45%,42%)/0.1] flex items-center justify-center mx-auto mb-4">
-              <Shield className="h-7 w-7 text-[hsl(158,45%,42%)]" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              No strategic decisions currently require intervention.
-            </h3>
-            <p className="text-muted-foreground">
-              The system is stable.
-            </p>
+        {/* Two-column layout on larger screens */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Left: Strategic Decision Cards Stack */}
+          <div className="space-y-4">
+            {strategicDecisions.map((decision) => (
+              <StrategicDecisionCard
+                key={decision.id}
+                decision={decision}
+                isSelected={selectedDecisionId === decision.id}
+                onClick={() => setSelectedDecisionId(
+                  selectedDecisionId === decision.id ? null : decision.id
+                )}
+              />
+            ))}
           </div>
-        )}
+
+          {/* Right: Selected Decision Detail */}
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            {selectedDecision ? (
+              <div className="p-6 rounded-xl bg-slate-900/30 border border-slate-800/50">
+                <StrategicDecisionDetail
+                  decision={selectedDecision}
+                  onAdjustTarget={handleAdjustTarget}
+                  onExtend={handleExtend}
+                  onPause={handlePause}
+                  onEscalate={handleEscalate}
+                  onRequestReview={handleRequestReview}
+                />
+              </div>
+            ) : (
+              <div className="p-12 rounded-xl bg-slate-900/20 border border-slate-800/30 text-center">
+                <p className="text-slate-500">
+                  Chọn một quyết định để xem chi tiết
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );
