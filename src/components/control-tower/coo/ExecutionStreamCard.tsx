@@ -47,7 +47,7 @@ export function ExecutionStreamCard({ stream, onClick }: ExecutionStreamCardProp
         'w-full text-left p-4 rounded-lg border transition-all duration-150',
         'hover:bg-[hsl(var(--surface-raised))]',
         hasIssues 
-          ? 'bg-[hsl(0,55%,50%,0.05)] border-[hsl(0,55%,50%,0.2)] hover:border-[hsl(0,55%,50%,0.3)]' 
+          ? 'bg-[hsl(0,35%,55%,0.05)] border-[hsl(0,35%,55%,0.15)] hover:border-[hsl(0,35%,55%,0.25)]' 
           : 'bg-[hsl(var(--surface-sunken))] border-border/30 hover:border-border/50'
       )}
     >
@@ -64,7 +64,7 @@ export function ExecutionStreamCard({ stream, onClick }: ExecutionStreamCardProp
         <div 
           className={cn(
             'absolute left-0 top-0 h-full rounded-full transition-all duration-300',
-            hasIssues ? 'bg-[hsl(38,60%,50%)]' : 'bg-[hsl(158,55%,42%)]'
+            hasIssues ? 'bg-warning' : 'bg-success'
           )}
           style={{ width: `${progressPercent}%` }}
         />
@@ -74,13 +74,13 @@ export function ExecutionStreamCard({ stream, onClick }: ExecutionStreamCardProp
       <div className="flex items-center justify-between text-xs">
         {/* Progress */}
         <div className="flex items-center gap-1 text-muted-foreground">
-          <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(158,55%,42%)]" />
+          <CheckCircle2 className="h-3.5 w-3.5 text-success" />
           <span>{stream.completedSteps}/{stream.totalSteps} resolved</span>
         </div>
 
         {/* Blockers */}
         {stream.blockedSteps > 0 && (
-          <div className="flex items-center gap-1 text-[hsl(0,55%,50%)]">
+          <div className="flex items-center gap-1 text-destructive">
             <AlertTriangle className="h-3.5 w-3.5" />
             <span>{stream.blockedSteps} blocked</span>
           </div>
@@ -88,7 +88,7 @@ export function ExecutionStreamCard({ stream, onClick }: ExecutionStreamCardProp
 
         {/* Overdue */}
         {stream.overdueSteps > 0 && (
-          <div className="flex items-center gap-1 text-[hsl(38,60%,50%)]">
+          <div className="flex items-center gap-1 text-warning">
             <Clock className="h-3.5 w-3.5" />
             <span>{stream.overdueSteps} SLA risk</span>
           </div>
@@ -96,7 +96,7 @@ export function ExecutionStreamCard({ stream, onClick }: ExecutionStreamCardProp
 
         {/* SLA Risk */}
         {stream.slaRisk && !stream.overdueSteps && (
-          <div className="flex items-center gap-1 text-[hsl(38,60%,50%)]">
+          <div className="flex items-center gap-1 text-warning">
             <Clock className="h-3.5 w-3.5" />
             <span>Deadline approaching</span>
           </div>
