@@ -47,21 +47,21 @@ const getHealthConfig = (health: ExecutionHealth) => {
   switch (health) {
     case 'on_track':
       return {
-        label: 'On Track',
+        label: 'On track',
         bgColor: 'bg-emerald-500/10',
         textColor: 'text-emerald-400',
         borderColor: 'border-emerald-500/20',
       };
     case 'friction':
       return {
-        label: 'Friction',
+        label: 'Execution friction detected',
         bgColor: 'bg-amber-500/10',
         textColor: 'text-amber-400',
         borderColor: 'border-amber-500/20',
       };
     case 'off_track':
       return {
-        label: 'Off Track',
+        label: 'Off track – intervention required',
         bgColor: 'bg-red-500/10',
         textColor: 'text-red-400',
         borderColor: 'border-red-500/20',
@@ -117,14 +117,14 @@ export function StrategicDecisionCard({ decision, onClick, isSelected }: Strateg
 
       {/* Objective */}
       <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-        {decision.objective}
+        Objective: {decision.objective}
       </p>
 
       {/* KPI: Target vs Actual */}
       <div className="flex items-end justify-between">
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
-            Mục tiêu vs Thực tế
+            Target vs Actual
           </p>
           <div className="flex items-baseline gap-3">
             <span className="text-2xl font-bold text-slate-100">
@@ -148,12 +148,12 @@ export function StrategicDecisionCard({ decision, onClick, isSelected }: Strateg
         </div>
       </div>
 
-      {/* Blocked Streams Warning (only if off_track or friction) */}
+      {/* Execution streams notice (only if friction or off_track) */}
       {decision.blockedStreams && decision.blockedStreams > 0 && decision.executionHealth !== 'on_track' && (
         <div className="mt-4 pt-4 border-t border-slate-800/50 flex items-center gap-2 text-sm">
           <AlertCircle className="h-4 w-4 text-amber-400" />
           <span className="text-slate-400">
-            {decision.blockedStreams} execution stream{decision.blockedStreams > 1 ? 's' : ''} blocked
+            {decision.blockedStreams} execution stream{decision.blockedStreams > 1 ? 's are' : ' is'} currently blocked
           </span>
         </div>
       )}

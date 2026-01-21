@@ -72,7 +72,7 @@ export function TaskStreamCard({ stream, onClick }: TaskStreamCardProps) {
         {/* Progress */}
         <div className="flex items-center gap-1 text-slate-400">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-          <span>{stream.completedTasks}/{stream.totalTasks}</span>
+          <span>{stream.completedTasks}/{stream.totalTasks} completed</span>
         </div>
 
         {/* Blockers */}
@@ -87,7 +87,7 @@ export function TaskStreamCard({ stream, onClick }: TaskStreamCardProps) {
         {stream.overdueTasks > 0 && (
           <div className="flex items-center gap-1 text-amber-400">
             <Clock className="h-3.5 w-3.5" />
-            <span>{stream.overdueTasks} overdue</span>
+            <span>{stream.overdueTasks} SLA risk</span>
           </div>
         )}
 
@@ -95,7 +95,7 @@ export function TaskStreamCard({ stream, onClick }: TaskStreamCardProps) {
         {stream.slaRisk && !stream.overdueTasks && (
           <div className="flex items-center gap-1 text-amber-400">
             <Clock className="h-3.5 w-3.5" />
-            <span>SLA risk</span>
+            <span>SLA risk detected</span>
           </div>
         )}
       </div>

@@ -179,7 +179,7 @@ export default function COOControlTowerPage() {
   return (
     <>
       <Helmet>
-        <title>COO Control Tower | Execution</title>
+        <title>Execution Control Tower</title>
       </Helmet>
 
       <div className="min-h-[calc(100vh-120px)]">
@@ -187,9 +187,9 @@ export default function COOControlTowerPage() {
         {/* Header with Stats */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-100">Execution Control</h1>
+            <h1 className="text-2xl font-bold text-slate-100">Execution Control Tower</h1>
             <p className="text-slate-500 text-sm mt-1">
-              {stats.total} tasks • {stats.blocked} blocked • {stats.overdue} overdue
+              Deliver outcomes for active strategic decisions.
             </p>
           </div>
           
@@ -204,7 +204,7 @@ export default function COOControlTowerPage() {
                 : 'border-slate-700 text-slate-400'
               }
             >
-              Streams
+              Execution Streams
             </Button>
             <Button
               variant={viewMode === 'tasks' ? 'default' : 'outline'}
@@ -215,7 +215,7 @@ export default function COOControlTowerPage() {
                 : 'border-slate-700 text-slate-400'
               }
             >
-              Tasks
+              Execution Actions
             </Button>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function COOControlTowerPage() {
             className={`cursor-pointer ${taskFilter === 'all' ? 'bg-slate-700' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
             onClick={() => setTaskFilter('all')}
           >
-            All ({stats.total})
+            All actions ({stats.total})
           </Badge>
           <Badge
             variant={taskFilter === 'today' ? 'default' : 'outline'}
@@ -235,7 +235,7 @@ export default function COOControlTowerPage() {
             onClick={() => setTaskFilter('today')}
           >
             <Clock className="h-3 w-3 mr-1" />
-            Today ({stats.today})
+            Due today ({stats.today})
           </Badge>
           <Badge
             variant={taskFilter === 'blocked' ? 'default' : 'outline'}
@@ -243,7 +243,7 @@ export default function COOControlTowerPage() {
             onClick={() => setTaskFilter('blocked')}
           >
             <AlertTriangle className="h-3 w-3 mr-1" />
-            Blocked ({stats.blocked})
+            Blocked – attention required ({stats.blocked})
           </Badge>
           <Badge
             variant={taskFilter === 'overdue' ? 'default' : 'outline'}
@@ -251,7 +251,7 @@ export default function COOControlTowerPage() {
             onClick={() => setTaskFilter('overdue')}
           >
             <Clock className="h-3 w-3 mr-1" />
-            Overdue ({stats.overdue})
+            SLA risk detected ({stats.overdue})
           </Badge>
         </div>
 
@@ -272,7 +272,8 @@ export default function COOControlTowerPage() {
             {taskStreams.length === 0 && (
               <div className="col-span-full p-12 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
-                <p className="text-slate-400">Không có execution streams</p>
+                <p className="text-slate-400">No active execution streams</p>
+                <p className="text-slate-500 text-sm mt-1">Execution progress will appear here when decisions are in motion.</p>
               </div>
             )}
           </div>
@@ -284,7 +285,7 @@ export default function COOControlTowerPage() {
             {selectedStreamId && (
               <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-800/50 flex items-center justify-between">
                 <span className="text-sm text-slate-400">
-                  Filtering by stream
+                  Filtering by execution stream
                 </span>
                 <Button
                   variant="ghost"
@@ -302,7 +303,7 @@ export default function COOControlTowerPage() {
                 key={task.id}
                 task={task}
                 onStatusChange={(status) => handleStatusChange(task.id, status)}
-                onViewDetail={() => toast.info('Task detail - Coming soon')}
+                onViewDetail={() => toast.info('Execution action detail – Coming soon')}
                 onEscalate={() => handleEscalate(task.id)}
               />
             ))}
@@ -311,8 +312,12 @@ export default function COOControlTowerPage() {
               <div className="p-12 text-center">
                 <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
                 <p className="text-slate-400">
-                  {taskFilter === 'all' ? 'Không có tasks' : `Không có tasks ${taskFilter}`}
+                  {taskFilter === 'all' ? 'No execution actions' : 
+                   taskFilter === 'blocked' ? 'No blocked actions' :
+                   taskFilter === 'overdue' ? 'No SLA risks detected' :
+                   'No actions due today'}
                 </p>
+                <p className="text-slate-500 text-sm mt-1">Systems are monitoring in real time.</p>
               </div>
             )}
           </div>

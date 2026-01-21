@@ -48,24 +48,24 @@ const getHealthConfig = (health: ExecutionHealth) => {
   switch (health) {
     case 'on_track':
       return {
-        label: 'Đang đạt mục tiêu',
-        description: 'Tiến độ thực hiện đúng kế hoạch',
+        label: 'On track',
+        description: 'Execution is progressing across multiple streams.',
         bgColor: 'bg-emerald-500/10',
         textColor: 'text-emerald-400',
         borderColor: 'border-emerald-500/30',
       };
     case 'friction':
       return {
-        label: 'Có trở ngại',
-        description: 'Một số hoạt động đang bị chậm tiến độ',
+        label: 'Execution friction detected',
+        description: 'Some execution streams are experiencing delays.',
         bgColor: 'bg-amber-500/10',
         textColor: 'text-amber-400',
         borderColor: 'border-amber-500/30',
       };
     case 'off_track':
       return {
-        label: 'Chệch hướng',
-        description: 'Cần can thiệp để đạt mục tiêu',
+        label: 'Off track – intervention required',
+        description: 'This decision requires leadership intervention to meet its objective.',
         bgColor: 'bg-red-500/10',
         textColor: 'text-red-400',
         borderColor: 'border-red-500/30',
@@ -114,23 +114,23 @@ export function StrategicDecisionDetail({
       {/* Section 1: Decision Intent */}
       <section className="p-6 rounded-lg bg-slate-900/50 border border-slate-800/50">
         <h2 className="text-xs text-slate-500 uppercase tracking-wide mb-4">
-          Mục đích quyết định
+          Decision Intent
         </h2>
         <p className="text-slate-200 leading-relaxed">
-          {decision.objective}
+          This decision was initiated to {decision.objective.toLowerCase()}.
         </p>
       </section>
 
       {/* Section 2: Outcome Tracking */}
       <section className="p-6 rounded-lg bg-slate-900/50 border border-slate-800/50">
         <h2 className="text-xs text-slate-500 uppercase tracking-wide mb-4">
-          Theo dõi kết quả
+          Outcome Tracking
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Target */}
           <div>
-            <p className="text-xs text-slate-500 mb-1">Mục tiêu</p>
+            <p className="text-xs text-slate-500 mb-1">Key success indicator</p>
             <p className="text-2xl font-bold text-slate-300">
               {formatValue(decision.targetValue, decision.unit)}
             </p>
@@ -138,7 +138,7 @@ export function StrategicDecisionDetail({
 
           {/* Actual */}
           <div>
-            <p className="text-xs text-slate-500 mb-1">Thực tế</p>
+            <p className="text-xs text-slate-500 mb-1">Current</p>
             <p className="text-2xl font-bold text-slate-100">
               {formatValue(decision.actualValue, decision.unit)}
             </p>
@@ -146,7 +146,7 @@ export function StrategicDecisionDetail({
 
           {/* Variance + Trend */}
           <div>
-            <p className="text-xs text-slate-500 mb-1">Chênh lệch</p>
+            <p className="text-xs text-slate-500 mb-1">Variance</p>
             <div className="flex items-center gap-3">
               <span className={cn(
                 'text-2xl font-bold',
@@ -158,6 +158,11 @@ export function StrategicDecisionDetail({
             </div>
           </div>
         </div>
+        <p className="text-xs text-slate-500 mt-4">
+          {decision.trend === 'up' ? 'Direction is improving.' : 
+           decision.trend === 'down' ? 'Direction is declining, but pace may be below expectation.' : 
+           'Direction is stable.'}
+        </p>
       </section>
 
       {/* Section 3: Execution Health Summary */}
@@ -167,7 +172,7 @@ export function StrategicDecisionDetail({
         healthConfig.borderColor
       )}>
         <h2 className="text-xs text-slate-500 uppercase tracking-wide mb-4">
-          Tình trạng thực thi
+          Execution Health Summary
         </h2>
         
         <div className="flex items-start gap-4">
@@ -192,17 +197,20 @@ export function StrategicDecisionDetail({
             </p>
             {decision.blockedStreams && decision.blockedStreams > 0 && (
               <p className="text-sm text-slate-500 mt-2">
-                {decision.blockedStreams} luồng thực thi đang bị chặn
+                {decision.blockedStreams} execution stream{decision.blockedStreams > 1 ? 's are' : ' is'} currently blocked.
               </p>
             )}
           </div>
         </div>
+        <p className="text-xs text-slate-600 mt-4 italic">
+          This reflects delivery progress, not the validity of the decision itself.
+        </p>
       </section>
 
       {/* CEO Actions */}
       <section className="pt-6 border-t border-slate-800/50">
         <h2 className="text-xs text-slate-500 uppercase tracking-wide mb-4">
-          Hành động
+          Executive Actions
         </h2>
         
         <div className="flex flex-wrap gap-3">
@@ -212,16 +220,7 @@ export function StrategicDecisionDetail({
             className="border-slate-700 text-slate-300 hover:bg-slate-800"
           >
             <Target className="h-4 w-4 mr-2" />
-            Điều chỉnh mục tiêu
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={onExtend}
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Gia hạn
+            Adjust target
           </Button>
           
           <Button
@@ -230,7 +229,7 @@ export function StrategicDecisionDetail({
             className="border-slate-700 text-slate-300 hover:bg-slate-800"
           >
             <Pause className="h-4 w-4 mr-2" />
-            Tạm dừng
+            Pause decision
           </Button>
           
           {decision.executionHealth === 'off_track' && (
@@ -239,7 +238,7 @@ export function StrategicDecisionDetail({
               className="bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
             >
               <ArrowUpRight className="h-4 w-4 mr-2" />
-              Escalate
+              Escalate execution
             </Button>
           )}
           
@@ -249,7 +248,7 @@ export function StrategicDecisionDetail({
             className="text-slate-400 hover:text-slate-200"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Yêu cầu review
+            Request outcome review
           </Button>
         </div>
       </section>

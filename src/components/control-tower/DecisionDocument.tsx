@@ -124,10 +124,10 @@ export function DecisionDocument({
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">
-                QUYẾT ĐỊNH #{card.id.slice(0, 8).toUpperCase()}
+                DECISION #{card.id.slice(0, 8).toUpperCase()}
               </p>
               <p className="text-xs text-slate-500">
-                Ngày tạo: {format(new Date(card.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                Created: {format(new Date(card.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
               </p>
             </div>
             <div className={cn(
@@ -136,7 +136,7 @@ export function DecisionDocument({
               card.priority === 'P2' ? "bg-amber-600 text-black" :
               "bg-slate-600 text-white"
             )}>
-              {card.priority === 'P1' ? 'KHẨN CẤP' : card.priority === 'P2' ? 'QUAN TRỌNG' : 'THEO DÕI'}
+              {card.priority === 'P1' ? 'URGENT' : card.priority === 'P2' ? 'IMPORTANT' : 'MONITOR'}
             </div>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function DecisionDocument({
         {/* === SECTION 1: CONTEXT (What went wrong) === */}
         <div className="px-6 py-5 border-b border-slate-700">
           <h2 className="text-xs text-slate-500 uppercase tracking-widest mb-3">
-            1. Tình huống
+            1. Situation
           </h2>
           <h1 className="text-xl font-semibold text-slate-100 mb-3 leading-tight">
             {card.question || card.title}
@@ -171,7 +171,7 @@ export function DecisionDocument({
         {/* === SECTION 2: IMPACT IF IGNORED === */}
         <div className="px-6 py-5 border-b border-slate-700">
           <h2 className="text-xs text-slate-500 uppercase tracking-widest mb-3">
-            2. Thiệt hại nếu không hành động
+            2. Impact if no action
           </h2>
           
           <div className="flex items-baseline gap-2 mb-3">
@@ -182,13 +182,13 @@ export function DecisionDocument({
               ₫{formatCurrency(Math.abs(card.impact_amount))}
             </span>
             <span className="text-slate-500 text-sm">
-              {card.impact_currency} trong {card.impact_window_days || 7} ngày
+              {card.impact_currency} within {card.impact_window_days || 7} days
             </span>
           </div>
           
           {dailyLoss > 0 && (
             <p className="text-sm text-red-400/80">
-              Mất ₫{formatCurrency(dailyLoss)} mỗi ngày nếu không xử lý
+              Estimated loss: ₫{formatCurrency(dailyLoss)} per day without resolution
             </p>
           )}
           
@@ -202,7 +202,7 @@ export function DecisionDocument({
         {/* === SECTION 3: RECOMMENDED ACTION === */}
         <div className="px-6 py-5 border-b border-slate-700">
           <h2 className="text-xs text-slate-500 uppercase tracking-widest mb-3">
-            3. Hành động đề xuất
+            3. Recommended action
           </h2>
           
           <div className={cn(
@@ -216,7 +216,7 @@ export function DecisionDocument({
             </p>
             {recommendedAction?.expected_outcome && (
               <p className="text-sm text-slate-400 mt-2">
-                Kết quả mong đợi: {recommendedAction.expected_outcome}
+                Expected outcome: {recommendedAction.expected_outcome}
               </p>
             )}
             {recommendedAction?.risk_note && (
@@ -236,7 +236,7 @@ export function DecisionDocument({
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-slate-500" />
                 <div>
-                  <p className="text-xs text-slate-500">Người chịu trách nhiệm</p>
+                  <p className="text-xs text-slate-500">Decision owner</p>
                   <p className="text-sm font-medium text-slate-200">{ownerRoleLabel}</p>
                 </div>
               </div>
@@ -245,15 +245,15 @@ export function DecisionDocument({
               <div className="flex items-center gap-2">
                 <Clock className={cn("h-4 w-4", isCritical ? "text-red-400" : "text-slate-500")} />
                 <div>
-                  <p className="text-xs text-slate-500">Hạn quyết định</p>
+                  <p className="text-xs text-slate-500">Decision deadline</p>
                   <p className={cn(
                     "text-sm font-medium",
                     isCritical ? "text-red-400" : "text-slate-200"
                   )}>
                     {isOverdue 
-                      ? 'ĐÃ QUÁ HẠN' 
+                      ? 'OVERDUE' 
                       : hoursUntilDeadline < 24 
-                        ? `${hoursUntilDeadline} giờ còn lại`
+                        ? `${hoursUntilDeadline} hours remaining`
                         : format(new Date(card.deadline_at), 'dd/MM/yyyy HH:mm', { locale: vi })
                     }
                   </p>
@@ -264,7 +264,7 @@ export function DecisionDocument({
             {/* Irreversible notice */}
             <div className="text-right">
               <p className="text-xs text-slate-500">
-                Quyết định không thể hoàn tác
+                This decision is irreversible
               </p>
             </div>
           </div>
@@ -283,7 +283,7 @@ export function DecisionDocument({
                 className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
               >
                 <Pause className="h-4 w-4 mr-2" />
-                Tạm hoãn
+                Snooze
               </Button>
               
               <Button
@@ -294,7 +294,7 @@ export function DecisionDocument({
                 className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
               >
                 <XCircle className="h-4 w-4 mr-2" />
-                Bác bỏ
+                Dismiss
               </Button>
             </div>
             
@@ -323,33 +323,33 @@ export function DecisionDocument({
       <Dialog open={showDismissDialog} onOpenChange={setShowDismissDialog}>
         <DialogContent className="bg-slate-900 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-slate-100">Ghi nhận lý do bác bỏ</DialogTitle>
+            <DialogTitle className="text-slate-100">Record dismissal reason</DialogTitle>
           </DialogHeader>
           
           <div className="py-4">
             <p className="text-sm text-slate-400 mb-4">
-              Bác bỏ quyết định này sẽ được ghi nhận vào lịch sử và không thể hoàn tác.
+              Dismissing this decision will be logged permanently and cannot be undone.
             </p>
             
-            <Label className="text-slate-300 text-sm">Lý do bác bỏ *</Label>
+            <Label className="text-slate-300 text-sm">Dismissal reason *</Label>
             <Textarea
               value={dismissReason}
               onChange={(e) => setDismissReason(e.target.value)}
-              placeholder="Giải thích tại sao quyết định này không cần xử lý..."
+              placeholder="Explain why this decision does not require action..."
               className="mt-2 bg-slate-800 border-slate-700 text-slate-200 min-h-[100px]"
             />
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDismissDialog(false)}>
-              Hủy
+              Cancel
             </Button>
             <Button 
               variant="destructive" 
               onClick={handleDismiss}
               disabled={!dismissReason.trim()}
             >
-              Xác nhận bác bỏ
+              Confirm dismissal
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -359,16 +359,16 @@ export function DecisionDocument({
       <Dialog open={showSnoozeDialog} onOpenChange={setShowSnoozeDialog}>
         <DialogContent className="bg-slate-900 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-slate-100">Tạm hoãn quyết định</DialogTitle>
+            <DialogTitle className="text-slate-100">Snooze decision</DialogTitle>
           </DialogHeader>
           
           <div className="py-4 space-y-4">
             <p className="text-sm text-slate-400">
-              Mỗi giờ chậm trễ có thể gây thiệt hại thêm. Vui lòng cung cấp lý do chính đáng.
+              Every hour of delay may increase financial exposure. Please provide a valid justification.
             </p>
             
             <div>
-              <Label className="text-slate-300 text-sm">Hoãn trong</Label>
+              <Label className="text-slate-300 text-sm">Snooze duration</Label>
               <div className="flex gap-2 mt-2">
                 {[4, 8, 24, 48].map((hours) => (
                   <Button
@@ -385,11 +385,11 @@ export function DecisionDocument({
             </div>
             
             <div>
-              <Label className="text-slate-300 text-sm">Lý do tạm hoãn *</Label>
+              <Label className="text-slate-300 text-sm">Snooze reason *</Label>
               <Textarea
                 value={snoozeReason}
                 onChange={(e) => setSnoozeReason(e.target.value)}
-                placeholder="Tại sao cần thêm thời gian? Đang chờ thông tin gì?..."
+                placeholder="Why is additional time needed? What information is pending?..."
                 className="mt-2 bg-slate-800 border-slate-700 text-slate-200 min-h-[100px]"
               />
             </div>
@@ -397,7 +397,7 @@ export function DecisionDocument({
             {dailyLoss > 0 && (
               <div className="p-3 bg-red-950/50 border border-red-900/50 rounded">
                 <p className="text-sm text-red-400">
-                  Hoãn {snoozeHours}h có thể gây thêm ~₫{formatCurrency(dailyLoss * (snoozeHours / 24))} thiệt hại
+                  Snoozing for {snoozeHours}h may incur additional ~₫{formatCurrency(dailyLoss * (snoozeHours / 24))} in losses
                 </p>
               </div>
             )}
@@ -405,14 +405,14 @@ export function DecisionDocument({
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSnoozeDialog(false)}>
-              Hủy
+              Cancel
             </Button>
             <Button 
               onClick={handleSnooze}
               disabled={!snoozeReason.trim()}
               className="bg-amber-600 hover:bg-amber-700 text-black"
             >
-              Xác nhận tạm hoãn
+              Confirm snooze
             </Button>
           </DialogFooter>
         </DialogContent>
