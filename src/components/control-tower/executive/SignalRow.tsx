@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, DollarSign, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
- * SIGNAL ROW - Collapsed by default
+ * SIGNAL ROW - Compressed, Serious Signals
  * 
- * Shows summary only, expands on demand
- * Actions: Acknowledge, Open in Decision Workspace
- * NO: Create task, Resolve buttons
+ * BLUECORE DNA:
+ * - Dark, not bright alert panels
+ * - Emphasis on impact & exposure
+ * - Red ONLY for irreversible risk
  */
 
 export type SignalSeverity = 'critical' | 'warning' | 'info';
@@ -19,6 +20,8 @@ export interface SignalData {
   summary: string;
   severity: SignalSeverity;
   timestamp: string;
+  exposure?: string;
+  timeToAction?: string;
   details?: string;
   acknowledged?: boolean;
 }
@@ -31,16 +34,22 @@ interface SignalRowProps {
 
 const severityConfig = {
   critical: {
-    dot: 'bg-[hsl(0,60%,55%)]',
-    text: 'text-[hsl(0,60%,55%)]',
+    dot: 'bg-[hsl(0,55%,50%)]',
+    text: 'text-[hsl(0,55%,50%)]',
+    bg: 'bg-[hsl(0,55%,50%)/0.06]',
+    border: 'border-l-[hsl(0,55%,50%)]',
   },
   warning: {
-    dot: 'bg-[hsl(40,60%,55%)]',
-    text: 'text-[hsl(40,60%,55%)]',
+    dot: 'bg-[hsl(38,55%,50%)]',
+    text: 'text-[hsl(38,55%,50%)]',
+    bg: 'bg-[hsl(38,55%,50%)/0.04]',
+    border: 'border-l-[hsl(38,55%,50%)]',
   },
   info: {
     dot: 'bg-muted-foreground',
     text: 'text-muted-foreground',
+    bg: 'bg-transparent',
+    border: 'border-l-muted',
   },
 };
 
@@ -50,26 +59,44 @@ export function SignalRow({ signal, onAcknowledge, onOpenInWorkspace }: SignalRo
   
   return (
     <div className={cn(
-      'border-b border-border/20 last:border-0',
-      signal.acknowledged && 'opacity-60'
+      'border-b border-border/30 border-l-2',
+      config.border,
+      config.bg,
+      signal.acknowledged && 'opacity-50'
     )}>
-      {/* Summary Row - Always Visible */}
+      {/* Summary Row */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-4 py-4 px-4 hover:bg-secondary/30 transition-colors"
+        className="w-full flex items-center gap-4 py-4 px-5 hover:bg-[hsl(var(--surface-raised))/50] transition-colors"
       >
-        {/* Severity Dot */}
-        <div className={cn('w-2 h-2 rounded-full flex-shrink-0', config.dot)} />
+        {/* Severity Indicator */}
+        <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', config.dot)} />
         
         {/* Content */}
         <div className="flex-1 text-left min-w-0">
           <h4 className="text-sm font-medium text-foreground truncate">
             {signal.title}
           </h4>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
             {signal.summary}
           </p>
         </div>
+        
+        {/* Exposure Badge */}
+        {signal.exposure && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded bg-[hsl(var(--surface-raised))] border border-border/50">
+            <DollarSign className="h-3 w-3 text-muted-foreground" />
+            <span className={cn('text-xs font-medium', config.text)}>{signal.exposure}</span>
+          </div>
+        )}
+        
+        {/* Time to Action */}
+        {signal.timeToAction && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            <span>{signal.timeToAction}</span>
+          </div>
+        )}
         
         {/* Timestamp */}
         <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -86,14 +113,14 @@ export function SignalRow({ signal, onAcknowledge, onOpenInWorkspace }: SignalRo
       
       {/* Expanded Details */}
       {expanded && (
-        <div className="px-10 pb-4 space-y-3">
+        <div className="px-12 pb-4 space-y-3">
           {signal.details && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               {signal.details}
             </p>
           )}
           
-          {/* Actions - Only Acknowledge + Open in Workspace */}
+          {/* Actions */}
           <div className="flex items-center gap-2">
             {!signal.acknowledged && onAcknowledge && (
               <Button
@@ -103,9 +130,9 @@ export function SignalRow({ signal, onAcknowledge, onOpenInWorkspace }: SignalRo
                   e.stopPropagation();
                   onAcknowledge();
                 }}
-                className="h-7 text-xs border-border/50 text-muted-foreground hover:text-foreground"
+                className="h-8 text-xs border-border/60 bg-[hsl(var(--surface-raised))] hover:bg-[hsl(var(--surface-overlay))]"
               >
-                Acknowledge
+                Acknowledge Signal
               </Button>
             )}
             {onOpenInWorkspace && (
@@ -116,7 +143,7 @@ export function SignalRow({ signal, onAcknowledge, onOpenInWorkspace }: SignalRo
                   e.stopPropagation();
                   onOpenInWorkspace();
                 }}
-                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                className="h-8 text-xs text-primary hover:text-primary hover:bg-primary/10"
               >
                 Open in Decision Workspace
               </Button>

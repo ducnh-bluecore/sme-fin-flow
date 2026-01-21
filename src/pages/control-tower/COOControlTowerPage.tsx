@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Activity, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { ExecutionStream, ExecutionStreamData } from '@/components/control-tower/executive/ExecutionStream';
 import { ExecutionAction, ExecutionActionData, ExecutionState } from '@/components/control-tower/executive/ExecutionAction';
 import { useDecisionCards } from '@/hooks/useDecisionCards';
@@ -9,21 +10,17 @@ import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 /**
- * EXECUTION CONTROL TOWER (COO)
+ * EXECUTION CONTROL TOWER (COO) - Dark Ops View
  * 
- * ANSWERS ONE QUESTION: "Where is execution breaking down?"
+ * BLUECORE DNA: Operational, dense but readable, calm under pressure
  * 
- * LAYOUT: Two-column
- * - Left: Execution Streams grouped by decision
- * - Right: Risk Summary
+ * ANSWERS: "Where is execution under strain?"
  * 
- * RENAMED CONCEPTS:
- * - "Task" → "Execution Action"
- * - "Task list" → "Execution Queue"
- * 
- * VISUAL: Simple rows, no boxes, minimal icons
+ * LAYOUT: Two-zone (Streams | Risk Indicators)
+ * NO kanban, NO task cards, NO light backgrounds
  */
 
 export default function COOControlTowerPage() {
@@ -105,6 +102,7 @@ export default function COOControlTowerPage() {
     blocked: tasks.filter(t => t.status === 'blocked').length,
     overdue: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done').length,
     atRisk: streams.filter(s => s.healthStatus !== 'on_track').length,
+    onTrack: streams.filter(s => s.healthStatus === 'on_track').length,
   }), [tasks, streams]);
 
   // Handle state change
@@ -133,85 +131,116 @@ export default function COOControlTowerPage() {
   return (
     <>
       <Helmet>
-        <title>Execution Control Tower</title>
+        <title>Execution Control Tower | Bluecore</title>
       </Helmet>
 
-      <div className="min-h-[calc(100vh-120px)]">
+      <div className="min-h-[calc(100vh-120px)] bg-[hsl(var(--surface-sunken))]">
         {/* Header */}
-        <div className="py-6 px-4 border-b border-border/20">
-          <h1 className="text-2xl font-semibold text-foreground">
+        <div className="py-6 px-6 border-b border-border/30 bg-background">
+          <h1 className="text-xl font-bold text-foreground">
             Execution Control Tower
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Deliver outcomes for active strategic decisions
+            Operational status across active strategic decisions
           </p>
         </div>
 
-        {/* Two-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
+        {/* Two-zone layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3">
           
-          {/* Left: Execution Streams */}
-          <div className="lg:col-span-2 border-r border-border/20">
-            <div className="py-4 px-4 border-b border-border/20">
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          {/* Left: Execution Streams (2/3) */}
+          <div className="lg:col-span-2 bg-card border-r border-border/30">
+            <div className="py-3 px-5 border-b border-border/30 bg-[hsl(var(--surface-raised))]">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Execution Streams
               </h2>
             </div>
             
-            <div className="divide-y divide-border/10">
-              {streams.map(stream => (
-                <ExecutionStream
-                  key={stream.id}
-                  stream={stream}
-                  onClick={() => setSelectedStreamId(
-                    selectedStreamId === stream.id ? null : stream.id
-                  )}
-                />
-              ))}
-            </div>
+            {streams.map(stream => (
+              <ExecutionStream
+                key={stream.id}
+                stream={stream}
+                onClick={() => setSelectedStreamId(
+                  selectedStreamId === stream.id ? null : stream.id
+                )}
+              />
+            ))}
             
             {streams.length === 0 && (
               <div className="py-16 text-center">
+                <Activity className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
                 <p className="text-muted-foreground">No active execution streams</p>
               </div>
             )}
           </div>
           
-          {/* Right: Risk Summary / Actions */}
-          <div className="bg-secondary/20">
-            <div className="py-4 px-4 border-b border-border/20">
-              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                {selectedStreamId ? 'Execution Actions' : 'Risk Summary'}
+          {/* Right: Risk Summary / Actions (1/3) */}
+          <div className="bg-[hsl(var(--surface-raised))]">
+            <div className="py-3 px-5 border-b border-border/30">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {selectedStreamId ? 'Execution Actions' : 'Risk Indicators'}
               </h2>
               {selectedStreamId && (
                 <button 
                   onClick={() => setSelectedStreamId(null)}
                   className="text-xs text-primary hover:underline mt-1"
                 >
-                  ← Back to summary
+                  ← View all streams
                 </button>
               )}
             </div>
             
             {/* Risk Summary (when no stream selected) */}
             {!selectedStreamId && (
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-muted-foreground">Blocked actions</span>
-                  <span className={`text-lg font-medium ${riskSummary.blocked > 0 ? 'text-[hsl(0,60%,55%)]' : 'text-foreground'}`}>
+              <div className="p-5 space-y-1">
+                {/* Blocked */}
+                <div className={cn(
+                  'flex items-center justify-between p-4 rounded-lg',
+                  riskSummary.blocked > 0 ? 'bg-[hsl(0,55%,50%)/0.08]' : 'bg-card'
+                )}>
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className={cn(
+                      'h-5 w-5',
+                      riskSummary.blocked > 0 ? 'text-[hsl(0,55%,50%)]' : 'text-muted-foreground'
+                    )} />
+                    <span className="text-sm text-foreground">Blocked Actions</span>
+                  </div>
+                  <span className={cn(
+                    'text-2xl font-bold',
+                    riskSummary.blocked > 0 ? 'text-[hsl(0,55%,50%)]' : 'text-foreground'
+                  )}>
                     {riskSummary.blocked}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-muted-foreground">Overdue actions</span>
-                  <span className={`text-lg font-medium ${riskSummary.overdue > 0 ? 'text-[hsl(40,60%,55%)]' : 'text-foreground'}`}>
+
+                {/* Overdue */}
+                <div className={cn(
+                  'flex items-center justify-between p-4 rounded-lg',
+                  riskSummary.overdue > 0 ? 'bg-[hsl(38,55%,50%)/0.08]' : 'bg-card'
+                )}>
+                  <div className="flex items-center gap-3">
+                    <Clock className={cn(
+                      'h-5 w-5',
+                      riskSummary.overdue > 0 ? 'text-[hsl(38,55%,50%)]' : 'text-muted-foreground'
+                    )} />
+                    <span className="text-sm text-foreground">Overdue Actions</span>
+                  </div>
+                  <span className={cn(
+                    'text-2xl font-bold',
+                    riskSummary.overdue > 0 ? 'text-[hsl(38,55%,50%)]' : 'text-foreground'
+                  )}>
                     {riskSummary.overdue}
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-muted-foreground">Streams at risk</span>
-                  <span className="text-lg font-medium text-foreground">
-                    {riskSummary.atRisk}
+
+                {/* On Track */}
+                <div className="flex items-center justify-between p-4 rounded-lg bg-card">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-[hsl(158,45%,42%)]" />
+                    <span className="text-sm text-foreground">Streams On Track</span>
+                  </div>
+                  <span className="text-2xl font-bold text-[hsl(158,45%,42%)]">
+                    {riskSummary.onTrack}
                   </span>
                 </div>
               </div>
@@ -221,22 +250,20 @@ export default function COOControlTowerPage() {
             {selectedStreamId && (
               <div>
                 {selectedStream && (
-                  <div className="px-4 py-3 border-b border-border/20 bg-secondary/30">
+                  <div className="px-5 py-3 border-b border-border/30 bg-card">
                     <p className="text-sm font-medium text-foreground truncate">
                       {selectedStream.decisionTitle}
                     </p>
                   </div>
                 )}
                 
-                <div className="divide-y divide-border/10">
-                  {actions.map(action => (
-                    <ExecutionAction
-                      key={action.id}
-                      action={action}
-                      onStateChange={(state) => handleStateChange(action.id, state)}
-                    />
-                  ))}
-                </div>
+                {actions.map(action => (
+                  <ExecutionAction
+                    key={action.id}
+                    action={action}
+                    onStateChange={(state) => handleStateChange(action.id, state)}
+                  />
+                ))}
                 
                 {actions.length === 0 && (
                   <div className="py-12 text-center">

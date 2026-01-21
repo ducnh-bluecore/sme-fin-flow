@@ -1,15 +1,12 @@
 import { cn } from '@/lib/utils';
+import { Activity, AlertTriangle, Shield } from 'lucide-react';
 
 /**
  * STATUS STRIP - Executive System Posture
  * 
- * Single horizontal bar showing system state
- * Minimal, text-based, no red blocks
- * 
- * States:
- * - Stable: Normal operation
- * - Watch: Attention recommended  
- * - Intervention: Action required
+ * BLUECORE DNA: Dark, serious, financial command room feel
+ * Visually present but not screaming
+ * Communicates gravity calmly
  */
 
 export type SystemPosture = 'stable' | 'watch' | 'intervention';
@@ -17,61 +14,96 @@ export type SystemPosture = 'stable' | 'watch' | 'intervention';
 interface StatusStripProps {
   posture: SystemPosture;
   decisionsAtRisk: number;
+  totalExposure?: string;
   timeToImpact?: string;
 }
 
 const postureConfig = {
   stable: {
-    label: 'Stable',
-    description: 'Operating normally',
-    textColor: 'text-[hsl(160,40%,45%)]',
-    dotColor: 'bg-[hsl(160,40%,45%)]',
+    label: 'System Stable',
+    description: 'Operations within expected parameters',
+    icon: Shield,
+    bgClass: 'bg-[hsl(158,45%,42%)/0.08]',
+    borderClass: 'border-[hsl(158,45%,42%)/0.25]',
+    textClass: 'text-[hsl(158,45%,42%)]',
+    dotClass: 'bg-[hsl(158,45%,42%)]',
   },
   watch: {
-    label: 'Watch',
+    label: 'Watch Mode',
     description: 'Attention recommended',
-    textColor: 'text-[hsl(40,60%,55%)]',
-    dotColor: 'bg-[hsl(40,60%,55%)]',
+    icon: Activity,
+    bgClass: 'bg-[hsl(38,55%,50%)/0.08]',
+    borderClass: 'border-[hsl(38,55%,50%)/0.25]',
+    textClass: 'text-[hsl(38,55%,50%)]',
+    dotClass: 'bg-[hsl(38,55%,50%)]',
   },
   intervention: {
-    label: 'Intervention',
-    description: 'Action required',
-    textColor: 'text-[hsl(0,60%,55%)]',
-    dotColor: 'bg-[hsl(0,60%,55%)]',
+    label: 'Intervention Required',
+    description: 'Executive action needed',
+    icon: AlertTriangle,
+    bgClass: 'bg-[hsl(0,55%,50%)/0.08]',
+    borderClass: 'border-[hsl(0,55%,50%)/0.25]',
+    textClass: 'text-[hsl(0,55%,50%)]',
+    dotClass: 'bg-[hsl(0,55%,50%)]',
   },
 };
 
-export function StatusStrip({ posture, decisionsAtRisk, timeToImpact }: StatusStripProps) {
+export function StatusStrip({ posture, decisionsAtRisk, totalExposure, timeToImpact }: StatusStripProps) {
   const config = postureConfig[posture];
+  const Icon = config.icon;
   
   return (
-    <div className="flex items-center justify-between py-4 px-6 border-b border-border/30">
-      {/* System Posture */}
-      <div className="flex items-center gap-3">
-        <div className={cn('w-2 h-2 rounded-full', config.dotColor)} />
+    <div className={cn(
+      'flex items-center justify-between py-4 px-6',
+      'border-b border-border/50',
+      config.bgClass
+    )}>
+      {/* System Posture - Left */}
+      <div className="flex items-center gap-4">
+        <div className={cn(
+          'w-10 h-10 rounded-lg flex items-center justify-center',
+          'bg-[hsl(var(--surface-raised))]',
+          'border',
+          config.borderClass
+        )}>
+          <Icon className={cn('h-5 w-5', config.textClass)} />
+        </div>
         <div>
-          <span className={cn('text-sm font-medium', config.textColor)}>
-            {config.label}
-          </span>
-          <span className="text-muted-foreground text-sm ml-2">
-            — {config.description}
-          </span>
+          <div className="flex items-center gap-2">
+            <div className={cn('w-2 h-2 rounded-full animate-pulse', config.dotClass)} />
+            <span className={cn('text-sm font-semibold', config.textClass)}>
+              {config.label}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {config.description}
+          </p>
         </div>
       </div>
       
-      {/* Key Metrics */}
-      <div className="flex items-center gap-8 text-sm">
+      {/* Key Metrics - Right */}
+      <div className="flex items-center gap-8">
         {decisionsAtRisk > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Decisions at risk</span>
-            <span className={cn('font-medium', config.textColor)}>{decisionsAtRisk}</span>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Decisions at Risk</p>
+            <p className={cn('text-xl font-bold', config.textClass)}>{decisionsAtRisk}</p>
+          </div>
+        )}
+        
+        {totalExposure && (
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Exposure</p>
+            <p className="text-xl font-bold text-foreground">{totalExposure}</p>
           </div>
         )}
         
         {timeToImpact && (
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Time to impact</span>
-            <span className="font-medium text-foreground">{timeToImpact}</span>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Time to Impact</p>
+            <p className={cn(
+              'text-xl font-bold',
+              timeToImpact === 'Overdue' ? 'text-[hsl(0,55%,50%)]' : 'text-foreground'
+            )}>{timeToImpact}</p>
           </div>
         )}
       </div>

@@ -1,11 +1,13 @@
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react';
 
 /**
- * DECISION ROW - Minimal Strategic Decision Display
+ * DECISION ROW - Strategic Decision Display
  * 
- * NO cards, NO borders, NO background blocks
- * Pure typography hierarchy
+ * BLUECORE DNA: 
+ * - Dark surface with subtle elevation
+ * - Typography-driven hierarchy, not boxes
+ * - Feels like financial control room
  */
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
@@ -30,9 +32,9 @@ interface DecisionRowProps {
 
 const formatValue = (value: number, unit: string): string => {
   if (unit === 'VND' || unit === '₫') {
-    if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
-    return value.toLocaleString('vi-VN');
+    if (value >= 1_000_000_000) return `₫${(value / 1_000_000_000).toFixed(1)}B`;
+    if (value >= 1_000_000) return `₫${(value / 1_000_000).toFixed(0)}M`;
+    return `₫${value.toLocaleString('vi-VN')}`;
   }
   if (unit === '%') return `${value.toFixed(1)}%`;
   return value.toLocaleString('vi-VN');
@@ -42,31 +44,31 @@ const TrendIcon = ({ trend }: { trend: TrendDirection }) => {
   const iconClass = 'h-4 w-4';
   switch (trend) {
     case 'up':
-      return <TrendingUp className={cn(iconClass, 'text-[hsl(160,40%,45%)]')} />;
+      return <TrendingUp className={cn(iconClass, 'text-[hsl(158,45%,42%)]')} />;
     case 'down':
-      return <TrendingDown className={cn(iconClass, 'text-[hsl(0,60%,55%)]')} />;
+      return <TrendingDown className={cn(iconClass, 'text-[hsl(0,55%,50%)]')} />;
     case 'flat':
       return <Minus className={cn(iconClass, 'text-muted-foreground')} />;
   }
 };
 
-const ConfidenceDots = ({ level }: { level: ConfidenceLevel }) => {
+const ConfidenceBars = ({ level }: { level: ConfidenceLevel }) => {
   const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+  const colors = {
+    high: 'bg-[hsl(158,45%,42%)]',
+    medium: 'bg-[hsl(38,55%,50%)]',
+    low: 'bg-[hsl(0,55%,50%)]',
+  };
   
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-end gap-0.5 h-4">
       {[1, 2, 3].map((i) => (
         <div
           key={i}
           className={cn(
-            'w-1.5 h-1.5 rounded-full transition-colors',
-            i <= filled 
-              ? level === 'high' 
-                ? 'bg-[hsl(160,40%,45%)]' 
-                : level === 'medium' 
-                  ? 'bg-[hsl(40,60%,55%)]' 
-                  : 'bg-[hsl(0,60%,55%)]'
-              : 'bg-muted'
+            'w-1 rounded-sm transition-colors',
+            i === 1 ? 'h-2' : i === 2 ? 'h-3' : 'h-4',
+            i <= filled ? colors[level] : 'bg-muted/40'
           )}
         />
       ))}
@@ -83,15 +85,16 @@ export function DecisionRow({ decision, isSelected, onClick }: DecisionRowProps)
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left py-5 px-4 transition-all duration-200',
-        'hover:bg-secondary/50',
-        isSelected && 'bg-secondary/30 border-l-2 border-primary'
+        'w-full text-left py-5 px-5 transition-all duration-200',
+        'border-b border-border/30',
+        'hover:bg-[hsl(var(--surface-raised))]',
+        isSelected && 'bg-[hsl(var(--surface-raised))] border-l-2 border-l-primary'
       )}
     >
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex items-center gap-6">
         {/* Left: Title + Objective */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-medium text-foreground mb-1 truncate">
+          <h3 className="text-base font-semibold text-foreground mb-1 truncate">
             {decision.title}
           </h3>
           <p className="text-sm text-muted-foreground truncate">
@@ -99,33 +102,34 @@ export function DecisionRow({ decision, isSelected, onClick }: DecisionRowProps)
           </p>
         </div>
         
-        {/* Right: Metrics */}
-        <div className="flex items-center gap-6 flex-shrink-0">
-          {/* Target vs Actual */}
-          <div className="text-right">
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-semibold text-foreground">
-                {formatValue(decision.actualValue, decision.unit)}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                / {formatValue(decision.targetValue, decision.unit)}
-              </span>
-            </div>
+        {/* Center: Target vs Actual */}
+        <div className="text-right min-w-[140px]">
+          <div className="flex items-baseline justify-end gap-2">
+            <span className="text-lg font-bold text-foreground">
+              {formatValue(decision.actualValue, decision.unit)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              / {formatValue(decision.targetValue, decision.unit)}
+            </span>
           </div>
-          
-          {/* Trend */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-2 mt-1">
             <TrendIcon trend={decision.trend} />
             <span className={cn(
               'text-sm font-medium',
-              variance >= 0 ? 'text-[hsl(160,40%,45%)]' : 'text-[hsl(0,60%,55%)]'
+              variance >= 0 ? 'text-[hsl(158,45%,42%)]' : 'text-[hsl(0,55%,50%)]'
             )}>
               {variance >= 0 ? '+' : ''}{variance.toFixed(0)}%
             </span>
           </div>
-          
-          {/* Confidence */}
-          <ConfidenceDots level={decision.confidence} />
+        </div>
+        
+        {/* Right: Confidence + Arrow */}
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Confidence</p>
+            <ConfidenceBars level={decision.confidence} />
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </div>
       </div>
     </button>
