@@ -1,188 +1,134 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { 
-  CheckCircle2, 
-  AlertTriangle, 
-  Clock,
-  Filter
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { TaskStreamCard, TaskStream } from '@/components/control-tower/coo/TaskStreamCard';
-import { TaskListItem, TaskItem, TaskStatus } from '@/components/control-tower/coo/TaskListItem';
+import { ExecutionStream, ExecutionStreamData } from '@/components/control-tower/executive/ExecutionStream';
+import { ExecutionAction, ExecutionActionData, ExecutionState } from '@/components/control-tower/executive/ExecutionAction';
 import { useDecisionCards } from '@/hooks/useDecisionCards';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 /**
- * EXECUTION CONTROL TOWER (COO / Ops)
+ * EXECUTION CONTROL TOWER (COO)
  * 
- * PURPOSE: Answer "What execution is at risk right now?"
+ * ANSWERS ONE QUESTION: "Where is execution breaking down?"
  * 
- * SHOWS:
- * - Execution streams grouped by Strategic Decision
- * - SLA risk, Blockers, Overdue actions
+ * LAYOUT: Two-column
+ * - Left: Execution Streams grouped by decision
+ * - Right: Risk Summary
  * 
  * RENAMED CONCEPTS:
  * - "Task" → "Execution Action"
  * - "Task list" → "Execution Queue"
  * 
- * ALLOWED ACTIONS:
- * - Assign owner
- * - Update execution state
- * - Escalate blockers
- * - Attach evidence
- * 
- * NOT ALLOWED:
- * - Edit strategic objectives
- * - Change decision scope
- * - View CEO-only metrics
+ * VISUAL: Simple rows, no boxes, minimal icons
  */
 
-type ViewMode = 'streams' | 'actions';
-type ExecutionFilter = 'all' | 'today' | 'blocked' | 'sla_risk';
-
 export default function COOControlTowerPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('streams');
-  const [executionFilter, setExecutionFilter] = useState<ExecutionFilter>('all');
   const [selectedStreamId, setSelectedStreamId] = useState<string | null>(null);
-  
   const { data: tenantId } = useActiveTenantId();
   
-  // Fetch decision cards for context
   const { data: cards } = useDecisionCards({
     status: ['OPEN', 'IN_PROGRESS'],
   });
 
-  // Fetch tasks
-  const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery({
-    queryKey: ['coo-tasks', tenantId, selectedStreamId],
+  const { data: tasks = [], refetch: refetchTasks } = useQuery({
+    queryKey: ['execution-actions', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      
-      let query = supabase
+      const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('tenant_id', tenantId)
         .neq('status', 'done')
         .order('due_date', { ascending: true, nullsFirst: false });
-      
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
     enabled: !!tenantId,
   });
 
-  // Build task streams from decision cards
-  const taskStreams = useMemo((): TaskStream[] => {
+  // Build execution streams
+  const streams = useMemo((): ExecutionStreamData[] => {
     if (!cards) return [];
     
     return cards.slice(0, 10).map(card => {
-      // Count tasks linked to this card/decision
       const linkedTasks = tasks.filter(t => t.source_id === card.id);
-      const blockedTasks = linkedTasks.filter(t => t.status === 'blocked').length;
-      const overdueTasks = linkedTasks.filter(t => 
-        t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done'
-      ).length;
+      const blockedCount = linkedTasks.filter(t => t.status === 'blocked').length;
+      const completedCount = linkedTasks.filter(t => t.status === 'done').length;
+      const total = linkedTasks.length || Math.floor(Math.random() * 5) + 2;
+      
+      let healthStatus: 'on_track' | 'friction' | 'blocked' = 'on_track';
+      if (blockedCount > 0) healthStatus = 'blocked';
+      else if (card.status === 'OPEN' && card.priority === 'P1') healthStatus = 'friction';
       
       return {
         id: card.id,
         decisionTitle: card.title,
-        totalTasks: linkedTasks.length || Math.floor(Math.random() * 8) + 2,
-        completedTasks: linkedTasks.filter(t => t.status === 'done').length || Math.floor(Math.random() * 3),
-        inProgressTasks: linkedTasks.filter(t => t.status === 'in_progress').length || 1,
-        blockedTasks: blockedTasks || (card.status === 'OPEN' ? 1 : 0),
-        overdueTasks: overdueTasks,
-        slaRisk: card.priority === 'P1' && card.status !== 'DECIDED',
-        nearestDeadline: card.deadline_at,
+        healthStatus,
+        blockedCount,
+        totalActions: total,
+        completedActions: completedCount,
       };
     });
   }, [cards, tasks]);
 
-  // Map tasks to TaskItem format
-  const taskItems = useMemo((): TaskItem[] => {
-    return tasks.map(task => ({
-      id: task.id,
-      title: task.title,
-      status: task.status as TaskStatus,
-      ownerName: task.assignee_id ? 'Assigned' : undefined,
-      dueDate: task.due_date,
-      isOverdue: task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done',
-      hasBlocker: task.status === 'blocked',
-      blockerNote: task.status === 'blocked' ? 'Awaiting approval' : undefined,
-      linkedDecisionTitle: cards?.find(c => c.id === task.source_id)?.title,
-      hasEvidence: false,
-    }));
-  }, [tasks, cards]);
-
-  // Filter execution actions
-  const filteredTasks = useMemo(() => {
-    let filtered = taskItems;
+  // Build execution actions for selected stream
+  const actions = useMemo((): ExecutionActionData[] => {
+    const filtered = selectedStreamId 
+      ? tasks.filter(t => t.source_id === selectedStreamId)
+      : tasks;
     
-    if (selectedStreamId) {
-      filtered = filtered.filter(t => t.linkedDecisionTitle);
-    }
-    
-    switch (executionFilter) {
-      case 'today':
-        const today = new Date().toISOString().split('T')[0];
-        filtered = filtered.filter(t => t.dueDate?.startsWith(today));
-        break;
-      case 'blocked':
-        filtered = filtered.filter(t => t.hasBlocker);
-        break;
-      case 'sla_risk':
-        filtered = filtered.filter(t => t.isOverdue);
-        break;
-    }
-    
-    return filtered;
-  }, [taskItems, executionFilter, selectedStreamId]);
+    return filtered.slice(0, 15).map(task => {
+      let state: ExecutionState = 'planned';
+      if (task.status === 'in_progress') state = 'in_execution';
+      else if (task.status === 'blocked') state = 'blocked';
+      else if (task.status === 'done') state = 'completed';
+      
+      return {
+        id: task.id,
+        title: task.title,
+        state,
+        owner: task.assignee_id ? 'Assigned' : undefined,
+        dueLabel: task.due_date 
+          ? formatDistanceToNow(new Date(task.due_date), { addSuffix: true, locale: vi })
+          : undefined,
+        isOverdue: task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done',
+      };
+    });
+  }, [tasks, selectedStreamId]);
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: taskItems.length,
-    blocked: taskItems.filter(t => t.hasBlocker).length,
-    overdue: taskItems.filter(t => t.isOverdue).length,
-    today: taskItems.filter(t => {
-      const today = new Date().toISOString().split('T')[0];
-      return t.dueDate?.startsWith(today);
-    }).length,
-  }), [taskItems]);
+  // Risk summary stats
+  const riskSummary = useMemo(() => ({
+    blocked: tasks.filter(t => t.status === 'blocked').length,
+    overdue: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'done').length,
+    atRisk: streams.filter(s => s.healthStatus !== 'on_track').length,
+  }), [tasks, streams]);
 
-  // Handlers
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+  // Handle state change
+  const handleStateChange = async (actionId: string, newState: ExecutionState) => {
+    const statusMap: Record<ExecutionState, string> = {
+      planned: 'todo',
+      in_execution: 'in_progress',
+      blocked: 'blocked',
+      completed: 'done',
+    };
+    
     const { error } = await supabase
       .from('tasks')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', taskId);
+      .update({ status: statusMap[newState], updated_at: new Date().toISOString() })
+      .eq('id', actionId);
     
     if (error) {
-      toast.error('Không thể cập nhật trạng thái');
+      toast.error('Could not update status');
     } else {
-      toast.success('Đã cập nhật');
       refetchTasks();
     }
   };
 
-  const handleEscalate = (taskId: string) => {
-    toast.info('Escalate blocker - Coming soon');
-  };
-
-  // Loading state
-  if (tasksLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-3 h-3 bg-slate-500 rounded-full animate-pulse mx-auto" />
-          <p className="text-slate-500 text-sm mt-4">Đang tải...</p>
-        </div>
-      </div>
-    );
-  }
+  const selectedStream = streams.find(s => s.id === selectedStreamId);
 
   return (
     <>
@@ -191,145 +137,118 @@ export default function COOControlTowerPage() {
       </Helmet>
 
       <div className="min-h-[calc(100vh-120px)]">
-        
-        {/* Header with Stats */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100">Execution Control Tower</h1>
-            <p className="text-slate-500 text-sm mt-1">
-              Deliver outcomes for active strategic decisions.
-            </p>
+        {/* Header */}
+        <div className="py-6 px-4 border-b border-border/20">
+          <h1 className="text-2xl font-semibold text-foreground">
+            Execution Control Tower
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Deliver outcomes for active strategic decisions
+          </p>
+        </div>
+
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
+          
+          {/* Left: Execution Streams */}
+          <div className="lg:col-span-2 border-r border-border/20">
+            <div className="py-4 px-4 border-b border-border/20">
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Execution Streams
+              </h2>
+            </div>
+            
+            <div className="divide-y divide-border/10">
+              {streams.map(stream => (
+                <ExecutionStream
+                  key={stream.id}
+                  stream={stream}
+                  onClick={() => setSelectedStreamId(
+                    selectedStreamId === stream.id ? null : stream.id
+                  )}
+                />
+              ))}
+            </div>
+            
+            {streams.length === 0 && (
+              <div className="py-16 text-center">
+                <p className="text-muted-foreground">No active execution streams</p>
+              </div>
+            )}
           </div>
           
-          {/* View Toggle */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'streams' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('streams')}
-              className={viewMode === 'streams' 
-                ? 'bg-slate-700 text-slate-100' 
-                : 'border-slate-700 text-slate-400'
-              }
-            >
-              Execution Streams
-            </Button>
-            <Button
-              variant={viewMode === 'actions' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('actions')}
-              className={viewMode === 'actions' 
-                ? 'bg-slate-700 text-slate-100' 
-                : 'border-slate-700 text-slate-400'
-              }
-            >
-              Execution Actions
-            </Button>
-          </div>
-        </div>
-
-        {/* Quick Stats Badges */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <Badge
-            variant={executionFilter === 'all' ? 'default' : 'outline'}
-            className={`cursor-pointer ${executionFilter === 'all' ? 'bg-slate-700' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setExecutionFilter('all')}
-          >
-            All actions ({stats.total})
-          </Badge>
-          <Badge
-            variant={executionFilter === 'today' ? 'default' : 'outline'}
-            className={`cursor-pointer ${executionFilter === 'today' ? 'bg-blue-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setExecutionFilter('today')}
-          >
-            <Clock className="h-3 w-3 mr-1" />
-            Due today ({stats.today})
-          </Badge>
-          <Badge
-            variant={executionFilter === 'blocked' ? 'default' : 'outline'}
-            className={`cursor-pointer ${executionFilter === 'blocked' ? 'bg-amber-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setExecutionFilter('blocked')}
-          >
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Blocked – attention required ({stats.blocked})
-          </Badge>
-          <Badge
-            variant={executionFilter === 'sla_risk' ? 'default' : 'outline'}
-            className={`cursor-pointer ${executionFilter === 'sla_risk' ? 'bg-red-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
-            onClick={() => setExecutionFilter('sla_risk')}
-          >
-            <Clock className="h-3 w-3 mr-1" />
-            SLA risk detected ({stats.overdue})
-          </Badge>
-        </div>
-
-        {/* STREAMS VIEW */}
-        {viewMode === 'streams' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {taskStreams.map(stream => (
-              <TaskStreamCard
-                key={stream.id}
-                stream={stream}
-                onClick={() => {
-                  setSelectedStreamId(stream.id);
-                  setViewMode('actions');
-                }}
-              />
-            ))}
-            
-            {taskStreams.length === 0 && (
-              <div className="col-span-full p-12 text-center">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
-                <p className="text-slate-400">No active execution streams</p>
-                <p className="text-slate-500 text-sm mt-1">Execution progress will appear here when decisions are in motion.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ACTIONS VIEW */}
-        {viewMode === 'actions' && (
-          <div className="bg-slate-900/30 border border-slate-800/50 rounded-lg overflow-hidden">
-            {selectedStreamId && (
-              <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-800/50 flex items-center justify-between">
-                <span className="text-sm text-slate-400">
-                  Filtering by execution stream
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
+          {/* Right: Risk Summary / Actions */}
+          <div className="bg-secondary/20">
+            <div className="py-4 px-4 border-b border-border/20">
+              <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {selectedStreamId ? 'Execution Actions' : 'Risk Summary'}
+              </h2>
+              {selectedStreamId && (
+                <button 
                   onClick={() => setSelectedStreamId(null)}
-                  className="text-slate-400 hover:text-slate-200"
+                  className="text-xs text-primary hover:underline mt-1"
                 >
-                  Clear filter
-                </Button>
+                  ← Back to summary
+                </button>
+              )}
+            </div>
+            
+            {/* Risk Summary (when no stream selected) */}
+            {!selectedStreamId && (
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-muted-foreground">Blocked actions</span>
+                  <span className={`text-lg font-medium ${riskSummary.blocked > 0 ? 'text-[hsl(0,60%,55%)]' : 'text-foreground'}`}>
+                    {riskSummary.blocked}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-muted-foreground">Overdue actions</span>
+                  <span className={`text-lg font-medium ${riskSummary.overdue > 0 ? 'text-[hsl(40,60%,55%)]' : 'text-foreground'}`}>
+                    {riskSummary.overdue}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-muted-foreground">Streams at risk</span>
+                  <span className="text-lg font-medium text-foreground">
+                    {riskSummary.atRisk}
+                  </span>
+                </div>
               </div>
             )}
             
-            {filteredTasks.map(task => (
-              <TaskListItem
-                key={task.id}
-                task={task}
-                onStatusChange={(status) => handleStatusChange(task.id, status)}
-                onViewDetail={() => toast.info('Execution action detail – Coming soon')}
-                onEscalate={() => handleEscalate(task.id)}
-              />
-            ))}
-            
-            {filteredTasks.length === 0 && (
-              <div className="p-12 text-center">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
-                <p className="text-slate-400">
-                  {executionFilter === 'all' ? 'No execution actions' : 
-                   executionFilter === 'blocked' ? 'No blocked actions' :
-                   executionFilter === 'sla_risk' ? 'No SLA risks detected' :
-                   'No actions due today'}
-                </p>
-                <p className="text-slate-500 text-sm mt-1">Systems are monitoring in real time.</p>
+            {/* Execution Actions (when stream selected) */}
+            {selectedStreamId && (
+              <div>
+                {selectedStream && (
+                  <div className="px-4 py-3 border-b border-border/20 bg-secondary/30">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {selectedStream.decisionTitle}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="divide-y divide-border/10">
+                  {actions.map(action => (
+                    <ExecutionAction
+                      key={action.id}
+                      action={action}
+                      onStateChange={(state) => handleStateChange(action.id, state)}
+                    />
+                  ))}
+                </div>
+                
+                {actions.length === 0 && (
+                  <div className="py-12 text-center">
+                    <p className="text-muted-foreground text-sm">
+                      No actions in this stream
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     </>
   );
