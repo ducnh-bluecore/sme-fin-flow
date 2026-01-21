@@ -28,23 +28,23 @@ const healthConfig = {
   on_track: {
     label: 'On Track',
     icon: CheckCircle,
-    textClass: 'text-[hsl(158,45%,42%)]',
-    barClass: 'bg-[hsl(158,45%,42%)]',
-    bgClass: 'bg-[hsl(158,45%,42%)/0.05]',
+    textClass: 'text-[hsl(158,55%,45%)]',
+    barClass: 'bg-[hsl(158,55%,45%)]',
+    bgClass: 'bg-[hsl(158,55%,45%)]/5',
   },
   friction: {
     label: 'Friction',
     icon: Activity,
-    textClass: 'text-[hsl(38,55%,50%)]',
-    barClass: 'bg-[hsl(38,55%,50%)]',
-    bgClass: 'bg-[hsl(38,55%,50%)/0.05]',
+    textClass: 'text-[hsl(38,60%,50%)]',
+    barClass: 'bg-[hsl(38,60%,50%)]',
+    bgClass: 'bg-[hsl(38,60%,50%)]/5',
   },
   blocked: {
     label: 'Blocked',
     icon: AlertTriangle,
     textClass: 'text-[hsl(0,55%,50%)]',
     barClass: 'bg-[hsl(0,55%,50%)]',
-    bgClass: 'bg-[hsl(0,55%,50%)/0.05]',
+    bgClass: 'bg-[hsl(0,55%,50%)]/5',
   },
 };
 

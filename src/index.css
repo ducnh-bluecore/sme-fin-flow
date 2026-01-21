@@ -18,116 +18,127 @@
     --bluecore-800: 224 64% 33%;
     --bluecore-900: 224 55% 27%;
     
-    /* Semantic Colors */
-    --background: 210 20% 98%;
-    --foreground: 224 55% 10%;
+    /* Semantic Colors - Light Mode (FDP Standard) */
+    --background: 222 20% 10%;
+    --foreground: 40 15% 92%;
     
-    --card: 0 0% 100%;
-    --card-foreground: 224 55% 10%;
+    --card: 222 18% 13%;
+    --card-foreground: 40 15% 92%;
     
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 55% 10%;
+    --popover: 222 18% 13%;
+    --popover-foreground: 40 15% 92%;
     
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 38 60% 50%;
+    --primary-foreground: 222 20% 8%;
     
-    --secondary: 219 100% 97%;
-    --secondary-foreground: 224 55% 27%;
+    --secondary: 222 15% 18%;
+    --secondary-foreground: 40 15% 90%;
     
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 222 15% 20%;
+    --muted-foreground: 220 12% 55%;
     
-    --accent: 219 100% 94%;
-    --accent-foreground: 224 76% 48%;
+    --accent: 222 15% 22%;
+    --accent-foreground: 40 15% 90%;
     
-    --destructive: 0 84% 60%;
+    --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
     
-    --success: 142 76% 36%;
+    --success: 158 55% 42%;
     --success-foreground: 0 0% 100%;
     
-    --warning: 38 92% 50%;
+    --warning: 38 75% 50%;
     --warning-foreground: 0 0% 100%;
     
-    --info: 199 89% 48%;
+    --info: 199 75% 50%;
     --info-foreground: 0 0% 100%;
     
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --border: 222 15% 20%;
+    --input: 222 15% 20%;
+    --ring: 38 60% 50%;
     
     --radius: 0.75rem;
     
-    /* Sidebar */
+    /* Sidebar - Always dark */
     --sidebar-background: 224 55% 10%;
     --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 38 60% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 224 55% 18%;
     --sidebar-accent-foreground: 210 20% 98%;
     --sidebar-border: 224 40% 20%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 38 60% 50%;
     
-    /* Chart Colors */
-    --chart-1: 221 83% 53%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 280 65% 60%;
+    /* Surface layers (FDP standard) */
+    --surface-raised: 222 18% 14%;
+    --surface-sunken: 222 20% 8%;
+    --surface-overlay: 222 18% 18%;
+    
+    /* Executive semantic states */
+    --executive-stable: 158 55% 42%;
+    --executive-watch: 38 60% 50%;
+    --executive-critical: 0 55% 50%;
+    
+    /* Chart Colors (FDP Standard) */
+    --chart-1: 158 55% 45%;
+    --chart-2: 38 60% 50%;
+    --chart-3: 199 75% 50%;
+    --chart-4: 0 65% 50%;
+    --chart-5: 280 50% 55%;
     
     /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(224 76% 48%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 70% 45%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(25 95% 53%) 100%);
-    --gradient-danger: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 72% 51%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(38 60% 50%) 0%, hsl(38 55% 42%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(158 55% 42%) 0%, hsl(158 50% 50%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(38 75% 50%) 0%, hsl(30 80% 50%) 100%);
+    --gradient-danger: linear-gradient(135deg, hsl(0 65% 50%) 0%, hsl(0 60% 45%) 100%);
     --gradient-sidebar: linear-gradient(180deg, hsl(224 55% 12%) 0%, hsl(224 55% 8%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 99%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(222 18% 13%) 0%, hsl(222 18% 11%) 100%);
     
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    --shadow-glow: 0 0 20px hsl(221 83% 53% / 0.3);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.25), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.2);
+    --shadow-glow: 0 0 20px hsl(38 60% 50% / 0.2);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.15);
   }
 
   .dark {
-    /* BLUECORE EXECUTIVE DARK THEME - Financial Command Room */
-    --background: 222 20% 8%;
-    --foreground: 40 15% 90%;
+    /* BLUECORE FDP STANDARD DARK THEME */
+    --background: 222 20% 10%;
+    --foreground: 40 15% 92%;
     
-    --card: 222 18% 11%;
-    --card-foreground: 40 15% 90%;
+    --card: 222 18% 13%;
+    --card-foreground: 40 15% 92%;
     
-    --popover: 222 18% 11%;
-    --popover-foreground: 40 15% 90%;
+    --popover: 222 18% 13%;
+    --popover-foreground: 40 15% 92%;
     
-    /* Muted amber/gold accent - restrained authority */
+    /* Amber/Gold accent - matches FDP primary action */
     --primary: 38 60% 50%;
     --primary-foreground: 222 20% 8%;
     
-    --secondary: 222 15% 15%;
+    --secondary: 222 15% 18%;
     --secondary-foreground: 40 15% 90%;
     
-    --muted: 222 15% 18%;
+    --muted: 222 15% 20%;
     --muted-foreground: 220 12% 55%;
     
-    --accent: 222 15% 20%;
+    --accent: 222 15% 22%;
     --accent-foreground: 40 15% 90%;
     
-    --border: 222 15% 18%;
-    --input: 222 15% 18%;
+    --border: 222 15% 20%;
+    --input: 222 15% 20%;
+    --ring: 38 60% 50%;
     
-    /* Executive semantic states - restrained, not screaming */
-    --executive-stable: 158 45% 42%;
-    --executive-watch: 38 55% 50%;
+    /* Executive semantic states - FDP standard colors */
+    --executive-stable: 158 55% 42%;
+    --executive-watch: 38 60% 50%;
     --executive-critical: 0 55% 50%;
     
     /* Surface layers for depth */
-    --surface-raised: 222 18% 13%;
-    --surface-sunken: 222 20% 6%;
-    --surface-overlay: 222 18% 16%;
+    --surface-raised: 222 18% 14%;
+    --surface-sunken: 222 20% 8%;
+    --surface-overlay: 222 18% 18%;
   }
 }
 

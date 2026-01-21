@@ -36,14 +36,14 @@ const severityConfig = {
   critical: {
     dot: 'bg-[hsl(0,55%,50%)]',
     text: 'text-[hsl(0,55%,50%)]',
-    bg: 'bg-[hsl(0,55%,50%)/0.06]',
+    bg: 'bg-[hsl(0,55%,50%)]/5',
     border: 'border-l-[hsl(0,55%,50%)]',
   },
   warning: {
-    dot: 'bg-[hsl(38,55%,50%)]',
-    text: 'text-[hsl(38,55%,50%)]',
-    bg: 'bg-[hsl(38,55%,50%)/0.04]',
-    border: 'border-l-[hsl(38,55%,50%)]',
+    dot: 'bg-[hsl(38,60%,50%)]',
+    text: 'text-[hsl(38,60%,50%)]',
+    bg: 'bg-[hsl(38,60%,50%)]/5',
+    border: 'border-l-[hsl(38,60%,50%)]',
   },
   info: {
     dot: 'bg-muted-foreground',
