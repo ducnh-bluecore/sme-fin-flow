@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -50,6 +50,14 @@ export function ControlTowerLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { activeTenant } = useTenantContext();
+
+  // Force dark mode for Control Tower
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+    return () => {
+      document.documentElement.classList.remove('dark');
+    };
+  }, []);
 
   // Fetch badge counts
   const { data: alertsData } = useActiveAlertsCount();
