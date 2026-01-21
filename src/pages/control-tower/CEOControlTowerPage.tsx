@@ -106,20 +106,20 @@ export default function CEOControlTowerPage() {
     );
   }
 
-  // Empty state - All decisions on track
+  // Empty state - No active strategic decisions
   if (strategicDecisions.length === 0) {
     return (
       <>
         <Helmet>
-          <title>CEO Control Tower</title>
+          <title>Strategic Control Tower</title>
         </Helmet>
         <div className="min-h-[calc(100vh-120px)] flex flex-col items-center justify-center text-center px-6">
           <CheckCircle2 className="h-16 w-16 text-emerald-400/60 mb-6" />
           <h1 className="text-2xl font-medium text-slate-200 mb-2">
-            Các quyết định đang đạt mục tiêu
+            Không có quyết định chiến lược đang hoạt động
           </h1>
           <p className="text-slate-500 text-sm max-w-md">
-            Không có quyết định nào cần can thiệp vào lúc này.
+            Khi một quyết định được đưa ra, tiến độ và kết quả sẽ hiển thị tại đây.
           </p>
         </div>
       </>
@@ -129,15 +129,15 @@ export default function CEOControlTowerPage() {
   return (
     <>
       <Helmet>
-        <title>CEO Control Tower</title>
+        <title>Strategic Control Tower</title>
       </Helmet>
 
       <div className="min-h-[calc(100vh-120px)]">
         {/* Header - Minimal */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-100">Quyết định chiến lược</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Strategic Control Tower</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {strategicDecisions.filter(d => d.executionHealth !== 'on_track').length} quyết định cần chú ý
+            Các quyết định chiến lược đang hoạt động và kết quả thực tế.
           </p>
         </div>
 
@@ -174,7 +174,7 @@ export default function CEOControlTowerPage() {
             ) : (
               <div className="p-12 rounded-xl bg-slate-900/20 border border-slate-800/30 text-center">
                 <p className="text-slate-500">
-                  Chọn một quyết định để xem chi tiết
+                  Chọn một quyết định để xem chi tiết kết quả
                 </p>
               </div>
             )}

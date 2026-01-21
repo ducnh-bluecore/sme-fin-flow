@@ -82,7 +82,7 @@ export function DecisionListItem({ card, onClick }: DecisionListItemProps) {
               ₫{formatCurrency(Math.abs(card.impact_amount))}
             </p>
             <p className="text-[10px] text-slate-500">
-              {card.impact_amount < 0 ? 'thiệt hại' : 'tiềm năng'}
+              {card.impact_amount < 0 ? 'exposure' : 'potential'}
             </p>
           </div>
           
@@ -90,7 +90,7 @@ export function DecisionListItem({ card, onClick }: DecisionListItemProps) {
           <div className="flex items-center gap-1.5 text-xs min-w-[80px]">
             <Clock className={cn("h-3.5 w-3.5", isCritical ? "text-red-400" : "text-slate-500")} />
             <span className={cn(isCritical ? "text-red-400 font-medium" : "text-slate-500")}>
-              {isOverdue ? 'Quá hạn' : `${hoursUntilDeadline}h`}
+              {isOverdue ? 'Overdue' : `${hoursUntilDeadline}h left`}
             </span>
           </div>
           

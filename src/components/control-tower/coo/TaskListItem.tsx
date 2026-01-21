@@ -48,7 +48,7 @@ const getStatusConfig = (status: TaskStatus, isOverdue?: boolean) => {
       icon: Clock,
       color: 'text-red-400',
       bgColor: 'bg-red-500/10',
-      label: 'Quá hạn',
+      label: 'SLA risk',
     };
   }
   
@@ -58,28 +58,28 @@ const getStatusConfig = (status: TaskStatus, isOverdue?: boolean) => {
         icon: Circle,
         color: 'text-slate-400',
         bgColor: 'bg-slate-500/10',
-        label: 'Chưa làm',
+        label: 'Planned',
       };
     case 'in_progress':
       return {
         icon: Loader2,
         color: 'text-blue-400',
         bgColor: 'bg-blue-500/10',
-        label: 'Đang làm',
+        label: 'In execution',
       };
     case 'blocked':
       return {
         icon: AlertTriangle,
         color: 'text-amber-400',
         bgColor: 'bg-amber-500/10',
-        label: 'Bị chặn',
+        label: 'Blocked',
       };
     case 'done':
       return {
         icon: CheckCircle2,
         color: 'text-emerald-400',
         bgColor: 'bg-emerald-500/10',
-        label: 'Hoàn thành',
+        label: 'Completed',
       };
   }
 };
@@ -147,7 +147,7 @@ export function TaskListItem({
           {/* Linked decision */}
           {task.linkedDecisionTitle && (
             <span className="text-slate-600 truncate max-w-[200px]">
-              → {task.linkedDecisionTitle}
+              Serving: {task.linkedDecisionTitle}
             </span>
           )}
         </div>
@@ -155,7 +155,7 @@ export function TaskListItem({
         {/* Blocker note */}
         {task.hasBlocker && task.blockerNote && (
           <p className="text-xs text-amber-400/80 mt-1 line-clamp-1">
-            ⚠️ {task.blockerNote}
+            ⚠️ This action cannot proceed due to an unresolved dependency.
           </p>
         )}
       </div>
@@ -169,7 +169,7 @@ export function TaskListItem({
             onClick={onEscalate}
             className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
           >
-            Escalate
+            Escalate issue
           </Button>
         )}
         

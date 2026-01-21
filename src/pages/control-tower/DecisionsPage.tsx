@@ -92,16 +92,16 @@ export default function DecisionsPage() {
     return (
       <>
         <Helmet>
-          <title>Quyết định | Control Tower</title>
+          <title>Pending Decisions | Control Tower</title>
         </Helmet>
         
         <div className="min-h-[calc(100vh-200px)] flex flex-col items-center justify-center text-center px-6">
           <CheckCircle2 className="h-16 w-16 text-emerald-400/50 mb-6" />
           <h1 className="text-xl font-medium text-slate-200 mb-2">
-            Không có quyết định chờ xử lý
+            No pending decisions
           </h1>
           <p className="text-slate-500 text-sm">
-            Tất cả các quyết định đã được xử lý.
+            All decisions have been resolved. New decisions will appear here when action is required.
           </p>
         </div>
       </>
@@ -111,7 +111,7 @@ export default function DecisionsPage() {
   return (
     <>
       <Helmet>
-        <title>Quyết định ({sortedCards.length}) | Control Tower</title>
+        <title>Pending Decisions ({sortedCards.length}) | Control Tower</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -121,10 +121,10 @@ export default function DecisionsPage() {
           <div>
             <h1 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
               <FileText className="h-5 w-5 text-slate-400" />
-              Quyết định chờ xử lý
+              Pending Decisions
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              {sortedCards.length} quyết định cần ký duyệt
+              {sortedCards.length} decision{sortedCards.length > 1 ? 's' : ''} awaiting resolution
             </p>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function DecisionsPage() {
         {remainingCards.length > 0 && (
           <div className="mt-8">
             <h2 className="text-xs text-slate-500 uppercase tracking-widest mb-3 px-1">
-              Quyết định tiếp theo ({remainingCards.length})
+              Next in queue ({remainingCards.length})
             </h2>
             <div className="space-y-0">
               {remainingCards.map((card) => (
