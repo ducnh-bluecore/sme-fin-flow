@@ -23,28 +23,28 @@ const postureConfig = {
     label: 'System Stable',
     description: 'Operations within expected parameters',
     icon: Shield,
-    bgClass: 'bg-[hsl(158,55%,42%)]/10',
-    borderClass: 'border-[hsl(158,55%,42%)]/30',
-    textClass: 'text-[hsl(158,55%,42%)]',
-    dotClass: 'bg-[hsl(158,55%,42%)]',
+    bgClass: 'bg-success/10',
+    borderClass: 'border-success/30',
+    textClass: 'text-success',
+    dotClass: 'bg-success',
   },
   watch: {
     label: 'Watch Mode',
     description: 'Attention recommended',
     icon: Activity,
-    bgClass: 'bg-[hsl(38,60%,50%)]/10',
-    borderClass: 'border-[hsl(38,60%,50%)]/30',
-    textClass: 'text-[hsl(38,60%,50%)]',
-    dotClass: 'bg-[hsl(38,60%,50%)]',
+    bgClass: 'bg-warning/10',
+    borderClass: 'border-warning/30',
+    textClass: 'text-warning',
+    dotClass: 'bg-warning',
   },
   intervention: {
     label: 'Intervention Required',
     description: 'Executive action needed',
     icon: AlertTriangle,
-    bgClass: 'bg-[hsl(0,55%,50%)]/10',
-    borderClass: 'border-[hsl(0,55%,50%)]/30',
-    textClass: 'text-[hsl(0,55%,50%)]',
-    dotClass: 'bg-[hsl(0,55%,50%)]',
+    bgClass: 'bg-destructive/10',
+    borderClass: 'border-destructive/30',
+    textClass: 'text-destructive',
+    dotClass: 'bg-destructive',
   },
 };
 
@@ -102,7 +102,7 @@ export function StatusStrip({ posture, decisionsAtRisk, totalExposure, timeToImp
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Time to Impact</p>
             <p className={cn(
               'text-xl font-bold',
-              timeToImpact === 'Overdue' ? 'text-[hsl(0,55%,50%)]' : 'text-foreground'
+              timeToImpact === 'Overdue' ? 'text-destructive' : 'text-foreground'
             )}>{timeToImpact}</p>
           </div>
         )}

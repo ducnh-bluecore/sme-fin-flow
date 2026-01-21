@@ -49,8 +49,8 @@ const getStatusConfig = (status: ExecutionStatus, isOverdue?: boolean) => {
   if (isOverdue && status !== 'completed') {
     return {
       icon: Clock,
-      color: 'text-[hsl(0,55%,50%)]',
-      bgColor: 'bg-[hsl(0,55%,50%,0.1)]',
+      color: 'text-destructive',
+      bgColor: 'bg-destructive/10',
       label: 'SLA risk',
     };
   }
@@ -73,15 +73,15 @@ const getStatusConfig = (status: ExecutionStatus, isOverdue?: boolean) => {
     case 'blocked':
       return {
         icon: AlertTriangle,
-        color: 'text-[hsl(38,60%,50%)]',
-        bgColor: 'bg-[hsl(38,60%,50%,0.1)]',
+        color: 'text-warning',
+        bgColor: 'bg-warning/10',
         label: 'Blocked',
       };
     case 'completed':
       return {
         icon: CheckCircle2,
-        color: 'text-[hsl(158,55%,42%)]',
-        bgColor: 'bg-[hsl(158,55%,42%,0.1)]',
+        color: 'text-success',
+        bgColor: 'bg-success/10',
         label: 'Resolved',
       };
   }
@@ -100,7 +100,7 @@ export function ExecutionActionItem({
     <div className={cn(
       'flex items-center gap-4 p-4 border-b border-border/30',
       'hover:bg-[hsl(var(--surface-raised))] transition-colors',
-      action.hasBlocker && 'bg-[hsl(38,60%,50%,0.05)]'
+      action.hasBlocker && 'bg-warning/5'
     )}>
       {/* Status Icon */}
       <button
@@ -141,7 +141,7 @@ export function ExecutionActionItem({
           {/* Due date */}
           {action.dueDate && (
             <span className={cn(
-              action.isOverdue && 'text-[hsl(0,55%,50%)]'
+              action.isOverdue && 'text-destructive'
             )}>
               {formatDistanceToNow(new Date(action.dueDate), { addSuffix: true, locale: vi })}
             </span>
@@ -157,7 +157,7 @@ export function ExecutionActionItem({
         
         {/* Blocker note */}
         {action.hasBlocker && action.blockerNote && (
-          <p className="text-xs text-[hsl(38,60%,50%,0.8)] mt-1 line-clamp-1">
+          <p className="text-xs text-warning/80 mt-1 line-clamp-1">
             ⚠️ Cannot proceed due to unresolved dependency
           </p>
         )}
@@ -170,7 +170,7 @@ export function ExecutionActionItem({
             size="sm"
             variant="ghost"
             onClick={onEscalate}
-            className="text-[hsl(38,60%,50%)] hover:text-[hsl(38,60%,60%)] hover:bg-[hsl(38,60%,50%,0.1)]"
+            className="text-warning hover:text-warning hover:bg-warning/10"
           >
             Escalate
           </Button>

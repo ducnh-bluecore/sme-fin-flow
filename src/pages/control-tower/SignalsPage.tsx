@@ -103,14 +103,14 @@ export default function SignalsPage() {
         <div className="flex items-center gap-6 py-4 px-6 border-b border-border/30 bg-[hsl(var(--surface-raised))]">
           {counts.critical > 0 && (
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[hsl(0,55%,50%)] animate-pulse" />
-              <span className="text-sm text-[hsl(0,55%,50%)] font-medium">{counts.critical} Critical</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
+              <span className="text-sm text-destructive font-medium">{counts.critical} Critical</span>
             </div>
           )}
           {counts.warning > 0 && (
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-[hsl(38,55%,50%)]" />
-              <span className="text-sm text-[hsl(38,55%,50%)] font-medium">{counts.warning} Warning</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-warning" />
+              <span className="text-sm text-warning font-medium">{counts.warning} Warning</span>
             </div>
           )}
           {counts.info > 0 && (
@@ -139,7 +139,7 @@ export default function SignalsPage() {
         {signals.length === 0 && (
           <div className="py-16 px-6 text-center bg-card">
             <div className="w-14 h-14 rounded-xl bg-[hsl(var(--surface-raised))] flex items-center justify-center mx-auto mb-4 border border-border/50">
-              <Radio className="h-7 w-7 text-[hsl(158,45%,42%)]" />
+              <Radio className="h-7 w-7 text-success" />
             </div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
               No active signals detected

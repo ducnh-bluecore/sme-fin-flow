@@ -34,16 +34,16 @@ interface SignalRowProps {
 
 const severityConfig = {
   critical: {
-    dot: 'bg-[hsl(0,55%,50%)]',
-    text: 'text-[hsl(0,55%,50%)]',
-    bg: 'bg-[hsl(0,55%,50%)]/5',
-    border: 'border-l-[hsl(0,55%,50%)]',
+    dot: 'bg-destructive',
+    text: 'text-destructive',
+    bg: 'bg-destructive/5',
+    border: 'border-l-destructive',
   },
   warning: {
-    dot: 'bg-[hsl(38,60%,50%)]',
-    text: 'text-[hsl(38,60%,50%)]',
-    bg: 'bg-[hsl(38,60%,50%)]/5',
-    border: 'border-l-[hsl(38,60%,50%)]',
+    dot: 'bg-warning',
+    text: 'text-warning',
+    bg: 'bg-warning/5',
+    border: 'border-l-warning',
   },
   info: {
     dot: 'bg-muted-foreground',
