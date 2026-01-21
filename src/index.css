@@ -93,36 +93,41 @@
   }
 
   .dark {
-    /* EXECUTIVE PALETTE: Deep charcoal, warm gray, single muted accent */
-    --background: 220 15% 7%;
-    --foreground: 40 10% 85%;
+    /* BLUECORE EXECUTIVE DARK THEME - Financial Command Room */
+    --background: 222 20% 8%;
+    --foreground: 40 15% 90%;
     
-    --card: 220 15% 10%;
-    --card-foreground: 40 10% 85%;
+    --card: 222 18% 11%;
+    --card-foreground: 40 15% 90%;
     
-    --popover: 220 15% 10%;
-    --popover-foreground: 40 10% 85%;
+    --popover: 222 18% 11%;
+    --popover-foreground: 40 15% 90%;
     
-    /* Muted gold accent - single color for focus */
-    --primary: 40 50% 55%;
-    --primary-foreground: 220 15% 7%;
+    /* Muted amber/gold accent - restrained authority */
+    --primary: 38 60% 50%;
+    --primary-foreground: 222 20% 8%;
     
-    --secondary: 220 12% 14%;
-    --secondary-foreground: 40 10% 85%;
+    --secondary: 222 15% 15%;
+    --secondary-foreground: 40 15% 90%;
     
-    --muted: 220 12% 14%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 222 15% 18%;
+    --muted-foreground: 220 12% 55%;
     
-    --accent: 220 12% 18%;
-    --accent-foreground: 40 10% 85%;
+    --accent: 222 15% 20%;
+    --accent-foreground: 40 15% 90%;
     
-    --border: 220 12% 16%;
-    --input: 220 12% 16%;
+    --border: 222 15% 18%;
+    --input: 222 15% 18%;
     
-    /* Executive semantic colors */
-    --executive-stable: 160 40% 45%;
-    --executive-watch: 40 60% 55%;
-    --executive-intervention: 0 60% 55%;
+    /* Executive semantic states - restrained, not screaming */
+    --executive-stable: 158 45% 42%;
+    --executive-watch: 38 55% 50%;
+    --executive-critical: 0 55% 50%;
+    
+    /* Surface layers for depth */
+    --surface-raised: 222 18% 13%;
+    --surface-sunken: 222 20% 6%;
+    --surface-overlay: 222 18% 16%;
   }
 }
 
