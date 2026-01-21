@@ -18,12 +18,17 @@ interface NavItem {
   badge?: number;
 }
 
+/**
+ * BLUECORE DESIGN PHILOSOPHY:
+ * - "Execution" not "Task"  
+ * - Control Tower answers: "Is the business under control?"
+ */
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/control-tower' },
-  { id: 'alerts', label: 'Cảnh báo', icon: Bell, path: '/control-tower/alerts', badge: 3 },
-  { id: 'tasks', label: 'Việc cần làm', icon: CheckSquare, path: '/control-tower/tasks', badge: 12 },
-  { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
-  { id: 'more', label: 'Thêm', icon: Menu, path: '' },
+  { id: 'command', label: 'Command', icon: LayoutDashboard, path: '/control-tower/ceo' },
+  { id: 'signals', label: 'Signals', icon: Bell, path: '/control-tower/signals', badge: 3 },
+  { id: 'execution', label: 'Execution', icon: CheckSquare, path: '/control-tower/coo', badge: 12 },
+  { id: 'decisions', label: 'Decisions', icon: BarChart3, path: '/control-tower/decisions' },
+  { id: 'more', label: 'More', icon: Menu, path: '' },
 ];
 
 interface MobileBottomNavProps {
