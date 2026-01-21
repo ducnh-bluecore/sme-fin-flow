@@ -44,7 +44,7 @@ const TrendIcon = ({ trend }: { trend: TrendDirection }) => {
   const iconClass = 'h-4 w-4';
   switch (trend) {
     case 'up':
-      return <TrendingUp className={cn(iconClass, 'text-[hsl(158,45%,42%)]')} />;
+      return <TrendingUp className={cn(iconClass, 'text-[hsl(158,55%,45%)]')} />;
     case 'down':
       return <TrendingDown className={cn(iconClass, 'text-[hsl(0,55%,50%)]')} />;
     case 'flat':
@@ -55,8 +55,8 @@ const TrendIcon = ({ trend }: { trend: TrendDirection }) => {
 const ConfidenceBars = ({ level }: { level: ConfidenceLevel }) => {
   const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
   const colors = {
-    high: 'bg-[hsl(158,45%,42%)]',
-    medium: 'bg-[hsl(38,55%,50%)]',
+    high: 'bg-[hsl(158,55%,45%)]',
+    medium: 'bg-[hsl(38,60%,50%)]',
     low: 'bg-[hsl(0,55%,50%)]',
   };
   
@@ -116,7 +116,7 @@ export function DecisionRow({ decision, isSelected, onClick }: DecisionRowProps)
             <TrendIcon trend={decision.trend} />
             <span className={cn(
               'text-sm font-medium',
-              variance >= 0 ? 'text-[hsl(158,45%,42%)]' : 'text-[hsl(0,55%,50%)]'
+              variance >= 0 ? 'text-[hsl(158,55%,45%)]' : 'text-[hsl(0,55%,50%)]'
             )}>
               {variance >= 0 ? '+' : ''}{variance.toFixed(0)}%
             </span>

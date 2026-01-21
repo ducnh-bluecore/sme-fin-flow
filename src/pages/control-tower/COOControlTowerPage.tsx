@@ -191,12 +191,13 @@ export default function COOControlTowerPage() {
             </div>
             
             {/* Risk Summary (when no stream selected) */}
-            {!selectedStreamId && (
-              <div className="p-5 space-y-1">
+              <div className="p-5 space-y-3">
                 {/* Blocked */}
                 <div className={cn(
-                  'flex items-center justify-between p-4 rounded-lg',
-                  riskSummary.blocked > 0 ? 'bg-[hsl(0,55%,50%)/0.08]' : 'bg-card'
+                  'flex items-center justify-between p-4 rounded-lg border',
+                  riskSummary.blocked > 0 
+                    ? 'bg-[hsl(0,55%,50%)]/5 border-[hsl(0,55%,50%)]/20' 
+                    : 'bg-card border-border/30'
                 )}>
                   <div className="flex items-center gap-3">
                     <AlertTriangle className={cn(
@@ -215,36 +216,37 @@ export default function COOControlTowerPage() {
 
                 {/* Overdue */}
                 <div className={cn(
-                  'flex items-center justify-between p-4 rounded-lg',
-                  riskSummary.overdue > 0 ? 'bg-[hsl(38,55%,50%)/0.08]' : 'bg-card'
+                  'flex items-center justify-between p-4 rounded-lg border',
+                  riskSummary.overdue > 0 
+                    ? 'bg-[hsl(38,60%,50%)]/5 border-[hsl(38,60%,50%)]/20' 
+                    : 'bg-card border-border/30'
                 )}>
                   <div className="flex items-center gap-3">
                     <Clock className={cn(
                       'h-5 w-5',
-                      riskSummary.overdue > 0 ? 'text-[hsl(38,55%,50%)]' : 'text-muted-foreground'
+                      riskSummary.overdue > 0 ? 'text-[hsl(38,60%,50%)]' : 'text-muted-foreground'
                     )} />
                     <span className="text-sm text-foreground">Overdue Actions</span>
                   </div>
                   <span className={cn(
                     'text-2xl font-bold',
-                    riskSummary.overdue > 0 ? 'text-[hsl(38,55%,50%)]' : 'text-foreground'
+                    riskSummary.overdue > 0 ? 'text-[hsl(38,60%,50%)]' : 'text-foreground'
                   )}>
                     {riskSummary.overdue}
                   </span>
                 </div>
 
                 {/* On Track */}
-                <div className="flex items-center justify-between p-4 rounded-lg bg-card">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-card border border-border/30">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-[hsl(158,45%,42%)]" />
+                    <CheckCircle className="h-5 w-5 text-[hsl(158,55%,45%)]" />
                     <span className="text-sm text-foreground">Streams On Track</span>
                   </div>
-                  <span className="text-2xl font-bold text-[hsl(158,45%,42%)]">
+                  <span className="text-2xl font-bold text-[hsl(158,55%,45%)]">
                     {riskSummary.onTrack}
                   </span>
                 </div>
               </div>
-            )}
             
             {/* Execution Actions (when stream selected) */}
             {selectedStreamId && (
