@@ -134,7 +134,7 @@ export default function COOControlTowerPage() {
         <title>Execution Control Tower | Bluecore</title>
       </Helmet>
 
-      <div className="min-h-[calc(100vh-120px)] bg-[hsl(var(--surface-sunken))]">
+      <div className="min-h-[calc(100vh-120px)] bg-background">
         {/* Header */}
         <div className="py-6 px-6 border-b border-border/30 bg-background">
           <h1 className="text-xl font-bold text-foreground">
