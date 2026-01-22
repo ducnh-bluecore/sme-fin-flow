@@ -6893,6 +6893,80 @@ export type Database = {
           },
         ]
       }
+      feature_decisions: {
+        Row: {
+          created_at: string
+          data_entities: Json | null
+          dependencies: Json | null
+          feature_name: string
+          id: string
+          is_live: boolean | null
+          owner: string | null
+          persona: string | null
+          priority: string | null
+          rationale: string | null
+          required_tables: Json | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          route: string
+          status: string | null
+          system: string
+          target_version: string | null
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_entities?: Json | null
+          dependencies?: Json | null
+          feature_name: string
+          id?: string
+          is_live?: boolean | null
+          owner?: string | null
+          persona?: string | null
+          priority?: string | null
+          rationale?: string | null
+          required_tables?: Json | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          route: string
+          status?: string | null
+          system: string
+          target_version?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_entities?: Json | null
+          dependencies?: Json | null
+          feature_name?: string
+          id?: string
+          is_live?: boolean | null
+          owner?: string | null
+          persona?: string | null
+          priority?: string | null
+          rationale?: string | null
+          required_tables?: Json | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          route?: string
+          status?: string | null
+          system?: string
+          target_version?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_periods: {
         Row: {
           closed_at: string | null
@@ -9443,6 +9517,47 @@ export type Database = {
           },
           {
             foreignKeyName: "orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      page_reviews: {
+        Row: {
+          id: string
+          notes: string | null
+          reviewed_status: string | null
+          route: string
+          system: string
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          reviewed_status?: string | null
+          route: string
+          system: string
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          reviewed_status?: string | null
+          route?: string
+          system?: string
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_reviews_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
