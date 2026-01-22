@@ -6,116 +6,97 @@
 
 @layer base {
   :root {
-    /* Bluecore Brand Colors */
-    --bluecore-50: 219 100% 97%;
-    --bluecore-100: 219 100% 94%;
-    --bluecore-200: 219 100% 86%;
-    --bluecore-300: 219 100% 74%;
-    --bluecore-400: 219 100% 62%;
-    --bluecore-500: 221 83% 53%;
-    --bluecore-600: 224 76% 48%;
-    --bluecore-700: 226 71% 40%;
-    --bluecore-800: 224 64% 33%;
-    --bluecore-900: 224 55% 27%;
+    /* ═══════════════════════════════════════════════════════════════════
+       BLUECORE LIGHT PROFESSIONAL DESIGN SYSTEM
+       Finance-grade visual discipline. Decision-first. CFO-ready.
+       ═══════════════════════════════════════════════════════════════════ */
     
-    /* Semantic Colors */
-    --background: 210 20% 98%;
-    --foreground: 224 55% 10%;
+    /* ─── Bluecore Brand Palette ─── */
+    --bluecore-50: 220 60% 98%;
+    --bluecore-100: 220 50% 95%;
+    --bluecore-200: 220 45% 88%;
+    --bluecore-300: 220 45% 75%;
+    --bluecore-400: 221 50% 60%;
+    --bluecore-500: 221 65% 50%;
+    --bluecore-600: 222 70% 45%;
+    --bluecore-700: 223 72% 38%;
+    --bluecore-800: 224 68% 30%;
+    --bluecore-900: 224 60% 22%;
+    
+    /* ─── Semantic Surfaces ─── */
+    --background: 220 20% 97%;
+    --foreground: 224 50% 15%;
     
     --card: 0 0% 100%;
-    --card-foreground: 224 55% 10%;
+    --card-foreground: 224 50% 15%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 224 55% 10%;
+    --popover-foreground: 224 50% 15%;
     
-    --primary: 221 83% 53%;
+    /* ─── Primary Action (Bluecore Blue) ─── */
+    --primary: 221 65% 50%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 219 100% 97%;
-    --secondary-foreground: 224 55% 27%;
+    /* ─── Secondary (Subtle) ─── */
+    --secondary: 220 20% 94%;
+    --secondary-foreground: 224 50% 25%;
     
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    /* ─── Muted (De-emphasized) ─── */
+    --muted: 220 15% 93%;
+    --muted-foreground: 220 15% 45%;
     
-    --accent: 219 100% 94%;
-    --accent-foreground: 224 76% 48%;
+    /* ─── Accent (Highlight) ─── */
+    --accent: 220 40% 92%;
+    --accent-foreground: 222 70% 45%;
     
-    --destructive: 0 84% 60%;
+    /* ─── Severity System (Finance-grade discipline) ─── */
+    /* DESTRUCTIVE: Irreversible or high-confidence financial risk ONLY */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     
-    --success: 142 76% 36%;
+    /* SUCCESS: Resolved / Confirmed safe */
+    --success: 152 60% 36%;
     --success-foreground: 0 0% 100%;
     
+    /* WARNING: Pending / Probabilistic */
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 38 92% 15%;
     
-    --info: 199 89% 48%;
+    /* INFO: Neutral information */
+    --info: 210 80% 52%;
     --info-foreground: 0 0% 100%;
     
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    /* ─── Borders & Inputs ─── */
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 221 65% 50%;
     
-    --radius: 0.75rem;
+    --radius: 0.5rem;
     
-    /* Sidebar */
-    --sidebar-background: 224 55% 10%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 221 83% 53%;
+    /* ─── Sidebar (Per-module, kept as subtle dark) ─── */
+    --sidebar-background: 224 50% 12%;
+    --sidebar-foreground: 220 20% 90%;
+    --sidebar-primary: 221 65% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 55% 18%;
-    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-accent: 224 45% 18%;
+    --sidebar-accent-foreground: 220 20% 98%;
     --sidebar-border: 224 40% 20%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 221 65% 55%;
     
-    /* Chart Colors */
-    --chart-1: 221 83% 53%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 280 65% 60%;
+    /* ─── Chart Colors (Professional, restrained) ─── */
+    --chart-1: 221 65% 50%;
+    --chart-2: 152 60% 40%;
+    --chart-3: 38 85% 52%;
+    --chart-4: 0 65% 55%;
+    --chart-5: 270 55% 55%;
     
-    /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(224 76% 48%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 70% 45%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(25 95% 53%) 100%);
-    --gradient-danger: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 72% 51%) 100%);
-    --gradient-sidebar: linear-gradient(180deg, hsl(224 55% 12%) 0%, hsl(224 55% 8%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 99%) 100%);
-    
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    --shadow-glow: 0 0 20px hsl(221 83% 53% / 0.3);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  }
-
-  .dark {
-    --background: 224 55% 6%;
-    --foreground: 210 20% 98%;
-    
-    --card: 224 55% 10%;
-    --card-foreground: 210 20% 98%;
-    
-    --popover: 224 55% 10%;
-    --popover-foreground: 210 20% 98%;
-    
-    --primary: 219 100% 62%;
-    --primary-foreground: 224 55% 10%;
-    
-    --secondary: 224 55% 15%;
-    --secondary-foreground: 210 20% 98%;
-    
-    --muted: 224 55% 15%;
-    --muted-foreground: 215 16% 60%;
-    
-    --accent: 224 55% 20%;
-    --accent-foreground: 210 20% 98%;
-    
-    --border: 224 40% 20%;
-    --input: 224 40% 20%;
+    /* ─── Shadows (Soft, restrained) ─── */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.06);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+    --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08);
   }
 }
 
@@ -134,32 +115,59 @@
 }
 
 @layer components {
-  /* Data Card Styles */
+  /* ═══════════════════════════════════════════════════════════════════
+     DECISION CARD SYSTEM
+     Core UI object for Bluecore - Decision-first, not dashboard-first
+     ═══════════════════════════════════════════════════════════════════ */
+  
+  .decision-card {
+    @apply bg-card rounded-lg border border-border p-5 transition-all duration-200;
+    box-shadow: var(--shadow-card);
+  }
+  
+  .decision-card:hover {
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  .decision-card-critical {
+    @apply decision-card border-l-4 border-l-destructive;
+  }
+  
+  .decision-card-warning {
+    @apply decision-card border-l-4 border-l-warning;
+  }
+  
+  .decision-card-success {
+    @apply decision-card border-l-4 border-l-success;
+  }
+
+  /* ─── Data Card (Generic) ─── */
   .data-card {
-    @apply bg-card rounded-xl border border-border p-5 shadow-card transition-all duration-300;
+    @apply bg-card rounded-lg border border-border p-5 transition-all duration-200;
+    box-shadow: var(--shadow-card);
   }
   
   .data-card:hover {
-    @apply shadow-lg border-primary/20;
+    box-shadow: var(--shadow-md);
   }
 
-  /* Interactive card variant */
   .data-card-interactive {
     @apply data-card cursor-pointer;
   }
 
   .data-card-interactive:hover {
-    @apply -translate-y-1 shadow-xl;
+    @apply -translate-y-0.5;
+    box-shadow: var(--shadow-elevated);
   }
   
-  /* KPI Card */
+  /* ─── KPI Card ─── */
   .kpi-card {
     @apply data-card relative overflow-hidden;
   }
   
   .kpi-card::before {
     content: '';
-    @apply absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl;
+    @apply absolute top-0 left-0 w-1 h-full bg-primary rounded-l-lg;
   }
   
   .kpi-card.success::before {
@@ -174,9 +182,9 @@
     @apply bg-destructive;
   }
   
-  /* Status Badge */
+  /* ─── Status Badges (Severity-disciplined) ─── */
   .status-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
   }
   
   .status-badge.success {
@@ -184,7 +192,7 @@
   }
   
   .status-badge.warning {
-    @apply bg-warning/10 text-warning;
+    @apply bg-warning/10 text-warning-foreground;
   }
   
   .status-badge.danger {
@@ -195,45 +203,26 @@
     @apply bg-info/10 text-info;
   }
   
-  /* Pulse Animation for Alerts */
-  .pulse-badge {
-    @apply relative;
+  .status-badge.neutral {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  /* ─── Confidence Indicators ─── */
+  .confidence-confirmed {
+    @apply text-success font-medium;
   }
   
-  .pulse-badge::after {
-    content: '';
-    @apply absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full;
-    animation: pulse-ring 1.5s ease-out infinite;
+  .confidence-probable {
+    @apply text-warning-foreground font-medium;
   }
   
-  @keyframes pulse-ring {
-    0% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    100% {
-      transform: scale(2);
-      opacity: 0;
-    }
+  .confidence-pending {
+    @apply text-muted-foreground;
   }
   
-  /* Drag & Drop Zone */
-  .drop-zone {
-    @apply border-2 border-dashed border-border rounded-xl p-4 transition-all duration-200;
-  }
-  
-  .drop-zone.active {
-    @apply border-primary bg-primary/5;
-  }
-  
-  /* Vietnamese Number Formatting */
-  .vnd-value {
-    font-variant-numeric: tabular-nums;
-  }
-  
-  /* Sidebar Navigation Item */
+  /* ─── Sidebar Navigation Item ─── */
   .nav-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground/80 transition-all duration-200;
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sidebar-foreground/80 transition-all duration-200;
   }
   
   .nav-item:hover {
@@ -244,34 +233,67 @@
     @apply bg-sidebar-primary text-sidebar-primary-foreground font-medium;
   }
   
-  /* Data Table Styles */
+  /* ─── Data Table (Dense, Professional) ─── */
   .data-table {
     @apply w-full;
   }
   
   .data-table th {
-    @apply text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 bg-muted/50;
+    @apply text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3 px-4 bg-muted/50 border-b border-border;
   }
   
   .data-table td {
-    @apply py-4 px-4 text-sm border-b border-border;
+    @apply py-3 px-4 text-sm border-b border-border;
   }
   
   .data-table tr:hover td {
     @apply bg-muted/30;
   }
   
-  /* Chart Container */
+  .data-table-sticky th {
+    @apply sticky top-0 z-10 bg-muted;
+  }
+  
+  /* ─── Evidence Panel (Read-only) ─── */
+  .evidence-panel {
+    @apply bg-muted/30 rounded-lg border border-border p-4 text-sm;
+  }
+  
+  .evidence-panel-header {
+    @apply text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3;
+  }
+  
+  .evidence-row {
+    @apply flex justify-between py-1.5 border-b border-border/50 last:border-0;
+  }
+  
+  .evidence-label {
+    @apply text-muted-foreground;
+  }
+  
+  .evidence-value {
+    @apply font-medium text-foreground tabular-nums;
+  }
+  
+  /* ─── Chart Container ─── */
   .chart-container {
     @apply w-full h-64 md:h-80;
   }
   
-  /* Glass Effect */
-  .glass {
-    @apply bg-white/80 backdrop-blur-md border border-white/20;
+  /* ─── Section Headers (Hierarchy) ─── */
+  .section-header {
+    @apply text-lg font-semibold text-foreground mb-1;
   }
   
-  /* Scrollbar Styling */
+  .section-subheader {
+    @apply text-sm text-muted-foreground mb-4;
+  }
+  
+  .section-divider {
+    @apply border-t border-border my-6;
+  }
+
+  /* ─── Scrollbar Styling ─── */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -291,55 +313,41 @@
 }
 
 @layer utilities {
-  /* Vietnamese Currency Format Helper */
+  /* ─── Vietnamese Currency Format ─── */
   .format-vnd::after {
     content: ' ₫';
   }
   
-  /* Animation Delays */
-  .animation-delay-100 {
-    animation-delay: 100ms;
+  .vnd-value {
+    font-variant-numeric: tabular-nums;
   }
   
-  .animation-delay-200 {
-    animation-delay: 200ms;
-  }
+  /* ─── Animation Delays ─── */
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
   
-  .animation-delay-300 {
-    animation-delay: 300ms;
-  }
-  
-  .animation-delay-400 {
-    animation-delay: 400ms;
-  }
-  
-  /* Gradient Text */
-  .gradient-text {
-    @apply bg-clip-text text-transparent;
-    background-image: var(--gradient-primary);
-  }
-
-  /* Focus ring */
+  /* ─── Focus Ring (Accessibility) ─── */
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
   }
 
-  /* Hover lift effect */
+  /* ─── Hover Effects ─── */
   .hover-lift {
-    @apply transition-transform duration-200 hover:-translate-y-1;
+    @apply transition-transform duration-200 hover:-translate-y-0.5;
   }
 
-  /* Hover scale effect */
   .hover-scale {
-    @apply transition-transform duration-200 hover:scale-105;
+    @apply transition-transform duration-200 hover:scale-[1.02];
   }
 
-  /* Smooth scroll */
+  /* ─── Smooth Scroll ─── */
   .smooth-scroll {
     scroll-behavior: smooth;
   }
 
-  /* Hide scrollbar */
+  /* ─── Hide Scrollbar ─── */
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -348,7 +356,7 @@
     scrollbar-width: none;
   }
 
-  /* Truncate text with ellipsis */
+  /* ─── Text Truncation ─── */
   .truncate-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -363,51 +371,26 @@
     overflow: hidden;
   }
 
-  /* Mobile Safe Area Utilities */
-  .pt-safe {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
+  /* ─── Mobile Safe Area ─── */
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+  .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
 
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .pl-safe {
-    padding-left: env(safe-area-inset-left, 0px);
-  }
-
-  .pr-safe {
-    padding-right: env(safe-area-inset-right, 0px);
-  }
-
-  .p-safe {
-    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
-  }
-
-  /* Mobile bottom nav spacing */
-  .mb-bottom-nav {
-    margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* Mobile touch targets */
+  /* ─── Mobile Touch Targets ─── */
   .touch-target {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Prevent text selection on mobile */
+  /* ─── Prevent Selection ─── */
   .no-select {
     -webkit-user-select: none;
     user-select: none;
   }
 
-  /* Mobile card shadow */
-  .mobile-card-shadow {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  }
-
-  /* Active state for mobile buttons */
+  /* ─── Active Scale (Touch feedback) ─── */
   .active-scale:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
   }
 }
