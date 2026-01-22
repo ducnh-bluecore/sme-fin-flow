@@ -105,16 +105,20 @@ export function SKUCostBreakdownDialog({
     queryFn: async () => {
       if (!tenantId || !sku) return null;
 
-      // SSOT: First get the cost_price from products table
-      // This ensures consistent COGS across all channels for the same SKU
-      const { data: productData } = await supabase
-        .from('products')
-        .select('cost_price, selling_price')
-        .eq('tenant_id', tenantId)
-        .eq('sku', sku)
-        .maybeSingle();
-      
-      const masterUnitCost = productData?.cost_price ? Number(productData.cost_price) : null;
+      // SSOT: Resolve a single master unit cost for this SKU
+      // Priority: products.cost_price -> derived from historical external_order_items total_cogs/qty
+      // This keeps COGS consistent across channels for the same SKU.
+      const { data: masterUnitCostData, error: masterCostError } = await supabase.rpc(
+        'get_sku_master_unit_cost',
+        {
+          p_tenant_id: tenantId,
+          p_sku: sku,
+        }
+      );
+
+      if (masterCostError) throw masterCostError;
+
+      const masterUnitCost = masterUnitCostData != null ? Number(masterUnitCostData) : null;
 
       // First find items by SKU or product name
       const { data: items, error: itemsError } = await supabase
@@ -144,9 +148,9 @@ export function SKUCostBreakdownDialog({
           .eq('tenant_id', tenantId)
           .eq('sku', sku);
         
-        if (cacheError || !cacheData || cacheData.length === 0) {
-          return { breakdowns: [], summary: null, channelSummaries: [], fromCache: true };
-        }
+         if (cacheError || !cacheData || cacheData.length === 0) {
+           return { breakdowns: [], summary: null, channelSummaries: [], fromCache: true, masterUnitCost };
+         }
         
         // Build channel summaries from cache
         const channelSummaries: ChannelSummary[] = cacheData.map(row => ({
@@ -190,7 +194,8 @@ export function SKUCostBreakdownDialog({
             }
           },
           channelSummaries,
-          fromCache: true
+           fromCache: true,
+           masterUnitCost
         };
       }
 
@@ -365,7 +370,7 @@ export function SKUCostBreakdownDialog({
         }
       };
 
-      return { breakdowns, summary, channelSummaries, fromCache: false };
+       return { breakdowns, summary, channelSummaries, fromCache: false, masterUnitCost };
     },
     enabled: open && !!tenantId && !!sku
   });
@@ -444,6 +449,9 @@ export function SKUCostBreakdownDialog({
                     <span className="text-xs text-muted-foreground">Giá vốn (COGS)</span>
                   </div>
                   <p className="text-lg font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
+                  {data.masterUnitCost != null && data.masterUnitCost > 0 && (
+                    <p className="text-xs text-muted-foreground">Unit cost: {formatVNDCompact(data.masterUnitCost)}</p>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-lg bg-muted/50 border">
@@ -540,6 +548,9 @@ export function SKUCostBreakdownDialog({
                         <div className="p-2 rounded bg-background border">
                           <p className="text-xs text-muted-foreground">COGS</p>
                           <p className="text-sm font-medium text-amber-600">{formatVNDCompact(ch.cogs)}</p>
+                          {data.masterUnitCost != null && data.masterUnitCost > 0 && (
+                            <p className="text-[10px] text-muted-foreground">Unit: {formatVNDCompact(data.masterUnitCost)}</p>
+                          )}
                         </div>
                         <div className="p-2 rounded bg-background border">
                           <p className="text-xs text-muted-foreground">Tổng phí sàn</p>

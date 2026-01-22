@@ -16952,6 +16952,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_sku_master_unit_cost: {
+        Args: { p_sku: string; p_tenant_id: string }
+        Returns: number
+      }
       get_sku_profitability_by_date_range: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: {
