@@ -86,7 +86,11 @@ const ComparePopulationsPage = lazy(() => import("./pages/cdp/explore/ComparePop
 const SavedViewsPage = lazy(() => import("./pages/cdp/explore/SavedViewsPage"));
 const InsightDetailPage = lazy(() => import("./pages/cdp/InsightDetailPage"));
 const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
-const CustomerEquityPage = lazy(() => import("./pages/cdp/CustomerEquityPage"));
+// Equity sub-pages
+const EquityOverviewPage = lazy(() => import("./pages/cdp/equity/EquityOverviewPage"));
+const LTVModelPage = lazy(() => import("./pages/cdp/equity/LTVModelPage"));
+const EquityDriversPage = lazy(() => import("./pages/cdp/equity/EquityDriversPage"));
+const EquityEvidencePage = lazy(() => import("./pages/cdp/equity/EquityEvidencePage"));
 const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
 const DecisionCardsPage = lazy(() => import("./pages/cdp/DecisionCardsPage"));
 const DataConfidencePage = lazy(() => import("./pages/cdp/DataConfidencePage"));
@@ -251,7 +255,22 @@ const AppRoutes = () => {
       } />
       <Route path="/cdp/equity" element={
         <ProtectedRoute>
-          <CustomerEquityPage />
+          <EquityOverviewPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/equity/model" element={
+        <ProtectedRoute>
+          <LTVModelPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/equity/drivers" element={
+        <ProtectedRoute>
+          <EquityDriversPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/equity/evidence" element={
+        <ProtectedRoute>
+          <EquityEvidencePage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/populations" element={
