@@ -589,6 +589,22 @@ export default function SystemReviewIndex() {
       </header>
 
       <main className="container mx-auto px-6 py-6">
+        {/* Column Headers */}
+        <div className="flex items-center gap-4 px-4 py-3 bg-slate-900/50 rounded-t-lg border border-slate-800 mb-1">
+          <div className="w-4" /> {/* Status icon placeholder */}
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Feature</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-[70px] text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Status</span>
+            <span className="w-[110px] text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Decision</span>
+            <span className="w-[80px] text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Version</span>
+            <span className="w-[80px] text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Priority</span>
+            <span className="w-[100px] text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Persona</span>
+            <div className="w-8" /> {/* Expand button placeholder */}
+          </div>
+        </div>
+
         {loading ? (
           <div className="text-center py-12 text-slate-500">Loading...</div>
         ) : (
