@@ -5063,6 +5063,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "channel_fees_external_order_id_fkey"
+            columns: ["external_order_id"]
+            isOneToOne: false
+            referencedRelation: "mv_cdp_order_items_enriched"
+            referencedColumns: ["order_id"]
+          },
+          {
             foreignKeyName: "channel_fees_integration_id_fkey"
             columns: ["integration_id"]
             isOneToOne: false
@@ -7989,6 +7996,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "external_orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_order_items_external_order_id_fkey"
+            columns: ["external_order_id"]
+            isOneToOne: false
+            referencedRelation: "mv_cdp_order_items_enriched"
+            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "external_order_items_tenant_id_fkey"
@@ -16872,6 +16886,88 @@ export type Database = {
         }
         Relationships: []
       }
+      mv_cdp_basket_structure_60d_vs_prev60d: {
+        Row: {
+          aov_base: number | null
+          aov_change_ratio: number | null
+          aov_cur: number | null
+          avg_cat_base: number | null
+          avg_cat_cur: number | null
+          avg_cat_delta: number | null
+          cross_rate_base: number | null
+          cross_rate_cur: number | null
+          cross_rate_delta: number | null
+          orders_base: number | null
+          orders_cur: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
+      mv_cdp_basket_structure_daily: {
+        Row: {
+          avg_categories_per_order: number | null
+          avg_order_amount: number | null
+          cross_category_rate: number | null
+          order_date: string | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_category_share_60d_vs_prev60d: {
+        Row: {
+          category: string | null
+          customers_base: number | null
+          customers_cur: number | null
+          margin_base: number | null
+          margin_cur: number | null
+          sales_base: number | null
+          sales_change_ratio: number | null
+          sales_cur: number | null
+          share_base: number | null
+          share_cur: number | null
+          share_delta: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
+      mv_cdp_category_spend_daily: {
+        Row: {
+          category: string | null
+          customers: number | null
+          gross_margin: number | null
+          gross_sales: number | null
+          order_date: string | null
+          orders: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_category_substitution_matrix_60d: {
+        Row: {
+          base_category: string | null
+          cur_category: string | null
+          customers_shifted: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       mv_cdp_cohort_metrics_rolling: {
         Row: {
           as_of_date: string | null
@@ -16916,6 +17012,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mv_cdp_customer_primary_category_baseline_current: {
+        Row: {
+          base_category: string | null
+          base_last_date: string | null
+          cur_category: string | null
+          cur_last_date: string | null
+          customer_id: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
       }
       mv_cdp_customer_rolling_windows: {
         Row: {
@@ -16965,6 +17072,29 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_order_items_enriched: {
+        Row: {
+          category: string | null
+          channel: string | null
+          customer_id: string | null
+          item_amount: number | null
+          item_margin: number | null
+          order_date: string | null
+          order_id: string | null
+          quantity: number | null
+          sku: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -17704,6 +17834,23 @@ export type Database = {
           },
         ]
       }
+      v_cdp_demand_insights_triggered: {
+        Row: {
+          affected_customers: number | null
+          category: string | null
+          insight_code: string | null
+          product_group: string | null
+          revenue_contribution_pct: number | null
+          sales_base: number | null
+          sales_cur: number | null
+          severity: string | null
+          shift_direction: string | null
+          shift_percent: number | null
+          tenant_id: string | null
+          title_vi: string | null
+        }
+        Relationships: []
+      }
       v_customer_ar_summary: {
         Row: {
           avg_payment_days: number | null
@@ -18178,6 +18325,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      cdp_refresh_demand_insights: { Args: never; Returns: undefined }
       cdp_refresh_mvs: { Args: never; Returns: undefined }
       cdp_run_daily: {
         Args: { p_as_of_date: string; p_tenant_id: string }
