@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { useDashboardKPICache } from './useDashboardCache';
 import { useCashRunway } from './useCashRunway';
 import { useARAgingData } from './useDashboardData';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
 import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 
 export interface RiskAlert {
@@ -16,7 +16,8 @@ export interface RiskAlert {
 }
 
 export function useRiskAlerts() {
-  const { data: kpiData, isLoading: kpiLoading } = useDashboardKPICache();
+  // Use SSOT: central_metrics_snapshots via useFinanceTruthSnapshot
+  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
   const { data: runwayData, isLoading: runwayLoading } = useCashRunway();
   const { data: arAgingData, isLoading: arLoading } = useARAgingData();
   const { data: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
@@ -47,8 +48,8 @@ export function useRiskAlerts() {
       });
     }
 
-    // 2. DSO Risk - use centralized metrics (single source of truth)
-    const dso = centralMetrics?.dso ?? kpiData?.dso ?? 0;
+    // 2. DSO Risk - use SSOT from snapshot
+    const dso = centralMetrics?.dso ?? snapshot?.dso ?? 0;
     if (dso > FDP_THRESHOLDS.DSO_CRITICAL_DAYS) {
       alerts.push({
         id: 'dso-critical',
@@ -69,9 +70,9 @@ export function useRiskAlerts() {
       });
     }
 
-    // 3. Overdue AR Risk - using FDP_THRESHOLDS
-    const overdueAR = kpiData?.overdueAR || 0;
-    const totalAR = kpiData?.totalAR || 0;
+    // 3. Overdue AR Risk - using SSOT from central_metrics_snapshots
+    const overdueAR = snapshot?.overdueAR || 0;
+    const totalAR = snapshot?.totalAR || 0;
     const overdueRate = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
     
     if (overdueRate > FDP_THRESHOLDS.AR_OVERDUE_CRITICAL_PERCENT) {
@@ -112,8 +113,8 @@ export function useRiskAlerts() {
       }
     }
 
-    // 5. Gross Margin Risk - using FDP_THRESHOLDS
-    const grossMargin = kpiData?.grossMargin || 0;
+    // 5. Gross Margin Risk - using SSOT from snapshot
+    const grossMargin = snapshot?.grossMarginPercent || centralMetrics?.grossMargin || 0;
     if (grossMargin > 0 && grossMargin < FDP_THRESHOLDS.GROSS_MARGIN_CRITICAL_PERCENT) {
       alerts.push({
         id: 'margin-critical',
@@ -134,8 +135,8 @@ export function useRiskAlerts() {
       });
     }
 
-    // 6. CCC (Cash Conversion Cycle) Risk - use centralized metrics (single source of truth)
-    const ccc = centralMetrics?.ccc ?? kpiData?.ccc ?? 0;
+    // 6. CCC (Cash Conversion Cycle) Risk - use SSOT
+    const ccc = centralMetrics?.ccc ?? snapshot?.ccc ?? 0;
     if (ccc > FDP_THRESHOLDS.CCC_CRITICAL_DAYS) {
       alerts.push({
         id: 'ccc-critical',
@@ -188,10 +189,10 @@ export function useRiskAlerts() {
     alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
     return alerts;
-  }, [kpiData, runwayData, arAgingData, channelData]);
+  }, [snapshot, runwayData, arAgingData, channelData, centralMetrics]);
 
   return {
     data: riskAlerts,
-    isLoading: kpiLoading || runwayLoading || arLoading || channelLoading || metricsLoading,
+    isLoading: snapshotLoading || runwayLoading || arLoading || channelLoading || metricsLoading,
   };
 }
