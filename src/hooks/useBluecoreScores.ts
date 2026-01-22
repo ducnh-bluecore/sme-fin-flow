@@ -30,6 +30,29 @@ export interface BluecoreScore {
   valid_until: string | null;
 }
 
+// Customer Value & Risk Score input data
+export interface CVRSInputData {
+  // LTV & CAC metrics
+  avgCustomerLTV: number;
+  avgCAC: number;
+  ltvCacRatio: number;
+  
+  // AR Risk metrics  
+  totalAR: number;
+  overdueAR: number;
+  overdueARPercent: number;
+  avgDSO: number;
+  
+  // Customer behavior metrics
+  repeatPurchaseRate: number;
+  avgOrdersPerCustomer: number;
+  
+  // Concentration risk
+  top10CustomerRevenue: number;
+  totalRevenue: number;
+  concentrationPercent: number;
+}
+
 // Score configuration (labels, descriptions - not formulas)
 export const SCORE_CONFIG: Record<ScoreType, {
   name: string;
@@ -58,7 +81,7 @@ export const SCORE_CONFIG: Record<ScoreType, {
   CUSTOMER_VALUE_RISK: {
     name: 'Customer Value & Risk Score™',
     shortName: 'CVRS',
-    question: 'Khách này đáng giữ hay nên tránh?',
+    question: 'Khách hàng đang tạo giá trị hay tạo rủi ro?',
     icon: '👥',
   },
 };
@@ -96,6 +119,128 @@ export const GRADE_CONFIG: Record<ScoreGrade, {
   },
 };
 
+// Hook to fetch CVRS input data from database
+function useCVRSInputData() {
+  const { data: tenantId } = useActiveTenantId();
+
+  return useQuery({
+    queryKey: ['cvrs-input-data', tenantId],
+    queryFn: async (): Promise<CVRSInputData> => {
+      if (!tenantId) {
+        return getDefaultCVRSData();
+      }
+
+      try {
+        // Fetch customer metrics from central_metric_facts
+        const { data: customerFacts } = await supabase
+          .from('central_metric_facts')
+          .select('grain_id, grain_name, revenue, profit, order_count')
+          .eq('tenant_id', tenantId)
+          .eq('grain_type', 'customer')
+          .order('revenue', { ascending: false });
+
+        // Fetch AR aging data
+        const { data: arData } = await supabase
+          .from('invoices')
+          .select('total_amount, status, due_date')
+          .eq('tenant_id', tenantId)
+          .in('status', ['pending', 'overdue', 'partial']);
+
+        // Fetch marketing spend for CAC
+        const { data: marketingExpenses } = await supabase
+          .from('expenses')
+          .select('amount')
+          .eq('tenant_id', tenantId)
+          .eq('category', 'marketing');
+
+        // Calculate metrics
+        const customers = customerFacts || [];
+        const invoices = arData || [];
+        const marketing = marketingExpenses || [];
+
+        const totalCustomers = customers.length || 1;
+        const totalRevenue = customers.reduce((sum, c) => sum + (c.revenue || 0), 0);
+        const totalOrders = customers.reduce((sum, c) => sum + (c.order_count || 0), 0);
+        const totalMarketingSpend = marketing.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+        // LTV = Average revenue per customer
+        const avgCustomerLTV = totalRevenue / totalCustomers;
+        
+        // CAC = Total marketing spend / Total customers
+        const avgCAC = totalMarketingSpend / totalCustomers || avgCustomerLTV * 0.3; // fallback 30% of LTV
+        
+        // LTV/CAC ratio
+        const ltvCacRatio = avgCAC > 0 ? avgCustomerLTV / avgCAC : 3;
+
+        // AR metrics
+        const totalAR = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+        const now = new Date();
+        const overdueInvoices = invoices.filter(inv => 
+          inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < now)
+        );
+        const overdueAR = overdueInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+        const overdueARPercent = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
+
+        // DSO from working_capital_metrics or estimate
+        const { data: wcData } = await supabase
+          .from('working_capital_metrics')
+          .select('dso_days')
+          .eq('tenant_id', tenantId)
+          .order('metric_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const avgDSO = wcData?.dso_days || 30;
+
+        // Repeat purchase rate
+        const repeatCustomers = customers.filter(c => (c.order_count || 0) > 1).length;
+        const repeatPurchaseRate = (repeatCustomers / totalCustomers) * 100;
+        const avgOrdersPerCustomer = totalOrders / totalCustomers;
+
+        // Concentration risk (top 10 customers)
+        const top10Revenue = customers.slice(0, 10).reduce((sum, c) => sum + (c.revenue || 0), 0);
+        const concentrationPercent = totalRevenue > 0 ? (top10Revenue / totalRevenue) * 100 : 0;
+
+        return {
+          avgCustomerLTV,
+          avgCAC,
+          ltvCacRatio,
+          totalAR,
+          overdueAR,
+          overdueARPercent,
+          avgDSO,
+          repeatPurchaseRate,
+          avgOrdersPerCustomer,
+          top10CustomerRevenue: top10Revenue,
+          totalRevenue,
+          concentrationPercent,
+        };
+      } catch (error) {
+        console.error('Error fetching CVRS data:', error);
+        return getDefaultCVRSData();
+      }
+    },
+    enabled: !!tenantId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+function getDefaultCVRSData(): CVRSInputData {
+  return {
+    avgCustomerLTV: 1000000,
+    avgCAC: 300000,
+    ltvCacRatio: 3.3,
+    totalAR: 100000000,
+    overdueAR: 15000000,
+    overdueARPercent: 15,
+    avgDSO: 35,
+    repeatPurchaseRate: 25,
+    avgOrdersPerCustomer: 1.5,
+    top10CustomerRevenue: 30000000,
+    totalRevenue: 100000000,
+    concentrationPercent: 30,
+  };
+}
+
 // Hook to fetch Bluecore Scores from database
 export function useBluecoreScoresFromDB() {
   const { data: tenantId } = useActiveTenantId();
@@ -132,9 +277,10 @@ export function useBluecoreScoresFromDB() {
 export function useBluecoreScoresCalculated() {
   const cashRunway = useCashRunway();
   const mdpData = useMDPData();
+  const cvrsData = useCVRSInputData();
 
   return useQuery({
-    queryKey: ['bluecore-scores-calculated', cashRunway.data, mdpData.cmoModeSummary],
+    queryKey: ['bluecore-scores-calculated', cashRunway.data, mdpData.cmoModeSummary, cvrsData.data],
     queryFn: async () => {
       const scores: Omit<BluecoreScore, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>[] = [];
 
@@ -153,8 +299,8 @@ export function useBluecoreScoresCalculated() {
       );
       scores.push(marketingAccountability);
 
-      // 4. Customer Value & Risk Score (placeholder for now)
-      const customerValueRisk = calculateCustomerValueRiskScore();
+      // 4. Customer Value & Risk Score (with real logic)
+      const customerValueRisk = calculateCustomerValueRiskScore(cvrsData.data || getDefaultCVRSData());
       scores.push(customerValueRisk);
 
       return scores;
@@ -313,18 +459,147 @@ function calculateMarketingAccountabilityScore(
   };
 }
 
-function calculateCustomerValueRiskScore(): Omit<BluecoreScore, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
-  // Placeholder - CDP integration needed
+/**
+ * CVRS - Customer Value & Risk Score
+ * 
+ * FORMULA (Weighted Average):
+ * CVRS = (LTV_CAC_Score × 30%) + (AR_Risk_Score × 25%) + (Retention_Score × 25%) + (Concentration_Score × 20%)
+ * 
+ * Components:
+ * 1. LTV/CAC Ratio Score (30%):
+ *    - ≥ 4x: 100 points (Excellent - High customer value)
+ *    - 3-4x: 80 points (Good - Healthy acquisition)
+ *    - 2-3x: 60 points (Warning - Watch CAC)
+ *    - 1-2x: 40 points (Poor - CAC too high)
+ *    - < 1x: 20 points (Critical - Losing money per customer)
+ * 
+ * 2. AR Risk Score (25%):
+ *    - Overdue AR < 5%: 100 points (Excellent)
+ *    - 5-15%: 70 points (Good)
+ *    - 15-30%: 45 points (Warning)
+ *    - > 30%: 20 points (Critical - High bad debt risk)
+ * 
+ * 3. Retention Score (25%):
+ *    - Repeat Rate ≥ 40%: 100 points (Excellent)
+ *    - 25-40%: 75 points (Good)
+ *    - 10-25%: 50 points (Warning)
+ *    - < 10%: 25 points (Critical - No retention)
+ * 
+ * 4. Concentration Score (20%):
+ *    - Top 10 < 20% revenue: 100 points (Diversified)
+ *    - 20-40%: 70 points (Moderate concentration)
+ *    - 40-60%: 45 points (High concentration)
+ *    - > 60%: 20 points (Critical dependency)
+ */
+function calculateCustomerValueRiskScore(
+  cvrsData: CVRSInputData
+): Omit<BluecoreScore, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
+  const {
+    ltvCacRatio,
+    overdueARPercent,
+    repeatPurchaseRate,
+    concentrationPercent,
+  } = cvrsData;
+
+  // 1. LTV/CAC Ratio Score (30% weight)
+  let ltvCacScore: number;
+  if (ltvCacRatio >= 4) ltvCacScore = 100;
+  else if (ltvCacRatio >= 3) ltvCacScore = 80;
+  else if (ltvCacRatio >= 2) ltvCacScore = 60;
+  else if (ltvCacRatio >= 1) ltvCacScore = 40;
+  else ltvCacScore = 20;
+
+  // 2. AR Risk Score (25% weight)
+  let arRiskScore: number;
+  if (overdueARPercent < 5) arRiskScore = 100;
+  else if (overdueARPercent < 15) arRiskScore = 70;
+  else if (overdueARPercent < 30) arRiskScore = 45;
+  else arRiskScore = 20;
+
+  // 3. Retention Score (25% weight)
+  let retentionScore: number;
+  if (repeatPurchaseRate >= 40) retentionScore = 100;
+  else if (repeatPurchaseRate >= 25) retentionScore = 75;
+  else if (repeatPurchaseRate >= 10) retentionScore = 50;
+  else retentionScore = 25;
+
+  // 4. Concentration Score (20% weight)
+  let concentrationScore: number;
+  if (concentrationPercent < 20) concentrationScore = 100;
+  else if (concentrationPercent < 40) concentrationScore = 70;
+  else if (concentrationPercent < 60) concentrationScore = 45;
+  else concentrationScore = 20;
+
+  // Weighted final score
+  const finalScore = Math.round(
+    ltvCacScore * 0.30 +
+    arRiskScore * 0.25 +
+    retentionScore * 0.25 +
+    concentrationScore * 0.20
+  );
+
+  // Determine grade
+  let grade: ScoreGrade;
+  if (finalScore >= 80) grade = 'EXCELLENT';
+  else if (finalScore >= 60) grade = 'GOOD';
+  else if (finalScore >= 40) grade = 'WARNING';
+  else grade = 'CRITICAL';
+
+  // Identify primary driver (lowest scoring component)
+  const components = {
+    ltvCac: { score: ltvCacScore, weight: 0.30, value: ltvCacRatio.toFixed(1) + 'x' },
+    arRisk: { score: arRiskScore, weight: 0.25, value: overdueARPercent.toFixed(1) + '%' },
+    retention: { score: retentionScore, weight: 0.25, value: repeatPurchaseRate.toFixed(1) + '%' },
+    concentration: { score: concentrationScore, weight: 0.20, value: concentrationPercent.toFixed(1) + '%' },
+  };
+
+  // Find weakest component
+  const weakest = Object.entries(components).reduce((min, [key, val]) => 
+    val.score < min.score ? { key, ...val } : min, 
+    { key: 'ltvCac', score: 100, weight: 0, value: '' }
+  );
+
+  // Generate driver message and recommendation
+  let primaryDriver: string;
+  let recommendation: string;
+
+  switch (weakest.key) {
+    case 'ltvCac':
+      primaryDriver = `LTV/CAC = ${cvrsData.ltvCacRatio.toFixed(1)}x`;
+      if (ltvCacScore >= 80) recommendation = 'Unit economics xuất sắc - Scale tự tin';
+      else if (ltvCacScore >= 60) recommendation = 'Có thể scale với monitoring';
+      else recommendation = 'Giảm CAC hoặc tăng LTV trước khi scale';
+      break;
+    case 'arRisk':
+      primaryDriver = `AR quá hạn = ${overdueARPercent.toFixed(0)}%`;
+      if (arRiskScore >= 70) recommendation = 'Rủi ro thu hồi thấp';
+      else recommendation = 'Thắt chặt credit policy, đẩy mạnh thu hồi';
+      break;
+    case 'retention':
+      primaryDriver = `Repeat Rate = ${repeatPurchaseRate.toFixed(0)}%`;
+      if (retentionScore >= 75) recommendation = 'Khách hàng trung thành cao';
+      else recommendation = 'Cải thiện retention marketing & CX';
+      break;
+    case 'concentration':
+      primaryDriver = `Top 10 KH = ${concentrationPercent.toFixed(0)}% doanh thu`;
+      if (concentrationScore >= 70) recommendation = 'Rủi ro tập trung thấp';
+      else recommendation = 'Đa dạng hóa khách hàng để giảm rủi ro';
+      break;
+    default:
+      primaryDriver = 'Customer health assessment';
+      recommendation = 'Tiếp tục theo dõi';
+  }
+
   return {
     score_type: 'CUSTOMER_VALUE_RISK',
-    score_value: 65,
-    score_grade: 'GOOD',
-    components: {},
+    score_value: finalScore,
+    score_grade: grade,
+    components,
     previous_score: null,
     trend: null,
     trend_percent: null,
-    primary_driver: 'Customer health baseline',
-    recommendation: 'Integrate CDP for detailed analysis',
+    primary_driver: primaryDriver,
+    recommendation,
     calculated_at: new Date().toISOString(),
     valid_until: null,
   };
