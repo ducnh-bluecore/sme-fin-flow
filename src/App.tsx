@@ -97,6 +97,7 @@ const PopulationGovernancePage = lazy(() => import("./pages/cdp/PopulationGovern
 const DecisionCardsPage = lazy(() => import("./pages/cdp/DecisionCardsPage"));
 const DecisionDetailPage = lazy(() => import("./pages/cdp/DecisionDetailPage"));
 const DataConfidencePage = lazy(() => import("./pages/cdp/DataConfidencePage"));
+const CustomerAuditPage = lazy(() => import("./pages/cdp/CustomerAuditPage"));
 // Legacy CDP pages (keep for backwards compatibility)
 const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
 const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
@@ -304,6 +305,11 @@ const AppRoutes = () => {
       <Route path="/cdp/confidence" element={
         <ProtectedRoute>
           <DataConfidencePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/audit/:customerId" element={
+        <ProtectedRoute>
+          <CustomerAuditPage />
         </ProtectedRoute>
       } />
       {/* Legacy CDP routes - redirect to new structure */}
