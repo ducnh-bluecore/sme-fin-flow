@@ -51,27 +51,28 @@ const sortBySeverity = (alerts: AlertInstance[]) => {
   });
 };
 
+// Light Professional theme severity config
 const typeConfig = {
   critical: { 
     icon: XCircle, 
-    color: 'text-red-400', 
-    bg: 'bg-red-500/10', 
-    border: 'border-red-500/30',
-    label: 'Nghiêm trọng'
+    color: 'text-destructive', 
+    bg: 'bg-destructive/10', 
+    border: 'border-destructive/30',
+    label: 'Critical'
   },
   warning: { 
     icon: AlertTriangle, 
-    color: 'text-amber-400', 
-    bg: 'bg-amber-500/10', 
-    border: 'border-amber-500/30',
-    label: 'Cảnh báo'
+    color: 'text-amber-600', 
+    bg: 'bg-amber-50', 
+    border: 'border-amber-200',
+    label: 'Warning'
   },
   info: { 
     icon: Bell, 
-    color: 'text-blue-400', 
-    bg: 'bg-blue-500/10', 
-    border: 'border-blue-500/30',
-    label: 'Thông tin'
+    color: 'text-primary', 
+    bg: 'bg-primary/5', 
+    border: 'border-primary/20',
+    label: 'Info'
   },
 };
 
@@ -200,17 +201,17 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`p-4 rounded-lg border ${typeConf.bg} ${typeConf.border} transition-all hover:border-opacity-60`}
+      className={`p-4 rounded-lg border bg-card ${typeConf.border} transition-all hover:shadow-sm`}
     >
       <div className="flex items-start gap-4">
         {/* Impact Amount Badge - Left side */}
         {impactAmount > 0 && (
-          <div className="flex flex-col items-center justify-center min-w-[70px] p-2 rounded-lg bg-slate-800/80 border border-slate-700/50">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wide">₫</span>
-            <span className={`text-lg font-bold ${severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>
+          <div className="flex flex-col items-center justify-center min-w-[70px] p-2 rounded-lg bg-muted border">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">₫</span>
+            <span className={`text-lg font-bold ${severity === 'critical' ? 'text-destructive' : 'text-amber-600'}`}>
               {formatImpact(impactAmount)}
             </span>
-            <span className="text-[10px] text-slate-500">VND</span>
+            <span className="text-[10px] text-muted-foreground">VND</span>
           </div>
         )}
         
@@ -221,38 +222,38 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <Badge className={`text-xs ${typeConf.bg} ${typeConf.color} border ${typeConf.border}`}>
+                <Badge variant="outline" className={`text-xs ${typeConf.color}`}>
                   {typeConf.label}
                 </Badge>
                 {deadlineText && (
-                  <Badge className="text-xs bg-slate-700/50 text-slate-300 border-slate-600/30 flex items-center gap-1">
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {deadlineText}
                   </Badge>
                 )}
-                <Badge className="text-xs bg-slate-700/50 text-slate-400 border-slate-600/30 flex items-center gap-1">
+                <Badge variant="secondary" className="text-xs flex items-center gap-1">
                   <CatIcon className="h-3 w-3" />
                   {categoryLabels[alert.category as keyof typeof categoryLabels] || alert.category}
                 </Badge>
                 {isSummaryAlert && (
-                  <Badge className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30 flex items-center gap-1">
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
                     <List className="h-3 w-3" />
-                    Tổng hợp
+                    Summary
                   </Badge>
                 )}
                 {(alert as any).metadata?.cross_domain && (
-                  <Badge className="text-xs bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+                  <Badge variant="secondary" className="text-xs">
                     Cross-domain
                   </Badge>
                 )}
               </div>
-              <h3 className="text-sm font-medium text-slate-100">{alert.title}</h3>
+              <h3 className="text-sm font-medium text-foreground">{alert.title}</h3>
               {alert.message && (
-                <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap line-clamp-3">{alert.message}</p>
+                <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-3">{alert.message}</p>
               )}
               {/* Impact description */}
               {impactDescription && (
-                <p className={`text-xs mt-1 font-medium ${severity === 'critical' ? 'text-red-400' : 'text-amber-400'}`}>
+                <p className={`text-xs mt-1 font-medium ${severity === 'critical' ? 'text-destructive' : 'text-amber-600'}`}>
                   💰 {impactDescription}
                 </p>
               )}
@@ -260,18 +261,18 @@ function AlertCard({ alert, onAcknowledge, onResolve, onViewDetails, onAssign, o
             </div>
             <div className="flex flex-col items-end gap-1">
               {alert.status === 'active' && (
-                <Badge className="bg-red-500/10 text-red-400 border border-red-500/30 text-xs">
-                  Đang xảy ra
+                <Badge variant="destructive" className="text-xs">
+                  Active
                 </Badge>
               )}
               {alert.status === 'acknowledged' && (
-                <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs">
-                  Đã nhận
+                <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                  Acknowledged
                 </Badge>
               )}
               {alert.status === 'resolved' && (
-                <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs">
-                  Đã xử lý
+                <Badge variant="outline" className="text-xs border-emerald-500 text-emerald-600">
+                  Resolved
                 </Badge>
               )}
             </div>

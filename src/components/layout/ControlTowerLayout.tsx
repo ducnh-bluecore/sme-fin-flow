@@ -1,24 +1,17 @@
 import { useState, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, 
   Bell, 
   CheckSquare, 
-  BarChart3, 
   Users, 
   Settings, 
   ChevronLeft,
   ChevronRight,
-  Menu,
-  X,
   Home,
   AlertTriangle,
-  TrendingUp,
-  Store,
-  Bot,
   Target,
-  BookOpen,
   FileText,
   MonitorCheck
 } from 'lucide-react';
@@ -55,15 +48,15 @@ const navItemsConfig: NavItemConfig[] = [
   { id: 'coo', label: 'COO View', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'tasks' },
   { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
   { id: 'board', label: 'Board View', icon: MonitorCheck, path: '/control-tower/board' },
-  { id: 'decisions', label: 'Quyết định', icon: FileText, path: '/control-tower/decisions' },
-  { id: 'alerts', label: 'Tất cả cảnh báo', icon: Bell, path: '/control-tower/alerts' },
-  { id: 'tasks', label: 'Công việc', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
-  { id: 'kpi-rules', label: 'Cấu hình Rules', icon: Target, path: '/control-tower/kpi-rules' },
-  { id: 'team', label: 'Team phụ trách', icon: Users, path: '/control-tower/team' },
+  { id: 'decisions', label: 'Decisions', icon: FileText, path: '/control-tower/decisions' },
+  { id: 'alerts', label: 'All Alerts', icon: Bell, path: '/control-tower/alerts' },
+  { id: 'tasks', label: 'Tasks', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
+  { id: 'kpi-rules', label: 'Rule Configuration', icon: Target, path: '/control-tower/kpi-rules' },
+  { id: 'team', label: 'Team', icon: Users, path: '/control-tower/team' },
 ];
 
 const bottomNavItemsConfig: NavItemConfig[] = [
-  { id: 'settings', label: 'Cài đặt', icon: Settings, path: '/control-tower/settings' },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/control-tower/settings' },
 ];
 
 export function ControlTowerLayout() {
@@ -113,7 +106,7 @@ export function ControlTowerLayout() {
 
   const NavLink = ({ item }: { item: NavItemWithBadge }) => (
     <motion.button
-      whileHover={{ x: 4 }}
+      whileHover={{ x: 2 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => {
         navigate(item.path);
@@ -123,11 +116,11 @@ export function ControlTowerLayout() {
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
         'text-sm font-medium',
         isActive(item.path)
-          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+          ? 'bg-primary/10 text-primary border border-primary/20'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
-      <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive(item.path) ? 'text-amber-400' : '')} />
+      <item.icon className={cn('h-4 w-4 flex-shrink-0', isActive(item.path) ? 'text-primary' : '')} />
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">{item.label}</span>
@@ -136,8 +129,8 @@ export function ControlTowerLayout() {
               className={cn(
                 'h-5 min-w-5 flex items-center justify-center text-xs font-semibold',
                 isActive(item.path)
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-slate-700 text-slate-300'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted-foreground/20 text-muted-foreground'
               )}
             >
               {item.badge}
@@ -152,18 +145,18 @@ export function ControlTowerLayout() {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-          <LayoutDashboard className="h-5 w-5 text-white" />
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <LayoutDashboard className="h-5 w-5 text-primary" />
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-slate-100 truncate">Control Tower</h1>
-            <p className="text-xs text-slate-500 truncate">{activeTenant?.name || 'Operation System'}</p>
+            <h1 className="text-base font-semibold text-foreground truncate">Control Tower</h1>
+            <p className="text-xs text-muted-foreground truncate">{activeTenant?.name || 'Operations'}</p>
           </div>
         )}
       </div>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator />
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
@@ -174,7 +167,7 @@ export function ControlTowerLayout() {
         </nav>
       </ScrollArea>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator />
 
       {/* Bottom Navigation */}
       <div className="p-3 space-y-1">
@@ -182,27 +175,27 @@ export function ControlTowerLayout() {
           <NavLink key={item.id} item={item} />
         ))}
         <motion.button
-          whileHover={{ x: 4 }}
+          whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/portal')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
         >
-          <Home className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Về Portal</span>}
+          <Home className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">Back to Portal</span>}
         </motion.button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0F1117] flex">
+    <div className="min-h-screen bg-background flex">
       {/* Mobile Header - Only on mobile */}
       <div className="lg:hidden">
         <MobileHeader
           showSearch
           showNotifications
-          notificationCount={5}
-          onNotificationClick={() => navigate('/control-tower/notifications')}
+          notificationCount={activeAlertsCount}
+          onNotificationClick={() => navigate('/control-tower/alerts')}
           onSearchClick={() => {}}
           onProfileClick={() => setMobileDrawerOpen(true)}
         />
@@ -219,7 +212,7 @@ export function ControlTowerLayout() {
         animate={{ width: collapsed ? 72 : 260 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
-          'hidden lg:flex flex-col bg-[#13151C] border-r border-slate-800/50',
+          'hidden lg:flex flex-col bg-card border-r',
           'fixed left-0 top-0 bottom-0 z-30'
         )}
       >
@@ -227,10 +220,10 @@ export function ControlTowerLayout() {
         
         {/* Collapse Toggle */}
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+          className="absolute -right-3 top-20 h-6 w-6 rounded-full bg-background border shadow-sm"
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
         </Button>
@@ -245,16 +238,18 @@ export function ControlTowerLayout() {
         )}
       >
         {/* Header - Desktop Only */}
-        <header className="hidden lg:flex sticky top-0 z-20 h-16 bg-[#0F1117]/80 backdrop-blur-xl border-b border-slate-800/50 items-center justify-between px-4 lg:px-6">
+        <header className="hidden lg:flex sticky top-0 z-20 h-14 bg-background/80 backdrop-blur-xl border-b items-center justify-between px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <TenantSwitcher />
           </div>
 
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-slate-200">
+            <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/control-tower/alerts')}>
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-amber-500 rounded-full" />
+              {activeAlertsCount > 0 && (
+                <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
+              )}
             </Button>
           </div>
         </header>
