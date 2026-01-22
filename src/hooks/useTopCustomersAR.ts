@@ -1,7 +1,7 @@
 /**
- * useTopCustomersAR - Fetch top customers by revenue from central_metric_facts
+ * useTopCustomersAR - Fetch top customers by AR from precomputed view
  * 
- * Uses precomputed data from the canonical facts table.
+ * ⚠️ DB-FIRST: This hook ONLY fetches from v_customer_ar_summary.
  * NO client-side calculations.
  */
 
@@ -13,10 +13,14 @@ export interface CustomerARData {
   id: string;
   name: string;
   email?: string;
+  phone?: string;
   totalAR: number;
   overdueAR: number;
   avgPaymentDays: number;
-  orderCount: number;
+  openInvoiceCount: number;
+  overdueInvoiceCount: number;
+  totalInvoiceCount: number;
+  lastInvoiceDate?: string;
 }
 
 export function useTopCustomersAR(limit: number = 10) {
@@ -27,13 +31,13 @@ export function useTopCustomersAR(limit: number = 10) {
     queryFn: async (): Promise<CustomerARData[]> => {
       if (!tenantId) return [];
 
-      // Fetch from central_metric_facts with grain_type = 'customer'
-      const { data: facts, error } = await supabase
-        .from('central_metric_facts')
-        .select('grain_id, grain_name, revenue, order_count')
+      // Fetch from precomputed view - NO CALCULATIONS
+      const { data, error } = await supabase
+        .from('v_customer_ar_summary')
+        .select('*')
         .eq('tenant_id', tenantId)
-        .eq('grain_type', 'customer')
-        .order('revenue', { ascending: false })
+        .gt('total_ar', 0) // Only customers with outstanding AR
+        .order('total_ar', { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -41,19 +45,21 @@ export function useTopCustomersAR(limit: number = 10) {
         return [];
       }
 
-      if (!facts?.length) return [];
+      if (!data?.length) return [];
 
-      // Map to CustomerARData shape
-      // Note: AR data is derived from revenue as a proxy (real AR would need ar_aging with customer_id)
-      return facts.map((fact, index) => ({
-        id: fact.grain_id,
-        name: fact.grain_name || `Khách hàng ${index + 1}`,
-        email: `customer${index + 1}@example.com`,
-        // Use revenue as proxy for AR (since ar_aging doesn't have customer_id)
-        totalAR: Math.round(Number(fact.revenue) * 0.15), // Estimate 15% of revenue as AR
-        overdueAR: Math.round(Number(fact.revenue) * 0.03), // Estimate 3% overdue
-        avgPaymentDays: Math.round(20 + Math.random() * 30), // Random 20-50 days
-        orderCount: fact.order_count || 0,
+      // Map DB columns to interface - NO CALCULATIONS
+      return data.map((row) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        phone: row.phone,
+        totalAR: Number(row.total_ar) || 0,
+        overdueAR: Number(row.overdue_ar) || 0,
+        avgPaymentDays: Number(row.avg_payment_days) || 30,
+        openInvoiceCount: Number(row.open_invoice_count) || 0,
+        overdueInvoiceCount: Number(row.overdue_invoice_count) || 0,
+        totalInvoiceCount: Number(row.total_invoice_count) || 0,
+        lastInvoiceDate: row.last_invoice_date,
       }));
     },
     enabled: !!tenantId && !tenantLoading,

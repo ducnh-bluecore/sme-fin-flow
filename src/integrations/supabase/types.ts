@@ -4082,6 +4082,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "chat_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "chat_messages_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -8830,6 +8837,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoices_payment_term_id_fkey"
             columns: ["payment_term_id"]
             isOneToOne: false
@@ -9950,6 +9964,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
             referencedColumns: ["id"]
           },
           {
@@ -11827,6 +11848,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "revenues_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "revenues_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -11902,6 +11930,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
             referencedColumns: ["id"]
           },
           {
@@ -13389,6 +13424,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "support_tickets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "support_tickets_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -14322,6 +14364,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "voucher_usage_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "voucher_usage_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -14912,6 +14961,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
             referencedColumns: ["id"]
           },
           {
@@ -16266,6 +16322,32 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_customer_ar_summary: {
+        Row: {
+          avg_payment_days: number | null
+          email: string | null
+          id: string | null
+          last_invoice_date: string | null
+          name: string | null
+          open_invoice_count: number | null
+          overdue_ar: number | null
+          overdue_invoice_count: number | null
+          payment_terms: number | null
+          phone: string | null
+          tenant_id: string | null
+          total_ar: number | null
+          total_invoice_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
