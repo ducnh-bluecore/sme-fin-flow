@@ -3395,6 +3395,65 @@ export type Database = {
           },
         ]
       }
+      central_metric_facts_summary: {
+        Row: {
+          avg_margin_percent: number | null
+          created_at: string
+          grain_type: string
+          id: string
+          period_end: string | null
+          period_start: string | null
+          tenant_id: string
+          total_cost: number | null
+          total_items: number | null
+          total_orders: number | null
+          total_profit: number | null
+          total_quantity: number | null
+          total_revenue: number | null
+          updated_at: string
+        }
+        Insert: {
+          avg_margin_percent?: number | null
+          created_at?: string
+          grain_type: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          tenant_id: string
+          total_cost?: number | null
+          total_items?: number | null
+          total_orders?: number | null
+          total_profit?: number | null
+          total_quantity?: number | null
+          total_revenue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          avg_margin_percent?: number | null
+          created_at?: string
+          grain_type?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          tenant_id?: string
+          total_cost?: number | null
+          total_items?: number | null
+          total_orders?: number | null
+          total_profit?: number | null
+          total_quantity?: number | null
+          total_revenue?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "central_metric_facts_summary_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       central_metrics_snapshots: {
         Row: {
           ar_aging_30d: number
@@ -7182,6 +7241,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "feature_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_expenses_daily: {
+        Row: {
+          cogs_amount: number | null
+          created_at: string
+          day: string
+          depreciation_amount: number | null
+          expense_count: number | null
+          id: string
+          interest_amount: number | null
+          logistics_amount: number | null
+          marketing_amount: number | null
+          other_amount: number | null
+          rent_amount: number | null
+          salary_amount: number | null
+          tax_amount: number | null
+          tenant_id: string
+          total_amount: number
+          updated_at: string
+          utilities_amount: number | null
+        }
+        Insert: {
+          cogs_amount?: number | null
+          created_at?: string
+          day: string
+          depreciation_amount?: number | null
+          expense_count?: number | null
+          id?: string
+          interest_amount?: number | null
+          logistics_amount?: number | null
+          marketing_amount?: number | null
+          other_amount?: number | null
+          rent_amount?: number | null
+          salary_amount?: number | null
+          tax_amount?: number | null
+          tenant_id: string
+          total_amount?: number
+          updated_at?: string
+          utilities_amount?: number | null
+        }
+        Update: {
+          cogs_amount?: number | null
+          created_at?: string
+          day?: string
+          depreciation_amount?: number | null
+          expense_count?: number | null
+          id?: string
+          interest_amount?: number | null
+          logistics_amount?: number | null
+          marketing_amount?: number | null
+          other_amount?: number | null
+          rent_amount?: number | null
+          salary_amount?: number | null
+          tax_amount?: number | null
+          tenant_id?: string
+          total_amount?: number
+          updated_at?: string
+          utilities_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_expenses_daily_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -14544,6 +14671,80 @@ export type Database = {
           },
         ]
       }
+      working_capital_daily: {
+        Row: {
+          ap_turnover: number | null
+          ar_turnover: number | null
+          cash_balance: number | null
+          ccc: number | null
+          created_at: string
+          day: string
+          dio: number | null
+          dpo: number | null
+          dso: number | null
+          id: string
+          inventory: number | null
+          inventory_turnover: number | null
+          net_working_capital: number | null
+          overdue_ap: number | null
+          overdue_ar: number | null
+          tenant_id: string
+          total_ap: number | null
+          total_ar: number | null
+          updated_at: string
+        }
+        Insert: {
+          ap_turnover?: number | null
+          ar_turnover?: number | null
+          cash_balance?: number | null
+          ccc?: number | null
+          created_at?: string
+          day: string
+          dio?: number | null
+          dpo?: number | null
+          dso?: number | null
+          id?: string
+          inventory?: number | null
+          inventory_turnover?: number | null
+          net_working_capital?: number | null
+          overdue_ap?: number | null
+          overdue_ar?: number | null
+          tenant_id: string
+          total_ap?: number | null
+          total_ar?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ap_turnover?: number | null
+          ar_turnover?: number | null
+          cash_balance?: number | null
+          ccc?: number | null
+          created_at?: string
+          day?: string
+          dio?: number | null
+          dpo?: number | null
+          dso?: number | null
+          id?: string
+          inventory?: number | null
+          inventory_turnover?: number | null
+          net_working_capital?: number | null
+          overdue_ap?: number | null
+          overdue_ar?: number | null
+          tenant_id?: string
+          total_ap?: number | null
+          total_ar?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "working_capital_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       working_capital_metrics: {
         Row: {
           accounts_payable: number | null
@@ -16579,6 +16780,36 @@ export type Database = {
         }
         Returns: number
       }
+      get_expenses_daily: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          cogs_amount: number
+          day: string
+          depreciation_amount: number
+          expense_count: number
+          interest_amount: number
+          logistics_amount: number
+          marketing_amount: number
+          other_amount: number
+          rent_amount: number
+          salary_amount: number
+          tax_amount: number
+          total_amount: number
+          utilities_amount: number
+        }[]
+      }
+      get_facts_summary: {
+        Args: { p_grain_type: string; p_tenant_id: string }
+        Returns: {
+          avg_margin_percent: number
+          total_cost: number
+          total_items: number
+          total_orders: number
+          total_profit: number
+          total_quantity: number
+          total_revenue: number
+        }[]
+      }
       get_latest_central_metrics: {
         Args: { p_max_age_minutes?: number; p_tenant_id: string }
         Returns: {
@@ -16632,6 +16863,23 @@ export type Database = {
         }
       }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_working_capital_daily: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          cash_balance: number
+          ccc: number
+          day: string
+          dio: number
+          dpo: number
+          dso: number
+          inventory: number
+          net_working_capital: number
+          overdue_ap: number
+          overdue_ar: number
+          total_ap: number
+          total_ar: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
