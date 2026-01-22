@@ -10,7 +10,7 @@ import {
   GitBranch,
   CheckCircle2,
   Clock,
-  HelpCircle
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,34 +23,44 @@ const SYSTEMS: {
   icon: React.ElementType; 
   color: string;
   description: string;
+  routeCount: number;
+  liveCount: number;
 }[] = [
   { 
     id: 'FDP', 
     name: 'Financial Data Platform', 
     icon: BarChart3, 
     color: 'emerald',
-    description: 'Financial truth engine for CEO/CFO decisions'
+    description: 'Financial truth engine for CEO/CFO decisions',
+    routeCount: SYSTEM_ROUTES['FDP'].length,
+    liveCount: SYSTEM_ROUTES['FDP'].filter(r => r.is_live).length,
   },
   { 
     id: 'Control Tower', 
     name: 'Control Tower', 
     icon: AlertTriangle, 
     color: 'amber',
-    description: 'Alert & decision engine for real-time action'
+    description: 'Alert & decision engine for real-time action',
+    routeCount: SYSTEM_ROUTES['Control Tower'].length,
+    liveCount: SYSTEM_ROUTES['Control Tower'].filter(r => r.is_live).length,
   },
   { 
     id: 'MDP', 
     name: 'Marketing Data Platform', 
     icon: Target, 
     color: 'blue',
-    description: 'Profit attribution for marketing decisions'
+    description: 'Profit attribution for marketing decisions',
+    routeCount: SYSTEM_ROUTES['MDP'].length,
+    liveCount: SYSTEM_ROUTES['MDP'].filter(r => r.is_live).length,
   },
   { 
     id: 'CDP', 
     name: 'Customer Data Platform', 
     icon: Users, 
     color: 'purple',
-    description: 'Customer 360 and journey intelligence'
+    description: 'Customer 360 and journey intelligence (Planned)',
+    routeCount: SYSTEM_ROUTES['CDP'].length,
+    liveCount: SYSTEM_ROUTES['CDP'].filter(r => r.is_live).length,
   },
 ];
 
@@ -119,8 +129,42 @@ export default function ReviewHubHome() {
       </header>
 
       <main className="container mx-auto px-6 py-8">
+        {/* Overall Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-800">
+            <div className="text-3xl font-bold text-slate-100">
+              {SYSTEMS.reduce((acc, s) => acc + s.routeCount, 0)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Total Routes</div>
+          </div>
+          <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-700/20">
+            <div className="text-3xl font-bold text-emerald-400">
+              {SYSTEMS.reduce((acc, s) => acc + s.liveCount, 0)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Live</div>
+          </div>
+          <div className="p-4 rounded-lg bg-amber-950/30 border border-amber-700/20">
+            <div className="text-3xl font-bold text-amber-400">
+              {SYSTEMS.reduce((acc, s) => acc + s.routeCount - s.liveCount, 0)}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Planned</div>
+          </div>
+          <div className="p-4 rounded-lg bg-blue-950/30 border border-blue-700/20">
+            <div className="text-3xl font-bold text-blue-400">
+              {SYSTEMS.filter(s => s.liveCount > 0).length}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Active Systems</div>
+          </div>
+          <div className="p-4 rounded-lg bg-purple-950/30 border border-purple-700/20">
+            <div className="text-3xl font-bold text-purple-400">
+              {SYSTEMS.filter(s => s.liveCount === 0).length}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Planned Systems</div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
-        <div className="flex gap-3 mb-8">
+        <div className="flex flex-wrap gap-3 mb-8">
           <Button 
             variant="outline" 
             onClick={() => navigate('/review-hub/routes')}
@@ -144,6 +188,17 @@ export default function ReviewHubHome() {
           >
             <GitBranch className="h-4 w-4 mr-2" />
             Data Contracts
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              localStorage.removeItem('review_hub_feature_decisions');
+              window.location.reload();
+            }}
+            className="border-red-700/30 text-red-400 hover:bg-red-950/30"
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Reset All Decisions
           </Button>
         </div>
 
@@ -188,12 +243,18 @@ export default function ReviewHubHome() {
                     </p>
                     
                     {/* Stats */}
-                    <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-4 gap-3 mb-4">
                       <div className="text-center">
                         <div className="text-2xl font-semibold text-slate-200">
-                          {stats.totalRoutes}
+                          {system.routeCount}
                         </div>
-                        <div className="text-xs text-slate-500">Routes</div>
+                        <div className="text-xs text-slate-500">Total</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-semibold text-emerald-400">
+                          {system.liveCount}
+                        </div>
+                        <div className="text-xs text-slate-500">Live</div>
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-semibold text-slate-200">
@@ -202,7 +263,7 @@ export default function ReviewHubHome() {
                         <div className="text-xs text-slate-500">Reviewed</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-semibold text-slate-200">
+                        <div className="text-2xl font-semibold text-amber-400">
                           {stats.pending}
                         </div>
                         <div className="text-xs text-slate-500">Pending</div>
