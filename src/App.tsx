@@ -77,10 +77,14 @@ const WorkingCapitalHubPage = lazy(() => import("./pages/WorkingCapitalHubPage")
 const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPage"));
 
 // CDP pages
-const CDPPage = lazy(() => import("./pages/cdp/CDPPage"));
+const CDPPage = lazy(() => import("./pages/cdp/CDPOverviewPage"));
 const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
 const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
 const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
+const InsightsPage = lazy(() => import("./pages/cdp/InsightsPage"));
+const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
+const DecisionCardsPage = lazy(() => import("./pages/cdp/DecisionCardsPage"));
+const DataConfidencePage = lazy(() => import("./pages/cdp/DataConfidencePage"));
 
 
 // Strategy & Decision pages
@@ -215,6 +219,26 @@ const AppRoutes = () => {
       <Route path="/cdp/insight-registry" element={
         <ProtectedRoute>
           <InsightRegistryPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/insights" element={
+        <ProtectedRoute>
+          <InsightsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/populations" element={
+        <ProtectedRoute>
+          <PopulationsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/decision-cards" element={
+        <ProtectedRoute>
+          <DecisionCardsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/data-confidence" element={
+        <ProtectedRoute>
+          <DataConfidencePage />
         </ProtectedRoute>
       } />
 
