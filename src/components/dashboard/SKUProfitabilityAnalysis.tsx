@@ -229,12 +229,9 @@ export default function SKUProfitabilityAnalysis() {
   const [selectedSKU, setSelectedSKU] = useState<{ sku: string; productName: string | null } | null>(null);
   const [showAllProblematic, setShowAllProblematic] = useState(false);
 
-  // Count problematic SKUs that are NOT in current date range
-  const problematicNotInRange = useMemo(() => {
-    if (!allProblematicSKUs || !data?.skuMetrics) return [];
-    const currentSKUs = new Set(data.skuMetrics.map(m => m.sku));
-    return allProblematicSKUs.filter(p => !currentSKUs.has(p.sku));
-  }, [allProblematicSKUs, data]);
+  // NOTE: Removed problematicNotInRange warning as both data sources 
+  // (product_metrics and fdp_sku_summary) do not actually filter by date range,
+  // making the comparison meaningless
 
   // Convert problematic SKUs to AggregatedSKU format
   const problematicAsAggregated = useMemo((): AggregatedSKU[] => {
@@ -473,35 +470,7 @@ export default function SKUProfitabilityAnalysis() {
         </Card>
       )}
 
-      {/* Alert when problematic SKUs exist outside current date range */}
-      {problematicNotInRange.length > 0 && !showAllProblematic && (
-        <Card className="bg-red-500/10 border-red-500/30">
-          <CardContent className="pt-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  ⚠️ Có {problematicNotInRange.length} SKU lỗ/marginal KHÔNG hiển thị trong date range hiện tại
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Những SKU này đang được hiển thị trong "Quyết định hôm nay" (Dashboard) nhưng không nằm trong khoảng thời gian bạn đang chọn.
-                  Bật "Xem tất cả SKU lỗ" bên dưới để thống nhất.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {problematicNotInRange.slice(0, 5).map(p => (
-                    <Badge key={p.sku} variant="destructive" className="text-xs">
-                      {p.product_name || p.sku}: {p.margin_percent.toFixed(1)}%
-                    </Badge>
-                  ))}
-                  {problematicNotInRange.length > 5 && (
-                    <Badge variant="outline" className="text-xs">+{problematicNotInRange.length - 5} khác</Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Removed invalid warning - both hooks use all-time data, not date-range filtered */}
 
 
       {/* Summary Cards */}
