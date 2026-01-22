@@ -18,9 +18,9 @@ import { useCDPData } from '@/hooks/useCDPData';
 // Stability indicator
 function StabilityBadge({ stability }: { stability: 'stable' | 'drifting' | 'volatile' }) {
   const styles = {
-    stable: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20', icon: Minus },
-    drifting: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', icon: TrendingUp },
-    volatile: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20', icon: TrendingDown }
+    stable: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20', icon: Minus, label: 'Ổn định' },
+    drifting: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', icon: TrendingUp, label: 'Đang dịch chuyển' },
+    volatile: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20', icon: TrendingDown, label: 'Biến động' }
   };
   
   const style = styles[stability];
@@ -29,7 +29,7 @@ function StabilityBadge({ stability }: { stability: 'stable' | 'drifting' | 'vol
   return (
     <Badge variant="outline" className={`${style.bg} ${style.text} ${style.border}`}>
       <Icon className="w-3 h-3 mr-1" />
-      {stability.charAt(0).toUpperCase() + stability.slice(1)}
+      {style.label}
     </Badge>
   );
 }
@@ -52,6 +52,12 @@ function PopulationCard({
   stability: 'stable' | 'drifting' | 'volatile';
   metrics: string[];
 }) {
+  const typeLabels = {
+    segment: 'PHÂN KHÚC',
+    cohort: 'COHORT',
+    tier: 'TIER'
+  };
+  
   const typeStyles = {
     segment: { color: 'text-info', bg: 'bg-info/10' },
     cohort: { color: 'text-primary', bg: 'bg-primary/10' },
@@ -66,7 +72,7 @@ function PopulationCard({
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className={`${typeStyle.bg} ${typeStyle.color} border-0 text-xs uppercase`}>
-              {type}
+              {typeLabels[type]}
             </Badge>
             <CardTitle className="text-base">{name}</CardTitle>
           </div>
@@ -79,17 +85,17 @@ function PopulationCard({
       <CardContent>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <p className="text-xs text-muted-foreground mb-0.5">Size</p>
-            <p className="font-semibold">{size.toLocaleString()} customers</p>
+            <p className="text-xs text-muted-foreground mb-0.5">Quy mô</p>
+            <p className="font-semibold">{size.toLocaleString('vi-VN')} khách hàng</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-0.5">Revenue Share</p>
+            <p className="text-xs text-muted-foreground mb-0.5">Tỷ trọng doanh thu</p>
             <p className="font-semibold">{revenueShare.toFixed(1)}%</p>
           </div>
         </div>
         
         <div>
-          <p className="text-xs text-muted-foreground mb-2">Key Metrics (read-only)</p>
+          <p className="text-xs text-muted-foreground mb-2">Chỉ số chính (chỉ đọc)</p>
           <div className="flex flex-wrap gap-1.5">
             {metrics.map((metric) => (
               <Badge key={metric} variant="secondary" className="text-xs font-normal">
@@ -114,7 +120,7 @@ export default function PopulationsPage() {
     size: seg.customerCount,
     revenueShare: seg.totalRevenue / (summaryStats.totalRevenue || 1) * 100,
     stability: getStability(seg.trend),
-    metrics: ['Net Revenue', 'AOV', 'Frequency']
+    metrics: ['Doanh thu thuần', 'AOV', 'Tần suất']
   }));
 
   // Value tiers (derived from percentile logic)
@@ -122,75 +128,75 @@ export default function PopulationsPage() {
     {
       name: 'TOP10',
       type: 'tier' as const,
-      definition: 'Top 10% of customers by 365-day net revenue',
+      definition: 'Top 10% khách hàng theo doanh thu thuần 365 ngày',
       size: Math.round(summaryStats.totalCustomers * 0.1),
       revenueShare: summaryStats.top20Percent * 0.6,
       stability: 'stable' as const,
-      metrics: ['Net Revenue 365d', 'Margin', 'Frequency']
+      metrics: ['Doanh thu 365d', 'Biên lợi nhuận', 'Tần suất']
     },
     {
       name: 'TOP20',
       type: 'tier' as const,
-      definition: 'Top 11-20% of customers by 365-day net revenue',
+      definition: 'Top 11-20% khách hàng theo doanh thu thuần 365 ngày',
       size: Math.round(summaryStats.totalCustomers * 0.1),
       revenueShare: summaryStats.top20Percent * 0.4,
       stability: 'stable' as const,
-      metrics: ['Net Revenue 365d', 'Margin', 'Frequency']
+      metrics: ['Doanh thu 365d', 'Biên lợi nhuận', 'Tần suất']
     },
     {
       name: 'TOP30',
       type: 'tier' as const,
-      definition: 'Top 21-30% of customers by 365-day net revenue',
+      definition: 'Top 21-30% khách hàng theo doanh thu thuần 365 ngày',
       size: Math.round(summaryStats.totalCustomers * 0.1),
       revenueShare: Math.max(0, 100 - summaryStats.top20Percent) * 0.3,
       stability: 'drifting' as const,
-      metrics: ['Net Revenue 365d', 'AOV']
+      metrics: ['Doanh thu 365d', 'AOV']
     },
     {
-      name: 'REST',
+      name: 'CÒN LẠI',
       type: 'tier' as const,
-      definition: 'Bottom 70% of customers by 365-day net revenue',
+      definition: 'Bottom 70% khách hàng theo doanh thu thuần 365 ngày',
       size: Math.round(summaryStats.totalCustomers * 0.7),
       revenueShare: Math.max(0, 100 - summaryStats.top20Percent) * 0.7,
       stability: 'volatile' as const,
-      metrics: ['Net Revenue 365d']
+      metrics: ['Doanh thu 365d']
     }
   ];
 
   // Example cohorts (time-based)
   const cohorts = [
     {
-      name: 'Q4-2024 Acquired',
+      name: 'Mua Q4-2024',
       type: 'cohort' as const,
-      definition: 'Customers with first purchase in Oct-Dec 2024',
+      definition: 'Khách hàng có lần mua đầu tiên trong T10-T12/2024',
       size: Math.round(summaryStats.totalCustomers * 0.15),
       revenueShare: 8.5,
       stability: 'drifting' as const,
-      metrics: ['Time-to-2nd Purchase', 'AOV', '90d Retention']
+      metrics: ['Thời gian mua lần 2', 'AOV', 'Retention 90d']
     },
     {
-      name: 'Q3-2024 Acquired',
+      name: 'Mua Q3-2024',
       type: 'cohort' as const,
-      definition: 'Customers with first purchase in Jul-Sep 2024',
+      definition: 'Khách hàng có lần mua đầu tiên trong T7-T9/2024',
       size: Math.round(summaryStats.totalCustomers * 0.18),
       revenueShare: 12.3,
       stability: 'stable' as const,
-      metrics: ['Time-to-2nd Purchase', 'AOV', '90d Retention']
+      metrics: ['Thời gian mua lần 2', 'AOV', 'Retention 90d']
     }
   ];
 
   return (
     <CDPLayout>
       <Helmet>
-        <title>Populations | CDP - Bluecore</title>
-        <meta name="description" content="Customer population definitions - Segments, Cohorts, and Value Tiers" />
+        <title>Tập khách hàng | CDP - Bluecore</title>
+        <meta name="description" content="Định nghĩa tập khách hàng - Phân khúc, Cohort và Value Tier" />
       </Helmet>
 
       <div className="space-y-8 max-w-5xl">
         {/* Page Header */}
         <div>
-          <h1 className="text-xl font-semibold mb-1">Populations</h1>
-          <p className="text-sm text-muted-foreground">Segments, Cohorts, Value Tiers</p>
+          <h1 className="text-xl font-semibold mb-1">Tập khách hàng</h1>
+          <p className="text-sm text-muted-foreground">Phân khúc, Cohort, Value Tier</p>
         </div>
 
         {/* Explanatory Header */}
@@ -200,12 +206,12 @@ export default function PopulationsPage() {
               <Info className="w-5 h-5 text-muted-foreground mt-0.5" />
               <div>
                 <p className="text-sm font-medium mb-1">
-                  This screen explains HOW customers are grouped, not WHO they are
+                  Màn hình này giải thích CÁCH khách hàng được phân nhóm, không phải AI là ai
                 </p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Populations are the unit of analysis in CDP. All insights and decision cards 
-                  reference populations, not individual customers. Definitions are versioned 
-                  and read-only to maintain analytical integrity.
+                  Tập khách hàng là đơn vị phân tích trong CDP. Tất cả tín hiệu và quyết định 
+                  đều tham chiếu đến tập khách hàng, không phải khách hàng riêng lẻ. Định nghĩa 
+                  được version hóa và chỉ đọc để đảm bảo tính nhất quán trong phân tích.
                 </p>
               </div>
             </div>
@@ -217,15 +223,15 @@ export default function PopulationsPage() {
           <TabsList>
             <TabsTrigger value="tiers" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              Value Tiers
+              Value Tier
             </TabsTrigger>
             <TabsTrigger value="segments" className="flex items-center gap-2">
               <Layers className="w-4 h-4" />
-              Segments
+              Phân khúc
             </TabsTrigger>
             <TabsTrigger value="cohorts" className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              Cohorts
+              Cohort
             </TabsTrigger>
           </TabsList>
 
@@ -233,12 +239,12 @@ export default function PopulationsPage() {
           <TabsContent value="tiers" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">Value Tiers</h3>
+                <h3 className="font-semibold">Value Tier</h3>
                 <p className="text-sm text-muted-foreground">
-                  Customers grouped by 365-day net revenue percentile
+                  Khách hàng được phân nhóm theo phân vị doanh thu thuần 365 ngày
                 </p>
               </div>
-              <Badge variant="outline">{valueTiers.length} tiers</Badge>
+              <Badge variant="outline">{valueTiers.length} tier</Badge>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -252,12 +258,12 @@ export default function PopulationsPage() {
           <TabsContent value="segments" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">Behavioral Segments</h3>
+                <h3 className="font-semibold">Phân khúc hành vi</h3>
                 <p className="text-sm text-muted-foreground">
-                  Logic-based customer groupings with versioned definitions
+                  Nhóm khách hàng dựa trên logic hành vi, có định nghĩa được version hóa
                 </p>
               </div>
-              <Badge variant="outline">{segments.length} segments</Badge>
+              <Badge variant="outline">{segments.length} phân khúc</Badge>
             </div>
 
             {isLoading ? (
@@ -270,9 +276,9 @@ export default function PopulationsPage() {
               <Card className="py-12 text-center">
                 <CardContent>
                   <Users className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium">No segments defined</p>
+                  <p className="font-medium">Chưa có phân khúc nào được định nghĩa</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Segments are configured in the CDP registry
+                    Phân khúc được cấu hình trong CDP registry
                   </p>
                 </CardContent>
               </Card>
@@ -289,12 +295,12 @@ export default function PopulationsPage() {
           <TabsContent value="cohorts" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">Acquisition Cohorts</h3>
+                <h3 className="font-semibold">Cohort theo thời gian mua</h3>
                 <p className="text-sm text-muted-foreground">
-                  Time-based groupings for lifecycle economics analysis
+                  Nhóm theo thời điểm để phân tích lifecycle economics
                 </p>
               </div>
-              <Badge variant="outline">{cohorts.length} cohorts</Badge>
+              <Badge variant="outline">{cohorts.length} cohort</Badge>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -312,13 +318,13 @@ export default function PopulationsPage() {
 // Helper functions
 function getSegmentDefinition(name: string): string {
   const definitions: Record<string, string> = {
-    'Elite': 'Customers in top 10% by lifetime revenue with 3+ purchases',
-    'High Value': 'Customers in 75-90th percentile by revenue',
-    'Medium Value': 'Customers in 50-75th percentile by revenue',
-    'Low Value': 'Customers in 25-50th percentile by revenue',
-    'At Risk': 'Customers with declining purchase frequency or AOV'
+    'Elite': 'Khách hàng trong top 10% theo lifetime revenue với 3+ lần mua',
+    'High Value': 'Khách hàng trong phân vị 75-90% theo doanh thu',
+    'Medium Value': 'Khách hàng trong phân vị 50-75% theo doanh thu',
+    'Low Value': 'Khách hàng trong phân vị 25-50% theo doanh thu',
+    'At Risk': 'Khách hàng có tần suất mua hoặc AOV đang giảm'
   };
-  return definitions[name] || `Customers classified as ${name} based on behavioral patterns`;
+  return definitions[name] || `Khách hàng được phân loại là ${name} dựa trên hành vi`;
 }
 
 function getStability(trend: 'up' | 'down' | 'stable'): 'stable' | 'drifting' | 'volatile' {
