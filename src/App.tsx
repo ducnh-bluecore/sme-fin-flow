@@ -115,6 +115,8 @@ import RiskAlertsPage from "./pages/mdp/RiskAlertsPage";
 import MDPDecisionSupportPage from "./pages/mdp/DecisionSupportPage";
 // MDP V2 - CEO Decision View
 import MDPV2CEOPage from "./pages/mdp/MDPV2CEOPage";
+// MDP Sales Deck - CEO Presentation
+import MDPSalesDeckPage from "./pages/mdp/MDPSalesDeckPage";
 
 // Control Tower pages - CEO = Strategic | COO = Execution
 import CTTasksPage from "./pages/control-tower/TasksPage";
@@ -185,6 +187,11 @@ const AppRoutes = () => {
       <Route path="/sales-kit/fdp" element={
         <ProtectedRoute>
           <FDPSalesKit />
+        </ProtectedRoute>
+      } />
+      <Route path="/sales-kit/mdp" element={
+        <ProtectedRoute>
+          <MDPSalesDeckPage />
         </ProtectedRoute>
       } />
 
