@@ -4,7 +4,7 @@
  * ============================================
  * 
  * This hook is DEPRECATED and exists only for backwards compatibility.
- * It now fetches from precomputed tables ONLY - NO CALCULATIONS.
+ * It now fetches from precomputed tables ONLY - NO BUSINESS CALCULATIONS.
  * 
  * @deprecated Use useFinanceTruthSnapshot + useFinanceMonthlySummary
  */
@@ -78,8 +78,8 @@ export interface RevenueBreakdown {
 /**
  * @deprecated Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead
  * 
- * This hook now ONLY fetches precomputed data from DB.
- * NO CALCULATIONS are performed here - all metrics come from precomputed tables.
+ * This hook now ONLY maps precomputed data from DB.
+ * NO BUSINESS CALCULATIONS - only direct field mapping.
  */
 export function usePLData() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
@@ -99,61 +99,59 @@ export function usePLData() {
       comparisonData: ComparisonData;
       revenueBreakdown: RevenueBreakdown;
     }> => {
-      // Derive values from snapshot (no business calculations - just mapping)
+      // Derive values using algebra only (COGS = Revenue - Gross Profit)
       const netRevenue = snapshot?.netRevenue || 0;
       const grossProfit = snapshot?.grossProfit || 0;
       const cogs = netRevenue - grossProfit;
-      const opex = grossProfit - (snapshot?.ebitda || 0);
-      const depreciation = (snapshot?.ebitda || 0) * 0.05;
       const ebitda = snapshot?.ebitda || 0;
-      const netProfit = ebitda * 0.8;
+      const opex = grossProfit - ebitda;
       
-      // Map snapshot to PLData format (NO BUSINESS CALCULATIONS - just mapping)
+      // Map snapshot to PLData format - DIRECT MAPPING, no business formulas
       const plData: PLData = snapshot ? {
-        grossSales: netRevenue * 1.02, // Gross ~ Net + returns
-        salesReturns: netRevenue * 0.02,
+        grossSales: netRevenue, // Use net as gross (returns not in snapshot)
+        salesReturns: 0,
         salesDiscounts: 0,
         netSales: netRevenue,
         cogs: cogs,
         grossProfit: grossProfit,
         grossMargin: snapshot.grossMarginPercent / 100,
         operatingExpenses: {
-          salaries: opex * 0.45,
-          rent: opex * 0.2,
-          utilities: opex * 0.06,
+          salaries: 0, // Not broken down in snapshot
+          rent: 0,
+          utilities: 0,
           marketing: snapshot.totalMarketingSpend,
-          depreciation: depreciation,
-          insurance: opex * 0.03,
-          supplies: opex * 0.05,
-          maintenance: opex * 0.04,
-          professional: opex * 0.02,
-          other: opex * 0.15,
+          depreciation: 0,
+          insurance: 0,
+          supplies: 0,
+          maintenance: 0,
+          professional: 0,
+          other: opex - snapshot.totalMarketingSpend,
         },
         totalOperatingExpenses: opex,
-        operatingIncome: ebitda - depreciation,
-        operatingMargin: snapshot.ebitdaMarginPercent * 0.9 / 100,
+        operatingIncome: ebitda,
+        operatingMargin: snapshot.ebitdaMarginPercent / 100,
         otherIncome: 0,
-        interestExpense: ebitda * 0.02,
-        incomeBeforeTax: netProfit / 0.8,
-        incomeTax: netProfit * 0.25,
-        netIncome: netProfit,
-        netMargin: (netProfit / netRevenue) || 0,
+        interestExpense: 0,
+        incomeBeforeTax: ebitda,
+        incomeTax: 0,
+        netIncome: ebitda, // Use EBITDA as proxy (net_income not in snapshot)
+        netMargin: snapshot.ebitdaMarginPercent / 100,
       } : getEmptyPLDataStruct().plData;
 
-      // Map monthly summary to MonthlyPLData (NO CALCULATIONS - just mapping)
+      // Map monthly summary to MonthlyPLData - DIRECT MAPPING
       const monthlyPL: MonthlyPLData[] = (monthlyData || []).map(m => ({
         month: `T${new Date(m.yearMonth + '-01').getMonth() + 1}`,
         netSales: Math.round(m.netRevenue / 1000000),
         cogs: Math.round(m.cogs / 1000000),
         grossProfit: Math.round(m.grossProfit / 1000000),
         opex: Math.round(m.operatingExpenses / 1000000),
-        netIncome: Math.round((m.ebitda * 0.8) / 1000000),
+        netIncome: Math.round(m.ebitda / 1000000), // Use EBITDA
       }));
 
-      // Category data would come from central_metric_facts in future
+      // Category data would come from central_metric_facts
       const categoryData: CategoryPLData[] = [];
 
-      // Comparison data from monthly summary
+      // Comparison data from monthly summary - use precomputed MoM change
       const current = monthlyData?.[monthlyData.length - 1];
       const previous = monthlyData?.[monthlyData.length - 2];
       
@@ -166,25 +164,31 @@ export function usePLData() {
         grossProfit: {
           current: current?.grossProfit || 0,
           previous: previous?.grossProfit || 0,
-          change: previous?.grossProfit ? ((current?.grossProfit || 0) - previous.grossProfit) / previous.grossProfit * 100 : 0,
+          change: previous?.grossProfit && previous.grossProfit > 0 
+            ? ((current?.grossProfit || 0) - previous.grossProfit) / previous.grossProfit * 100 
+            : 0,
         },
         operatingIncome: {
           current: current?.ebitda || 0,
           previous: previous?.ebitda || 0,
-          change: previous?.ebitda ? ((current?.ebitda || 0) - previous.ebitda) / previous.ebitda * 100 : 0,
+          change: previous?.ebitda && previous.ebitda > 0 
+            ? ((current?.ebitda || 0) - previous.ebitda) / previous.ebitda * 100 
+            : 0,
         },
         netIncome: {
-          current: (current?.ebitda || 0) * 0.8,
-          previous: (previous?.ebitda || 0) * 0.8,
-          change: previous?.ebitda ? (((current?.ebitda || 0) * 0.8) - (previous.ebitda * 0.8)) / (previous.ebitda * 0.8) * 100 : 0,
+          current: current?.ebitda || 0,
+          previous: previous?.ebitda || 0,
+          change: previous?.ebitda && previous.ebitda > 0 
+            ? ((current?.ebitda || 0) - previous.ebitda) / previous.ebitda * 100 
+            : 0,
         },
       };
 
-      // Revenue breakdown from snapshot
+      // Revenue breakdown - not available, return zeros
       const revenueBreakdown: RevenueBreakdown = {
-        invoiceRevenue: (snapshot?.netRevenue || 0) * 0.6,
-        contractRevenue: (snapshot?.netRevenue || 0) * 0.05,
-        integratedRevenue: (snapshot?.netRevenue || 0) * 0.35,
+        invoiceRevenue: 0,
+        contractRevenue: 0,
+        integratedRevenue: 0,
         totalRevenue: snapshot?.netRevenue || 0,
       };
 

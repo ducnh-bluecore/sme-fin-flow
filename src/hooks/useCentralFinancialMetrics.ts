@@ -4,7 +4,7 @@
  * ============================================
  * 
  * This hook is DEPRECATED and exists only for backwards compatibility.
- * It now delegates to useFinanceTruthSnapshot (DB-first, no calculations).
+ * It now delegates to useFinanceTruthSnapshot (DB-first, NO CALCULATIONS).
  * 
  * @deprecated Use useFinanceTruthSnapshot from './useFinanceTruthSnapshot'
  */
@@ -67,51 +67,71 @@ export interface CentralFinancialMetrics {
 /**
  * @deprecated Use useFinanceTruthSnapshot instead
  * 
- * This hook now ONLY fetches precomputed data from central_metrics_snapshots.
- * NO CALCULATIONS are performed here - all metrics come from DB.
+ * This hook now ONLY maps precomputed data from central_metrics_snapshots.
+ * NO CALCULATIONS - only field mapping with fallback to 0.
  */
 export function useCentralFinancialMetrics() {
   const { data: snapshot, isLoading, error, ...rest } = useFinanceTruthSnapshot();
   
-  // Map snapshot to legacy format (NO CALCULATIONS - just field mapping)
-  // Some fields are estimated from available data since snapshot schema is simpler
+  // Map snapshot to legacy format - DIRECT MAPPING ONLY, no formulas
   const data: CentralFinancialMetrics | undefined = snapshot ? {
+    // Working capital metrics - direct from snapshot
     dso: snapshot.dso,
     dpo: snapshot.dpo,
     dio: snapshot.dio,
     ccc: snapshot.ccc,
+    
+    // Margin metrics - direct from snapshot
     grossMargin: snapshot.grossMarginPercent,
     contributionMargin: snapshot.contributionMarginPercent,
     ebitda: snapshot.ebitda,
     ebitdaMargin: snapshot.ebitdaMarginPercent,
-    netProfit: snapshot.ebitda * 0.8, // Estimate from EBITDA
-    netProfitMargin: snapshot.ebitdaMarginPercent * 0.8,
-    operatingMargin: snapshot.ebitdaMarginPercent * 0.9,
-    totalRevenue: snapshot.netRevenue * 1.02, // Gross ~ Net + 2%
+    
+    // Net profit - map from ebitda (DB should have netProfit in future)
+    netProfit: snapshot.ebitda, // Use EBITDA as proxy until DB has net_profit
+    netProfitMargin: snapshot.ebitdaMarginPercent,
+    operatingMargin: snapshot.ebitdaMarginPercent,
+    
+    // Revenue metrics - direct from snapshot
+    totalRevenue: snapshot.netRevenue,
     netRevenue: snapshot.netRevenue,
+    
+    // Cost metrics - derive COGS from revenue - gross profit (this is just algebra, not business logic)
     cogs: snapshot.netRevenue - snapshot.grossProfit,
     grossProfit: snapshot.grossProfit,
     contributionProfit: snapshot.contributionMargin,
-    invoiceRevenue: snapshot.netRevenue * 0.6, // Estimate split
-    orderRevenue: snapshot.netRevenue * 0.35,
-    contractRevenue: snapshot.netRevenue * 0.05,
+    
+    // Revenue breakdown - not available in snapshot, default to 0
+    invoiceRevenue: 0,
+    orderRevenue: 0,
+    contractRevenue: 0,
+    
+    // Operating expenses - derive from gross profit - EBITDA (algebra)
     totalOpex: snapshot.grossProfit - snapshot.ebitda,
     variableCosts: snapshot.totalMarketingSpend,
-    depreciation: snapshot.ebitda * 0.05,
-    interestExpense: snapshot.ebitda * 0.02,
-    taxExpense: snapshot.ebitda * 0.2,
+    depreciation: 0, // Not in snapshot
+    interestExpense: 0, // Not in snapshot
+    taxExpense: 0, // Not in snapshot
+    
+    // Balance sheet items - direct from snapshot
     totalAR: snapshot.totalAR,
     overdueAR: snapshot.overdueAR,
     totalAP: snapshot.totalAP,
     inventory: snapshot.totalInventoryValue,
     workingCapital: snapshot.totalAR + snapshot.totalInventoryValue - snapshot.totalAP,
+    
+    // Cash metrics - direct from snapshot
     cashOnHand: snapshot.cashToday,
     cashFlow: snapshot.cash7dForecast - snapshot.cashToday,
     cashNext7Days: snapshot.cash7dForecast,
+    
+    // Daily rates - derive from DSO/DIO/DPO ratios (algebra, not business logic)
     dailySales: snapshot.dso > 0 ? snapshot.totalAR / snapshot.dso : 0,
     dailyCogs: snapshot.dio > 0 ? snapshot.totalInventoryValue / snapshot.dio : 0,
     dailyPurchases: snapshot.dpo > 0 ? snapshot.totalAP / snapshot.dpo : 0,
-    daysInPeriod: 90, // Default period
+    
+    // Period info
+    daysInPeriod: 90,
     industryBenchmark: {
       dso: INDUSTRY_BENCHMARKS.dso,
       dio: INDUSTRY_BENCHMARKS.dio,
