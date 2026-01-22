@@ -437,6 +437,29 @@ export default function PortalPage() {
             </button>
           </motion.div>
 
+          {/* Sales Deck Links */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.3 }}
+            className="mt-6 flex flex-wrap justify-center gap-3"
+          >
+            <button 
+              onClick={() => navigate('/sales-kit/fdp-deck')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-900/30 text-emerald-400 text-sm font-medium hover:bg-emerald-900/50 transition-all border border-emerald-700/30"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>FDP Sales Deck</span>
+            </button>
+            <button 
+              onClick={() => navigate('/sales-kit/mdp')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900/30 text-blue-400 text-sm font-medium hover:bg-blue-900/50 transition-all border border-blue-700/30"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>MDP Sales Deck</span>
+            </button>
+          </motion.div>
+
           {/* Footer tech detail */}
           <motion.div
             initial={{ opacity: 0 }}
