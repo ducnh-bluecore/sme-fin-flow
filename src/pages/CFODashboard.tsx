@@ -1,21 +1,28 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { Wallet, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock } from 'lucide-react';
-import { KPICard } from '@/components/dashboard/KPICard';
+import { 
+  Wallet, 
+  RefreshCw, 
+  AlertTriangle, 
+  Clock, 
+  TrendingDown,
+  ArrowRight,
+  FileText,
+  Scale,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { 
+  DecisionCard, 
+  DecisionCardList,
+  DecisionSummaryCard,
+} from '@/components/decisions';
 import { CashForecastChart } from '@/components/dashboard/CashForecastChart';
 import { ARAgingChart } from '@/components/dashboard/ARAgingChart';
-
 import { OverdueInvoicesTable } from '@/components/dashboard/OverdueInvoicesTable';
-import { ScenarioPlanner } from '@/components/dashboard/ScenarioPlanner';
-import { AIInsightsPanel } from '@/components/dashboard/AIInsightsPanel';
-import { AIUsagePanel } from '@/components/dashboard/AIUsagePanel';
-import FinancialTruthCard from '@/components/dashboard/FinancialTruthCard';
-import { ExceptionStatsCard } from '@/components/exceptions';
-
-import { useAllProblematicSKUs } from '@/hooks/useAllProblematicSKUs';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { formatVNDCompact } from '@/lib/formatters';
+import { formatVNDCompact, formatVND } from '@/lib/formatters';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
@@ -25,11 +32,17 @@ import { useDateRange } from '@/contexts/DateRangeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
-import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
+import { useNavigate } from 'react-router-dom';
+
+// ═══════════════════════════════════════════════════════════════════
+// CFO DASHBOARD - Decision-First, Not Dashboard-First
+// Shows: Top financial risks, Reconciliation health, Cash & liquidity exceptions
+// Uses Decision Cards as primary unit
+// ═══════════════════════════════════════════════════════════════════
 
 function ChartErrorFallback({ t }: { t: (key: string) => string }) {
   return (
-    <div className="data-card flex items-center justify-center h-64">
+    <div className="bg-card rounded-lg border border-border flex items-center justify-center h-64">
       <div className="text-center space-y-2">
         <AlertTriangle className="h-8 w-8 text-muted-foreground mx-auto" />
         <p className="text-sm text-muted-foreground">{t('cfo.chartError')}</p>
@@ -38,59 +51,60 @@ function ChartErrorFallback({ t }: { t: (key: string) => string }) {
   );
 }
 
+// Financial Summary Card
+function FinancialSummaryCard({ 
+  label, 
+  value, 
+  subtext, 
+  variant = 'default' 
+}: { 
+  label: string; 
+  value: string; 
+  subtext?: string;
+  variant?: 'default' | 'success' | 'warning' | 'danger';
+}) {
+  const variantStyles = {
+    default: 'text-foreground',
+    success: 'text-success',
+    warning: 'text-warning',
+    danger: 'text-destructive',
+  };
+
+  return (
+    <div className="text-center">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+        {label}
+      </div>
+      <div className={`text-xl font-semibold tabular-nums ${variantStyles[variant]}`}>
+        {value}
+      </div>
+      {subtext && (
+        <div className="text-xs text-muted-foreground mt-0.5">{subtext}</div>
+      )}
+    </div>
+  );
+}
+
 export default function CFODashboard() {
+  const navigate = useNavigate();
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
   const { data: metrics, isLoading } = useCentralFinancialMetrics();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
   const { data: cashForecasts } = useCashForecasts();
-  const { data: problematicSKUs } = useAllProblematicSKUs();
   const { t } = useLanguage();
-
-  const handleRefresh = useMemo(() => {
-    return () => {
-      refreshAllData();
-    };
-  }, [refreshAllData]);
 
   // Enable realtime updates for dashboard data
   useRealtimeDashboard();
 
-  // Calculate real trends from data
-  const trends = useMemo(() => {
-    // Cash trend - compare current cash position with 7-day forecast
-    const currentCash = metrics?.cashOnHand || 0;
-    const cash7Days = cashForecasts?.[6]?.closing_balance || currentCash;
-    const cashTrend = currentCash > 0 ? ((cash7Days - currentCash) / currentCash) * 100 : 0;
-
-    // AR trend - calculate from current vs previous period overdue
-    // Without historical data, show 0 (no fake trends)
-    const arTrend = 0; // Will be calculated when we have historical comparison
-
-    // CCC trend - compare current with industry benchmark
-    const cccCurrent = metrics?.ccc || 0;
-    const cccBenchmark = 45; // Industry benchmark from financial-constants
-    const cccTrend = cccBenchmark > 0 ? ((cccBenchmark - cccCurrent) / cccBenchmark) * 100 : 0;
-
-    return {
-      cash: cashTrend,
-      cash7Days: cashTrend,
-      ar: arTrend,
-      ccc: cccTrend
-    };
-  }, [metrics, cashForecasts]);
-
-  // Use cashNext7Days from centralized metrics (properly calculated from forecast)
+  // Calculate cash next 7 days
   const cashNext7Days = useMemo(() => {
-    // Primary: Use centralized metric which calculates from AR/AP forecast
     if (metrics?.cashNext7Days && metrics.cashNext7Days !== metrics.cashOnHand) {
       return metrics.cashNext7Days;
     }
-    // Fallback: Use cash_forecasts table data
     if (cashForecasts && cashForecasts.length > 0) {
       const day7Forecast = cashForecasts[6] || cashForecasts[cashForecasts.length - 1];
       return day7Forecast?.closing_balance || metrics?.cashOnHand || 0;
     }
-    // Final fallback: current cash
     return metrics?.cashOnHand || 0;
   }, [cashForecasts, metrics]);
 
@@ -103,7 +117,7 @@ export default function CFODashboard() {
     return `${cashRunway.runwayMonths.toFixed(1)} ${t('cashDirect.months')}`;
   };
 
-  const getRunwayVariant = () => {
+  const getRunwayVariant = (): 'success' | 'warning' | 'danger' | 'default' => {
     if (!cashRunway?.hasEnoughData || cashRunway.runwayMonths === null) return 'default';
     if (cashRunway.runwayMonths === Infinity) return 'success';
     if (cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS) return 'danger';
@@ -111,163 +125,253 @@ export default function CFODashboard() {
     return 'success';
   };
 
+  // Generate Decision Cards from financial data
+  const financialDecisions = useMemo(() => {
+    const decisions = [];
+    
+    // Check Overdue AR
+    if (metrics?.overdueAR && metrics.overdueAR > 0) {
+      decisions.push({
+        id: 'overdue-ar',
+        statement: `${formatVNDCompact(metrics.overdueAR)} in overdue receivables requires collection action`,
+        context: 'Aging analysis shows concentration in 30-60 day bucket',
+        severity: metrics.overdueAR > 1000000000 ? 'critical' : 'warning' as const,
+        confidence: 'confirmed' as const,
+        impacts: [
+          { type: 'cash' as const, label: 'Cash Impact', value: formatVNDCompact(metrics.overdueAR), trend: 'negative' as const },
+          { type: 'risk' as const, label: 'Collection Risk', value: 'Medium' },
+        ],
+        actions: [
+          { id: 'investigate', label: 'View AR Aging', variant: 'primary' as const, onClick: () => navigate('/ar-operations') },
+          { id: 'assign', label: 'Assign Owner', variant: 'outline' as const },
+        ],
+      });
+    }
+
+    // Check Cash Runway
+    if (cashRunway?.hasEnoughData && cashRunway.runwayMonths !== null && cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS) {
+      decisions.push({
+        id: 'runway-warning',
+        statement: `Cash runway is ${formatRunway()} - below ${FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS} month threshold`,
+        context: `Average monthly burn rate: ${formatVNDCompact(cashRunway.avgMonthlyBurn)}`,
+        severity: cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS ? 'critical' : 'warning' as const,
+        confidence: 'confirmed' as const,
+        impacts: [
+          { type: 'cash' as const, label: 'Current Cash', value: formatVNDCompact(metrics?.cashOnHand || 0) },
+          { type: 'risk' as const, label: 'Monthly Burn', value: formatVNDCompact(cashRunway.avgMonthlyBurn), trend: 'negative' as const },
+        ],
+        actions: [
+          { id: 'forecast', label: 'View Cash Forecast', variant: 'primary' as const, onClick: () => navigate('/cash-forecast') },
+          { id: 'scenario', label: 'Run Scenario', variant: 'outline' as const, onClick: () => navigate('/scenario') },
+        ],
+      });
+    }
+
+    // Check Contribution Margin
+    if (metrics?.contributionMargin !== undefined && metrics.contributionMargin < 20) {
+      decisions.push({
+        id: 'margin-warning',
+        statement: `Contribution margin at ${metrics.contributionMargin.toFixed(1)}% - below healthy threshold`,
+        context: 'Review variable costs and pricing strategy',
+        severity: metrics.contributionMargin < 10 ? 'critical' : 'warning' as const,
+        confidence: 'confirmed' as const,
+        impacts: [
+          { type: 'margin' as const, label: 'CM %', value: `${metrics.contributionMargin.toFixed(1)}%`, trend: 'negative' as const },
+          { type: 'cash' as const, label: 'Gross Margin', value: `${(metrics.grossMargin || 0).toFixed(1)}%` },
+        ],
+        actions: [
+          { id: 'unit-econ', label: 'Unit Economics', variant: 'primary' as const, onClick: () => navigate('/unit-economics') },
+        ],
+      });
+    }
+
+    return decisions;
+  }, [metrics, cashRunway, navigate, formatRunway, t]);
+
+  const handleRefresh = useMemo(() => {
+    return () => refreshAllData();
+  }, [refreshAllData]);
+
   return (
     <>
       <Helmet>
-        <title>{t('cfo.pageTitle')}</title>
+        <title>{t('cfo.pageTitle')} | Bluecore FDP</title>
         <meta name="description" content={t('cfo.pageDesc')} />
       </Helmet>
 
       <div className="space-y-6">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-center justify-between gap-4"
-        >
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
               {t('cfo.title')}
             </h1>
-            <p className="text-muted-foreground">{t('cfo.subtitle')}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Decision-first financial overview • {t('cfo.subtitle')}
+            </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex gap-2">
-              <QuickDateSelector value={dateRange} onChange={setDateRange} />
-              <motion.button
-                type="button"
-                onClick={handleRefresh}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium text-sm shadow-glow"
-                aria-label={t('cfo.refreshData')}
-              >
-                <RefreshCw className="w-4 h-4" />
-                {t('cfo.refreshData')}
-              </motion.button>
-            </div>
-            <DateRangeIndicator variant="compact" />
+          <div className="flex items-center gap-3">
+            <QuickDateSelector value={dateRange} onChange={setDateRange} />
+            <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
           </div>
-        </motion.div>
+        </header>
 
-        {/* Financial Truth - Single Source of Truth */}
-        <FinancialTruthCard />
+        {/* Financial Truth Summary */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <Scale className="h-4 w-4 text-primary" />
+              Financial Position
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading || isLoadingRunway ? (
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+                <FinancialSummaryCard 
+                  label="Cash Today" 
+                  value={formatVNDCompact(metrics?.cashOnHand || 0)}
+                  variant="success"
+                />
+                <FinancialSummaryCard 
+                  label="Cash Runway" 
+                  value={formatRunway()}
+                  variant={getRunwayVariant()}
+                />
+                <FinancialSummaryCard 
+                  label="Cash 7-Day" 
+                  value={formatVNDCompact(cashNext7Days)}
+                />
+                <FinancialSummaryCard 
+                  label="Overdue AR" 
+                  value={formatVNDCompact(metrics?.overdueAR || 0)}
+                  variant={metrics?.overdueAR && metrics.overdueAR > 0 ? 'warning' : 'default'}
+                />
+                <FinancialSummaryCard 
+                  label="CM %" 
+                  value={`${(metrics?.contributionMargin || 0).toFixed(1)}%`}
+                  variant={metrics?.contributionMargin && metrics.contributionMargin < 20 ? 'warning' : 'success'}
+                />
+                <FinancialSummaryCard 
+                  label="CCC" 
+                  value={`${metrics?.ccc || 0} days`}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Exception Stats - Workflow alerts */}
-        <ExceptionStatsCard />
-
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {isLoading || isLoadingRunway ? (
-            <>
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-            </>
-          ) : (
-            <>
-              <KPICard
-                title={t('cfo.cashToday')}
-                value={formatVNDCompact(metrics?.cashOnHand || 0)}
-                trend={trends.cash !== 0 ? { value: Number(trends.cash.toFixed(1)), label: t('cfo.vsYesterday') } : undefined}
-                icon={Wallet}
-                variant="success"
-              />
-              <KPICard
-                title={t('cfo.cashRunway')}
-                value={formatRunway()}
-                trend={cashRunway?.hasEnoughData ? { 
-                  value: cashRunway.avgMonthlyBurn > 0 ? -Math.round(cashRunway.avgMonthlyBurn / 1000000) : 0, 
-                  label: t('cfo.burnPerMonth')
-                } : undefined}
-                icon={Clock}
-                variant={getRunwayVariant()}
-              />
-              <KPICard
-                title={t('cfo.cashNext7Days')}
-                value={formatVNDCompact(cashNext7Days)}
-                trend={trends.cash7Days !== 0 ? { value: Number(trends.cash7Days.toFixed(1)) } : undefined}
-                icon={ArrowUpRight}
-              />
-              <KPICard
-                title={t('cfo.overdueAR')}
-                value={formatVNDCompact(metrics?.overdueAR || 0)}
-                trend={trends.ar !== 0 ? { value: Number(trends.ar.toFixed(1)) } : undefined}
-                icon={ArrowDownRight}
-                variant="warning"
-              />
-              <KPICard
-                title={t('cfo.ccc')}
-                value={`${metrics?.ccc || 0} ${t('cfo.days')}`}
-                trend={trends.ccc !== 0 ? { value: Number(trends.ccc.toFixed(1)) } : undefined}
-                icon={RefreshCw}
-              />
-            </>
-          )}
-        </div>
-
-        {/* Secondary KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">{t('cfo.dso')}</p>
-            <p className="text-2xl font-bold text-foreground">{metrics?.dso || 0}</p>
-            <p className="text-xs text-muted-foreground">{t('cfo.days')}</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">{t('cfo.grossMargin')}</p>
-            <p className="text-2xl font-bold text-success">{metrics?.grossMargin?.toFixed(1) || 0}%</p>
-            <p className="text-xs text-muted-foreground">Rev - COGS</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.28 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">Contribution Margin</p>
-            <p className="text-2xl font-bold text-primary">{metrics?.contributionMargin?.toFixed(1) || 0}%</p>
-            <p className="text-xs text-muted-foreground">Rev - COGS - Variable</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">{t('cfo.ebitdaMargin')}</p>
-            <p className="text-2xl font-bold text-primary">{metrics?.ebitdaMargin?.toFixed(1) || 0}%</p>
-            <p className="text-xs text-muted-foreground">{t('cfo.thisPeriod')}</p>
-          </motion.div>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="data-card text-center">
-            <p className="text-xs text-muted-foreground mb-1">{t('cfo.ebitda')}</p>
-            <p className="text-2xl font-bold text-foreground">{formatVNDCompact(metrics?.ebitda || 0)}</p>
-            <p className="text-xs text-muted-foreground">{t('cfo.thisPeriod')}</p>
-          </motion.div>
-        </div>
-
-        {/* AI Insights Panel */}
-        <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-          <AIInsightsPanel />
-        </ErrorBoundary>
-
-        {/* Charts Row */}
+        {/* Two Column Layout: Decisions + Context */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-              <CashForecastChart />
-            </ErrorBoundary>
+          {/* Primary Column: Decisions (70%) */}
+          <div className="lg:col-span-2 space-y-4">
+            <DecisionCardList
+              title="Financial Decisions Required"
+              description="Issues requiring immediate attention"
+              isEmpty={financialDecisions.length === 0}
+              emptyMessage="No critical financial decisions pending"
+            >
+              {financialDecisions.map((decision) => (
+                <DecisionCard
+                  key={decision.id}
+                  id={decision.id}
+                  statement={decision.statement}
+                  context={decision.context}
+                  severity={decision.severity}
+                  confidence={decision.confidence}
+                  impacts={decision.impacts}
+                  actions={decision.actions}
+                />
+              ))}
+            </DecisionCardList>
+
+            {/* Overdue Invoices - Action Items */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-warning" />
+                    Overdue Invoices
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/ar-operations')} className="gap-1 text-xs">
+                    View All <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
+                  <OverdueInvoicesTable limit={5} />
+                </ErrorBoundary>
+              </CardContent>
+            </Card>
           </div>
-          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-            <ARAgingChart />
-          </ErrorBoundary>
-        </div>
 
-        {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-            <OverdueInvoicesTable limit={5} />
-          </ErrorBoundary>
-          <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-            <ScenarioPlanner />
-          </ErrorBoundary>
-        </div>
+          {/* Right Rail: Context (30%) */}
+          <div className="space-y-4">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2" 
+                  size="sm"
+                  onClick={() => navigate('/reconciliation')}
+                >
+                  <FileText className="h-4 w-4" />
+                  Reconciliation Center
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2" 
+                  size="sm"
+                  onClick={() => navigate('/cash-forecast')}
+                >
+                  <TrendingDown className="h-4 w-4" />
+                  Cash Forecast
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2" 
+                  size="sm"
+                  onClick={() => navigate('/unit-economics')}
+                >
+                  <Wallet className="h-4 w-4" />
+                  Unit Economics
+                </Button>
+              </CardContent>
+            </Card>
 
-        {/* AI Usage Panel - Bottom */}
-        <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
-          <AIUsagePanel />
-        </ErrorBoundary>
+            {/* AR Aging Chart */}
+            <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
+              <ARAgingChart />
+            </ErrorBoundary>
+
+            {/* Cash Forecast Mini */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">7-Day Cash Forecast</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ErrorBoundary fallback={<ChartErrorFallback t={t} />}>
+                  <div className="h-48">
+                    <CashForecastChart />
+                  </div>
+                </ErrorBoundary>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </>
   );

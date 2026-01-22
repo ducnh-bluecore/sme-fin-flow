@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Bell, Search, Menu, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Bell, Search, Menu, AlertTriangle, CheckCircle, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,10 +28,10 @@ export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-30">
+    <header className="h-14 border-b border-border bg-card sticky top-0 z-30">
       <div className="h-full px-4 md:px-6 flex items-center justify-between gap-4">
         {/* Left Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
@@ -40,6 +39,17 @@ export function Header({ onMenuClick }: HeaderProps) {
             className="lg:hidden"
           >
             <Menu className="w-5 h-5" />
+          </Button>
+
+          {/* Back to Portal */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="hidden md:flex gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <Home className="w-4 h-4" />
+            <span className="text-sm">Portal</span>
           </Button>
 
           {/* Tenant Switcher */}
@@ -50,13 +60,13 @@ export function Header({ onMenuClick }: HeaderProps) {
             <Search className="w-4 h-4 absolute left-3 text-muted-foreground" />
             <Input
               placeholder={t('common.search')}
-              className="w-64 lg:w-80 pl-9 bg-muted/50 border-0 focus-visible:ring-primary/30"
+              className="w-64 lg:w-72 pl-9 h-9 bg-muted/50 border-border focus-visible:ring-1 focus-visible:ring-primary/30"
             />
           </div>
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2">
           {/* Language Switcher */}
           <LanguageSwitcher />
 
@@ -66,17 +76,15 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="w-5 h-5" />
                 {activeCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium ${
+                  <span
+                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full text-[10px] flex items-center justify-center font-medium px-1 ${
                       criticalCount > 0 
-                        ? 'bg-destructive text-destructive-foreground animate-pulse' 
+                        ? 'bg-destructive text-destructive-foreground' 
                         : 'bg-warning text-warning-foreground'
                     }`}
                   >
                     {activeCount}
-                  </motion.span>
+                  </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
@@ -86,7 +94,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   {t('header.alerts')}
                   {criticalCount > 0 && (
                     <Badge variant="destructive" className="text-[10px]">
-                      {criticalCount} nghiêm trọng
+                      {criticalCount} critical
                     </Badge>
                   )}
                 </h4>
@@ -110,12 +118,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                       <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
                         <AlertTriangle className="w-4 h-4 text-destructive" />
                         <span className="text-sm text-destructive font-medium">
-                          {criticalCount} cảnh báo nghiêm trọng cần xử lý
+                          {criticalCount} critical alerts require action
                         </span>
                       </div>
                     )}
                     <p className="text-sm text-muted-foreground">
-                      Có {activeCount} cảnh báo đang chờ xử lý
+                      {activeCount} alerts pending review
                     </p>
                   </div>
                 )}
