@@ -86,6 +86,7 @@ const ComparePopulationsPage = lazy(() => import("./pages/cdp/explore/ComparePop
 const SavedViewsPage = lazy(() => import("./pages/cdp/explore/SavedViewsPage"));
 const InsightDetailPage = lazy(() => import("./pages/cdp/InsightDetailPage"));
 const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
+const DemandInsightsPage = lazy(() => import("./pages/cdp/DemandInsightsPage"));
 // Equity sub-pages
 const EquityOverviewPage = lazy(() => import("./pages/cdp/equity/EquityOverviewPage"));
 const LTVModelPage = lazy(() => import("./pages/cdp/equity/LTVModelPage"));
@@ -255,6 +256,11 @@ const AppRoutes = () => {
       <Route path="/cdp/insight-registry" element={
         <ProtectedRoute>
           <InsightRegistryPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/insights/demand" element={
+        <ProtectedRoute>
+          <DemandInsightsPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/equity" element={
