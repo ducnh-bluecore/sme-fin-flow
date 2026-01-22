@@ -187,6 +187,8 @@ const AppRoutes = () => {
           <DocumentationPage />
         </ProtectedRoute>
       } />
+      {/* Redirect /formulas to /documentation since formulas are documented there */}
+      <Route path="/formulas" element={<Navigate to="/documentation" replace />} />
 
       {/* Sales Kit Routes - PDF-style pages */}
       <Route path="/sales-kit/data-warehouse" element={
