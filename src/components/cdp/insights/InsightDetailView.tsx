@@ -321,7 +321,7 @@ export function InsightDetailView({ insight, onCreateDecisionCard }: InsightDeta
                 <div>
                   <p className="font-medium text-muted-foreground">Chưa có Thẻ Quyết định</p>
                   <p className="text-xs text-muted-foreground">
-                    Tạo thẻ để đưa insight này vào quy trình ra quyết định
+                    Tạo thẻ để đưa insight này vào quy trình xem xét điều hành
                   </p>
                 </div>
               </div>

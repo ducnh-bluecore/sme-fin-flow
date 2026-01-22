@@ -83,9 +83,9 @@ function calculateMockResult(conditions: HypothesisCondition[]): HypothesisResul
     returnRate: hasHighReturn ? 22.3 : 8.7,
     returnRateDelta: hasHighReturn ? 8.1 : -2.3,
     systemSuggestion: hasDownTrend 
-      ? 'Nhóm này có dấu hiệu suy giảm giá trị rõ rệt. Cần theo dõi và phân tích nguyên nhân.'
+      ? 'Dữ liệu cho thấy xu hướng suy giảm giá trị ở tập khách này. Đề xuất rà soát rủi ro doanh thu và dòng tiền liên quan.'
       : hasHighReturn
-        ? 'Tỷ lệ hoàn trả cao có thể ảnh hưởng đến biên lợi nhuận thực tế.'
+        ? 'Tỷ lệ hoàn trả cao hơn mức trung bình có thể ảnh hưởng đến biên lợi nhuận thực tế. Cần được xem xét ở cấp điều hành.'
         : undefined,
   };
 }
@@ -276,8 +276,8 @@ export function HypothesisBuilder() {
                 </p>
               </div>
               <div className="p-4 bg-muted/30 rounded-lg flex flex-col justify-center">
-                <Button size="sm" className="w-full">
-                  Xem danh sách
+                <Button size="sm" className="w-full" variant="outline">
+                  Xem chi tiết tập khách
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>

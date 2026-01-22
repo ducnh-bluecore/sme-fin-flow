@@ -104,7 +104,7 @@ export default function PopulationsPage() {
   return (
     <PopulationLayout
       title="Danh mục Tập khách hàng"
-      subtitle="Các tập khách dùng cho phân tích & insight — không dùng cho kích hoạt"
+      subtitle="Các tập khách phục vụ phân tích & insight — chế độ chỉ đọc"
     >
       <Helmet>
         <title>Tập khách hàng | CDP - Bluecore</title>

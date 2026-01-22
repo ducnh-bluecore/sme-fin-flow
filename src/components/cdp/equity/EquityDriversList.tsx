@@ -126,10 +126,10 @@ export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversLis
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingDown className="w-5 h-5 text-destructive" />
-            Yếu tố làm Suy giảm Giá trị
+            Yếu tố có Tác động Tiêu cực
           </CardTitle>
           <CardDescription>
-            Các yếu tố đang góp phần làm giảm Customer Equity
+            Các yếu tố đang góp phần làm giảm giá trị kỳ vọng từ tập khách hàng
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -186,15 +186,15 @@ export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversLis
       {/* Positive Drivers */}
       {positiveDrivers.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-success" />
-              Yếu tố Tích cực
-            </CardTitle>
-            <CardDescription>
-              Các yếu tố đang góp phần duy trì hoặc tăng Customer Equity
-            </CardDescription>
-          </CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-success" />
+            Yếu tố có Tác động Tích cực
+          </CardTitle>
+          <CardDescription>
+            Các yếu tố đang góp phần duy trì hoặc gia tăng giá trị kỳ vọng
+          </CardDescription>
+        </CardHeader>
           <CardContent className="space-y-3">
             {positiveDrivers.map((driver) => (
               <div 

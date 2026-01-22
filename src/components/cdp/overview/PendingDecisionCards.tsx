@@ -67,7 +67,7 @@ function DecisionCardItem({ decision }: { decision: DecisionCard }) {
           {decision.assignedTo}
         </span>
         <span className="text-destructive font-medium">
-          Rủi ro: ₫{formatCurrency(decision.riskIfIgnored)}
+          Rủi ro tiềm ẩn: ₫{formatCurrency(decision.riskIfIgnored)}
         </span>
       </div>
     </div>
@@ -86,7 +86,7 @@ export function PendingDecisionCards({ decisions }: PendingDecisionCardsProps) {
             Thẻ Quyết định
             {pendingDecisions.length > 0 && (
               <Badge className="bg-warning text-warning-foreground">
-                {pendingDecisions.length} đang chờ
+                {pendingDecisions.length} cần xem xét
               </Badge>
             )}
           </CardTitle>
@@ -103,7 +103,7 @@ export function PendingDecisionCards({ decisions }: PendingDecisionCardsProps) {
       <CardContent>
         {pendingDecisions.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">
-            Không có quyết định nào đang chờ xử lý
+            Hiện không có vấn đề nào cần xem xét ở cấp điều hành
           </div>
         ) : (
           <div className="space-y-2">

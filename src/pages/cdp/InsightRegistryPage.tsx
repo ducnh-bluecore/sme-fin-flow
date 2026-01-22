@@ -56,8 +56,8 @@ export default function InsightRegistryPage() {
     setInsights(prev => 
       prev.map(i => i.code === code ? { ...i, isEnabled: enabled } : i)
     );
-    toast.success(enabled ? 'Đã bật insight' : 'Đã tắt insight', {
-      description: `Insight ${code} đã được ${enabled ? 'kích hoạt' : 'tạm dừng'}.`
+    toast.success(enabled ? 'Đã bật theo dõi insight' : 'Đã tạm dừng theo dõi insight', {
+      description: `Insight ${code} ${enabled ? 'sẽ được hệ thống theo dõi' : 'đã tạm dừng theo dõi'}.`
     });
   };
 
@@ -98,13 +98,13 @@ export default function InsightRegistryPage() {
           <Card>
             <CardContent className="pt-4 pb-3 text-center">
               <p className="text-3xl font-bold text-primary">{enabledCount}</p>
-              <p className="text-xs text-muted-foreground">Đang bật</p>
+              <p className="text-xs text-muted-foreground">Đang theo dõi</p>
             </CardContent>
           </Card>
           <Card className="bg-destructive/5">
             <CardContent className="pt-4 pb-3 text-center">
               <p className="text-3xl font-bold text-destructive">{triggeredCount}</p>
-              <p className="text-xs text-muted-foreground">Đang kích hoạt</p>
+              <p className="text-xs text-muted-foreground">Đang phát hiện tín hiệu</p>
             </CardContent>
           </Card>
           <Card>

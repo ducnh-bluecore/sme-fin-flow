@@ -48,9 +48,9 @@ const getInsightIcon = (type: InsightType) => {
 // Severity badge
 function SeverityBadge({ severity }: { severity: 'critical' | 'warning' | 'info' }) {
   const config = {
-    critical: { label: 'Critical', className: 'bg-red-100 text-red-700 border-red-200' },
-    warning: { label: 'Warning', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-    info: { label: 'Info', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+    critical: { label: 'Nghiêm trọng', className: 'bg-red-100 text-red-700 border-red-200' },
+    warning: { label: 'Cần xem xét', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+    info: { label: 'Thông tin', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   };
   
   return (
@@ -157,7 +157,7 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
           <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-red-600" />
-              <span className="text-sm font-medium text-red-800">Financial Impact</span>
+              <span className="text-sm font-medium text-red-800">Tác động Tài chính Ước tính</span>
             </div>
             <div className="text-right">
               <p className="font-bold text-red-700">
@@ -171,7 +171,7 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
           {/* 6. Interpretation */}
           <div className="p-3 bg-muted/30 rounded-lg">
             <p className="text-sm text-foreground leading-relaxed">
-              <strong>📊 Insight:</strong> {insight.interpretation}
+              <strong>Ý nghĩa:</strong> {insight.interpretation}
             </p>
           </div>
           
@@ -180,7 +180,7 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
             <div className="flex items-start gap-2">
               <Target className="w-4 h-4 text-violet-600 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-violet-800">Decision Prompt</p>
+                <p className="text-sm font-medium text-violet-800">Gợi ý Xem xét</p>
                 <p className="text-sm text-violet-700 mt-1">{insight.decisionPrompt}</p>
               </div>
             </div>
@@ -190,7 +190,7 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
           {insight.isValid && (
             <div className="flex items-center justify-end gap-1 text-xs text-emerald-600">
               <CheckCircle2 className="w-3 h-3" />
-              <span>Valid (7/7 elements)</span>
+              <span>Hợp lệ (7/7 thành phần)</span>
             </div>
           )}
         </CardContent>
@@ -262,7 +262,7 @@ export default function TrendEnginePage() {
                 {!dataQuality?.isReliable && (
                   <Badge variant="outline" className="text-amber-600 border-amber-300">
                     <AlertTriangle className="w-3 h-3 mr-1" />
-                    Low Data Quality
+                    Chất lượng dữ liệu thấp
                   </Badge>
                 )}
               </div>
@@ -332,7 +332,7 @@ export default function TrendEnginePage() {
             <div className="space-y-6">
               <h2 className="font-semibold flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
-                Detected Insights ({insights.length})
+                Tín hiệu Đã phát hiện ({insights.length})
               </h2>
               {insights.map((insight) => (
                 <InsightCard key={insight.id} insight={insight} />
