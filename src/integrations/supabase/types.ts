@@ -16795,6 +16795,7 @@ export type Database = {
         }
         Returns: string
       }
+      detect_real_alerts: { Args: { p_tenant_id: string }; Returns: number }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
