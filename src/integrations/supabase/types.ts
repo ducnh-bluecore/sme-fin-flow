@@ -18341,6 +18341,14 @@ export type Database = {
         }
         Returns: string
       }
+      cdp_run_product_demand_insights: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: number
+      }
+      cdp_seed_product_demand_registry: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
