@@ -1,17 +1,23 @@
+/**
+ * FinancialReportsPage - REFACTORED to use precomputed data
+ * 
+ * ⚠️ NOW USES CANONICAL HOOKS ONLY - NO RAW TABLE QUERIES
+ * 
+ * Uses:
+ * - useFinanceTruthSnapshot for core metrics
+ * - useFinanceMonthlySummary for trend data
+ */
+
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   BarChart3,
   TrendingUp,
   PieChart,
-  Loader2,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import { usePLData } from '@/hooks/usePLData';
-import { useAnalyticsData } from '@/hooks/useAnalyticsData';
-import { useFinancialAnalysisData } from '@/hooks/useFinancialAnalysisData';
+import { Card } from '@/components/ui/card';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { formatCurrency } from '@/lib/formatters';
@@ -20,17 +26,17 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ContextualAIPanel } from '@/components/dashboard/ContextualAIPanel';
 import { 
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell, Legend
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
-const costBreakdownColors = [
-  'hsl(var(--primary))',
-  'hsl(var(--info))',
-  'hsl(var(--warning))',
-  'hsl(var(--success))',
-  'hsl(var(--muted-foreground))',
-];
+// CANONICAL HOOKS ONLY - NO deprecated hooks
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
+import { useFinanceMonthlySummary } from '@/hooks/useFinanceMonthlySummary';
+
+// =============================================================
+// LOADING SKELETON
+// =============================================================
 
 function LoadingSkeleton() {
   return (
@@ -43,16 +49,21 @@ function LoadingSkeleton() {
   );
 }
 
+// =============================================================
+// COMPONENT
+// =============================================================
+
 export default function FinancialReportsPage() {
   const [activeTab, setActiveTab] = useState('analytics');
   const { dateRange } = useDateRange();
   
-  const { data: analyticsData, isLoading: analyticsLoading } = useAnalyticsData(dateRange);
-  const { data: plData, isLoading: plLoading } = usePLData();
-  const { data: financialData, isLoading: financialLoading } = useFinancialAnalysisData();
+  // CANONICAL HOOKS ONLY
+  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
+  const { data: monthlySummary, isLoading: monthlyLoading } = useFinanceMonthlySummary({ months: 12 });
 
-  const isLoading = analyticsLoading || plLoading || financialLoading;
+  const isLoading = snapshotLoading || monthlyLoading;
 
+  // Format helpers
   const formatBillion = (value: number) => {
     const billion = value / 1000000000;
     if (billion >= 1) return `${billion.toFixed(1)} tỷ`;
@@ -60,6 +71,120 @@ export default function FinancialReportsPage() {
     if (million >= 1) return `${million.toFixed(0)} triệu`;
     return formatCurrency(value);
   };
+
+  // Prepare monthly chart data from precomputed summary
+  const monthlyChartData = useMemo(() => {
+    if (!monthlySummary || monthlySummary.length === 0) return [];
+    return monthlySummary.map(m => ({
+      month: m.yearMonth,
+      revenue: m.netRevenue,
+      profit: m.grossProfit,
+      grossProfit: m.grossProfit,
+      cogs: m.cogs,
+      opex: m.operatingExpenses,
+    }));
+  }, [monthlySummary]);
+
+  // Compute net profit from snapshot fields
+  const netProfit = snapshot ? snapshot.grossProfit - snapshot.ebitda : 0;
+  const totalCost = snapshot ? (monthlySummary?.[0]?.cogs || 0) + (monthlySummary?.[0]?.operatingExpenses || 0) : 0;
+  const netMarginPercent = snapshot && snapshot.netRevenue > 0 
+    ? ((snapshot.grossProfit - (monthlySummary?.[0]?.operatingExpenses || 0)) / snapshot.netRevenue) * 100 
+    : 0;
+  const overdueARPercent = snapshot && snapshot.totalAR > 0 
+    ? (snapshot.overdueAR / snapshot.totalAR) * 100 
+    : 0;
+
+  // Financial ratios from snapshot
+  const financialRatios = useMemo(() => {
+    if (!snapshot) return [];
+    return [
+      {
+        name: 'Biên lợi nhuận gộp',
+        value: snapshot.grossMarginPercent,
+        target: 30,
+        unit: '%',
+      },
+      {
+        name: 'Biên lợi nhuận ròng',
+        value: netMarginPercent,
+        target: 10,
+        unit: '%',
+      },
+      {
+        name: 'EBITDA Margin',
+        value: snapshot.ebitdaMarginPercent,
+        target: 15,
+        unit: '%',
+      },
+      {
+        name: 'DSO',
+        value: snapshot.dso,
+        target: 30,
+        unit: ' ngày',
+      },
+      {
+        name: 'Contribution Margin',
+        value: snapshot.contributionMarginPercent,
+        target: 40,
+        unit: '%',
+      },
+    ];
+  }, [snapshot, netMarginPercent]);
+
+  // Key insights based on snapshot data
+  const keyInsights = useMemo(() => {
+    if (!snapshot) return [];
+    const insights = [];
+    
+    if (snapshot.grossMarginPercent >= 30) {
+      insights.push({
+        type: 'success',
+        title: 'Biên lợi nhuận gộp tốt',
+        description: `Đạt ${snapshot.grossMarginPercent.toFixed(1)}%, cao hơn mức tiêu chuẩn 30%`,
+      });
+    } else if (snapshot.grossMarginPercent < 20) {
+      insights.push({
+        type: 'danger',
+        title: 'Biên lợi nhuận gộp thấp',
+        description: `Chỉ đạt ${snapshot.grossMarginPercent.toFixed(1)}%, cần xem xét COGS`,
+      });
+    }
+    
+    if (snapshot.dso > 45) {
+      insights.push({
+        type: 'warning',
+        title: 'DSO cao',
+        description: `DSO ${snapshot.dso.toFixed(0)} ngày, tiền bị kẹt trong công nợ`,
+      });
+    }
+    
+    if (netMarginPercent < 0) {
+      insights.push({
+        type: 'danger',
+        title: 'Lỗ ròng',
+        description: `Biên lợi nhuận ròng ${netMarginPercent.toFixed(1)}%`,
+      });
+    }
+    
+    if (overdueARPercent > 20) {
+      insights.push({
+        type: 'warning',
+        title: 'Công nợ quá hạn cao',
+        description: `${overdueARPercent.toFixed(1)}% AR đang quá hạn`,
+      });
+    }
+    
+    if (snapshot.cashToday > snapshot.netRevenue * 0.5) {
+      insights.push({
+        type: 'success',
+        title: 'Tình hình tiền mặt khỏe',
+        description: `Cash buffer dồi dào: ${formatBillion(snapshot.cashToday)}`,
+      });
+    }
+    
+    return insights;
+  }, [snapshot, netMarginPercent, overdueARPercent]);
 
   return (
     <>
@@ -110,27 +235,31 @@ export default function FinancialReportsPage() {
           <TabsContent value="analytics" className="mt-6 space-y-6">
             {isLoading ? <LoadingSkeleton /> : (
               <>
-                {/* Hero KPIs */}
+                {/* Hero KPIs from snapshot */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="p-6 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/20 shadow-lg">
                     <p className="text-sm text-muted-foreground">Tổng doanh thu</p>
-                    <p className="text-3xl font-bold text-primary mt-2">{formatBillion(analyticsData?.totalRevenue || 0)}</p>
+                    <p className="text-3xl font-bold text-primary mt-2">
+                      {formatBillion(snapshot?.netRevenue || 0)}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">Kỳ đã chọn</p>
                   </Card>
                   <Card className="p-6 bg-gradient-to-br from-success/10 via-success/5 to-transparent border-success/20 shadow-lg">
-                    <p className="text-sm text-muted-foreground">Lợi nhuận ròng</p>
-                    <p className={cn("text-3xl font-bold mt-2", (analyticsData?.totalProfit || 0) >= 0 ? "text-success" : "text-destructive")}>
-                      {formatBillion(analyticsData?.totalProfit || 0)}
+                    <p className="text-sm text-muted-foreground">Lợi nhuận gộp</p>
+                    <p className={cn("text-3xl font-bold mt-2", (snapshot?.grossProfit || 0) >= 0 ? "text-success" : "text-destructive")}>
+                      {formatBillion(snapshot?.grossProfit || 0)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Biên lợi nhuận: {(analyticsData?.profitMargin || 0).toFixed(1)}%
+                      Biên lợi nhuận: {(snapshot?.grossMarginPercent || 0).toFixed(1)}%
                     </p>
                   </Card>
                   <Card className="p-6 bg-gradient-to-br from-warning/10 via-warning/5 to-transparent border-warning/20 shadow-lg">
                     <p className="text-sm text-muted-foreground">Tổng chi phí</p>
-                    <p className="text-3xl font-bold text-warning mt-2">{formatBillion(analyticsData?.totalCost || 0)}</p>
+                    <p className="text-3xl font-bold text-warning mt-2">
+                      {formatBillion(totalCost)}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Tỷ lệ: {((analyticsData?.totalCost || 0) / (analyticsData?.totalRevenue || 1) * 100).toFixed(1)}%
+                      COGS + OPEX
                     </p>
                   </Card>
                 </div>
@@ -138,19 +267,20 @@ export default function FinancialReportsPage() {
                 {/* AI Panel */}
                 <ContextualAIPanel context="analytics" />
 
-                {/* Chart */}
-                {analyticsData?.monthlyData && analyticsData.monthlyData.length > 0 && (
+                {/* Monthly Chart */}
+                {monthlyChartData.length > 0 && (
                   <Card className="p-5">
                     <h3 className="font-semibold text-lg mb-4">Doanh thu & Lợi nhuận theo tháng</h3>
                     <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={analyticsData.monthlyData}>
+                        <AreaChart data={monthlyChartData}>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                           <XAxis dataKey="month" />
                           <YAxis tickFormatter={(v) => `${(v/1000000).toFixed(0)}M`} />
                           <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                          <Legend />
                           <Area type="monotone" dataKey="revenue" fill="hsl(var(--primary)/0.3)" stroke="hsl(var(--primary))" name="Doanh thu" />
-                          <Area type="monotone" dataKey="profit" fill="hsl(var(--success)/0.3)" stroke="hsl(var(--success))" name="Lợi nhuận" />
+                          <Area type="monotone" dataKey="profit" fill="hsl(var(--success)/0.3)" stroke="hsl(var(--success))" name="Lợi nhuận gộp" />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -166,11 +296,12 @@ export default function FinancialReportsPage() {
               <>
                 <ContextualAIPanel context="financial_analysis" />
                 
-                {financialData?.keyInsights && (
+                {/* Key Insights */}
+                {keyInsights.length > 0 && (
                   <Card className="p-5">
                     <h3 className="font-semibold text-lg mb-4">Nhận định chính</h3>
                     <div className="space-y-3">
-                      {financialData.keyInsights.slice(0, 5).map((insight, idx) => (
+                      {keyInsights.slice(0, 5).map((insight, idx) => (
                         <div key={idx} className={cn(
                           "p-3 rounded-lg border",
                           insight.type === 'success' && "bg-success/10 border-success/20",
@@ -186,9 +317,10 @@ export default function FinancialReportsPage() {
                   </Card>
                 )}
 
-                {financialData?.financialRatios && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {financialData.financialRatios.slice(0, 8).map((ratio) => (
+                {/* Financial Ratios */}
+                {financialRatios.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {financialRatios.map((ratio) => (
                       <Card key={ratio.name} className="p-4">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-medium">{ratio.name}</p>
@@ -213,54 +345,47 @@ export default function FinancialReportsPage() {
               <>
                 <ContextualAIPanel context="profitability" />
 
-                {plData && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <Card className="p-5">
-                        <p className="text-sm text-muted-foreground">Doanh thu thuần</p>
-                        <p className="text-2xl font-bold text-primary">{formatBillion(plData.plData.netSales)}</p>
-                      </Card>
-                      <Card className="p-5">
-                        <p className="text-sm text-muted-foreground">Lợi nhuận gộp</p>
-                        <p className="text-2xl font-bold text-success">{formatBillion(plData.plData.grossProfit)}</p>
-                      </Card>
-                      <Card className="p-5">
-                        <p className="text-sm text-muted-foreground">Biên lợi nhuận gộp</p>
-                        <p className="text-2xl font-bold">{(plData.plData.grossMargin * 100).toFixed(1)}%</p>
-                      </Card>
-                      <Card className="p-5">
-                        <p className="text-sm text-muted-foreground">Biên lợi nhuận ròng</p>
-                        <p className={cn("text-2xl font-bold", plData.plData.netMargin >= 0 ? "text-success" : "text-destructive")}>
-                          {(plData.plData.netMargin * 100).toFixed(1)}%
-                        </p>
-                      </Card>
-                    </div>
+                {/* P&L KPIs from snapshot */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card className="p-5">
+                    <p className="text-sm text-muted-foreground">Doanh thu thuần</p>
+                    <p className="text-2xl font-bold text-primary">{formatBillion(snapshot?.netRevenue || 0)}</p>
+                  </Card>
+                  <Card className="p-5">
+                    <p className="text-sm text-muted-foreground">Lợi nhuận gộp</p>
+                    <p className="text-2xl font-bold text-success">{formatBillion(snapshot?.grossProfit || 0)}</p>
+                  </Card>
+                  <Card className="p-5">
+                    <p className="text-sm text-muted-foreground">Biên lợi nhuận gộp</p>
+                    <p className="text-2xl font-bold">{(snapshot?.grossMarginPercent || 0).toFixed(1)}%</p>
+                  </Card>
+                  <Card className="p-5">
+                    <p className="text-sm text-muted-foreground">EBITDA Margin</p>
+                    <p className={cn("text-2xl font-bold", (snapshot?.ebitdaMarginPercent || 0) >= 0 ? "text-success" : "text-destructive")}>
+                      {(snapshot?.ebitdaMarginPercent || 0).toFixed(1)}%
+                    </p>
+                  </Card>
+                </div>
 
-                    {plData.monthlyData && plData.monthlyData.length > 0 && (
-                      <Card className="p-5">
-                        <h3 className="font-semibold text-lg mb-4">Xu hướng Doanh thu - Chi phí - Lợi nhuận</h3>
-                        <div className="h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={plData.monthlyData.map(m => ({
-                              month: m.month,
-                              revenue: m.netSales,
-                              cost: m.cogs + m.opex,
-                              profit: m.netIncome,
-                            }))}>
-                              <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                              <XAxis dataKey="month" />
-                              <YAxis tickFormatter={(v) => `${(v/1000000).toFixed(0)}M`} />
-                              <Tooltip formatter={(v: number) => formatCurrency(v * 1000000)} />
-                              <Legend />
-                              <Area type="monotone" dataKey="revenue" fill="hsl(var(--primary)/0.3)" stroke="hsl(var(--primary))" name="Doanh thu" />
-                              <Area type="monotone" dataKey="cost" fill="hsl(var(--warning)/0.3)" stroke="hsl(var(--warning))" name="Chi phí" />
-                              <Area type="monotone" dataKey="profit" fill="hsl(var(--success)/0.3)" stroke="hsl(var(--success))" name="Lợi nhuận" />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </Card>
-                    )}
-                  </>
+                {/* Revenue-Cost-Profit Trend */}
+                {monthlyChartData.length > 0 && (
+                  <Card className="p-5">
+                    <h3 className="font-semibold text-lg mb-4">Xu hướng Doanh thu - Chi phí - Lợi nhuận</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={monthlyChartData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                          <XAxis dataKey="month" />
+                          <YAxis tickFormatter={(v) => `${(v/1000000).toFixed(0)}M`} />
+                          <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                          <Legend />
+                          <Area type="monotone" dataKey="revenue" fill="hsl(var(--primary)/0.3)" stroke="hsl(var(--primary))" name="Doanh thu" />
+                          <Area type="monotone" dataKey="cogs" fill="hsl(var(--warning)/0.3)" stroke="hsl(var(--warning))" name="COGS" />
+                          <Area type="monotone" dataKey="profit" fill="hsl(var(--success)/0.3)" stroke="hsl(var(--success))" name="Lợi nhuận gộp" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
                 )}
               </>
             )}

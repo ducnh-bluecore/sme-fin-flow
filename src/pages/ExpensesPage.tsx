@@ -1,12 +1,19 @@
-import { useState } from 'react';
+/**
+ * ExpensesPage - REFACTORED to use precomputed data
+ * 
+ * ⚠️ NOW USES CANONICAL HOOKS ONLY - NO RAW TABLE QUERIES
+ * 
+ * Uses:
+ * - useExpensesDaily for daily precomputed aggregates
+ * - useExpensesSummary for period totals by category
+ */
+
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { format, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import {
-  Search,
   Filter,
   TrendingDown,
   TrendingUp,
@@ -20,11 +27,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
-import { useDateRange, useDateRangeForQuery } from '@/contexts/DateRangeContext';
+import { useDateRange } from '@/contexts/DateRangeContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -32,16 +37,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import {
   AreaChart,
@@ -60,23 +58,12 @@ import {
 } from 'recharts';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { DataSourceNotice } from '@/components/shared/DataSourceNotice';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useExpensesDaily, useExpensesSummary, FormattedExpensesDaily } from '@/hooks/useExpensesDaily';
+import { useFinanceMonthlySummary } from '@/hooks/useFinanceMonthlySummary';
 
-interface Expense {
-  id: string;
-  expense_date: string;
-  category: string;
-  subcategory: string | null;
-  description: string;
-  amount: number;
-  vendor_name: string | null;
-  reference_number: string | null;
-  payment_method: string | null;
-  is_recurring: boolean;
-  recurring_period: string | null;
-  notes: string | null;
-  created_at: string;
-}
+// =============================================================
+// CONSTANTS
+// =============================================================
 
 const categoryLabels: Record<string, string> = {
   cogs: 'Giá vốn hàng bán',
@@ -104,132 +91,85 @@ const categoryColors: Record<string, string> = {
   other: '#64748b',
 };
 
+// =============================================================
+// COMPONENT
+// =============================================================
+
 export default function ExpensesPage() {
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  
-  // Use global date range context
-  const { startDateStr, endDateStr, dateRange } = useDateRangeForQuery();
-  const { data: tenantId } = useActiveTenantId();
+  const { dateRange } = useDateRange();
 
-  type ExpenseCategory = 'cogs' | 'salary' | 'rent' | 'utilities' | 'marketing' | 'logistics' | 'depreciation' | 'interest' | 'tax' | 'other';
+  // Use CANONICAL hooks only - NO raw table queries
+  const { data: dailyExpenses, isLoading, refetch } = useExpensesDaily({ days: 365 });
+  const { data: expensesSummary } = useExpensesSummary();
+  const { data: monthlySummary } = useFinanceMonthlySummary({ months: 12 });
 
-  // Fetch expenses with date range
-  const { data: expenses = [], isLoading, refetch } = useQuery({
-    queryKey: ['expenses-analytics', tenantId, filterCategory, startDateStr, endDateStr],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      
-      let query = supabase
-        .from('expenses')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('expense_date', startDateStr)
-        .lte('expense_date', endDateStr)
-        .order('expense_date', { ascending: false });
+  // Derive chart data from precomputed summary (NO calculations)
+  const categoryTotals = useMemo(() => {
+    if (!expensesSummary) return {};
+    return expensesSummary.byCategory;
+  }, [expensesSummary]);
 
-      if (filterCategory && filterCategory !== 'all') {
-        query = query.eq('category', filterCategory as ExpenseCategory);
-      }
+  const totalExpenses = expensesSummary?.totalAmount || 0;
+  const totalCount = expensesSummary?.totalCount || 0;
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Expense[];
-    },
-    enabled: !!tenantId,
-  });
+  // Previous period comparison from monthly summary (precomputed)
+  const prevPeriodExpenses = useMemo(() => {
+    if (!monthlySummary || monthlySummary.length < 2) return 0;
+    const prev = monthlySummary[monthlySummary.length - 2];
+    return prev ? (prev.cogs + prev.operatingExpenses) : 0;
+  }, [monthlySummary]);
 
-  // Fetch previous period for comparison
-  const { data: prevExpenses = [] } = useQuery({
-    queryKey: ['expenses-prev', tenantId, filterCategory, startDateStr, endDateStr],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      
-      const prevStart = format(subMonths(new Date(startDateStr), 1), 'yyyy-MM-dd');
-      const prevEnd = format(subMonths(new Date(endDateStr), 1), 'yyyy-MM-dd');
-
-      let query = supabase
-        .from('expenses')
-        .select('amount')
-        .eq('tenant_id', tenantId)
-        .gte('expense_date', prevStart)
-        .lte('expense_date', prevEnd);
-
-      if (filterCategory && filterCategory !== 'all') {
-        query = query.eq('category', filterCategory as ExpenseCategory);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId,
-  });
-
-  // Filter expenses by search term
-  const filteredExpenses = expenses.filter(
-    (exp) =>
-      exp.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exp.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      categoryLabels[exp.category]?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Calculate totals by category
-  const categoryTotals = expenses.reduce((acc, exp) => {
-    acc[exp.category] = (acc[exp.category] || 0) + Number(exp.amount);
-    return acc;
-  }, {} as Record<string, number>);
-
-  const totalExpenses = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
-  const prevTotalExpenses = prevExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const expenseChange = prevTotalExpenses > 0 
-    ? ((totalExpenses - prevTotalExpenses) / prevTotalExpenses) * 100 
+  const expenseChange = prevPeriodExpenses > 0
+    ? ((totalExpenses - prevPeriodExpenses) / prevPeriodExpenses) * 100
     : 0;
 
-  // Prepare chart data
-  const pieChartData = Object.entries(categoryTotals).map(([category, amount]) => ({
-    name: categoryLabels[category] || category,
-    value: amount,
-    color: categoryColors[category] || '#64748b',
-  }));
+  // Pie chart data from precomputed categories
+  const pieChartData = useMemo(() => {
+    return Object.entries(categoryTotals)
+      .filter(([_, amount]) => (amount as number) > 0)
+      .map(([category, amount]) => ({
+        name: categoryLabels[category] || category,
+        value: amount as number,
+        color: categoryColors[category] || '#64748b',
+      }));
+  }, [categoryTotals]);
 
-  // Monthly trend data
-  const monthlyData = expenses.reduce((acc, exp) => {
-    try {
-      const date = new Date(exp.expense_date);
-      if (!isNaN(date.getTime())) {
-        const month = format(date, 'yyyy-MM');
-        acc[month] = (acc[month] || 0) + Number(exp.amount);
-      }
-    } catch {
-      // Skip invalid dates
-    }
-    return acc;
-  }, {} as Record<string, number>);
-
-  const trendData = Object.entries(monthlyData)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, amount]) => {
+  // Trend data from daily precomputed (NO raw queries)
+  const trendData = useMemo(() => {
+    if (!dailyExpenses || dailyExpenses.length === 0) return [];
+    
+    // Group by month from precomputed daily data
+    const monthlyMap: Record<string, number> = {};
+    dailyExpenses.forEach((d: FormattedExpensesDaily) => {
       try {
-        return {
-          month: format(new Date(month + '-01'), 'MMM yyyy', { locale: vi }),
-          amount,
-        };
+        const month = d.day.substring(0, 7); // YYYY-MM
+        monthlyMap[month] = (monthlyMap[month] || 0) + d.totalAmount;
       } catch {
-        return { month, amount };
+        // Skip invalid dates
       }
     });
+    
+    return Object.entries(monthlyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, amount]) => ({
+        month: format(new Date(month + '-01'), 'MMM yyyy', { locale: vi }),
+        amount,
+      }));
+  }, [dailyExpenses]);
 
-  // Top vendors
-  const vendorTotals = expenses.reduce((acc, exp) => {
-    const vendor = exp.vendor_name || 'Không xác định';
-    acc[vendor] = (acc[vendor] || 0) + Number(exp.amount);
-    return acc;
-  }, {} as Record<string, number>);
+  // Largest category (from precomputed)
+  const largestCategory = useMemo(() => {
+    const entries = Object.entries(categoryTotals).sort(([, a], [, b]) => (b as number) - (a as number));
+    if (entries.length === 0) return { name: '-', amount: 0 };
+    const [cat, amount] = entries[0];
+    return { name: categoryLabels[cat] || cat, amount: amount as number };
+  }, [categoryTotals]);
 
-  const topVendors = Object.entries(vendorTotals)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
+  // Filter by category if needed
+  const filteredPieData = filterCategory === 'all' 
+    ? pieChartData 
+    : pieChartData.filter(d => d.name === categoryLabels[filterCategory]);
 
   return (
     <>
@@ -244,7 +184,7 @@ export default function ExpensesPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Phân tích Chi phí</h1>
             <p className="text-muted-foreground">
-              Theo dõi và phân tích chi phí từ các nguồn đã tích hợp
+              Theo dõi và phân tích chi phí từ dữ liệu đã tổng hợp
             </p>
           </div>
           <div className="flex gap-2">
@@ -266,10 +206,10 @@ export default function ExpensesPage() {
         </div>
 
         {/* Data Source Notice */}
-        <DataSourceNotice 
-          variant="blue" 
-          title="Dữ liệu được đồng bộ từ các nguồn tích hợp"
-          description="Để thêm dữ liệu mới, vui lòng kết nối với phần mềm kế toán hoặc import file tại"
+        <DataSourceNotice
+          variant="blue"
+          title="Dữ liệu được tổng hợp từ hệ thống"
+          description="Các số liệu hiển thị đã được tính toán sẵn từ dữ liệu gốc"
           showTimestamp
         />
 
@@ -282,18 +222,24 @@ export default function ExpensesPage() {
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
-                <div className={cn(
-                  "flex items-center text-xs mt-1",
-                  expenseChange > 0 ? "text-destructive" : "text-green-500"
-                )}>
-                  {expenseChange > 0 ? (
-                    <ArrowUpRight className="w-3 h-3 mr-1" />
-                  ) : (
-                    <ArrowDownRight className="w-3 h-3 mr-1" />
-                  )}
-                  {Math.abs(expenseChange).toFixed(1)}% so với kỳ trước
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-32" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{formatCurrency(totalExpenses)}</div>
+                    <div className={cn(
+                      "flex items-center text-xs mt-1",
+                      expenseChange > 0 ? "text-destructive" : "text-green-500"
+                    )}>
+                      {expenseChange > 0 ? (
+                        <ArrowUpRight className="w-3 h-3 mr-1" />
+                      ) : (
+                        <ArrowDownRight className="w-3 h-3 mr-1" />
+                      )}
+                      {Math.abs(expenseChange).toFixed(1)}% so với kỳ trước
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -305,12 +251,16 @@ export default function ExpensesPage() {
                 <PieChart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {categoryLabels[Object.entries(categoryTotals).sort(([,a], [,b]) => b - a)[0]?.[0]] || '-'}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatCurrency(Object.values(categoryTotals).sort((a, b) => b - a)[0] || 0)}
-                </p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-32" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{largestCategory.name}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(largestCategory.amount)}
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -322,8 +272,14 @@ export default function ExpensesPage() {
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{expenses.length}</div>
-                <p className="text-xs text-muted-foreground">trong kỳ phân tích</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">{totalCount}</div>
+                    <p className="text-xs text-muted-foreground">trong kỳ phân tích</p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -335,10 +291,16 @@ export default function ExpensesPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(expenses.length > 0 ? totalExpenses / expenses.length : 0)}
-                </div>
-                <p className="text-xs text-muted-foreground">chi phí trung bình</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(totalCount > 0 ? totalExpenses / totalCount : 0)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">chi phí trung bình</p>
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -346,17 +308,8 @@ export default function ExpensesPage() {
 
         {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm chi phí..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[200px]">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Danh mục" />
             </SelectTrigger>
@@ -375,7 +328,6 @@ export default function ExpensesPage() {
           <TabsList>
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
             <TabsTrigger value="trend">Xu hướng</TabsTrigger>
-            <TabsTrigger value="detail">Chi tiết</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -386,80 +338,90 @@ export default function ExpensesPage() {
                   <CardTitle>Phân bổ theo danh mục</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={pieChartData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {pieChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number) => formatCurrency(value)}
-                        />
-                        <Legend />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  {isLoading ? (
+                    <Skeleton className="h-[300px] w-full" />
+                  ) : (
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={filteredPieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            dataKey="value"
+                          >
+                            {filteredPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Top Vendors */}
+              {/* Category Breakdown */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top nhà cung cấp</CardTitle>
-                  <CardDescription>Theo tổng chi phí</CardDescription>
+                  <CardTitle>Chi tiết theo danh mục</CardTitle>
+                  <CardDescription>Tỷ trọng từng loại chi phí</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {topVendors.map(([vendor, amount], index) => (
-                      <div key={vendor} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">{vendor}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {formatCurrency(amount)}
-                          </span>
+                  {isLoading ? (
+                    <Skeleton className="h-[300px] w-full" />
+                  ) : (
+                    <div className="space-y-4">
+                      {pieChartData.slice(0, 6).map((item) => (
+                        <div key={item.name} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatCurrency(item.value)}
+                            </span>
+                          </div>
+                          <Progress
+                            value={totalExpenses > 0 ? (item.value / totalExpenses) * 100 : 0}
+                            className="h-2"
+                          />
                         </div>
-                        <Progress 
-                          value={(amount / totalExpenses) * 100} 
-                          className="h-2"
-                        />
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Category breakdown */}
+            {/* Bar Chart */}
             <Card>
               <CardHeader>
-                <CardTitle>Chi tiết theo danh mục</CardTitle>
+                <CardTitle>So sánh chi phí theo danh mục</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={pieChartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="name" className="text-xs" />
-                      <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Bar dataKey="value" fill="hsl(var(--primary))">
-                        {pieChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {isLoading ? (
+                  <Skeleton className="h-[300px] w-full" />
+                ) : (
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={pieChartData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" className="text-xs" />
+                        <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Bar dataKey="value" fill="hsl(var(--primary))">
+                          {pieChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -467,78 +429,29 @@ export default function ExpensesPage() {
           <TabsContent value="trend">
             <Card>
               <CardHeader>
-                <CardTitle>Xu hướng chi phí</CardTitle>
+                <CardTitle>Xu hướng chi phí theo tháng</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="month" />
-                      <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="amount" 
-                        stroke="hsl(var(--primary))" 
-                        fill="hsl(var(--primary) / 0.2)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="detail">
-            <Card>
-              <CardHeader>
-                <CardTitle>Danh sách chi phí</CardTitle>
-                <CardDescription>
-                  {filteredExpenses.length} giao dịch trong kỳ phân tích
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ngày</TableHead>
-                      <TableHead>Mô tả</TableHead>
-                      <TableHead>Danh mục</TableHead>
-                      <TableHead>Nhà cung cấp</TableHead>
-                      <TableHead className="text-right">Số tiền</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredExpenses.slice(0, 20).map((expense) => (
-                      <TableRow key={expense.id}>
-                        <TableCell className="font-mono text-sm">
-                          {format(new Date(expense.expense_date), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell>{expense.description}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant="outline"
-                            style={{ 
-                              borderColor: categoryColors[expense.category],
-                              color: categoryColors[expense.category]
-                            }}
-                          >
-                            {categoryLabels[expense.category]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{expense.vendor_name || '-'}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {formatCurrency(expense.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {filteredExpenses.length > 20 && (
-                  <p className="text-center text-sm text-muted-foreground mt-4">
-                    Hiển thị 20/{filteredExpenses.length} giao dịch
-                  </p>
+                {isLoading ? (
+                  <Skeleton className="h-[400px] w-full" />
+                ) : (
+                  <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={trendData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="month" />
+                        <YAxis tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`} />
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Area
+                          type="monotone"
+                          dataKey="amount"
+                          fill="hsl(var(--destructive)/0.2)"
+                          stroke="hsl(var(--destructive))"
+                          name="Chi phí"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </CardContent>
             </Card>
