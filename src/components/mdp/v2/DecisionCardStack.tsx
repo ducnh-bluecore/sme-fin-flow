@@ -265,19 +265,22 @@ function DecisionRow({
     <button
       onClick={() => onSelect(card)}
       className={cn(
-        "w-full flex items-center justify-between gap-4 p-3 rounded-md text-left transition-colors",
+        "w-full flex items-center justify-between gap-4 p-3 rounded-lg text-left transition-colors border",
         highlighted 
-          ? "bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10" 
-          : "bg-muted/30 hover:bg-muted/50"
+          ? "bg-amber-50 border-amber-200 hover:bg-amber-100/80" 
+          : "bg-card border-border hover:bg-muted/50"
       )}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{language.title}</p>
+        <p className="text-sm font-medium text-foreground truncate">{language.title}</p>
         <p className="text-xs text-muted-foreground truncate">{card.campaignName}</p>
       </div>
       
       <div className="flex items-center gap-4 shrink-0">
-        <span className="text-sm font-medium tabular-nums">
+        <span className={cn(
+          "text-sm font-medium tabular-nums",
+          highlighted ? "text-amber-700" : "text-foreground"
+        )}>
           -{formatVND(card.impactAmount)}
         </span>
         <Badge variant="secondary" className="text-xs font-normal">

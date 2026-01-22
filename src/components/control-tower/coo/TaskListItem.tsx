@@ -14,6 +14,7 @@ import { vi } from 'date-fns/locale';
 
 /**
  * TASK LIST ITEM - COO Control Tower
+ * Light Professional Theme
  * 
  * Dense but readable task row
  * Clear status, owner, due date, blocker indicator
@@ -46,8 +47,8 @@ const getStatusConfig = (status: TaskStatus, isOverdue?: boolean) => {
   if (isOverdue && status !== 'done') {
     return {
       icon: Clock,
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/10',
+      color: 'text-destructive',
+      bgColor: 'bg-destructive/10',
       label: 'Quá hạn',
     };
   }
@@ -56,29 +57,29 @@ const getStatusConfig = (status: TaskStatus, isOverdue?: boolean) => {
     case 'todo':
       return {
         icon: Circle,
-        color: 'text-slate-400',
-        bgColor: 'bg-slate-500/10',
+        color: 'text-muted-foreground',
+        bgColor: 'bg-muted',
         label: 'Chưa làm',
       };
     case 'in_progress':
       return {
         icon: Loader2,
-        color: 'text-blue-400',
-        bgColor: 'bg-blue-500/10',
+        color: 'text-primary',
+        bgColor: 'bg-primary/10',
         label: 'Đang làm',
       };
     case 'blocked':
       return {
         icon: AlertTriangle,
-        color: 'text-amber-400',
-        bgColor: 'bg-amber-500/10',
+        color: 'text-amber-600',
+        bgColor: 'bg-amber-50',
         label: 'Bị chặn',
       };
     case 'done':
       return {
         icon: CheckCircle2,
-        color: 'text-emerald-400',
-        bgColor: 'bg-emerald-500/10',
+        color: 'text-emerald-600',
+        bgColor: 'bg-emerald-50',
         label: 'Hoàn thành',
       };
   }
@@ -95,9 +96,9 @@ export function TaskListItem({
 
   return (
     <div className={cn(
-      'flex items-center gap-4 p-4 border-b border-slate-800/50',
-      'hover:bg-slate-900/30 transition-colors',
-      task.hasBlocker && 'bg-amber-950/10'
+      'flex items-center gap-4 p-4 border-b border-border',
+      'hover:bg-muted/50 transition-colors',
+      task.hasBlocker && 'bg-amber-50/50'
     )}>
       {/* Status Icon */}
       <button
@@ -121,15 +122,15 @@ export function TaskListItem({
       {/* Task Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <h4 className="text-sm font-medium text-slate-200 truncate">
+          <h4 className="text-sm font-medium text-foreground truncate">
             {task.title}
           </h4>
           {task.hasEvidence && (
-            <Paperclip className="h-3 w-3 text-slate-500 flex-shrink-0" />
+            <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
           )}
         </div>
         
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {/* Owner */}
           {task.ownerName && (
             <span>{task.ownerName}</span>
@@ -138,7 +139,7 @@ export function TaskListItem({
           {/* Due date */}
           {task.dueDate && (
             <span className={cn(
-              task.isOverdue && 'text-red-400'
+              task.isOverdue && 'text-destructive font-medium'
             )}>
               {formatDistanceToNow(new Date(task.dueDate), { addSuffix: true, locale: vi })}
             </span>
@@ -146,7 +147,7 @@ export function TaskListItem({
           
           {/* Linked decision */}
           {task.linkedDecisionTitle && (
-            <span className="text-slate-600 truncate max-w-[200px]">
+            <span className="text-muted-foreground/70 truncate max-w-[200px]">
               → {task.linkedDecisionTitle}
             </span>
           )}
@@ -154,7 +155,7 @@ export function TaskListItem({
         
         {/* Blocker note */}
         {task.hasBlocker && task.blockerNote && (
-          <p className="text-xs text-amber-400/80 mt-1 line-clamp-1">
+          <p className="text-xs text-amber-600 mt-1 line-clamp-1">
             ⚠️ {task.blockerNote}
           </p>
         )}
@@ -167,7 +168,7 @@ export function TaskListItem({
             size="sm"
             variant="ghost"
             onClick={onEscalate}
-            className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
           >
             Escalate
           </Button>
@@ -177,7 +178,7 @@ export function TaskListItem({
           size="sm"
           variant="ghost"
           onClick={onViewDetail}
-          className="text-slate-400 hover:text-slate-200"
+          className="text-muted-foreground hover:text-foreground"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

@@ -16,11 +16,33 @@ interface StatCardProps {
   className?: string;
 }
 
+/**
+ * STAT CARD - Light Professional Theme
+ * 
+ * Clean metric display with semantic severity colors
+ * Follows severity discipline: green = confirmed, amber = warning, red = critical
+ */
 const variantStyles = {
-  default: '',
-  success: 'text-green-500',
-  warning: 'text-amber-500',
-  danger: 'text-destructive border-destructive/50',
+  default: {
+    value: 'text-foreground',
+    border: '',
+    iconBg: 'bg-muted',
+  },
+  success: {
+    value: 'text-emerald-600',
+    border: 'border-l-4 border-l-emerald-500',
+    iconBg: 'bg-emerald-50',
+  },
+  warning: {
+    value: 'text-amber-600',
+    border: 'border-l-4 border-l-amber-500',
+    iconBg: 'bg-amber-50',
+  },
+  danger: {
+    value: 'text-destructive',
+    border: 'border-l-4 border-l-destructive',
+    iconBg: 'bg-destructive/10',
+  },
 };
 
 export function StatCard({
@@ -36,6 +58,7 @@ export function StatCard({
 }: StatCardProps) {
   const isPositiveChange = change !== undefined && change >= 0;
   const showChange = change !== undefined && change !== 0;
+  const styles = variantStyles[variant];
 
   return (
     <motion.div
@@ -43,20 +66,26 @@ export function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
     >
-      <Card className={cn(variant === 'danger' && 'border-destructive/50', className)}>
+      <Card className={cn('bg-card', styles.border, className)}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {title}
+          </CardTitle>
+          {Icon && (
+            <div className={cn('p-2 rounded-lg', styles.iconBg)}>
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
         </CardHeader>
         <CardContent>
-          <div className={cn('text-2xl font-bold', variantStyles[variant])}>
+          <div className={cn('text-2xl font-semibold tabular-nums', styles.value)}>
             {value}
           </div>
           {showChange && (
             <div
               className={cn(
-                'flex items-center text-xs mt-1',
-                isPositiveChange ? 'text-green-500' : 'text-destructive'
+                'flex items-center text-xs mt-1 font-medium',
+                isPositiveChange ? 'text-emerald-600' : 'text-destructive'
               )}
             >
               {isPositiveChange ? (
