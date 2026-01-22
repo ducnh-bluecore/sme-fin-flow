@@ -8,13 +8,14 @@ import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { ARAgingChart } from '@/components/dashboard/ARAgingChart';
 import { ARByPlatformChart } from '@/components/dashboard/ARByPlatformChart';
 import { OverdueInvoicesTable } from '@/components/dashboard/OverdueInvoicesTable';
+import { DSOTrendChart } from '@/components/dashboard/DSOTrendChart';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
-import { useCustomersData } from '@/hooks/useKPIData';
+import { useTopCustomersAR } from '@/hooks/useTopCustomersAR';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -51,7 +52,7 @@ export default function AROperations() {
   const [dateRange, setDateRange] = useState('this_year');
   
   const { data: metrics, isLoading: kpiLoading } = useCentralFinancialMetrics();
-  const { data: customers = [], isLoading: customersLoading } = useCustomersData();
+  const { data: customers = [], isLoading: customersLoading } = useTopCustomersAR(10);
   
   // Add customer form state
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -110,7 +111,8 @@ export default function AROperations() {
     addCustomer.mutate(customerForm);
   };
 
-  const sortedCustomers = [...customers].sort((a, b) => b.totalAR - a.totalAR);
+  // Customers already sorted by revenue/AR from hook
+  const sortedCustomers = customers;
 
   if (kpiLoading) {
     return (
@@ -424,26 +426,8 @@ export default function AROperations() {
         {/* Overdue Invoices */}
         <OverdueInvoicesTable />
 
-        {/* DSO Trend (Placeholder) */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="data-card"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-foreground">Xu hướng DSO</h3>
-              <p className="text-sm text-muted-foreground">DSO Trend - 12 tháng gần nhất</p>
-            </div>
-          </div>
-          <div className="h-48 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>Biểu đồ DSO Trend sẽ được hiển thị ở đây</p>
-            </div>
-          </div>
-        </motion.div>
+        {/* DSO Trend Chart */}
+        <DSOTrendChart />
       </div>
     </>
   );
