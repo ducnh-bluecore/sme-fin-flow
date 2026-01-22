@@ -18095,15 +18095,15 @@ export type Database = {
       calculate_trend_metrics: { Args: { p_values: number[] }; Returns: Json }
       cdp_build_customer_metrics_daily: {
         Args: { p_as_of_date: string; p_tenant_id: string }
-        Returns: number
+        Returns: undefined
       }
       cdp_build_customer_metrics_rolling: {
         Args: { p_as_of_date: string; p_tenant_id: string }
-        Returns: number
+        Returns: undefined
       }
-      cdp_build_tier_membership: {
+      cdp_build_value_tiers: {
         Args: { p_as_of_date: string; p_tenant_id: string }
-        Returns: number
+        Returns: undefined
       }
       cdp_check_insight_cooldown: {
         Args: {
@@ -18115,10 +18115,12 @@ export type Database = {
         }
         Returns: boolean
       }
-      cdp_run_daily_build: {
-        Args: { p_as_of_date?: string; p_tenant_id: string }
-        Returns: Json
+      cdp_refresh_mvs: { Args: never; Returns: undefined }
+      cdp_run_daily: {
+        Args: { p_as_of_date: string; p_tenant_id: string }
+        Returns: undefined
       }
+      cdp_run_daily_all: { Args: { p_as_of_date: string }; Returns: undefined }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
