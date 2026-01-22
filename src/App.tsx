@@ -76,15 +76,19 @@ const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
 const WorkingCapitalHubPage = lazy(() => import("./pages/WorkingCapitalHubPage"));
 const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPage"));
 
-// CDP pages
+// CDP pages - Restructured per spec v2
 const CDPPage = lazy(() => import("./pages/cdp/CDPOverviewPage"));
-const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
-const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
-const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
+const CDPExplorePage = lazy(() => import("./pages/cdp/ExplorePage"));
 const InsightsPage = lazy(() => import("./pages/cdp/InsightsPage"));
+const InsightDetailPage = lazy(() => import("./pages/cdp/InsightDetailPage"));
+const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
+const CustomerEquityPage = lazy(() => import("./pages/cdp/CustomerEquityPage"));
 const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
 const DecisionCardsPage = lazy(() => import("./pages/cdp/DecisionCardsPage"));
 const DataConfidencePage = lazy(() => import("./pages/cdp/DataConfidencePage"));
+// Legacy CDP pages (keep for backwards compatibility)
+const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
+const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
 
 
 // Strategy & Decision pages
@@ -200,20 +204,25 @@ const AppRoutes = () => {
       {/* Redirect /formulas to /documentation since formulas are documented there */}
       <Route path="/formulas" element={<Navigate to="/documentation" replace />} />
       
-      {/* CDP Routes */}
+      {/* CDP Routes - Restructured per spec v2 */}
       <Route path="/cdp" element={
         <ProtectedRoute>
           <CDPPage />
         </ProtectedRoute>
       } />
-      <Route path="/cdp/value-distribution" element={
+      <Route path="/cdp/explore" element={
         <ProtectedRoute>
-          <ValueDistributionPage />
+          <CDPExplorePage />
         </ProtectedRoute>
       } />
-      <Route path="/cdp/trend-engine" element={
+      <Route path="/cdp/insights" element={
         <ProtectedRoute>
-          <TrendEnginePage />
+          <InsightsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/insights/:insightCode" element={
+        <ProtectedRoute>
+          <InsightDetailPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/insight-registry" element={
@@ -221,9 +230,9 @@ const AppRoutes = () => {
           <InsightRegistryPage />
         </ProtectedRoute>
       } />
-      <Route path="/cdp/insights" element={
+      <Route path="/cdp/equity" element={
         <ProtectedRoute>
-          <InsightsPage />
+          <CustomerEquityPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/populations" element={
@@ -239,6 +248,17 @@ const AppRoutes = () => {
       <Route path="/cdp/confidence" element={
         <ProtectedRoute>
           <DataConfidencePage />
+        </ProtectedRoute>
+      } />
+      {/* Legacy CDP routes - redirect to new structure */}
+      <Route path="/cdp/value-distribution" element={
+        <ProtectedRoute>
+          <ValueDistributionPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/trend-engine" element={
+        <ProtectedRoute>
+          <TrendEnginePage />
         </ProtectedRoute>
       } />
 

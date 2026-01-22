@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingDown,
   TrendingUp,
@@ -10,7 +11,10 @@ import {
   Database,
   ChevronDown,
   ChevronUp,
-  Calendar
+  Calendar,
+  ChevronRight,
+  List,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CDPLayout } from '@/components/layout/CDPLayout';
 import { useCDPInsightDetection, DetectedInsight } from '@/hooks/useCDPInsightDetection';
 import { InsightCategory } from '@/lib/cdp-insight-registry';

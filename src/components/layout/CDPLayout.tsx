@@ -12,7 +12,10 @@ import {
   Home,
   X,
   ChevronRight,
-  Menu
+  Menu,
+  Compass,
+  Wallet,
+  Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,11 +26,14 @@ import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 /**
  * CDP LAYOUT - Light Professional Theme
  * 
- * Unified with FDP/MDP design system:
- * - 280px sidebar width
- * - Semantic tokens (bg-card, border-border, etc.)
- * - Light professional aesthetic
- * - Decision-first navigation
+ * Navigation theo spec mới:
+ * 1. Tổng quan
+ * 2. Khám phá (Explore)
+ * 3. Insight
+ * 4. Giá trị Khách hàng (Customer Equity)
+ * 5. Tập khách hàng
+ * 6. Thẻ Quyết định
+ * 7. Độ tin cậy Dữ liệu
  */
 
 interface NavItem {
@@ -39,10 +45,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Tổng quan', href: '/cdp', icon: LayoutGrid },
-  { label: 'Tín hiệu', href: '/cdp/insights', icon: TrendingUp },
-  { label: 'Tập khách hàng', href: '/cdp/populations', icon: Users },
-  { label: 'Quyết định', href: '/cdp/decisions', icon: FileCheck },
-  { label: 'Độ tin cậy', href: '/cdp/confidence', icon: ShieldCheck },
+  { label: 'Khám phá', href: '/cdp/explore', icon: Compass },
+  { label: 'Insight', href: '/cdp/insights', icon: TrendingUp },
+  { label: 'Giá trị Khách hàng', href: '/cdp/equity', icon: Wallet },
+  { label: 'Tập khách hàng', href: '/cdp/populations', icon: Layers },
+  { label: 'Thẻ Quyết định', href: '/cdp/decisions', icon: FileCheck },
+  { label: 'Độ tin cậy Dữ liệu', href: '/cdp/confidence', icon: ShieldCheck },
 ];
 
 const bottomNavItems: NavItem[] = [
