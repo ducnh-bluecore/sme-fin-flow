@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { 
@@ -46,8 +45,8 @@ interface Workspace {
   badgeCount?: number;
 }
 
-// App Module Card Component
-function AppModuleCard({ 
+// Compact App Module Card for radial layout
+function CompactModuleCard({ 
   module, 
   onClick,
 }: { 
@@ -57,84 +56,78 @@ function AppModuleCard({
   const isActive = module.status === 'active';
   
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+    <Card 
+      className={`
+        relative overflow-hidden transition-all duration-300 h-full
+        ${isActive 
+          ? 'cursor-pointer hover:shadow-elevated hover:-translate-y-1' 
+          : 'opacity-60 cursor-not-allowed'}
+      `}
+      style={{
+        borderTopWidth: '3px',
+        borderTopColor: isActive ? module.color : 'hsl(var(--border))'
+      }}
+      onClick={() => isActive && onClick(module)}
     >
-      <Card 
-        className={`
-          relative overflow-hidden transition-all duration-300 h-full
-          ${isActive 
-            ? 'cursor-pointer hover:shadow-elevated hover:-translate-y-1' 
-            : 'opacity-60 cursor-not-allowed'}
-        `}
-        style={{
-          borderLeftWidth: '4px',
-          borderLeftColor: isActive ? module.color : 'hsl(var(--border))'
-        }}
-        onClick={() => isActive && onClick(module)}
-      >
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div 
-              className="p-2.5 rounded-lg"
-              style={{ 
-                backgroundColor: module.bgColor,
-                border: `1px solid ${module.borderColor}`
-              }}
-            >
-              <module.icon 
-                className="h-5 w-5" 
-                style={{ color: module.color }}
-              />
-            </div>
-            <Badge 
-              variant={isActive ? "default" : "secondary"}
-              className="text-[10px] font-medium"
-              style={isActive ? { 
-                backgroundColor: module.color,
-                color: '#fff'
-              } : undefined}
-            >
-              {isActive ? module.shortName : 'Coming Soon'}
-            </Badge>
+      <CardHeader className="pb-2 pt-4">
+        <div className="flex items-center justify-between">
+          <div 
+            className="p-2 rounded-lg"
+            style={{ 
+              backgroundColor: module.bgColor,
+              border: `1px solid ${module.borderColor}`
+            }}
+          >
+            <module.icon 
+              className="h-5 w-5" 
+              style={{ color: module.color }}
+            />
           </div>
-          <div className="mt-3">
-            <CardTitle className="text-lg font-semibold text-foreground">
-              {module.name}
-            </CardTitle>
-            <CardDescription className="text-xs mt-1" style={{ color: module.color }}>
-              {module.tagline}
-            </CardDescription>
-          </div>
-        </CardHeader>
+          <Badge 
+            variant={isActive ? "default" : "secondary"}
+            className="text-[10px] font-medium"
+            style={isActive ? { 
+              backgroundColor: module.color,
+              color: '#fff'
+            } : undefined}
+          >
+            {isActive ? module.shortName : 'Coming Soon'}
+          </Badge>
+        </div>
+        <div className="mt-2">
+          <CardTitle className="text-base font-semibold text-foreground">
+            {module.name}
+          </CardTitle>
+          <CardDescription className="text-[11px] mt-0.5" style={{ color: module.color }}>
+            {module.tagline}
+          </CardDescription>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="pt-0 pb-4">
+        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+          {module.description}
+        </p>
         
-        <CardContent className="pt-0">
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-            {module.description}
-          </p>
-          
-          {isActive && module.metrics && (
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              {module.metrics.slice(0, 2).map((metric, i) => (
-                <div key={i} className="bg-muted/50 rounded-md p-2">
-                  <div className="text-xs text-muted-foreground">{metric.label}</div>
-                  <div className="text-sm font-semibold text-foreground">{metric.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {isActive && (
-            <div className="flex items-center text-sm font-medium" style={{ color: module.color }}>
-              <span>Open {module.shortName}</span>
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
+        {isActive && module.metrics && (
+          <div className="grid grid-cols-2 gap-1.5 mb-3">
+            {module.metrics.slice(0, 2).map((metric, i) => (
+              <div key={i} className="bg-muted/50 rounded-md px-2 py-1.5">
+                <div className="text-[10px] text-muted-foreground">{metric.label}</div>
+                <div className="text-xs font-semibold text-foreground">{metric.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {isActive && (
+          <div className="flex items-center text-xs font-medium" style={{ color: module.color }}>
+            <span>Open {module.shortName}</span>
+            <ArrowRight className="h-3 w-3 ml-1" />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -174,8 +167,8 @@ export default function PortalPage() {
       shortName: 'FDP',
       tagline: 'Truth > Flexibility',
       description: language === 'vi'
-        ? 'Nền tảng sự thật tài chính duy nhất. Reconciliation, cash position, unit economics - không có phiên bản khác.'
-        : 'Single source of financial truth. Reconciliation, cash position, unit economics - no alternative versions.',
+        ? 'Nền tảng sự thật tài chính duy nhất. Reconciliation, cash position, unit economics.'
+        : 'Single source of financial truth. Reconciliation, cash position, unit economics.',
       icon: BarChart3,
       color: 'hsl(152, 60%, 36%)',
       bgColor: 'hsl(152, 60%, 95%)',
@@ -191,10 +184,10 @@ export default function PortalPage() {
       id: 'mdp',
       name: 'Marketing Data Platform',
       shortName: 'MDP',
-      tagline: 'Profit before Performance. Cash before Clicks.',
+      tagline: 'Profit before Performance',
       description: language === 'vi'
-        ? 'Đo lường giá trị tài chính thật của marketing. CFO tin, CEO quyết, Marketer phải điều chỉnh.'
-        : 'Measure real financial value of marketing. CFO trusts, CEO decides, Marketer adjusts.',
+        ? 'Đo lường giá trị tài chính thật của marketing. CFO tin, CEO quyết.'
+        : 'Measure real financial value of marketing. CFO trusts, CEO decides.',
       icon: Megaphone,
       color: 'hsl(270, 55%, 55%)',
       bgColor: 'hsl(270, 55%, 95%)',
@@ -210,10 +203,10 @@ export default function PortalPage() {
       id: 'control-tower',
       name: 'Control Tower',
       shortName: 'OPS',
-      tagline: 'Awareness before Analytics. Action before Reports.',
+      tagline: 'Awareness before Analytics',
       description: language === 'vi'
-        ? 'Không phải dashboard. Tồn tại để báo động và hành động. Mỗi alert phải đau và phải có giá.'
-        : 'Not a dashboard. Exists to alert and act. Every alert must hurt and have a price.',
+        ? 'Không phải dashboard. Tồn tại để báo động và hành động.'
+        : 'Not a dashboard. Exists to alert and act.',
       icon: AlertTriangle,
       color: 'hsl(38, 92%, 50%)',
       bgColor: 'hsl(38, 92%, 95%)',
@@ -231,8 +224,8 @@ export default function PortalPage() {
       shortName: 'CDP',
       tagline: 'Customer 360° Intelligence',
       description: language === 'vi'
-        ? 'Nền tảng hợp nhất dữ liệu khách hàng. Xây dựng hồ sơ 360° để cá nhân hóa trải nghiệm.'
-        : 'Unified customer data platform. Build 360° profiles to personalize experiences.',
+        ? 'Nền tảng hợp nhất dữ liệu khách hàng. Xây dựng hồ sơ 360°.'
+        : 'Unified customer data platform. Build 360° profiles.',
       icon: Users,
       color: 'hsl(210, 80%, 52%)',
       bgColor: 'hsl(210, 80%, 95%)',
@@ -242,7 +235,7 @@ export default function PortalPage() {
     },
   ];
 
-  // Cross-App Workspaces (Phase 2 - currently linking to existing routes)
+  // Cross-App Workspaces
   const workspaces: Workspace[] = [
     {
       id: 'review-hub',
@@ -284,63 +277,128 @@ export default function PortalPage() {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="border-b border-border bg-card">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="max-w-7xl mx-auto px-6 py-5">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground tracking-tight">
                   Bluecore
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   Finance & Decision Intelligence Platform
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleDataWarehouseClick}
-                className="gap-2"
-              >
-                <Database className="h-4 w-4" />
-                Data Warehouse
-              </Button>
             </div>
           </div>
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-8">
-          {/* Apps Section */}
+          {/* Hub and Spoke Layout */}
           <section className="mb-10">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Applications</h2>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'vi' ? 'Chọn module để bắt đầu' : 'Select a module to get started'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {appModules.map((module, index) => (
-                <motion.div
-                  key={module.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1, duration: 0.4 }}
-                >
-                  <AppModuleCard 
-                    module={module} 
-                    onClick={handleModuleClick}
+            {/* Central Data Warehouse Hub */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="flex justify-center mb-8"
+            >
+              <Card 
+                className="w-full max-w-md cursor-pointer hover:shadow-elevated transition-all duration-300 border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10"
+                onClick={handleDataWarehouseClick}
+              >
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
+                      <Database className="h-10 w-10 text-primary" />
+                    </div>
+                    <h2 className="text-xl font-bold text-foreground mb-1">Data Warehouse</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {language === 'vi' 
+                        ? 'Trung tâm dữ liệu - Single Source of Truth' 
+                        : 'Central Data Hub - Single Source of Truth'}
+                    </p>
+                    <div className="grid grid-cols-3 gap-4 w-full mb-4">
+                      <div className="bg-card rounded-lg p-2 border">
+                        <div className="text-[10px] text-muted-foreground uppercase">Tables</div>
+                        <div className="text-lg font-bold text-foreground">142</div>
+                      </div>
+                      <div className="bg-card rounded-lg p-2 border">
+                        <div className="text-[10px] text-muted-foreground uppercase">Sync</div>
+                        <div className="text-lg font-bold text-success">Live</div>
+                      </div>
+                      <div className="bg-card rounded-lg p-2 border">
+                        <div className="text-[10px] text-muted-foreground uppercase">Records</div>
+                        <div className="text-lg font-bold text-foreground">2.1M</div>
+                      </div>
+                    </div>
+                    <Button variant="default" size="sm" className="gap-2">
+                      <span>Open Data Warehouse</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Connection Lines Visual */}
+            <div className="relative">
+              {/* Decorative connecting lines - hidden on mobile */}
+              <div className="hidden lg:block absolute inset-x-0 -top-4 h-8">
+                <svg className="w-full h-full" viewBox="0 0 1000 32" preserveAspectRatio="none">
+                  <path 
+                    d="M125 32 L125 16 L500 16 L500 0" 
+                    stroke="hsl(var(--border))" 
+                    strokeWidth="2" 
+                    fill="none"
+                    strokeDasharray="4 4"
                   />
-                </motion.div>
-              ))}
+                  <path 
+                    d="M375 32 L375 16 L500 16 L500 0" 
+                    stroke="hsl(var(--border))" 
+                    strokeWidth="2" 
+                    fill="none"
+                    strokeDasharray="4 4"
+                  />
+                  <path 
+                    d="M625 32 L625 16 L500 16 L500 0" 
+                    stroke="hsl(var(--border))" 
+                    strokeWidth="2" 
+                    fill="none"
+                    strokeDasharray="4 4"
+                  />
+                  <path 
+                    d="M875 32 L875 16 L500 16 L500 0" 
+                    stroke="hsl(var(--border))" 
+                    strokeWidth="2" 
+                    fill="none"
+                    strokeDasharray="4 4"
+                  />
+                </svg>
+              </div>
+
+              {/* Application Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {appModules.map((module, index) => (
+                  <motion.div
+                    key={module.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.1, duration: 0.4 }}
+                  >
+                    <CompactModuleCard 
+                      module={module} 
+                      onClick={handleModuleClick}
+                    />
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </section>
 
-          {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Bottom Section: Workspaces + System Overview */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Workspaces */}
             <section className="lg:col-span-1">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Workspaces</h2>
+              <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Workspaces</h2>
               <div className="space-y-2">
                 {workspaces.map((workspace) => (
                   <WorkspaceLink 
@@ -352,38 +410,38 @@ export default function PortalPage() {
               </div>
             </section>
 
-            {/* Quick Stats / System Health */}
+            {/* System Overview */}
             <section className="lg:col-span-2">
-              <h2 className="text-lg font-semibold text-foreground mb-4">System Overview</h2>
-              <Card className="p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">System Overview</h2>
+              <Card className="p-5">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
                       Data Freshness
                     </div>
-                    <div className="text-xl font-semibold text-foreground">Real-time</div>
-                    <div className="text-xs text-success mt-1">● All systems synced</div>
+                    <div className="text-lg font-semibold text-foreground">Real-time</div>
+                    <div className="text-[11px] text-success mt-0.5">● All systems synced</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
                       Active Alerts
                     </div>
-                    <div className="text-xl font-semibold text-foreground">3</div>
-                    <div className="text-xs text-warning mt-1">1 critical, 2 pending</div>
+                    <div className="text-lg font-semibold text-foreground">3</div>
+                    <div className="text-[11px] text-warning mt-0.5">1 critical, 2 pending</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
                       Pending Decisions
                     </div>
-                    <div className="text-xl font-semibold text-foreground">7</div>
-                    <div className="text-xs text-muted-foreground mt-1">Awaiting action</div>
+                    <div className="text-lg font-semibold text-foreground">7</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Awaiting action</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
                       Cash Position
                     </div>
-                    <div className="text-xl font-semibold text-foreground">₫12.4B</div>
-                    <div className="text-xs text-success mt-1">↑ 2.3% vs yesterday</div>
+                    <div className="text-lg font-semibold text-foreground">₫12.4B</div>
+                    <div className="text-[11px] text-success mt-0.5">↑ 2.3% vs yesterday</div>
                   </div>
                 </div>
               </Card>
@@ -391,7 +449,7 @@ export default function PortalPage() {
           </div>
 
           {/* Footer Note */}
-          <footer className="mt-12 pt-6 border-t border-border">
+          <footer className="mt-10 pt-6 border-t border-border">
             <p className="text-xs text-muted-foreground text-center">
               {language === 'vi' 
                 ? 'Nếu không khiến quyết định rõ ràng hơn → hệ thống đã thất bại.'
