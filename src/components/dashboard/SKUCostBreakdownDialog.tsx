@@ -105,6 +105,17 @@ export function SKUCostBreakdownDialog({
     queryFn: async () => {
       if (!tenantId || !sku) return null;
 
+      // SSOT: First get the cost_price from products table
+      // This ensures consistent COGS across all channels for the same SKU
+      const { data: productData } = await supabase
+        .from('products')
+        .select('cost_price, selling_price')
+        .eq('tenant_id', tenantId)
+        .eq('sku', sku)
+        .maybeSingle();
+      
+      const masterUnitCost = productData?.cost_price ? Number(productData.cost_price) : null;
+
       // First find items by SKU or product name
       const { data: items, error: itemsError } = await supabase
         .from('external_order_items')
@@ -243,14 +254,18 @@ export function SKUCostBreakdownDialog({
         const totalOrderFees = platformFee + commissionFee + paymentFee + shippingFee + otherFees;
         const allocatedFees = totalOrderFees * revenueShare;
 
-        // Calculate COGS
+        // Calculate COGS - SSOT: Prioritize master unit cost from products table
+        // This ensures consistent COGS across all channels for the same SKU
         const unitCogs = item.unit_cogs != null ? Number(item.unit_cogs) : 0;
         const totalCogs = item.total_cogs != null ? Number(item.total_cogs) : 0;
         const grossProfit = item.gross_profit != null ? Number(item.gross_profit) : 0;
         const orderCogs = Number(order.cost_of_goods || 0);
 
         let itemCogs = 0;
-        if (unitCogs > 0) {
+        if (masterUnitCost && masterUnitCost > 0) {
+          // SSOT: Use master unit cost from products table - same for all channels
+          itemCogs = masterUnitCost * qty;
+        } else if (unitCogs > 0) {
           itemCogs = unitCogs * qty;
         } else if (totalCogs > 0) {
           itemCogs = totalCogs;
