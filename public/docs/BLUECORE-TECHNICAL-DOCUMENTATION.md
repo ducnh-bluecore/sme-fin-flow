@@ -15,7 +15,8 @@
 6. [Database Schema](#database-schema)
 7. [Hooks Reference](#hooks-reference)
 8. [Formulas & Calculations](#formulas-calculations)
-9. [Data Flow Architecture](#data-flow-architecture)
+9. [Bluecore Scores™](#bluecore-scores)
+10. [Data Flow Architecture](#data-flow-architecture)
 
 ---
 
@@ -1050,6 +1051,158 @@ MTTR = Total Resolution Time / Number of Resolved Alerts
 Alert Volume Trend = (Current Period - Previous Period) / Previous Period
 Escalation Rate = Escalated Alerts / Total Alerts
 ```
+
+---
+
+## Bluecore Scores™ - Executive Health Metrics
+
+Bluecore Scores™ là bộ 4 chỉ số sức khỏe doanh nghiệp cấp CEO/CFO, cung cấp cái nhìn tổng quan về tình trạng tài chính, tăng trưởng, marketing và khách hàng.
+
+### CHS - Cash Health Score™ (Điểm Sức khỏe Tiền mặt)
+
+> **Câu hỏi:** Doanh nghiệp đang khỏe hay hấp hối về tiền?
+
+**Công thức:** Dựa trên Cash Runway (số tháng tiền mặt còn đủ hoạt động)
+
+```
+Cash Runway = Current Cash Balance / Monthly Burn Rate
+```
+
+| Runway | Score | Grade | Recommendation |
+|--------|-------|-------|----------------|
+| ≥ 12 tháng | 90 | EXCELLENT | Có thể cân nhắc đầu tư tăng trưởng |
+| 6-12 tháng | 70 | GOOD | Duy trì kiểm soát chi phí |
+| 3-6 tháng | 45 | WARNING | Cần tối ưu dòng tiền ngay |
+| < 3 tháng | 20 | CRITICAL | CẮT CHI PHÍ NGAY - Tình trạng khẩn cấp |
+
+**Hook:** `useBluecoreScores()` → `CASH_HEALTH`
+
+---
+
+### GQS - Growth Quality Score™ (Điểm Chất lượng Tăng trưởng)
+
+> **Câu hỏi:** Tăng trưởng này tốt hay độc?
+
+**Công thức:** Kết hợp Contribution Margin % và Cash Conversion Rate
+
+```
+Contribution Margin % = (Contribution Margin / Total Revenue) × 100
+Cash Conversion Rate = Cash Received / Total Revenue × 100
+```
+
+| Điều kiện | Score | Grade | Recommendation |
+|-----------|-------|-------|----------------|
+| Margin ≥ 20% + CCR ≥ 80% | 90 | EXCELLENT | Scale với confidence cao |
+| Margin ≥ 10% + CCR ≥ 60% | 70 | GOOD | Có thể scale cẩn thận |
+| Margin ≥ 0% | 45 | WARNING | Tối ưu unit economics trước khi scale |
+| Margin < 0% | 20 | CRITICAL | DỪNG SCALE - Đang đốt tiền |
+
+**Hook:** `useBluecoreScores()` → `GROWTH_QUALITY`
+
+---
+
+### MAS - Marketing Accountability Score™ (Điểm Trách nhiệm Marketing)
+
+> **Câu hỏi:** Marketing đang tạo giá trị hay phá giá trị?
+
+**Công thức:** Dựa trên Profit ROAS (Return on Ad Spend tính theo lợi nhuận thực)
+
+```
+Profit ROAS = Total Contribution Margin / Total Marketing Spend
+```
+
+| Profit ROAS | Score | Grade | Recommendation |
+|-------------|-------|-------|----------------|
+| ≥ 2x | 90 | EXCELLENT | Marketing tạo giá trị cao - Scale |
+| 1-2x | 70 | GOOD | Marketing có lãi - Optimize để scale |
+| 0.5-1x | 40 | WARNING | Cần tối ưu channel mix |
+| < 0.5x | 15 | CRITICAL | PAUSE ADS - Đang phá giá trị |
+
+**Hook:** `useBluecoreScores()` → `MARKETING_ACCOUNTABILITY`
+
+---
+
+### CVRS - Customer Value & Risk Score™ (Điểm Giá trị & Rủi ro Khách hàng)
+
+> **Câu hỏi:** Khách hàng đang tạo giá trị hay tạo rủi ro?
+
+**Công thức tổng (Weighted Average):**
+
+```
+CVRS = (LTV_CAC_Score × 30%) + (AR_Risk_Score × 25%) + (Retention_Score × 25%) + (Concentration_Score × 20%)
+```
+
+#### Component 1: LTV/CAC Ratio (30% weight)
+
+```
+LTV = Average Revenue per Customer (lifetime)
+CAC = Total Marketing Spend / Total New Customers
+LTV/CAC Ratio = LTV / CAC
+```
+
+| LTV/CAC | Score | Meaning |
+|---------|-------|---------|
+| ≥ 4x | 100 | Excellent - High customer value |
+| 3-4x | 80 | Good - Healthy acquisition |
+| 2-3x | 60 | Warning - Watch CAC |
+| 1-2x | 40 | Poor - CAC too high |
+| < 1x | 20 | Critical - Losing money per customer |
+
+#### Component 2: AR Risk (25% weight)
+
+```
+Overdue AR % = Overdue AR Amount / Total AR × 100
+```
+
+| Overdue AR % | Score | Meaning |
+|--------------|-------|---------|
+| < 5% | 100 | Excellent - Low bad debt risk |
+| 5-15% | 70 | Good - Manageable risk |
+| 15-30% | 45 | Warning - Monitor closely |
+| > 30% | 20 | Critical - High bad debt risk |
+
+#### Component 3: Retention (25% weight)
+
+```
+Repeat Purchase Rate = Customers with 2+ orders / Total Customers × 100
+```
+
+| Repeat Rate | Score | Meaning |
+|-------------|-------|---------|
+| ≥ 40% | 100 | Excellent - Strong loyalty |
+| 25-40% | 75 | Good - Healthy retention |
+| 10-25% | 50 | Warning - Need improvement |
+| < 10% | 25 | Critical - No retention |
+
+#### Component 4: Concentration Risk (20% weight)
+
+```
+Concentration % = Top 10 Customers Revenue / Total Revenue × 100
+```
+
+| Top 10 % | Score | Meaning |
+|----------|-------|---------|
+| < 20% | 100 | Diversified - Low dependency |
+| 20-40% | 70 | Moderate concentration |
+| 40-60% | 45 | High concentration |
+| > 60% | 20 | Critical dependency |
+
+#### Final Grade
+
+| CVRS Score | Grade |
+|------------|-------|
+| ≥ 80 | EXCELLENT |
+| 60-79 | GOOD |
+| 40-59 | WARNING |
+| < 40 | CRITICAL |
+
+**Hook:** `useBluecoreScores()` → `CUSTOMER_VALUE_RISK`
+
+**Data Sources:**
+- `central_metric_facts` (customer grain)
+- `invoices` (AR aging)
+- `working_capital_metrics` (DSO)
+- `expenses` (marketing spend for CAC)
 
 ---
 
