@@ -1,6 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, ArrowLeft, Target } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   StrategicDecisionCard, 
   StrategicDecision, 
@@ -9,9 +14,10 @@ import {
 import { StrategicDecisionDetail } from '@/components/control-tower/ceo/StrategicDecisionDetail';
 import { useDecisionCards } from '@/hooks/useDecisionCards';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 /**
- * CEO CONTROL TOWER - Strategic Command View
+ * CEO CONTROL TOWER - Strategic Command View (Light Professional Theme)
  * 
  * PURPOSE: Give CEO confidence and control, not operational detail
  * 
@@ -61,6 +67,7 @@ function mapToStrategicDecision(card: any): StrategicDecision {
 }
 
 export default function CEOControlTowerPage() {
+  const navigate = useNavigate();
   const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
   
   // Fetch decision cards for CEO (all owner roles, focus on high priority)
@@ -87,6 +94,13 @@ export default function CEOControlTowerPage() {
     return strategicDecisions.find(d => d.id === selectedDecisionId) || null;
   }, [selectedDecisionId, strategicDecisions]);
 
+  // Count decisions by health status
+  const healthCounts = useMemo(() => ({
+    offTrack: strategicDecisions.filter(d => d.executionHealth === 'off_track').length,
+    friction: strategicDecisions.filter(d => d.executionHealth === 'friction').length,
+    onTrack: strategicDecisions.filter(d => d.executionHealth === 'on_track').length,
+  }), [strategicDecisions]);
+
   // CEO Actions (placeholder implementations)
   const handleAdjustTarget = () => toast.info('Điều chỉnh mục tiêu - Coming soon');
   const handleExtend = () => toast.info('Gia hạn quyết định - Coming soon');
@@ -97,10 +111,18 @@ export default function CEOControlTowerPage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-3 h-3 bg-slate-500 rounded-full animate-pulse mx-auto" />
-          <p className="text-slate-500 text-sm mt-4">Đang tải...</p>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+          <Skeleton className="h-64" />
         </div>
       </div>
     );
@@ -113,14 +135,24 @@ export default function CEOControlTowerPage() {
         <Helmet>
           <title>CEO Control Tower</title>
         </Helmet>
-        <div className="min-h-[calc(100vh-120px)] flex flex-col items-center justify-center text-center px-6">
-          <CheckCircle2 className="h-16 w-16 text-emerald-400/60 mb-6" />
-          <h1 className="text-2xl font-medium text-slate-200 mb-2">
-            Các quyết định đang đạt mục tiêu
+        <div className="min-h-[calc(100vh-200px)] flex flex-col items-center justify-center text-center px-6">
+          <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mb-6">
+            <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+          </div>
+          <h1 className="text-xl font-semibold mb-2">
+            All decisions are on track
           </h1>
-          <p className="text-slate-500 text-sm max-w-md">
-            Không có quyết định nào cần can thiệp vào lúc này.
+          <p className="text-sm text-muted-foreground max-w-md">
+            No strategic decisions require your intervention at this time.
           </p>
+          <Button 
+            variant="outline" 
+            className="mt-6"
+            onClick={() => navigate('/portal')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Portal
+          </Button>
         </div>
       </>
     );
@@ -132,20 +164,52 @@ export default function CEOControlTowerPage() {
         <title>CEO Control Tower</title>
       </Helmet>
 
-      <div className="min-h-[calc(100vh-120px)]">
-        {/* Header - Minimal */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-100">Quyết định chiến lược</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {strategicDecisions.filter(d => d.executionHealth !== 'on_track').length} quyết định cần chú ý
-          </p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/portal')}
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold">Strategic Decisions</h1>
+                <p className="text-sm text-muted-foreground">
+                  {healthCounts.offTrack + healthCounts.friction} decisions need attention
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {healthCounts.offTrack > 0 && (
+              <Badge variant="destructive" className="text-xs">
+                {healthCounts.offTrack} Off Track
+              </Badge>
+            )}
+            {healthCounts.friction > 0 && (
+              <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+                {healthCounts.friction} Friction
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-xs">
+              {healthCounts.onTrack} On Track
+            </Badge>
+          </div>
         </div>
 
-        {/* Two-column layout on larger screens */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Two-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Left: Strategic Decision Cards Stack */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {strategicDecisions.map((decision) => (
               <StrategicDecisionCard
                 key={decision.id}
@@ -161,22 +225,26 @@ export default function CEOControlTowerPage() {
           {/* Right: Selected Decision Detail */}
           <div className="lg:sticky lg:top-6 lg:self-start">
             {selectedDecision ? (
-              <div className="p-6 rounded-xl bg-slate-900/30 border border-slate-800/50">
-                <StrategicDecisionDetail
-                  decision={selectedDecision}
-                  onAdjustTarget={handleAdjustTarget}
-                  onExtend={handleExtend}
-                  onPause={handlePause}
-                  onEscalate={handleEscalate}
-                  onRequestReview={handleRequestReview}
-                />
-              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <StrategicDecisionDetail
+                    decision={selectedDecision}
+                    onAdjustTarget={handleAdjustTarget}
+                    onExtend={handleExtend}
+                    onPause={handlePause}
+                    onEscalate={handleEscalate}
+                    onRequestReview={handleRequestReview}
+                  />
+                </CardContent>
+              </Card>
             ) : (
-              <div className="p-12 rounded-xl bg-slate-900/20 border border-slate-800/30 text-center">
-                <p className="text-slate-500">
-                  Chọn một quyết định để xem chi tiết
-                </p>
-              </div>
+              <Card className="bg-muted/30">
+                <CardContent className="pt-12 pb-12 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Select a decision to view details
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>

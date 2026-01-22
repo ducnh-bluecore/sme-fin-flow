@@ -1,13 +1,17 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle2, 
   AlertTriangle, 
   Clock,
-  Filter
+  ArrowLeft,
+  CheckSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TaskStreamCard, TaskStream } from '@/components/control-tower/coo/TaskStreamCard';
 import { TaskListItem, TaskItem, TaskStatus } from '@/components/control-tower/coo/TaskListItem';
 import { useDecisionCards } from '@/hooks/useDecisionCards';
@@ -15,9 +19,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 /**
- * COO CONTROL TOWER - Execution View
+ * COO CONTROL TOWER - Execution View (Light Professional Theme)
  * 
  * PURPOSE: Enable delivery, accountability, and speed
  * 
@@ -37,6 +42,7 @@ type ViewMode = 'streams' | 'tasks';
 type TaskFilter = 'all' | 'today' | 'blocked' | 'overdue';
 
 export default function COOControlTowerPage() {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>('streams');
   const [taskFilter, setTaskFilter] = useState<TaskFilter>('all');
   const [selectedStreamId, setSelectedStreamId] = useState<string | null>(null);
@@ -153,9 +159,9 @@ export default function COOControlTowerPage() {
       .eq('id', taskId);
     
     if (error) {
-      toast.error('Không thể cập nhật trạng thái');
+      toast.error('Unable to update status');
     } else {
-      toast.success('Đã cập nhật');
+      toast.success('Status updated');
       refetchTasks();
     }
   };
@@ -167,10 +173,20 @@ export default function COOControlTowerPage() {
   // Loading state
   if (tasksLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-3 h-3 bg-slate-500 rounded-full animate-pulse mx-auto" />
-          <p className="text-slate-500 text-sm mt-4">Đang tải...</p>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-8 w-24" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
         </div>
       </div>
     );
@@ -182,15 +198,29 @@ export default function COOControlTowerPage() {
         <title>COO Control Tower | Execution</title>
       </Helmet>
 
-      <div className="min-h-[calc(100vh-120px)]">
-        
+      <div className="space-y-6">
         {/* Header with Stats */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100">Execution Control</h1>
-            <p className="text-slate-500 text-sm mt-1">
-              {stats.total} tasks • {stats.blocked} blocked • {stats.overdue} overdue
-            </p>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/portal')}
+              className="shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <CheckSquare className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold">Execution Control</h1>
+                <p className="text-sm text-muted-foreground">
+                  {stats.total} tasks • {stats.blocked} blocked • {stats.overdue} overdue
+                </p>
+              </div>
+            </div>
           </div>
           
           {/* View Toggle */}
@@ -199,10 +229,6 @@ export default function COOControlTowerPage() {
               variant={viewMode === 'streams' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('streams')}
-              className={viewMode === 'streams' 
-                ? 'bg-slate-700 text-slate-100' 
-                : 'border-slate-700 text-slate-400'
-              }
             >
               Streams
             </Button>
@@ -210,10 +236,6 @@ export default function COOControlTowerPage() {
               variant={viewMode === 'tasks' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('tasks')}
-              className={viewMode === 'tasks' 
-                ? 'bg-slate-700 text-slate-100' 
-                : 'border-slate-700 text-slate-400'
-              }
             >
               Tasks
             </Button>
@@ -221,17 +243,20 @@ export default function COOControlTowerPage() {
         </div>
 
         {/* Quick Stats Badges */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2">
           <Badge
             variant={taskFilter === 'all' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'all' ? 'bg-slate-700' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            className="cursor-pointer"
             onClick={() => setTaskFilter('all')}
           >
             All ({stats.total})
           </Badge>
           <Badge
             variant={taskFilter === 'today' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'today' ? 'bg-blue-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            className={cn(
+              "cursor-pointer",
+              taskFilter === 'today' && "bg-primary"
+            )}
             onClick={() => setTaskFilter('today')}
           >
             <Clock className="h-3 w-3 mr-1" />
@@ -239,7 +264,10 @@ export default function COOControlTowerPage() {
           </Badge>
           <Badge
             variant={taskFilter === 'blocked' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'blocked' ? 'bg-amber-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            className={cn(
+              "cursor-pointer",
+              taskFilter === 'blocked' && "bg-amber-500 hover:bg-amber-600"
+            )}
             onClick={() => setTaskFilter('blocked')}
           >
             <AlertTriangle className="h-3 w-3 mr-1" />
@@ -247,7 +275,10 @@ export default function COOControlTowerPage() {
           </Badge>
           <Badge
             variant={taskFilter === 'overdue' ? 'default' : 'outline'}
-            className={`cursor-pointer ${taskFilter === 'overdue' ? 'bg-red-600' : 'border-slate-700 text-slate-400 hover:text-slate-200'}`}
+            className={cn(
+              "cursor-pointer",
+              taskFilter === 'overdue' && "bg-destructive hover:bg-destructive/90"
+            )}
             onClick={() => setTaskFilter('overdue')}
           >
             <Clock className="h-3 w-3 mr-1" />
@@ -270,52 +301,55 @@ export default function COOControlTowerPage() {
             ))}
             
             {taskStreams.length === 0 && (
-              <div className="col-span-full p-12 text-center">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
-                <p className="text-slate-400">Không có execution streams</p>
-              </div>
+              <Card className="col-span-full">
+                <CardContent className="pt-12 pb-12 text-center">
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4 opacity-60" />
+                  <p className="text-muted-foreground">No execution streams</p>
+                </CardContent>
+              </Card>
             )}
           </div>
         )}
 
         {/* TASKS VIEW */}
         {viewMode === 'tasks' && (
-          <div className="bg-slate-900/30 border border-slate-800/50 rounded-lg overflow-hidden">
-            {selectedStreamId && (
-              <div className="px-4 py-3 bg-slate-800/30 border-b border-slate-800/50 flex items-center justify-between">
-                <span className="text-sm text-slate-400">
-                  Filtering by stream
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedStreamId(null)}
-                  className="text-slate-400 hover:text-slate-200"
-                >
-                  Clear filter
-                </Button>
-              </div>
-            )}
-            
-            {filteredTasks.map(task => (
-              <TaskListItem
-                key={task.id}
-                task={task}
-                onStatusChange={(status) => handleStatusChange(task.id, status)}
-                onViewDetail={() => toast.info('Task detail - Coming soon')}
-                onEscalate={() => handleEscalate(task.id)}
-              />
-            ))}
-            
-            {filteredTasks.length === 0 && (
-              <div className="p-12 text-center">
-                <CheckCircle2 className="h-12 w-12 text-emerald-400/40 mx-auto mb-4" />
-                <p className="text-slate-400">
-                  {taskFilter === 'all' ? 'Không có tasks' : `Không có tasks ${taskFilter}`}
-                </p>
-              </div>
-            )}
-          </div>
+          <Card>
+            <CardContent className="p-0">
+              {selectedStreamId && (
+                <div className="px-4 py-3 bg-muted/50 border-b flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Filtering by stream
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedStreamId(null)}
+                  >
+                    Clear filter
+                  </Button>
+                </div>
+              )}
+              
+              {filteredTasks.map(task => (
+                <TaskListItem
+                  key={task.id}
+                  task={task}
+                  onStatusChange={(status) => handleStatusChange(task.id, status)}
+                  onViewDetail={() => toast.info('Task detail - Coming soon')}
+                  onEscalate={() => handleEscalate(task.id)}
+                />
+              ))}
+              
+              {filteredTasks.length === 0 && (
+                <div className="p-12 text-center">
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4 opacity-60" />
+                  <p className="text-muted-foreground">
+                    {taskFilter === 'all' ? 'No tasks' : `No ${taskFilter} tasks`}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
     </>
