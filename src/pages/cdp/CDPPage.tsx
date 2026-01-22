@@ -34,9 +34,10 @@ export default function CDPPage() {
     {
       id: 'trend-engine',
       title: 'Trend Engine',
-      description: 'Phát hiện spend decline, velocity slowdown, mix shift',
+      description: 'Phát hiện spend decline, velocity slowdown, mix shift, volatility',
       icon: TrendingUp,
-      status: 'coming' as const,
+      status: 'active' as const,
+      path: '/cdp/trend-engine',
     },
     {
       id: 'segment-asset',

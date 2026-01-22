@@ -79,6 +79,7 @@ const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPa
 // CDP pages
 const CDPPage = lazy(() => import("./pages/cdp/CDPPage"));
 const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
+const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
 
 
 // Strategy & Decision pages
@@ -203,6 +204,11 @@ const AppRoutes = () => {
       <Route path="/cdp/value-distribution" element={
         <ProtectedRoute>
           <ValueDistributionPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/trend-engine" element={
+        <ProtectedRoute>
+          <TrendEnginePage />
         </ProtectedRoute>
       } />
 
