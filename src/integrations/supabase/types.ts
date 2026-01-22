@@ -3750,6 +3750,65 @@ export type Database = {
           },
         ]
       }
+      cdp_data_quality_daily: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          data_lag_days: number | null
+          duplicate_items: number
+          duplicate_orders: number
+          flags: Json
+          latest_order_date: string | null
+          order_items_total: number
+          order_items_unmapped_category: number
+          order_items_unmapped_sku: number
+          orders_missing_customer: number
+          orders_total: number
+          quality_score: number
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string
+          data_lag_days?: number | null
+          duplicate_items?: number
+          duplicate_orders?: number
+          flags?: Json
+          latest_order_date?: string | null
+          order_items_total?: number
+          order_items_unmapped_category?: number
+          order_items_unmapped_sku?: number
+          orders_missing_customer?: number
+          orders_total?: number
+          quality_score?: number
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          data_lag_days?: number | null
+          duplicate_items?: number
+          duplicate_orders?: number
+          flags?: Json
+          latest_order_date?: string | null
+          order_items_total?: number
+          order_items_unmapped_category?: number
+          order_items_unmapped_sku?: number
+          orders_missing_customer?: number
+          orders_total?: number
+          quality_score?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cdp_decision_card_snapshots: {
         Row: {
           created_at: string
@@ -3866,6 +3925,49 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_decision_cluster_map: {
+        Row: {
+          cluster_key: string
+          created_at: string
+          decision_id: string
+          tenant_id: string
+        }
+        Insert: {
+          cluster_key: string
+          created_at?: string
+          decision_id: string
+          tenant_id: string
+        }
+        Update: {
+          cluster_key?: string
+          created_at?: string
+          decision_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cluster_map_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4076,6 +4178,116 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_insight_cluster_members: {
+        Row: {
+          cluster_id: string
+          created_at: string
+          insight_event_id: string
+          tenant_id: string
+        }
+        Insert: {
+          cluster_id: string
+          created_at?: string
+          insight_event_id: string
+          tenant_id: string
+        }
+        Update: {
+          cluster_id?: string
+          created_at?: string
+          insight_event_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_cluster_members_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_clusters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_clusters_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_evidence"
+            referencedColumns: ["insight_event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_insight_clusters: {
+        Row: {
+          as_of_date: string
+          cluster_key: string
+          cluster_type: string
+          confidence: number
+          created_at: string
+          evidence: Json
+          id: string
+          metrics: Json
+          narrative: string
+          severity: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          as_of_date: string
+          cluster_key: string
+          cluster_type: string
+          confidence?: number
+          created_at?: string
+          evidence?: Json
+          id?: string
+          metrics?: Json
+          narrative: string
+          severity?: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          as_of_date?: string
+          cluster_key?: string
+          cluster_type?: string
+          confidence?: number
+          created_at?: string
+          evidence?: Json
+          id?: string
+          metrics?: Json
+          narrative?: string
+          severity?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_clusters_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -17998,6 +18210,33 @@ export type Database = {
           },
         ]
       }
+      v_cdp_data_quality_latest: {
+        Row: {
+          as_of_date: string | null
+          created_at: string | null
+          data_lag_days: number | null
+          duplicate_items: number | null
+          duplicate_orders: number | null
+          flags: Json | null
+          latest_order_date: string | null
+          order_items_total: number | null
+          order_items_unmapped_category: number | null
+          order_items_unmapped_sku: number | null
+          orders_missing_customer: number | null
+          orders_total: number | null
+          quality_score: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_cdp_decision_evidence: {
         Row: {
           as_of_date: string | null
@@ -18154,6 +18393,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "external_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_cdp_insight_clusters_summary: {
+        Row: {
+          as_of_date: string | null
+          cluster_key: string | null
+          cluster_type: string | null
+          confidence: number | null
+          created_at: string | null
+          evidence: Json | null
+          id: string | null
+          linked_decision_id: string | null
+          member_count: number | null
+          metrics: Json | null
+          narrative: string | null
+          severity: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Insert: {
+          as_of_date?: string | null
+          cluster_key?: string | null
+          cluster_type?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          evidence?: Json | null
+          id?: string | null
+          linked_decision_id?: never
+          member_count?: never
+          metrics?: Json | null
+          narrative?: string | null
+          severity?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          as_of_date?: string | null
+          cluster_key?: string | null
+          cluster_type?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          evidence?: Json | null
+          id?: string | null
+          linked_decision_id?: never
+          member_count?: never
+          metrics?: Json | null
+          narrative?: string | null
+          severity?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_clusters_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -18588,6 +18886,14 @@ export type Database = {
         Returns: undefined
       }
       calculate_trend_metrics: { Args: { p_values: number[] }; Returns: Json }
+      cdp_attach_data_quality_to_insights: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: undefined
+      }
+      cdp_auto_decisions_from_clusters: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       cdp_auto_link_insights_to_decisions: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: undefined
@@ -18604,6 +18910,10 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: undefined
       }
+      cdp_build_product_demand_clusters: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       cdp_build_value_tiers: {
         Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: undefined
@@ -18617,6 +18927,10 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: boolean
+      }
+      cdp_compute_data_quality_daily: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: undefined
       }
       cdp_create_decision_cards_from_insights: {
         Args: {
