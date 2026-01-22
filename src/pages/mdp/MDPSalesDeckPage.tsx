@@ -3,530 +3,602 @@ import { ChevronLeft, ChevronRight, MessageSquareText, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
- * BLUECORE MDP SALES DECK - CEO VERSION
- * With Presenter Notes & System Mockups
+ * BLUECORE MDP SALES DECK - CMO/CEO VERSION
+ * Focus: Marketing Financial Accountability
+ * 
+ * MDP = Marketing Decision Platform
+ * Profit before Performance. Cash before Clicks.
  */
 
 // ============== UI MOCKUPS ==============
 
-function DecisionCardMockup() {
+function MarketingDecisionCardMockup() {
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl max-w-md">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs uppercase tracking-widest text-slate-500">Decision Card</span>
-        <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">Cần quyết định</span>
+        <span className="text-xs uppercase tracking-widest text-slate-500">Marketing Decision</span>
+        <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded font-medium">STOP</span>
       </div>
-      <h3 className="text-xl text-white font-semibold mb-6">Có nên tiếp tục Campaign TikTok Q1?</h3>
+      <h3 className="text-xl text-white font-semibold mb-2">Campaign: TikTok Flash Sale Q1</h3>
+      <p className="text-sm text-slate-400 mb-6">Chiến dịch đang phá hủy margin</p>
       
       <div className="space-y-3 mb-6">
         <div className="flex items-center justify-between">
           <span className="text-slate-400">Revenue</span>
-          <span className="text-emerald-400 flex items-center gap-1">↑ 2.4 tỷ</span>
+          <span className="text-emerald-400">↑ 2.4 tỷ</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Marketing Spend</span>
+          <span className="text-slate-300">890 triệu</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Vanity ROAS</span>
+          <span className="text-emerald-400">2.7x ✓</span>
+        </div>
+        <div className="h-px bg-slate-700 my-2" />
+        <div className="flex items-center justify-between">
+          <span className="text-white font-medium">Profit ROAS</span>
+          <span className="text-red-400 font-medium">0.4x ✗</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-slate-400">Contribution Margin</span>
-          <span className="text-red-400 flex items-center gap-1">↓ -8%</span>
+          <span className="text-red-400">-12%</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-slate-400">AR Outstanding</span>
-          <span className="text-amber-400 flex items-center gap-1">→ 45 ngày</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-400">Inventory Locked</span>
-          <span className="text-red-400 flex items-center gap-1">↓ 890 triệu</span>
+          <span className="text-slate-400">Cash Conversion @D+14</span>
+          <span className="text-amber-400">38%</span>
         </div>
       </div>
       
       <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg mb-6">
-        <p className="text-red-400 text-sm font-medium">⚠ Cash gap xuất hiện sau 21 ngày</p>
+        <p className="text-red-400 text-sm font-medium">💰 Đã mất: 534 triệu tiền thật</p>
+        <p className="text-red-300 text-xs mt-1">Nếu tiếp tục 7 ngày: mất thêm 267 triệu</p>
       </div>
       
       <div className="flex gap-2">
-        <button className="flex-1 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm">Continue</button>
-        <button className="flex-1 py-2 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-lg text-sm">Adjust</button>
-        <button className="flex-1 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm">Stop</button>
+        <button className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-medium">
+          STOP ngay
+        </button>
+        <button className="flex-1 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm">
+          Cap budget 50%
+        </button>
       </div>
     </div>
   );
 }
 
-function ControlTowerMockup() {
+function ProfitROASMockup() {
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-lg">
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-md">
+      <div className="px-6 py-4 border-b border-slate-800">
+        <span className="text-white font-semibold">Profit ROAS vs Vanity ROAS</span>
+      </div>
+      
+      <div className="p-6 space-y-4">
+        <div className="p-4 bg-emerald-950/20 border border-emerald-900/30 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-400 text-sm">Vanity ROAS (Ads Manager)</span>
+            <span className="text-emerald-400 font-bold">3.2x</span>
+          </div>
+          <p className="text-xs text-slate-500">Doanh thu / Chi phí quảng cáo</p>
+        </div>
+        
+        <div className="text-center text-slate-500">↓ trừ đi chi phí thật ↓</div>
+        
+        <div className="p-4 bg-red-950/20 border border-red-900/30 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-400 text-sm">Profit ROAS (Bluecore)</span>
+            <span className="text-red-400 font-bold">0.6x</span>
+          </div>
+          <p className="text-xs text-slate-500">(Revenue - COGS - Ops - Ads) / Ads</p>
+        </div>
+        
+        <div className="pt-4 border-t border-slate-800">
+          <p className="text-sm text-slate-300">Chi phí chưa tính:</p>
+          <ul className="text-xs text-slate-400 mt-2 space-y-1">
+            <li>• Platform fees: 15%</li>
+            <li>• Return rate: 12%</li>
+            <li>• Shipping subsidy: 25k/đơn</li>
+            <li>• Packaging: 8k/đơn</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CashConversionMockup() {
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-sm">
+      <div className="px-6 py-4 border-b border-slate-800">
+        <span className="text-white font-semibold">Cash Conversion Timeline</span>
+      </div>
+      
+      <div className="p-6">
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-slate-400">D+0 (Chi tiền ads)</span>
+              <span className="text-red-400">-890 triệu</span>
+            </div>
+            <div className="h-2 bg-red-500/30 rounded" />
+          </div>
+          
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-slate-400">D+7</span>
+              <span className="text-amber-400">+320 triệu (36%)</span>
+            </div>
+            <div className="h-2 bg-amber-500/30 rounded" style={{width: '36%'}} />
+          </div>
+          
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-slate-400">D+14</span>
+              <span className="text-amber-400">+534 triệu (60%)</span>
+            </div>
+            <div className="h-2 bg-amber-500/50 rounded" style={{width: '60%'}} />
+          </div>
+          
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-slate-400">D+30</span>
+              <span className="text-emerald-400">+712 triệu (80%)</span>
+            </div>
+            <div className="h-2 bg-emerald-500/50 rounded" style={{width: '80%'}} />
+          </div>
+        </div>
+        
+        <div className="mt-6 p-3 bg-amber-950/30 border border-amber-900/30 rounded-lg">
+          <p className="text-amber-400 text-sm">⚠ Cash gap 30 ngày: 178 triệu</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelHealthMockup() {
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-md">
       <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-        <span className="text-white font-semibold">Control Tower</span>
-        <span className="text-xs text-slate-500">Hôm nay · 14:32</span>
+        <span className="text-white font-semibold">Channel Health</span>
+        <span className="text-xs text-slate-500">Tuần này</span>
       </div>
       
       <div className="p-4 space-y-3">
-        {/* Decision 1 */}
-        <div className="p-4 bg-slate-800/50 border-l-4 border-red-500 rounded-r-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-            <span className="text-white text-sm font-medium">Campaign TikTok Q1</span>
+        <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+            <span className="text-white text-sm">Shopee</span>
           </div>
-          <p className="text-slate-400 text-xs">Cash gap trong 21 ngày · -890tr locked</p>
+          <div className="text-right">
+            <p className="text-emerald-400 text-sm font-medium">Profit ROAS 1.4x</p>
+            <p className="text-xs text-slate-500">CM: +8%</p>
+          </div>
         </div>
         
-        {/* Decision 2 */}
-        <div className="p-4 bg-slate-800/50 border-l-4 border-amber-500 rounded-r-lg">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-            <span className="text-white text-sm font-medium">SKU Mix Shopee</span>
+            <span className="text-white text-sm">TikTok</span>
           </div>
-          <p className="text-slate-400 text-xs">Margin giảm 12% · 3 SKU lỗ</p>
-        </div>
-        
-        {/* Decision 3 */}
-        <div className="p-4 bg-slate-800/50 border-l-4 border-slate-600 rounded-r-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 bg-slate-500 rounded-full"></span>
-            <span className="text-white text-sm font-medium">Điều khoản thanh toán B2B</span>
+          <div className="text-right">
+            <p className="text-amber-400 text-sm font-medium">Profit ROAS 0.8x</p>
+            <p className="text-xs text-slate-500">CM: -3%</p>
           </div>
-          <p className="text-slate-400 text-xs">DSO tăng 8 ngày · AR 2.1 tỷ</p>
-        </div>
-      </div>
-      
-      <div className="px-6 py-3 bg-slate-800/30 border-t border-slate-800">
-        <p className="text-xs text-slate-500 text-center">3 quyết định cần xử lý hôm nay</p>
-      </div>
-    </div>
-  );
-}
-
-function BoardViewMockup() {
-  return (
-    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-md">
-      <div className="p-6 bg-red-950/20 border-b border-red-900/30">
-        <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Tình trạng</p>
-        <p className="text-2xl font-bold text-red-400">CẦN CAN THIỆP</p>
-      </div>
-      
-      <div className="p-6 space-y-6">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Critical Situations</p>
-          <p className="text-4xl font-bold text-white">3</p>
         </div>
         
-        <div>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Financial Exposure</p>
-          <p className="text-4xl font-bold text-white">₫4.2 tỷ</p>
+        <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="text-white text-sm">Facebook</span>
+          </div>
+          <div className="text-right">
+            <p className="text-red-400 text-sm font-medium">Profit ROAS 0.3x</p>
+            <p className="text-xs text-slate-500">CM: -18%</p>
+          </div>
         </div>
         
-        <div>
-          <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Time to Next Risk</p>
-          <p className="text-4xl font-bold text-amber-400">21 ngày</p>
+        <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+            <span className="text-white text-sm">Lazada</span>
+          </div>
+          <div className="text-right">
+            <p className="text-emerald-400 text-sm font-medium">Profit ROAS 1.6x</p>
+            <p className="text-xs text-slate-500">CM: +12%</p>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ============== SLIDE COMPONENTS ==============
+// ============== SLIDES ==============
 
-// Slide 0: Positioning
 function SlidePositioning() {
   return (
     <div className="flex flex-col justify-center items-start h-full px-20">
-      <h1 className="text-6xl font-bold text-white tracking-tight mb-8">
+      <p className="text-sm uppercase tracking-widest text-blue-400 mb-4">Marketing Data Platform</p>
+      <h1 className="text-6xl font-bold text-white tracking-tight mb-4">
         Bluecore MDP
       </h1>
       <h2 className="text-3xl font-light text-slate-300 mb-16">
-        Không bán phần mềm
+        Profit before Performance. Cash before Clicks.
       </h2>
       
-      <div className="max-w-3xl mb-16">
+      <div className="max-w-3xl mb-12">
         <p className="text-2xl text-white leading-relaxed">
-          Bluecore MDP bán năng lực ra quyết định
-          <span className="text-slate-400"> đúng, nhanh và có trách nhiệm tài chính.</span>
+          MDP đo lường giá trị tài chính thật của Marketing,
+          <span className="text-slate-400"> không phải metrics đẹp.</span>
         </p>
       </div>
       
       <div className="space-y-3 pl-6 border-l-2 border-slate-700">
-        <p className="text-lg text-slate-500">Dashboard → không phải Bluecore</p>
-        <p className="text-lg text-slate-500">BI → không phải Bluecore</p>
-        <p className="text-lg text-slate-500">Marketing tool → không phải Bluecore</p>
+        <p className="text-lg text-slate-500">ROAS cao → không có nghĩa là lãi</p>
+        <p className="text-lg text-slate-500">Revenue tăng → không có nghĩa là có tiền</p>
+        <p className="text-lg text-slate-500">Campaign "thành công" → có thể đang đốt tiền</p>
       </div>
-      
-      <p className="text-xl text-slate-300 mt-16 max-w-2xl">
-        Bluecore MDP dành cho CEO đã có dữ liệu, nhưng không dám tin để quyết nhanh.
-      </p>
     </div>
   );
 }
 
-// Slide 1: CEO Reality - Illusion of Control
-function SlideCEOReality() {
+function SlideMarketingProblem() {
   return (
     <div className="flex h-full px-20 py-16">
       <div className="w-1/2 flex flex-col justify-center pr-12">
-        <p className="text-sm uppercase tracking-widest text-slate-500 mb-6">Bối cảnh thực tế</p>
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-6">Vấn đề thực tế</p>
         <h1 className="text-5xl font-bold text-white leading-tight">
-          CEO đang sống trong
+          Marketing báo thắng
         </h1>
-        <h2 className="text-5xl font-bold text-amber-400/80 mt-2">
-          "ảo giác kiểm soát"
+        <h2 className="text-5xl font-bold text-red-400/80 mt-2">
+          Finance báo lỗ
         </h2>
       </div>
       
       <div className="w-1/2 flex flex-col justify-center pl-12 border-l border-slate-800">
-        <div className="space-y-6 mb-12">
-          <p className="text-xl text-slate-400">CEO được cung cấp:</p>
-          <ul className="space-y-2 text-lg text-slate-300">
-            <li>• Báo cáo doanh thu</li>
-            <li>• Báo cáo lợi nhuận</li>
-            <li>• Báo cáo marketing</li>
-            <li>• Báo cáo tồn kho</li>
-          </ul>
-        </div>
-        
-        <div className="p-6 bg-slate-900/50 rounded-lg border border-slate-800">
-          <p className="text-lg text-slate-400 mb-4">Nhưng thực tế:</p>
-          <p className="text-lg text-slate-300 italic">
-            "Số này bên em đang tạm tính"
-          </p>
-          <p className="text-lg text-slate-300 italic">
-            "Để em kiểm tra lại với kế toán / vận hành"
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Slide 2: The Real Problem
-function SlideRealProblem() {
-  return (
-    <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Vấn đề thật sự</p>
-      
-      <div className="flex gap-20 mb-16">
-        <div className="flex-1">
-          <h2 className="text-2xl text-slate-400 mb-6">CEO không thiếu:</h2>
-          <ul className="space-y-3 text-xl text-slate-500">
-            <li>ERP</li>
-            <li>POS</li>
-            <li>OMS</li>
-            <li>Kế toán</li>
-            <li>Marketing platforms</li>
-          </ul>
-        </div>
-        
-        <div className="flex-1">
-          <h2 className="text-2xl text-white mb-6">CEO thiếu:</h2>
-          <ul className="space-y-3 text-xl text-slate-200">
-            <li>Một sự thật thống nhất</li>
-            <li>Một kết luận có thể hành động</li>
-            <li>Một nơi chịu trách nhiệm cho quyết định</li>
-          </ul>
-        </div>
-      </div>
-      
-      <div className="max-w-3xl">
-        <p className="text-3xl font-bold text-white">
-          CEO không kiểm soát bằng dữ liệu
-        </p>
-        <p className="text-3xl font-bold text-slate-400 mt-2">
-          CEO kiểm soát bằng niềm tin mù
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Slide 3: Why Dashboard Fails
-function SlideDashboardFails() {
-  return (
-    <div className="flex flex-col justify-center items-center h-full px-20 text-center">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">
-        Vì sao Dashboard & BI thất bại với CEO
-      </p>
-      
-      <h1 className="text-4xl font-bold text-slate-400 mb-6">
-        Dashboard trả lời câu hỏi sai
-      </h1>
-      
-      <div className="flex gap-16 my-16 max-w-4xl">
-        <div className="flex-1 text-left p-8 border border-slate-800 rounded-lg">
-          <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Dashboard trả lời</p>
-          <p className="text-xl text-slate-400">"Đã xảy ra chuyện gì?"</p>
-          <p className="text-xl text-slate-400">"Số liệu đang như thế nào?"</p>
-        </div>
-        
-        <div className="flex-1 text-left p-8 border border-white/20 rounded-lg bg-slate-900/30">
-          <p className="text-sm uppercase tracking-widest text-slate-400 mb-4">CEO cần</p>
-          <p className="text-xl text-white">"Tôi nên làm gì?"</p>
-          <p className="text-xl text-white">"Nếu tôi làm X, hậu quả tài chính thật là gì?"</p>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <p className="text-lg text-slate-500">Dashboard = quan sát</p>
-        <p className="text-lg text-white">Decision System = hành động</p>
-      </div>
-    </div>
-  );
-}
-
-// Slide 4: BI Makes CEO Slower
-function SlideBISlower() {
-  return (
-    <div className="flex flex-col justify-center h-full px-20">
-      <h1 className="text-5xl font-bold text-white mb-4">
-        BI càng mạnh
-      </h1>
-      <h2 className="text-5xl font-bold text-slate-400 mb-16">
-        CEO càng chậm
-      </h2>
-      
-      <div className="flex gap-16 max-w-4xl">
-        <div className="flex-1">
-          <p className="text-sm uppercase tracking-widest text-slate-500 mb-6">BI cho</p>
-          <ul className="space-y-3 text-xl text-slate-400">
-            <li>Drill-down</li>
-            <li>Slice & dice</li>
-            <li>Filters</li>
-            <li>Custom views</li>
-          </ul>
-        </div>
-        
-        <div className="flex-1">
-          <p className="text-sm uppercase tracking-widest text-slate-500 mb-6">Nhưng</p>
-          <ul className="space-y-3 text-xl text-slate-300">
-            <li>CEO không có thời gian phân tích</li>
-            <li>CEO không muốn trở thành analyst</li>
-            <li className="text-white font-medium">CEO muốn kết luận đáng tin</li>
-          </ul>
-        </div>
-      </div>
-      
-      <p className="text-lg text-slate-500 mt-16 pl-6 border-l-2 border-slate-700">
-        Bluecore cố tình không cho drill-down trong demo CEO.
-      </p>
-    </div>
-  );
-}
-
-// Slide 5: What Bluecore Solves
-function SlideWhatBluecore() {
-  return (
-    <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Bluecore MDP giải quyết gì</p>
-      
-      <div className="mb-12">
-        <h1 className="text-3xl font-bold text-slate-400 leading-tight">
-          Bluecore không thay ERP / BI / Kế toán / Marketing tools
-        </h1>
-      </div>
-      
-      <div className="max-w-3xl mb-16 p-8 border border-white/10 rounded-lg bg-slate-900/30">
-        <p className="text-2xl text-white leading-relaxed">
-          Bluecore đứng trên tất cả các hệ đó để trả lời:
-        </p>
-        <p className="text-2xl text-slate-300 mt-4 italic">
-          "Với toàn bộ dữ liệu đã reconcile, quyết định nào là an toàn / nguy hiểm?"
-        </p>
-      </div>
-      
-      <div className="space-y-2">
-        <p className="text-xl text-white font-medium">
-          Bluecore MDP = Decision Layer
-        </p>
-        <p className="text-lg text-slate-500">
-          Không có khái niệm "xem cho biết", "tham khảo", "theo dõi"
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Slide 6: Decision Card with Mockup
-function SlideDecisionCard() {
-  return (
-    <div className="flex h-full px-20 py-12">
-      <div className="w-1/2 flex flex-col justify-center pr-12">
-        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Đơn vị giá trị cốt lõi</p>
-        <h1 className="text-4xl font-bold text-white mb-8">
-          Decision Card
-        </h1>
-        
-        <div className="space-y-4 mb-8">
-          <p className="text-lg text-slate-400">Decision Card không:</p>
-          <ul className="space-y-2 text-lg text-slate-500">
-            <li>× Liệt kê chỉ số</li>
-            <li>× Kể câu chuyện dài</li>
-            <li>× Thuyết phục bằng đồ thị</li>
-          </ul>
-        </div>
-        
-        <div className="space-y-4">
-          <p className="text-lg text-white">Decision Card:</p>
-          <ul className="space-y-2 text-lg text-slate-200">
-            <li>✓ Đặt ra 1 quyết định</li>
-            <li>✓ Chỉ ra rủi ro tài chính thật</li>
-            <li>✓ Đưa ra 3 lựa chọn: Continue / Adjust / Stop</li>
-          </ul>
-        </div>
-      </div>
-      
-      <div className="w-1/2 flex items-center justify-center pl-12">
-        <DecisionCardMockup />
-      </div>
-    </div>
-  );
-}
-
-// Slide 7: Control Tower Experience with Mockup
-function SlideControlTower() {
-  return (
-    <div className="flex h-full px-20 py-12">
-      <div className="w-1/2 flex flex-col justify-center pr-12">
-        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Cách CEO sử dụng Bluecore</p>
-        
-        <h1 className="text-4xl font-bold text-white mb-4">
-          Control Tower
-        </h1>
-        <h2 className="text-2xl font-light text-slate-400 mb-12">
-          "Hôm nay CEO cần quyết gì?"
-        </h2>
-        
-        <div className="space-y-4">
-          <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Trải nghiệm lý tưởng</p>
-          <div className="space-y-3">
-            <div className="flex items-center gap-4">
-              <span className="text-slate-600 font-mono text-sm">01</span>
-              <span className="text-lg text-slate-300">Mở Bluecore</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-slate-600 font-mono text-sm">02</span>
-              <span className="text-lg text-slate-300">Thấy 3–5 Decision Cards</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-slate-600 font-mono text-sm">03</span>
-              <span className="text-lg text-white font-medium">Quyết trong 30–60 giây</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-slate-600 font-mono text-sm">04</span>
-              <span className="text-lg text-slate-300">Đóng lại</span>
-            </div>
+        <div className="space-y-6">
+          <div className="p-4 bg-emerald-950/20 border border-emerald-900/30 rounded-lg">
+            <p className="text-emerald-400 font-medium mb-2">Marketing Report</p>
+            <p className="text-slate-300">"ROAS 3.5x, tăng 40% so với tháng trước"</p>
+            <p className="text-slate-300">"Revenue đạt 5 tỷ, vượt KPI"</p>
           </div>
+          
+          <div className="p-4 bg-red-950/20 border border-red-900/30 rounded-lg">
+            <p className="text-red-400 font-medium mb-2">Finance Report</p>
+            <p className="text-slate-300">"Margin âm 8%"</p>
+            <p className="text-slate-300">"Cash flow thiếu 1.2 tỷ"</p>
+          </div>
+          
+          <p className="text-lg text-slate-400 italic mt-4">
+            Ai đúng? Ai sai? CEO không biết tin ai.
+          </p>
         </div>
-        
-        <p className="text-sm text-slate-500 mt-8 pl-4 border-l-2 border-slate-700">
-          Bluecore được thiết kế để CEO không ở lại lâu.
-        </p>
-      </div>
-      
-      <div className="w-1/2 flex items-center justify-center pl-12">
-        <ControlTowerMockup />
       </div>
     </div>
   );
 }
 
-// Slide 8: Board View with Mockup
-function SlideBoardView() {
+function SlideVanityVsProfit() {
   return (
     <div className="flex h-full px-20 py-12">
       <div className="w-1/2 flex flex-col justify-center pr-12">
-        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">CEO Board View</p>
-        
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Vấn đề cốt lõi</p>
         <h1 className="text-4xl font-bold text-white mb-4">
-          30 giây biết sức khỏe công ty
+          Vanity ROAS ≠ Profit ROAS
         </h1>
         
         <div className="space-y-6 mt-8">
           <div>
-            <p className="text-lg text-slate-400 mb-2">Chỉ 3 con số:</p>
-            <ul className="space-y-2 text-lg text-slate-200">
-              <li>• Số tình huống nguy hiểm</li>
-              <li>• Tổng rủi ro tài chính</li>
-              <li>• Thời gian đến rủi ro tiếp theo</li>
-            </ul>
+            <p className="text-lg text-slate-400 mb-2">Vanity ROAS (Ads Manager)</p>
+            <p className="text-xl text-slate-200">Revenue / Ad Spend</p>
+            <p className="text-sm text-slate-500 mt-1">Không tính: COGS, platform fees, shipping, returns...</p>
           </div>
           
-          <div className="p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
-            <p className="text-sm text-slate-500 mb-2">Không có:</p>
-            <p className="text-slate-400">Charts · Drill-down · Filters · Tables</p>
+          <div>
+            <p className="text-lg text-white mb-2">Profit ROAS (Bluecore MDP)</p>
+            <p className="text-xl text-emerald-400">(Revenue - All Costs) / Ad Spend</p>
+            <p className="text-sm text-slate-500 mt-1">Lợi nhuận thật sau tất cả chi phí</p>
           </div>
         </div>
         
-        <p className="text-lg text-white mt-8">
-          CEO đọc → biết → quyết
-        </p>
+        <div className="mt-8 p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
+          <p className="text-slate-300">
+            Vanity ROAS 3.5x có thể = Profit ROAS 0.4x
+          </p>
+          <p className="text-slate-400 text-sm mt-1">
+            → Càng scale càng lỗ
+          </p>
+        </div>
       </div>
       
       <div className="w-1/2 flex items-center justify-center pl-12">
-        <BoardViewMockup />
+        <ProfitROASMockup />
       </div>
     </div>
   );
 }
 
-// Slide 9: Financial Value
-function SlideFinancialValue() {
+function SlideCashConversion() {
+  return (
+    <div className="flex h-full px-20 py-12">
+      <div className="w-1/2 flex flex-col justify-center pr-12">
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Marketing & Cash Flow</p>
+        <h1 className="text-4xl font-bold text-white mb-4">
+          Marketing tiêu tiền ngay
+        </h1>
+        <h2 className="text-4xl font-bold text-amber-400 mb-8">
+          Tiền về sau 30-45 ngày
+        </h2>
+        
+        <div className="space-y-4">
+          <p className="text-lg text-slate-300">
+            Ads spend → D+0 (trả ngay)
+          </p>
+          <p className="text-lg text-slate-300">
+            Revenue → D+7 đến D+45 (tiền về chậm)
+          </p>
+          <p className="text-lg text-slate-300">
+            Returns → D+14 (mất thêm tiền)
+          </p>
+        </div>
+        
+        <div className="mt-8 p-4 bg-amber-950/30 border border-amber-900/30 rounded-lg">
+          <p className="text-amber-400 font-medium">Cash Conversion Gap</p>
+          <p className="text-slate-300 text-sm mt-1">
+            Khoảng cách giữa tiền chi và tiền thu thật
+          </p>
+          <p className="text-slate-400 text-sm mt-1">
+            Scale nhanh = Cash gap lớn = Rủi ro thanh khoản
+          </p>
+        </div>
+      </div>
+      
+      <div className="w-1/2 flex items-center justify-center pl-12">
+        <CashConversionMockup />
+      </div>
+    </div>
+  );
+}
+
+function SlideWhatMDPDoes() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Giá trị tài chính thật sự</p>
+      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Bluecore MDP làm gì</p>
       
-      <div className="flex gap-20 max-w-4xl mb-16">
+      <h1 className="text-4xl font-bold text-white mb-12">
+        Đo lường giá trị tài chính thật của Marketing
+      </h1>
+      
+      <div className="grid grid-cols-2 gap-8 max-w-4xl">
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-blue-400 font-medium mb-3">Profit Attribution</p>
+          <p className="text-slate-300">Mỗi campaign, mỗi kênh → Contribution Margin thật</p>
+        </div>
+        
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-blue-400 font-medium mb-3">Cash Impact</p>
+          <p className="text-slate-300">Marketing đang tạo ra hay khóa bao nhiêu tiền mặt</p>
+        </div>
+        
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-blue-400 font-medium mb-3">True CAC</p>
+          <p className="text-slate-300">Chi phí có khách hàng thật (sau returns, sau fraud)</p>
+        </div>
+        
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-blue-400 font-medium mb-3">LTV:CAC Thật</p>
+          <p className="text-slate-300">Giá trị khách hàng so với chi phí thật</p>
+        </div>
+      </div>
+      
+      <p className="text-lg text-slate-500 mt-12 pl-6 border-l-2 border-slate-700">
+        MDP không thay thế Ads Manager. MDP cho CFO/CEO biết marketing có đang tạo giá trị hay không.
+      </p>
+    </div>
+  );
+}
+
+function SlideMarketingDecisionCard() {
+  return (
+    <div className="flex h-full px-20 py-12">
+      <div className="w-1/2 flex flex-col justify-center pr-12">
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Đơn vị quyết định</p>
+        <h1 className="text-4xl font-bold text-white mb-8">
+          Marketing Decision Card
+        </h1>
+        
+        <div className="space-y-4 mb-8">
+          <p className="text-lg text-slate-300">
+            Mỗi campaign được đánh giá bằng:
+          </p>
+          <ul className="space-y-2 text-lg text-slate-200">
+            <li>• Profit ROAS (không phải Vanity ROAS)</li>
+            <li>• Contribution Margin thật</li>
+            <li>• Cash Conversion rate</li>
+            <li>• Financial impact (VND)</li>
+          </ul>
+        </div>
+        
+        <div className="space-y-3">
+          <p className="text-lg text-white font-medium">3 loại quyết định:</p>
+          <div className="flex gap-3">
+            <span className="px-3 py-1 bg-emerald-600/20 text-emerald-400 rounded text-sm">SCALE</span>
+            <span className="px-3 py-1 bg-amber-600/20 text-amber-400 rounded text-sm">PAUSE</span>
+            <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded text-sm">STOP</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="w-1/2 flex items-center justify-center pl-12">
+        <MarketingDecisionCardMockup />
+      </div>
+    </div>
+  );
+}
+
+function SlideDecisionRules() {
+  return (
+    <div className="flex flex-col justify-center h-full px-20">
+      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Logic quyết định</p>
+      <h1 className="text-4xl font-bold text-white mb-12">
+        Quy tắc rõ ràng, không cảm tính
+      </h1>
+      
+      <div className="space-y-6 max-w-4xl">
+        <div className="p-6 border-l-4 border-red-500 bg-slate-900/50 rounded-r-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="px-2 py-1 bg-red-600/20 text-red-400 text-xs rounded font-medium">STOP</span>
+            <span className="text-white font-medium">Dừng ngay lập tức</span>
+          </div>
+          <p className="text-slate-300">Profit ROAS &lt; 0 trong 3 ngày liên tiếp</p>
+          <p className="text-slate-400 text-sm mt-1">Hoặc: Contribution Margin &lt; -10%</p>
+        </div>
+        
+        <div className="p-6 border-l-4 border-amber-500 bg-slate-900/50 rounded-r-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="px-2 py-1 bg-amber-600/20 text-amber-400 text-xs rounded font-medium">PAUSE</span>
+            <span className="text-white font-medium">Tạm dừng để đánh giá</span>
+          </div>
+          <p className="text-slate-300">Cash Conversion &lt; 50% tại D+14</p>
+          <p className="text-slate-400 text-sm mt-1">Hoặc: Profit ROAS 0 - 0.5x</p>
+        </div>
+        
+        <div className="p-6 border-l-4 border-emerald-500 bg-slate-900/50 rounded-r-lg">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="px-2 py-1 bg-emerald-600/20 text-emerald-400 text-xs rounded font-medium">SCALE</span>
+            <span className="text-white font-medium">Tăng ngân sách</span>
+          </div>
+          <p className="text-slate-300">CM% ≥ 15% VÀ Cash Conversion ≥ 70%</p>
+          <p className="text-slate-400 text-sm mt-1">VÀ: Profit ROAS ≥ 1.0x</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SlideChannelHealth() {
+  return (
+    <div className="flex h-full px-20 py-12">
+      <div className="w-1/2 flex flex-col justify-center pr-12">
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Channel Overview</p>
+        <h1 className="text-4xl font-bold text-white mb-4">
+          Kênh nào đang tạo giá trị?
+        </h1>
+        <h2 className="text-4xl font-bold text-slate-400 mb-8">
+          Kênh nào đang đốt tiền?
+        </h2>
+        
+        <div className="space-y-4">
+          <p className="text-lg text-slate-300">
+            MDP đánh giá từng kênh bằng Profit ROAS và Contribution Margin:
+          </p>
+          
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 bg-emerald-500 rounded-full"></span>
+            <span className="text-slate-200">Profitable: Profit ROAS ≥ 1.0x</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 bg-amber-500 rounded-full"></span>
+            <span className="text-slate-200">At Risk: Profit ROAS 0.5 - 1.0x</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+            <span className="text-slate-200">Burning Cash: Profit ROAS &lt; 0.5x</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="w-1/2 flex items-center justify-center pl-12">
+        <ChannelHealthMockup />
+      </div>
+    </div>
+  );
+}
+
+function SlideForCFO() {
+  return (
+    <div className="flex flex-col justify-center h-full px-20">
+      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Thiết kế cho CFO & CEO</p>
+      
+      <h1 className="text-4xl font-bold text-white mb-4">
+        MDP phục vụ CFO & CEO trước
+      </h1>
+      <h2 className="text-4xl font-bold text-slate-400 mb-12">
+        Marketer buộc phải điều chỉnh sau
+      </h2>
+      
+      <div className="flex gap-12 max-w-4xl">
         <div className="flex-1">
-          <h2 className="text-2xl text-slate-400 mb-6">CEO không mua:</h2>
-          <ul className="space-y-3 text-xl text-slate-500">
-            <li>Giao diện</li>
-            <li>Công nghệ</li>
-            <li>AI buzzword</li>
+          <p className="text-lg text-slate-400 mb-4">Marketer thích:</p>
+          <ul className="space-y-2 text-lg text-slate-500">
+            <li>• ROAS cao</li>
+            <li>• Revenue tăng</li>
+            <li>• Traffic nhiều</li>
+            <li>• Conversion tốt</li>
           </ul>
         </div>
         
         <div className="flex-1">
-          <h2 className="text-2xl text-white mb-6">CEO mua:</h2>
-          <ul className="space-y-3 text-xl text-slate-200">
-            <li>Giảm rủi ro quyết sai</li>
-            <li>Giảm độ trễ quyết định</li>
-            <li>Giảm phụ thuộc báo cáo thủ công</li>
-            <li className="text-white font-medium">Tăng kiểm soát dòng tiền thật</li>
+          <p className="text-lg text-white mb-4">CFO cần biết:</p>
+          <ul className="space-y-2 text-lg text-slate-200">
+            <li>• Có lãi không?</li>
+            <li>• Tiền về khi nào?</li>
+            <li>• Rủi ro cash bao nhiêu?</li>
+            <li>• Nên tiếp tục không?</li>
           </ul>
         </div>
       </div>
+      
+      <p className="text-lg text-slate-500 mt-12 pl-6 border-l-2 border-slate-700">
+        Nếu insight marketing mà CFO không tin → MDP coi là thất bại.
+      </p>
     </div>
   );
 }
 
-// Slide 10: Decision Examples
 function SlideExamples() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Ví dụ quyết định điển hình</p>
+      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Ví dụ thực tế</p>
       
       <div className="grid grid-cols-3 gap-8 max-w-5xl">
         <div className="p-6 border border-slate-800 rounded-lg">
-          <p className="text-sm text-slate-500 mb-4">Ví dụ 1</p>
-          <h3 className="text-lg text-white mb-4">Campaign tạo doanh thu nhưng đốt tiền</h3>
+          <p className="text-sm text-slate-500 mb-4">Case 1</p>
+          <h3 className="text-lg text-white mb-4">Flash Sale "thành công"</h3>
           <div className="space-y-2 text-sm">
-            <p className="text-slate-400">Marketing report: <span className="text-emerald-400">tốt</span></p>
-            <p className="text-slate-400">Bluecore: <span className="text-amber-400">cash gap + AR kéo dài</span></p>
-            <p className="text-white mt-4">→ Adjust hoặc Stop</p>
+            <p className="text-slate-400">ROAS: <span className="text-emerald-400">4.2x</span></p>
+            <p className="text-slate-400">Revenue: <span className="text-emerald-400">+3 tỷ</span></p>
+            <div className="h-px bg-slate-700 my-2" />
+            <p className="text-slate-400">Profit ROAS: <span className="text-red-400">0.3x</span></p>
+            <p className="text-slate-400">Cash Gap: <span className="text-red-400">-890 triệu</span></p>
+            <p className="text-white mt-4">→ STOP + never repeat</p>
           </div>
         </div>
         
         <div className="p-6 border border-slate-800 rounded-lg">
-          <p className="text-sm text-slate-500 mb-4">Ví dụ 2</p>
-          <h3 className="text-lg text-white mb-4">SKU bán chạy nhưng xấu margin</h3>
+          <p className="text-sm text-slate-500 mb-4">Case 2</p>
+          <h3 className="text-lg text-white mb-4">Channel "yếu" nhưng lãi</h3>
           <div className="space-y-2 text-sm">
-            <p className="text-slate-400">Doanh thu: <span className="text-emerald-400">tăng</span></p>
-            <p className="text-slate-400">Ops cost + return: <span className="text-amber-400">tăng</span></p>
-            <p className="text-white mt-4">→ Điều chỉnh SKU mix</p>
+            <p className="text-slate-400">ROAS: <span className="text-amber-400">1.8x</span></p>
+            <p className="text-slate-400">Volume: <span className="text-slate-400">thấp</span></p>
+            <div className="h-px bg-slate-700 my-2" />
+            <p className="text-slate-400">Profit ROAS: <span className="text-emerald-400">1.4x</span></p>
+            <p className="text-slate-400">CM: <span className="text-emerald-400">+18%</span></p>
+            <p className="text-white mt-4">→ SCALE carefully</p>
           </div>
         </div>
         
         <div className="p-6 border border-slate-800 rounded-lg">
-          <p className="text-sm text-slate-500 mb-4">Ví dụ 3</p>
-          <h3 className="text-lg text-white mb-4">Tăng trưởng nhưng thiếu tiền mặt</h3>
+          <p className="text-sm text-slate-500 mb-4">Case 3</p>
+          <h3 className="text-lg text-white mb-4">Influencer campaign</h3>
           <div className="space-y-2 text-sm">
-            <p className="text-slate-400">Lợi nhuận kế toán: <span className="text-emerald-400">dương</span></p>
-            <p className="text-slate-400">Dòng tiền: <span className="text-red-400">âm</span></p>
-            <p className="text-white mt-4">→ Siết điều khoản / giảm tốc</p>
+            <p className="text-slate-400">ROAS: <span className="text-emerald-400">5.0x</span></p>
+            <p className="text-slate-400">Engagement: <span className="text-emerald-400">cao</span></p>
+            <div className="h-px bg-slate-700 my-2" />
+            <p className="text-slate-400">Return rate: <span className="text-red-400">35%</span></p>
+            <p className="text-slate-400">True CAC: <span className="text-red-400">3x stated</span></p>
+            <p className="text-white mt-4">→ PAUSE + restructure</p>
           </div>
         </div>
       </div>
@@ -534,91 +606,68 @@ function SlideExamples() {
   );
 }
 
-// Slide 11: Why Hard to Copy
-function SlideHardToCopy() {
+function SlideValue() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
-      <h1 className="text-5xl font-bold text-white mb-4">
-        Vì sao Bluecore khó bị copy
+      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Giá trị MDP mang lại</p>
+      
+      <h1 className="text-4xl font-bold text-white mb-12">
+        Ngăn doanh nghiệp chết vì marketing
       </h1>
       
-      <div className="my-16 max-w-3xl">
-        <p className="text-xl text-slate-400 mb-8">Không phải UI. Không phải feature. Không phải thuật toán đơn lẻ.</p>
-        
-        <div className="space-y-6 pl-6 border-l-2 border-slate-700">
-          <p className="text-2xl text-slate-200">Triết lý Decision-first</p>
-          <p className="text-2xl text-slate-200">Kỷ luật tài chính xuyên hệ thống</p>
-          <p className="text-2xl text-white font-medium">Cách đóng gói dữ liệu thành quyết định</p>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <p className="text-lg text-slate-500">Copy giao diện thì dễ</p>
-        <p className="text-lg text-white">Copy cách CEO tin dữ liệu thì rất khó</p>
-      </div>
-    </div>
-  );
-}
-
-// Slide 12: When to Use
-function SlideWhenToUse() {
-  return (
-    <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-8">Khi nào CEO nên dùng Bluecore</p>
-      
-      <div className="flex gap-20 max-w-4xl">
-        <div className="flex-1">
-          <h2 className="text-2xl text-white mb-6">Phù hợp khi:</h2>
-          <ul className="space-y-3 text-xl text-slate-200">
-            <li>✓ Doanh nghiệp đa kênh</li>
-            <li>✓ Doanh thu tăng nhưng cash căng</li>
-            <li>✓ CEO không tin các báo cáo hiện tại</li>
-            <li>✓ Quyết định ngày càng đắt giá</li>
-          </ul>
+      <div className="grid grid-cols-2 gap-8 max-w-4xl">
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-3xl font-bold text-white mb-2">-70%</p>
+          <p className="text-slate-400">Giảm chi phí marketing lãng phí</p>
         </div>
         
-        <div className="flex-1">
-          <h2 className="text-2xl text-slate-400 mb-6">Không phù hợp nếu:</h2>
-          <ul className="space-y-3 text-xl text-slate-500">
-            <li>× Doanh nghiệp quá nhỏ</li>
-            <li>× CEO thích xem dashboard hơn quyết định</li>
-            <li>× Mục tiêu chỉ là báo cáo đẹp</li>
-          </ul>
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-3xl font-bold text-white mb-2">+15%</p>
+          <p className="text-slate-400">Tăng Contribution Margin</p>
+        </div>
+        
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-3xl font-bold text-white mb-2">2 tuần</p>
+          <p className="text-slate-400">Giảm thời gian phát hiện campaign lỗ</p>
+        </div>
+        
+        <div className="p-6 border border-slate-800 rounded-lg">
+          <p className="text-3xl font-bold text-white mb-2">30 giây</p>
+          <p className="text-slate-400">CEO/CFO hiểu marketing health</p>
         </div>
       </div>
     </div>
   );
 }
 
-// Slide 13: Closing
 function SlideClosing() {
   return (
     <div className="flex flex-col justify-center items-center h-full px-20 text-center">
       <div className="max-w-3xl space-y-12">
         <div className="p-8 border border-slate-800 rounded-lg">
           <p className="text-2xl text-slate-400">
-            "Bluecore không giúp anh/chị biết thêm.
+            "Marketing không chỉ bán hàng
           </p>
           <p className="text-2xl text-white font-medium mt-2">
-            Bluecore giúp anh/chị dám quyết."
+            Marketing tiêu tiền"
           </p>
         </div>
         
         <div>
           <p className="text-xl text-slate-400">
-            CEO không thất bại vì thiếu dữ liệu.
+            MDP đảm bảo mỗi đồng marketing
           </p>
           <p className="text-xl text-white mt-2">
-            CEO thất bại vì tin nhầm dữ liệu.
+            được đo lường bằng lợi nhuận thật, không phải metrics đẹp.
           </p>
         </div>
         
         <div className="pt-8 border-t border-slate-800">
-          <p className="text-lg text-slate-500">
-            Bluecore tồn tại để đảm bảo:
+          <p className="text-lg text-blue-400 font-medium">
+            Profit before Performance.
           </p>
-          <p className="text-xl text-white mt-4">
-            mỗi quyết định lớn đều dựa trên sự thật tài chính đã được kiểm chứng.
+          <p className="text-lg text-blue-400 font-medium">
+            Cash before Clicks.
           </p>
         </div>
       </div>
@@ -630,130 +679,112 @@ function SlideClosing() {
 
 const presenterNotes: Record<number, { title: string; points: string[]; tips?: string }> = {
   0: {
-    title: "Định vị ngay từ đầu",
+    title: "Định vị MDP",
     points: [
-      "Nhấn mạnh: Bluecore KHÔNG bán phần mềm, bán năng lực ra quyết định",
-      "Loại trừ ngay những người tìm Dashboard/BI/Marketing tool",
-      "Đối tượng: CEO đã có dữ liệu nhưng không dám tin",
+      "MDP = Marketing Data Platform, không phải marketing tool",
+      "Slogan: Profit before Performance, Cash before Clicks",
+      "ROAS cao ≠ lãi, Revenue tăng ≠ có tiền",
     ],
-    tips: "Dừng lại để CEO tự nhận ra mình có đang ở tình huống này không"
+    tips: "Hỏi CEO: Có bao giờ marketing báo thắng mà cuối tháng vẫn thiếu tiền không?"
   },
   1: {
-    title: "CEO đang sống trong ảo giác",
+    title: "Marketing vs Finance conflict",
     points: [
-      "Vấn đề: Mỗi báo cáo đến từ hệ thống khác nhau",
-      "Số liệu đúng cục bộ, sai khi ghép lại",
-      "CEO nghe 'để em kiểm tra lại' thường xuyên",
+      "Marketing: ROAS 3.5x, revenue vượt KPI",
+      "Finance: Margin âm, cash flow thiếu",
+      "CEO không biết tin ai - đây là vấn đề thật",
     ],
-    tips: "Hỏi CEO: 'Anh/chị có thường nghe câu này không?'"
+    tips: "Đây là pain point cực kỳ phổ biến - dừng lại cho CEO xác nhận"
   },
   2: {
-    title: "Vấn đề thật sự",
+    title: "Vanity ROAS vs Profit ROAS",
     points: [
-      "CEO có thừa công cụ (ERP, POS, OMS, Kế toán...)",
-      "CEO thiếu: Sự thật thống nhất, Kết luận hành động, Nơi chịu trách nhiệm",
-      "Kết luận: CEO đang kiểm soát bằng niềm tin mù",
+      "Vanity ROAS = Revenue / Ad Spend (Ads Manager)",
+      "Profit ROAS = (Revenue - ALL Costs) / Ad Spend",
+      "Vanity 3.5x có thể = Profit 0.4x → càng scale càng lỗ",
     ],
-    tips: "Đây là điểm đau chính - dừng lại cho CEO đồng cảm"
+    tips: "Chỉ vào mockup và giải thích từng chi phí bị bỏ qua"
   },
   3: {
-    title: "Dashboard trả lời câu hỏi sai",
+    title: "Cash Conversion của Marketing",
     points: [
-      "Dashboard chỉ trả lời 'Đã xảy ra gì?'",
-      "CEO cần 'Tôi nên làm gì?' và 'Hậu quả tài chính thật?'",
-      "Dashboard = quan sát, Decision System = hành động",
+      "Ads spend trả ngay (D+0)",
+      "Revenue về sau 30-45 ngày",
+      "Scale nhanh = Cash gap lớn = Rủi ro thanh khoản",
     ],
-    tips: "So sánh trực tiếp để thấy sự khác biệt về mục đích"
+    tips: "Đây là điểm mà nhiều CEO chưa bao giờ nghĩ đến"
   },
   4: {
-    title: "BI làm CEO chậm hơn",
+    title: "MDP làm gì",
     points: [
-      "BI cho drill-down, filters, custom views",
-      "Nhưng CEO không có thời gian phân tích",
-      "CEO muốn KẾT LUẬN đáng tin, không phải dữ liệu",
+      "Profit Attribution: mỗi campaign → CM thật",
+      "Cash Impact: marketing đang tạo hay khóa tiền mặt",
+      "True CAC và LTV:CAC thật",
     ],
-    tips: "Bluecore cố tình không cho drill-down trong demo CEO"
+    tips: "MDP không thay Ads Manager, MDP cho CFO biết marketing có đang tạo giá trị không"
   },
   5: {
-    title: "Bluecore giải quyết gì",
+    title: "Marketing Decision Card",
     points: [
-      "Không thay thế ERP/BI/Kế toán/Marketing tools",
-      "Đứng TRÊN tất cả để trả lời: Quyết định nào an toàn/nguy hiểm?",
-      "Bluecore = Decision Layer",
+      "Đánh giá bằng: Profit ROAS, CM, Cash Conversion",
+      "3 quyết định: SCALE / PAUSE / STOP",
+      "Financial impact = bao nhiêu tiền thật",
     ],
-    tips: "Không có 'xem cho biết', 'tham khảo', 'theo dõi'"
+    tips: "Chỉ vào mockup: Đây là cách CFO nhìn một campaign"
   },
   6: {
-    title: "Decision Card - Đơn vị giá trị",
+    title: "Quy tắc quyết định",
     points: [
-      "Không liệt kê chỉ số, không đồ thị, không câu chuyện dài",
-      "Đặt ra 1 quyết định + Rủi ro tài chính thật + 3 lựa chọn",
-      "Cấu trúc: Statement → Evidence → Impact → Options",
+      "STOP: Profit ROAS < 0 trong 3 ngày hoặc CM < -10%",
+      "PAUSE: Cash Conversion < 50% hoặc Profit ROAS 0-0.5x",
+      "SCALE: CM ≥ 15% VÀ Cash Conversion ≥ 70%",
     ],
-    tips: "Chỉ vào mockup: Đây là cách CEO nhìn một quyết định"
+    tips: "Quy tắc rõ ràng, không cảm tính, không tranh cãi"
   },
   7: {
-    title: "Control Tower - Cách CEO dùng",
+    title: "Channel Health",
     points: [
-      "Không KPI wall, không realtime spam số",
-      "Chỉ trả lời: Hôm nay CEO cần quyết gì?",
-      "Trải nghiệm: Mở → Thấy 3-5 cards → Quyết 30-60s → Đóng",
+      "Từng kênh được đánh giá bằng Profit ROAS và CM",
+      "Green: Profitable, Amber: At Risk, Red: Burning Cash",
+      "CEO thấy ngay kênh nào nên scale, kênh nào nên cắt",
     ],
-    tips: "Bluecore được thiết kế để CEO không ở lại lâu"
+    tips: "Chỉ cần nhìn màu là biết, không cần phân tích"
   },
   8: {
-    title: "Board View - 30 giây",
+    title: "Thiết kế cho CFO",
     points: [
-      "Chỉ 3 con số: Critical, Exposure, Time to Risk",
-      "Không charts, không tables, không drill-down",
-      "CEO đọc → biết → quyết",
+      "MDP phục vụ CFO/CEO trước, Marketer sau",
+      "Nếu CFO không tin insight → MDP coi là thất bại",
+      "Marketer thích ROAS, CFO cần biết có lãi không",
     ],
-    tips: "Đây là màn hình CEO thấy khi mở app mỗi sáng"
+    tips: "Đây là điểm khác biệt lớn nhất so với marketing tools khác"
   },
   9: {
-    title: "Giá trị tài chính thật sự",
+    title: "Case studies",
     points: [
-      "CEO không mua giao diện/công nghệ/AI buzzword",
-      "CEO mua: Giảm rủi ro sai, Giảm độ trễ, Giảm phụ thuộc",
-      "Quan trọng nhất: Tăng kiểm soát dòng tiền thật",
+      "Flash Sale: ROAS 4.2x nhưng Profit ROAS 0.3x → STOP",
+      "Channel yếu: ROAS 1.8x nhưng Profit ROAS 1.4x → SCALE",
+      "Influencer: ROAS 5x nhưng return 35% → PAUSE",
     ],
-    tips: "Đây là lúc nói về ROI và giá trị kinh doanh"
+    tips: "CEO nào cũng từng gặp ít nhất 1 case như vậy"
   },
   10: {
-    title: "Ví dụ điển hình",
+    title: "Giá trị MDP",
     points: [
-      "Campaign tốt (marketing) nhưng đốt tiền (Bluecore thấy cash gap)",
-      "SKU bán chạy nhưng xấu margin (ops cost + return tăng)",
-      "Tăng trưởng nhưng thiếu cash (lợi nhuận kế toán dương, dòng tiền âm)",
+      "-70% chi phí marketing lãng phí",
+      "+15% Contribution Margin",
+      "2 tuần phát hiện campaign lỗ sớm hơn",
     ],
-    tips: "CEO nào cũng từng gặp ít nhất 1 trong 3 tình huống này"
+    tips: "Đây là ROI story - nói con số cụ thể"
   },
   11: {
-    title: "Khó bị copy",
-    points: [
-      "Không phải UI, feature, hay thuật toán đơn lẻ",
-      "Khó copy: Triết lý Decision-first, Kỷ luật tài chính xuyên hệ thống",
-      "Copy giao diện dễ, copy cách CEO tin dữ liệu rất khó",
-    ],
-    tips: "Đây là competitive moat - nói tự tin"
-  },
-  12: {
-    title: "Khi nào nên dùng",
-    points: [
-      "Phù hợp: Đa kênh, cash căng, không tin báo cáo, quyết định đắt",
-      "Không phù hợp: Quá nhỏ, thích dashboard, chỉ cần báo cáo đẹp",
-      "Tự disqualify để tăng độ tin cậy",
-    ],
-    tips: "Cho CEO tự đánh giá mình có phù hợp không"
-  },
-  13: {
     title: "Câu chốt",
     points: [
-      "'Bluecore không giúp biết thêm, giúp dám quyết'",
-      "'CEO thất bại vì tin nhầm dữ liệu'",
-      "'Mỗi quyết định lớn dựa trên sự thật tài chính đã kiểm chứng'",
+      "Marketing tiêu tiền - cần được đo bằng lợi nhuận thật",
+      "Profit before Performance, Cash before Clicks",
+      "MDP ngăn doanh nghiệp chết vì marketing",
     ],
-    tips: "Im lặng sau câu cuối - để CEO tự cảm nhận"
+    tips: "Im lặng sau câu cuối"
   },
 };
 
@@ -764,26 +795,23 @@ export default function MDPSalesDeckPage() {
   const [showNotes, setShowNotes] = useState(true);
   
   const slides = [
-    { id: 0, component: SlidePositioning, label: 'Định vị' },
-    { id: 1, component: SlideCEOReality, label: 'Ảo giác kiểm soát' },
-    { id: 2, component: SlideRealProblem, label: 'Vấn đề thật' },
-    { id: 3, component: SlideDashboardFails, label: 'Dashboard thất bại' },
-    { id: 4, component: SlideBISlower, label: 'BI làm chậm' },
-    { id: 5, component: SlideWhatBluecore, label: 'Bluecore giải quyết' },
-    { id: 6, component: SlideDecisionCard, label: 'Decision Card' },
-    { id: 7, component: SlideControlTower, label: 'Control Tower' },
-    { id: 8, component: SlideBoardView, label: 'Board View' },
-    { id: 9, component: SlideFinancialValue, label: 'Giá trị tài chính' },
-    { id: 10, component: SlideExamples, label: 'Ví dụ' },
-    { id: 11, component: SlideHardToCopy, label: 'Khó copy' },
-    { id: 12, component: SlideWhenToUse, label: 'Khi nào dùng' },
-    { id: 13, component: SlideClosing, label: 'Chốt' },
+    { id: 0, component: SlidePositioning, label: 'Định vị MDP' },
+    { id: 1, component: SlideMarketingProblem, label: 'Vấn đề' },
+    { id: 2, component: SlideVanityVsProfit, label: 'Vanity vs Profit' },
+    { id: 3, component: SlideCashConversion, label: 'Cash Conversion' },
+    { id: 4, component: SlideWhatMDPDoes, label: 'MDP làm gì' },
+    { id: 5, component: SlideMarketingDecisionCard, label: 'Decision Card' },
+    { id: 6, component: SlideDecisionRules, label: 'Quy tắc' },
+    { id: 7, component: SlideChannelHealth, label: 'Channel Health' },
+    { id: 8, component: SlideForCFO, label: 'Cho CFO' },
+    { id: 9, component: SlideExamples, label: 'Ví dụ' },
+    { id: 10, component: SlideValue, label: 'Giá trị' },
+    { id: 11, component: SlideClosing, label: 'Chốt' },
   ];
   
   const goToPrev = () => setCurrentSlide(prev => Math.max(0, prev - 1));
   const goToNext = () => setCurrentSlide(prev => Math.min(slides.length - 1, prev + 1));
   
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === ' ') {
@@ -808,14 +836,12 @@ export default function MDPSalesDeckPage() {
     <div className="fixed inset-0 bg-slate-950 flex">
       {/* Main Slide Area */}
       <div className={cn("flex flex-col transition-all duration-300", showNotes ? "flex-1" : "w-full")}>
-        {/* Slide Content */}
         <div className="flex-1 overflow-hidden">
           <CurrentSlideComponent />
         </div>
         
         {/* Navigation Footer */}
         <div className="h-14 border-t border-slate-800 flex items-center justify-between px-6">
-          {/* Slide Indicator */}
           <div className="flex items-center gap-1">
             {slides.map((slide, idx) => (
               <button
@@ -825,14 +851,13 @@ export default function MDPSalesDeckPage() {
                 className={cn(
                   "h-1 rounded-full transition-all",
                   idx === currentSlide 
-                    ? "bg-white w-6" 
+                    ? "bg-blue-400 w-6" 
                     : "bg-slate-700 hover:bg-slate-600 w-1"
                 )}
               />
             ))}
           </div>
           
-          {/* Slide Info */}
           <div className="text-center">
             <span className="text-sm text-slate-500 font-mono">
               {currentSlide + 1} / {slides.length}
@@ -842,13 +867,12 @@ export default function MDPSalesDeckPage() {
             </span>
           </div>
           
-          {/* Controls */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowNotes(prev => !prev)}
               className={cn(
                 "p-2 rounded transition-colors",
-                showNotes ? "text-white bg-slate-800" : "text-slate-500 hover:text-white hover:bg-slate-800"
+                showNotes ? "text-blue-400 bg-slate-800" : "text-slate-500 hover:text-white hover:bg-slate-800"
               )}
               title="Toggle notes (N)"
             >
@@ -905,7 +929,7 @@ export default function MDPSalesDeckPage() {
                   <p className="text-xs uppercase tracking-widest text-slate-500">Điểm chính</p>
                   <ul className="space-y-2">
                     {currentNotes.points.map((point, idx) => (
-                      <li key={idx} className="text-sm text-slate-300 pl-3 border-l-2 border-slate-700">
+                      <li key={idx} className="text-sm text-slate-300 pl-3 border-l-2 border-blue-700">
                         {point}
                       </li>
                     ))}
