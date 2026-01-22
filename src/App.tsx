@@ -231,12 +231,12 @@ const AppRoutes = () => {
           <PopulationsPage />
         </ProtectedRoute>
       } />
-      <Route path="/cdp/decision-cards" element={
+      <Route path="/cdp/decisions" element={
         <ProtectedRoute>
           <DecisionCardsPage />
         </ProtectedRoute>
       } />
-      <Route path="/cdp/data-confidence" element={
+      <Route path="/cdp/confidence" element={
         <ProtectedRoute>
           <DataConfidencePage />
         </ProtectedRoute>

@@ -15,14 +15,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { CDPLayout } from '@/components/layout/CDPLayout';
 import { useCDPInsightDetection } from '@/hooks/useCDPInsightDetection';
 
 // Direction indicator component
 function DirectionIndicator({ direction, magnitude }: { direction: 'up' | 'down' | 'stable'; magnitude: number }) {
   if (direction === 'up') {
     return (
-      <span className="inline-flex items-center text-emerald-600">
+      <span className="inline-flex items-center text-success">
         <TrendingUp className="w-4 h-4 mr-1" />
         +{magnitude.toFixed(1)}%
       </span>
@@ -30,7 +30,7 @@ function DirectionIndicator({ direction, magnitude }: { direction: 'up' | 'down'
   }
   if (direction === 'down') {
     return (
-      <span className="inline-flex items-center text-red-600">
+      <span className="inline-flex items-center text-destructive">
         <TrendingDown className="w-4 h-4 mr-1" />
         {magnitude.toFixed(1)}%
       </span>
@@ -47,9 +47,9 @@ function DirectionIndicator({ direction, magnitude }: { direction: 'up' | 'down'
 // Severity badge for insights
 function SeverityIndicator({ severity }: { severity: 'critical' | 'high' | 'medium' }) {
   const styles = {
-    critical: 'bg-red-100 text-red-700 border-red-200',
-    high: 'bg-amber-100 text-amber-700 border-amber-200',
-    medium: 'bg-slate-100 text-slate-600 border-slate-200'
+    critical: 'bg-destructive/10 text-destructive border-destructive/20',
+    high: 'bg-warning/10 text-warning-foreground border-warning/20',
+    medium: 'bg-muted text-muted-foreground border-border'
   };
   
   return (
@@ -110,7 +110,7 @@ function DataConfidenceSummary({
   isReliable: boolean;
 }) {
   return (
-    <Card className={isReliable ? 'border-emerald-200' : 'border-amber-200'}>
+    <Card className={isReliable ? 'border-success/30' : 'border-warning/30'}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Database className="w-4 h-4" />
@@ -129,7 +129,7 @@ function DataConfidenceSummary({
           </div>
         </div>
         {!isReliable && (
-          <p className="text-xs text-amber-600 mt-3">
+          <p className="text-xs text-warning-foreground mt-3">
             ⚠️ Low coverage may affect insight reliability
           </p>
         )}
@@ -179,198 +179,130 @@ export default function CDPOverviewPage() {
   ];
 
   return (
-    <>
+    <CDPLayout>
       <Helmet>
         <title>CDP Overview | Bluecore</title>
         <meta name="description" content="Customer Data Platform - Executive Overview" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header - Clean, executive */}
-        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
-          <div className="max-w-6xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/portal')}
-                  className="text-muted-foreground"
-                >
-                  ← Portal
-                </Button>
-                <Separator orientation="vertical" className="h-5" />
-                <div>
-                  <h1 className="font-semibold text-lg">Customer Signals</h1>
-                  <p className="text-xs text-muted-foreground">Last 30 / 60 days</p>
-                </div>
-              </div>
-              
-              <nav className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp')}
-                  className="text-sm font-medium"
-                >
-                  Overview
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/insights')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Insights
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/populations')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Populations
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/decision-cards')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Decision Cards
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/data-confidence')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Data Confidence
-                </Button>
-              </nav>
+      <div className="space-y-8 max-w-5xl">
+        {/* Strategic Brief Header */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-1">What Changed Recently?</h2>
+              <p className="text-sm text-muted-foreground">
+                {summary.triggered} behavioral shifts detected across customer populations
+              </p>
             </div>
-          </div>
-        </header>
-
-        <main className="max-w-6xl mx-auto px-6 py-8 space-y-8">
-          {/* Strategic Brief Header */}
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold mb-1">What Changed Recently?</h2>
-                <p className="text-sm text-muted-foreground">
-                  {summary.triggered} behavioral shifts detected across customer populations
-                </p>
-              </div>
-              {summary.bySeverity.critical > 0 && (
-                <Badge className="bg-red-500 text-white">
-                  {summary.bySeverity.critical} Critical
-                </Badge>
-              )}
-            </div>
-
-            {/* Category Navigation */}
-            <div className="grid grid-cols-4 gap-3 mb-6">
-              {categorySummary.map((cat) => (
-                <Card 
-                  key={cat.label}
-                  className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                    cat.count > 0 ? 'border-amber-200' : ''
-                  }`}
-                  onClick={() => navigate(cat.path)}
-                >
-                  <CardContent className="py-3 px-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <cat.icon className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">{cat.label}</span>
-                      </div>
-                      <span className={`font-semibold ${cat.count > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                        {cat.count}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-
-          {/* Insight Highlights */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Insight Highlights</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate('/cdp/insights')}
-                className="text-sm text-muted-foreground"
-              >
-                View All <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            </div>
-
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Card key={i} className="h-32 animate-pulse bg-muted" />
-                ))}
-              </div>
-            ) : topInsights.length === 0 ? (
-              <Card className="py-12 text-center">
-                <CardContent>
-                  <AlertTriangle className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
-                  <p className="font-medium">No significant shifts detected</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    All customer metrics are trending within normal thresholds
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {topInsights.map((insight) => (
-                  <InsightHighlightCard
-                    key={insight.code}
-                    headline={insight.definition.name}
-                    population={insight.population.description}
-                    direction={insight.detection.direction}
-                    magnitude={Math.abs(insight.detection.changePercent)}
-                    implication={insight.statement}
-                    severity={insight.definition.risk.severity}
-                  />
-                ))}
-              </div>
+            {summary.bySeverity.critical > 0 && (
+              <Badge className="bg-destructive text-destructive-foreground">
+                {summary.bySeverity.critical} Critical
+              </Badge>
             )}
-          </section>
+          </div>
 
-          {/* Data Confidence Summary */}
-          <section>
-            <h3 className="font-semibold mb-4">Data Confidence</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <DataConfidenceSummary
-                identityCoverage={dataQuality.identityCoverage}
-                cogsCoverage={dataQuality.cogsCoverage}
-                isReliable={dataQuality.isReliable}
-              />
-              
-              <Card className="md:col-span-2">
-                <CardContent className="py-4">
-                  <div className="flex items-start gap-3">
-                    <Database className="w-5 h-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium mb-1">How We Calculate Confidence</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Identity coverage indicates the percentage of transactions linked to known customers. 
-                        COGS coverage indicates margin calculation reliability. 
-                        Insights are marked as "Requires Review" when coverage falls below 70%.
-                      </p>
+          {/* Category Navigation */}
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            {categorySummary.map((cat) => (
+              <Card 
+                key={cat.label}
+                className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+                  cat.count > 0 ? 'border-warning/30' : ''
+                }`}
+                onClick={() => navigate(cat.path)}
+              >
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <cat.icon className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">{cat.label}</span>
                     </div>
+                    <span className={`font-semibold ${cat.count > 0 ? 'text-warning-foreground' : 'text-muted-foreground'}`}>
+                      {cat.count}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* Insight Highlights */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Insight Highlights</h3>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/cdp/insights')}
+              className="text-sm text-muted-foreground"
+            >
+              View All <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i} className="h-32 animate-pulse bg-muted" />
+              ))}
             </div>
-          </section>
-        </main>
+          ) : topInsights.length === 0 ? (
+            <Card className="py-12 text-center">
+              <CardContent>
+                <AlertTriangle className="w-8 h-8 text-success mx-auto mb-3" />
+                <p className="font-medium">No significant shifts detected</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  All customer metrics are trending within normal thresholds
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {topInsights.map((insight) => (
+                <InsightHighlightCard
+                  key={insight.code}
+                  headline={insight.definition.name}
+                  population={insight.population.description}
+                  direction={insight.detection.direction}
+                  magnitude={Math.abs(insight.detection.changePercent)}
+                  implication={insight.statement}
+                  severity={insight.definition.risk.severity}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Data Confidence Summary */}
+        <section>
+          <h3 className="font-semibold mb-4">Data Confidence</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DataConfidenceSummary
+              identityCoverage={dataQuality.identityCoverage}
+              cogsCoverage={dataQuality.cogsCoverage}
+              isReliable={dataQuality.isReliable}
+            />
+            
+            <Card className="md:col-span-2">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <Database className="w-5 h-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium mb-1">How We Calculate Confidence</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Identity coverage indicates the percentage of transactions linked to known customers. 
+                      COGS coverage indicates margin calculation reliability. 
+                      Insights are marked as "Requires Review" when coverage falls below 70%.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
       </div>
-    </>
+    </CDPLayout>
   );
 }
