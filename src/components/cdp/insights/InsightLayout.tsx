@@ -20,10 +20,16 @@ interface InsightLayoutProps {
 
 const subNavItems = [
   { 
-    label: 'Dòng Insight', 
+    label: 'Hành vi Khách hàng', 
     href: '/cdp/insights', 
     icon: List,
     description: 'Các thay đổi hành vi được phát hiện'
+  },
+  { 
+    label: 'Nhu cầu & Sản phẩm', 
+    href: '/cdp/insights/demand', 
+    icon: List,
+    description: 'Dịch chuyển nhu cầu và cấu trúc chi tiêu'
   },
   { 
     label: 'Danh mục Insight', 
