@@ -74,6 +74,17 @@ export interface FormattedFact {
   periodEnd: string;
 }
 
+// Summary from DB (NO client-side aggregation)
+export interface FactsSummaryFromDB {
+  totalItems: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  totalQuantity: number;
+  totalOrders: number;
+  avgMarginPercent: number;
+}
+
 // =============================================================
 // MAIN HOOK - Fetch facts by grain type (NO CALCULATIONS)
 // =============================================================
@@ -219,37 +230,63 @@ function mapToFormatted(raw: MetricFact): FormattedFact {
 }
 
 // =============================================================
-// AGGREGATE HOOK - Get summary across all facts of a type
+// AGGREGATE HOOK - Fetch summary FROM DB (NO CLIENT-SIDE SUM)
 // =============================================================
 
+/**
+ * Get facts summary - uses DB precomputed table or RPC
+ * NO CLIENT-SIDE AGGREGATION
+ */
 export function useFactsSummary(grainType: FactGrainType) {
   const { data: tenantId } = useActiveTenantId();
   
   return useQuery({
     queryKey: ['finance-truth-facts-summary', tenantId, grainType],
-    queryFn: async () => {
+    queryFn: async (): Promise<FactsSummaryFromDB | null> => {
       if (!tenantId) return null;
       
-      // Use DB aggregation - NO CLIENT CALCULATIONS
+      // Fetch from precomputed summary table - NO CLIENT CALCULATIONS
       const { data, error } = await supabase
-        .from('central_metric_facts')
-        .select('revenue, cost, profit, quantity, order_count')
-        .eq('tenant_id', tenantId)
-        .eq('grain_type', grainType);
+        .rpc('get_facts_summary', {
+          p_tenant_id: tenantId,
+          p_grain_type: grainType,
+        });
       
-      if (error || !data) return null;
+      if (error) {
+        console.error('[useFactsSummary] RPC error:', error);
+        // Fallback to summary table direct query
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('central_metric_facts_summary')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .eq('grain_type', grainType)
+          .maybeSingle();
+        
+        if (fallbackError || !fallbackData) return null;
+        
+        return {
+          totalItems: fallbackData.total_items || 0,
+          totalRevenue: Number(fallbackData.total_revenue) || 0,
+          totalCost: Number(fallbackData.total_cost) || 0,
+          totalProfit: Number(fallbackData.total_profit) || 0,
+          totalQuantity: Number(fallbackData.total_quantity) || 0,
+          totalOrders: fallbackData.total_orders || 0,
+          avgMarginPercent: Number(fallbackData.avg_margin_percent) || 0,
+        };
+      }
       
-      // Simple sum - could also be done via RPC for true DB-first
-      const summary = {
-        totalItems: data.length,
-        totalRevenue: data.reduce((sum, r) => sum + Number(r.revenue), 0),
-        totalCost: data.reduce((sum, r) => sum + Number(r.cost), 0),
-        totalProfit: data.reduce((sum, r) => sum + Number(r.profit), 0),
-        totalQuantity: data.reduce((sum, r) => sum + Number(r.quantity), 0),
-        totalOrders: data.reduce((sum, r) => sum + Number(r.order_count), 0),
+      if (!data || data.length === 0) return null;
+      
+      const row = data[0];
+      return {
+        totalItems: row.total_items || 0,
+        totalRevenue: Number(row.total_revenue) || 0,
+        totalCost: Number(row.total_cost) || 0,
+        totalProfit: Number(row.total_profit) || 0,
+        totalQuantity: Number(row.total_quantity) || 0,
+        totalOrders: row.total_orders || 0,
+        avgMarginPercent: Number(row.avg_margin_percent) || 0,
       };
-      
-      return summary;
     },
     enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,

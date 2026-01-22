@@ -4,8 +4,8 @@
  * This file defines rules to prevent importing deprecated hooks
  * in executive-grade routes.
  * 
- * Add to your ESLint config:
- * extends: ['./.eslintrc.finance-guardrails.js']
+ * ENFORCEMENT: These hooks are DEPRECATED and must NOT compute metrics.
+ * All business calculations happen in DB precomputed tables.
  */
 
 module.exports = {
@@ -14,7 +14,7 @@ module.exports = {
       patterns: [
         {
           group: ['**/useCentralFinancialMetrics*'],
-          message: '⛔ DEPRECATED: Use useFinanceTruthSnapshot instead'
+          message: '⛔ DEPRECATED: Thin wrapper only. Use useFinanceTruthSnapshot instead'
         },
         {
           group: ['**/useDashboardKPIs*'],
@@ -45,7 +45,7 @@ module.exports = {
   },
   overrides: [
     {
-      // Stricter rules for executive routes
+      // Stricter rules for executive routes - FORBIDDEN
       files: [
         'src/pages/CFODashboard.tsx',
         'src/pages/control-tower/**/*.tsx',
@@ -56,7 +56,15 @@ module.exports = {
         'no-restricted-imports': ['error', {
           patterns: [
             {
-              group: ['**/useCentralFinancialMetrics*', '**/useDashboardKPIs*', '**/usePLData*', '**/useAnalyticsData*', '**/useKPIData*', '**/usePerformanceData*', '**/useControlTowerAnalytics*'],
+              group: [
+                '**/useCentralFinancialMetrics*', 
+                '**/useDashboardKPIs*', 
+                '**/usePLData*', 
+                '**/useAnalyticsData*', 
+                '**/useKPIData*', 
+                '**/usePerformanceData*', 
+                '**/useControlTowerAnalytics*'
+              ],
               message: '🚫 FORBIDDEN in executive routes. Use canonical hooks only: useFinanceTruthSnapshot, useFinanceTruthFacts, useDecisionCards, useMDPData'
             }
           ]
