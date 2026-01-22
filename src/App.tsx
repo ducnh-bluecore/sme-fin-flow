@@ -92,6 +92,8 @@ const LTVModelPage = lazy(() => import("./pages/cdp/equity/LTVModelPage"));
 const EquityDriversPage = lazy(() => import("./pages/cdp/equity/EquityDriversPage"));
 const EquityEvidencePage = lazy(() => import("./pages/cdp/equity/EquityEvidencePage"));
 const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
+const PopulationDetailPage = lazy(() => import("./pages/cdp/PopulationDetailPage"));
+const PopulationGovernancePage = lazy(() => import("./pages/cdp/PopulationGovernancePage"));
 const DecisionCardsPage = lazy(() => import("./pages/cdp/DecisionCardsPage"));
 const DecisionDetailPage = lazy(() => import("./pages/cdp/DecisionDetailPage"));
 const DataConfidencePage = lazy(() => import("./pages/cdp/DataConfidencePage"));
@@ -277,6 +279,16 @@ const AppRoutes = () => {
       <Route path="/cdp/populations" element={
         <ProtectedRoute>
           <PopulationsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/populations/governance" element={
+        <ProtectedRoute>
+          <PopulationGovernancePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/populations/:populationId" element={
+        <ProtectedRoute>
+          <PopulationDetailPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/decisions" element={
