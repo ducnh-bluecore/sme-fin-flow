@@ -1,37 +1,42 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
-import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
-import { format, startOfMonth, subMonths, getDaysInMonth } from 'date-fns';
-import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+/**
+ * useCashConversionCycle - REFACTORED to use canonical hooks only
+ * 
+ * ⚠️ NOW USES PRECOMPUTED DATA - NO RAW QUERIES
+ * 
+ * Uses:
+ * - useFinanceTruthSnapshot for core DSO/DPO/DIO/CCC metrics
+ * - useWorkingCapitalDaily for trend data
+ */
+
+import { useMemo } from 'react';
+import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
+import { useWorkingCapitalDaily } from './useWorkingCapitalDaily';
 import { 
-  constrainDays, 
   calculateTurnoverFromDays,
   INDUSTRY_BENCHMARKS 
 } from '@/lib/financial-constants';
 
 /**
- * Cash Conversion Cycle Hook - Refactored
- * Now uses useCentralFinancialMetrics for core calculations to avoid duplication.
- * Adds CCC-specific features: trends, working capital impact, turnover ratios.
+ * Cash Conversion Cycle Hook - REFACTORED
  * 
- * FDP Manifesto: Single Source of Truth
- * All DSO/DIO/DPO/CCC values come from central metrics with constraints applied.
+ * Now uses precomputed data from canonical hooks.
+ * NO raw queries to invoices/bills/orders tables.
+ * NO client-side DSO/DPO/DIO/CCC calculations.
  */
 
 export interface CashConversionCycleData {
-  // Core Metrics (from useCentralFinancialMetrics - CONSTRAINED)
+  // Core Metrics (from precomputed snapshot)
   dso: number;
   dio: number;  
   dpo: number;
   ccc: number;
 
-  // Turnover Ratios (calculated from days: 365/days)
-  arTurnover: number;      // 365 / DSO
-  inventoryTurnover: number; // 365 / DIO
-  apTurnover: number;      // 365 / DPO
+  // Turnover Ratios (simple formula from days: 365/days)
+  arTurnover: number;
+  inventoryTurnover: number;
+  apTurnover: number;
 
-  // Details
+  // Details (from snapshot)
   avgAR: number;
   avgInventory: number;
   avgAP: number;
@@ -39,7 +44,7 @@ export interface CashConversionCycleData {
   dailyCogs: number;
   dailyPurchases: number;
 
-  // Trends
+  // Trends (from precomputed working_capital_daily)
   trends: CCCTrend[];
   
   // Benchmarks
@@ -72,140 +77,106 @@ export interface CCCTrend {
 }
 
 export function useCashConversionCycle() {
-  const { data: tenantId } = useActiveTenantId();
-  const { startDateStr, endDateStr } = useDateRangeForQuery();
-  
-  // Use centralized financial metrics (single source of truth)
-  const { data: metrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
+  // Use canonical precomputed hooks
+  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
+  const { data: wcDaily, isLoading: wcLoading } = useWorkingCapitalDaily({ days: 180 });
 
-  return useQuery({
-    queryKey: ['cash-conversion-cycle', tenantId, startDateStr, endDateStr],
-    queryFn: async (): Promise<CashConversionCycleData> => {
-      if (!tenantId || !metrics) {
-        return getEmptyData();
-      }
+  const data = useMemo((): CashConversionCycleData => {
+    if (!snapshot) {
+      return getEmptyData();
+    }
 
-      const today = new Date();
+    // Core metrics from precomputed snapshot - NO CALCULATIONS
+    const dso = snapshot.dso;
+    const dio = snapshot.dio;
+    const dpo = snapshot.dpo;
+    const ccc = snapshot.ccc;
 
-      // Fetch historical data for trends
-      const [invoicesRes, billsRes, ordersRes] = await Promise.all([
-        supabase
-          .from('invoices')
-          .select('id, total_amount, paid_amount, status, issue_date')
-          .eq('tenant_id', tenantId)
-          .gte('issue_date', format(subMonths(today, 6), 'yyyy-MM-dd')),
-        supabase
-          .from('bills')
-          .select('id, total_amount, paid_amount, status, bill_date')
-          .eq('tenant_id', tenantId)
-          .gte('bill_date', format(subMonths(today, 6), 'yyyy-MM-dd')),
-        supabase
-          .from('external_orders')
-          .select('total_amount, cost_of_goods, order_date, status')
-          .eq('tenant_id', tenantId)
-          .eq('status', 'delivered')
-          .gte('order_date', format(subMonths(today, 6), 'yyyy-MM-dd'))
-      ]);
+    // Turnover ratios - simple formula from precomputed days
+    const arTurnover = calculateTurnoverFromDays(dso);
+    const inventoryTurnover = calculateTurnoverFromDays(dio);
+    const apTurnover = calculateTurnoverFromDays(dpo);
 
-      const invoices = invoicesRes.data || [];
-      const bills = billsRes.data || [];
-      const orders = ordersRes.data || [];
+    // Details from snapshot
+    const avgAR = snapshot.totalAR;
+    const avgInventory = snapshot.totalInventoryValue;
+    const avgAP = snapshot.totalAP;
+    
+    // Daily rates derived from snapshot metrics
+    const dailySales = dso > 0 ? avgAR / dso : 0;
+    const dailyCogs = dio > 0 ? avgInventory / dio : 0;
+    const dailyPurchases = dpo > 0 ? avgAP / dpo : 0;
 
-      // Calculate monthly trends using CORRECT formulas with constraints
-      const trends: CCCTrend[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const monthStart = startOfMonth(subMonths(today, i));
-        const monthStr = format(monthStart, 'yyyy-MM');
-        const daysInMonth = getDaysInMonth(monthStart);
-        
-        const monthInvoices = invoices.filter(inv => inv.issue_date?.startsWith(monthStr));
-        const monthBills = bills.filter(b => b.bill_date?.startsWith(monthStr));
-        const monthOrders = orders.filter(o => o.order_date?.startsWith(monthStr));
-        
-        // Revenue and COGS for the month
-        const monthSales = monthOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-        const monthCogs = monthOrders.reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
-        
-        // AR and AP at end of month (unpaid balances)
-        const monthAR = monthInvoices
-          .filter(i => i.status !== 'paid')
-          .reduce((sum, i) => sum + ((i.total_amount || 0) - (i.paid_amount || 0)), 0);
-        const monthAP = monthBills
-          .filter(b => b.status !== 'paid')
-          .reduce((sum, b) => sum + ((b.total_amount || 0) - (b.paid_amount || 0)), 0);
-
-        // Correct formulas: DSO = (AR / Revenue) * Days
-        // Use month's actual days for accurate calculation
-        const rawMonthDso = monthSales > 0 ? (monthAR / monthSales) * daysInMonth : metrics.dso;
-        const monthDso = constrainDays(rawMonthDso, 'dso');
-        
-        // DIO = (Inventory / COGS) * Days - estimate inventory as COGS * 30 days
-        const monthInventory = monthCogs > 0 ? (monthCogs / daysInMonth) * 30 : 0;
-        const rawMonthDio = monthCogs > 0 ? (monthInventory / monthCogs) * daysInMonth : metrics.dio;
-        const monthDio = constrainDays(rawMonthDio, 'dio');
-        
-        // DPO = (AP / COGS) * Days - use actual AP and COGS
-        const rawMonthDpo = monthCogs > 0 ? (monthAP / monthCogs) * daysInMonth : 30;
-        const monthDpo = constrainDays(rawMonthDpo, 'dpo');
-        
-        // CCC = DSO + DIO - DPO (with constraint)
-        const rawMonthCcc = monthDso + monthDio - monthDpo;
-        const monthCcc = constrainDays(rawMonthCcc, 'ccc');
-        
-        trends.push({
-          month: format(monthStart, 'MM/yyyy'),
-          dso: monthDso,
-          dio: monthDio,
-          dpo: monthDpo,
-          ccc: monthCcc
-        });
-      }
-
-      // Calculate turnover ratios from days (correct formula: 365 / Days)
-      const arTurnover = calculateTurnoverFromDays(metrics.dso);
-      const inventoryTurnover = calculateTurnoverFromDays(metrics.dio);
-      const apTurnover = calculateTurnoverFromDays(metrics.dpo);
-
-      // Working capital impact
-      const workingCapitalTied = (metrics.totalAR || 0) + (metrics.inventory || 0) - (metrics.totalAP || 0);
-      const currentDailyWorkingCapital = metrics.dailySales * metrics.ccc;
-      const benchmarkDailyWorkingCapital = metrics.dailySales * metrics.industryBenchmark.ccc;
-      const potentialSavings = Math.max(0, currentDailyWorkingCapital - benchmarkDailyWorkingCapital);
-
-      return {
-        dso: metrics.dso,
-        dio: metrics.dio,
-        dpo: metrics.dpo,
-        ccc: metrics.ccc,
-        arTurnover,
-        inventoryTurnover,
-        apTurnover,
-        avgAR: metrics.totalAR,
-        avgInventory: metrics.inventory,
-        avgAP: metrics.totalAP,
-        dailySales: metrics.dailySales,
-        dailyCogs: metrics.dailyCogs,
-        dailyPurchases: metrics.dailyPurchases,
-        trends,
-        industryBenchmark: {
-          dso: metrics.industryBenchmark.dso,
-          dio: metrics.industryBenchmark.dio,
-          dpo: metrics.industryBenchmark.dpo,
-          ccc: metrics.industryBenchmark.ccc,
-        },
-        workingCapitalTied,
-        potentialSavings,
-        rawData: {
-          totalSales: metrics.netRevenue,
-          totalCogs: metrics.cogs,
-          totalPurchases: metrics.dailyPurchases * metrics.daysInPeriod,
-          daysInPeriod: metrics.daysInPeriod
+    // Build trends from precomputed working_capital_daily - NO CALCULATIONS
+    const trends: CCCTrend[] = [];
+    if (wcDaily && wcDaily.length > 0) {
+      // Group by month from daily data
+      const monthlyMap: Record<string, { dso: number; dio: number; dpo: number; ccc: number; count: number }> = {};
+      
+      wcDaily.forEach(d => {
+        const month = d.day.substring(0, 7); // YYYY-MM
+        if (!monthlyMap[month]) {
+          monthlyMap[month] = { dso: 0, dio: 0, dpo: 0, ccc: 0, count: 0 };
         }
-      };
-    },
-    enabled: !!tenantId && !metricsLoading && !!metrics,
-    staleTime: 5 * 60 * 1000
-  });
+        monthlyMap[month].dso += d.dso;
+        monthlyMap[month].dio += d.dio;
+        monthlyMap[month].dpo += d.dpo;
+        monthlyMap[month].ccc += d.ccc;
+        monthlyMap[month].count++;
+      });
+      
+      // Calculate averages per month
+      Object.entries(monthlyMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .forEach(([month, data]) => {
+          trends.push({
+            month: month.replace('-', '/'),
+            dso: Math.round(data.dso / data.count),
+            dio: Math.round(data.dio / data.count),
+            dpo: Math.round(data.dpo / data.count),
+            ccc: Math.round(data.ccc / data.count),
+          });
+        });
+    }
+
+    // Working capital impact from precomputed values
+    const workingCapitalTied = avgAR + avgInventory - avgAP;
+    const currentDailyWC = dailySales * ccc;
+    const benchmarkDailyWC = dailySales * INDUSTRY_BENCHMARKS.ccc;
+    const potentialSavings = Math.max(0, currentDailyWC - benchmarkDailyWC);
+
+    return {
+      dso,
+      dio,
+      dpo,
+      ccc,
+      arTurnover,
+      inventoryTurnover,
+      apTurnover,
+      avgAR,
+      avgInventory,
+      avgAP,
+      dailySales,
+      dailyCogs,
+      dailyPurchases,
+      trends,
+      industryBenchmark: INDUSTRY_BENCHMARKS,
+      workingCapitalTied,
+      potentialSavings,
+      rawData: {
+        totalSales: snapshot.netRevenue,
+        totalCogs: snapshot.netRevenue - snapshot.grossProfit,
+        totalPurchases: dailyPurchases * 30,
+        daysInPeriod: 30
+      }
+    };
+  }, [snapshot, wcDaily]);
+
+  return {
+    data,
+    isLoading: snapshotLoading || wcLoading,
+    error: null,
+  };
 }
 
 function getEmptyData(): CashConversionCycleData {
@@ -224,12 +195,7 @@ function getEmptyData(): CashConversionCycleData {
     dailyCogs: 0,
     dailyPurchases: 0,
     trends: [],
-    industryBenchmark: { 
-      dso: INDUSTRY_BENCHMARKS.dso, 
-      dio: INDUSTRY_BENCHMARKS.dio, 
-      dpo: INDUSTRY_BENCHMARKS.dpo, 
-      ccc: INDUSTRY_BENCHMARKS.ccc 
-    },
+    industryBenchmark: INDUSTRY_BENCHMARKS,
     workingCapitalTied: 0,
     potentialSavings: 0,
     rawData: {
