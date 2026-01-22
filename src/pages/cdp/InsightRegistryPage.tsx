@@ -1,316 +1,135 @@
 import { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  DollarSign, 
-  Clock, 
-  Shuffle, 
-  AlertTriangle, 
-  UserCheck,
-  TrendingDown,
-  TrendingUp,
-  ArrowRight,
+  Settings,
   Info,
-  CheckCircle2,
-  XCircle,
-  ChevronRight
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
-import { useCDPInsightDetection, DetectedInsight } from '@/hooks/useCDPInsightDetection';
-import { 
-  CDP_INSIGHT_REGISTRY, 
-  INSIGHT_CATEGORIES,
-  InsightCategory,
-  InsightCode,
-  getSeverityColor,
-  getCategoryColor
-} from '@/lib/cdp-insight-registry';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { InsightLayout } from '@/components/cdp/insights/InsightLayout';
+import { InsightRegistryTable, InsightRegistryItem } from '@/components/cdp/insights/InsightRegistryTable';
+import { toast } from 'sonner';
 
-const categoryIcons: Record<InsightCategory, React.ReactNode> = {
-  value: <DollarSign className="h-4 w-4" />,
-  velocity: <Clock className="h-4 w-4" />,
-  mix: <Shuffle className="h-4 w-4" />,
-  risk: <AlertTriangle className="h-4 w-4" />,
-  quality: <UserCheck className="h-4 w-4" />,
-};
-
-const severityLabels = {
-  critical: 'NGHIÊM TRỌNG',
-  high: 'CAO',
-  medium: 'TRUNG BÌNH'
-};
-
-function formatCurrency(value: number): string {
-  if (value >= 1e9) return `${(value / 1e9).toFixed(1)} tỷ`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  return value.toLocaleString('vi-VN');
-}
-
-function InsightCard({ insight }: { insight: DetectedInsight }) {
-  const [expanded, setExpanded] = useState(false);
-  const { definition, detection, population, impact } = insight;
+// Mock registry data
+const mockRegistryItems: InsightRegistryItem[] = [
+  // Giá trị
+  { code: 'V01', name: 'Core Spend Decline', description: 'Phát hiện khi chi tiêu trung bình của top customers giảm > threshold', topic: 'Giá trị', threshold: 'AOV giảm > 12%', cooldownDays: 14, owners: ['CEO', 'CFO'], isEnabled: true, isTriggered: true },
+  { code: 'V02', name: 'AOV Compression', description: 'Phát hiện khi AOV toàn bộ khách hàng bị nén', topic: 'Giá trị', threshold: 'AOV giảm > 10%', cooldownDays: 14, owners: ['CFO'], isEnabled: true, isTriggered: true },
+  { code: 'V03', name: 'Revenue Concentration Risk', description: 'Cảnh báo khi quá nhiều doanh thu tập trung vào một nhóm nhỏ', topic: 'Giá trị', threshold: 'Top 10% > 70% DT', cooldownDays: 30, owners: ['CEO', 'CFO'], isEnabled: true, isTriggered: false },
+  { code: 'V04', name: 'Customer Value Erosion', description: 'Giá trị vòng đời trung bình của khách giảm', topic: 'Giá trị', threshold: 'CLV giảm > 15%', cooldownDays: 30, owners: ['CEO'], isEnabled: true, isTriggered: false },
+  { code: 'V05', name: 'Margin Pressure', description: 'Biên lợi nhuận trung bình trên khách hàng giảm', topic: 'Giá trị', threshold: 'Margin giảm > 8%', cooldownDays: 14, owners: ['CFO'], isEnabled: false, isTriggered: false },
   
-  return (
-    <Card className={`p-4 border-l-4 ${
-      definition.risk.severity === 'critical' ? 'border-l-red-500' :
-      definition.risk.severity === 'high' ? 'border-l-orange-500' :
-      'border-l-amber-500'
-    }`}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="outline" className={getCategoryColor(definition.category)}>
-              {categoryIcons[definition.category]}
-              <span className="ml-1">{insight.code}</span>
-            </Badge>
-            <Badge className={getSeverityColor(definition.risk.severity)}>
-              {severityLabels[definition.risk.severity]}
-            </Badge>
-          </div>
-          
-          <h3 className="font-semibold text-foreground mb-1">{definition.nameVi}</h3>
-          <p className="text-sm text-muted-foreground mb-3">{insight.statement}</p>
-          
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Tập khách hàng</span>
-              <p className="font-medium">{population.customerCount.toLocaleString()} khách</p>
-              <p className="text-xs text-muted-foreground">{population.revenueContribution.toFixed(1)}% doanh thu</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Thay đổi</span>
-              <p className={`font-medium flex items-center gap-1 ${
-                detection.direction === 'down' ? 'text-red-600' : 'text-orange-600'
-              }`}>
-                {detection.direction === 'down' ? 
-                  <TrendingDown className="h-3 w-3" /> : 
-                  <TrendingUp className="h-3 w-3" />
-                }
-                {detection.changePercent > 0 ? '+' : ''}{detection.changePercent.toFixed(1)}%
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Tác động</span>
-              <p className="font-medium">{impact.estimatedAmount > 0 ? formatCurrency(impact.estimatedAmount) : 'Rủi ro forecast'}</p>
-              <p className="text-xs text-muted-foreground">{impact.timeHorizon}</p>
-            </div>
-          </div>
-        </div>
-        
-        <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
-          <ChevronRight className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-        </Button>
-      </div>
-      
-      {expanded && (
-        <div className="mt-4 pt-4 border-t">
-          <div className="bg-muted/50 rounded-lg p-3 mb-3">
-            <h4 className="text-sm font-medium mb-1 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Câu hỏi quyết định
-            </h4>
-            <p className="text-sm text-foreground">{insight.decisionPrompt}</p>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Loại rủi ro</span>
-              <p className="font-medium">{definition.risk.primary}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Ảnh hưởng tài chính</span>
-              <p className="font-medium capitalize">{definition.risk.financialImpactType}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Cửa sổ phát hiện</span>
-              <p className="font-medium">{definition.detection.windowDays} ngày</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Cooldown</span>
-              <p className="font-medium">{definition.cooldownDays} ngày</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function RegistryOverview({ triggeredCodes }: { triggeredCodes: Set<InsightCode> }) {
-  return (
-    <div className="space-y-4">
-      {(Object.entries(INSIGHT_CATEGORIES) as [InsightCategory, typeof INSIGHT_CATEGORIES[InsightCategory]][]).map(([category, meta]) => {
-        const insights = Object.values(CDP_INSIGHT_REGISTRY).filter(i => i.category === category);
-        const triggeredCount = insights.filter(i => triggeredCodes.has(i.code)).length;
-        
-        return (
-          <Card key={category} className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {categoryIcons[category]}
-                <h3 className="font-semibold">{meta.nameVi}</h3>
-                <Badge variant="outline">{meta.count} tín hiệu</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                {triggeredCount > 0 && (
-                  <Badge className="bg-red-100 text-red-700">{triggeredCount} kích hoạt</Badge>
-                )}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {insights.map(insight => {
-                const isTriggered = triggeredCodes.has(insight.code);
-                return (
-                  <div 
-                    key={insight.code}
-                    className={`flex items-center gap-2 p-2 rounded text-sm ${
-                      isTriggered ? 'bg-red-50 text-red-700' : 'bg-muted/50 text-muted-foreground'
-                    }`}
-                  >
-                    {isTriggered ? 
-                      <XCircle className="h-3 w-3 flex-shrink-0" /> : 
-                      <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                    }
-                    <span className="font-mono text-xs">{insight.code}</span>
-                    <span className="truncate">{insight.nameVi}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
+  // Thời gian mua
+  { code: 'T01', name: 'Inter-Purchase Expansion', description: 'Khoảng cách giữa các đơn hàng tăng', topic: 'Thời gian mua', threshold: 'Cycle tăng > 20%', cooldownDays: 14, owners: ['COO'], isEnabled: true, isTriggered: true },
+  { code: 'T02', name: 'Second Purchase Delay', description: 'Thời gian từ đơn đầu đến đơn hai kéo dài', topic: 'Thời gian mua', threshold: 'Delay > 30 ngày', cooldownDays: 21, owners: ['COO'], isEnabled: true, isTriggered: false },
+  { code: 'T03', name: 'Reactivation Failure', description: 'Khách dormant không quay lại sau các nỗ lực', topic: 'Thời gian mua', threshold: 'Rate < 5%', cooldownDays: 30, owners: ['COO'], isEnabled: true, isTriggered: false },
+  { code: 'T04', name: 'Cohort Decay', description: 'Cohort mới có tốc độ suy giảm nhanh hơn', topic: 'Thời gian mua', threshold: 'Decay > 25%', cooldownDays: 30, owners: ['CEO'], isEnabled: false, isTriggered: false },
+  { code: 'T05', name: 'Seasonal Pattern Break', description: 'Hành vi mùa vụ thay đổi so với năm trước', topic: 'Thời gian mua', threshold: 'Deviation > 20%', cooldownDays: 30, owners: ['CFO', 'COO'], isEnabled: true, isTriggered: false },
+  
+  // Rủi ro
+  { code: 'R01', name: 'Return Rate Spike', description: 'Tỷ lệ hoàn trả tăng đột biến', topic: 'Rủi ro', threshold: 'Return > 15%', cooldownDays: 7, owners: ['COO'], isEnabled: true, isTriggered: false },
+  { code: 'R02', name: 'New Customer Return Risk', description: 'Khách mới có tỷ lệ hoàn trả cao', topic: 'Rủi ro', threshold: 'Return > 12%', cooldownDays: 14, owners: ['COO'], isEnabled: true, isTriggered: true },
+  { code: 'R03', name: 'COD Failure Rate', description: 'Tỷ lệ giao thất bại với COD tăng', topic: 'Rủi ro', threshold: 'Fail > 20%', cooldownDays: 7, owners: ['CFO', 'COO'], isEnabled: true, isTriggered: false },
+  { code: 'R04', name: 'Promo Dependency', description: 'Khách chỉ mua khi có khuyến mãi', topic: 'Rủi ro', threshold: 'Promo orders > 60%', cooldownDays: 14, owners: ['CFO'], isEnabled: true, isTriggered: false },
+  { code: 'R05', name: 'Forecast Confidence Drop', description: 'Độ tin cậy dự báo giảm', topic: 'Rủi ro', threshold: 'Confidence < 70%', cooldownDays: 7, owners: ['CFO'], isEnabled: false, isTriggered: false },
+  
+  // Cơ cấu
+  { code: 'M01', name: 'SKU Concentration', description: 'Doanh thu tập trung vào ít SKU', topic: 'Cơ cấu', threshold: 'Top 5 SKU > 50%', cooldownDays: 30, owners: ['CEO', 'COO'], isEnabled: true, isTriggered: false },
+  { code: 'M02', name: 'Category Drift', description: 'Khách hàng chuyển sang category khác', topic: 'Cơ cấu', threshold: 'Shift > 15%', cooldownDays: 30, owners: ['COO'], isEnabled: false, isTriggered: false },
+  { code: 'M03', name: 'Channel Mix Shift', description: 'Tỷ trọng kênh thay đổi đáng kể', topic: 'Cơ cấu', threshold: 'Shift > 10%', cooldownDays: 14, owners: ['CEO', 'CFO'], isEnabled: true, isTriggered: false },
+  { code: 'M04', name: 'Channel Cost Shift', description: 'Chi phí acquisition theo kênh thay đổi', topic: 'Cơ cấu', threshold: 'CAC > 20%', cooldownDays: 14, owners: ['CFO'], isEnabled: false, isTriggered: false },
+  { code: 'M05', name: 'Basket Composition Change', description: 'Cấu trúc giỏ hàng thay đổi', topic: 'Cơ cấu', threshold: 'Items/order ±25%', cooldownDays: 30, owners: ['COO'], isEnabled: true, isTriggered: false },
+  
+  // Chất lượng
+  { code: 'Q01', name: 'Identity Coverage Drop', description: 'Độ phủ nhận diện khách hàng giảm', topic: 'Chất lượng', threshold: 'Coverage < 80%', cooldownDays: 7, owners: ['CEO'], isEnabled: true, isTriggered: false },
+  { code: 'Q02', name: 'Data Freshness Alert', description: 'Dữ liệu không được cập nhật', topic: 'Chất lượng', threshold: 'Delay > 24h', cooldownDays: 1, owners: ['CEO', 'CFO', 'COO'], isEnabled: true, isTriggered: false },
+  { code: 'Q03', name: 'COGS Coverage Gap', description: 'Thiếu dữ liệu giá vốn', topic: 'Chất lượng', threshold: 'Coverage < 90%', cooldownDays: 7, owners: ['CFO'], isEnabled: true, isTriggered: false },
+  { code: 'Q04', name: 'Order Sync Mismatch', description: 'Sai lệch đơn hàng giữa các nguồn', topic: 'Chất lượng', threshold: 'Mismatch > 5%', cooldownDays: 1, owners: ['COO'], isEnabled: true, isTriggered: false },
+  { code: 'Q05', name: 'Customer Merge Conflict', description: 'Xung đột khi gộp identity khách', topic: 'Chất lượng', threshold: 'Conflicts > 100', cooldownDays: 7, owners: ['CEO'], isEnabled: true, isTriggered: false },
+];
 
 export default function InsightRegistryPage() {
-  const { insights, summary, isLoading, dataQuality } = useCDPInsightDetection();
-  const [activeTab, setActiveTab] = useState<'triggered' | 'registry'>('triggered');
-  
-  const triggeredCodes = new Set(insights.map(i => i.code));
-  
-  if (isLoading) {
-    return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
+  const [insights, setInsights] = useState(mockRegistryItems);
+
+  const handleToggle = (code: string, enabled: boolean) => {
+    setInsights(prev => 
+      prev.map(i => i.code === code ? { ...i, isEnabled: enabled } : i)
     );
-  }
+    toast.success(enabled ? 'Đã bật insight' : 'Đã tắt insight', {
+      description: `Insight ${code} đã được ${enabled ? 'kích hoạt' : 'tạm dừng'}.`
+    });
+  };
+
+  // Summary stats
+  const totalInsights = insights.length;
+  const enabledCount = insights.filter(i => i.isEnabled).length;
+  const triggeredCount = insights.filter(i => i.isTriggered).length;
+  const topicCount = new Set(insights.map(i => i.topic)).size;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">CDP Insight Registry v1</h1>
-        <p className="text-muted-foreground">25 tín hiệu hard-coded với logic phát hiện cố định</p>
-      </div>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-3xl font-bold">25</p>
-          <p className="text-sm text-muted-foreground">Tổng tín hiệu</p>
-        </Card>
-        <Card className="p-4 text-center bg-red-50">
-          <p className="text-3xl font-bold text-red-600">{summary.triggered}</p>
-          <p className="text-sm text-muted-foreground">Kích hoạt</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <p className="text-3xl font-bold text-red-600">{summary.bySeverity.critical}</p>
-          <p className="text-sm text-muted-foreground">Nghiêm trọng</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <p className="text-3xl font-bold text-orange-600">{summary.bySeverity.high}</p>
-          <p className="text-sm text-muted-foreground">Cao</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <p className="text-3xl font-bold text-amber-600">{summary.bySeverity.medium}</p>
-          <p className="text-sm text-muted-foreground">Trung bình</p>
-        </Card>
-      </div>
-
-      {/* Data Quality Warning */}
-      {!dataQuality.isReliable && (
-        <Card className="p-4 border-amber-200 bg-amber-50">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-amber-800">Cảnh báo chất lượng dữ liệu</h3>
-              <p className="text-sm text-amber-700">
-                Độ phủ Identity: {dataQuality.identityCoverage.toFixed(1)}% | 
-                Độ phủ COGS: {dataQuality.cogsCoverage.toFixed(1)}%
-              </p>
-              <p className="text-sm text-amber-600 mt-1">
-                Tín hiệu có thể không chính xác do dữ liệu không đầy đủ.
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList>
-          <TabsTrigger value="triggered" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Kích hoạt ({summary.triggered})
-          </TabsTrigger>
-          <TabsTrigger value="registry" className="flex items-center gap-2">
-            <Info className="h-4 w-4" />
-            Toàn bộ Registry (25)
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="triggered" className="mt-4">
-          {insights.length === 0 ? (
-            <Card className="p-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-              <h3 className="font-semibold text-lg">Không có tín hiệu nào được kích hoạt</h3>
-              <p className="text-muted-foreground">Tất cả chỉ số đang trong ngưỡng bình thường.</p>
-            </Card>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-4 pr-4">
-                {insights
-                  .sort((a, b) => {
-                    const severityOrder = { critical: 0, high: 1, medium: 2 };
-                    return severityOrder[a.definition.risk.severity] - severityOrder[b.definition.risk.severity];
-                  })
-                  .map(insight => (
-                    <InsightCard key={insight.code} insight={insight} />
-                  ))
-                }
+    <InsightLayout title="Danh mục Insight" description="Quản trị hệ thống insight (chỉ dành cho Admin/Data)">
+      <div className="space-y-6">
+        {/* Admin Warning */}
+        <Card className="border-warning/30 bg-warning/5">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-3">
+              <Settings className="w-5 h-5 text-warning-foreground" />
+              <div>
+                <p className="text-sm font-medium text-warning-foreground">
+                  Màn hình quản trị – Chỉ dành cho Admin/Product/Data
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Thay đổi ở đây ảnh hưởng đến toàn bộ hệ thống phát hiện insight
+                </p>
               </div>
-            </ScrollArea>
-          )}
-        </TabsContent>
-
-        <TabsContent value="registry" className="mt-4">
-          <RegistryOverview triggeredCodes={triggeredCodes} />
-        </TabsContent>
-      </Tabs>
-
-      {/* Category Breakdown */}
-      <Card className="p-4">
-        <h3 className="font-semibold mb-3">Phân bố theo Category</h3>
-        <div className="grid grid-cols-5 gap-4">
-          {(Object.entries(INSIGHT_CATEGORIES) as [InsightCategory, typeof INSIGHT_CATEGORIES[InsightCategory]][]).map(([category, meta]) => (
-            <div key={category} className="text-center">
-              <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${getCategoryColor(category)} mb-2`}>
-                {categoryIcons[category]}
-              </div>
-              <p className="text-sm font-medium">{meta.nameVi}</p>
-              <p className="text-xs text-muted-foreground">
-                {summary.byCategory[category]} / {meta.count} kích hoạt
-              </p>
             </div>
-          ))}
+          </CardContent>
+        </Card>
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-3xl font-bold">{totalInsights}</p>
+              <p className="text-xs text-muted-foreground">Tổng insight</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-3xl font-bold text-primary">{enabledCount}</p>
+              <p className="text-xs text-muted-foreground">Đang bật</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-destructive/5">
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-3xl font-bold text-destructive">{triggeredCount}</p>
+              <p className="text-xs text-muted-foreground">Đang kích hoạt</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <p className="text-3xl font-bold">{topicCount}</p>
+              <p className="text-xs text-muted-foreground">Chủ đề</p>
+            </CardContent>
+          </Card>
         </div>
-      </Card>
-    </div>
+
+        {/* Registry Table */}
+        <InsightRegistryTable 
+          insights={insights}
+          onToggle={handleToggle}
+        />
+
+        {/* Footer Note */}
+        <div className="text-center text-xs text-muted-foreground py-4 space-y-1">
+          <p className="flex items-center justify-center gap-1">
+            <Info className="w-3 h-3" />
+            Đây là màn hình quản trị logic phát hiện, không phải màn hình kỹ thuật SQL
+          </p>
+          <p>Mọi thay đổi cần được phê duyệt bởi Product Owner</p>
+        </div>
+      </div>
+    </InsightLayout>
   );
 }
