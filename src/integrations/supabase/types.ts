@@ -16747,15 +16747,25 @@ export type Database = {
       mv_cdp_cohort_metrics_rolling: {
         Row: {
           as_of_date: string | null
-          avg_return_rate: number | null
+          bundle_order_share: number | null
+          cod_order_share: number | null
           cohort_id: string | null
+          discounted_order_share: number | null
+          gross_margin_per_customer: number | null
+          iqr_inter_purchase_days: number | null
           median_aov: number | null
           median_inter_purchase_days: number | null
           n_customers: number | null
+          net_revenue_per_customer: number | null
+          orders_per_customer: number | null
           p25_aov: number | null
+          p25_inter_purchase_days: number | null
           p75_aov: number | null
+          p75_inter_purchase_days: number | null
+          refund_rate: number | null
           sum_gross_margin: number | null
           sum_net_revenue: number | null
+          sum_refund_amount: number | null
           tenant_id: string | null
           window_days: number | null
         }
@@ -16815,12 +16825,11 @@ export type Database = {
         Row: {
           as_of_date: string | null
           cogs_coverage: number | null
+          diagnostics: Json | null
           identity_coverage: number | null
-          orders_with_cogs: number | null
-          orders_with_identity: number | null
-          orders_with_refund_mapped: number | null
+          refund_customer_mapping_coverage: number | null
+          refund_order_mapping_coverage: number | null
           tenant_id: string | null
-          total_orders: number | null
         }
         Relationships: [
           {
@@ -16860,30 +16869,30 @@ export type Database = {
       mv_cdp_segment_metrics_rolling: {
         Row: {
           as_of_date: string | null
-          avg_bundle_order_share: number | null
-          avg_cod_order_share: number | null
-          avg_discounted_order_share: number | null
-          avg_return_rate: number | null
+          bundle_order_share: number | null
+          cod_order_share: number | null
+          discounted_order_share: number | null
+          gross_margin_per_customer: number | null
+          iqr_inter_purchase_days: number | null
           median_aov: number | null
           median_inter_purchase_days: number | null
           n_customers: number | null
+          net_revenue_per_customer: number | null
+          orders_per_customer: number | null
           p25_aov: number | null
+          p25_inter_purchase_days: number | null
           p75_aov: number | null
+          p75_inter_purchase_days: number | null
+          refund_rate: number | null
           segment_id: string | null
           segment_version: number | null
           sum_gross_margin: number | null
           sum_net_revenue: number | null
+          sum_refund_amount: number | null
           tenant_id: string | null
           window_days: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "cdp_customer_metrics_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "cdp_segment_membership_daily_segment_id_fkey"
             columns: ["segment_id"]
@@ -16891,18 +16900,30 @@ export type Database = {
             referencedRelation: "cdp_segments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "cdp_segment_membership_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       mv_cdp_value_tier_metrics_rolling: {
         Row: {
           as_of_date: string | null
-          avg_discounted_order_share: number | null
-          avg_return_rate: number | null
+          churn_risk_index: number | null
+          gross_margin_per_customer: number | null
           median_aov: number | null
           median_inter_purchase_days: number | null
           n_customers: number | null
+          net_revenue_per_customer: number | null
+          p25_aov: number | null
+          p75_aov: number | null
+          spend_stddev: number | null
           sum_gross_margin: number | null
           sum_net_revenue: number | null
+          sum_refund_amount: number | null
           tenant_id: string | null
           tier_label: string | null
           window_days: number | null
