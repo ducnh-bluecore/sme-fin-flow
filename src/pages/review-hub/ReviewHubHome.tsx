@@ -6,6 +6,7 @@ import {
   AlertTriangle, 
   Users,
   ArrowRight,
+  ArrowLeft,
   GitBranch,
   Play,
   FileText,
@@ -104,18 +105,36 @@ export default function ReviewHubHome() {
       {/* Header */}
       <header className="border-b border-[hsl(222,15%,15%)] bg-[hsl(222,20%,10%)] backdrop-blur-sm">
         <div className="max-w-[1400px] mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-[hsl(222,20%,12%)] border border-[hsl(222,15%,20%)]">
-              <GitBranch className="h-6 w-6 text-slate-400" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => navigate('/')}
+                className="hover:bg-[hsl(222,20%,15%)] text-slate-400"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="p-3 rounded-lg bg-[hsl(222,20%,12%)] border border-[hsl(222,15%,20%)]">
+                <GitBranch className="h-6 w-6 text-slate-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-100">
+                  Product Review & Scoping Hub
+                </h1>
+                <p className="text-slate-400 text-sm mt-1">
+                  Decision capture và data contract definition cho FDP, MDP, CDP, Control Tower
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-100">
-                Product Review & Scoping Hub
-              </h1>
-              <p className="text-slate-400 text-sm mt-1">
-                Decision capture và data contract definition cho FDP, MDP, CDP, Control Tower
-              </p>
-            </div>
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/')}
+              className="bg-[hsl(222,20%,12%)] border-[hsl(222,15%,22%)] text-slate-300 hover:bg-[hsl(222,20%,16%)] hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Portal
+            </Button>
           </div>
         </div>
       </header>
