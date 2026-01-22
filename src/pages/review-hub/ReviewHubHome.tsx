@@ -6,14 +6,11 @@ import {
   AlertTriangle, 
   Users,
   ArrowRight,
-  Database,
   GitBranch,
-  CheckCircle2,
-  Clock,
-  Zap,
   Play,
   FileText,
-  Map
+  Map,
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,29 +31,29 @@ const SYSTEM_ICONS: Record<SystemType, React.ElementType> = {
 
 const SYSTEM_COLORS: Record<SystemType, { bg: string; border: string; text: string; icon: string; progress: string }> = {
   'FDP': { 
-    bg: 'bg-emerald-950/30', 
-    border: 'border-emerald-700/30', 
+    bg: 'bg-emerald-950/20', 
+    border: 'border-emerald-600/20', 
     text: 'text-emerald-400',
     icon: 'text-emerald-500',
     progress: 'bg-emerald-500'
   },
   'Control Tower': { 
-    bg: 'bg-amber-950/30', 
-    border: 'border-amber-700/30', 
+    bg: 'bg-amber-950/20', 
+    border: 'border-amber-600/20', 
     text: 'text-amber-400',
     icon: 'text-amber-500',
     progress: 'bg-amber-500'
   },
   'MDP': { 
-    bg: 'bg-blue-950/30', 
-    border: 'border-blue-700/30', 
+    bg: 'bg-blue-950/20', 
+    border: 'border-blue-600/20', 
     text: 'text-blue-400',
     icon: 'text-blue-500',
     progress: 'bg-blue-500'
   },
   'CDP': { 
-    bg: 'bg-purple-950/30', 
-    border: 'border-purple-700/30', 
+    bg: 'bg-purple-950/20', 
+    border: 'border-purple-600/20', 
     text: 'text-purple-400',
     icon: 'text-purple-500',
     progress: 'bg-purple-500'
@@ -76,7 +73,6 @@ export default function ReviewHubHome() {
     const buildCount = systemDecisions.filter(d => d.status === 'BUILD').length;
     const holdCount = systemDecisions.filter(d => d.status === 'HOLD').length;
     const dropCount = systemDecisions.filter(d => d.status === 'DROP').length;
-    const pendingCount = systemDecisions.filter(d => d.status === 'PENDING').length;
     const decided = buildCount + holdCount + dropCount;
     const percentReviewed = totalRoutes > 0 
       ? Math.round((decided / totalRoutes) * 100) 
@@ -104,12 +100,12 @@ export default function ReviewHubHome() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-[hsl(222,20%,8%)] text-slate-100">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-6">
+      <header className="border-b border-[hsl(222,15%,15%)] bg-[hsl(222,20%,10%)] backdrop-blur-sm">
+        <div className="max-w-[1400px] mx-auto px-6 py-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-slate-800 border border-slate-700">
+            <div className="p-3 rounded-lg bg-[hsl(222,20%,12%)] border border-[hsl(222,15%,20%)]">
               <GitBranch className="h-6 w-6 text-slate-400" />
             </div>
             <div>
@@ -124,34 +120,34 @@ export default function ReviewHubHome() {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
+      <main className="max-w-[1400px] mx-auto px-6 py-8">
         {/* Overall Summary */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <div className="p-4 rounded-lg bg-slate-900/50 border border-slate-800">
+          <div className="p-4 rounded-lg bg-[hsl(222,20%,10%)] border border-[hsl(222,15%,15%)]">
             <div className="text-3xl font-bold text-slate-100">
               {globalStats.totalRoutes}
             </div>
             <div className="text-xs text-slate-500 mt-1">Total Routes</div>
           </div>
-          <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-700/20">
+          <div className="p-4 rounded-lg bg-emerald-950/20 border border-emerald-600/20">
             <div className="text-3xl font-bold text-emerald-400">
               {globalStats.liveRoutes}
             </div>
             <div className="text-xs text-slate-500 mt-1">LIVE</div>
           </div>
-          <div className="p-4 rounded-lg bg-amber-950/30 border border-amber-700/20">
+          <div className="p-4 rounded-lg bg-amber-950/20 border border-amber-600/20">
             <div className="text-3xl font-bold text-amber-400">
               {globalStats.plannedRoutes}
             </div>
             <div className="text-xs text-slate-500 mt-1">COMING SOON</div>
           </div>
-          <div className="p-4 rounded-lg bg-blue-950/30 border border-blue-700/20">
+          <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-600/20">
             <div className="text-3xl font-bold text-blue-400">
               {globalStats.activeSystems}
             </div>
             <div className="text-xs text-slate-500 mt-1">Active Systems</div>
           </div>
-          <div className="p-4 rounded-lg bg-purple-950/30 border border-purple-700/20">
+          <div className="p-4 rounded-lg bg-purple-950/20 border border-purple-600/20">
             <div className="text-3xl font-bold text-purple-400">
               {globalStats.plannedSystems}
             </div>
@@ -159,25 +155,25 @@ export default function ReviewHubHome() {
           </div>
         </div>
 
-        {/* Quick Actions per spec */}
+        {/* Quick Actions */}
         <div className="flex flex-wrap gap-3 mb-8">
           <Button 
             onClick={() => navigate('/review-hub/review')}
-            className="bg-emerald-700 hover:bg-emerald-600 text-white border-0"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white border-0"
           >
             <Play className="h-4 w-4 mr-2" />
             Start Review
           </Button>
           <Button 
             onClick={() => navigate('/review-hub/data-contract')}
-            className="bg-blue-700 hover:bg-blue-600 text-white border-0"
+            className="bg-blue-600 hover:bg-blue-500 text-white border-0"
           >
             <FileText className="h-4 w-4 mr-2" />
             Data Contract
           </Button>
           <Button 
             onClick={() => navigate('/review-hub/routes')}
-            className="bg-slate-700 hover:bg-slate-600 text-slate-100 border-0"
+            className="bg-[hsl(222,20%,18%)] hover:bg-[hsl(222,20%,22%)] text-slate-100 border border-[hsl(222,15%,25%)]"
           >
             <Map className="h-4 w-4 mr-2" />
             Route Map
@@ -187,14 +183,14 @@ export default function ReviewHubHome() {
               localStorage.removeItem('review_hub_feature_decisions');
               window.location.reload();
             }}
-            className="bg-red-900/50 hover:bg-red-800/60 text-red-300 border-0"
+            className="bg-red-950/50 hover:bg-red-900/50 text-red-300 border border-red-800/30"
           >
             <Zap className="h-4 w-4 mr-2" />
             Reset All Decisions
           </Button>
         </div>
 
-        {/* System Cards - 4 thẻ sản phẩm lớn per spec */}
+        {/* System Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {(Object.keys(SYSTEM_INFO) as SystemType[]).map((systemId, index) => {
             const info = SYSTEM_INFO[systemId];
@@ -209,13 +205,14 @@ export default function ReviewHubHome() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className={`${colors.bg} ${colors.border} border hover:border-opacity-60 transition-all cursor-pointer group`}
+                <Card 
+                  className={`${colors.bg} ${colors.border} border bg-[hsl(222,20%,10%)] hover:bg-[hsl(222,20%,11%)] transition-all cursor-pointer group`}
                   onClick={() => navigate(`/review-hub/systems/${encodeURIComponent(systemId)}`)}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-lg bg-slate-900/50 ${colors.border} border`}>
+                        <div className={`p-2.5 rounded-lg bg-[hsl(222,20%,12%)] ${colors.border} border`}>
                           <Icon className={`h-5 w-5 ${colors.icon}`} />
                         </div>
                         <div>
@@ -240,7 +237,7 @@ export default function ReviewHubHome() {
                       {info.personas.map(persona => (
                         <span 
                           key={persona} 
-                          className="px-2 py-0.5 rounded text-[10px] bg-slate-800/50 text-slate-400 border border-slate-700/50"
+                          className="px-2 py-0.5 rounded text-[10px] bg-[hsl(222,20%,14%)] text-slate-400 border border-[hsl(222,15%,22%)]"
                         >
                           {persona}
                         </span>
@@ -276,7 +273,7 @@ export default function ReviewHubHome() {
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3">
+                    <div className="h-1.5 bg-[hsl(222,20%,15%)] rounded-full overflow-hidden mb-3">
                       <div 
                         className={`h-full ${colors.progress} transition-all duration-500`}
                         style={{ width: `${stats.percentReviewed}%` }}
@@ -305,9 +302,9 @@ export default function ReviewHubHome() {
           })}
         </div>
 
-        {/* Legend per spec */}
-        <div className="mt-8 p-4 rounded-lg bg-slate-900/50 border border-slate-800">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">Định nghĩa trạng thái</h3>
+        {/* Legend */}
+        <div className="mt-8 p-5 rounded-lg bg-[hsl(222,20%,10%)] border border-[hsl(222,15%,15%)]">
+          <h3 className="text-sm font-medium text-slate-300 mb-4">Định nghĩa trạng thái</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div className="flex items-start gap-2">
               <span className="w-3 h-3 rounded bg-emerald-500 mt-0.5 flex-shrink-0" />
