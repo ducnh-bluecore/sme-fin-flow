@@ -3570,6 +3570,7 @@ export type Database = {
           discounted_order_share: number
           gross_margin: number
           inter_purchase_days: number | null
+          is_repeat: boolean
           last_order_at: string | null
           net_revenue: number
           orders_count: number
@@ -3577,6 +3578,8 @@ export type Database = {
           refund_amount: number
           return_rate: number
           tenant_id: string
+          total_item_revenue: number
+          total_qty: number
           window_days: number
         }
         Insert: {
@@ -3589,6 +3592,7 @@ export type Database = {
           discounted_order_share?: number
           gross_margin?: number
           inter_purchase_days?: number | null
+          is_repeat?: boolean
           last_order_at?: string | null
           net_revenue?: number
           orders_count?: number
@@ -3596,6 +3600,8 @@ export type Database = {
           refund_amount?: number
           return_rate?: number
           tenant_id: string
+          total_item_revenue?: number
+          total_qty?: number
           window_days: number
         }
         Update: {
@@ -3608,6 +3614,7 @@ export type Database = {
           discounted_order_share?: number
           gross_margin?: number
           inter_purchase_days?: number | null
+          is_repeat?: boolean
           last_order_at?: string | null
           net_revenue?: number
           orders_count?: number
@@ -3615,6 +3622,8 @@ export type Database = {
           refund_amount?: number
           return_rate?: number
           tenant_id?: string
+          total_item_revenue?: number
+          total_qty?: number
           window_days?: number
         }
         Relationships: [
@@ -16750,6 +16759,8 @@ export type Database = {
           bundle_order_share: number | null
           cod_order_share: number | null
           cohort_id: string | null
+          cohort_key: string | null
+          cohort_type: string | null
           discounted_order_share: number | null
           gross_margin_per_customer: number | null
           iqr_inter_purchase_days: number | null
@@ -16763,6 +16774,7 @@ export type Database = {
           p75_aov: number | null
           p75_inter_purchase_days: number | null
           refund_rate: number | null
+          repeat_rate: number | null
           sum_gross_margin: number | null
           sum_net_revenue: number | null
           sum_refund_amount: number | null
@@ -16876,14 +16888,20 @@ export type Database = {
           iqr_inter_purchase_days: number | null
           median_aov: number | null
           median_inter_purchase_days: number | null
+          median_items_per_order: number | null
+          median_net_revenue: number | null
+          median_unit_price: number | null
           n_customers: number | null
           net_revenue_per_customer: number | null
           orders_per_customer: number | null
           p25_aov: number | null
           p25_inter_purchase_days: number | null
+          p25_net_revenue: number | null
           p75_aov: number | null
           p75_inter_purchase_days: number | null
+          p75_net_revenue: number | null
           refund_rate: number | null
+          repeat_rate: number | null
           segment_id: string | null
           segment_version: number | null
           sum_gross_margin: number | null
@@ -16920,6 +16938,7 @@ export type Database = {
           net_revenue_per_customer: number | null
           p25_aov: number | null
           p75_aov: number | null
+          repeat_rate: number | null
           spend_stddev: number | null
           sum_gross_margin: number | null
           sum_net_revenue: number | null
