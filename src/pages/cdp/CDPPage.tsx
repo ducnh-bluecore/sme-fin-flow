@@ -40,6 +40,14 @@ export default function CDPPage() {
       path: '/cdp/trend-engine',
     },
     {
+      id: 'insight-registry',
+      title: 'Insight Registry v1',
+      description: '25 hard-coded insights: Value (6), Velocity (5), Mix (6), Risk (5), Quality (4)',
+      icon: AlertTriangle,
+      status: 'active' as const,
+      path: '/cdp/insight-registry',
+    },
+    {
       id: 'segment-asset',
       title: 'Segment as Asset',
       description: 'Định nghĩa segment có version, owner, effective date',
