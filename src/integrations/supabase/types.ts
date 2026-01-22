@@ -3463,6 +3463,35 @@ export type Database = {
           },
         ]
       }
+      cdp_config: {
+        Row: {
+          key: string
+          tenant_id: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          tenant_id: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          tenant_id?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cdp_customer_identities: {
         Row: {
           confidence: number
@@ -3996,9 +4025,12 @@ export type Database = {
           category: string
           cooldown_days: number
           default_population_ref: Json
+          default_priority: string
+          default_severity: string
           insight_code: string
           is_enabled: boolean
           name: string
+          owner_role: string
           population_type: string
           threshold_json: Json
           window_days: number
@@ -4008,9 +4040,12 @@ export type Database = {
           category: string
           cooldown_days?: number
           default_population_ref?: Json
+          default_priority?: string
+          default_severity?: string
           insight_code: string
           is_enabled?: boolean
           name: string
+          owner_role?: string
           population_type: string
           threshold_json?: Json
           window_days?: number
@@ -4020,9 +4055,12 @@ export type Database = {
           category?: string
           cooldown_days?: number
           default_population_ref?: Json
+          default_priority?: string
+          default_severity?: string
           insight_code?: string
           is_enabled?: boolean
           name?: string
+          owner_role?: string
           population_type?: string
           threshold_json?: Json
           window_days?: number
@@ -18115,12 +18153,46 @@ export type Database = {
         }
         Returns: boolean
       }
+      cdp_create_decision_cards_from_insights: {
+        Args: {
+          p_as_of_date: string
+          p_baseline_days?: number
+          p_tenant_id: string
+          p_window_days?: number
+        }
+        Returns: number
+      }
+      cdp_insert_insight_event: {
+        Args: {
+          p_as_of_date: string
+          p_cooldown_days: number
+          p_headline: string
+          p_impact_snapshot: Json
+          p_insight_code: string
+          p_metric_snapshot: Json
+          p_n_customers: number
+          p_population_ref: Json
+          p_population_type: string
+          p_run_id: string
+          p_tenant_id: string
+        }
+        Returns: boolean
+      }
       cdp_refresh_mvs: { Args: never; Returns: undefined }
       cdp_run_daily: {
         Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: undefined
       }
       cdp_run_daily_all: { Args: { p_as_of_date: string }; Returns: undefined }
+      cdp_run_insights: {
+        Args: {
+          p_as_of_date: string
+          p_baseline_days?: number
+          p_tenant_id: string
+          p_window_days?: number
+        }
+        Returns: string
+      }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
