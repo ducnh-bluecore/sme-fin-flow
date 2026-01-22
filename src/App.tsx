@@ -93,7 +93,8 @@ const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
 const DataWarehouseSalesKit = lazy(() => import("./pages/sales-kit/DataWarehouseSalesKit"));
 const FDPSalesKit = lazy(() => import("./pages/sales-kit/FDPSalesKit"));
 const FDPSalesDeckPage = lazy(() => import("./pages/fdp/FDPSalesDeckPage"));
-
+const FDPExecutiveDeck = lazy(() => import("./pages/fdp/FDPExecutiveDeck"));
+const MDPExecutiveDeck = lazy(() => import("./pages/mdp/MDPExecutiveDeck"));
 // Product Review Hub pages
 const ReviewHubHome = lazy(() => import("./pages/review-hub/ReviewHubHome"));
 const ReviewHubRoutes = lazy(() => import("./pages/review-hub/ReviewHubRoutes"));
@@ -202,9 +203,19 @@ const AppRoutes = () => {
           <FDPSalesDeckPage />
         </ProtectedRoute>
       } />
+      <Route path="/sales-kit/fdp-executive" element={
+        <ProtectedRoute>
+          <FDPExecutiveDeck />
+        </ProtectedRoute>
+      } />
       <Route path="/sales-kit/mdp" element={
         <ProtectedRoute>
           <MDPSalesDeckPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/sales-kit/mdp-executive" element={
+        <ProtectedRoute>
+          <MDPExecutiveDeck />
         </ProtectedRoute>
       } />
 
