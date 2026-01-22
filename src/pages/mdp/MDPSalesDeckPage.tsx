@@ -1,16 +1,128 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageSquareText, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
  * BLUECORE MDP SALES DECK - CEO VERSION
- * 
- * Design Philosophy:
- * - Executive, calm, high-trust
- * - No excitement, no hype
- * - Typography > decoration
- * - Optimize for authority and trust
+ * With Presenter Notes & System Mockups
  */
+
+// ============== UI MOCKUPS ==============
+
+function DecisionCardMockup() {
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 shadow-2xl max-w-md">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs uppercase tracking-widest text-slate-500">Decision Card</span>
+        <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">Cần quyết định</span>
+      </div>
+      <h3 className="text-xl text-white font-semibold mb-6">Có nên tiếp tục Campaign TikTok Q1?</h3>
+      
+      <div className="space-y-3 mb-6">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Revenue</span>
+          <span className="text-emerald-400 flex items-center gap-1">↑ 2.4 tỷ</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Contribution Margin</span>
+          <span className="text-red-400 flex items-center gap-1">↓ -8%</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">AR Outstanding</span>
+          <span className="text-amber-400 flex items-center gap-1">→ 45 ngày</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Inventory Locked</span>
+          <span className="text-red-400 flex items-center gap-1">↓ 890 triệu</span>
+        </div>
+      </div>
+      
+      <div className="p-3 bg-red-950/30 border border-red-900/50 rounded-lg mb-6">
+        <p className="text-red-400 text-sm font-medium">⚠ Cash gap xuất hiện sau 21 ngày</p>
+      </div>
+      
+      <div className="flex gap-2">
+        <button className="flex-1 py-2 bg-slate-800 text-slate-300 rounded-lg text-sm">Continue</button>
+        <button className="flex-1 py-2 bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-lg text-sm">Adjust</button>
+        <button className="flex-1 py-2 bg-red-600/20 text-red-400 border border-red-600/30 rounded-lg text-sm">Stop</button>
+      </div>
+    </div>
+  );
+}
+
+function ControlTowerMockup() {
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-lg">
+      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <span className="text-white font-semibold">Control Tower</span>
+        <span className="text-xs text-slate-500">Hôm nay · 14:32</span>
+      </div>
+      
+      <div className="p-4 space-y-3">
+        {/* Decision 1 */}
+        <div className="p-4 bg-slate-800/50 border-l-4 border-red-500 rounded-r-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+            <span className="text-white text-sm font-medium">Campaign TikTok Q1</span>
+          </div>
+          <p className="text-slate-400 text-xs">Cash gap trong 21 ngày · -890tr locked</p>
+        </div>
+        
+        {/* Decision 2 */}
+        <div className="p-4 bg-slate-800/50 border-l-4 border-amber-500 rounded-r-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+            <span className="text-white text-sm font-medium">SKU Mix Shopee</span>
+          </div>
+          <p className="text-slate-400 text-xs">Margin giảm 12% · 3 SKU lỗ</p>
+        </div>
+        
+        {/* Decision 3 */}
+        <div className="p-4 bg-slate-800/50 border-l-4 border-slate-600 rounded-r-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 bg-slate-500 rounded-full"></span>
+            <span className="text-white text-sm font-medium">Điều khoản thanh toán B2B</span>
+          </div>
+          <p className="text-slate-400 text-xs">DSO tăng 8 ngày · AR 2.1 tỷ</p>
+        </div>
+      </div>
+      
+      <div className="px-6 py-3 bg-slate-800/30 border-t border-slate-800">
+        <p className="text-xs text-slate-500 text-center">3 quyết định cần xử lý hôm nay</p>
+      </div>
+    </div>
+  );
+}
+
+function BoardViewMockup() {
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl max-w-md">
+      <div className="p-6 bg-red-950/20 border-b border-red-900/30">
+        <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Tình trạng</p>
+        <p className="text-2xl font-bold text-red-400">CẦN CAN THIỆP</p>
+      </div>
+      
+      <div className="p-6 space-y-6">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Critical Situations</p>
+          <p className="text-4xl font-bold text-white">3</p>
+        </div>
+        
+        <div>
+          <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Financial Exposure</p>
+          <p className="text-4xl font-bold text-white">₫4.2 tỷ</p>
+        </div>
+        
+        <div>
+          <p className="text-xs uppercase tracking-widest text-slate-500 mb-1">Time to Next Risk</p>
+          <p className="text-4xl font-bold text-amber-400">21 ngày</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== SLIDE COMPONENTS ==============
 
 // Slide 0: Positioning
 function SlidePositioning() {
@@ -228,18 +340,18 @@ function SlideWhatBluecore() {
   );
 }
 
-// Slide 6: Decision Card
+// Slide 6: Decision Card with Mockup
 function SlideDecisionCard() {
   return (
-    <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Đơn vị giá trị cốt lõi</p>
-      <h1 className="text-4xl font-bold text-white mb-12">
-        Decision Card không phải report
-      </h1>
-      
-      <div className="flex gap-12 max-w-5xl">
-        <div className="flex-1">
-          <p className="text-lg text-slate-400 mb-4">Decision Card không:</p>
+    <div className="flex h-full px-20 py-12">
+      <div className="w-1/2 flex flex-col justify-center pr-12">
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Đơn vị giá trị cốt lõi</p>
+        <h1 className="text-4xl font-bold text-white mb-8">
+          Decision Card
+        </h1>
+        
+        <div className="space-y-4 mb-8">
+          <p className="text-lg text-slate-400">Decision Card không:</p>
           <ul className="space-y-2 text-lg text-slate-500">
             <li>× Liệt kê chỉ số</li>
             <li>× Kể câu chuyện dài</li>
@@ -247,76 +359,111 @@ function SlideDecisionCard() {
           </ul>
         </div>
         
-        <div className="flex-1">
-          <p className="text-lg text-white mb-4">Decision Card:</p>
+        <div className="space-y-4">
+          <p className="text-lg text-white">Decision Card:</p>
           <ul className="space-y-2 text-lg text-slate-200">
             <li>✓ Đặt ra 1 quyết định</li>
             <li>✓ Chỉ ra rủi ro tài chính thật</li>
-            <li>✓ Đưa ra 3 lựa chọn quản trị</li>
+            <li>✓ Đưa ra 3 lựa chọn: Continue / Adjust / Stop</li>
           </ul>
         </div>
       </div>
       
-      <div className="mt-12 p-6 border border-slate-700 rounded-lg bg-slate-900/50 max-w-2xl">
-        <p className="text-sm text-slate-500 uppercase tracking-widest mb-4">Cấu trúc chuẩn</p>
-        <div className="space-y-3 text-lg">
-          <p className="text-white">1. Decision statement</p>
-          <p className="text-slate-300">2. Evidence đã reconcile (Finance – Ops – Marketing)</p>
-          <p className="text-slate-300">3. Financial impact thật (Cash, margin, AR/AP)</p>
-          <p className="text-slate-300">4. Action options: Continue / Adjust / Stop</p>
-        </div>
+      <div className="w-1/2 flex items-center justify-center pl-12">
+        <DecisionCardMockup />
       </div>
     </div>
   );
 }
 
-// Slide 7: Control Tower Experience
+// Slide 7: Control Tower Experience with Mockup
 function SlideControlTower() {
   return (
-    <div className="flex flex-col justify-center h-full px-20">
-      <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Cách CEO sử dụng Bluecore</p>
-      
-      <h1 className="text-4xl font-bold text-white mb-4">
-        Control Tower chỉ làm 1 việc
-      </h1>
-      <h2 className="text-4xl font-bold text-slate-400 mb-16">
-        "Hôm nay CEO cần quyết gì?"
-      </h2>
-      
-      <div className="max-w-2xl mb-12">
-        <p className="text-sm uppercase tracking-widest text-slate-500 mb-6">Trải nghiệm CEO lý tưởng</p>
+    <div className="flex h-full px-20 py-12">
+      <div className="w-1/2 flex flex-col justify-center pr-12">
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Cách CEO sử dụng Bluecore</p>
+        
+        <h1 className="text-4xl font-bold text-white mb-4">
+          Control Tower
+        </h1>
+        <h2 className="text-2xl font-light text-slate-400 mb-12">
+          "Hôm nay CEO cần quyết gì?"
+        </h2>
+        
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <span className="text-slate-600 font-mono">01</span>
-            <span className="text-xl text-slate-300">Mở Bluecore</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-600 font-mono">02</span>
-            <span className="text-xl text-slate-300">Thấy 3–5 Decision Cards</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-600 font-mono">03</span>
-            <span className="text-xl text-slate-300">Click 1 card</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-600 font-mono">04</span>
-            <span className="text-xl text-white font-medium">Quyết trong 30–60 giây</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-600 font-mono">05</span>
-            <span className="text-xl text-slate-300">Đóng lại</span>
+          <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">Trải nghiệm lý tưởng</p>
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              <span className="text-slate-600 font-mono text-sm">01</span>
+              <span className="text-lg text-slate-300">Mở Bluecore</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-slate-600 font-mono text-sm">02</span>
+              <span className="text-lg text-slate-300">Thấy 3–5 Decision Cards</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-slate-600 font-mono text-sm">03</span>
+              <span className="text-lg text-white font-medium">Quyết trong 30–60 giây</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-slate-600 font-mono text-sm">04</span>
+              <span className="text-lg text-slate-300">Đóng lại</span>
+            </div>
           </div>
         </div>
+        
+        <p className="text-sm text-slate-500 mt-8 pl-4 border-l-2 border-slate-700">
+          Bluecore được thiết kế để CEO không ở lại lâu.
+        </p>
       </div>
       
-      <p className="text-lg text-slate-500 pl-6 border-l-2 border-slate-700">
-        Bluecore được thiết kế để CEO không ở lại lâu.
-      </p>
+      <div className="w-1/2 flex items-center justify-center pl-12">
+        <ControlTowerMockup />
+      </div>
     </div>
   );
 }
 
-// Slide 8: Financial Value
+// Slide 8: Board View with Mockup
+function SlideBoardView() {
+  return (
+    <div className="flex h-full px-20 py-12">
+      <div className="w-1/2 flex flex-col justify-center pr-12">
+        <p className="text-sm uppercase tracking-widest text-slate-500 mb-4">CEO Board View</p>
+        
+        <h1 className="text-4xl font-bold text-white mb-4">
+          30 giây biết sức khỏe công ty
+        </h1>
+        
+        <div className="space-y-6 mt-8">
+          <div>
+            <p className="text-lg text-slate-400 mb-2">Chỉ 3 con số:</p>
+            <ul className="space-y-2 text-lg text-slate-200">
+              <li>• Số tình huống nguy hiểm</li>
+              <li>• Tổng rủi ro tài chính</li>
+              <li>• Thời gian đến rủi ro tiếp theo</li>
+            </ul>
+          </div>
+          
+          <div className="p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
+            <p className="text-sm text-slate-500 mb-2">Không có:</p>
+            <p className="text-slate-400">Charts · Drill-down · Filters · Tables</p>
+          </div>
+        </div>
+        
+        <p className="text-lg text-white mt-8">
+          CEO đọc → biết → quyết
+        </p>
+      </div>
+      
+      <div className="w-1/2 flex items-center justify-center pl-12">
+        <BoardViewMockup />
+      </div>
+    </div>
+  );
+}
+
+// Slide 9: Financial Value
 function SlideFinancialValue() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
@@ -346,7 +493,7 @@ function SlideFinancialValue() {
   );
 }
 
-// Slide 9: Decision Examples
+// Slide 10: Decision Examples
 function SlideExamples() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
@@ -387,7 +534,7 @@ function SlideExamples() {
   );
 }
 
-// Slide 10: Why Hard to Copy
+// Slide 11: Why Hard to Copy
 function SlideHardToCopy() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
@@ -413,7 +560,7 @@ function SlideHardToCopy() {
   );
 }
 
-// Slide 11: When to Use
+// Slide 12: When to Use
 function SlideWhenToUse() {
   return (
     <div className="flex flex-col justify-center h-full px-20">
@@ -443,7 +590,7 @@ function SlideWhenToUse() {
   );
 }
 
-// Slide 12: Closing
+// Slide 13: Closing
 function SlideClosing() {
   return (
     <div className="flex flex-col justify-center items-center h-full px-20 text-center">
@@ -479,9 +626,142 @@ function SlideClosing() {
   );
 }
 
-// Main Deck Component
+// ============== PRESENTER NOTES ==============
+
+const presenterNotes: Record<number, { title: string; points: string[]; tips?: string }> = {
+  0: {
+    title: "Định vị ngay từ đầu",
+    points: [
+      "Nhấn mạnh: Bluecore KHÔNG bán phần mềm, bán năng lực ra quyết định",
+      "Loại trừ ngay những người tìm Dashboard/BI/Marketing tool",
+      "Đối tượng: CEO đã có dữ liệu nhưng không dám tin",
+    ],
+    tips: "Dừng lại để CEO tự nhận ra mình có đang ở tình huống này không"
+  },
+  1: {
+    title: "CEO đang sống trong ảo giác",
+    points: [
+      "Vấn đề: Mỗi báo cáo đến từ hệ thống khác nhau",
+      "Số liệu đúng cục bộ, sai khi ghép lại",
+      "CEO nghe 'để em kiểm tra lại' thường xuyên",
+    ],
+    tips: "Hỏi CEO: 'Anh/chị có thường nghe câu này không?'"
+  },
+  2: {
+    title: "Vấn đề thật sự",
+    points: [
+      "CEO có thừa công cụ (ERP, POS, OMS, Kế toán...)",
+      "CEO thiếu: Sự thật thống nhất, Kết luận hành động, Nơi chịu trách nhiệm",
+      "Kết luận: CEO đang kiểm soát bằng niềm tin mù",
+    ],
+    tips: "Đây là điểm đau chính - dừng lại cho CEO đồng cảm"
+  },
+  3: {
+    title: "Dashboard trả lời câu hỏi sai",
+    points: [
+      "Dashboard chỉ trả lời 'Đã xảy ra gì?'",
+      "CEO cần 'Tôi nên làm gì?' và 'Hậu quả tài chính thật?'",
+      "Dashboard = quan sát, Decision System = hành động",
+    ],
+    tips: "So sánh trực tiếp để thấy sự khác biệt về mục đích"
+  },
+  4: {
+    title: "BI làm CEO chậm hơn",
+    points: [
+      "BI cho drill-down, filters, custom views",
+      "Nhưng CEO không có thời gian phân tích",
+      "CEO muốn KẾT LUẬN đáng tin, không phải dữ liệu",
+    ],
+    tips: "Bluecore cố tình không cho drill-down trong demo CEO"
+  },
+  5: {
+    title: "Bluecore giải quyết gì",
+    points: [
+      "Không thay thế ERP/BI/Kế toán/Marketing tools",
+      "Đứng TRÊN tất cả để trả lời: Quyết định nào an toàn/nguy hiểm?",
+      "Bluecore = Decision Layer",
+    ],
+    tips: "Không có 'xem cho biết', 'tham khảo', 'theo dõi'"
+  },
+  6: {
+    title: "Decision Card - Đơn vị giá trị",
+    points: [
+      "Không liệt kê chỉ số, không đồ thị, không câu chuyện dài",
+      "Đặt ra 1 quyết định + Rủi ro tài chính thật + 3 lựa chọn",
+      "Cấu trúc: Statement → Evidence → Impact → Options",
+    ],
+    tips: "Chỉ vào mockup: Đây là cách CEO nhìn một quyết định"
+  },
+  7: {
+    title: "Control Tower - Cách CEO dùng",
+    points: [
+      "Không KPI wall, không realtime spam số",
+      "Chỉ trả lời: Hôm nay CEO cần quyết gì?",
+      "Trải nghiệm: Mở → Thấy 3-5 cards → Quyết 30-60s → Đóng",
+    ],
+    tips: "Bluecore được thiết kế để CEO không ở lại lâu"
+  },
+  8: {
+    title: "Board View - 30 giây",
+    points: [
+      "Chỉ 3 con số: Critical, Exposure, Time to Risk",
+      "Không charts, không tables, không drill-down",
+      "CEO đọc → biết → quyết",
+    ],
+    tips: "Đây là màn hình CEO thấy khi mở app mỗi sáng"
+  },
+  9: {
+    title: "Giá trị tài chính thật sự",
+    points: [
+      "CEO không mua giao diện/công nghệ/AI buzzword",
+      "CEO mua: Giảm rủi ro sai, Giảm độ trễ, Giảm phụ thuộc",
+      "Quan trọng nhất: Tăng kiểm soát dòng tiền thật",
+    ],
+    tips: "Đây là lúc nói về ROI và giá trị kinh doanh"
+  },
+  10: {
+    title: "Ví dụ điển hình",
+    points: [
+      "Campaign tốt (marketing) nhưng đốt tiền (Bluecore thấy cash gap)",
+      "SKU bán chạy nhưng xấu margin (ops cost + return tăng)",
+      "Tăng trưởng nhưng thiếu cash (lợi nhuận kế toán dương, dòng tiền âm)",
+    ],
+    tips: "CEO nào cũng từng gặp ít nhất 1 trong 3 tình huống này"
+  },
+  11: {
+    title: "Khó bị copy",
+    points: [
+      "Không phải UI, feature, hay thuật toán đơn lẻ",
+      "Khó copy: Triết lý Decision-first, Kỷ luật tài chính xuyên hệ thống",
+      "Copy giao diện dễ, copy cách CEO tin dữ liệu rất khó",
+    ],
+    tips: "Đây là competitive moat - nói tự tin"
+  },
+  12: {
+    title: "Khi nào nên dùng",
+    points: [
+      "Phù hợp: Đa kênh, cash căng, không tin báo cáo, quyết định đắt",
+      "Không phù hợp: Quá nhỏ, thích dashboard, chỉ cần báo cáo đẹp",
+      "Tự disqualify để tăng độ tin cậy",
+    ],
+    tips: "Cho CEO tự đánh giá mình có phù hợp không"
+  },
+  13: {
+    title: "Câu chốt",
+    points: [
+      "'Bluecore không giúp biết thêm, giúp dám quyết'",
+      "'CEO thất bại vì tin nhầm dữ liệu'",
+      "'Mỗi quyết định lớn dựa trên sự thật tài chính đã kiểm chứng'",
+    ],
+    tips: "Im lặng sau câu cuối - để CEO tự cảm nhận"
+  },
+};
+
+// ============== MAIN COMPONENT ==============
+
 export default function MDPSalesDeckPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [showNotes, setShowNotes] = useState(true);
   
   const slides = [
     { id: 0, component: SlidePositioning, label: 'Định vị' },
@@ -492,11 +772,12 @@ export default function MDPSalesDeckPage() {
     { id: 5, component: SlideWhatBluecore, label: 'Bluecore giải quyết' },
     { id: 6, component: SlideDecisionCard, label: 'Decision Card' },
     { id: 7, component: SlideControlTower, label: 'Control Tower' },
-    { id: 8, component: SlideFinancialValue, label: 'Giá trị tài chính' },
-    { id: 9, component: SlideExamples, label: 'Ví dụ' },
-    { id: 10, component: SlideHardToCopy, label: 'Khó copy' },
-    { id: 11, component: SlideWhenToUse, label: 'Khi nào dùng' },
-    { id: 12, component: SlideClosing, label: 'Chốt' },
+    { id: 8, component: SlideBoardView, label: 'Board View' },
+    { id: 9, component: SlideFinancialValue, label: 'Giá trị tài chính' },
+    { id: 10, component: SlideExamples, label: 'Ví dụ' },
+    { id: 11, component: SlideHardToCopy, label: 'Khó copy' },
+    { id: 12, component: SlideWhenToUse, label: 'Khi nào dùng' },
+    { id: 13, component: SlideClosing, label: 'Chốt' },
   ];
   
   const goToPrev = () => setCurrentSlide(prev => Math.max(0, prev - 1));
@@ -511,6 +792,8 @@ export default function MDPSalesDeckPage() {
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         goToPrev();
+      } else if (e.key === 'n' || e.key === 'N') {
+        setShowNotes(prev => !prev);
       }
     };
     
@@ -519,71 +802,131 @@ export default function MDPSalesDeckPage() {
   }, []);
   
   const CurrentSlideComponent = slides[currentSlide].component;
+  const currentNotes = presenterNotes[currentSlide];
   
   return (
-    <div className="fixed inset-0 bg-slate-950 flex flex-col">
-      {/* Slide Content */}
-      <div className="flex-1 overflow-hidden">
-        <CurrentSlideComponent />
+    <div className="fixed inset-0 bg-slate-950 flex">
+      {/* Main Slide Area */}
+      <div className={cn("flex flex-col transition-all duration-300", showNotes ? "flex-1" : "w-full")}>
+        {/* Slide Content */}
+        <div className="flex-1 overflow-hidden">
+          <CurrentSlideComponent />
+        </div>
+        
+        {/* Navigation Footer */}
+        <div className="h-14 border-t border-slate-800 flex items-center justify-between px-6">
+          {/* Slide Indicator */}
+          <div className="flex items-center gap-1">
+            {slides.map((slide, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentSlide(idx)}
+                title={slide.label}
+                className={cn(
+                  "h-1 rounded-full transition-all",
+                  idx === currentSlide 
+                    ? "bg-white w-6" 
+                    : "bg-slate-700 hover:bg-slate-600 w-1"
+                )}
+              />
+            ))}
+          </div>
+          
+          {/* Slide Info */}
+          <div className="text-center">
+            <span className="text-sm text-slate-500 font-mono">
+              {currentSlide + 1} / {slides.length}
+            </span>
+            <span className="text-sm text-slate-600 ml-3">
+              {slides[currentSlide].label}
+            </span>
+          </div>
+          
+          {/* Controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNotes(prev => !prev)}
+              className={cn(
+                "p-2 rounded transition-colors",
+                showNotes ? "text-white bg-slate-800" : "text-slate-500 hover:text-white hover:bg-slate-800"
+              )}
+              title="Toggle notes (N)"
+            >
+              <MessageSquareText className="h-4 w-4" />
+            </button>
+            <div className="w-px h-4 bg-slate-700 mx-1" />
+            <button
+              onClick={goToPrev}
+              disabled={currentSlide === 0}
+              className={cn(
+                "p-2 rounded transition-colors",
+                currentSlide === 0 
+                  ? "text-slate-700 cursor-not-allowed" 
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              )}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={goToNext}
+              disabled={currentSlide === slides.length - 1}
+              className={cn(
+                "p-2 rounded transition-colors",
+                currentSlide === slides.length - 1 
+                  ? "text-slate-700 cursor-not-allowed" 
+                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+              )}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       </div>
       
-      {/* Navigation Footer */}
-      <div className="h-16 border-t border-slate-800 flex items-center justify-between px-8">
-        {/* Slide Indicator */}
-        <div className="flex items-center gap-1.5">
-          {slides.map((slide, idx) => (
+      {/* Presenter Notes Panel */}
+      {showNotes && (
+        <div className="w-80 border-l border-slate-800 bg-slate-900/50 flex flex-col">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-300">Presenter Notes</h3>
             <button
-              key={idx}
-              onClick={() => setCurrentSlide(idx)}
-              title={slide.label}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                idx === currentSlide 
-                  ? "bg-white w-8" 
-                  : "bg-slate-700 hover:bg-slate-600 w-1.5"
-              )}
-            />
-          ))}
-        </div>
-        
-        {/* Slide Info */}
-        <div className="text-center">
-          <span className="text-sm text-slate-500 font-mono">
-            {currentSlide + 1} / {slides.length}
-          </span>
-          <span className="text-sm text-slate-600 ml-4">
-            {slides[currentSlide].label}
-          </span>
-        </div>
-        
-        {/* Navigation Arrows */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goToPrev}
-            disabled={currentSlide === 0}
-            className={cn(
-              "p-2 rounded transition-colors",
-              currentSlide === 0 
-                ? "text-slate-700 cursor-not-allowed" 
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
+              onClick={() => setShowNotes(false)}
+              className="p-1 text-slate-500 hover:text-white rounded"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4">
+            {currentNotes && (
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-white">{currentNotes.title}</h4>
+                
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Điểm chính</p>
+                  <ul className="space-y-2">
+                    {currentNotes.points.map((point, idx) => (
+                      <li key={idx} className="text-sm text-slate-300 pl-3 border-l-2 border-slate-700">
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                {currentNotes.tips && (
+                  <div className="p-3 bg-blue-950/30 border border-blue-900/30 rounded-lg">
+                    <p className="text-xs uppercase tracking-widest text-blue-400 mb-2">💡 Tips</p>
+                    <p className="text-sm text-blue-200">{currentNotes.tips}</p>
+                  </div>
+                )}
+              </div>
             )}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            onClick={goToNext}
-            disabled={currentSlide === slides.length - 1}
-            className={cn(
-              "p-2 rounded transition-colors",
-              currentSlide === slides.length - 1 
-                ? "text-slate-700 cursor-not-allowed" 
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
-            )}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          </div>
+          
+          <div className="p-3 border-t border-slate-800 text-xs text-slate-500">
+            <p>Phím tắt: ← → điều hướng, N ẩn/hiện notes</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
