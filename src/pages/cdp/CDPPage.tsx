@@ -21,6 +21,39 @@ import { Badge } from '@/components/ui/badge';
 export default function CDPPage() {
   const navigate = useNavigate();
 
+  // Core features for V1
+  const coreFeatures = [
+    {
+      id: 'value-distribution',
+      title: 'Value Distribution',
+      description: 'Phân phối giá trị khách hàng theo percentile (P10/P25/P50/P75/P90)',
+      icon: BarChart3,
+      status: 'active' as const,
+      path: '/cdp/value-distribution',
+    },
+    {
+      id: 'trend-engine',
+      title: 'Trend Engine',
+      description: 'Phát hiện spend decline, velocity slowdown, mix shift',
+      icon: TrendingUp,
+      status: 'coming' as const,
+    },
+    {
+      id: 'segment-asset',
+      title: 'Segment as Asset',
+      description: 'Định nghĩa segment có version, owner, effective date',
+      icon: Layers,
+      status: 'coming' as const,
+    },
+    {
+      id: 'lifecycle-economics',
+      title: 'Lifecycle Economics',
+      description: 'Time-to-second-purchase, decay curve, retention value',
+      icon: Activity,
+      status: 'coming' as const,
+    },
+  ];
+
   const coreOutputs = [
     {
       id: 'trend-insight',
@@ -127,7 +160,7 @@ export default function CDPPage() {
                 </div>
               </div>
               <Badge variant="outline" className="text-violet-600 border-violet-300">
-                Coming Soon
+                V1 Active
               </Badge>
             </div>
           </div>
@@ -264,41 +297,65 @@ export default function CDPPage() {
             </Card>
           </motion.div>
 
-          {/* Value Shift Preview (Placeholder) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-          >
-            <Card className="border-dashed border-2">
-              <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-4">
-                  <TrendingDown className="w-8 h-8 text-violet-500" />
-                </div>
-                <CardTitle>Value Shift Detection</CardTitle>
-                <CardDescription className="max-w-md mx-auto">
-                  Tính năng phát hiện dịch chuyển giá trị khách hàng sẽ được triển khai sau khi hoàn thành data model
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-center">
-                <div className="flex justify-center gap-4">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/documentation')}
+          {/* Core Features */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-violet-500" />
+              Core Features (V1)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {coreFeatures.map((feature, index) => (
+                <motion.div
+                  key={feature.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                >
+                  <Card 
+                    className={`cursor-pointer transition-all ${
+                      feature.status === 'active' 
+                        ? 'hover:shadow-lg hover:border-violet-300' 
+                        : 'opacity-60'
+                    }`}
+                    onClick={() => feature.status === 'active' && feature.path && navigate(feature.path)}
                   >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Xem Documentation
-                  </Button>
-                  <Button 
-                    className="bg-violet-600 hover:bg-violet-700"
-                    disabled
-                  >
-                    Coming Soon
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div className={`w-10 h-10 rounded-lg ${
+                          feature.status === 'active' ? 'bg-violet-500' : 'bg-muted'
+                        } flex items-center justify-center`}>
+                          <feature.icon className={`w-5 h-5 ${
+                            feature.status === 'active' ? 'text-white' : 'text-muted-foreground'
+                          }`} />
+                        </div>
+                        {feature.status === 'active' ? (
+                          <Badge className="bg-emerald-500">Active</Badge>
+                        ) : (
+                          <Badge variant="outline">Coming Soon</Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-base mt-3">{feature.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{feature.description}</p>
+                      {feature.status === 'active' && (
+                        <Button 
+                          variant="link" 
+                          className="p-0 h-auto mt-2 text-violet-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(feature.path!);
+                          }}
+                        >
+                          Open Feature <ArrowRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </main>
       </div>
     </>
