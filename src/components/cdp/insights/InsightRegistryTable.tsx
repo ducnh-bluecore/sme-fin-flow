@@ -90,11 +90,11 @@ export function InsightRegistryTable({ insights, onToggle }: InsightRegistryTabl
                 <div className="flex items-center gap-2 text-xs">
                   {triggeredCount > 0 && (
                     <Badge className="bg-destructive/10 text-destructive border-destructive/30">
-                      {triggeredCount} kích hoạt
+                      {triggeredCount} đang phát hiện
                     </Badge>
                   )}
                   <span className="text-muted-foreground">
-                    {enabledCount}/{items.length} bật
+                    {enabledCount}/{items.length} đang theo dõi
                   </span>
                 </div>
               </div>
@@ -109,7 +109,7 @@ export function InsightRegistryTable({ insights, onToggle }: InsightRegistryTabl
                     <TableHead className="w-[100px]">Cooldown</TableHead>
                     <TableHead className="w-[140px]">Vai trò</TableHead>
                     <TableHead className="w-[80px]">Trạng thái</TableHead>
-                    <TableHead className="w-[60px] text-right">Bật</TableHead>
+                    <TableHead className="w-[60px] text-right">Theo dõi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -163,7 +163,7 @@ export function InsightRegistryTable({ insights, onToggle }: InsightRegistryTabl
                         {insight.isTriggered ? (
                           <Badge className="bg-destructive/10 text-destructive text-[10px]">
                             <XCircle className="w-3 h-3 mr-1" />
-                            Kích hoạt
+                            Phát hiện
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] text-muted-foreground">

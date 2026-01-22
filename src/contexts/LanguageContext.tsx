@@ -171,7 +171,7 @@ const vi: Record<string, string> = {
   'exec.target': 'mục tiêu',
   'exec.quickWins': 'Cơ hội nhanh',
   'exec.quickWinsDesc': 'Cơ hội tiết kiệm/tăng revenue - tính từ dữ liệu thực',
-  'exec.noQuickWins': 'Tuyệt vời! Không có quick win cần xử lý',
+  'exec.noQuickWins': 'Hiện không có vấn đề cần xem xét ở mục này',
   'exec.totalPotential': 'Tổng tiềm năng thu hồi',
   'exec.riskAlerts': 'Cảnh báo rủi ro',
   'exec.riskAlertsDesc': 'Các rủi ro tài chính cần lưu ý',

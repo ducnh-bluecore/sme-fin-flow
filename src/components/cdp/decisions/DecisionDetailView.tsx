@@ -122,7 +122,7 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
             </span>
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
-              Hạn quyết định: {card.reviewDeadline}
+              Thời hạn xem xét: {card.reviewDeadline}
             </span>
           </div>
         </CardHeader>
@@ -219,21 +219,21 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-destructive" />
-            Rủi ro Nếu Không Xử lý
+            Đánh giá Rủi ro và Tác động
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3 border rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Rủi ro Doanh thu</p>
+              <p className="text-xs text-muted-foreground mb-1">Rủi ro về Doanh thu</p>
               <p className="text-sm font-medium">{card.risks.revenue}</p>
             </div>
             <div className="p-3 border rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Rủi ro Dòng tiền</p>
+              <p className="text-xs text-muted-foreground mb-1">Rủi ro về Dòng tiền</p>
               <p className="text-sm font-medium">{card.risks.cashflow}</p>
             </div>
             <div className="p-3 border rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Rủi ro Dài hạn</p>
+              <p className="text-xs text-muted-foreground mb-1">Rủi ro về Dài hạn</p>
               <p className="text-sm font-medium">{card.risks.longTerm}</p>
             </div>
           </div>
@@ -247,9 +247,9 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
       {card.options && card.options.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Các Phương án Cân nhắc</CardTitle>
-            <CardDescription>Ghi chú các hướng xử lý có thể – không phải hành động bắt buộc</CardDescription>
-          </CardHeader>
+          <CardTitle className="text-base">Các Hướng Xem xét Có thể</CardTitle>
+          <CardDescription>Ghi chú các hướng tiếp cận – mang tính tham khảo, không phải hành động bắt buộc</CardDescription>
+        </CardHeader>
           <CardContent>
             <ul className="space-y-2">
               {card.options.map((option, idx) => (
