@@ -33,6 +33,13 @@ import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 
+/**
+ * MDP LAYOUT - Light Professional Theme
+ * 
+ * Clean sidebar with semantic tokens
+ * Unified navigation experience
+ */
+
 interface NavItem {
   labelKey: string;
   label: string;
@@ -153,10 +160,10 @@ export function MDPLayout() {
       onClick={() => setMobileDrawerOpen(false)}
       className={({ isActive: active }) =>
         cn(
-          'flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors',
+          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
           active || isActive(item.href!)
-            ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
-            : 'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent'
+            ? 'bg-primary/10 text-primary font-medium'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
         )
       }
     >
@@ -165,7 +172,7 @@ export function MDPLayout() {
       {item.badge && item.badge > 0 && (
         <Badge 
           variant="secondary" 
-          className="h-5 min-w-5 text-xs bg-amber-500/20 text-amber-300 border-amber-500/30"
+          className="h-5 min-w-5 text-xs bg-amber-100 text-amber-700 border-amber-200"
         >
           {item.badge}
         </Badge>
@@ -189,13 +196,14 @@ export function MDPLayout() {
     <button
       onClick={() => toggleSection(section)}
       className={cn(
-        'nav-item w-full justify-between',
-        hasActive && 'text-sidebar-accent-foreground'
+        'w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors',
+        'hover:bg-muted',
+        hasActive ? 'text-foreground font-medium' : 'text-muted-foreground'
       )}
     >
       <div className="flex items-center gap-3">
-        <Icon className="w-5 h-5" />
-        <span className="text-sm font-medium">{title}</span>
+        <Icon className="w-4 h-4" />
+        <span>{title}</span>
       </div>
       {isExpanded ? (
         <ChevronDown className="w-4 h-4" />
@@ -206,23 +214,23 @@ export function MDPLayout() {
   );
 
   const SidebarContent = () => (
-    <div className="w-[280px] h-full flex flex-col">
+    <div className="w-[280px] h-full flex flex-col bg-card border-r border-border">
       {/* Logo */}
-      <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border">
+      <div className="flex items-center justify-between h-16 px-6 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <BarChart2 className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-sidebar-accent-foreground">Bluecore</h1>
-            <p className="text-[10px] text-sidebar-foreground/60 -mt-0.5">Marketing Data Platform</p>
+            <h1 className="text-base font-semibold text-foreground">Bluecore</h1>
+            <p className="text-[10px] text-muted-foreground -mt-0.5">Marketing Data Platform</p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(false)}
-          className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent"
+          className="lg:hidden"
         >
           <X className="w-5 h-5" />
         </Button>
@@ -249,7 +257,7 @@ export function MDPLayout() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-4">
+                  <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
                     {cmoModeItems.map((item) => (
                       <NavItemLink 
                         key={item.labelKey} 
@@ -280,7 +288,7 @@ export function MDPLayout() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="ml-4 mt-1 space-y-0.5 border-l border-sidebar-border pl-4">
+                  <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
                     {marketingModeItems.map((item) => (
                       <NavItemLink key={item.labelKey} item={item} />
                     ))}
@@ -293,16 +301,16 @@ export function MDPLayout() {
       </ScrollArea>
 
       {/* Bottom Navigation */}
-      <div className="border-t border-sidebar-border px-3 py-4 space-y-1">
+      <div className="border-t border-border px-3 py-4 space-y-1">
         {systemItems.map((item) => (
           <NavItemLink key={item.labelKey} item={item} />
         ))}
         <button
           onClick={() => navigate('/portal')}
-          className="nav-item w-full"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-primary font-medium hover:bg-primary/10 transition-colors"
         >
-          <Home className="w-5 h-5" />
-          <span className="text-sm">Back to Portal</span>
+          <Home className="w-4 h-4" />
+          <span>Back to Portal</span>
         </button>
       </div>
     </div>
@@ -338,12 +346,8 @@ export function MDPLayout() {
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
           'hidden lg:flex flex-col overflow-hidden',
-          'fixed left-0 top-0 bottom-0 z-50',
-          'bg-sidebar text-sidebar-foreground'
+          'fixed left-0 top-0 bottom-0 z-50'
         )}
-        style={{
-          background: 'linear-gradient(180deg, hsl(224 55% 12%) 0%, hsl(224 55% 8%) 100%)',
-        }}
       >
         <SidebarContent />
       </motion.aside>
@@ -354,7 +358,7 @@ export function MDPLayout() {
         sidebarOpen ? 'lg:ml-[280px]' : 'lg:ml-0'
       )}>
         {/* Header - Desktop */}
-        <header className="hidden lg:flex sticky top-0 z-20 h-14 bg-background/95 backdrop-blur border-b items-center justify-between px-6">
+        <header className="hidden lg:flex sticky top-0 z-20 h-14 bg-background/95 backdrop-blur border-b border-border items-center justify-between px-6">
           <div className="flex items-center gap-4">
             {!sidebarOpen && (
               <Button
