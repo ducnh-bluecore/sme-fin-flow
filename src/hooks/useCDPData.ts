@@ -293,11 +293,46 @@ export function useCDPData() {
     };
   }, [customerData]);
 
+  // Data Quality Metrics (per CDP Constitution)
+  const dataQualityMetrics = useMemo(() => {
+    if (!ordersData || ordersData.length === 0) {
+      return {
+        identityCoverage: 0,
+        cogsCoverage: 0,
+        totalOrders: 0,
+        ordersWithIdentity: 0,
+        ordersWithCogs: 0,
+        isReliable: false,
+      };
+    }
+    
+    const totalOrders = ordersData.length;
+    const ordersWithIdentity = ordersData.filter(o => 
+      o.customer_phone || o.customer_name
+    ).length;
+    const ordersWithCogs = ordersData.filter(o => 
+      o.cost_of_goods && Number(o.cost_of_goods) > 0
+    ).length;
+    
+    const identityCoverage = (ordersWithIdentity / totalOrders) * 100;
+    const cogsCoverage = (ordersWithCogs / totalOrders) * 100;
+    
+    return {
+      identityCoverage,
+      cogsCoverage,
+      totalOrders,
+      ordersWithIdentity,
+      ordersWithCogs,
+      isReliable: identityCoverage >= 80 && cogsCoverage >= 70,
+    };
+  }, [ordersData]);
+
   return {
     customerData,
     valueDistribution,
     segmentSummaries,
     summaryStats,
+    dataQualityMetrics,
     isLoading: ordersLoading,
   };
 }
