@@ -24,7 +24,8 @@ import { OverdueInvoicesTable } from '@/components/dashboard/OverdueInvoicesTabl
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatVNDCompact, formatVND } from '@/lib/formatters';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
-import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+// ✅ CANONICAL HOOK - DB-first, no client-side calculations
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useCashForecasts } from '@/hooks/useDashboardData';
@@ -88,7 +89,8 @@ function FinancialSummaryCard({
 export default function CFODashboard() {
   const navigate = useNavigate();
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
-  const { data: metrics, isLoading } = useCentralFinancialMetrics();
+  // ✅ CANONICAL: Finance metrics from precomputed snapshot
+  const { data: snapshot, isLoading } = useFinanceTruthSnapshot();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
   const { data: cashForecasts } = useCashForecasts();
   const { t } = useLanguage();
@@ -96,17 +98,18 @@ export default function CFODashboard() {
   // Enable realtime updates for dashboard data
   useRealtimeDashboard();
 
-  // Calculate cash next 7 days
+  // Cash 7-day from snapshot (precomputed in DB)
   const cashNext7Days = useMemo(() => {
-    if (metrics?.cashNext7Days && metrics.cashNext7Days !== metrics.cashOnHand) {
-      return metrics.cashNext7Days;
+    // ✅ Using precomputed value from snapshot
+    if (snapshot?.cash7dForecast) {
+      return snapshot.cash7dForecast;
     }
     if (cashForecasts && cashForecasts.length > 0) {
       const day7Forecast = cashForecasts[6] || cashForecasts[cashForecasts.length - 1];
-      return day7Forecast?.closing_balance || metrics?.cashOnHand || 0;
+      return day7Forecast?.closing_balance || snapshot?.cashToday || 0;
     }
-    return metrics?.cashOnHand || 0;
-  }, [cashForecasts, metrics]);
+    return snapshot?.cashToday || 0;
+  }, [cashForecasts, snapshot]);
 
   // Format runway display
   const formatRunway = () => {
@@ -125,20 +128,20 @@ export default function CFODashboard() {
     return 'success';
   };
 
-  // Generate Decision Cards from financial data
+  // Generate Decision Cards from precomputed snapshot data (NO CALCULATIONS)
   const financialDecisions = useMemo(() => {
     const decisions = [];
     
-    // Check Overdue AR
-    if (metrics?.overdueAR && metrics.overdueAR > 0) {
+    // Check Overdue AR - using precomputed snapshot values
+    if (snapshot?.overdueAR && snapshot.overdueAR > 0) {
       decisions.push({
         id: 'overdue-ar',
-        statement: `${formatVNDCompact(metrics.overdueAR)} in overdue receivables requires collection action`,
+        statement: `${formatVNDCompact(snapshot.overdueAR)} in overdue receivables requires collection action`,
         context: 'Aging analysis shows concentration in 30-60 day bucket',
-        severity: metrics.overdueAR > 1000000000 ? 'critical' : 'warning' as const,
+        severity: snapshot.overdueAR > 1000000000 ? 'critical' : 'warning' as const,
         confidence: 'confirmed' as const,
         impacts: [
-          { type: 'cash' as const, label: 'Cash Impact', value: formatVNDCompact(metrics.overdueAR), trend: 'negative' as const },
+          { type: 'cash' as const, label: 'Cash Impact', value: formatVNDCompact(snapshot.overdueAR), trend: 'negative' as const },
           { type: 'risk' as const, label: 'Collection Risk', value: 'Medium' },
         ],
         actions: [
@@ -148,17 +151,18 @@ export default function CFODashboard() {
       });
     }
 
-    // Check Cash Runway
-    if (cashRunway?.hasEnoughData && cashRunway.runwayMonths !== null && cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS) {
+    // Check Cash Runway - using precomputed snapshot
+    const runwayMonths = snapshot?.cashRunwayMonths || cashRunway?.runwayMonths;
+    if (runwayMonths !== null && runwayMonths !== undefined && runwayMonths < FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS) {
       decisions.push({
         id: 'runway-warning',
         statement: `Cash runway is ${formatRunway()} - below ${FDP_THRESHOLDS.RUNWAY_WARNING_MONTHS} month threshold`,
-        context: `Average monthly burn rate: ${formatVNDCompact(cashRunway.avgMonthlyBurn)}`,
-        severity: cashRunway.runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS ? 'critical' : 'warning' as const,
+        context: `Average monthly burn rate: ${formatVNDCompact(cashRunway?.avgMonthlyBurn || 0)}`,
+        severity: runwayMonths < FDP_THRESHOLDS.RUNWAY_CRITICAL_MONTHS ? 'critical' : 'warning' as const,
         confidence: 'confirmed' as const,
         impacts: [
-          { type: 'cash' as const, label: 'Current Cash', value: formatVNDCompact(metrics?.cashOnHand || 0) },
-          { type: 'risk' as const, label: 'Monthly Burn', value: formatVNDCompact(cashRunway.avgMonthlyBurn), trend: 'negative' as const },
+          { type: 'cash' as const, label: 'Current Cash', value: formatVNDCompact(snapshot?.cashToday || 0) },
+          { type: 'risk' as const, label: 'Monthly Burn', value: formatVNDCompact(cashRunway?.avgMonthlyBurn || 0), trend: 'negative' as const },
         ],
         actions: [
           { id: 'forecast', label: 'View Cash Forecast', variant: 'primary' as const, onClick: () => navigate('/cash-forecast') },
@@ -167,17 +171,18 @@ export default function CFODashboard() {
       });
     }
 
-    // Check Contribution Margin
-    if (metrics?.contributionMargin !== undefined && metrics.contributionMargin < 20) {
+    // Check Contribution Margin - using precomputed snapshot
+    const cmPercent = snapshot?.contributionMarginPercent;
+    if (cmPercent !== undefined && cmPercent < 20) {
       decisions.push({
         id: 'margin-warning',
-        statement: `Contribution margin at ${metrics.contributionMargin.toFixed(1)}% - below healthy threshold`,
+        statement: `Contribution margin at ${cmPercent.toFixed(1)}% - below healthy threshold`,
         context: 'Review variable costs and pricing strategy',
-        severity: metrics.contributionMargin < 10 ? 'critical' : 'warning' as const,
+        severity: cmPercent < 10 ? 'critical' : 'warning' as const,
         confidence: 'confirmed' as const,
         impacts: [
-          { type: 'margin' as const, label: 'CM %', value: `${metrics.contributionMargin.toFixed(1)}%`, trend: 'negative' as const },
-          { type: 'cash' as const, label: 'Gross Margin', value: `${(metrics.grossMargin || 0).toFixed(1)}%` },
+          { type: 'margin' as const, label: 'CM %', value: `${cmPercent.toFixed(1)}%`, trend: 'negative' as const },
+          { type: 'cash' as const, label: 'Gross Margin', value: `${(snapshot?.grossMarginPercent || 0).toFixed(1)}%` },
         ],
         actions: [
           { id: 'unit-econ', label: 'Unit Economics', variant: 'primary' as const, onClick: () => navigate('/unit-economics') },
@@ -186,7 +191,7 @@ export default function CFODashboard() {
     }
 
     return decisions;
-  }, [metrics, cashRunway, navigate, formatRunway, t]);
+  }, [snapshot, cashRunway, navigate, formatRunway, t]);
 
   const handleRefresh = useMemo(() => {
     return () => refreshAllData();
@@ -238,7 +243,7 @@ export default function CFODashboard() {
               <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
                 <FinancialSummaryCard 
                   label="Cash Today" 
-                  value={formatVNDCompact(metrics?.cashOnHand || 0)}
+                  value={formatVNDCompact(snapshot?.cashToday || 0)}
                   variant="success"
                 />
                 <FinancialSummaryCard 
@@ -252,17 +257,17 @@ export default function CFODashboard() {
                 />
                 <FinancialSummaryCard 
                   label="Overdue AR" 
-                  value={formatVNDCompact(metrics?.overdueAR || 0)}
-                  variant={metrics?.overdueAR && metrics.overdueAR > 0 ? 'warning' : 'default'}
+                  value={formatVNDCompact(snapshot?.overdueAR || 0)}
+                  variant={snapshot?.overdueAR && snapshot.overdueAR > 0 ? 'warning' : 'default'}
                 />
                 <FinancialSummaryCard 
                   label="CM %" 
-                  value={`${(metrics?.contributionMargin || 0).toFixed(1)}%`}
-                  variant={metrics?.contributionMargin && metrics.contributionMargin < 20 ? 'warning' : 'success'}
+                  value={`${(snapshot?.contributionMarginPercent || 0).toFixed(1)}%`}
+                  variant={snapshot?.contributionMarginPercent && snapshot.contributionMarginPercent < 20 ? 'warning' : 'success'}
                 />
                 <FinancialSummaryCard 
                   label="CCC" 
-                  value={`${metrics?.ccc || 0} days`}
+                  value={`${snapshot?.ccc || 0} days`}
                 />
               </div>
             )}

@@ -21,6 +21,28 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // ⛔ FINANCE HOOK GUARDRAILS - Prevent deprecated hooks in executive routes
+      "no-restricted-imports": ["warn", {
+        "patterns": [{
+          "group": ["**/useCentralFinancialMetrics*"],
+          "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot instead"
+        }, {
+          "group": ["**/useDashboardKPIs*"],
+          "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot instead"
+        }, {
+          "group": ["**/useAnalyticsData*"],
+          "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead"
+        }, {
+          "group": ["**/usePLData*"],
+          "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead"
+        }, {
+          "group": ["**/useKPIData*"],
+          "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot instead"
+        }, {
+          "group": ["**/usePerformanceData*"],
+          "message": "⛔ DEPRECATED: Use useFinanceTruthFacts instead"
+        }]
+      }],
     },
   },
 );
