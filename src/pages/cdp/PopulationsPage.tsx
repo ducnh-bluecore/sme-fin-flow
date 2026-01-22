@@ -1,328 +1,229 @@
 import { Helmet } from 'react-helmet-async';
-import { 
-  Users, 
-  Layers,
-  Calendar,
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Info
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CDPLayout } from '@/components/layout/CDPLayout';
+import { 
+  Layers, 
+  Calendar, 
+  BarChart3,
+  ArrowUpDown,
+  Filter
+} from 'lucide-react';
+import { PopulationLayout } from '@/components/cdp/populations/PopulationLayout';
+import { PopulationCatalogTable, PopulationItem } from '@/components/cdp/populations/PopulationCatalogTable';
 import { useCDPData } from '@/hooks/useCDPData';
-
-// Stability indicator
-function StabilityBadge({ stability }: { stability: 'stable' | 'drifting' | 'volatile' }) {
-  const styles = {
-    stable: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20', icon: Minus, label: 'Ổn định' },
-    drifting: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', icon: TrendingUp, label: 'Đang dịch chuyển' },
-    volatile: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20', icon: TrendingDown, label: 'Biến động' }
-  };
-  
-  const style = styles[stability];
-  const Icon = style.icon;
-  
-  return (
-    <Badge variant="outline" className={`${style.bg} ${style.text} ${style.border}`}>
-      <Icon className="w-3 h-3 mr-1" />
-      {style.label}
-    </Badge>
-  );
-}
-
-// Population card component
-function PopulationCard({ 
-  name,
-  type,
-  definition,
-  size,
-  revenueShare,
-  stability,
-  metrics
-}: { 
-  name: string;
-  type: 'segment' | 'cohort' | 'tier';
-  definition: string;
-  size: number;
-  revenueShare: number;
-  stability: 'stable' | 'drifting' | 'volatile';
-  metrics: string[];
-}) {
-  const typeLabels = {
-    segment: 'PHÂN KHÚC',
-    cohort: 'COHORT',
-    tier: 'TIER'
-  };
-  
-  const typeStyles = {
-    segment: { color: 'text-info', bg: 'bg-info/10' },
-    cohort: { color: 'text-primary', bg: 'bg-primary/10' },
-    tier: { color: 'text-warning-foreground', bg: 'bg-warning/10' }
-  };
-  
-  const typeStyle = typeStyles[type];
-  
-  return (
-    <Card className="hover:shadow-sm transition-shadow">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={`${typeStyle.bg} ${typeStyle.color} border-0 text-xs uppercase`}>
-              {typeLabels[type]}
-            </Badge>
-            <CardTitle className="text-base">{name}</CardTitle>
-          </div>
-          <StabilityBadge stability={stability} />
-        </div>
-        <CardDescription className="text-sm mt-2">
-          {definition}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">Quy mô</p>
-            <p className="font-semibold">{size.toLocaleString('vi-VN')} khách hàng</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">Tỷ trọng doanh thu</p>
-            <p className="font-semibold">{revenueShare.toFixed(1)}%</p>
-          </div>
-        </div>
-        
-        <div>
-          <p className="text-xs text-muted-foreground mb-2">Chỉ số chính (chỉ đọc)</p>
-          <div className="flex flex-wrap gap-1.5">
-            {metrics.map((metric) => (
-              <Badge key={metric} variant="secondary" className="text-xs font-normal">
-                {metric}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function PopulationsPage() {
   const { segmentSummaries, summaryStats, isLoading } = useCDPData();
+  const [sortBy, setSortBy] = useState<'size' | 'revenue' | 'stability'>('revenue');
 
-  // Transform segment data into population definitions
-  const segments = segmentSummaries.map((seg) => ({
-    name: seg.name,
-    type: 'segment' as const,
-    definition: getSegmentDefinition(seg.name),
-    size: seg.customerCount,
-    revenueShare: seg.totalRevenue / (summaryStats.totalRevenue || 1) * 100,
-    stability: getStability(seg.trend),
-    metrics: ['Doanh thu thuần', 'AOV', 'Tần suất']
-  }));
+  // Transform data into population items
+  const allPopulations = useMemo<PopulationItem[]>(() => {
+    const populations: PopulationItem[] = [];
 
-  // Value tiers (derived from percentile logic)
-  const valueTiers = [
-    {
-      name: 'TOP10',
-      type: 'tier' as const,
-      definition: 'Top 10% khách hàng theo doanh thu thuần 365 ngày',
-      size: Math.round(summaryStats.totalCustomers * 0.1),
-      revenueShare: summaryStats.top20Percent * 0.6,
-      stability: 'stable' as const,
-      metrics: ['Doanh thu 365d', 'Biên lợi nhuận', 'Tần suất']
-    },
-    {
-      name: 'TOP20',
-      type: 'tier' as const,
-      definition: 'Top 11-20% khách hàng theo doanh thu thuần 365 ngày',
-      size: Math.round(summaryStats.totalCustomers * 0.1),
-      revenueShare: summaryStats.top20Percent * 0.4,
-      stability: 'stable' as const,
-      metrics: ['Doanh thu 365d', 'Biên lợi nhuận', 'Tần suất']
-    },
-    {
-      name: 'TOP30',
-      type: 'tier' as const,
-      definition: 'Top 21-30% khách hàng theo doanh thu thuần 365 ngày',
-      size: Math.round(summaryStats.totalCustomers * 0.1),
-      revenueShare: Math.max(0, 100 - summaryStats.top20Percent) * 0.3,
-      stability: 'drifting' as const,
-      metrics: ['Doanh thu 365d', 'AOV']
-    },
-    {
-      name: 'CÒN LẠI',
-      type: 'tier' as const,
-      definition: 'Bottom 70% khách hàng theo doanh thu thuần 365 ngày',
-      size: Math.round(summaryStats.totalCustomers * 0.7),
-      revenueShare: Math.max(0, 100 - summaryStats.top20Percent) * 0.7,
-      stability: 'volatile' as const,
-      metrics: ['Doanh thu 365d']
-    }
-  ];
+    // Value Tiers
+    const tiers = [
+      { name: 'TOP10', pct: 0.1, revShare: 45, stability: 'stable' as const },
+      { name: 'TOP20', pct: 0.1, revShare: 25, stability: 'stable' as const },
+      { name: 'TOP30', pct: 0.1, revShare: 15, stability: 'drifting' as const },
+      { name: 'CÒN LẠI', pct: 0.7, revShare: 15, stability: 'volatile' as const },
+    ];
 
-  // Example cohorts (time-based)
-  const cohorts = [
-    {
-      name: 'Mua Q4-2024',
-      type: 'cohort' as const,
-      definition: 'Khách hàng có lần mua đầu tiên trong T10-T12/2024',
-      size: Math.round(summaryStats.totalCustomers * 0.15),
-      revenueShare: 8.5,
-      stability: 'drifting' as const,
-      metrics: ['Thời gian mua lần 2', 'AOV', 'Retention 90d']
-    },
-    {
-      name: 'Mua Q3-2024',
-      type: 'cohort' as const,
-      definition: 'Khách hàng có lần mua đầu tiên trong T7-T9/2024',
-      size: Math.round(summaryStats.totalCustomers * 0.18),
-      revenueShare: 12.3,
-      stability: 'stable' as const,
-      metrics: ['Thời gian mua lần 2', 'AOV', 'Retention 90d']
-    }
-  ];
+    tiers.forEach((tier, i) => {
+      populations.push({
+        id: `tier-${i}`,
+        name: tier.name,
+        type: 'tier',
+        definition: `${tier.name === 'CÒN LẠI' ? 'Bottom 70%' : tier.name.replace('TOP', 'Top ')} khách hàng theo doanh thu thuần 365 ngày`,
+        size: Math.round(summaryStats.totalCustomers * tier.pct),
+        revenueShare: tier.revShare,
+        stability: tier.stability,
+        insightCount: Math.floor(Math.random() * 3),
+      });
+    });
+
+    // Segments from data
+    segmentSummaries.forEach((seg, i) => {
+      populations.push({
+        id: `segment-${i}`,
+        name: seg.name,
+        type: 'segment',
+        definition: getSegmentDefinition(seg.name),
+        size: seg.customerCount,
+        revenueShare: seg.totalRevenue / (summaryStats.totalRevenue || 1) * 100,
+        stability: getStability(seg.trend),
+        insightCount: Math.floor(Math.random() * 4),
+      });
+    });
+
+    // Cohorts
+    const cohorts = [
+      { name: 'Mua Q4-2024', pct: 0.15, revShare: 8.5, stability: 'drifting' as const },
+      { name: 'Mua Q3-2024', pct: 0.18, revShare: 12.3, stability: 'stable' as const },
+      { name: 'Mua Q2-2024', pct: 0.2, revShare: 18.7, stability: 'stable' as const },
+      { name: 'Mua Q1-2024', pct: 0.12, revShare: 10.2, stability: 'drifting' as const },
+    ];
+
+    cohorts.forEach((cohort, i) => {
+      populations.push({
+        id: `cohort-${i}`,
+        name: cohort.name,
+        type: 'cohort',
+        definition: `Khách hàng có lần mua đầu tiên trong ${cohort.name.replace('Mua ', '')}`,
+        size: Math.round(summaryStats.totalCustomers * cohort.pct),
+        revenueShare: cohort.revShare,
+        stability: cohort.stability,
+        insightCount: Math.floor(Math.random() * 2),
+      });
+    });
+
+    return populations;
+  }, [segmentSummaries, summaryStats]);
+
+  // Filter by type
+  const tierPopulations = allPopulations.filter(p => p.type === 'tier');
+  const segmentPopulations = allPopulations.filter(p => p.type === 'segment');
+  const cohortPopulations = allPopulations.filter(p => p.type === 'cohort');
+
+  // Sort function
+  const sortPopulations = (pops: PopulationItem[]) => {
+    return [...pops].sort((a, b) => {
+      switch (sortBy) {
+        case 'size': return b.size - a.size;
+        case 'revenue': return b.revenueShare - a.revenueShare;
+        case 'stability': {
+          const order = { stable: 0, drifting: 1, volatile: 2 };
+          return order[a.stability] - order[b.stability];
+        }
+        default: return 0;
+      }
+    });
+  };
 
   return (
-    <CDPLayout>
+    <PopulationLayout
+      title="Danh mục Tập khách hàng"
+      subtitle="Các tập khách dùng cho phân tích & insight — không dùng cho kích hoạt"
+    >
       <Helmet>
         <title>Tập khách hàng | CDP - Bluecore</title>
         <meta name="description" content="Định nghĩa tập khách hàng - Phân khúc, Cohort và Value Tier" />
       </Helmet>
 
-      <div className="space-y-8 max-w-5xl">
-        {/* Page Header */}
-        <div>
-          <h1 className="text-xl font-semibold mb-1">Tập khách hàng</h1>
-          <p className="text-sm text-muted-foreground">Phân khúc, Cohort, Value Tier</p>
-        </div>
+      <div className="space-y-6">
+        {/* Tabs + Sort */}
+        <Tabs defaultValue="all" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="all" className="gap-2">
+                Tất cả
+                <Badge variant="secondary" className="text-xs">{allPopulations.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="tiers" className="gap-2">
+                <BarChart3 className="w-3.5 h-3.5" />
+                Nhóm giá trị
+                <Badge variant="secondary" className="text-xs">{tierPopulations.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="segments" className="gap-2">
+                <Layers className="w-3.5 h-3.5" />
+                Phân khúc
+                <Badge variant="secondary" className="text-xs">{segmentPopulations.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="cohorts" className="gap-2">
+                <Calendar className="w-3.5 h-3.5" />
+                Cohort
+                <Badge variant="secondary" className="text-xs">{cohortPopulations.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Explanatory Header */}
-        <Card className="border-border bg-muted/30">
-          <CardContent className="py-4">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-muted-foreground mt-0.5" />
-              <div>
-                <p className="text-sm font-medium mb-1">
-                  Màn hình này giải thích CÁCH khách hàng được phân nhóm, không phải AI là ai
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Tập khách hàng là đơn vị phân tích trong CDP. Tất cả tín hiệu và quyết định 
-                  đều tham chiếu đến tập khách hàng, không phải khách hàng riêng lẻ. Định nghĩa 
-                  được version hóa và chỉ đọc để đảm bảo tính nhất quán trong phân tích.
-                </p>
-              </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={sortBy === 'revenue' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setSortBy('revenue')}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
+                Doanh thu
+              </Button>
+              <Button
+                variant={sortBy === 'size' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setSortBy('size')}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
+                Quy mô
+              </Button>
+              <Button
+                variant={sortBy === 'stability' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setSortBy('stability')}
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
+                Độ ổn định
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Population Types */}
-        <Tabs defaultValue="tiers" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="tiers" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Value Tier
-            </TabsTrigger>
-            <TabsTrigger value="segments" className="flex items-center gap-2">
-              <Layers className="w-4 h-4" />
-              Phân khúc
-            </TabsTrigger>
-            <TabsTrigger value="cohorts" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Cohort
-            </TabsTrigger>
-          </TabsList>
+          <TabsContent value="all">
+            <PopulationCatalogTable 
+              populations={sortPopulations(allPopulations)} 
+              isLoading={isLoading}
+            />
+          </TabsContent>
 
-          {/* Value Tiers */}
-          <TabsContent value="tiers" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Value Tier</h3>
-                <p className="text-sm text-muted-foreground">
-                  Khách hàng được phân nhóm theo phân vị doanh thu thuần 365 ngày
-                </p>
-              </div>
-              <Badge variant="outline">{valueTiers.length} tier</Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {valueTiers.map((tier) => (
-                <PopulationCard key={tier.name} {...tier} />
-              ))}
+          <TabsContent value="tiers">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Khách hàng được phân nhóm theo phân vị doanh thu thuần 365 ngày. 
+                Định nghĩa cố định, phục vụ phân tích giá trị.
+              </p>
+              <PopulationCatalogTable 
+                populations={sortPopulations(tierPopulations)} 
+                isLoading={isLoading}
+              />
             </div>
           </TabsContent>
 
-          {/* Segments */}
-          <TabsContent value="segments" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Phân khúc hành vi</h3>
-                <p className="text-sm text-muted-foreground">
-                  Nhóm khách hàng dựa trên logic hành vi, có định nghĩa được version hóa
-                </p>
-              </div>
-              <Badge variant="outline">{segments.length} phân khúc</Badge>
+          <TabsContent value="segments">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Nhóm khách hàng dựa trên logic hành vi. Định nghĩa được version hóa 
+                để đảm bảo tính nhất quán trong phân tích.
+              </p>
+              <PopulationCatalogTable 
+                populations={sortPopulations(segmentPopulations)} 
+                isLoading={isLoading}
+              />
             </div>
-
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <Card key={i} className="h-48 animate-pulse bg-muted" />
-                ))}
-              </div>
-            ) : segments.length === 0 ? (
-              <Card className="py-12 text-center">
-                <CardContent>
-                  <Users className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium">Chưa có phân khúc nào được định nghĩa</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Phân khúc được cấu hình trong CDP registry
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {segments.map((seg) => (
-                  <PopulationCard key={seg.name} {...seg} />
-                ))}
-              </div>
-            )}
           </TabsContent>
 
-          {/* Cohorts */}
-          <TabsContent value="cohorts" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Cohort theo thời gian mua</h3>
-                <p className="text-sm text-muted-foreground">
-                  Nhóm theo thời điểm để phân tích lifecycle economics
-                </p>
-              </div>
-              <Badge variant="outline">{cohorts.length} cohort</Badge>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {cohorts.map((cohort) => (
-                <PopulationCard key={cohort.name} {...cohort} />
-              ))}
+          <TabsContent value="cohorts">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Nhóm theo thời điểm mua đầu tiên để phân tích lifecycle economics 
+                và retention theo thời gian.
+              </p>
+              <PopulationCatalogTable 
+                populations={sortPopulations(cohortPopulations)} 
+                isLoading={isLoading}
+              />
             </div>
           </TabsContent>
         </Tabs>
       </div>
-    </CDPLayout>
+    </PopulationLayout>
   );
 }
 
 // Helper functions
 function getSegmentDefinition(name: string): string {
   const definitions: Record<string, string> = {
-    'Elite': 'Khách hàng trong top 10% theo lifetime revenue với 3+ lần mua',
-    'High Value': 'Khách hàng trong phân vị 75-90% theo doanh thu',
-    'Medium Value': 'Khách hàng trong phân vị 50-75% theo doanh thu',
-    'Low Value': 'Khách hàng trong phân vị 25-50% theo doanh thu',
-    'At Risk': 'Khách hàng có tần suất mua hoặc AOV đang giảm'
+    'Top 10%': 'Khách hàng trong top 10% theo lifetime revenue với 3+ lần mua',
+    'P75-P90': 'Khách hàng trong phân vị 75-90% theo doanh thu thuần',
+    'P50-P75': 'Khách hàng trong phân vị 50-75% theo doanh thu thuần',
+    'P25-P50': 'Khách hàng trong phân vị 25-50% theo doanh thu thuần',
+    'Bottom 25%': 'Khách hàng trong phân vị dưới 25% theo doanh thu thuần',
   };
   return definitions[name] || `Khách hàng được phân loại là ${name} dựa trên hành vi`;
 }
