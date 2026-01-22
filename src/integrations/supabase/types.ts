@@ -3565,10 +3565,13 @@ export type Database = {
           as_of_date: string
           bundle_order_share: number
           cod_order_share: number
+          cogs: number
           customer_id: string
+          discount_amount: number
           discount_share: number
           discounted_order_share: number
           gross_margin: number
+          gross_revenue: number
           inter_purchase_days: number | null
           is_repeat: boolean
           last_order_at: string | null
@@ -3587,10 +3590,13 @@ export type Database = {
           as_of_date: string
           bundle_order_share?: number
           cod_order_share?: number
+          cogs?: number
           customer_id: string
+          discount_amount?: number
           discount_share?: number
           discounted_order_share?: number
           gross_margin?: number
+          gross_revenue?: number
           inter_purchase_days?: number | null
           is_repeat?: boolean
           last_order_at?: string | null
@@ -3609,10 +3615,13 @@ export type Database = {
           as_of_date?: string
           bundle_order_share?: number
           cod_order_share?: number
+          cogs?: number
           customer_id?: string
+          discount_amount?: number
           discount_share?: number
           discounted_order_share?: number
           gross_margin?: number
+          gross_revenue?: number
           inter_purchase_days?: number | null
           is_repeat?: boolean
           last_order_at?: string | null
@@ -18012,6 +18021,18 @@ export type Database = {
         Returns: undefined
       }
       calculate_trend_metrics: { Args: { p_values: number[] }; Returns: Json }
+      cdp_build_customer_metrics_daily: {
+        Args: { p_as_of_date: string; p_tenant_id: string }
+        Returns: number
+      }
+      cdp_build_customer_metrics_rolling: {
+        Args: { p_as_of_date: string; p_tenant_id: string }
+        Returns: number
+      }
+      cdp_run_daily_build: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: Json
+      }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
