@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   BookOpen, 
   Search, 
@@ -21,9 +22,12 @@ import {
   Layers,
   RefreshCw,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft,
+  Home
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +37,7 @@ import { MDPDocumentation } from '@/components/docs/MDPDocumentation';
 import { ControlTowerDocumentation } from '@/components/docs/ControlTowerDocumentation';
 
 export default function DocumentationPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('fdp');
 
@@ -84,6 +89,27 @@ export default function DocumentationPage() {
           <div className="container mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center gap-3">
+                {/* Back buttons */}
+                <div className="flex items-center gap-2 mr-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/portal')}
+                    className="h-9 px-3"
+                  >
+                    <Home className="h-4 w-4 mr-1" />
+                    Portal
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/')}
+                    className="h-9 px-3"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    FDP
+                  </Button>
+                </div>
                 <div className="p-2 rounded-lg bg-primary/10">
                   <BookOpen className="h-6 w-6 text-primary" />
                 </div>
