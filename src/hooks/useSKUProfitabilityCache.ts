@@ -122,7 +122,8 @@ export function useSKUProfitabilityFromView() {
 }
 
 /**
- * Fetch cached SKU profitability data (for historical/period-specific analysis)
+ * Fetch SKU profitability data filtered by date range
+ * Uses database RPC for proper date filtering (DB-First architecture)
  */
 export function useCachedSKUProfitability() {
   const { data: tenantId } = useActiveTenantId();
@@ -133,108 +134,51 @@ export function useCachedSKUProfitability() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // First try pre-aggregated view for quick data
-      const { data: rawViewData, error: viewError } = await supabase
-        .from('fdp_sku_summary' as any)
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('total_revenue', { ascending: false })
-        .limit(500);
+      // Use RPC to get SKU profitability filtered by date range
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_sku_profitability_by_date_range',
+        {
+          p_tenant_id: tenantId,
+          p_start_date: startDateStr,
+          p_end_date: endDateStr
+        }
+      );
 
-      interface SKUViewRow {
-        sku: string | null;
+      if (rpcError) {
+        console.error('SKU profitability RPC error:', rpcError);
+        throw rpcError;
+      }
+
+      interface SKURpcRow {
+        sku: string;
         product_name: string | null;
+        channel: string;
         total_quantity: number;
         total_revenue: number;
         total_cogs: number;
+        total_fees: number;
         gross_profit: number;
         margin_percent: number;
-      }
-      const viewData = (rawViewData as unknown as SKUViewRow[]) || [];
-
-      // If view has data, use it
-      if (!viewError && viewData && viewData.length > 0) {
-        const skuMetrics: CachedSKUMetrics[] = viewData.map((row, idx) => {
-          const profit = row.gross_profit || 0;
-          const revenue = row.total_revenue || 0;
-          const margin = row.margin_percent || 0;
-
-          return {
-            id: `sku-${idx}`,
-            sku: row.sku || 'Unknown',
-            product_name: row.product_name,
-            channel: 'ALL',
-            quantity: row.total_quantity || 0,
-            revenue: revenue,
-            cogs: row.total_cogs || 0,
-            fees: 0,
-            profit: profit,
-            margin_percent: margin,
-            aov: row.total_quantity > 0 ? revenue / row.total_quantity : 0,
-            status: margin >= 10 ? 'profitable' : margin >= 0 ? 'marginal' : 'loss',
-            calculated_at: new Date().toISOString(),
-          };
-        });
-
-        const profitableSKUs = skuMetrics.filter(m => m.margin_percent >= 10);
-        const marginalSKUs = skuMetrics.filter(m => m.margin_percent >= 0 && m.margin_percent < 10);
-        const lossSKUs = skuMetrics.filter(m => m.margin_percent < 0);
-
-        return {
-          skuMetrics,
-          summary: {
-            totalSKUs: skuMetrics.length,
-            profitableSKUs: profitableSKUs.length,
-            marginalSKUs: marginalSKUs.length,
-            lossSKUs: lossSKUs.length,
-            totalProfit: skuMetrics.reduce((s, m) => s + m.profit, 0),
-            avgMargin: skuMetrics.length > 0 
-              ? skuMetrics.reduce((s, m) => s + m.margin_percent, 0) / skuMetrics.length 
-              : 0
-          },
-          hasCachedData: true,
-          lastCalculated: new Date().toISOString()
-        };
+        aov: number;
+        status: string;
       }
 
-      // Fallback to cache table for period-specific data
-      let { data, error } = await supabase
-        .from('sku_profitability_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('period_start', startDateStr)
-        .eq('period_end', endDateStr)
-        .order('profit', { ascending: false });
+      const skuData = (rpcData as SKURpcRow[]) || [];
 
-      if (error) throw error;
-
-      // If no exact match, get the most recent cached data for any period
-      if (!data || data.length === 0) {
-        const { data: latestData, error: latestError } = await supabase
-          .from('sku_profitability_cache')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .order('calculated_at', { ascending: false })
-          .order('profit', { ascending: false });
-
-        if (latestError) throw latestError;
-        data = latestData;
-      }
-
-      const skuMetrics: CachedSKUMetrics[] = (data || []).map(row => ({
-        id: row.id,
+      const skuMetrics: CachedSKUMetrics[] = skuData.map((row, idx) => ({
+        id: `sku-${idx}`,
         sku: row.sku,
         product_name: row.product_name,
         channel: row.channel,
-        quantity: Number(row.quantity || 0),
-        revenue: Number(row.revenue || 0),
-        cogs: Number(row.cogs || 0),
-        fees: Number(row.fees || 0),
-        profit: Number(row.profit || 0),
+        quantity: Number(row.total_quantity || 0),
+        revenue: Number(row.total_revenue || 0),
+        cogs: Number(row.total_cogs || 0),
+        fees: Number(row.total_fees || 0),
+        profit: Number(row.gross_profit || 0),
         margin_percent: Number(row.margin_percent || 0),
         aov: Number(row.aov || 0),
         status: row.status || 'unknown',
-        calculated_at: row.calculated_at
+        calculated_at: new Date().toISOString(),
       }));
 
       const profitableSKUs = skuMetrics.filter(m => m.status === 'profitable');
@@ -256,11 +200,11 @@ export function useCachedSKUProfitability() {
         skuMetrics,
         summary,
         hasCachedData: skuMetrics.length > 0,
-        lastCalculated: skuMetrics.length > 0 ? skuMetrics[0].calculated_at : null
+        lastCalculated: new Date().toISOString()
       };
     },
     enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000 // 5 minutes (reduced from 10)
+    staleTime: 5 * 60 * 1000 // 5 minutes
   });
 }
 
