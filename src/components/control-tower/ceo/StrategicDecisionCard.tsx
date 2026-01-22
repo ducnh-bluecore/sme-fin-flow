@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
 
 /**
  * STRATEGIC DECISION CARD - CEO Control Tower
+ * Light Professional Theme
  * 
  * Design Principles:
  * - Minimal visual noise
@@ -48,23 +49,23 @@ const getHealthConfig = (health: ExecutionHealth) => {
     case 'on_track':
       return {
         label: 'On Track',
-        bgColor: 'bg-emerald-500/10',
-        textColor: 'text-emerald-400',
-        borderColor: 'border-emerald-500/20',
+        bgColor: 'bg-emerald-50',
+        textColor: 'text-emerald-700',
+        borderColor: 'border-emerald-200',
       };
     case 'friction':
       return {
         label: 'Friction',
-        bgColor: 'bg-amber-500/10',
-        textColor: 'text-amber-400',
-        borderColor: 'border-amber-500/20',
+        bgColor: 'bg-amber-50',
+        textColor: 'text-amber-700',
+        borderColor: 'border-amber-200',
       };
     case 'off_track':
       return {
         label: 'Off Track',
-        bgColor: 'bg-red-500/10',
-        textColor: 'text-red-400',
-        borderColor: 'border-red-500/20',
+        bgColor: 'bg-red-50',
+        textColor: 'text-red-700',
+        borderColor: 'border-red-200',
       };
   }
 };
@@ -72,11 +73,11 @@ const getHealthConfig = (health: ExecutionHealth) => {
 const TrendIcon = ({ trend, className }: { trend: TrendDirection; className?: string }) => {
   switch (trend) {
     case 'up':
-      return <TrendingUp className={cn('h-4 w-4 text-emerald-400', className)} />;
+      return <TrendingUp className={cn('h-4 w-4 text-emerald-600', className)} />;
     case 'down':
-      return <TrendingDown className={cn('h-4 w-4 text-red-400', className)} />;
+      return <TrendingDown className={cn('h-4 w-4 text-destructive', className)} />;
     case 'flat':
-      return <Minus className={cn('h-4 w-4 text-slate-400', className)} />;
+      return <Minus className={cn('h-4 w-4 text-muted-foreground', className)} />;
   }
 };
 
@@ -92,20 +93,20 @@ export function StrategicDecisionCard({ decision, onClick, isSelected }: Strateg
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left p-6 rounded-lg border transition-all duration-200',
-        'bg-slate-900/50 hover:bg-slate-900/80',
+        'w-full text-left p-5 rounded-lg border transition-all duration-200',
+        'bg-card hover:bg-muted/30',
         isSelected 
-          ? 'border-slate-600 ring-1 ring-slate-600' 
-          : 'border-slate-800/50 hover:border-slate-700/50'
+          ? 'border-primary ring-1 ring-primary/20' 
+          : 'border-border hover:border-primary/30'
       )}
     >
       {/* Header: Title + Health Badge */}
-      <div className="flex items-start justify-between mb-4">
-        <h3 className="text-lg font-semibold text-slate-100 leading-tight pr-4">
+      <div className="flex items-start justify-between mb-3">
+        <h3 className="text-base font-semibold text-foreground leading-tight pr-4">
           {decision.title}
         </h3>
         <div className={cn(
-          'flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium',
+          'flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium',
           healthConfig.bgColor,
           healthConfig.textColor,
           'border',
@@ -116,21 +117,21 @@ export function StrategicDecisionCard({ decision, onClick, isSelected }: Strateg
       </div>
 
       {/* Objective */}
-      <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
         {decision.objective}
       </p>
 
       {/* KPI: Target vs Actual */}
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
             Mục tiêu vs Thực tế
           </p>
-          <div className="flex items-baseline gap-3">
-            <span className="text-2xl font-bold text-slate-100">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-semibold text-foreground tabular-nums">
               {formatValue(decision.actualValue, decision.unit)}
             </span>
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-muted-foreground">
               / {formatValue(decision.targetValue, decision.unit)}
             </span>
           </div>
@@ -140,8 +141,8 @@ export function StrategicDecisionCard({ decision, onClick, isSelected }: Strateg
         <div className="flex items-center gap-2">
           <TrendIcon trend={decision.trend} />
           <span className={cn(
-            'text-sm font-medium',
-            isPositive ? 'text-emerald-400' : 'text-red-400'
+            'text-sm font-medium tabular-nums',
+            isPositive ? 'text-emerald-600' : 'text-destructive'
           )}>
             {isPositive ? '+' : ''}{variancePercent}%
           </span>
@@ -150,9 +151,9 @@ export function StrategicDecisionCard({ decision, onClick, isSelected }: Strateg
 
       {/* Blocked Streams Warning (only if off_track or friction) */}
       {decision.blockedStreams && decision.blockedStreams > 0 && decision.executionHealth !== 'on_track' && (
-        <div className="mt-4 pt-4 border-t border-slate-800/50 flex items-center gap-2 text-sm">
-          <AlertCircle className="h-4 w-4 text-amber-400" />
-          <span className="text-slate-400">
+        <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-sm">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <span className="text-muted-foreground">
             {decision.blockedStreams} execution stream{decision.blockedStreams > 1 ? 's' : ''} blocked
           </span>
         </div>

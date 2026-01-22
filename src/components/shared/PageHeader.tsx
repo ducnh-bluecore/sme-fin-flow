@@ -10,6 +10,11 @@ interface PageHeaderProps {
   className?: string;
 }
 
+/**
+ * PAGE HEADER - Light Professional Theme
+ * 
+ * Clean, minimal header with refined typography
+ */
 export function PageHeader({ 
   title, 
   subtitle, 
@@ -28,14 +33,16 @@ export function PageHeader({
     >
       <div className="flex items-center gap-3">
         {icon && (
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
             {icon}
           </div>
         )}
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">{title}</h1>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground tracking-tight">
+            {title}
+          </h1>
           {subtitle && (
-            <p className="text-muted-foreground">{subtitle}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
           )}
         </div>
       </div>
