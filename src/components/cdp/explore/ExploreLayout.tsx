@@ -68,7 +68,7 @@ export function ExploreLayout({ children, title = 'Khám phá', description }: E
               <div>
                 <p className="text-sm font-medium">Chế độ nghiên cứu – không kích hoạt hành động</p>
                 <p className="text-xs text-muted-foreground">
-                  Dữ liệu chỉ đọc • Không export • Không trigger • Không gán nhiệm vụ
+                  Dữ liệu chỉ đọc • Không export danh sách • Không gán nhiệm vụ
                 </p>
               </div>
             </div>
