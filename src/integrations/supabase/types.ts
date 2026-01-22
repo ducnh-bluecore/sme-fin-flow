@@ -16697,6 +16697,14 @@ export type Database = {
         }
         Returns: Json
       }
+      compute_central_metric_facts: {
+        Args: {
+          p_period_end?: string
+          p_period_start?: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
       compute_central_metrics_snapshot: {
         Args: {
           p_period_end?: string
