@@ -30,17 +30,8 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-export interface InsightRegistryItem {
-  code: string;
-  name: string;
-  description: string;
-  topic: string;
-  threshold: string;
-  cooldownDays: number;
-  owners: string[];
-  isEnabled: boolean;
-  isTriggered: boolean;
-}
+// Import from hook for type consistency
+import type { InsightRegistryItem } from '@/hooks/useCDPInsightRegistry';
 
 interface InsightRegistryTableProps {
   insights: InsightRegistryItem[];
