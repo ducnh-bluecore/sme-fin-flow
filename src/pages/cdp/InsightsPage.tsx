@@ -1,257 +1,309 @@
-import { Helmet } from 'react-helmet-async';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
 import { 
-  TrendingDown,
-  TrendingUp,
-  DollarSign,
-  Clock,
-  Layers,
-  ShieldAlert,
+  DollarSign, 
+  Clock, 
+  Layers, 
+  ShieldAlert, 
   Database,
-  ChevronDown,
-  ChevronUp,
-  Calendar,
-  ChevronRight,
-  List,
-  BookOpen
+  Filter,
+  SortDesc
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CDPLayout } from '@/components/layout/CDPLayout';
-import { useCDPInsightDetection, DetectedInsight } from '@/hooks/useCDPInsightDetection';
-import { InsightCategory } from '@/lib/cdp-insight-registry';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { InsightLayout } from '@/components/cdp/insights/InsightLayout';
+import { InsightFeedCard, InsightFeedItem } from '@/components/cdp/insights/InsightFeedCard';
+import { cn } from '@/lib/utils';
 
-// Category icons
-const categoryIcons: Record<InsightCategory, typeof DollarSign> = {
+// Topic filter options
+type TopicFilter = 'all' | 'demand' | 'value' | 'timing' | 'risk' | 'equity';
+
+const topicLabels: Record<TopicFilter, string> = {
+  all: 'Tất cả chủ đề',
+  demand: 'Nhu cầu',
+  value: 'Giá trị',
+  timing: 'Thời gian mua',
+  risk: 'Hoàn trả & Rủi ro',
+  equity: 'Giá trị KH',
+};
+
+const topicIcons: Record<string, typeof DollarSign> = {
+  demand: Layers,
   value: DollarSign,
-  velocity: Clock,
-  mix: Layers,
+  timing: Clock,
   risk: ShieldAlert,
-  quality: Database
+  equity: Database,
 };
 
-// Category labels (Vietnamese)
-const categoryLabels: Record<InsightCategory, string> = {
-  value: 'Giá trị & Doanh thu',
-  velocity: 'Tần suất mua',
-  mix: 'Cơ cấu sản phẩm',
-  risk: 'Tín hiệu rủi ro',
-  quality: 'Chất lượng dữ liệu'
-};
+// Mock data for insights feed
+const mockInsights: InsightFeedItem[] = [
+  {
+    code: 'V01',
+    title: 'Chi tiêu trung bình của nhóm Top 20% giảm 15.9% so với 30 ngày trước',
+    topic: 'value',
+    populationName: 'Top 20% khách hàng',
+    populationSize: 2456,
+    revenueContribution: 65,
+    severity: 'high',
+    confidence: 'high',
+    detectedAt: new Date('2025-01-18'),
+    status: 'active',
+    changePercent: -15.9,
+    changeDirection: 'down',
+  },
+  {
+    code: 'T01',
+    title: 'Khoảng cách giữa các đơn hàng của khách mua lại tăng 12 ngày',
+    topic: 'timing',
+    populationName: 'Khách mua lại',
+    populationSize: 8234,
+    revenueContribution: 78,
+    severity: 'medium',
+    confidence: 'high',
+    detectedAt: new Date('2025-01-17'),
+    status: 'active',
+    changePercent: 18.5,
+    changeDirection: 'up',
+  },
+  {
+    code: 'R02',
+    title: 'Tỷ lệ hoàn trả của khách mới tăng từ 8% lên 14%',
+    topic: 'risk',
+    populationName: 'Khách mới (< 60 ngày)',
+    populationSize: 1567,
+    revenueContribution: 12,
+    severity: 'high',
+    confidence: 'medium',
+    detectedAt: new Date('2025-01-16'),
+    status: 'active',
+    changePercent: 75,
+    changeDirection: 'up',
+  },
+  {
+    code: 'V02',
+    title: 'AOV nén lại: khách chi trung bình thấp hơn 18% so với Q4/2024',
+    topic: 'value',
+    populationName: 'Toàn bộ khách hàng',
+    populationSize: 12450,
+    revenueContribution: 100,
+    severity: 'medium',
+    confidence: 'high',
+    detectedAt: new Date('2025-01-15'),
+    status: 'cooldown',
+    changePercent: -18,
+    changeDirection: 'down',
+  },
+  {
+    code: 'E01',
+    title: 'Customer Equity của phân khúc Loyal giảm 8.2% trong 30 ngày',
+    topic: 'equity',
+    populationName: 'Loyal (> 5 đơn)',
+    populationSize: 3421,
+    revenueContribution: 52,
+    severity: 'medium',
+    confidence: 'medium',
+    detectedAt: new Date('2025-01-14'),
+    status: 'active',
+    changePercent: -8.2,
+    changeDirection: 'down',
+  },
+  {
+    code: 'D01',
+    title: 'Tần suất mua của nhóm Dormant không có dấu hiệu phục hồi',
+    topic: 'demand',
+    populationName: 'Dormant (> 90 ngày)',
+    populationSize: 4532,
+    revenueContribution: 8,
+    severity: 'low',
+    confidence: 'high',
+    detectedAt: new Date('2025-01-12'),
+    status: 'active',
+    changePercent: -2.1,
+    changeDirection: 'down',
+  },
+];
 
-// Severity styles (using semantic tokens)
-const severityStyles = {
-  critical: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20', label: 'NGHIÊM TRỌNG' },
-  high: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', label: 'CAO' },
-  medium: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border', label: 'TRUNG BÌNH' }
-};
+// Summary stats component
+function TopicSummaryCards({ 
+  insights, 
+  activeTopic, 
+  onTopicClick 
+}: { 
+  insights: InsightFeedItem[];
+  activeTopic: TopicFilter;
+  onTopicClick: (topic: TopicFilter) => void;
+}) {
+  const topicCounts = useMemo(() => {
+    const counts: Record<string, number> = { demand: 0, value: 0, timing: 0, risk: 0, equity: 0 };
+    insights.forEach(i => { counts[i.topic] = (counts[i.topic] || 0) + 1; });
+    return counts;
+  }, [insights]);
 
-// Insight row component
-function InsightRow({ insight }: { insight: DetectedInsight }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const severityStyle = severityStyles[insight.definition.risk.severity];
-  
+  const topics: TopicFilter[] = ['demand', 'value', 'timing', 'risk', 'equity'];
+
   return (
-    <Card className="hover:shadow-sm transition-shadow">
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="font-mono text-xs">
-                {insight.code}
-              </Badge>
-              <span className="font-medium text-sm">{insight.definition.nameVi || insight.definition.name}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={`${severityStyle.bg} ${severityStyle.text} ${severityStyle.border}`}>
-                {severityStyle.label}
-              </Badge>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-          </div>
-        </CardHeader>
+    <div className="grid grid-cols-5 gap-3">
+      {topics.map((topic) => {
+        const Icon = topicIcons[topic];
+        const count = topicCounts[topic] || 0;
+        const hasActiveInsights = insights.some(i => i.topic === topic && i.status === 'active');
         
-        <CollapsibleContent>
-          <CardContent className="pt-0 pb-4 space-y-4">
-            <Separator />
-            
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Tập khách hàng</p>
-                <p>{insight.population.description}</p>
+        return (
+          <Card 
+            key={topic}
+            className={cn(
+              'cursor-pointer transition-all hover:shadow-sm',
+              activeTopic === topic && 'ring-2 ring-primary',
+              hasActiveInsights && 'border-warning/30'
+            )}
+            onClick={() => onTopicClick(activeTopic === topic ? 'all' : topic)}
+          >
+            <CardContent className="py-3 px-4">
+              <div className="flex items-center justify-between mb-1">
+                <Icon className="w-4 h-4 text-muted-foreground" />
+                <span className={cn(
+                  'text-lg font-bold',
+                  count > 0 ? 'text-warning-foreground' : 'text-muted-foreground'
+                )}>
+                  {count}
+                </span>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Thay đổi so với Baseline</p>
-                <p className={`font-semibold flex items-center gap-1 ${
-                  insight.detection.changePercent < 0 ? 'text-destructive' : 'text-success'
-                }`}>
-                  {insight.detection.changePercent < 0 ? (
-                    <TrendingDown className="w-4 h-4" />
-                  ) : (
-                    <TrendingUp className="w-4 h-4" />
-                  )}
-                  {insight.detection.changePercent.toFixed(1)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Độ tin cậy</p>
-                <p className="capitalize">{insight.impact.confidence === 'high' ? 'Cao' : insight.impact.confidence === 'medium' ? 'Trung bình' : 'Thấp'}</p>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Hàm ý kinh doanh</p>
-              <p className="text-sm">{insight.statement}</p>
-            </div>
-            
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                Phát hiện lần đầu: {insight.detectedAt.toLocaleDateString('vi-VN')}
-              </span>
-            </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
+              <p className="text-xs text-muted-foreground">{topicLabels[topic]}</p>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 
 export default function InsightsPage() {
-  const { insights, summary, dataQuality, isLoading } = useCDPInsightDetection();
-  const [activeCategory, setActiveCategory] = useState<InsightCategory | 'all'>('all');
+  const [topicFilter, setTopicFilter] = useState<TopicFilter>('all');
+  const [sortBy, setSortBy] = useState<'severity' | 'date'>('severity');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'cooldown'>('all');
 
-  // Group insights by category
-  const insightsByCategory = insights.reduce((acc, insight) => {
-    const cat = insight.definition.category;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(insight);
-    return acc;
-  }, {} as Record<InsightCategory, DetectedInsight[]>);
+  // Filter and sort insights
+  const filteredInsights = useMemo(() => {
+    let result = [...mockInsights];
+    
+    // Filter by topic
+    if (topicFilter !== 'all') {
+      result = result.filter(i => i.topic === topicFilter);
+    }
+    
+    // Filter by status
+    if (statusFilter !== 'all') {
+      result = result.filter(i => i.status === statusFilter);
+    }
+    
+    // Sort
+    if (sortBy === 'severity') {
+      const severityOrder = { high: 0, medium: 1, low: 2 };
+      result.sort((a, b) => {
+        const severityDiff = severityOrder[a.severity] - severityOrder[b.severity];
+        if (severityDiff !== 0) return severityDiff;
+        return b.detectedAt.getTime() - a.detectedAt.getTime();
+      });
+    } else {
+      result.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime());
+    }
+    
+    return result;
+  }, [topicFilter, sortBy, statusFilter]);
 
-  // Filter insights
-  const filteredInsights = activeCategory === 'all' 
-    ? insights 
-    : insightsByCategory[activeCategory] || [];
-
-  // Sort by severity
-  const sortedInsights = [...filteredInsights].sort((a, b) => {
-    const severityOrder = { critical: 0, high: 1, medium: 2 };
-    return severityOrder[a.definition.risk.severity] - severityOrder[b.definition.risk.severity];
-  });
+  const activeCount = mockInsights.filter(i => i.status === 'active').length;
 
   return (
-    <CDPLayout>
-      <Helmet>
-        <title>Tín hiệu | CDP - Bluecore</title>
-        <meta name="description" content="CDP - Các tín hiệu dịch chuyển hành vi được phát hiện" />
-      </Helmet>
+    <InsightLayout title="Dòng Insight">
+      <div className="space-y-6">
+        {/* Topic Summary Cards */}
+        <TopicSummaryCards 
+          insights={mockInsights}
+          activeTopic={topicFilter}
+          onTopicClick={setTopicFilter}
+        />
 
-      <div className="space-y-6 max-w-5xl">
-        {/* Page Header */}
-        <div>
-          <h1 className="text-xl font-semibold mb-1">Tín hiệu</h1>
-          <p className="text-sm text-muted-foreground">Các dịch chuyển hành vi được phát hiện</p>
-        </div>
-
-        {/* Summary Stats */}
-        <section>
-          <div className="grid grid-cols-5 gap-3">
-            {(['value', 'velocity', 'mix', 'risk', 'quality'] as InsightCategory[]).map((cat) => {
-              const Icon = categoryIcons[cat];
-              const count = summary.byCategory[cat] || 0;
-              return (
-                <Card 
-                  key={cat}
-                  className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                    activeCategory === cat ? 'border-primary' : ''
-                  } ${count > 0 ? 'border-warning/30' : ''}`}
-                  onClick={() => setActiveCategory(activeCategory === cat ? 'all' : cat)}
-                >
-                  <CardContent className="py-3 px-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <Icon className="w-4 h-4 text-muted-foreground" />
-                      <span className={`text-lg font-bold ${count > 0 ? 'text-warning-foreground' : 'text-muted-foreground'}`}>
-                        {count}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{categoryLabels[cat]}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Data Quality Warning */}
-        {!dataQuality.isReliable && (
-          <Card className="border-warning/30 bg-warning/5">
-            <CardContent className="py-3">
-              <p className="text-sm text-warning-foreground">
-                ⚠️ Độ phủ dữ liệu dưới ngưỡng. Một số tín hiệu có thể cần xác thực thêm.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Insights List */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">
-              {activeCategory === 'all' 
-                ? `Tất cả tín hiệu (${sortedInsights.length})`
-                : `${categoryLabels[activeCategory]} (${sortedInsights.length})`
+        {/* Filter Bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">
+              {topicFilter === 'all' 
+                ? `Tất cả Insight (${filteredInsights.length})`
+                : `${topicLabels[topicFilter]} (${filteredInsights.length})`
               }
-            </h3>
-            {activeCategory !== 'all' && (
+            </h2>
+            {topicFilter !== 'all' && (
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => setActiveCategory('all')}
+                onClick={() => setTopicFilter('all')}
                 className="text-xs"
               >
                 Xóa bộ lọc
               </Button>
             )}
           </div>
+          
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <Filter className="w-3 h-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="active">Đang hiệu lực</SelectItem>
+                <SelectItem value="cooldown">Cooldown</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SortDesc className="w-3 h-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="severity">Nghiêm trọng + Mới nhất</SelectItem>
+                <SelectItem value="date">Mới nhất trước</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Card key={i} className="h-16 animate-pulse bg-muted" />
+        {/* Insights List */}
+        {filteredInsights.length === 0 ? (
+          <Card className="py-12 text-center">
+            <CardContent>
+              <Database className="w-8 h-8 text-success mx-auto mb-3" />
+              <p className="font-medium">Không có insight nào phù hợp</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Thử thay đổi bộ lọc hoặc chờ hệ thống phát hiện thêm
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <ScrollArea className="h-[600px]">
+            <div className="space-y-3 pr-4">
+              {filteredInsights.map((insight) => (
+                <InsightFeedCard key={insight.code} insight={insight} />
               ))}
             </div>
-          ) : sortedInsights.length === 0 ? (
-            <Card className="py-12 text-center">
-              <CardContent>
-                <Database className="w-8 h-8 text-success mx-auto mb-3" />
-                <p className="font-medium">Không có tín hiệu nào được kích hoạt</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Tất cả chỉ số đang trong ngưỡng bình thường
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-3 pr-4">
-                {sortedInsights.map((insight) => (
-                  <InsightRow key={insight.code} insight={insight} />
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </section>
+          </ScrollArea>
+        )}
+
+        {/* Footer Note */}
+        <div className="text-center text-xs text-muted-foreground py-4">
+          <p>Insight chỉ dẫn tới quyết định điều hành, không dẫn tới hành động marketing</p>
+        </div>
       </div>
-    </CDPLayout>
+    </InsightLayout>
   );
 }
