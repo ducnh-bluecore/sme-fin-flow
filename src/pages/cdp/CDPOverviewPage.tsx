@@ -1,188 +1,157 @@
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { 
-  TrendingDown, 
-  TrendingUp,
-  Minus,
-  AlertTriangle,
-  ArrowRight,
-  Users,
-  Clock,
-  DollarSign,
-  ShieldAlert,
-  Database
-} from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { CDPLayout } from '@/components/layout/CDPLayout';
-import { useCDPInsightDetection } from '@/hooks/useCDPInsightDetection';
+import { DataContextBar } from '@/components/cdp/overview/DataContextBar';
+import { HighlightSignalCard, HighlightSignal } from '@/components/cdp/overview/HighlightSignalCard';
+import { TopicSummarySection, TopicSummary } from '@/components/cdp/overview/TopicSummarySection';
+import { CustomerEquitySnapshot } from '@/components/cdp/overview/CustomerEquitySnapshot';
+import { PendingDecisionCards } from '@/components/cdp/overview/PendingDecisionCards';
+import { DataConfidenceSummary } from '@/components/cdp/overview/DataConfidenceSummary';
 
-// Direction indicator component
-function DirectionIndicator({ direction, magnitude }: { direction: 'up' | 'down' | 'stable'; magnitude: number }) {
-  if (direction === 'up') {
-    return (
-      <span className="inline-flex items-center text-success">
-        <TrendingUp className="w-4 h-4 mr-1" />
-        +{magnitude.toFixed(1)}%
-      </span>
-    );
+// Mock data - will be replaced with real data from hooks
+const mockHighlightSignals: HighlightSignal[] = [
+  {
+    id: 'V01',
+    headline: 'Top 20% khách hàng giảm chi tiêu 18% trong 30 ngày',
+    population: 'Nhóm LTV cao',
+    populationCount: 2340,
+    direction: 'down',
+    changePercent: 18.2,
+    revenueImpact: -1_200_000_000,
+    severity: 'critical',
+    category: 'value'
+  },
+  {
+    id: 'T01',
+    headline: 'Thời gian mua lại tăng từ 28 lên 42 ngày',
+    population: 'Khách mua lặp lại',
+    populationCount: 8920,
+    direction: 'down',
+    changePercent: 50.0,
+    revenueImpact: -680_000_000,
+    severity: 'high',
+    category: 'velocity'
+  },
+  {
+    id: 'R03',
+    headline: 'Tỷ lệ hoàn trả nhóm mới tăng đột biến',
+    population: 'Cohort tháng 1',
+    populationCount: 1250,
+    direction: 'up',
+    changePercent: 34.5,
+    revenueImpact: -320_000_000,
+    severity: 'high',
+    category: 'risk'
+  },
+  {
+    id: 'V02',
+    headline: 'AOV giảm 12% ở segment chủ lực',
+    population: 'Premium Repeat',
+    populationCount: 4120,
+    direction: 'down',
+    changePercent: 12.3,
+    revenueImpact: -450_000_000,
+    severity: 'medium',
+    category: 'value'
+  },
+  {
+    id: 'M01',
+    headline: 'Chuyển dịch sang danh mục margin thấp',
+    population: 'Multi-category buyers',
+    populationCount: 3680,
+    direction: 'down',
+    changePercent: 8.7,
+    revenueImpact: -180_000_000,
+    severity: 'medium',
+    category: 'mix'
   }
-  if (direction === 'down') {
-    return (
-      <span className="inline-flex items-center text-destructive">
-        <TrendingDown className="w-4 h-4 mr-1" />
-        {magnitude.toFixed(1)}%
-      </span>
-    );
+];
+
+const mockTopicSummaries: TopicSummary[] = [
+  {
+    category: 'value',
+    signalCount: 4,
+    criticalCount: 1,
+    trendDirection: 'declining',
+    headline: 'Top customers giảm chi tiêu, AOV co lại'
+  },
+  {
+    category: 'velocity',
+    signalCount: 3,
+    criticalCount: 0,
+    trendDirection: 'declining',
+    headline: 'Thời gian mua lại kéo dài ở đa segment'
+  },
+  {
+    category: 'mix',
+    signalCount: 2,
+    criticalCount: 0,
+    trendDirection: 'stable',
+    headline: 'Cơ cấu danh mục ổn định, theo dõi margin'
+  },
+  {
+    category: 'risk',
+    signalCount: 3,
+    criticalCount: 0,
+    trendDirection: 'declining',
+    headline: 'Hoàn trả và churn có dấu hiệu tăng'
+  },
+  {
+    category: 'quality',
+    signalCount: 1,
+    criticalCount: 0,
+    trendDirection: 'stable',
+    headline: 'Độ phủ identity đạt 78%, cần cải thiện'
   }
-  return (
-    <span className="inline-flex items-center text-muted-foreground">
-      <Minus className="w-4 h-4 mr-1" />
-      Ổn định
-    </span>
-  );
-}
+];
 
-// Severity badge for insights
-function SeverityIndicator({ severity }: { severity: 'critical' | 'high' | 'medium' }) {
-  const styles = {
-    critical: 'bg-destructive/10 text-destructive border-destructive/20',
-    high: 'bg-warning/10 text-warning-foreground border-warning/20',
-    medium: 'bg-muted text-muted-foreground border-border'
-  };
-  
-  const labels = {
-    critical: 'NGHIÊM TRỌNG',
-    high: 'CAO',
-    medium: 'TRUNG BÌNH'
-  };
-  
-  return (
-    <Badge variant="outline" className={styles[severity]}>
-      {labels[severity]}
-    </Badge>
-  );
-}
+const mockDecisions = [
+  {
+    id: '1',
+    title: 'Chiến lược giữ chân top 20% customers',
+    insightSource: 'V01',
+    severity: 'critical' as const,
+    status: 'new' as const,
+    assignedTo: 'CEO',
+    daysOpen: 3,
+    riskIfIgnored: 1_200_000_000
+  },
+  {
+    id: '2',
+    title: 'Điều chỉnh chính sách hoàn trả cohort mới',
+    insightSource: 'R03',
+    severity: 'high' as const,
+    status: 'reviewing' as const,
+    assignedTo: 'COO',
+    daysOpen: 5,
+    riskIfIgnored: 320_000_000
+  }
+];
 
-// Insight highlight card
-function InsightHighlightCard({ 
-  headline, 
-  population, 
-  direction, 
-  magnitude, 
-  implication,
-  severity
-}: { 
-  headline: string;
-  population: string;
-  direction: 'up' | 'down' | 'stable';
-  magnitude: number;
-  implication: string;
-  severity: 'critical' | 'high' | 'medium';
-}) {
-  return (
-    <Card className="hover:shadow-sm transition-shadow">
-      <CardContent className="pt-4 pb-4">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <h4 className="font-medium text-sm leading-tight">{headline}</h4>
-          <SeverityIndicator severity={severity} />
-        </div>
-        
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-          <span className="flex items-center gap-1">
-            <Users className="w-3.5 h-3.5" />
-            {population}
-          </span>
-          <DirectionIndicator direction={direction} magnitude={magnitude} />
-        </div>
-        
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {implication}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Data confidence summary
-function DataConfidenceSummary({ 
-  identityCoverage, 
-  cogsCoverage,
-  isReliable 
-}: { 
-  identityCoverage: number;
-  cogsCoverage: number;
-  isReliable: boolean;
-}) {
-  return (
-    <Card className={isReliable ? 'border-success/30' : 'border-warning/30'}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Database className="w-4 h-4" />
-          Độ tin cậy dữ liệu
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Độ phủ Identity</p>
-            <p className="font-semibold">{identityCoverage.toFixed(1)}%</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Độ phủ COGS</p>
-            <p className="font-semibold">{cogsCoverage.toFixed(1)}%</p>
-          </div>
-        </div>
-        {!isReliable && (
-          <p className="text-xs text-warning-foreground mt-3">
-            ⚠️ Độ phủ thấp có thể ảnh hưởng độ chính xác của tín hiệu
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+const mockDataConfidence = {
+  overallScore: 76,
+  identityCoverage: 78,
+  matchAccuracy: 82,
+  returnDataCompleteness: 65,
+  dataFreshnessDays: 1,
+  issues: [
+    { id: '1', label: 'Thiếu return data từ kênh offline', severity: 'warning' as const },
+    { id: '2', label: 'Identity gap ở guest checkout', severity: 'info' as const }
+  ]
+};
 
 export default function CDPOverviewPage() {
   const navigate = useNavigate();
-  const { insights, summary, dataQuality, isLoading } = useCDPInsightDetection();
 
-  // Transform insights into highlight cards (top 6)
-  const topInsights = insights
-    .sort((a, b) => {
-      const severityOrder = { critical: 0, high: 1, medium: 2 };
-      return severityOrder[a.definition.risk.severity] - severityOrder[b.definition.risk.severity];
-    })
-    .slice(0, 6);
+  // Data context
+  const now = new Date();
+  const periodStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const periodEnd = now;
+  const lastUpdated = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago
 
-  // Category summary for navigation
-  const categorySummary = [
-    { 
-      label: 'Giá trị & Doanh thu', 
-      count: summary.byCategory.value || 0,
-      icon: DollarSign,
-      path: '/cdp/insights'
-    },
-    { 
-      label: 'Tần suất mua', 
-      count: summary.byCategory.velocity || 0,
-      icon: Clock,
-      path: '/cdp/insights'
-    },
-    { 
-      label: 'Cơ cấu sản phẩm', 
-      count: summary.byCategory.mix || 0,
-      icon: TrendingUp,
-      path: '/cdp/insights'
-    },
-    { 
-      label: 'Tín hiệu rủi ro', 
-      count: (summary.byCategory.risk || 0) + (summary.byCategory.quality || 0),
-      icon: ShieldAlert,
-      path: '/cdp/insights'
-    },
-  ];
+  const totalCritical = mockHighlightSignals.filter(s => s.severity === 'critical').length;
 
   return (
     <CDPLayout>
@@ -191,123 +160,74 @@ export default function CDPOverviewPage() {
         <meta name="description" content="Nền tảng Dữ liệu Khách hàng - Tổng quan điều hành" />
       </Helmet>
 
-      <div className="space-y-8 max-w-5xl">
-        {/* Strategic Brief Header */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Có gì thay đổi gần đây?</h2>
-              <p className="text-sm text-muted-foreground">
-                {summary.triggered} dịch chuyển hành vi được phát hiện trong tập khách hàng
-              </p>
-            </div>
-            {summary.bySeverity.critical > 0 && (
-              <Badge className="bg-destructive text-destructive-foreground">
-                {summary.bySeverity.critical} Nghiêm trọng
-              </Badge>
-            )}
-          </div>
+      <div className="space-y-6 max-w-6xl">
+        {/* Section 1: Data Context Bar */}
+        <DataContextBar
+          lastUpdated={lastUpdated}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+          dataFreshness="fresh"
+        />
 
-          {/* Category Navigation */}
-          <div className="grid grid-cols-4 gap-3 mb-6">
-            {categorySummary.map((cat) => (
-              <Card 
-                key={cat.label}
-                className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                  cat.count > 0 ? 'border-warning/30' : ''
-                }`}
-                onClick={() => navigate(cat.path)}
-              >
-                <CardContent className="py-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <cat.icon className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm">{cat.label}</span>
-                    </div>
-                    <span className={`font-semibold ${cat.count > 0 ? 'text-warning-foreground' : 'text-muted-foreground'}`}>
-                      {cat.count}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Insight Highlights */}
+        {/* Section 2: Highlight Signals */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Tín hiệu nổi bật</h3>
+            <div>
+              <h2 className="text-lg font-semibold">Tín hiệu nổi bật</h2>
+              <p className="text-sm text-muted-foreground">
+                {mockHighlightSignals.length} tín hiệu phát hiện
+                {totalCritical > 0 && (
+                  <span className="text-destructive font-medium ml-2">
+                    • {totalCritical} nghiêm trọng
+                  </span>
+                )}
+              </p>
+            </div>
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => navigate('/cdp/insights')}
-              className="text-sm text-muted-foreground"
+              className="text-muted-foreground"
             >
-              Xem tất cả <ArrowRight className="w-3 h-3 ml-1" />
+              Xem tất cả <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Card key={i} className="h-32 animate-pulse bg-muted" />
-              ))}
-            </div>
-          ) : topInsights.length === 0 ? (
-            <Card className="py-12 text-center">
-              <CardContent>
-                <AlertTriangle className="w-8 h-8 text-success mx-auto mb-3" />
-                <p className="font-medium">Không có dịch chuyển đáng kể</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Tất cả chỉ số khách hàng đang trong ngưỡng bình thường
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {topInsights.map((insight) => (
-                <InsightHighlightCard
-                  key={insight.code}
-                  headline={insight.definition.nameVi || insight.definition.name}
-                  population={insight.population.description}
-                  direction={insight.detection.direction}
-                  magnitude={Math.abs(insight.detection.changePercent)}
-                  implication={insight.statement}
-                  severity={insight.definition.risk.severity}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Data Confidence Summary */}
-        <section>
-          <h3 className="font-semibold mb-4">Độ tin cậy dữ liệu</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <DataConfidenceSummary
-              identityCoverage={dataQuality.identityCoverage}
-              cogsCoverage={dataQuality.cogsCoverage}
-              isReliable={dataQuality.isReliable}
-            />
-            
-            <Card className="md:col-span-2">
-              <CardContent className="py-4">
-                <div className="flex items-start gap-3">
-                  <Database className="w-5 h-5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium mb-1">Cách tính độ tin cậy</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Độ phủ Identity cho biết % giao dịch được liên kết với khách hàng đã định danh. 
-                      Độ phủ COGS cho biết độ tin cậy của tính toán biên lợi nhuận. 
-                      Tín hiệu được đánh dấu "Cần xem xét" khi độ phủ dưới 70%.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {mockHighlightSignals.slice(0, 6).map((signal) => (
+              <HighlightSignalCard
+                key={signal.id}
+                signal={signal}
+                onClick={() => navigate(`/cdp/insights/${signal.id}`)}
+              />
+            ))}
           </div>
         </section>
+
+        {/* Section 3: Topic Summary */}
+        <TopicSummarySection topics={mockTopicSummaries} />
+
+        {/* Section 4 & 5: Two columns - Equity Snapshot & Decision Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CustomerEquitySnapshot
+            totalEquity12M={45_800_000_000}
+            totalEquity24M={82_500_000_000}
+            atRiskValue={6_200_000_000}
+            atRiskPercent={13.5}
+            equityChange={-4.2}
+            changeDirection="down"
+            topDrivers={[
+              { label: 'Chậm mua lại', impact: -2_800_000_000, direction: 'negative' },
+              { label: 'Giảm AOV', impact: -1_400_000_000, direction: 'negative' },
+              { label: 'New cohort', impact: 1_200_000_000, direction: 'positive' }
+            ]}
+          />
+
+          <PendingDecisionCards decisions={mockDecisions} />
+        </div>
+
+        {/* Section 6: Data Confidence */}
+        <DataConfidenceSummary {...mockDataConfidence} />
       </div>
     </CDPLayout>
   );
