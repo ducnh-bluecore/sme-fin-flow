@@ -1,11 +1,12 @@
-// Product Review Hub Types
+// Product Review & Scoping Hub Types
+// Spec: PRODUCT_REVIEW_HUB.md
 
 export type SystemType = 'FDP' | 'MDP' | 'Control Tower' | 'CDP';
 export type DecisionStatus = 'BUILD' | 'HOLD' | 'DROP' | 'PENDING';
 export type TargetVersion = 'v1' | 'v2' | 'v3';
-export type Priority = 'P0' | 'P1' | 'P2';
-export type Persona = 'CEO' | 'CFO' | 'Ops' | 'Growth' | 'CRM';
-export type ReviewedStatus = 'pending' | 'reviewed' | 'blocked';
+export type Priority = 'P0' | 'P1' | 'P2' | 'P3'; // P3 added per spec
+export type Persona = 'CEO' | 'CFO' | 'Ops' | 'Growth' | 'CRM' | 'Finance Director' | 'Accounting Lead' | 'Marketing Analyst' | 'Product Manager';
+export type ReviewedStatus = 'not_reviewed' | 'reviewed' | 'needs_changes';
 
 export interface DataEntities {
   entities: string[];
@@ -58,141 +59,157 @@ export interface PageReview {
 export interface SystemRouteConfig {
   route: string;
   feature_name: string;
+  version: TargetVersion;  // v1, v2, v3
   is_live: boolean;
   description?: string;
   category?: string;
 }
 
-// ACTUAL routes from the codebase - reflects real system state
+export interface SystemInfo {
+  id: SystemType;
+  name: string;
+  tagline: string;
+  description: string;
+  personas: string[];
+}
+
+// System metadata per spec
+export const SYSTEM_INFO: Record<SystemType, SystemInfo> = {
+  'FDP': {
+    id: 'FDP',
+    name: 'Finance Data Platform',
+    tagline: 'Finance truth & reconciliation',
+    description: 'Single source of truth for financial data, serving CEO/CFO with real-time decisions',
+    personas: ['CFO', 'Finance Director', 'Accounting Lead'],
+  },
+  'Control Tower': {
+    id: 'Control Tower',
+    name: 'Control Tower',
+    tagline: 'Alerts & operational risk',
+    description: 'Real-time alert and action engine for cross-domain operational governance',
+    personas: ['Ops Lead', 'Finance Controller', 'CEO'],
+  },
+  'MDP': {
+    id: 'MDP',
+    name: 'Marketing Data Platform',
+    tagline: 'Marketing performance visibility',
+    description: 'Profit-first marketing analytics with cash impact attribution',
+    personas: ['Growth Lead', 'Marketing Analyst', 'CMO'],
+  },
+  'CDP': {
+    id: 'CDP',
+    name: 'Customer Data Platform',
+    tagline: 'Customer understanding (finance-aligned)',
+    description: 'Customer 360 with financial-grade data quality and LTV prediction',
+    personas: ['Product Manager', 'CRM Manager', 'Growth Analyst'],
+  },
+};
+
+// Routes per spec - grouped by system with version metadata
 export const SYSTEM_ROUTES: Record<SystemType, SystemRouteConfig[]> = {
   'FDP': [
-    // Core Operations
-    { route: '/dashboard', feature_name: 'CFO Dashboard', is_live: true, category: 'Core' },
-    { route: '/ar-operations', feature_name: 'AR Operations', is_live: true, category: 'Core' },
-    { route: '/reconciliation', feature_name: 'Reconciliation Hub', is_live: true, category: 'Core' },
-    { route: '/exceptions', feature_name: 'Exceptions Management', is_live: true, category: 'Core' },
-    { route: '/bills', feature_name: 'Bills & Payables', is_live: true, category: 'Core' },
-    { route: '/credit-debit-notes', feature_name: 'Credit/Debit Notes', is_live: true, category: 'Core' },
-    { route: '/bank-connections', feature_name: 'Bank Connections', is_live: true, category: 'Core' },
-    { route: '/chart-of-accounts', feature_name: 'Chart of Accounts', is_live: true, category: 'Core' },
+    // v1 - Foundation (LIVE)
+    { route: '/dashboard', feature_name: 'Executive Overview', version: 'v1', is_live: true, category: 'Core' },
+    { route: '/financial-reports', feature_name: 'Financial Statement', version: 'v1', is_live: true, category: 'Reporting' },
+    { route: '/pl-report', feature_name: 'Financial Drilldown', version: 'v1', is_live: true, category: 'Reporting' },
+    { route: '/unit-economics', feature_name: 'SKU Profitability', version: 'v1', is_live: true, category: 'Analytics' },
+    { route: '/reconciliation', feature_name: 'Reconciliation', version: 'v1', is_live: true, category: 'Core' },
+    { route: '/ar-operations', feature_name: 'AR Operations', version: 'v1', is_live: true, category: 'Core' },
+    { route: '/bills', feature_name: 'AP Operations', version: 'v1', is_live: true, category: 'Core' },
+    { route: '/cash-forecast', feature_name: 'Cash Forecast', version: 'v1', is_live: true, category: 'Treasury' },
+    { route: '/working-capital-hub', feature_name: 'Working Capital Hub', version: 'v1', is_live: true, category: 'Treasury' },
+    { route: '/channel-analytics', feature_name: 'Channel Analytics', version: 'v1', is_live: true, category: 'Analytics' },
     
-    // Invoicing
-    { route: '/invoice/create', feature_name: 'Create Invoice', is_live: true, category: 'Invoicing' },
-    { route: '/invoice/tracking', feature_name: 'Invoice Tracking', is_live: true, category: 'Invoicing' },
+    // v2 - Expansion (COMING SOON)
+    { route: '/fdp/cash-settlements', feature_name: 'Cash Settlements', version: 'v2', is_live: false, category: 'Treasury' },
+    { route: '/fdp/refunds-chargebacks', feature_name: 'Refunds & Chargebacks', version: 'v2', is_live: false, category: 'Core' },
+    { route: '/fdp/period-close', feature_name: 'Period Close', version: 'v2', is_live: false, category: 'Accounting' },
+    { route: '/credit-debit-notes', feature_name: 'Credit/Debit Notes', version: 'v2', is_live: true, category: 'Core' },
+    { route: '/tax-compliance', feature_name: 'Tax Compliance', version: 'v2', is_live: true, category: 'Compliance' },
+    { route: '/covenant-tracking', feature_name: 'Covenant Tracking', version: 'v2', is_live: true, category: 'Treasury' },
     
-    // Financial Reporting
-    { route: '/financial-reports', feature_name: 'Financial Reports', is_live: true, category: 'Reporting' },
-    { route: '/pl-report', feature_name: 'P&L Report', is_live: true, category: 'Reporting' },
-    { route: '/board-reports', feature_name: 'Board Reports', is_live: true, category: 'Reporting' },
-    { route: '/expenses', feature_name: 'Expenses', is_live: true, category: 'Reporting' },
-    { route: '/revenue', feature_name: 'Revenue', is_live: true, category: 'Reporting' },
-    { route: '/tax-compliance', feature_name: 'Tax Compliance', is_live: true, category: 'Reporting' },
+    // v3 - Advanced (COMING SOON)
+    { route: '/fdp/cash-runway', feature_name: 'Cash Runway', version: 'v3', is_live: false, category: 'Treasury' },
+    { route: '/scenario-hub', feature_name: 'Scenario Comparison', version: 'v3', is_live: true, category: 'Strategy' },
+    { route: '/board-reports', feature_name: 'Board Views', version: 'v3', is_live: true, category: 'Reporting' },
+    { route: '/rolling-forecast', feature_name: 'Rolling Forecast', version: 'v3', is_live: true, category: 'Strategy' },
     
-    // Cash & Treasury
-    { route: '/cash-forecast', feature_name: 'Cash Forecast', is_live: true, category: 'Treasury' },
-    { route: '/cash-flow-direct', feature_name: 'Cash Flow Direct', is_live: true, category: 'Treasury' },
-    { route: '/working-capital-hub', feature_name: 'Working Capital Hub', is_live: true, category: 'Treasury' },
-    { route: '/covenant-tracking', feature_name: 'Covenant Tracking', is_live: true, category: 'Treasury' },
-    
-    // Analytics & Strategy
-    { route: '/unit-economics', feature_name: 'Unit Economics', is_live: true, category: 'Analytics' },
-    { route: '/channel-analytics', feature_name: 'Channel Analytics', is_live: true, category: 'Analytics' },
-    { route: '/performance-analysis', feature_name: 'Performance Analysis', is_live: true, category: 'Analytics' },
-    { route: '/rolling-forecast', feature_name: 'Rolling Forecast', is_live: true, category: 'Analytics' },
-    
-    // Strategic Planning
-    { route: '/scenario-hub', feature_name: 'Scenario Hub', is_live: true, category: 'Strategy' },
-    { route: '/executive-summary', feature_name: 'Executive Summary', is_live: true, category: 'Strategy' },
-    { route: '/capital-allocation', feature_name: 'Capital Allocation', is_live: true, category: 'Strategy' },
-    { route: '/decision-support', feature_name: 'Decision Support', is_live: true, category: 'Strategy' },
-    { route: '/risk-dashboard', feature_name: 'Risk Dashboard', is_live: true, category: 'Strategy' },
-    { route: '/decision-center', feature_name: 'Decision Center', is_live: true, category: 'Strategy' },
-    { route: '/strategic-initiatives', feature_name: 'Strategic Initiatives', is_live: true, category: 'Strategy' },
-    
-    // Retail CFO
-    { route: '/inventory-aging', feature_name: 'Inventory Aging', is_live: true, category: 'Retail CFO' },
-    { route: '/promotion-roi', feature_name: 'Promotion ROI', is_live: true, category: 'Retail CFO' },
-    { route: '/supplier-payments', feature_name: 'Supplier Payments', is_live: true, category: 'Retail CFO' },
-    
-    // Data Management
-    { route: '/data-hub', feature_name: 'Data Hub', is_live: true, category: 'Data' },
-    { route: '/data-warehouse', feature_name: 'Data Warehouse', is_live: true, category: 'Data' },
-    { route: '/etl-rules', feature_name: 'ETL Rules', is_live: true, category: 'Data' },
-    
-    // Admin
-    { route: '/alerts', feature_name: 'Alerts', is_live: true, category: 'Admin' },
-    { route: '/rbac', feature_name: 'RBAC', is_live: true, category: 'Admin' },
-    { route: '/audit-log', feature_name: 'Audit Log', is_live: true, category: 'Admin' },
-    { route: '/api', feature_name: 'API Management', is_live: true, category: 'Admin' },
-    { route: '/settings', feature_name: 'Settings', is_live: true, category: 'Admin' },
-  ],
-  
-  'MDP': [
-    // Executive Views
-    { route: '/mdp/ceo', feature_name: 'CEO Decision View (V2)', is_live: true, category: 'Executive' },
-    { route: '/mdp/cmo-mode', feature_name: 'CMO Mode', is_live: true, category: 'Executive' },
-    { route: '/mdp/marketing-mode', feature_name: 'Marketing Mode', is_live: true, category: 'Executive' },
-    
-    // Campaign & Channel
-    { route: '/mdp/campaigns', feature_name: 'Campaigns', is_live: true, category: 'Operations' },
-    { route: '/mdp/channels', feature_name: 'Channels', is_live: true, category: 'Operations' },
-    { route: '/mdp/funnel', feature_name: 'Funnel Analysis', is_live: true, category: 'Operations' },
-    { route: '/mdp/ab-testing', feature_name: 'A/B Testing', is_live: true, category: 'Operations' },
-    { route: '/mdp/audience', feature_name: 'Audience Insights', is_live: true, category: 'Operations' },
-    
-    // Financial Impact (MDP Manifesto)
-    { route: '/mdp/profit', feature_name: 'Profit Attribution', is_live: true, category: 'Financial' },
-    { route: '/mdp/cash-impact', feature_name: 'Cash Impact', is_live: true, category: 'Financial' },
-    { route: '/mdp/risks', feature_name: 'Risk Alerts', is_live: true, category: 'Financial' },
-    { route: '/mdp/decisions', feature_name: 'Decision Support', is_live: true, category: 'Financial' },
-    
-    // Optimization
-    { route: '/mdp/budget-optimizer', feature_name: 'Budget Optimizer', is_live: true, category: 'Optimization' },
-    { route: '/mdp/scenario-planner', feature_name: 'Scenario Planner', is_live: true, category: 'Optimization' },
-    { route: '/mdp/roi-analytics', feature_name: 'ROI Analytics', is_live: true, category: 'Optimization' },
-    { route: '/mdp/customer-ltv', feature_name: 'Customer LTV', is_live: true, category: 'Optimization' },
-    
-    // Data
-    { route: '/mdp/data-sources', feature_name: 'Data Sources', is_live: true, category: 'Data' },
-    { route: '/mdp/data-readiness', feature_name: 'Data Readiness', is_live: true, category: 'Data' },
+    // Data & Admin
+    { route: '/data-hub', feature_name: 'Data Hub', version: 'v1', is_live: true, category: 'Data' },
+    { route: '/data-warehouse', feature_name: 'Data Warehouse', version: 'v1', is_live: true, category: 'Data' },
+    { route: '/etl-rules', feature_name: 'ETL Rules', version: 'v2', is_live: true, category: 'Data' },
+    { route: '/chart-of-accounts', feature_name: 'Chart of Accounts', version: 'v1', is_live: true, category: 'Config' },
+    { route: '/bank-connections', feature_name: 'Bank Connections', version: 'v1', is_live: true, category: 'Config' },
   ],
   
   'Control Tower': [
-    // Command Center
-    { route: '/control-tower/ceo', feature_name: 'CEO Strategic View', is_live: true, category: 'Command' },
-    { route: '/control-tower/coo', feature_name: 'COO Execution View', is_live: true, category: 'Command' },
-    { route: '/control-tower/situation', feature_name: 'Situation Room', is_live: true, category: 'Command' },
-    { route: '/control-tower/board', feature_name: 'Board View', is_live: true, category: 'Command' },
+    // v1 - Foundation (LIVE)
+    { route: '/control-tower/ceo', feature_name: 'Command Center', version: 'v1', is_live: true, category: 'Command' },
+    { route: '/control-tower/coo', feature_name: 'COO Operations View', version: 'v1', is_live: true, category: 'Command' },
+    { route: '/control-tower/alerts', feature_name: 'Alert Management', version: 'v1', is_live: true, category: 'Alerts' },
+    { route: '/control-tower/decisions', feature_name: 'Decision Cards', version: 'v1', is_live: true, category: 'Governance' },
+    { route: '/control-tower/situation', feature_name: 'Situation Room', version: 'v1', is_live: true, category: 'Command' },
     
-    // Governance
-    { route: '/control-tower/decisions', feature_name: 'Decisions', is_live: true, category: 'Governance' },
-    { route: '/control-tower/alerts', feature_name: 'Alerts', is_live: true, category: 'Governance' },
-    { route: '/control-tower/tasks', feature_name: 'Tasks', is_live: true, category: 'Governance' },
+    // v2 - Expansion (COMING SOON)
+    { route: '/control-tower/risk-appetite', feature_name: 'Risk Appetite', version: 'v2', is_live: false, category: 'Risk' },
+    { route: '/control-tower/sla', feature_name: 'SLA Management', version: 'v2', is_live: false, category: 'Governance' },
+    { route: '/control-tower/ownership', feature_name: 'Ownership Matrix', version: 'v2', is_live: false, category: 'Governance' },
+    { route: '/control-tower/kpi-rules', feature_name: 'KPI Rules', version: 'v2', is_live: true, category: 'Config' },
+    { route: '/control-tower/team', feature_name: 'Team Management', version: 'v2', is_live: true, category: 'Config' },
     
-    // Configuration
-    { route: '/control-tower/kpi-rules', feature_name: 'KPI Rules', is_live: true, category: 'Config' },
-    { route: '/control-tower/team', feature_name: 'Team', is_live: true, category: 'Config' },
-    { route: '/control-tower/settings', feature_name: 'Settings', is_live: true, category: 'Config' },
+    // v3 - Advanced (COMING SOON)
+    { route: '/control-tower/incidents', feature_name: 'Incident History', version: 'v3', is_live: false, category: 'Governance' },
+    { route: '/control-tower/playbooks', feature_name: 'Playbooks', version: 'v3', is_live: false, category: 'Automation' },
+    { route: '/control-tower/cross-system', feature_name: 'Cross-System View', version: 'v3', is_live: false, category: 'Intelligence' },
+    { route: '/control-tower/board', feature_name: 'Board View', version: 'v3', is_live: true, category: 'Executive' },
+  ],
+  
+  'MDP': [
+    // v1 - Foundation (LIVE)
+    { route: '/mdp/ceo', feature_name: 'CEO Decision View', version: 'v1', is_live: true, category: 'Executive' },
+    { route: '/mdp/channels', feature_name: 'Channel Overview', version: 'v1', is_live: true, category: 'Operations' },
+    { route: '/mdp/campaigns', feature_name: 'Campaign Performance', version: 'v1', is_live: true, category: 'Operations' },
+    { route: '/mdp/profit', feature_name: 'Profit Attribution', version: 'v1', is_live: true, category: 'Financial' },
+    { route: '/mdp/cash-impact', feature_name: 'Cash Impact', version: 'v1', is_live: true, category: 'Financial' },
     
-    // Future / Planned
-    { route: '/control-tower/escalation', feature_name: 'Escalation Engine', is_live: false, category: 'Future' },
-    { route: '/control-tower/cross-domain', feature_name: 'Cross-Domain Intelligence', is_live: false, category: 'Future' },
-    { route: '/control-tower/automation', feature_name: 'Action Automation', is_live: false, category: 'Future' },
+    // v2 - Expansion (COMING SOON)
+    { route: '/mdp/budget-optimizer', feature_name: 'Spend & Budget', version: 'v2', is_live: true, category: 'Optimization' },
+    { route: '/mdp/roi-analytics', feature_name: 'ROI Analysis', version: 'v2', is_live: true, category: 'Analytics' },
+    { route: '/mdp/risks', feature_name: 'Risk Alerts', version: 'v2', is_live: true, category: 'Risk' },
+    { route: '/mdp/funnel', feature_name: 'Funnel Analysis', version: 'v2', is_live: true, category: 'Analytics' },
+    { route: '/mdp/ab-testing', feature_name: 'A/B Testing', version: 'v2', is_live: true, category: 'Analytics' },
+    
+    // v3 - Advanced (COMING SOON)
+    { route: '/mdp/attribution', feature_name: 'Multi-Touch Attribution', version: 'v3', is_live: false, category: 'Analytics' },
+    { route: '/mdp/margin-view', feature_name: 'Margin View', version: 'v3', is_live: false, category: 'Financial' },
+    { route: '/mdp/customer-ltv', feature_name: 'Customer LTV', version: 'v3', is_live: true, category: 'Analytics' },
+    { route: '/mdp/scenario-planner', feature_name: 'Scenario Planner', version: 'v3', is_live: true, category: 'Strategy' },
+    
+    // Data
+    { route: '/mdp/data-sources', feature_name: 'Data Sources', version: 'v1', is_live: true, category: 'Data' },
+    { route: '/mdp/data-readiness', feature_name: 'Data Readiness', version: 'v1', is_live: true, category: 'Data' },
   ],
   
   'CDP': [
-    // All CDP routes are future/planned
-    { route: '/cdp/customers', feature_name: 'Customer 360', is_live: false, category: 'Core' },
-    { route: '/cdp/segments', feature_name: 'Segmentation', is_live: false, category: 'Core' },
-    { route: '/cdp/journey', feature_name: 'Customer Journey', is_live: false, category: 'Analytics' },
-    { route: '/cdp/ltv', feature_name: 'LTV Prediction', is_live: false, category: 'Analytics' },
-    { route: '/cdp/churn', feature_name: 'Churn Prediction', is_live: false, category: 'Analytics' },
-    { route: '/cdp/cohorts', feature_name: 'Cohort Analysis', is_live: false, category: 'Analytics' },
-    { route: '/cdp/identity', feature_name: 'Identity Resolution', is_live: false, category: 'Data' },
-    { route: '/cdp/enrichment', feature_name: 'Data Enrichment', is_live: false, category: 'Data' },
+    // v1 - Foundation (COMING SOON - all CDP)
+    { route: '/cdp/customer-overview', feature_name: 'Customer Overview', version: 'v1', is_live: false, category: 'Core' },
+    { route: '/cdp/cohorts', feature_name: 'Cohorts', version: 'v1', is_live: false, category: 'Analytics' },
+    
+    // v2 - Expansion
+    { route: '/cdp/customer-profitability', feature_name: 'Customer Profitability', version: 'v2', is_live: false, category: 'Financial' },
+    { route: '/cdp/segments', feature_name: 'Segments', version: 'v2', is_live: false, category: 'Analytics' },
+    { route: '/cdp/identity', feature_name: 'Identity Resolution', version: 'v2', is_live: false, category: 'Data' },
+    
+    // v3 - Advanced
+    { route: '/cdp/ltv', feature_name: 'LTV (Guarded)', version: 'v3', is_live: false, category: 'Analytics' },
+    { route: '/cdp/retention', feature_name: 'Retention & Expansion', version: 'v3', is_live: false, category: 'Analytics' },
+    { route: '/cdp/journey', feature_name: 'Customer Journey', version: 'v3', is_live: false, category: 'Analytics' },
+    { route: '/cdp/churn', feature_name: 'Churn Prediction', version: 'v3', is_live: false, category: 'Analytics' },
+    { route: '/cdp/enrichment', feature_name: 'Data Enrichment', version: 'v3', is_live: false, category: 'Data' },
   ],
 };
 
+// Data entities options
 export const ENTITY_OPTIONS = [
   'order',
   'customer',
@@ -209,8 +226,13 @@ export const ENTITY_OPTIONS = [
   'employee',
   'budget',
   'forecast',
+  'ad_spend',
+  'conversion',
+  'return',
+  'refund',
 ];
 
+// Grain options
 export const GRAIN_OPTIONS = [
   'daily',
   'hourly',
@@ -223,4 +245,30 @@ export const GRAIN_OPTIONS = [
   'transaction-level',
   'channel-level',
   'invoice-level',
+  'daily by channel',
+  'daily by sku',
+  'daily by campaign',
 ];
+
+// Priority definitions per spec
+export const PRIORITY_INFO: Record<Priority, { label: string; description: string; color: string }> = {
+  'P0': { label: 'P0 Critical', description: 'Phải có trong release', color: 'red' },
+  'P1': { label: 'P1 High', description: 'Rất quan trọng', color: 'orange' },
+  'P2': { label: 'P2 Medium', description: 'Quan trọng nhưng có thể delay', color: 'yellow' },
+  'P3': { label: 'P3 Low', description: 'Nice to have', color: 'slate' },
+};
+
+// Status definitions per spec
+export const STATUS_INFO: Record<DecisionStatus, { label: string; description: string; color: string }> = {
+  'BUILD': { label: 'BUILD', description: 'Sẽ xây dựng trong phiên bản được chỉ định', color: 'emerald' },
+  'HOLD': { label: 'HOLD', description: 'Tạm dừng, chờ điều kiện hoặc ưu tiên', color: 'amber' },
+  'DROP': { label: 'DROP', description: 'Không xây dựng, loại khỏi roadmap', color: 'red' },
+  'PENDING': { label: 'PENDING', description: 'Chưa có quyết định', color: 'slate' },
+};
+
+// Version definitions per spec
+export const VERSION_INFO: Record<TargetVersion, { label: string; description: string }> = {
+  'v1': { label: 'v1 Foundation', description: 'MVP, tính năng cơ bản' },
+  'v2': { label: 'v2 Expansion', description: 'Mở rộng tính năng' },
+  'v3': { label: 'v3 Advanced', description: 'Tính năng nâng cao, tối ưu' },
+};
