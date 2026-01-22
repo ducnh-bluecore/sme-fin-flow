@@ -27,13 +27,17 @@ import { useFeatureDecisions } from './hooks/useFeatureDecisions';
 import { 
   SystemType, 
   SYSTEM_ROUTES, 
+  SYSTEM_INFO,
   DecisionStatus,
   TargetVersion,
   Priority,
   Persona,
   ENTITY_OPTIONS,
   GRAIN_OPTIONS,
-  FeatureDecision
+  FeatureDecision,
+  STATUS_INFO,
+  PRIORITY_INFO,
+  VERSION_INFO,
 } from './types';
 import { toast } from 'sonner';
 
@@ -434,9 +438,10 @@ function DecisionRow({
               <SelectValue placeholder="Pri" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="P0">P0</SelectItem>
-              <SelectItem value="P1">P1</SelectItem>
-              <SelectItem value="P2">P2</SelectItem>
+              <SelectItem value="P0">P0 Critical</SelectItem>
+              <SelectItem value="P1">P1 High</SelectItem>
+              <SelectItem value="P2">P2 Medium</SelectItem>
+              <SelectItem value="P3">P3 Low</SelectItem>
             </SelectContent>
           </Select>
 
@@ -453,6 +458,9 @@ function DecisionRow({
               <SelectItem value="Ops">Ops</SelectItem>
               <SelectItem value="Growth">Growth</SelectItem>
               <SelectItem value="CRM">CRM</SelectItem>
+              <SelectItem value="Finance Director">Finance Director</SelectItem>
+              <SelectItem value="Marketing Analyst">Marketing Analyst</SelectItem>
+              <SelectItem value="Product Manager">Product Manager</SelectItem>
             </SelectContent>
           </Select>
 
@@ -581,7 +589,7 @@ export default function SystemReviewIndex() {
                 {decodedSystem} Review
               </h1>
               <p className="text-slate-400 text-sm">
-                {SYSTEM_ROUTES[decodedSystem].length} routes to review
+                {SYSTEM_INFO[decodedSystem]?.tagline} • {SYSTEM_ROUTES[decodedSystem].length} routes
               </p>
             </div>
           </div>
