@@ -93,6 +93,7 @@ const EquityDriversPage = lazy(() => import("./pages/cdp/equity/EquityDriversPag
 const EquityEvidencePage = lazy(() => import("./pages/cdp/equity/EquityEvidencePage"));
 const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
 const DecisionCardsPage = lazy(() => import("./pages/cdp/DecisionCardsPage"));
+const DecisionDetailPage = lazy(() => import("./pages/cdp/DecisionDetailPage"));
 const DataConfidencePage = lazy(() => import("./pages/cdp/DataConfidencePage"));
 // Legacy CDP pages (keep for backwards compatibility)
 const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
@@ -281,6 +282,11 @@ const AppRoutes = () => {
       <Route path="/cdp/decisions" element={
         <ProtectedRoute>
           <DecisionCardsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/decisions/:cardId" element={
+        <ProtectedRoute>
+          <DecisionDetailPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/confidence" element={
