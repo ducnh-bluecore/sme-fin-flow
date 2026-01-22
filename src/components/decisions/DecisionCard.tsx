@@ -147,7 +147,10 @@ export function DecisionCard({
   expandedEvidence = false,
 }: DecisionCardProps) {
   const [isEvidenceExpanded, setIsEvidenceExpanded] = useState(expandedEvidence);
-  const config = severityConfig[severity];
+  
+  // Safe config access with fallbacks
+  const config = severityConfig[severity] || severityConfig.info;
+  const confConfig = confidenceConfig[confidence] || confidenceConfig.pending;
   const StatusIcon = config.icon;
 
   return (
@@ -189,12 +192,12 @@ export function DecisionCard({
 
           {/* Confidence Badge */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={cn('text-xs', confidenceConfig[confidence].className)}>
-              {confidenceConfig[confidence].label}
+            <span className={cn('text-xs', confConfig.className)}>
+              {confConfig.label}
             </span>
-            {ownership && (
-              <Badge className={cn('text-xs', statusConfig[ownership.status].className)}>
-                {statusConfig[ownership.status].label}
+            {ownership && ownership.status && (
+              <Badge className={cn('text-xs', (statusConfig[ownership.status] || statusConfig.open).className)}>
+                {(statusConfig[ownership.status] || statusConfig.open).label}
               </Badge>
             )}
           </div>
