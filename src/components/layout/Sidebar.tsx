@@ -230,7 +230,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
+      {/* Sidebar - Light Professional */}
       <motion.aside
         initial={false}
         animate={{ 
@@ -240,30 +240,27 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className={cn(
           'fixed left-0 top-0 h-full z-50 flex flex-col overflow-hidden',
-          'bg-sidebar text-sidebar-foreground',
+          'bg-card border-r border-border',
           'lg:relative lg:h-full'
         )}
-        style={{
-          background: 'linear-gradient(180deg, hsl(224 55% 12%) 0%, hsl(224 55% 8%) 100%)',
-        }}
       >
         <div className="w-[280px] h-full flex flex-col">
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-sidebar-border">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-sidebar-accent-foreground">Bluecore</h1>
-              <p className="text-[10px] text-sidebar-foreground/60 -mt-0.5">Finance Data Platform</p>
+              <h1 className="text-base font-semibold text-foreground">Bluecore</h1>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">Finance Data Platform</p>
             </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="lg:hidden text-sidebar-foreground hover:bg-sidebar-accent"
+            className="lg:hidden"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -280,13 +277,13 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                     <button
                       onClick={() => toggleExpand(item.labelKey)}
                       className={cn(
-                        'nav-item w-full justify-between',
-                        hasActiveChild(item.children) && 'text-sidebar-accent-foreground'
+                        'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted',
+                        hasActiveChild(item.children) ? 'text-foreground font-medium' : 'text-muted-foreground'
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <item.icon className="w-5 h-5" />
-                        <span className="text-sm">{t(item.labelKey)}</span>
+                        <item.icon className="w-4 h-4" />
+                        <span>{t(item.labelKey)}</span>
                       </div>
                       {expandedItems.includes(item.labelKey) ? (
                         <ChevronDown className="w-4 h-4" />
@@ -303,7 +300,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden"
                         >
-                          <div className="ml-8 mt-1 space-y-1 border-l border-sidebar-border pl-4">
+                          <div className="ml-6 mt-1 space-y-0.5 border-l border-border pl-3">
                             {item.children.map((child) => (
                               <NavLink
                                 key={child.href}
@@ -313,8 +310,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                   cn(
                                     'block py-2 px-3 rounded-md text-sm transition-colors',
                                     isActive
-                                      ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
-                                      : 'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent'
+                                      ? 'bg-primary/10 text-primary font-medium'
+                                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                                   )
                                 }
                               >
@@ -330,11 +327,16 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                   <NavLink
                     to={item.href!}
                     className={({ isActive }) =>
-                      cn('nav-item', isActive && 'active')
+                      cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                        isActive 
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      )
                     }
                   >
-                    <item.icon className="w-5 h-5" />
-                    <span className="text-sm">{t(item.labelKey)}</span>
+                    <item.icon className="w-4 h-4" />
+                    <span>{t(item.labelKey)}</span>
                   </NavLink>
                 )}
               </div>
@@ -342,24 +344,24 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
             {/* Super Admin Menu - only shown for super admins */}
             {isSuperAdmin && superAdminItems.children && (
-              <div className="pt-3 mt-3 border-t border-sidebar-border">
+              <div className="pt-3 mt-3 border-t border-border">
                 <div>
                   <button
                     onClick={() => toggleExpand(superAdminItems.labelKey)}
                     className={cn(
-                      'nav-item w-full justify-between',
-                      'bg-gradient-to-r from-red-500/10 to-orange-500/10',
-                      hasActiveChild(superAdminItems.children) && 'text-red-300'
+                      'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
+                      'bg-red-50 hover:bg-red-100',
+                      hasActiveChild(superAdminItems.children) ? 'text-red-700 font-medium' : 'text-red-600'
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <superAdminItems.icon className="w-5 h-5 text-red-400" />
-                      <span className="text-sm text-red-300">{t(superAdminItems.labelKey)}</span>
+                      <superAdminItems.icon className="w-4 h-4 text-red-600" />
+                      <span>{t(superAdminItems.labelKey)}</span>
                     </div>
                     {expandedItems.includes(superAdminItems.labelKey) ? (
-                      <ChevronDown className="w-4 h-4 text-red-400" />
+                      <ChevronDown className="w-4 h-4 text-red-600" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-red-400" />
+                      <ChevronRight className="w-4 h-4 text-red-600" />
                     )}
                   </button>
                   <AnimatePresence>
@@ -371,7 +373,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="ml-8 mt-1 space-y-1 border-l border-red-500/30 pl-4">
+                        <div className="ml-6 mt-1 space-y-0.5 border-l border-red-200 pl-3">
                           {superAdminItems.children.map((child) => (
                             <NavLink
                               key={child.href}
@@ -380,8 +382,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                 cn(
                                   'block py-2 px-3 rounded-md text-sm transition-colors',
                                   isActive
-                                    ? 'bg-red-500/20 text-red-300 font-medium'
-                                    : 'text-red-300/70 hover:text-red-300 hover:bg-red-500/10'
+                                    ? 'bg-red-100 text-red-700 font-medium'
+                                    : 'text-red-600 hover:text-red-700 hover:bg-red-50'
                                 )
                               }
                             >
@@ -399,20 +401,20 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         </ScrollArea>
 
         {/* Bottom Section */}
-        <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
+        <div className="px-3 py-4 border-t border-border space-y-1">
           {/* Back to Portal Button */}
           <NavLink
             to="/portal"
             className={({ isActive }) =>
               cn(
-                'nav-item mb-2',
-                'bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10',
-                isActive && 'active'
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-2',
+                'bg-primary/10 hover:bg-primary/20',
+                isActive ? 'text-primary font-medium' : 'text-primary'
               )
             }
           >
-            <Home className="w-5 h-5 text-primary" />
-            <span className="text-sm text-primary font-medium">{t('nav.backToPortal')}</span>
+            <Home className="w-4 h-4" />
+            <span className="font-medium">{t('nav.backToPortal')}</span>
           </NavLink>
           {bottomNavItems.map((item) => (
             item.children ? (
@@ -420,13 +422,13 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 <button
                   onClick={() => toggleExpand(item.labelKey)}
                   className={cn(
-                    'nav-item w-full justify-between',
-                    hasActiveChild(item.children) && 'text-sidebar-accent-foreground'
+                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted',
+                    hasActiveChild(item.children) ? 'text-foreground font-medium' : 'text-muted-foreground'
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <item.icon className="w-5 h-5" />
-                    <span className="text-sm">{t(item.labelKey)}</span>
+                    <item.icon className="w-4 h-4" />
+                    <span>{t(item.labelKey)}</span>
                   </div>
                   {expandedItems.includes(item.labelKey) ? (
                     <ChevronDown className="w-4 h-4" />
@@ -443,7 +445,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="ml-8 mt-1 space-y-1 border-l border-sidebar-border pl-4">
+                      <div className="ml-6 mt-1 space-y-0.5 border-l border-border pl-3">
                         {item.children.map((child) => (
                           <NavLink
                             key={child.href}
@@ -453,8 +455,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                               cn(
                                 'block py-2 px-3 rounded-md text-sm transition-colors',
                                 isActive
-                                  ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium'
-                                  : 'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent'
+                                  ? 'bg-primary/10 text-primary font-medium'
+                                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                               )
                             }
                           >
@@ -472,20 +474,25 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 to={item.href!}
                 end={item.href === '/settings'}
                 className={({ isActive }) =>
-                  cn('nav-item', isActive && 'active')
+                  cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+                    isActive 
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )
                 }
               >
-                <item.icon className="w-5 h-5" />
-                <span className="text-sm">{t(item.labelKey)}</span>
+                <item.icon className="w-4 h-4" />
+                <span>{t(item.labelKey)}</span>
               </NavLink>
             )
           ))}
           <button 
             onClick={handleSignOut}
-            className="nav-item w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors text-destructive hover:bg-destructive/10"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="text-sm">{t('common.logout')}</span>
+            <LogOut className="w-4 h-4" />
+            <span>{t('common.logout')}</span>
           </button>
         </div>
 
