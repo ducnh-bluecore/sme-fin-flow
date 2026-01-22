@@ -166,36 +166,32 @@ export default function ReviewHubHome() {
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-3 mb-8">
           <Button 
-            variant="outline" 
             onClick={() => navigate('/review-hub/routes')}
-            className="border-slate-700 hover:bg-slate-800"
+            className="bg-slate-700 hover:bg-slate-600 text-slate-100 border-0"
           >
             <Database className="h-4 w-4 mr-2" />
             Full Route Map
           </Button>
           <Button 
-            variant="outline" 
             onClick={() => navigate('/review-hub/review')}
-            className="border-slate-700 hover:bg-slate-800"
+            className="bg-slate-700 hover:bg-slate-600 text-slate-100 border-0"
           >
             <CheckCircle2 className="h-4 w-4 mr-2" />
             Review Dashboard
           </Button>
           <Button 
-            variant="outline" 
             onClick={() => navigate('/review-hub/data-contract')}
-            className="border-slate-700 hover:bg-slate-800"
+            className="bg-slate-700 hover:bg-slate-600 text-slate-100 border-0"
           >
             <GitBranch className="h-4 w-4 mr-2" />
             Data Contracts
           </Button>
           <Button 
-            variant="outline" 
             onClick={() => {
               localStorage.removeItem('review_hub_feature_decisions');
               window.location.reload();
             }}
-            className="border-red-700/30 text-red-400 hover:bg-red-950/30"
+            className="bg-red-900/50 hover:bg-red-800/60 text-red-300 border-0"
           >
             <Zap className="h-4 w-4 mr-2" />
             Reset All Decisions
