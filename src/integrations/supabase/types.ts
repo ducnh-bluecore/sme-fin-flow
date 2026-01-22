@@ -3313,6 +3313,228 @@ export type Database = {
           },
         ]
       }
+      central_metric_facts: {
+        Row: {
+          cost: number
+          created_at: string
+          grain_id: string
+          grain_name: string | null
+          grain_type: string
+          id: string
+          margin_percent: number
+          order_count: number
+          period_end: string
+          period_start: string
+          profit: number
+          profit_rank: number | null
+          quantity: number
+          revenue: number
+          revenue_rank: number | null
+          snapshot_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          grain_id: string
+          grain_name?: string | null
+          grain_type: string
+          id?: string
+          margin_percent?: number
+          order_count?: number
+          period_end: string
+          period_start: string
+          profit?: number
+          profit_rank?: number | null
+          quantity?: number
+          revenue?: number
+          revenue_rank?: number | null
+          snapshot_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          grain_id?: string
+          grain_name?: string | null
+          grain_type?: string
+          id?: string
+          margin_percent?: number
+          order_count?: number
+          period_end?: string
+          period_start?: string
+          profit?: number
+          profit_rank?: number | null
+          quantity?: number
+          revenue?: number
+          revenue_rank?: number | null
+          snapshot_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "central_metric_facts_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "central_metrics_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "central_metric_facts_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "v_latest_central_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "central_metric_facts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      central_metrics_snapshots: {
+        Row: {
+          ar_aging_30d: number
+          ar_aging_60d: number
+          ar_aging_90d: number
+          ar_aging_current: number
+          avg_order_value: number
+          cac: number
+          cash_7d_forecast: number
+          cash_runway_months: number
+          cash_today: number
+          ccc: number
+          computation_duration_ms: number | null
+          computed_by: string | null
+          contribution_margin: number
+          contribution_margin_percent: number
+          created_at: string
+          dio: number
+          dpo: number
+          dso: number
+          ebitda: number
+          ebitda_margin_percent: number
+          gross_margin_percent: number
+          gross_profit: number
+          id: string
+          ltv: number
+          ltv_cac_ratio: number
+          marketing_roas: number
+          net_revenue: number
+          overdue_ap: number
+          overdue_ar: number
+          period_end: string
+          period_start: string
+          repeat_customer_rate: number
+          slow_moving_inventory: number
+          snapshot_at: string
+          tenant_id: string
+          total_ap: number
+          total_ar: number
+          total_customers: number
+          total_inventory_value: number
+          total_marketing_spend: number
+          total_orders: number
+        }
+        Insert: {
+          ar_aging_30d?: number
+          ar_aging_60d?: number
+          ar_aging_90d?: number
+          ar_aging_current?: number
+          avg_order_value?: number
+          cac?: number
+          cash_7d_forecast?: number
+          cash_runway_months?: number
+          cash_today?: number
+          ccc?: number
+          computation_duration_ms?: number | null
+          computed_by?: string | null
+          contribution_margin?: number
+          contribution_margin_percent?: number
+          created_at?: string
+          dio?: number
+          dpo?: number
+          dso?: number
+          ebitda?: number
+          ebitda_margin_percent?: number
+          gross_margin_percent?: number
+          gross_profit?: number
+          id?: string
+          ltv?: number
+          ltv_cac_ratio?: number
+          marketing_roas?: number
+          net_revenue?: number
+          overdue_ap?: number
+          overdue_ar?: number
+          period_end: string
+          period_start: string
+          repeat_customer_rate?: number
+          slow_moving_inventory?: number
+          snapshot_at?: string
+          tenant_id: string
+          total_ap?: number
+          total_ar?: number
+          total_customers?: number
+          total_inventory_value?: number
+          total_marketing_spend?: number
+          total_orders?: number
+        }
+        Update: {
+          ar_aging_30d?: number
+          ar_aging_60d?: number
+          ar_aging_90d?: number
+          ar_aging_current?: number
+          avg_order_value?: number
+          cac?: number
+          cash_7d_forecast?: number
+          cash_runway_months?: number
+          cash_today?: number
+          ccc?: number
+          computation_duration_ms?: number | null
+          computed_by?: string | null
+          contribution_margin?: number
+          contribution_margin_percent?: number
+          created_at?: string
+          dio?: number
+          dpo?: number
+          dso?: number
+          ebitda?: number
+          ebitda_margin_percent?: number
+          gross_margin_percent?: number
+          gross_profit?: number
+          id?: string
+          ltv?: number
+          ltv_cac_ratio?: number
+          marketing_roas?: number
+          net_revenue?: number
+          overdue_ap?: number
+          overdue_ar?: number
+          period_end?: string
+          period_start?: string
+          repeat_customer_rate?: number
+          slow_moving_inventory?: number
+          snapshot_at?: string
+          tenant_id?: string
+          total_ap?: number
+          total_ar?: number
+          total_customers?: number
+          total_inventory_value?: number
+          total_marketing_spend?: number
+          total_orders?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_analytics: {
         Row: {
           analytics_date: string
@@ -6960,6 +7182,122 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "feature_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_monthly_summary: {
+        Row: {
+          ap_balance: number
+          ar_balance: number
+          avg_order_value: number
+          cac: number
+          cash_inflows: number
+          cash_outflows: number
+          ccc: number
+          closing_cash: number
+          cogs: number
+          computed_at: string
+          contribution_margin: number
+          created_at: string
+          customer_count: number
+          dio: number
+          dpo: number
+          dso: number
+          ebitda: number
+          gross_margin_percent: number
+          gross_profit: number
+          id: string
+          inventory_balance: number
+          marketing_spend: number
+          month_end: string
+          month_start: string
+          net_cash_flow: number
+          net_revenue: number
+          operating_expenses: number
+          order_count: number
+          revenue_mom_change: number | null
+          revenue_yoy_change: number | null
+          roas: number
+          tenant_id: string
+          year_month: string
+        }
+        Insert: {
+          ap_balance?: number
+          ar_balance?: number
+          avg_order_value?: number
+          cac?: number
+          cash_inflows?: number
+          cash_outflows?: number
+          ccc?: number
+          closing_cash?: number
+          cogs?: number
+          computed_at?: string
+          contribution_margin?: number
+          created_at?: string
+          customer_count?: number
+          dio?: number
+          dpo?: number
+          dso?: number
+          ebitda?: number
+          gross_margin_percent?: number
+          gross_profit?: number
+          id?: string
+          inventory_balance?: number
+          marketing_spend?: number
+          month_end: string
+          month_start: string
+          net_cash_flow?: number
+          net_revenue?: number
+          operating_expenses?: number
+          order_count?: number
+          revenue_mom_change?: number | null
+          revenue_yoy_change?: number | null
+          roas?: number
+          tenant_id: string
+          year_month: string
+        }
+        Update: {
+          ap_balance?: number
+          ar_balance?: number
+          avg_order_value?: number
+          cac?: number
+          cash_inflows?: number
+          cash_outflows?: number
+          ccc?: number
+          closing_cash?: number
+          cogs?: number
+          computed_at?: string
+          contribution_margin?: number
+          created_at?: string
+          customer_count?: number
+          dio?: number
+          dpo?: number
+          dso?: number
+          ebitda?: number
+          gross_margin_percent?: number
+          gross_profit?: number
+          id?: string
+          inventory_balance?: number
+          marketing_spend?: number
+          month_end?: string
+          month_start?: string
+          net_cash_flow?: number
+          net_revenue?: number
+          operating_expenses?: number
+          order_count?: number
+          revenue_mom_change?: number | null
+          revenue_yoy_change?: number | null
+          roas?: number
+          tenant_id?: string
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_monthly_summary_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -15809,6 +16147,60 @@ export type Database = {
           },
         ]
       }
+      v_latest_central_metrics: {
+        Row: {
+          ar_aging_30d: number | null
+          ar_aging_60d: number | null
+          ar_aging_90d: number | null
+          ar_aging_current: number | null
+          avg_order_value: number | null
+          cac: number | null
+          cash_7d_forecast: number | null
+          cash_runway_months: number | null
+          cash_today: number | null
+          ccc: number | null
+          computation_duration_ms: number | null
+          computed_by: string | null
+          contribution_margin: number | null
+          contribution_margin_percent: number | null
+          created_at: string | null
+          dio: number | null
+          dpo: number | null
+          dso: number | null
+          ebitda: number | null
+          ebitda_margin_percent: number | null
+          gross_margin_percent: number | null
+          gross_profit: number | null
+          id: string | null
+          ltv: number | null
+          ltv_cac_ratio: number | null
+          marketing_roas: number | null
+          net_revenue: number | null
+          overdue_ap: number | null
+          overdue_ar: number | null
+          period_end: string | null
+          period_start: string | null
+          repeat_customer_rate: number | null
+          slow_moving_inventory: number | null
+          snapshot_at: string | null
+          tenant_id: string | null
+          total_ap: number | null
+          total_ar: number | null
+          total_customers: number | null
+          total_inventory_value: number | null
+          total_marketing_spend: number | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_pending_approvals: {
         Row: {
           action: string | null
@@ -16104,6 +16496,14 @@ export type Database = {
         }
         Returns: Json
       }
+      compute_central_metrics_snapshot: {
+        Args: {
+          p_period_end?: string
+          p_period_start?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
@@ -16178,6 +16578,58 @@ export type Database = {
           p_to_currency: string
         }
         Returns: number
+      }
+      get_latest_central_metrics: {
+        Args: { p_max_age_minutes?: number; p_tenant_id: string }
+        Returns: {
+          ar_aging_30d: number
+          ar_aging_60d: number
+          ar_aging_90d: number
+          ar_aging_current: number
+          avg_order_value: number
+          cac: number
+          cash_7d_forecast: number
+          cash_runway_months: number
+          cash_today: number
+          ccc: number
+          computation_duration_ms: number | null
+          computed_by: string | null
+          contribution_margin: number
+          contribution_margin_percent: number
+          created_at: string
+          dio: number
+          dpo: number
+          dso: number
+          ebitda: number
+          ebitda_margin_percent: number
+          gross_margin_percent: number
+          gross_profit: number
+          id: string
+          ltv: number
+          ltv_cac_ratio: number
+          marketing_roas: number
+          net_revenue: number
+          overdue_ap: number
+          overdue_ar: number
+          period_end: string
+          period_start: string
+          repeat_customer_rate: number
+          slow_moving_inventory: number
+          snapshot_at: string
+          tenant_id: string
+          total_ap: number
+          total_ar: number
+          total_customers: number
+          total_inventory_value: number
+          total_marketing_spend: number
+          total_orders: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "central_metrics_snapshots"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
       has_role: {
