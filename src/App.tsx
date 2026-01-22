@@ -94,6 +94,13 @@ const DataWarehouseSalesKit = lazy(() => import("./pages/sales-kit/DataWarehouse
 const FDPSalesKit = lazy(() => import("./pages/sales-kit/FDPSalesKit"));
 const FDPSalesDeckPage = lazy(() => import("./pages/fdp/FDPSalesDeckPage"));
 
+// Product Review Hub pages
+const ReviewHubHome = lazy(() => import("./pages/review-hub/ReviewHubHome"));
+const ReviewHubRoutes = lazy(() => import("./pages/review-hub/ReviewHubRoutes"));
+const SystemReviewIndex = lazy(() => import("./pages/review-hub/SystemReviewIndex"));
+const CrossSystemReview = lazy(() => import("./pages/review-hub/CrossSystemReview"));
+const DataContractView = lazy(() => import("./pages/review-hub/DataContractView"));
+
 // MDP pages - eager import to avoid reload issues
 import MDPDashboardPage from "./pages/MDPDashboardPage";
 import MarketingModePage from "./pages/mdp/MarketingModePage";
@@ -198,6 +205,33 @@ const AppRoutes = () => {
       <Route path="/sales-kit/mdp" element={
         <ProtectedRoute>
           <MDPSalesDeckPage />
+        </ProtectedRoute>
+      } />
+
+      {/* Product Review Hub Routes - Standalone governance system */}
+      <Route path="/review-hub" element={
+        <ProtectedRoute>
+          <ReviewHubHome />
+        </ProtectedRoute>
+      } />
+      <Route path="/review-hub/routes" element={
+        <ProtectedRoute>
+          <ReviewHubRoutes />
+        </ProtectedRoute>
+      } />
+      <Route path="/review-hub/systems/:system" element={
+        <ProtectedRoute>
+          <SystemReviewIndex />
+        </ProtectedRoute>
+      } />
+      <Route path="/review-hub/review" element={
+        <ProtectedRoute>
+          <CrossSystemReview />
+        </ProtectedRoute>
+      } />
+      <Route path="/review-hub/data-contract" element={
+        <ProtectedRoute>
+          <DataContractView />
         </ProtectedRoute>
       } />
 

@@ -458,6 +458,13 @@ export default function PortalPage() {
               <FileText className="h-3.5 w-3.5" />
               <span>MDP Sales Deck</span>
             </button>
+            <button 
+              onClick={() => navigate('/review-hub')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 text-slate-400 text-sm font-medium hover:bg-slate-800 transition-all border border-slate-700/30"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Product Review Hub</span>
+            </button>
           </motion.div>
 
           {/* Footer tech detail */}
