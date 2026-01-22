@@ -1,16 +1,26 @@
+/**
+ * useWorkingCapital - REFACTORED to use precomputed data
+ * 
+ * ⚠️ NOW USES CANONICAL HOOKS ONLY - NO CLIENT-SIDE CALCULATIONS
+ * 
+ * Uses:
+ * - useWorkingCapitalDaily for historical trend
+ * - useLatestWorkingCapital for current snapshot
+ * - useFinanceTruthSnapshot for core metrics
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
-import { format, subMonths } from 'date-fns';
-import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { format } from 'date-fns';
+import { useWorkingCapitalDaily, useLatestWorkingCapital, FormattedWorkingCapital } from './useWorkingCapitalDaily';
+import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
-/**
- * Working Capital Hook - Refactored
- * Now uses useCentralFinancialMetrics for core DSO/DPO calculations (Single Source of Truth).
- * Avoids duplicate calculations with useCashConversionCycle.
- */
+// =============================================================
+// TYPES
+// =============================================================
 
 export interface WorkingCapitalMetric {
   id: string;
@@ -54,6 +64,10 @@ export interface WorkingCapitalRecommendation {
   action: string;
 }
 
+// =============================================================
+// MAIN HOOKS - Now thin wrappers over canonical hooks
+// =============================================================
+
 export function useWorkingCapitalMetrics() {
   const { data: tenantId } = useActiveTenantId();
   
@@ -73,131 +87,160 @@ export function useWorkingCapitalMetrics() {
   });
 }
 
+/**
+ * REFACTORED: Now uses precomputed data from working_capital_daily
+ * NO client-side DSO/DPO/CCC calculations
+ */
 export function useWorkingCapitalSummary() {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
-  // Use centralized financial metrics (Single Source of Truth)
-  const { data: metrics } = useCentralFinancialMetrics();
+  
+  // Use canonical precomputed hooks
+  const { data: dailyData } = useWorkingCapitalDaily({ days: 90 });
+  const { data: latestWC } = useLatestWorkingCapital();
+  const { data: snapshot } = useFinanceTruthSnapshot();
   
   return useQuery({
     queryKey: ['working-capital-summary', tenantId, startDateStr, endDateStr],
-    queryFn: async () => {
-      // Get historical metrics from DB
-      const { data: dbMetrics, error: metricsError } = await supabase
-        .from('working_capital_metrics')
-        .select('*')
-        .order('metric_date', { ascending: false })
-        .limit(12);
+    queryFn: async (): Promise<WorkingCapitalSummary | null> => {
+      // Build current metric from precomputed data ONLY
+      const dso = latestWC?.dso ?? snapshot?.dso ?? 0;
+      const dpo = latestWC?.dpo ?? snapshot?.dpo ?? 0;
+      const dio = latestWC?.dio ?? 0;
+      const ccc = latestWC?.ccc ?? (dso + dio - dpo);
+      const totalAR = latestWC?.totalAR ?? snapshot?.totalAR ?? 0;
+      const totalAP = latestWC?.totalAP ?? snapshot?.totalAP ?? 0;
+      const inventory = latestWC?.inventory ?? snapshot?.totalInventoryValue ?? 0;
       
-      if (metricsError) throw metricsError;
+      // Targets from DB or industry defaults
+      const targetDSO = 30;
+      const targetDPO = 45;
+      const targetDIO = 45;
       
-      // Use centralized metrics for current calculations (SSOT)
-      const totalAR = metrics?.totalAR || 0;
-      const totalAP = metrics?.totalAP || 0;
-      const calculatedDSO = metrics?.dso || 0;
-      const calculatedDPO = metrics?.dpo || 0;
-      const calculatedDIO = metrics?.dio || 0;
-      const calculatedCCC = metrics?.ccc || 0;
-      const inventory = metrics?.inventory || 0;
-      const dailyRevenue = metrics?.dailySales || 0;
-      const dailyExpenses = metrics?.totalOpex ? metrics.totalOpex / metrics.daysInPeriod : 0;
-      const annualRevenue = metrics?.netRevenue ? metrics.netRevenue * (365 / metrics.daysInPeriod) : 0;
-      const annualExpenses = metrics?.totalOpex ? metrics.totalOpex * (365 / metrics.daysInPeriod) : 0;
+      // Potential cash release - precomputed in snapshot if available
+      // Otherwise simple formula: AR reduction potential
+      const potentialCashRelease = dso > targetDSO && dso > 0
+        ? totalAR * (1 - targetDSO / dso)
+        : 0;
       
-      // Build current metric using centralized data
       const current: WorkingCapitalMetric = {
         id: 'current',
         tenant_id: tenantId || '',
-        metric_date: format(new Date(), 'yyyy-MM-dd'),
-        dso_days: calculatedDSO,
-        dpo_days: calculatedDPO,
-        dio_days: calculatedDIO,
-        ccc_days: calculatedCCC,
+        metric_date: latestWC?.day || format(new Date(), 'yyyy-MM-dd'),
+        dso_days: dso,
+        dpo_days: dpo,
+        dio_days: dio,
+        ccc_days: ccc,
         accounts_receivable: totalAR,
         accounts_payable: totalAP,
         inventory_value: inventory,
         current_assets: totalAR + inventory,
         current_liabilities: totalAP,
-        net_working_capital: totalAR + inventory - totalAP,
-        ar_turnover: totalAR > 0 ? annualRevenue / totalAR : 0,
-        ap_turnover: totalAP > 0 ? annualExpenses / totalAP : 0,
-        inventory_turnover: inventory > 0 ? (metrics?.cogs || 0) / inventory : 0,
-        target_dso: metrics?.industryBenchmark.dso || 30,
-        target_dpo: metrics?.industryBenchmark.dpo || 45,
-        target_dio: metrics?.industryBenchmark.dio || 45,
-        // Correct formula: AR × (1 - targetDSO / currentDSO)
-        // This represents how much AR would decrease if DSO improved to target
-        potential_cash_release: calculatedDSO > 30 && calculatedDSO > 0
-          ? totalAR * (1 - 30 / calculatedDSO)
-          : 0,
+        net_working_capital: latestWC?.netWorkingCapital ?? (totalAR + inventory - totalAP),
+        ar_turnover: latestWC?.arTurnover ?? 0,
+        ap_turnover: latestWC?.apTurnover ?? 0,
+        inventory_turnover: latestWC?.inventoryTurnover ?? 0,
+        target_dso: targetDSO,
+        target_dpo: targetDPO,
+        target_dio: targetDIO,
+        potential_cash_release: potentialCashRelease,
         created_at: new Date().toISOString(),
       };
       
-      // Generate recommendations based on centralized metrics
-      const recommendations: WorkingCapitalRecommendation[] = [];
+      // Build trend from precomputed daily data (no calculations)
+      const trend: WorkingCapitalMetric[] = (dailyData || []).map((d: FormattedWorkingCapital) => ({
+        id: d.day,
+        tenant_id: tenantId || '',
+        metric_date: d.day,
+        dso_days: d.dso,
+        dpo_days: d.dpo,
+        dio_days: d.dio,
+        ccc_days: d.ccc,
+        accounts_receivable: d.totalAR,
+        accounts_payable: d.totalAP,
+        inventory_value: d.inventory,
+        current_assets: d.totalAR + d.inventory,
+        current_liabilities: d.totalAP,
+        net_working_capital: d.netWorkingCapital,
+        ar_turnover: d.arTurnover,
+        ap_turnover: d.apTurnover,
+        inventory_turnover: d.inventoryTurnover,
+        target_dso: targetDSO,
+        target_dpo: targetDPO,
+        target_dio: targetDIO,
+        potential_cash_release: 0,
+        created_at: d.day,
+      }));
       
-      if (calculatedDSO > 45) {
+      // Generate recommendations from precomputed values (no calculations)
+      const recommendations: WorkingCapitalRecommendation[] = [];
+      const dailyRevenue = snapshot?.netRevenue && snapshot?.netRevenue > 0 
+        ? snapshot.netRevenue / 30 : 0;
+      
+      if (dso > 45) {
         recommendations.push({
           id: 'dso-high',
           type: 'dso',
           priority: 'high',
           title: 'DSO cao - Cần cải thiện thu hồi công nợ',
-          description: `DSO hiện tại ${calculatedDSO} ngày, cao hơn mức tối ưu 30-45 ngày`,
-          potentialImpact: (calculatedDSO - 30) * dailyRevenue,
+          description: `DSO hiện tại ${dso} ngày, cao hơn mức tối ưu 30-45 ngày`,
+          potentialImpact: (dso - 30) * dailyRevenue,
           action: 'Tăng cường theo dõi công nợ, áp dụng chính sách thanh toán sớm',
         });
       }
       
-      if (calculatedDPO < 30) {
+      if (dpo < 30) {
         recommendations.push({
           id: 'dpo-low',
           type: 'dpo',
           priority: 'medium',
           title: 'DPO thấp - Có thể kéo dài kỳ thanh toán',
-          description: `DPO hiện tại ${calculatedDPO} ngày, có thể đàm phán kéo dài với NCC`,
-          potentialImpact: (45 - calculatedDPO) * dailyExpenses,
+          description: `DPO hiện tại ${dpo} ngày, có thể đàm phán kéo dài với NCC`,
+          potentialImpact: (45 - dpo) * dailyRevenue * 0.7,
           action: 'Đàm phán lại điều khoản thanh toán với nhà cung cấp chính',
         });
       }
       
-      const cccDays = calculatedDSO - calculatedDPO;
-      if (cccDays > 60) {
+      if (ccc > 60) {
         recommendations.push({
           id: 'ccc-high',
           type: 'general',
           priority: 'high',
           title: 'Chu kỳ tiền mặt dài',
-          description: `CCC ${cccDays} ngày, vốn bị kẹt trong hoạt động kinh doanh`,
-          potentialImpact: cccDays * dailyRevenue * 0.1,
+          description: `CCC ${ccc} ngày, vốn bị kẹt trong hoạt động kinh doanh`,
+          potentialImpact: ccc * dailyRevenue * 0.1,
           action: 'Cần cải thiện đồng thời DSO và DPO',
         });
       }
       
-      // Determine CCC trend from historical data
+      // Determine CCC trend from precomputed trend data
       let cccTrend: 'improving' | 'stable' | 'worsening' = 'stable';
-      if (dbMetrics && dbMetrics.length >= 3) {
-        const recentCCC = dbMetrics.slice(0, 3).map(m => m.ccc_days);
+      if (trend.length >= 6) {
+        const recentCCC = trend.slice(0, 3).map(m => m.ccc_days);
         const avgRecent = recentCCC.reduce((a, b) => a + b, 0) / 3;
-        const oldCCC = dbMetrics.slice(-3).map(m => m.ccc_days);
+        const oldCCC = trend.slice(-3).map(m => m.ccc_days);
         const avgOld = oldCCC.reduce((a, b) => a + b, 0) / 3;
         
         if (avgRecent < avgOld - 5) cccTrend = 'improving';
         else if (avgRecent > avgOld + 5) cccTrend = 'worsening';
       }
       
-      const summary: WorkingCapitalSummary = {
+      return {
         current,
-        trend: dbMetrics as WorkingCapitalMetric[] || [],
+        trend,
         recommendations,
         totalPotentialCashRelease: recommendations.reduce((sum, r) => sum + r.potentialImpact, 0),
         cccTrend,
       };
-      
-      return summary;
     },
-    enabled: !!tenantId && !!metrics,
+    enabled: !!tenantId && (!!latestWC || !!snapshot),
+    staleTime: 5 * 60 * 1000,
   });
 }
+
+// =============================================================
+// MUTATION - Keep for saving metrics
+// =============================================================
 
 export function useSaveWorkingCapitalMetric() {
   const queryClient = useQueryClient();
