@@ -38,16 +38,16 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Overview', href: '/cdp', icon: LayoutGrid },
-  { label: 'Insights', href: '/cdp/insights', icon: TrendingUp },
-  { label: 'Populations', href: '/cdp/populations', icon: Users },
-  { label: 'Decision Cards', href: '/cdp/decisions', icon: FileCheck },
-  { label: 'Data Confidence', href: '/cdp/confidence', icon: ShieldCheck },
+  { label: 'Tổng quan', href: '/cdp', icon: LayoutGrid },
+  { label: 'Tín hiệu', href: '/cdp/insights', icon: TrendingUp },
+  { label: 'Tập khách hàng', href: '/cdp/populations', icon: Users },
+  { label: 'Quyết định', href: '/cdp/decisions', icon: FileCheck },
+  { label: 'Độ tin cậy', href: '/cdp/confidence', icon: ShieldCheck },
 ];
 
 const bottomNavItems: NavItem[] = [
-  { label: 'Settings', href: '/cdp/settings', icon: Settings },
-  { label: 'Help', href: '/cdp/help', icon: HelpCircle },
+  { label: 'Cài đặt', href: '/cdp/settings', icon: Settings },
+  { label: 'Trợ giúp', href: '/cdp/help', icon: HelpCircle },
 ];
 
 interface CDPLayoutProps {
@@ -91,7 +91,7 @@ export function CDPLayout({ children }: CDPLayoutProps) {
           </div>
           <div>
             <h1 className="text-base font-semibold text-foreground">Bluecore</h1>
-            <p className="text-[10px] text-muted-foreground -mt-0.5">Customer Data Platform</p>
+            <p className="text-[10px] text-muted-foreground -mt-0.5">Nền tảng Dữ liệu Khách hàng</p>
           </div>
         </div>
         <Button
@@ -125,7 +125,7 @@ export function CDPLayout({ children }: CDPLayoutProps) {
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <Home className="w-4 h-4" />
-          <span>Back to Portal</span>
+          <span>Quay lại Portal</span>
         </RouterNavLink>
       </div>
     </div>

@@ -36,6 +36,12 @@ const categoryIcons: Record<InsightCategory, React.ReactNode> = {
   quality: <UserCheck className="h-4 w-4" />,
 };
 
+const severityLabels = {
+  critical: 'NGHIÊM TRỌNG',
+  high: 'CAO',
+  medium: 'TRUNG BÌNH'
+};
+
 function formatCurrency(value: number): string {
   if (value >= 1e9) return `${(value / 1e9).toFixed(1)} tỷ`;
   if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
@@ -60,7 +66,7 @@ function InsightCard({ insight }: { insight: DetectedInsight }) {
               <span className="ml-1">{insight.code}</span>
             </Badge>
             <Badge className={getSeverityColor(definition.risk.severity)}>
-              {definition.risk.severity.toUpperCase()}
+              {severityLabels[definition.risk.severity]}
             </Badge>
           </div>
           
@@ -69,7 +75,7 @@ function InsightCard({ insight }: { insight: DetectedInsight }) {
           
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Population</span>
+              <span className="text-muted-foreground">Tập khách hàng</span>
               <p className="font-medium">{population.customerCount.toLocaleString()} khách</p>
               <p className="text-xs text-muted-foreground">{population.revenueContribution.toFixed(1)}% doanh thu</p>
             </div>
@@ -86,7 +92,7 @@ function InsightCard({ insight }: { insight: DetectedInsight }) {
               </p>
             </div>
             <div>
-              <span className="text-muted-foreground">Impact</span>
+              <span className="text-muted-foreground">Tác động</span>
               <p className="font-medium">{impact.estimatedAmount > 0 ? formatCurrency(impact.estimatedAmount) : 'Rủi ro forecast'}</p>
               <p className="text-xs text-muted-foreground">{impact.timeHorizon}</p>
             </div>
@@ -103,22 +109,22 @@ function InsightCard({ insight }: { insight: DetectedInsight }) {
           <div className="bg-muted/50 rounded-lg p-3 mb-3">
             <h4 className="text-sm font-medium mb-1 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Decision Prompt
+              Câu hỏi quyết định
             </h4>
             <p className="text-sm text-foreground">{insight.decisionPrompt}</p>
           </div>
           
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Risk Type</span>
+              <span className="text-muted-foreground">Loại rủi ro</span>
               <p className="font-medium">{definition.risk.primary}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Financial Impact</span>
+              <span className="text-muted-foreground">Ảnh hưởng tài chính</span>
               <p className="font-medium capitalize">{definition.risk.financialImpactType}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Detection Window</span>
+              <span className="text-muted-foreground">Cửa sổ phát hiện</span>
               <p className="font-medium">{definition.detection.windowDays} ngày</p>
             </div>
             <div>
@@ -145,11 +151,11 @@ function RegistryOverview({ triggeredCodes }: { triggeredCodes: Set<InsightCode>
               <div className="flex items-center gap-2">
                 {categoryIcons[category]}
                 <h3 className="font-semibold">{meta.nameVi}</h3>
-                <Badge variant="outline">{meta.count} insights</Badge>
+                <Badge variant="outline">{meta.count} tín hiệu</Badge>
               </div>
               <div className="flex items-center gap-2">
                 {triggeredCount > 0 && (
-                  <Badge className="bg-red-100 text-red-700">{triggeredCount} triggered</Badge>
+                  <Badge className="bg-red-100 text-red-700">{triggeredCount} kích hoạt</Badge>
                 )}
               </div>
             </div>
@@ -200,30 +206,30 @@ export default function InsightRegistryPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">CDP Insight Registry v1</h1>
-        <p className="text-muted-foreground">25 hard-coded insights với logic phát hiện cố định</p>
+        <p className="text-muted-foreground">25 tín hiệu hard-coded với logic phát hiện cố định</p>
       </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="p-4 text-center">
           <p className="text-3xl font-bold">25</p>
-          <p className="text-sm text-muted-foreground">Tổng Insights</p>
+          <p className="text-sm text-muted-foreground">Tổng tín hiệu</p>
         </Card>
         <Card className="p-4 text-center bg-red-50">
           <p className="text-3xl font-bold text-red-600">{summary.triggered}</p>
-          <p className="text-sm text-muted-foreground">Triggered</p>
+          <p className="text-sm text-muted-foreground">Kích hoạt</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-3xl font-bold text-red-600">{summary.bySeverity.critical}</p>
-          <p className="text-sm text-muted-foreground">Critical</p>
+          <p className="text-sm text-muted-foreground">Nghiêm trọng</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-3xl font-bold text-orange-600">{summary.bySeverity.high}</p>
-          <p className="text-sm text-muted-foreground">High</p>
+          <p className="text-sm text-muted-foreground">Cao</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-3xl font-bold text-amber-600">{summary.bySeverity.medium}</p>
-          <p className="text-sm text-muted-foreground">Medium</p>
+          <p className="text-sm text-muted-foreground">Trung bình</p>
         </Card>
       </div>
 
@@ -235,11 +241,11 @@ export default function InsightRegistryPage() {
             <div>
               <h3 className="font-semibold text-amber-800">Cảnh báo chất lượng dữ liệu</h3>
               <p className="text-sm text-amber-700">
-                Identity Coverage: {dataQuality.identityCoverage.toFixed(1)}% | 
-                COGS Coverage: {dataQuality.cogsCoverage.toFixed(1)}%
+                Độ phủ Identity: {dataQuality.identityCoverage.toFixed(1)}% | 
+                Độ phủ COGS: {dataQuality.cogsCoverage.toFixed(1)}%
               </p>
               <p className="text-sm text-amber-600 mt-1">
-                Insights có thể không chính xác do dữ liệu không đầy đủ.
+                Tín hiệu có thể không chính xác do dữ liệu không đầy đủ.
               </p>
             </div>
           </div>
@@ -251,11 +257,11 @@ export default function InsightRegistryPage() {
         <TabsList>
           <TabsTrigger value="triggered" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
-            Triggered ({summary.triggered})
+            Kích hoạt ({summary.triggered})
           </TabsTrigger>
           <TabsTrigger value="registry" className="flex items-center gap-2">
             <Info className="h-4 w-4" />
-            Full Registry (25)
+            Toàn bộ Registry (25)
           </TabsTrigger>
         </TabsList>
 
@@ -263,8 +269,8 @@ export default function InsightRegistryPage() {
           {insights.length === 0 ? (
             <Card className="p-8 text-center">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
-              <h3 className="font-semibold text-lg">Không có insight nào triggered</h3>
-              <p className="text-muted-foreground">Tất cả metrics đang trong ngưỡng bình thường.</p>
+              <h3 className="font-semibold text-lg">Không có tín hiệu nào được kích hoạt</h3>
+              <p className="text-muted-foreground">Tất cả chỉ số đang trong ngưỡng bình thường.</p>
             </Card>
           ) : (
             <ScrollArea className="h-[600px]">
@@ -299,7 +305,7 @@ export default function InsightRegistryPage() {
               </div>
               <p className="text-sm font-medium">{meta.nameVi}</p>
               <p className="text-xs text-muted-foreground">
-                {summary.byCategory[category]} / {meta.count} triggered
+                {summary.byCategory[category]} / {meta.count} kích hoạt
               </p>
             </div>
           ))}

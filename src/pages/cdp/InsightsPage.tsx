@@ -31,20 +31,20 @@ const categoryIcons: Record<InsightCategory, typeof DollarSign> = {
   quality: Database
 };
 
-// Category labels
+// Category labels (Vietnamese)
 const categoryLabels: Record<InsightCategory, string> = {
-  value: 'Value & Revenue',
-  velocity: 'Purchase Timing',
-  mix: 'Monetization Mix',
-  risk: 'Risk Signals',
-  quality: 'Data Quality'
+  value: 'Giá trị & Doanh thu',
+  velocity: 'Tần suất mua',
+  mix: 'Cơ cấu sản phẩm',
+  risk: 'Tín hiệu rủi ro',
+  quality: 'Chất lượng dữ liệu'
 };
 
 // Severity styles (using semantic tokens)
 const severityStyles = {
-  critical: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20' },
-  high: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20' },
-  medium: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' }
+  critical: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20', label: 'NGHIÊM TRỌNG' },
+  high: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', label: 'CAO' },
+  medium: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border', label: 'TRUNG BÌNH' }
 };
 
 // Insight row component
@@ -61,11 +61,11 @@ function InsightRow({ insight }: { insight: DetectedInsight }) {
               <Badge variant="outline" className="font-mono text-xs">
                 {insight.code}
               </Badge>
-              <span className="font-medium text-sm">{insight.definition.name}</span>
+              <span className="font-medium text-sm">{insight.definition.nameVi || insight.definition.name}</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className={`${severityStyle.bg} ${severityStyle.text} ${severityStyle.border}`}>
-                {insight.definition.risk.severity.toUpperCase()}
+                {severityStyle.label}
               </Badge>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
@@ -82,11 +82,11 @@ function InsightRow({ insight }: { insight: DetectedInsight }) {
             
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Population Scope</p>
+                <p className="text-xs text-muted-foreground mb-1">Tập khách hàng</p>
                 <p>{insight.population.description}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Change vs Baseline</p>
+                <p className="text-xs text-muted-foreground mb-1">Thay đổi so với Baseline</p>
                 <p className={`font-semibold flex items-center gap-1 ${
                   insight.detection.changePercent < 0 ? 'text-destructive' : 'text-success'
                 }`}>
@@ -99,20 +99,20 @@ function InsightRow({ insight }: { insight: DetectedInsight }) {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Confidence</p>
-                <p className="capitalize">{insight.impact.confidence}</p>
+                <p className="text-xs text-muted-foreground mb-1">Độ tin cậy</p>
+                <p className="capitalize">{insight.impact.confidence === 'high' ? 'Cao' : insight.impact.confidence === 'medium' ? 'Trung bình' : 'Thấp'}</p>
               </div>
             </div>
             
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Business Implication</p>
+              <p className="text-xs text-muted-foreground mb-1">Hàm ý kinh doanh</p>
               <p className="text-sm">{insight.statement}</p>
             </div>
             
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
-                First detected: {insight.detectedAt.toLocaleDateString('vi-VN')}
+                Phát hiện lần đầu: {insight.detectedAt.toLocaleDateString('vi-VN')}
               </span>
             </div>
           </CardContent>
@@ -148,15 +148,15 @@ export default function InsightsPage() {
   return (
     <CDPLayout>
       <Helmet>
-        <title>Insights | CDP - Bluecore</title>
-        <meta name="description" content="CDP Insight Registry - Detected behavioral shifts" />
+        <title>Tín hiệu | CDP - Bluecore</title>
+        <meta name="description" content="CDP - Các tín hiệu dịch chuyển hành vi được phát hiện" />
       </Helmet>
 
       <div className="space-y-6 max-w-5xl">
         {/* Page Header */}
         <div>
-          <h1 className="text-xl font-semibold mb-1">Insights</h1>
-          <p className="text-sm text-muted-foreground">Detected Behavioral Shifts</p>
+          <h1 className="text-xl font-semibold mb-1">Tín hiệu</h1>
+          <p className="text-sm text-muted-foreground">Các dịch chuyển hành vi được phát hiện</p>
         </div>
 
         {/* Summary Stats */}
@@ -193,7 +193,7 @@ export default function InsightsPage() {
           <Card className="border-warning/30 bg-warning/5">
             <CardContent className="py-3">
               <p className="text-sm text-warning-foreground">
-                ⚠️ Data coverage below threshold. Some insights may require additional validation.
+                ⚠️ Độ phủ dữ liệu dưới ngưỡng. Một số tín hiệu có thể cần xác thực thêm.
               </p>
             </CardContent>
           </Card>
@@ -204,7 +204,7 @@ export default function InsightsPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold">
               {activeCategory === 'all' 
-                ? `All Triggered Insights (${sortedInsights.length})`
+                ? `Tất cả tín hiệu (${sortedInsights.length})`
                 : `${categoryLabels[activeCategory]} (${sortedInsights.length})`
               }
             </h3>
@@ -215,7 +215,7 @@ export default function InsightsPage() {
                 onClick={() => setActiveCategory('all')}
                 className="text-xs"
               >
-                Clear Filter
+                Xóa bộ lọc
               </Button>
             )}
           </div>
@@ -230,9 +230,9 @@ export default function InsightsPage() {
             <Card className="py-12 text-center">
               <CardContent>
                 <Database className="w-8 h-8 text-success mx-auto mb-3" />
-                <p className="font-medium">No insights triggered</p>
+                <p className="font-medium">Không có tín hiệu nào được kích hoạt</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  All metrics are trending within normal thresholds
+                  Tất cả chỉ số đang trong ngưỡng bình thường
                 </p>
               </CardContent>
             </Card>

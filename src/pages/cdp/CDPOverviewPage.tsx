@@ -39,7 +39,7 @@ function DirectionIndicator({ direction, magnitude }: { direction: 'up' | 'down'
   return (
     <span className="inline-flex items-center text-muted-foreground">
       <Minus className="w-4 h-4 mr-1" />
-      Stable
+      Ổn định
     </span>
   );
 }
@@ -52,9 +52,15 @@ function SeverityIndicator({ severity }: { severity: 'critical' | 'high' | 'medi
     medium: 'bg-muted text-muted-foreground border-border'
   };
   
+  const labels = {
+    critical: 'NGHIÊM TRỌNG',
+    high: 'CAO',
+    medium: 'TRUNG BÌNH'
+  };
+  
   return (
     <Badge variant="outline" className={styles[severity]}>
-      {severity.toUpperCase()}
+      {labels[severity]}
     </Badge>
   );
 }
@@ -114,23 +120,23 @@ function DataConfidenceSummary({
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <Database className="w-4 h-4" />
-          Data Confidence
+          Độ tin cậy dữ liệu
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Identity Coverage</p>
+            <p className="text-xs text-muted-foreground mb-1">Độ phủ Identity</p>
             <p className="font-semibold">{identityCoverage.toFixed(1)}%</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-1">COGS Coverage</p>
+            <p className="text-xs text-muted-foreground mb-1">Độ phủ COGS</p>
             <p className="font-semibold">{cogsCoverage.toFixed(1)}%</p>
           </div>
         </div>
         {!isReliable && (
           <p className="text-xs text-warning-foreground mt-3">
-            ⚠️ Low coverage may affect insight reliability
+            ⚠️ Độ phủ thấp có thể ảnh hưởng độ chính xác của tín hiệu
           </p>
         )}
       </CardContent>
@@ -153,25 +159,25 @@ export default function CDPOverviewPage() {
   // Category summary for navigation
   const categorySummary = [
     { 
-      label: 'Value & Revenue', 
+      label: 'Giá trị & Doanh thu', 
       count: summary.byCategory.value || 0,
       icon: DollarSign,
       path: '/cdp/insights'
     },
     { 
-      label: 'Purchase Timing', 
+      label: 'Tần suất mua', 
       count: summary.byCategory.velocity || 0,
       icon: Clock,
       path: '/cdp/insights'
     },
     { 
-      label: 'Monetization Mix', 
+      label: 'Cơ cấu sản phẩm', 
       count: summary.byCategory.mix || 0,
       icon: TrendingUp,
       path: '/cdp/insights'
     },
     { 
-      label: 'Risk Signals', 
+      label: 'Tín hiệu rủi ro', 
       count: (summary.byCategory.risk || 0) + (summary.byCategory.quality || 0),
       icon: ShieldAlert,
       path: '/cdp/insights'
@@ -181,8 +187,8 @@ export default function CDPOverviewPage() {
   return (
     <CDPLayout>
       <Helmet>
-        <title>CDP Overview | Bluecore</title>
-        <meta name="description" content="Customer Data Platform - Executive Overview" />
+        <title>Tổng quan CDP | Bluecore</title>
+        <meta name="description" content="Nền tảng Dữ liệu Khách hàng - Tổng quan điều hành" />
       </Helmet>
 
       <div className="space-y-8 max-w-5xl">
@@ -190,14 +196,14 @@ export default function CDPOverviewPage() {
         <section>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-semibold mb-1">What Changed Recently?</h2>
+              <h2 className="text-xl font-semibold mb-1">Có gì thay đổi gần đây?</h2>
               <p className="text-sm text-muted-foreground">
-                {summary.triggered} behavioral shifts detected across customer populations
+                {summary.triggered} dịch chuyển hành vi được phát hiện trong tập khách hàng
               </p>
             </div>
             {summary.bySeverity.critical > 0 && (
               <Badge className="bg-destructive text-destructive-foreground">
-                {summary.bySeverity.critical} Critical
+                {summary.bySeverity.critical} Nghiêm trọng
               </Badge>
             )}
           </div>
@@ -231,14 +237,14 @@ export default function CDPOverviewPage() {
         {/* Insight Highlights */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Insight Highlights</h3>
+            <h3 className="font-semibold">Tín hiệu nổi bật</h3>
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => navigate('/cdp/insights')}
               className="text-sm text-muted-foreground"
             >
-              View All <ArrowRight className="w-3 h-3 ml-1" />
+              Xem tất cả <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
 
@@ -252,9 +258,9 @@ export default function CDPOverviewPage() {
             <Card className="py-12 text-center">
               <CardContent>
                 <AlertTriangle className="w-8 h-8 text-success mx-auto mb-3" />
-                <p className="font-medium">No significant shifts detected</p>
+                <p className="font-medium">Không có dịch chuyển đáng kể</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  All customer metrics are trending within normal thresholds
+                  Tất cả chỉ số khách hàng đang trong ngưỡng bình thường
                 </p>
               </CardContent>
             </Card>
@@ -263,7 +269,7 @@ export default function CDPOverviewPage() {
               {topInsights.map((insight) => (
                 <InsightHighlightCard
                   key={insight.code}
-                  headline={insight.definition.name}
+                  headline={insight.definition.nameVi || insight.definition.name}
                   population={insight.population.description}
                   direction={insight.detection.direction}
                   magnitude={Math.abs(insight.detection.changePercent)}
@@ -277,7 +283,7 @@ export default function CDPOverviewPage() {
 
         {/* Data Confidence Summary */}
         <section>
-          <h3 className="font-semibold mb-4">Data Confidence</h3>
+          <h3 className="font-semibold mb-4">Độ tin cậy dữ liệu</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <DataConfidenceSummary
               identityCoverage={dataQuality.identityCoverage}
@@ -290,11 +296,11 @@ export default function CDPOverviewPage() {
                 <div className="flex items-start gap-3">
                   <Database className="w-5 h-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium mb-1">How We Calculate Confidence</p>
+                    <p className="text-sm font-medium mb-1">Cách tính độ tin cậy</p>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Identity coverage indicates the percentage of transactions linked to known customers. 
-                      COGS coverage indicates margin calculation reliability. 
-                      Insights are marked as "Requires Review" when coverage falls below 70%.
+                      Độ phủ Identity cho biết % giao dịch được liên kết với khách hàng đã định danh. 
+                      Độ phủ COGS cho biết độ tin cậy của tính toán biên lợi nhuận. 
+                      Tín hiệu được đánh dấu "Cần xem xét" khi độ phủ dưới 70%.
                     </p>
                   </div>
                 </div>

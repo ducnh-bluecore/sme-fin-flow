@@ -21,9 +21,9 @@ import { useCDPInsightDetection } from '@/hooks/useCDPInsightDetection';
 
 // Decision card status styles (using semantic tokens)
 const statusStyles = {
-  NEW: { bg: 'bg-info/10', text: 'text-info', border: 'border-info/20' },
-  REVIEWING: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20' },
-  DECIDED: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20' }
+  NEW: { bg: 'bg-info/10', text: 'text-info', border: 'border-info/20', label: 'MỚI' },
+  REVIEWING: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', label: 'ĐANG XEM XÉT' },
+  DECIDED: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20', label: 'ĐÃ QUYẾT ĐỊNH' }
 };
 
 // Owner role styles
@@ -67,7 +67,7 @@ function DecisionCard({
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline" className={`${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
-                  {status}
+                  {statusStyle.label}
                 </Badge>
                 <Badge className={ownerStyles[owner]}>
                   {owner}
@@ -85,7 +85,7 @@ function DecisionCard({
           {/* Source insights */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
             <FileText className="w-3.5 h-3.5" />
-            Source: {sourceInsights.join(', ')}
+            Nguồn: {sourceInsights.join(', ')}
           </div>
         </CardHeader>
         
@@ -97,20 +97,20 @@ function DecisionCard({
             <div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                 <Users className="w-3.5 h-3.5" />
-                Population Impacted
+                Tập khách hàng bị ảnh hưởng
               </div>
               <p className="text-sm">{population}</p>
             </div>
             
             {/* What changed */}
             <div>
-              <div className="text-xs text-muted-foreground mb-1">What Changed</div>
+              <div className="text-xs text-muted-foreground mb-1">Có gì thay đổi</div>
               <p className="text-sm font-medium">{whatChanged}</p>
             </div>
             
             {/* Why it matters */}
             <div>
-              <div className="text-xs text-muted-foreground mb-1">Why This Matters</div>
+              <div className="text-xs text-muted-foreground mb-1">Tại sao điều này quan trọng</div>
               <p className="text-sm text-muted-foreground">{whyItMatters}</p>
             </div>
             
@@ -121,11 +121,11 @@ function DecisionCard({
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Eye className="w-3.5 h-3.5" />
-                  Review by: <span className="text-foreground font-medium">{reviewBy}</span>
+                  Xem xét trước: <span className="text-foreground font-medium">{reviewBy}</span>
                 </span>
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5" />
-                  Decision due: <span className="text-foreground font-medium">{decisionDue}</span>
+                  Hạn quyết định: <span className="text-foreground font-medium">{decisionDue}</span>
                 </span>
               </div>
             </div>
@@ -145,10 +145,10 @@ export default function DecisionCardsPage() {
     .filter((i) => i.definition.risk.severity === 'critical' || i.definition.risk.severity === 'high')
     .map((insight) => ({
       id: insight.code,
-      title: insight.decisionPrompt || `Review ${insight.definition.name}`,
+      title: insight.decisionPrompt || `Xem xét ${insight.definition.nameVi || insight.definition.name}`,
       sourceInsights: [insight.code],
       population: insight.population.description,
-      whatChanged: `${insight.definition.detection.metric} shifted ${insight.detection.changePercent.toFixed(1)}% vs baseline`,
+      whatChanged: `${insight.definition.detection.metric} dịch chuyển ${insight.detection.changePercent.toFixed(1)}% so với baseline`,
       whyItMatters: insight.statement,
       owner: getOwnerFromCategory(insight.definition.category) as 'CEO' | 'CFO' | 'COO' | 'Growth',
       reviewBy: formatDate(addDays(new Date(), 3)),
@@ -165,15 +165,15 @@ export default function DecisionCardsPage() {
   return (
     <CDPLayout>
       <Helmet>
-        <title>Decision Cards | CDP - Bluecore</title>
-        <meta name="description" content="Executive decision cards from CDP insights" />
+        <title>Quyết định | CDP - Bluecore</title>
+        <meta name="description" content="Thẻ quyết định điều hành từ tín hiệu CDP" />
       </Helmet>
 
       <div className="space-y-8 max-w-5xl">
         {/* Page Header */}
         <div>
-          <h1 className="text-xl font-semibold mb-1">Decision Cards</h1>
-          <p className="text-sm text-muted-foreground">Executive Governance</p>
+          <h1 className="text-xl font-semibold mb-1">Quyết định</h1>
+          <p className="text-sm text-muted-foreground">Quản trị điều hành</p>
         </div>
 
         {/* Summary */}
@@ -182,19 +182,19 @@ export default function DecisionCardsPage() {
             <Card className="border-info/30 bg-info/5">
               <CardContent className="py-4 text-center">
                 <p className="text-2xl font-bold text-info">{cardsByStatus.new.length}</p>
-                <p className="text-sm text-info/80">New</p>
+                <p className="text-sm text-info/80">Mới</p>
               </CardContent>
             </Card>
             <Card className="border-warning/30 bg-warning/5">
               <CardContent className="py-4 text-center">
                 <p className="text-2xl font-bold text-warning-foreground">{cardsByStatus.reviewing.length}</p>
-                <p className="text-sm text-warning-foreground/80">Reviewing</p>
+                <p className="text-sm text-warning-foreground/80">Đang xem xét</p>
               </CardContent>
             </Card>
             <Card className="border-success/30 bg-success/5">
               <CardContent className="py-4 text-center">
                 <p className="text-2xl font-bold text-success">{cardsByStatus.decided.length}</p>
-                <p className="text-sm text-success/80">Decided</p>
+                <p className="text-sm text-success/80">Đã quyết định</p>
               </CardContent>
             </Card>
           </div>
@@ -207,12 +207,12 @@ export default function DecisionCardsPage() {
               <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
               <div>
                 <p className="text-sm font-medium mb-1">
-                  Decision Cards are governance artifacts, not task lists
+                  Thẻ Quyết định là công cụ quản trị, không phải danh sách việc cần làm
                 </p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Each card represents a strategic question that requires executive review. 
-                  Cards capture the evidence snapshot at creation time and track ownership 
-                  through the decision lifecycle. No operational actions are executed from this screen.
+                  Mỗi thẻ đại diện cho một câu hỏi chiến lược cần sự xem xét của điều hành. 
+                  Thẻ ghi lại bằng chứng tại thời điểm tạo và theo dõi quyền sở hữu 
+                  qua vòng đời quyết định. Không có hành động vận hành nào được thực hiện từ màn hình này.
                 </p>
               </div>
             </div>
@@ -224,15 +224,15 @@ export default function DecisionCardsPage() {
           <TabsList>
             <TabsTrigger value="new" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              New ({cardsByStatus.new.length})
+              Mới ({cardsByStatus.new.length})
             </TabsTrigger>
             <TabsTrigger value="reviewing" className="flex items-center gap-2">
               <Eye className="w-4 h-4" />
-              Reviewing ({cardsByStatus.reviewing.length})
+              Đang xem ({cardsByStatus.reviewing.length})
             </TabsTrigger>
             <TabsTrigger value="decided" className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
-              Decided ({cardsByStatus.decided.length})
+              Đã quyết định ({cardsByStatus.decided.length})
             </TabsTrigger>
           </TabsList>
 
@@ -247,9 +247,9 @@ export default function DecisionCardsPage() {
               <Card className="py-12 text-center">
                 <CardContent>
                   <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-3" />
-                  <p className="font-medium">No new decision cards</p>
+                  <p className="font-medium">Không có thẻ quyết định mới</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    All high-severity insights have been reviewed
+                    Tất cả tín hiệu mức độ cao đã được xem xét
                   </p>
                 </CardContent>
               </Card>
@@ -265,9 +265,9 @@ export default function DecisionCardsPage() {
               <Card className="py-12 text-center">
                 <CardContent>
                   <Eye className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium">No cards under review</p>
+                  <p className="font-medium">Không có thẻ đang xem xét</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Move cards from "New" to begin review
+                    Chuyển thẻ từ "Mới" để bắt đầu xem xét
                   </p>
                 </CardContent>
               </Card>
@@ -283,9 +283,9 @@ export default function DecisionCardsPage() {
               <Card className="py-12 text-center">
                 <CardContent>
                   <CheckCircle2 className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium">No decided cards yet</p>
+                  <p className="font-medium">Chưa có thẻ nào được quyết định</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Completed decisions will appear here
+                    Các quyết định hoàn thành sẽ hiển thị tại đây
                   </p>
                 </CardContent>
               </Card>
