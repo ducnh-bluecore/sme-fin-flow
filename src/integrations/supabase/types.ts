@@ -4380,6 +4380,13 @@ export type Database = {
             referencedColumns: ["insight_code"]
           },
           {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_registry_summary"
+            referencedColumns: ["code"]
+          },
+          {
             foreignKeyName: "cdp_insight_events_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
@@ -18283,6 +18290,13 @@ export type Database = {
             referencedRelation: "cdp_insight_registry"
             referencedColumns: ["insight_code"]
           },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_registry_summary"
+            referencedColumns: ["code"]
+          },
         ]
       }
       v_cdp_decision_queue: {
@@ -18452,6 +18466,55 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cdp_insight_clusters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_cdp_insight_registry_stats: {
+        Row: {
+          enabled_count: number | null
+          tenant_id: string | null
+          topic_count: number | null
+          total_insights: number | null
+          triggered_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_cdp_insight_registry_summary: {
+        Row: {
+          baseline_days: number | null
+          category: string | null
+          code: string | null
+          cooldown_days: number | null
+          description: string | null
+          is_enabled: boolean | null
+          is_triggered: boolean | null
+          last_triggered_at: string | null
+          last_triggered_date: string | null
+          name: string | null
+          owners: string[] | null
+          population_type: string | null
+          tenant_id: string | null
+          threshold: string | null
+          threshold_json: Json | null
+          topic: string | null
+          triggered_count: number | null
+          window_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -18983,6 +19046,10 @@ export type Database = {
       }
       cdp_seed_product_demand_registry: {
         Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      cdp_toggle_insight_enabled: {
+        Args: { p_enabled: boolean; p_insight_code: string }
         Returns: undefined
       }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
