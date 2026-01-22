@@ -3313,6 +3313,30 @@ export type Database = {
           },
         ]
       }
+      cdp_build_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          id: string
+          run_type: string
+          summary: Json
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          run_type?: string
+          summary: Json
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          run_type?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
       cdp_card_activity_log: {
         Row: {
           action: string

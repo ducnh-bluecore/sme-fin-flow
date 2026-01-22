@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.batch-import-data]
 verify_jwt = false
+
+[functions.scheduled-cdp-build]
+verify_jwt = false
