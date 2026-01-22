@@ -68,6 +68,7 @@ const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const ReconciliationHubPage = lazy(() => import("./pages/ReconciliationHubPage"));
 const DataHubPage = lazy(() => import("./pages/DataHubPage"));
 const DataWarehousePage = lazy(() => import("./pages/DataWarehousePage"));
+const DataGuidePage = lazy(() => import("./pages/DataGuidePage"));
 const ScenarioHubPage = lazy(() => import("./pages/ScenarioHubPage"));
 const ScenarioPage = lazy(() => import("./pages/ScenarioPage"));
 const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
@@ -361,6 +362,7 @@ const AppRoutes = () => {
         <Route path="/tax-compliance" element={<TaxCompliancePage />} />
         <Route path="/data-hub" element={<DataHubPage />} />
         <Route path="/data-warehouse" element={<DataWarehousePage />} />
+        <Route path="/data-guide" element={<DataGuidePage />} />
         <Route path="/etl-rules" element={<ETLRulesPage />} />
         <Route path="/cash-forecast" element={<CashForecastPage />} />
         <Route path="/channel-analytics" element={<ChannelAnalyticsPage />} />
