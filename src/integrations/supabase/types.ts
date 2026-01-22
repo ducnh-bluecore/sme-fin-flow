@@ -4398,6 +4398,54 @@ export type Database = {
           },
         ]
       }
+      cdp_value_tier_membership_daily: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          customer_id: string
+          is_member: boolean
+          metric_name: string
+          metric_value: number
+          tenant_id: string
+          tier_label: string
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string
+          customer_id: string
+          is_member?: boolean
+          metric_name?: string
+          metric_value?: number
+          tenant_id: string
+          tier_label: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          customer_id?: string
+          is_member?: boolean
+          metric_name?: string
+          metric_value?: number
+          tenant_id?: string
+          tier_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_value_tier_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_value_tier_membership_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       central_metric_facts: {
         Row: {
           cost: number
@@ -18052,6 +18100,20 @@ export type Database = {
       cdp_build_customer_metrics_rolling: {
         Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: number
+      }
+      cdp_build_tier_membership: {
+        Args: { p_as_of_date: string; p_tenant_id: string }
+        Returns: number
+      }
+      cdp_check_insight_cooldown: {
+        Args: {
+          p_as_of_date: string
+          p_cooldown_days?: number
+          p_insight_code: string
+          p_population_ref: Json
+          p_tenant_id: string
+        }
+        Returns: boolean
       }
       cdp_run_daily_build: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
