@@ -3313,6 +3313,1049 @@ export type Database = {
           },
         ]
       }
+      cdp_card_activity_log: {
+        Row: {
+          action: string
+          actor_role: string
+          created_at: string
+          decision_card_id: string
+          id: string
+          payload: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_role: string
+          created_at?: string
+          decision_card_id: string
+          id?: string
+          payload?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_role?: string
+          created_at?: string
+          decision_card_id?: string
+          id?: string
+          payload?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_card_activity_log_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_card_activity_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_cohort_membership_daily: {
+        Row: {
+          as_of_date: string
+          cohort_id: string
+          customer_id: string
+          is_member: boolean
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          cohort_id: string
+          customer_id: string
+          is_member?: boolean
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          cohort_id?: string
+          customer_id?: string
+          is_member?: boolean
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_cohorts: {
+        Row: {
+          cohort_key: string
+          cohort_type: string
+          created_at: string
+          definition_json: Json
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          cohort_key: string
+          cohort_type: string
+          created_at?: string
+          definition_json?: Json
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          cohort_key?: string
+          cohort_type?: string
+          created_at?: string
+          definition_json?: Json
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_cohorts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_customer_identities: {
+        Row: {
+          confidence: number
+          created_at: string
+          customer_id: string
+          first_seen_at: string | null
+          id: string
+          id_type: string
+          id_value: string
+          last_seen_at: string | null
+          source_system: string
+          tenant_id: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          customer_id: string
+          first_seen_at?: string | null
+          id?: string
+          id_type: string
+          id_value: string
+          last_seen_at?: string | null
+          source_system: string
+          tenant_id: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          customer_id?: string
+          first_seen_at?: string | null
+          id?: string
+          id_type?: string
+          id_value?: string
+          last_seen_at?: string | null
+          source_system?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_identities_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_identities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_customer_metrics_daily: {
+        Row: {
+          as_of_date: string
+          bundle_orders_count: number
+          cod_orders_count: number
+          cogs: number
+          customer_id: string
+          discount_amount: number
+          gross_margin: number
+          gross_revenue: number
+          is_discounted_orders_count: number
+          net_revenue: number
+          orders_count: number
+          orders_total_qty: number
+          refund_amount: number
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          bundle_orders_count?: number
+          cod_orders_count?: number
+          cogs?: number
+          customer_id: string
+          discount_amount?: number
+          gross_margin?: number
+          gross_revenue?: number
+          is_discounted_orders_count?: number
+          net_revenue?: number
+          orders_count?: number
+          orders_total_qty?: number
+          refund_amount?: number
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          bundle_orders_count?: number
+          cod_orders_count?: number
+          cogs?: number
+          customer_id?: string
+          discount_amount?: number
+          gross_margin?: number
+          gross_revenue?: number
+          is_discounted_orders_count?: number
+          net_revenue?: number
+          orders_count?: number
+          orders_total_qty?: number
+          refund_amount?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_metrics_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_customer_metrics_rolling: {
+        Row: {
+          aov: number
+          as_of_date: string
+          bundle_order_share: number
+          cod_order_share: number
+          customer_id: string
+          discount_share: number
+          discounted_order_share: number
+          gross_margin: number
+          inter_purchase_days: number | null
+          last_order_at: string | null
+          net_revenue: number
+          orders_count: number
+          prev_order_at: string | null
+          refund_amount: number
+          return_rate: number
+          tenant_id: string
+          window_days: number
+        }
+        Insert: {
+          aov?: number
+          as_of_date: string
+          bundle_order_share?: number
+          cod_order_share?: number
+          customer_id: string
+          discount_share?: number
+          discounted_order_share?: number
+          gross_margin?: number
+          inter_purchase_days?: number | null
+          last_order_at?: string | null
+          net_revenue?: number
+          orders_count?: number
+          prev_order_at?: string | null
+          refund_amount?: number
+          return_rate?: number
+          tenant_id: string
+          window_days: number
+        }
+        Update: {
+          aov?: number
+          as_of_date?: string
+          bundle_order_share?: number
+          cod_order_share?: number
+          customer_id?: string
+          discount_share?: number
+          discounted_order_share?: number
+          gross_margin?: number
+          inter_purchase_days?: number | null
+          last_order_at?: string | null
+          net_revenue?: number
+          orders_count?: number
+          prev_order_at?: string | null
+          refund_amount?: number
+          return_rate?: number
+          tenant_id?: string
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_customers: {
+        Row: {
+          canonical_key: string
+          created_at: string
+          first_order_at: string | null
+          id: string
+          last_order_at: string | null
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          canonical_key: string
+          created_at?: string
+          first_order_at?: string | null
+          id?: string
+          last_order_at?: string | null
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          canonical_key?: string
+          created_at?: string
+          first_order_at?: string | null
+          id?: string
+          last_order_at?: string | null
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_decision_card_snapshots: {
+        Row: {
+          created_at: string
+          decision_card_id: string
+          evidence_json: Json
+          id: string
+          snapshot_at: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          decision_card_id: string
+          evidence_json?: Json
+          id?: string
+          snapshot_at?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          decision_card_id?: string
+          evidence_json?: Json
+          id?: string
+          snapshot_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_card_snapshots_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_card_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_decision_cards: {
+        Row: {
+          baseline_days: number
+          category: string
+          created_at: string
+          decision_due: string | null
+          id: string
+          owner_role: string
+          population_ref: Json
+          priority: string
+          review_by: string | null
+          severity: string
+          source_ref: Json
+          source_type: string
+          status: string
+          summary: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          window_days: number
+        }
+        Insert: {
+          baseline_days?: number
+          category: string
+          created_at?: string
+          decision_due?: string | null
+          id?: string
+          owner_role?: string
+          population_ref?: Json
+          priority?: string
+          review_by?: string | null
+          severity?: string
+          source_ref?: Json
+          source_type: string
+          status?: string
+          summary: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          window_days?: number
+        }
+        Update: {
+          baseline_days?: number
+          category?: string
+          created_at?: string
+          decision_due?: string | null
+          id?: string
+          owner_role?: string
+          population_ref?: Json
+          priority?: string
+          review_by?: string | null
+          severity?: string
+          source_ref?: Json
+          source_type?: string
+          status?: string
+          summary?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_decision_reviews: {
+        Row: {
+          decision_card_id: string
+          id: string
+          notes: string | null
+          observed_outcome_json: Json
+          review_at: string
+          tenant_id: string
+        }
+        Insert: {
+          decision_card_id: string
+          id?: string
+          notes?: string | null
+          observed_outcome_json?: Json
+          review_at: string
+          tenant_id: string
+        }
+        Update: {
+          decision_card_id?: string
+          id?: string
+          notes?: string | null
+          observed_outcome_json?: Json
+          review_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_reviews_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_decisions: {
+        Row: {
+          assumptions_json: Json | null
+          decided_at: string
+          decided_by_role: string
+          decision_card_id: string
+          decision_statement: string
+          decision_status: string
+          expected_impact_json: Json | null
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          assumptions_json?: Json | null
+          decided_at?: string
+          decided_by_role: string
+          decision_card_id: string
+          decision_statement: string
+          decision_status: string
+          expected_impact_json?: Json | null
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          assumptions_json?: Json | null
+          decided_at?: string
+          decided_by_role?: string
+          decision_card_id?: string
+          decision_statement?: string
+          decision_status?: string
+          expected_impact_json?: Json | null
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decisions_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_insight_events: {
+        Row: {
+          as_of_date: string
+          cooldown_until: string | null
+          created_at: string
+          headline: string
+          id: string
+          impact_snapshot: Json
+          insight_code: string
+          metric_snapshot: Json
+          n_customers: number
+          population_ref: Json
+          population_type: string
+          run_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          cooldown_until?: string | null
+          created_at?: string
+          headline: string
+          id?: string
+          impact_snapshot?: Json
+          insight_code: string
+          metric_snapshot?: Json
+          n_customers?: number
+          population_ref?: Json
+          population_type: string
+          run_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          cooldown_until?: string | null
+          created_at?: string
+          headline?: string
+          id?: string
+          impact_snapshot?: Json
+          insight_code?: string
+          metric_snapshot?: Json
+          n_customers?: number
+          population_ref?: Json
+          population_type?: string
+          run_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_registry"
+            referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_insight_registry: {
+        Row: {
+          baseline_days: number
+          category: string
+          cooldown_days: number
+          default_population_ref: Json
+          insight_code: string
+          is_enabled: boolean
+          name: string
+          population_type: string
+          threshold_json: Json
+          window_days: number
+        }
+        Insert: {
+          baseline_days?: number
+          category: string
+          cooldown_days?: number
+          default_population_ref?: Json
+          insight_code: string
+          is_enabled?: boolean
+          name: string
+          population_type: string
+          threshold_json?: Json
+          window_days?: number
+        }
+        Update: {
+          baseline_days?: number
+          category?: string
+          cooldown_days?: number
+          default_population_ref?: Json
+          insight_code?: string
+          is_enabled?: boolean
+          name?: string
+          population_type?: string
+          threshold_json?: Json
+          window_days?: number
+        }
+        Relationships: []
+      }
+      cdp_insight_runs: {
+        Row: {
+          as_of_date: string
+          baseline_days: number
+          id: string
+          run_at: string
+          stats: Json | null
+          status: string
+          tenant_id: string
+          window_days: number
+        }
+        Insert: {
+          as_of_date: string
+          baseline_days: number
+          id?: string
+          run_at?: string
+          stats?: Json | null
+          status: string
+          tenant_id: string
+          window_days: number
+        }
+        Update: {
+          as_of_date?: string
+          baseline_days?: number
+          id?: string
+          run_at?: string
+          stats?: Json | null
+          status?: string
+          tenant_id?: string
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_order_items: {
+        Row: {
+          category: string | null
+          id: string
+          line_cogs: number
+          line_margin: number
+          line_revenue: number
+          order_id: string
+          product_id: string | null
+          qty: number
+          tenant_id: string
+          unit_price: number
+        }
+        Insert: {
+          category?: string | null
+          id?: string
+          line_cogs?: number
+          line_margin?: number
+          line_revenue?: number
+          order_id: string
+          product_id?: string | null
+          qty?: number
+          tenant_id: string
+          unit_price?: number
+        }
+        Update: {
+          category?: string | null
+          id?: string
+          line_cogs?: number
+          line_margin?: number
+          line_revenue?: number
+          order_id?: string
+          product_id?: string | null
+          qty?: number
+          tenant_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_orders: {
+        Row: {
+          channel: string | null
+          cogs: number
+          created_at: string
+          currency: string
+          customer_id: string | null
+          discount_amount: number
+          gross_margin: number
+          gross_revenue: number
+          id: string
+          is_bundle: boolean
+          is_discounted: boolean
+          net_revenue: number
+          order_at: string
+          order_key: string
+          payment_method: string | null
+          tenant_id: string
+        }
+        Insert: {
+          channel?: string | null
+          cogs?: number
+          created_at?: string
+          currency?: string
+          customer_id?: string | null
+          discount_amount?: number
+          gross_margin?: number
+          gross_revenue?: number
+          id?: string
+          is_bundle?: boolean
+          is_discounted?: boolean
+          net_revenue?: number
+          order_at: string
+          order_key: string
+          payment_method?: string | null
+          tenant_id: string
+        }
+        Update: {
+          channel?: string | null
+          cogs?: number
+          created_at?: string
+          currency?: string
+          customer_id?: string | null
+          discount_amount?: number
+          gross_margin?: number
+          gross_revenue?: number
+          id?: string
+          is_bundle?: boolean
+          is_discounted?: boolean
+          net_revenue?: number
+          order_at?: string
+          order_key?: string
+          payment_method?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_refunds: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          id: string
+          order_id: string | null
+          reason: string | null
+          refund_amount: number
+          refund_at: string
+          refund_key: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          order_id?: string | null
+          reason?: string | null
+          refund_amount?: number
+          refund_at: string
+          refund_key: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          order_id?: string | null
+          reason?: string | null
+          refund_amount?: number
+          refund_at?: string
+          refund_key?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_refunds_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_refunds_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_segment_membership_daily: {
+        Row: {
+          as_of_date: string
+          customer_id: string
+          is_member: boolean
+          segment_id: string
+          segment_version: number
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          customer_id: string
+          is_member?: boolean
+          segment_id: string
+          segment_version: number
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          customer_id?: string
+          is_member?: boolean
+          segment_id?: string
+          segment_version?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_segment_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_membership_daily_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_membership_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_segment_versions: {
+        Row: {
+          created_at: string
+          definition_json: Json
+          effective_from: string
+          effective_to: string | null
+          id: string
+          segment_id: string
+          tenant_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          definition_json: Json
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          segment_id: string
+          tenant_id: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          definition_json?: Json
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          segment_id?: string
+          tenant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_segment_versions_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_versions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cdp_segments: {
+        Row: {
+          created_at: string
+          definition_json: Json
+          description: string | null
+          id: string
+          name: string
+          owner_role: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          definition_json?: Json
+          description?: string | null
+          id?: string
+          name: string
+          owner_role?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          definition_json?: Json
+          description?: string | null
+          id?: string
+          name?: string
+          owner_role?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_segments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       central_metric_facts: {
         Row: {
           cost: number
@@ -15700,6 +16743,179 @@ export type Database = {
           total_exceptions: number | null
         }
         Relationships: []
+      }
+      mv_cdp_cohort_metrics_rolling: {
+        Row: {
+          as_of_date: string | null
+          avg_return_rate: number | null
+          cohort_id: string | null
+          median_aov: number | null
+          median_inter_purchase_days: number | null
+          n_customers: number | null
+          p25_aov: number | null
+          p75_aov: number | null
+          sum_gross_margin: number | null
+          sum_net_revenue: number | null
+          tenant_id: string | null
+          window_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_customer_rolling_windows: {
+        Row: {
+          aov: number | null
+          as_of_date: string | null
+          bundle_order_share: number | null
+          cod_order_share: number | null
+          customer_id: string | null
+          discount_share: number | null
+          discounted_order_share: number | null
+          gross_margin: number | null
+          inter_purchase_days: number | null
+          net_revenue: number | null
+          orders_count: number | null
+          refund_amount: number | null
+          return_rate: number | null
+          tenant_id: string | null
+          window_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_data_quality_daily: {
+        Row: {
+          as_of_date: string | null
+          cogs_coverage: number | null
+          identity_coverage: number | null
+          orders_with_cogs: number | null
+          orders_with_identity: number | null
+          orders_with_refund_mapped: number | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_percentile_value_tiers: {
+        Row: {
+          as_of_date: string | null
+          customer_id: string | null
+          net_revenue: number | null
+          tenant_id: string | null
+          tier_label: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_segment_metrics_rolling: {
+        Row: {
+          as_of_date: string | null
+          avg_bundle_order_share: number | null
+          avg_cod_order_share: number | null
+          avg_discounted_order_share: number | null
+          avg_return_rate: number | null
+          median_aov: number | null
+          median_inter_purchase_days: number | null
+          n_customers: number | null
+          p25_aov: number | null
+          p75_aov: number | null
+          segment_id: string | null
+          segment_version: number | null
+          sum_gross_margin: number | null
+          sum_net_revenue: number | null
+          tenant_id: string | null
+          window_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_metrics_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_membership_daily_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mv_cdp_value_tier_metrics_rolling: {
+        Row: {
+          as_of_date: string | null
+          avg_discounted_order_share: number | null
+          avg_return_rate: number | null
+          median_aov: number | null
+          median_inter_purchase_days: number | null
+          n_customers: number | null
+          sum_gross_margin: number | null
+          sum_net_revenue: number | null
+          tenant_id: string | null
+          tier_label: string | null
+          window_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pl_summary: {
         Row: {
