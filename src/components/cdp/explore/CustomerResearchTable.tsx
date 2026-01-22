@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -6,7 +7,8 @@ import {
   Eye,
   ArrowUpDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -207,6 +209,7 @@ export function CustomerResearchTable({
   searchTerm,
   onSearchChange,
 }: CustomerResearchTableProps) {
+  const navigate = useNavigate();
   const [selectedCustomer, setSelectedCustomer] = useState<ResearchCustomer | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -217,6 +220,10 @@ export function CustomerResearchTable({
   const handleViewEvidence = (customer: ResearchCustomer) => {
     setSelectedCustomer(customer);
     setDialogOpen(true);
+  };
+
+  const handleOpenAuditView = (customer: ResearchCustomer) => {
+    navigate(`/cdp/audit/${customer.id}`);
   };
 
   return (
@@ -291,17 +298,32 @@ export function CustomerResearchTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 px-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewEvidence(customer);
-                      }}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewEvidence(customer);
+                        }}
+                        title="Xem bằng chứng nhanh"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenAuditView(customer);
+                        }}
+                        title="Mở hồ sơ kiểm chứng"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
