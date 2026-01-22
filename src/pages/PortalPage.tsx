@@ -329,15 +329,15 @@ export default function PortalPage() {
       id: 'cdp',
       name: 'Customer Data Platform',
       shortName: 'CDP',
-      tagline: 'Customer 360° Intelligence',
+      tagline: 'Population > Individual',
       description: language === 'vi'
-        ? 'Nền tảng hợp nhất dữ liệu khách hàng. Xây dựng hồ sơ 360°.'
-        : 'Unified customer data platform. Build 360° profiles.',
+        ? 'Phát hiện dịch chuyển giá trị khách hàng. Customer = Financial Asset.'
+        : 'Detect customer value shifts. Customer = Financial Asset.',
       icon: Users,
-      color: 'hsl(210, 80%, 52%)',
-      bgColor: 'hsl(210, 80%, 95%)',
-      borderColor: 'hsl(210, 80%, 85%)',
-      status: 'coming-soon',
+      color: 'hsl(270, 60%, 50%)',
+      bgColor: 'hsl(270, 60%, 95%)',
+      borderColor: 'hsl(270, 60%, 85%)',
+      status: 'active',
       path: '/cdp',
     },
   ];

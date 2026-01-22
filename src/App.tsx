@@ -76,6 +76,9 @@ const FinancialReportsPage = lazy(() => import("./pages/FinancialReportsPage"));
 const WorkingCapitalHubPage = lazy(() => import("./pages/WorkingCapitalHubPage"));
 const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPage"));
 
+// CDP pages
+const CDPPage = lazy(() => import("./pages/cdp/CDPPage"));
+
 
 // Strategy & Decision pages
 const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
@@ -189,6 +192,13 @@ const AppRoutes = () => {
       } />
       {/* Redirect /formulas to /documentation since formulas are documented there */}
       <Route path="/formulas" element={<Navigate to="/documentation" replace />} />
+      
+      {/* CDP Routes */}
+      <Route path="/cdp" element={
+        <ProtectedRoute>
+          <CDPPage />
+        </ProtectedRoute>
+      } />
 
       {/* Sales Kit Routes - PDF-style pages */}
       <Route path="/sales-kit/data-warehouse" element={
