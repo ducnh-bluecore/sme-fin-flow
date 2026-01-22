@@ -11,7 +11,10 @@ import {
   Percent,
   ShoppingCart,
   RefreshCcw,
-  Info
+  Info,
+  AlertTriangle,
+  CheckCircle2,
+  Database
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -179,7 +182,8 @@ export default function ValueDistributionPage() {
     customerData,
     valueDistribution, 
     segmentSummaries, 
-    summaryStats, 
+    summaryStats,
+    dataQualityMetrics,
     isLoading 
   } = useCDPData();
 
@@ -302,6 +306,7 @@ export default function ValueDistributionPage() {
             <TabsList>
               <TabsTrigger value="distribution">Percentile Distribution</TabsTrigger>
               <TabsTrigger value="segments">Value Segments</TabsTrigger>
+              <TabsTrigger value="quality">Data Quality</TabsTrigger>
             </TabsList>
 
             <TabsContent value="distribution" className="space-y-6">
@@ -431,6 +436,150 @@ export default function ValueDistributionPage() {
                   </Card>
                 </motion.div>
               )}
+            </TabsContent>
+
+            {/* Data Quality Tab */}
+            <TabsContent value="quality" className="space-y-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Database className="w-5 h-5 text-violet-500" />
+                          Data Quality Metrics
+                        </CardTitle>
+                        <CardDescription>
+                          CDP phải tự nghi ngờ số của mình (per Constitution)
+                        </CardDescription>
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={dataQualityMetrics.isReliable 
+                          ? 'text-emerald-600 border-emerald-300 bg-emerald-50' 
+                          : 'text-amber-600 border-amber-300 bg-amber-50'
+                        }
+                      >
+                        {dataQualityMetrics.isReliable ? (
+                          <><CheckCircle2 className="w-3 h-3 mr-1" /> Reliable</>
+                        ) : (
+                          <><AlertTriangle className="w-3 h-3 mr-1" /> Low Coverage</>
+                        )}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Identity Coverage */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Identity Coverage (QUA_IDC)</span>
+                        <span className={`text-sm font-bold ${
+                          dataQualityMetrics.identityCoverage >= 80 
+                            ? 'text-emerald-600' 
+                            : dataQualityMetrics.identityCoverage >= 60 
+                              ? 'text-amber-600' 
+                              : 'text-red-600'
+                        }`}>
+                          {dataQualityMetrics.identityCoverage.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all ${
+                            dataQualityMetrics.identityCoverage >= 80 
+                              ? 'bg-emerald-500' 
+                              : dataQualityMetrics.identityCoverage >= 60 
+                                ? 'bg-amber-500' 
+                                : 'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(100, dataQualityMetrics.identityCoverage)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {dataQualityMetrics.ordersWithIdentity.toLocaleString()} / {dataQualityMetrics.totalOrders.toLocaleString()} đơn có customer ID
+                        {dataQualityMetrics.identityCoverage < 80 && (
+                          <span className="text-amber-600 ml-2">
+                            ⚠️ Cần ≥80% để insight tin cậy
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* COGS Coverage */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">COGS Coverage (QUA_COG)</span>
+                        <span className={`text-sm font-bold ${
+                          dataQualityMetrics.cogsCoverage >= 70 
+                            ? 'text-emerald-600' 
+                            : dataQualityMetrics.cogsCoverage >= 50 
+                              ? 'text-amber-600' 
+                              : 'text-red-600'
+                        }`}>
+                          {dataQualityMetrics.cogsCoverage.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all ${
+                            dataQualityMetrics.cogsCoverage >= 70 
+                              ? 'bg-emerald-500' 
+                              : dataQualityMetrics.cogsCoverage >= 50 
+                                ? 'bg-amber-500' 
+                                : 'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(100, dataQualityMetrics.cogsCoverage)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {dataQualityMetrics.ordersWithCogs.toLocaleString()} / {dataQualityMetrics.totalOrders.toLocaleString()} đơn có giá vốn
+                        {dataQualityMetrics.cogsCoverage < 70 && (
+                          <span className="text-amber-600 ml-2">
+                            ⚠️ Margin insight không đáng tin cậy
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Reliability Summary */}
+                    <div className={`p-4 rounded-lg border ${
+                      dataQualityMetrics.isReliable 
+                        ? 'bg-emerald-50 border-emerald-200' 
+                        : 'bg-amber-50 border-amber-200'
+                    }`}>
+                      <p className={`text-sm ${
+                        dataQualityMetrics.isReliable ? 'text-emerald-800' : 'text-amber-800'
+                      }`}>
+                        {dataQualityMetrics.isReliable ? (
+                          <>
+                            <strong>✅ Data đủ tin cậy</strong> — Các insight về value distribution và margin có thể được sử dụng để ra quyết định.
+                          </>
+                        ) : (
+                          <>
+                            <strong>⚠️ Data coverage thấp</strong> — Insight có thể không phản ánh đúng thực tế. Cần cải thiện identity tracking và COGS mapping.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Constitution Reference */}
+              <Card className="border-violet-200 bg-violet-50/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-violet-700">📜 Per CDP Constitution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-violet-800">
+                    <strong>QUA_IDC (Identity Coverage)</strong>: % order có customer_id — Cần ≥80% để insight tin cậy<br />
+                    <strong>QUA_COG (COGS Coverage)</strong>: % order có giá vốn — Cần ≥70% để margin metric đáng tin
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </main>
