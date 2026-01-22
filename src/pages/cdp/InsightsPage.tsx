@@ -1,5 +1,4 @@
 import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { 
   TrendingDown,
@@ -17,9 +16,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CDPLayout } from '@/components/layout/CDPLayout';
 import { useCDPInsightDetection, DetectedInsight } from '@/hooks/useCDPInsightDetection';
 import { InsightCategory } from '@/lib/cdp-insight-registry';
 
@@ -41,11 +40,11 @@ const categoryLabels: Record<InsightCategory, string> = {
   quality: 'Data Quality'
 };
 
-// Severity styles
+// Severity styles (using semantic tokens)
 const severityStyles = {
-  critical: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
-  high: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
-  medium: { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200' }
+  critical: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20' },
+  high: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20' },
+  medium: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' }
 };
 
 // Insight row component
@@ -89,7 +88,7 @@ function InsightRow({ insight }: { insight: DetectedInsight }) {
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Change vs Baseline</p>
                 <p className={`font-semibold flex items-center gap-1 ${
-                  insight.detection.changePercent < 0 ? 'text-red-600' : 'text-emerald-600'
+                  insight.detection.changePercent < 0 ? 'text-destructive' : 'text-success'
                 }`}>
                   {insight.detection.changePercent < 0 ? (
                     <TrendingDown className="w-4 h-4" />
@@ -124,7 +123,6 @@ function InsightRow({ insight }: { insight: DetectedInsight }) {
 }
 
 export default function InsightsPage() {
-  const navigate = useNavigate();
   const { insights, summary, dataQuality, isLoading } = useCDPInsightDetection();
   const [activeCategory, setActiveCategory] = useState<InsightCategory | 'all'>('all');
 
@@ -148,169 +146,107 @@ export default function InsightsPage() {
   });
 
   return (
-    <>
+    <CDPLayout>
       <Helmet>
         <title>Insights | CDP - Bluecore</title>
         <meta name="description" content="CDP Insight Registry - Detected behavioral shifts" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
-          <div className="max-w-6xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/portal')}
-                  className="text-muted-foreground"
+      <div className="space-y-6 max-w-5xl">
+        {/* Page Header */}
+        <div>
+          <h1 className="text-xl font-semibold mb-1">Insights</h1>
+          <p className="text-sm text-muted-foreground">Detected Behavioral Shifts</p>
+        </div>
+
+        {/* Summary Stats */}
+        <section>
+          <div className="grid grid-cols-5 gap-3">
+            {(['value', 'velocity', 'mix', 'risk', 'quality'] as InsightCategory[]).map((cat) => {
+              const Icon = categoryIcons[cat];
+              const count = summary.byCategory[cat] || 0;
+              return (
+                <Card 
+                  key={cat}
+                  className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+                    activeCategory === cat ? 'border-primary' : ''
+                  } ${count > 0 ? 'border-warning/30' : ''}`}
+                  onClick={() => setActiveCategory(activeCategory === cat ? 'all' : cat)}
                 >
-                  ← Portal
-                </Button>
-                <Separator orientation="vertical" className="h-5" />
-                <div>
-                  <h1 className="font-semibold text-lg">Insights</h1>
-                  <p className="text-xs text-muted-foreground">Detected Behavioral Shifts</p>
-                </div>
-              </div>
-              
-              <nav className="flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Overview
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/insights')}
-                  className="text-sm font-medium"
-                >
-                  Insights
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/populations')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Populations
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/decision-cards')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Decision Cards
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate('/cdp/data-confidence')}
-                  className="text-sm text-muted-foreground"
-                >
-                  Data Confidence
-                </Button>
-              </nav>
-            </div>
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <Icon className="w-4 h-4 text-muted-foreground" />
+                      <span className={`text-lg font-bold ${count > 0 ? 'text-warning-foreground' : 'text-muted-foreground'}`}>
+                        {count}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{categoryLabels[cat]}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-        </header>
+        </section>
 
-        <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-          {/* Summary Stats */}
-          <section>
-            <div className="grid grid-cols-5 gap-3">
-              {(['value', 'velocity', 'mix', 'risk', 'quality'] as InsightCategory[]).map((cat) => {
-                const Icon = categoryIcons[cat];
-                const count = summary.byCategory[cat] || 0;
-                return (
-                  <Card 
-                    key={cat}
-                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                      activeCategory === cat ? 'border-primary' : ''
-                    } ${count > 0 ? 'border-amber-200' : ''}`}
-                    onClick={() => setActiveCategory(activeCategory === cat ? 'all' : cat)}
-                  >
-                    <CardContent className="py-3 px-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <Icon className="w-4 h-4 text-muted-foreground" />
-                        <span className={`text-lg font-bold ${count > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                          {count}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{categoryLabels[cat]}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+        {/* Data Quality Warning */}
+        {!dataQuality.isReliable && (
+          <Card className="border-warning/30 bg-warning/5">
+            <CardContent className="py-3">
+              <p className="text-sm text-warning-foreground">
+                ⚠️ Data coverage below threshold. Some insights may require additional validation.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Insights List */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">
+              {activeCategory === 'all' 
+                ? `All Triggered Insights (${sortedInsights.length})`
+                : `${categoryLabels[activeCategory]} (${sortedInsights.length})`
+              }
+            </h3>
+            {activeCategory !== 'all' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setActiveCategory('all')}
+                className="text-xs"
+              >
+                Clear Filter
+              </Button>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Card key={i} className="h-16 animate-pulse bg-muted" />
+              ))}
             </div>
-          </section>
-
-          {/* Data Quality Warning */}
-          {!dataQuality.isReliable && (
-            <Card className="border-amber-200 bg-amber-50/50">
-              <CardContent className="py-3">
-                <p className="text-sm text-amber-700">
-                  ⚠️ Data coverage below threshold. Some insights may require additional validation.
+          ) : sortedInsights.length === 0 ? (
+            <Card className="py-12 text-center">
+              <CardContent>
+                <Database className="w-8 h-8 text-success mx-auto mb-3" />
+                <p className="font-medium">No insights triggered</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  All metrics are trending within normal thresholds
                 </p>
               </CardContent>
             </Card>
-          )}
-
-          {/* Insights List */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">
-                {activeCategory === 'all' 
-                  ? `All Triggered Insights (${sortedInsights.length})`
-                  : `${categoryLabels[activeCategory]} (${sortedInsights.length})`
-                }
-              </h3>
-              {activeCategory !== 'all' && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setActiveCategory('all')}
-                  className="text-xs"
-                >
-                  Clear Filter
-                </Button>
-              )}
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Card key={i} className="h-16 animate-pulse bg-muted" />
+          ) : (
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-3 pr-4">
+                {sortedInsights.map((insight) => (
+                  <InsightRow key={insight.code} insight={insight} />
                 ))}
               </div>
-            ) : sortedInsights.length === 0 ? (
-              <Card className="py-12 text-center">
-                <CardContent>
-                  <Database className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
-                  <p className="font-medium">No insights triggered</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    All metrics are trending within normal thresholds
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-3 pr-4">
-                  {sortedInsights.map((insight) => (
-                    <InsightRow key={insight.code} insight={insight} />
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </section>
-        </main>
+            </ScrollArea>
+          )}
+        </section>
       </div>
-    </>
+    </CDPLayout>
   );
 }
