@@ -271,41 +271,107 @@ export default function ReconciliationHubPage() {
     );
   }
 
+  // Calculate unmatched value for decision cards
+  const unmatchedValue = transactions
+    .filter(t => t.match_status === 'unmatched')
+    .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+
   return (
     <>
       <Helmet>
-        <title>{t('recon.title')} | Bluecore Finance</title>
+        <title>{t('recon.title')} | Bluecore FDP</title>
         <meta name="description" content={t('recon.subtitle')} />
       </Helmet>
 
       <div className="space-y-6">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-center justify-between gap-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-info/10 flex items-center justify-center">
-              <ArrowRightLeft className="w-6 h-6 text-info" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{t('recon.title')}</h1>
-              <p className="text-muted-foreground">{t('recon.subtitle')}</p>
-            </div>
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              {t('recon.title')}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Dense professional tables • Drill into evidence, not charts
+            </p>
           </div>
           <div className="flex gap-2 items-center">
             <QuickDateSelector />
-            <Button variant="outline" size="sm" onClick={handleSync}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              {t('recon.sync')}
+            <Button variant="outline" size="sm" onClick={handleSync} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Sync
             </Button>
-            <Button size="sm" onClick={() => handleExport('all')}>
-              <Download className="w-4 h-4 mr-2" />
-              {t('recon.exportReport')}
+            <Button variant="outline" size="sm" onClick={() => handleExport('all')} className="gap-2">
+              <Download className="w-4 h-4" />
+              Export
             </Button>
           </div>
-        </motion.div>
+        </header>
+
+        {/* Reconciliation Health Summary */}
+        <Card className="p-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Match Rate</div>
+              <div className={cn(
+                "text-xl font-semibold tabular-nums",
+                matchRate >= 90 ? "text-success" : matchRate >= 70 ? "text-warning" : "text-destructive"
+              )}>
+                {matchRate}%
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Matched</div>
+              <div className="text-xl font-semibold text-success tabular-nums">{matchedCount}</div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Unmatched</div>
+              <div className={cn(
+                "text-xl font-semibold tabular-nums",
+                unmatchedCount > 0 ? "text-destructive" : "text-foreground"
+              )}>
+                {unmatchedCount}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Discrepancy</div>
+              <div className={cn(
+                "text-xl font-semibold tabular-nums",
+                discrepancyCount > 0 ? "text-warning" : "text-foreground"
+              )}>
+                {discrepancyCount}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Unmatched Value</div>
+              <div className={cn(
+                "text-xl font-semibold tabular-nums",
+                unmatchedValue > 0 ? "text-destructive" : "text-foreground"
+              )}>
+                {formatCurrency(unmatchedValue)}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Decision Alert - Only show if there are issues */}
+        {(unmatchedCount > 0 || discrepancyCount > 0) && (
+          <Card className="p-4 border-l-4 border-l-warning bg-warning/5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-foreground">
+                  Reconciliation exceptions require attention
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {unmatchedCount} unmatched transactions ({formatCurrency(unmatchedValue)}) and {discrepancyCount} discrepancies pending review.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setActiveTab('bank')}>
+                Review
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
