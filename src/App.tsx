@@ -78,8 +78,12 @@ const PerformanceAnalysisPage = lazy(() => import("./pages/PerformanceAnalysisPa
 
 // CDP pages - Restructured per spec v2
 const CDPPage = lazy(() => import("./pages/cdp/CDPOverviewPage"));
-const CDPExplorePage = lazy(() => import("./pages/cdp/ExplorePage"));
 const InsightsPage = lazy(() => import("./pages/cdp/InsightsPage"));
+// CDP Explore sub-pages
+const CustomerResearchPage = lazy(() => import("./pages/cdp/explore/CustomerResearchPage"));
+const BehaviorFiltersPage = lazy(() => import("./pages/cdp/explore/BehaviorFiltersPage"));
+const ComparePopulationsPage = lazy(() => import("./pages/cdp/explore/ComparePopulationsPage"));
+const SavedViewsPage = lazy(() => import("./pages/cdp/explore/SavedViewsPage"));
 const InsightDetailPage = lazy(() => import("./pages/cdp/InsightDetailPage"));
 const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
 const CustomerEquityPage = lazy(() => import("./pages/cdp/CustomerEquityPage"));
@@ -212,7 +216,22 @@ const AppRoutes = () => {
       } />
       <Route path="/cdp/explore" element={
         <ProtectedRoute>
-          <CDPExplorePage />
+          <CustomerResearchPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/explore/filters" element={
+        <ProtectedRoute>
+          <BehaviorFiltersPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/explore/compare" element={
+        <ProtectedRoute>
+          <ComparePopulationsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/explore/saved" element={
+        <ProtectedRoute>
+          <SavedViewsPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/insights" element={
