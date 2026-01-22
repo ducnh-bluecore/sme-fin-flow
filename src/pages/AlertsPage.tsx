@@ -98,7 +98,8 @@ const severityConfig: Record<string, any> = {
 type DatePreset = 'all' | 'today' | '7days' | '30days' | 'thisMonth' | 'custom';
 
 export default function AlertsPage() {
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'acknowledged' | 'resolved'>('all');
+  // Default to 'active' so resolved alerts don't clutter the view
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'acknowledged' | 'resolved'>('active');
   const [chartPeriod, setChartPeriod] = useState<'week' | 'month'>('week');
   const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
