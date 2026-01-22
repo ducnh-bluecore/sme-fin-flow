@@ -10,21 +10,22 @@ import {
   LineChart,
   DollarSign,
   ArrowRight,
+  ArrowLeft,
   Megaphone,
   Target,
-  Zap
+  Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMDPData, MarketingPerformance } from '@/hooks/useMDPData';
 import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 // Marketing Mode Components
 import {
@@ -55,7 +56,6 @@ const quickLinks = [
     icon: BarChart3, 
     path: '/mdp/campaigns',
     description: 'Chi tiết từng chiến dịch',
-    color: 'from-blue-500 to-blue-600'
   },
   { 
     id: 'channels', 
@@ -64,7 +64,6 @@ const quickLinks = [
     icon: Layers, 
     path: '/mdp/channels',
     description: 'So sánh hiệu quả các kênh',
-    color: 'from-purple-500 to-purple-600'
   },
   { 
     id: 'funnel', 
@@ -73,7 +72,6 @@ const quickLinks = [
     icon: TrendingUp, 
     path: '/mdp/funnel',
     description: 'Phân tích tỷ lệ chuyển đổi',
-    color: 'from-green-500 to-green-600'
   },
   { 
     id: 'ab-testing', 
@@ -82,7 +80,6 @@ const quickLinks = [
     icon: Gauge, 
     path: '/mdp/ab-testing',
     description: 'Thử nghiệm và tối ưu',
-    color: 'from-orange-500 to-orange-600'
   },
   { 
     id: 'audience', 
@@ -91,16 +88,6 @@ const quickLinks = [
     icon: PieChart, 
     path: '/mdp/audience',
     description: 'Phân tích đối tượng',
-    color: 'from-pink-500 to-pink-600'
-  },
-  { 
-    id: 'roi-analytics', 
-    label: 'ROI Analytics', 
-    labelEn: 'ROI Analytics',
-    icon: LineChart, 
-    path: '/mdp/roi-analytics',
-    description: 'Phân tích lợi nhuận đầu tư',
-    color: 'from-emerald-500 to-emerald-600'
   },
   { 
     id: 'customer-ltv', 
@@ -109,7 +96,6 @@ const quickLinks = [
     icon: DollarSign, 
     path: '/mdp/customer-ltv',
     description: 'Giá trị vòng đời khách hàng',
-    color: 'from-cyan-500 to-cyan-600'
   },
 ];
 
@@ -150,7 +136,6 @@ export default function MarketingModePage() {
   ];
 
   // SINGLE SOURCE OF TRUTH: Calculate advanced metrics FROM useMDPData
-  // This ensures consistency with all other MDP pages
   const advancedMetrics: AdvancedMarketingMetrics = useMemo(() => {
     const totalSpend = marketingModeSummary.total_spend;
     const totalRevenue = marketingModeSummary.total_revenue;
@@ -165,7 +150,7 @@ export default function MarketingModePage() {
     
     return {
       total_impressions: totalImpressions,
-      total_reach: Math.round(totalImpressions * 0.6), // Estimated
+      total_reach: Math.round(totalImpressions * 0.6),
       frequency: totalImpressions > 0 ? totalImpressions / Math.max(Math.round(totalImpressions * 0.6), 1) : 0,
       total_clicks: totalClicks,
       ctr: marketingModeSummary.overall_ctr,
@@ -183,9 +168,8 @@ export default function MarketingModePage() {
       acos: marketingModeSummary.overall_roas > 0 ? (1 / marketingModeSummary.overall_roas) * 100 : 0,
       cpa: marketingModeSummary.overall_cpa,
       total_spend: totalSpend,
-      profit_margin: 18.5, // Will be calculated from CM when available
-      ltv_cac_ratio: 2.8, // Will be calculated from LTV data when available
-      // Trends - would need historical data to calculate properly
+      profit_margin: 18.5,
+      ltv_cac_ratio: 2.8,
       impressions_trend: 0,
       clicks_trend: 0,
       orders_trend: 0,
@@ -202,6 +186,7 @@ export default function MarketingModePage() {
     { id: '3', type: 'review_creative', priority: 'medium', campaign_name: 'New Collection', campaign_id: 'c3', channel: 'Shopee Ads', reason: 'CTR giảm 25% so với tuần trước', expected_impact: 'Cải thiện CTR 0.5%', confidence: 78, is_urgent: false },
     { id: '4', type: 'optimize_bid', priority: 'medium', campaign_name: 'Retargeting', campaign_id: 'c4', channel: 'Lazada Ads', reason: 'CPA cao hơn target 20%', expected_impact: 'Giảm CPA 15%', impact_value: 8000000, confidence: 72, is_urgent: false },
   ];
+
   const handleViewCampaignDetails = (campaignId: string) => {
     const campaign = marketingPerformance.find(c => c.campaign_id === campaignId);
     if (campaign) {
@@ -252,14 +237,18 @@ export default function MarketingModePage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Lỗi tải dữ liệu</AlertTitle>
-          <AlertDescription>
-            Không thể tải dữ liệu marketing. Vui lòng thử lại sau.
-          </AlertDescription>
-        </Alert>
+      <div className="p-6">
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <div>
+                <p className="font-medium">Unable to load marketing data</p>
+                <p className="text-sm text-muted-foreground">Please try again later.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -267,7 +256,10 @@ export default function MarketingModePage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-20" />
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <Skeleton className="h-8 w-48" />
+        </div>
         <div className="grid grid-cols-4 gap-4">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
@@ -284,16 +276,24 @@ export default function MarketingModePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
-            <Megaphone className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Marketing Mode</h1>
-            <p className="text-muted-foreground text-sm">
-              {language === 'vi' 
-                ? 'Execution & Performance - Theo dõi và tối ưu marketing'
-                : 'Execution & Performance - Monitor and optimize marketing'}
-            </p>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/portal')}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Megaphone className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">Marketing Mode</h1>
+              <p className="text-sm text-muted-foreground">
+                Execution & Performance - Monitor and optimize marketing
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -310,33 +310,38 @@ export default function MarketingModePage() {
         </div>
       </div>
 
-      {/* Budget Pacing Card - Uses unified data source internally */}
+      {/* Budget Pacing Card */}
       <BudgetPacingCard />
 
       {/* Key Metrics Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+        <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Total Ad Spend</div>
             <div className="text-2xl font-bold">{formatCurrency(totalSpend)}</div>
             <Badge variant="secondary" className="mt-1 text-xs">This period</Badge>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+        <Card className="border-l-4 border-l-emerald-500">
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Revenue Generated</div>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalRevenue)}</div>
             <Badge variant="secondary" className="mt-1 text-xs">From ads</Badge>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+        <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Average ROAS</div>
-            <div className="text-2xl font-bold">{avgROAS.toFixed(2)}x</div>
+            <div className={cn(
+              "text-2xl font-bold",
+              avgROAS >= 3 ? "text-emerald-600" : avgROAS >= 2 ? "text-foreground" : "text-amber-600"
+            )}>
+              {avgROAS.toFixed(2)}x
+            </div>
             <Badge variant="secondary" className="mt-1 text-xs">Target: 3.0x</Badge>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+        <Card>
           <CardContent className="pt-4">
             <div className="text-sm text-muted-foreground">Total Clicks</div>
             <div className="text-2xl font-bold">{totalClicks.toLocaleString()}</div>
@@ -348,8 +353,8 @@ export default function MarketingModePage() {
       {/* Quick Navigation */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Zap className="h-4 w-4 text-muted-foreground" />
             {language === 'vi' ? 'Truy cập nhanh' : 'Quick Access'}
           </CardTitle>
           <CardDescription>
@@ -359,22 +364,22 @@ export default function MarketingModePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {quickLinks.map((link) => (
               <motion.button
                 key={link.id}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => navigate(link.path)}
-                className="flex flex-col items-start p-4 rounded-xl border bg-card hover:bg-accent/50 transition-all text-left group"
+                className="flex flex-col items-start p-3 rounded-lg border bg-card hover:bg-muted/50 transition-all text-left group"
               >
-                <div className={`p-2 rounded-lg bg-gradient-to-br ${link.color} mb-3`}>
-                  <link.icon className="h-4 w-4 text-white" />
+                <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center mb-2">
+                  <link.icon className="h-4 w-4 text-primary" />
                 </div>
                 <span className="font-medium text-sm group-hover:text-primary transition-colors">
                   {language === 'vi' ? link.label : link.labelEn}
                 </span>
-                <span className="text-xs text-muted-foreground mt-1">
+                <span className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                   {link.description}
                 </span>
               </motion.button>
@@ -385,19 +390,11 @@ export default function MarketingModePage() {
 
       {/* Tabs Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">
-            {language === 'vi' ? 'Tổng quan' : 'Overview'}
-          </TabsTrigger>
-          <TabsTrigger value="campaigns">
-            {language === 'vi' ? 'Campaigns' : 'Campaigns'}
-          </TabsTrigger>
-          <TabsTrigger value="platforms">
-            {language === 'vi' ? 'Platforms' : 'Platforms'}
-          </TabsTrigger>
-          <TabsTrigger value="actions">
-            {language === 'vi' ? 'Actions' : 'Actions'}
-          </TabsTrigger>
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="platforms">Platforms</TabsTrigger>
+          <TabsTrigger value="actions">Actions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

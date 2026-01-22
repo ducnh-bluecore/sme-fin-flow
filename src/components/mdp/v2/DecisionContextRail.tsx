@@ -3,8 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
   Scale, 
-  AlertTriangle, 
-  TrendingDown,
   Wallet,
   Target,
   Info,
@@ -21,7 +19,7 @@ interface DecisionContextRailProps {
 }
 
 /**
- * DECISION CONTEXT RAIL
+ * DECISION CONTEXT RAIL - Light Professional Theme
  * 
  * Right-side contextual panel for CEO view.
  * Contains:
@@ -41,14 +39,14 @@ export function DecisionContextRail({
   return (
     <div className="space-y-4">
       {/* Today's Exposure Summary */}
-      <Card className="bg-muted/30 border-muted">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
             <Wallet className="h-4 w-4" />
             Today's Exposure
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="pt-0 space-y-3">
           <ExposureItem 
             label="Cash at Risk" 
             value={formatVND(totalCashAtRisk)}
@@ -70,14 +68,14 @@ export function DecisionContextRail({
       </Card>
 
       {/* Active Decision Rules */}
-      <Card className="bg-muted/30 border-muted">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
             <Scale className="h-4 w-4" />
             Decision Rules Active
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="pt-0 space-y-2">
           <RuleItem 
             label="KILL if Profit ROAS" 
             condition={`< ${MDP_V2_THRESHOLDS.KILL_PROFIT_ROAS}`}
@@ -103,14 +101,14 @@ export function DecisionContextRail({
       </Card>
 
       {/* Decision Queue Status */}
-      <Card className="bg-muted/30 border-muted">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
             <Target className="h-4 w-4" />
             Queue Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="pt-0 space-y-2">
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">Pending Decisions</span>
             <Badge variant={pendingDecisionsCount > 0 ? "secondary" : "outline"} className="font-mono">
@@ -161,7 +159,7 @@ function ExposureItem({
       <span className={cn(
         "text-sm font-mono tabular-nums",
         severity === 'critical' && "text-destructive",
-        severity === 'warning' && "text-amber-600 dark:text-amber-500",
+        severity === 'warning' && "text-amber-600",
         severity === 'neutral' && "text-foreground",
         isBold && "font-medium"
       )}>
@@ -188,7 +186,7 @@ function RuleItem({
         <p className="text-xs text-muted-foreground truncate">{label}</p>
         <p className={cn(
           "text-sm font-mono",
-          isPositive ? "text-emerald-600 dark:text-emerald-500" : "text-foreground"
+          isPositive ? "text-emerald-600" : "text-foreground"
         )}>
           {condition}
         </p>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -8,6 +8,8 @@ import {
   ChevronDown,
   ChevronRight,
   CheckCircle2,
+  Wallet,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -23,7 +25,7 @@ interface CEOOneScreenViewProps {
 }
 
 /**
- * CEO ONE-SCREEN VIEW
+ * CEO ONE-SCREEN VIEW - Light Professional Theme
  * 
  * Design Principles:
  * - Calm, authoritative, surgical
@@ -38,20 +40,23 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
   const secondaryCards = snapshot.criticalCards.slice(1);
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* === NET IMPACT - Single Dominant Signal === */}
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+            <DollarSign className="h-4 w-4" />
+            Net Marketing Impact
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
-                Net Marketing Impact
-              </p>
               <div className="flex items-baseline gap-3">
                 <span className={cn(
-                  "text-4xl font-semibold tabular-nums tracking-tight",
+                  "text-3xl font-semibold tabular-nums tracking-tight",
                   snapshot.netMarginPosition >= 0 
-                    ? "text-emerald-600 dark:text-emerald-500" 
+                    ? "text-emerald-600" 
                     : "text-foreground"
                 )}>
                   {snapshot.netMarginPosition >= 0 ? '+' : ''}{formatVND(snapshot.netMarginPosition)}
@@ -77,7 +82,7 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
             <div className="flex gap-8 text-right">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Created</p>
-                <p className="text-lg font-medium text-emerald-600 dark:text-emerald-500 tabular-nums">
+                <p className="text-lg font-medium text-emerald-600 tabular-nums">
                   +{formatVND(snapshot.totalMarginCreated)}
                 </p>
               </div>
@@ -97,10 +102,13 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
 
       {/* === CASH POSITION === */}
       <Card>
-        <CardContent className="pt-6">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+            <Wallet className="h-4 w-4" />
             Cash Position
-          </p>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
           <div className="grid grid-cols-4 gap-6">
             <CashMetric 
               label="Received" 
@@ -123,16 +131,16 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
             <div>
               <p className="text-xs text-muted-foreground mb-1">Conversion</p>
               <p className={cn(
-                "text-2xl font-medium tabular-nums",
+                "text-xl font-medium tabular-nums",
                 snapshot.cashConversionRate >= 0.7 
-                  ? "text-emerald-600 dark:text-emerald-500" 
+                  ? "text-emerald-600" 
                   : snapshot.cashConversionRate >= 0.5 
-                  ? "text-amber-600 dark:text-amber-500" 
+                  ? "text-amber-600" 
                   : "text-foreground"
               )}>
                 {(snapshot.cashConversionRate * 100).toFixed(0)}%
               </p>
-              <div className="h-1 bg-muted rounded-full mt-2 overflow-hidden">
+              <div className="h-1.5 bg-muted rounded-full mt-2 overflow-hidden">
                 <div 
                   className={cn(
                     "h-full rounded-full transition-all",
@@ -140,7 +148,7 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
                       ? "bg-emerald-500" 
                       : snapshot.cashConversionRate >= 0.5 
                       ? "bg-amber-500" 
-                      : "bg-foreground/30"
+                      : "bg-muted-foreground"
                   )}
                   style={{ width: `${snapshot.cashConversionRate * 100}%` }}
                 />
@@ -153,21 +161,22 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
       {/* === REQUIRED DECISIONS === */}
       <Card className={cn(
         snapshot.immediateActions > 0 && primaryCard?.urgency === 'IMMEDIATE'
-          ? "border-l-2 border-l-amber-500" 
+          ? "border-l-4 border-l-amber-500" 
           : ""
       )}>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Required Decisions
-            </p>
+            </CardTitle>
             {snapshot.immediateActions > 0 && (
-              <span className="text-xs text-muted-foreground">
+              <Badge variant="secondary" className="text-xs">
                 {snapshot.immediateActions} pending
-              </span>
+              </Badge>
             )}
           </div>
-
+        </CardHeader>
+        <CardContent className="pt-0">
           {snapshot.criticalCards.length > 0 ? (
             <div className="space-y-3">
               {/* PRIMARY DECISION */}
@@ -222,7 +231,7 @@ export function CEOOneScreenView({ snapshot, onDecisionAction }: CEOOneScreenVie
       </Card>
 
       {/* === FOOTER === */}
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <div className="flex items-center gap-2">
           <span className={cn(
             "w-1.5 h-1.5 rounded-full",
@@ -257,14 +266,14 @@ function CashMetric({
     <div>
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className={cn(
-        "text-2xl font-medium tabular-nums",
-        status === 'positive' && "text-emerald-600 dark:text-emerald-500",
-        status === 'warning' && "text-amber-600 dark:text-amber-500",
+        "text-xl font-medium tabular-nums",
+        status === 'positive' && "text-emerald-600",
+        status === 'warning' && "text-amber-600",
         status === 'neutral' && "text-foreground"
       )}>
         {formatVND(value)}
       </p>
-      <p className="text-[11px] text-muted-foreground mt-0.5">{sublabel}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">{sublabel}</p>
     </div>
   );
 }
@@ -283,13 +292,13 @@ function PrimaryDecision({
   return (
     <div className={cn(
       "p-4 rounded-lg border",
-      isImmediate ? "border-amber-500/40 bg-amber-500/5" : "bg-muted/30"
+      isImmediate ? "border-amber-200 bg-amber-50" : "bg-muted/30"
     )}>
       <div className="flex items-start justify-between gap-6">
         <div className="flex-1 min-w-0">
           {/* Meta */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <span className={isImmediate ? "text-amber-600 font-medium" : ""}>
+            <span className={isImmediate ? "text-amber-700 font-medium" : ""}>
               {isImmediate ? 'Immediate' : card.urgency === 'TODAY' ? 'Today' : `${card.deadlineHours}h`}
             </span>
             <span>·</span>
@@ -309,7 +318,7 @@ function PrimaryDecision({
                 <span className="text-muted-foreground">{m.label}: </span>
                 <span className={cn(
                   "font-medium",
-                  m.severity === 'critical' && "text-amber-600"
+                  m.severity === 'critical' && "text-amber-700"
                 )}>
                   {m.value}
                 </span>
@@ -324,7 +333,7 @@ function PrimaryDecision({
           <p className="text-xl font-semibold tabular-nums">
             -{formatVND(card.impactAmount)}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             +{formatVND(card.projectedLoss)} if unresolved
           </p>
           
@@ -353,7 +362,7 @@ function SecondaryDecision({
   const language = DECISION_LANGUAGE[card.type];
   
   return (
-    <div className="flex items-center justify-between gap-4 p-3 rounded-md bg-muted/20 hover:bg-muted/30 transition-colors">
+    <div className="flex items-center justify-between gap-4 p-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3 min-w-0">
         <span className="text-xs text-muted-foreground w-8">{card.deadlineHours}h</span>
         <div className="min-w-0">
