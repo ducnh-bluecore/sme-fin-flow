@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * SECURITY: Service role required - scheduled function
+ * This function is called by cron jobs to detect alerts for all tenants
+ */
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,6 +22,17 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // SECURITY: Require service role key for scheduled functions
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${supabaseKey}`) {
+      console.error('Unauthorized: scheduled-detect-alerts requires service role key');
+      return new Response(JSON.stringify({ error: 'Unauthorized - Service role required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get all active tenants

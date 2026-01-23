@@ -391,16 +391,45 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // SECURITY: Validate JWT and get tenant
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', code: 'NO_AUTH' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', code: 'INVALID_TOKEN' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const userId = claimsData.claims.sub as string;
+
+    // Get user's tenant
+    const { data: tenantUser, error: tenantError } = await supabase
+      .from('tenant_users')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (tenantError || !tenantUser?.tenant_id) {
+      return new Response(JSON.stringify({ error: 'Forbidden - No tenant access', code: 'NO_TENANT' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const tenantId = tenantUser.tenant_id;
+
     const url = new URL(req.url);
     const path = url.pathname.replace('/ml-monitoring', '');
-    const tenantId = req.headers.get('x-tenant-id');
-
-    if (!tenantId) {
-      return new Response(
-        JSON.stringify({ error: 'Tenant ID required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // GET /ml-monitoring/summary - Main monitoring summary
     if (req.method === 'GET' && path === '/summary') {

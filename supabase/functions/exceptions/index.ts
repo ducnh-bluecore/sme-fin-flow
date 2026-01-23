@@ -246,33 +246,60 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
-    // pathParts: ["exceptions", ...rest]
     const action = pathParts[1] || "";
     const exceptionId = pathParts[1];
     const subAction = pathParts[2];
 
-    // Get tenant from auth or header
+    // SECURITY: Validate JWT and get tenant from claims
     const authHeader = req.headers.get("Authorization");
+    const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
     let tenantId: string | null = null;
 
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-      
-      if (user) {
-        const { data: tenantUser } = await supabase
-          .from("tenant_users")
-          .select("tenant_id")
-          .eq("user_id", user.id)
-          .single();
-        
-        tenantId = tenantUser?.tenant_id || null;
-      }
-    }
-
-    // For scheduled jobs, use service role tenant header
-    if (!tenantId) {
+    if (isServiceRole) {
+      // Service role call - trust x-tenant-id header
       tenantId = req.headers.get("x-tenant-id");
+      if (!tenantId) {
+        return new Response(
+          JSON.stringify({ error: "tenant_id required for service role calls" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      console.log(`Service role call for tenant: ${tenantId}`);
+    } else if (authHeader?.startsWith("Bearer ")) {
+      // User call - validate JWT
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: "Unauthorized", code: "INVALID_TOKEN" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const userId = claimsData.claims.sub as string;
+
+      // Get user's tenant
+      const { data: tenantUser, error: tenantError } = await supabase
+        .from("tenant_users")
+        .select("tenant_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (tenantError || !tenantUser?.tenant_id) {
+        return new Response(JSON.stringify({ error: "Forbidden - No tenant access", code: "NO_TENANT" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      tenantId = tenantUser.tenant_id;
+      console.log(`User ${userId} accessing exceptions for tenant: ${tenantId}`);
+    } else {
+      return new Response(JSON.stringify({ error: "Unauthorized", code: "NO_AUTH" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // POST /exceptions/detect - Run all detectors
