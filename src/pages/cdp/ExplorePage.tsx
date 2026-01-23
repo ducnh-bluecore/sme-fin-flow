@@ -9,7 +9,8 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,29 +19,10 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CDPLayout } from '@/components/layout/CDPLayout';
-
-// Mock customer data
-const mockCustomers = [
-  { id: 'C001', name: 'Nguyễn Văn A', totalRevenue: 15200000, orders: 8, avgOrderValue: 1900000, lastPurchase: '2025-01-15', trend: 'up' as const },
-  { id: 'C002', name: 'Trần Thị B', totalRevenue: 8500000, orders: 5, avgOrderValue: 1700000, lastPurchase: '2025-01-10', trend: 'stable' as const },
-  { id: 'C003', name: 'Lê Hoàng C', totalRevenue: 25000000, orders: 12, avgOrderValue: 2083333, lastPurchase: '2025-01-18', trend: 'up' as const },
-  { id: 'C004', name: 'Phạm Thị D', totalRevenue: 4200000, orders: 3, avgOrderValue: 1400000, lastPurchase: '2024-12-20', trend: 'down' as const },
-  { id: 'C005', name: 'Hoàng Văn E', totalRevenue: 18900000, orders: 10, avgOrderValue: 1890000, lastPurchase: '2025-01-17', trend: 'stable' as const },
-];
-
-// Mock saved views
-const mockSavedViews = [
-  { id: 'V001', name: 'Top 20% giá trị', creator: 'Admin', createdAt: '2025-01-10', customerCount: 245, revenueShare: 65 },
-  { id: 'V002', name: 'Khách hàng có rủi ro hoàn trả cao', creator: 'CFO', createdAt: '2025-01-15', customerCount: 89, revenueShare: 12 },
-  { id: 'V003', name: 'Cohort Q4-2024', creator: 'Growth', createdAt: '2025-01-08', customerCount: 456, revenueShare: 18 },
-];
-
-function formatCurrency(value: number): string {
-  if (value >= 1e9) return `${(value / 1e9).toFixed(1)} tỷ`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  return value.toLocaleString('vi-VN');
-}
+import { useCDPCustomerResearch, useCDPResearchStats, useCDPSavedViews } from '@/hooks/useCDPExplore';
+import { formatVNDCompact } from '@/lib/formatters';
 
 function TrendIndicator({ trend }: { trend: 'up' | 'down' | 'stable' }) {
   if (trend === 'up') return <TrendingUp className="w-4 h-4 text-success" />;
@@ -51,14 +33,23 @@ function TrendIndicator({ trend }: { trend: 'up' | 'down' | 'stable' }) {
 export default function ExplorePage() {
   const [activeTab, setActiveTab] = useState<'customers' | 'filters' | 'saved'>('customers');
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
 
-  // Summary stats
-  const summaryStats = {
-    totalCustomers: mockCustomers.length,
-    totalRevenue: mockCustomers.reduce((sum, c) => sum + c.totalRevenue, 0),
-    avgAOV: mockCustomers.reduce((sum, c) => sum + c.avgOrderValue, 0) / mockCustomers.length,
-    avgOrders: mockCustomers.reduce((sum, c) => sum + c.orders, 0) / mockCustomers.length,
+  const { data: statsData, isLoading: statsLoading } = useCDPResearchStats();
+  const { data: customersData, isLoading: customersLoading } = useCDPCustomerResearch(page, 10);
+  const { data: savedViews, isLoading: savedViewsLoading } = useCDPSavedViews();
+
+  const stats = statsData || {
+    customerCount: 0,
+    totalRevenue: 0,
+    medianAOV: 0,
+    medianRepurchaseCycle: 30,
+    returnRate: 0,
+    promotionDependency: 0,
   };
+
+  const customers = customersData?.customers || [];
+  const totalCount = customersData?.totalCount || 0;
 
   return (
     <CDPLayout>
@@ -97,25 +88,41 @@ export default function ExplorePage() {
           <Card>
             <CardContent className="py-4">
               <p className="text-xs text-muted-foreground mb-1">Số khách hàng</p>
-              <p className="text-2xl font-bold">{summaryStats.totalCustomers.toLocaleString()}</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{stats.customerCount.toLocaleString()}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardContent className="py-4">
               <p className="text-xs text-muted-foreground mb-1">Tổng doanh thu</p>
-              <p className="text-2xl font-bold">{formatCurrency(summaryStats.totalRevenue)}</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{formatVNDCompact(stats.totalRevenue)}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardContent className="py-4">
-              <p className="text-xs text-muted-foreground mb-1">AOV trung bình</p>
-              <p className="text-2xl font-bold">{formatCurrency(summaryStats.avgAOV)}</p>
+              <p className="text-xs text-muted-foreground mb-1">AOV trung vị</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{formatVNDCompact(stats.medianAOV)}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardContent className="py-4">
-              <p className="text-xs text-muted-foreground mb-1">Số đơn TB</p>
-              <p className="text-2xl font-bold">{summaryStats.avgOrders.toFixed(1)}</p>
+              <p className="text-xs text-muted-foreground mb-1">Chu kỳ mua lại</p>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{stats.medianRepurchaseCycle.toFixed(0)} ngày</p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -133,7 +140,7 @@ export default function ExplorePage() {
             </TabsTrigger>
             <TabsTrigger value="saved" className="flex items-center gap-2">
               <Save className="w-4 h-4" />
-              Góc nhìn đã lưu ({mockSavedViews.length})
+              Góc nhìn đã lưu ({savedViews?.length || 0})
             </TabsTrigger>
           </TabsList>
 
@@ -157,41 +164,57 @@ export default function ExplorePage() {
 
             <Card>
               <ScrollArea className="h-[400px]">
-                <div className="divide-y">
-                  {mockCustomers.map((customer) => (
-                    <div key={customer.id} className="flex items-center justify-between p-4 hover:bg-muted/50">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <Users className="w-5 h-5 text-muted-foreground" />
+                {customersLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : customers.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <Users className="w-12 h-12 mb-4 opacity-50" />
+                    <p className="text-sm">Chưa có dữ liệu khách hàng</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {customers.map((customer) => (
+                      <div key={customer.id} className="flex items-center justify-between p-4 hover:bg-muted/50">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                            <Users className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{customer.anonymousId}</p>
+                            <Badge variant="outline" className="text-xs mt-1">
+                              {customer.behaviorStatus === 'active' && 'Hoạt động'}
+                              {customer.behaviorStatus === 'dormant' && 'Ngủ đông'}
+                              {customer.behaviorStatus === 'at_risk' && 'Có rủi ro'}
+                              {customer.behaviorStatus === 'new' && 'Mới'}
+                            </Badge>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{customer.name}</p>
-                          <p className="text-xs text-muted-foreground">ID: {customer.id}</p>
+                        <div className="flex items-center gap-6 text-sm">
+                          <div className="text-right">
+                            <p className="font-medium">{formatVNDCompact(customer.totalSpend)}</p>
+                            <p className="text-xs text-muted-foreground">Tổng chi tiêu</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{customer.orderCount}</p>
+                            <p className="text-xs text-muted-foreground">Đơn hàng</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{formatVNDCompact(customer.aov)}</p>
+                            <p className="text-xs text-muted-foreground">AOV</p>
+                          </div>
+                          <TrendIndicator trend={customer.trend} />
                         </div>
                       </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(customer.totalRevenue)}</p>
-                          <p className="text-xs text-muted-foreground">Doanh thu</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{customer.orders}</p>
-                          <p className="text-xs text-muted-foreground">Đơn hàng</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{formatCurrency(customer.avgOrderValue)}</p>
-                          <p className="text-xs text-muted-foreground">AOV</p>
-                        </div>
-                        <TrendIndicator trend={customer.trend} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </ScrollArea>
             </Card>
 
             <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Hiển thị 1-{mockCustomers.length} trong tổng số {mockCustomers.length} khách hàng</span>
+              <span>Hiển thị {customers.length} trong tổng số {totalCount.toLocaleString()} khách hàng</span>
               <span className="text-xs">Chỉ đọc • Không export • Không trigger</span>
             </div>
           </TabsContent>
@@ -248,7 +271,7 @@ export default function ExplorePage() {
                 <div className="flex items-center justify-between">
                   <div className="text-sm">
                     <span className="font-medium">Kết quả: </span>
-                    <span className="text-muted-foreground">2,456 khách hàng • 42% doanh thu</span>
+                    <span className="text-muted-foreground">{stats.customerCount.toLocaleString()} khách hàng</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm">
@@ -267,36 +290,52 @@ export default function ExplorePage() {
 
           {/* Saved Views */}
           <TabsContent value="saved" className="mt-6 space-y-4">
-            <div className="grid grid-cols-1 gap-4">
-              {mockSavedViews.map((view) => (
-                <Card key={view.id} className="hover:shadow-sm transition-shadow">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{view.name}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Tạo bởi {view.creator} • {view.createdAt}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <p className="font-medium">{view.customerCount.toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">Khách hàng</p>
+            {savedViewsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : savedViews && savedViews.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {savedViews.map((view) => (
+                  <Card key={view.id} className="hover:shadow-sm transition-shadow">
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-medium">{view.name}</h3>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Tạo bởi {view.creator || 'Unknown'} • {view.createdAt.toLocaleDateString('vi-VN')}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{view.revenueShare}%</p>
-                          <p className="text-xs text-muted-foreground">Tỷ trọng DT</p>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="font-medium">{view.customerCount.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">Khách hàng</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{view.revenueShare.toFixed(1)}%</p>
+                            <p className="text-xs text-muted-foreground">Tỷ trọng DT</p>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            Xem
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-2" />
-                          Xem
-                        </Button>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <Save className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-sm font-medium mb-1">Chưa có góc nhìn nào được lưu</p>
+                  <p className="text-xs text-muted-foreground">
+                    Sử dụng bộ lọc để tạo góc nhìn nghiên cứu và lưu lại
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>

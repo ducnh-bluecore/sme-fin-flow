@@ -1,50 +1,69 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Eye } from 'lucide-react';
+import { ArrowLeft, Shield, Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CustomerAuditHeader, CustomerAuditData } from '@/components/cdp/audit/CustomerAuditHeader';
+import { Card, CardContent } from '@/components/ui/card';
+import { CustomerAuditHeader } from '@/components/cdp/audit/CustomerAuditHeader';
 import { IdentityMergeBlock } from '@/components/cdp/audit/IdentityMergeBlock';
 import { TransactionSummaryBlock } from '@/components/cdp/audit/TransactionSummaryBlock';
 import { RFMVerificationBlock } from '@/components/cdp/audit/RFMVerificationBlock';
 import { SourceEvidenceBlock } from '@/components/cdp/audit/SourceEvidenceBlock';
-
-// Mock data for demonstration
-const mockCustomerData: CustomerAuditData = {
-  internalId: 'CDP-KH-2024-00847',
-  anonymizedPhone: '038***588',
-  anonymizedEmail: 'n***n@gmail.com',
-  mergeConfidence: 92,
-  sourceCount: 3,
-  mergeStatus: 'verified',
-  totalSpend: 24700000,
-  orderCount: 12,
-  aov: 2058333,
-  daysSinceLastPurchase: 18,
-  rfmScore: { r: 4, f: 3, m: 4 },
-  clv: 24700000,
-  avgClvSegment: 18200000,
-  sources: [
-    { name: 'KiotViet', hasData: true, orderCount: 7, totalValue: 14500000, lastSync: '22/01/2026' },
-    { name: 'Sapo', hasData: true, orderCount: 3, totalValue: 6200000, lastSync: '21/01/2026' },
-    { name: 'Haravan', hasData: true, orderCount: 2, totalValue: 4000000, lastSync: '20/01/2026' },
-    { name: 'Website/App', hasData: false, orderCount: 0, totalValue: 0 },
-  ],
-};
-
-const mockMilestones = [
-  { id: '1', type: 'order' as const, date: '05/01/2026', value: 2500000, orderNumber: 'ORD-12847' },
-  { id: '2', type: 'order' as const, date: '18/12/2025', value: 1800000, orderNumber: 'ORD-12234' },
-  { id: '3', type: 'return' as const, date: '15/12/2025', value: 450000, orderNumber: 'RET-00234' },
-  { id: '4', type: 'order' as const, date: '02/12/2025', value: 3200000, orderNumber: 'ORD-11987' },
-  { id: '5', type: 'order' as const, date: '15/11/2025', value: 2100000, orderNumber: 'ORD-11456' },
-];
+import { useCDPCustomerAudit } from '@/hooks/useCDPAudit';
 
 export default function CustomerAuditPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   
-  // In real implementation, fetch customer data based on customerId
-  const customer = mockCustomerData;
+  const { data: customer, isLoading, error } = useCDPCustomerAudit(customerId);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !customer) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-card">
+          <div className="container mx-auto px-6 py-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Quay lại
+            </Button>
+          </div>
+        </div>
+        <div className="container mx-auto px-6 py-12">
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <Shield className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+              <p className="text-sm font-medium mb-1">Không tìm thấy khách hàng</p>
+              <p className="text-xs text-muted-foreground">
+                ID khách hàng không tồn tại hoặc bạn không có quyền truy cập.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Generate mock milestones from customer data
+  const mockMilestones: Array<{ id: string; type: 'order' | 'return'; date: string; value: number; orderNumber: string }> = 
+    Array.from({ length: Math.min(customer.orderCount, 5) }, (_, i) => ({
+      id: String(i + 1),
+      type: i === 2 ? 'return' : 'order',
+      date: new Date(Date.now() - (i * 7 + 5) * 24 * 60 * 60 * 1000).toLocaleDateString('vi-VN'),
+      value: Math.floor(customer.aov * (0.8 + Math.random() * 0.4)),
+      orderNumber: i === 2 ? `RET-00${i + 1}` : `ORD-${12000 + i}`,
+    }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,8 +111,8 @@ export default function CustomerAuditPage() {
             <div className="space-y-6">
               {/* Block 1: Identity & Merge */}
               <IdentityMergeBlock
-                anonymizedPhone={customer.anonymizedPhone}
-                anonymizedEmail={customer.anonymizedEmail}
+                anonymizedPhone={customer.anonymizedPhone || ''}
+                anonymizedEmail={customer.anonymizedEmail || ''}
                 mergeConfidence={customer.mergeConfidence}
                 sources={customer.sources}
               />

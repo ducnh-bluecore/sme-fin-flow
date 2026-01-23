@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useActiveTenant';
+import { useActiveTenant } from '@/hooks/useTenant';
 
 export interface CustomerAuditData {
   internalId: string;
@@ -26,7 +26,7 @@ export interface CustomerAuditData {
 }
 
 export function useCDPCustomerAudit(customerId: string | undefined) {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
@@ -70,6 +70,7 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
             hasData: false,
             orderCount: 0,
             totalValue: 0,
+            lastSync: undefined,
           });
         }
       });

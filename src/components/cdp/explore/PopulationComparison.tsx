@@ -6,13 +6,11 @@ import {
   TrendingDown,
   Minus,
   Info,
-  Check,
-  AlertCircle
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -21,12 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-
-interface Population {
-  id: string;
-  name: string;
-  customerCount: number;
-}
+import { useCDPPopulationComparison, PopulationComparison as PopulationComparisonData } from '@/hooks/useCDPExplore';
+import { formatVNDCompact } from '@/lib/formatters';
 
 interface ComparisonMetric {
   key: string;
@@ -37,20 +31,10 @@ interface ComparisonMetric {
   confidence: 'high' | 'medium' | 'low';
 }
 
-const mockPopulations: Population[] = [
-  { id: 'top20', name: 'Top 20% giá trị', customerCount: 2450 },
-  { id: 'newq1', name: 'Khách mới Q1/2025', customerCount: 1230 },
-  { id: 'dormant', name: 'Khách ngủ đông', customerCount: 890 },
-  { id: 'highrisk', name: 'Rủi ro hoàn trả cao', customerCount: 456 },
-  { id: 'promo', name: 'Phụ thuộc khuyến mãi', customerCount: 1670 },
-];
-
 function formatValue(value: number, format: string): string {
   switch (format) {
     case 'currency':
-      if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-      if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K`;
-      return value.toLocaleString('vi-VN');
+      return formatVNDCompact(value);
     case 'percent':
       return `${value.toFixed(1)}%`;
     case 'days':
@@ -60,46 +44,47 @@ function formatValue(value: number, format: string): string {
   }
 }
 
-function getComparisonMetrics(populationA: string, populationB: string): ComparisonMetric[] {
-  // Mock data based on population selection
+function getComparisonMetrics(popA: PopulationComparisonData | undefined, popB: PopulationComparisonData | undefined): ComparisonMetric[] {
+  if (!popA || !popB) return [];
+  
   return [
     { 
       key: 'aov', 
       label: 'AOV trung bình', 
-      valueA: populationA === 'top20' ? 2150000 : 850000, 
-      valueB: populationB === 'top20' ? 2150000 : 650000,
+      valueA: popA.avgAov, 
+      valueB: popB.avgAov,
       format: 'currency',
       confidence: 'high'
     },
     { 
       key: 'repurchase', 
       label: 'Chu kỳ mua lại', 
-      valueA: populationA === 'top20' ? 18 : 45, 
-      valueB: populationB === 'dormant' ? 95 : 52,
+      valueA: popA.avgRepurchaseCycle, 
+      valueB: popB.avgRepurchaseCycle,
       format: 'days',
       confidence: 'high'
     },
     { 
       key: 'return_rate', 
       label: 'Tỷ lệ hoàn trả', 
-      valueA: populationA === 'highrisk' ? 28.5 : 8.2, 
-      valueB: populationB === 'highrisk' ? 28.5 : 12.3,
+      valueA: popA.avgReturnRate, 
+      valueB: popB.avgReturnRate,
       format: 'percent',
       confidence: 'medium'
     },
     { 
       key: 'margin', 
       label: 'Biên đóng góp', 
-      valueA: populationA === 'top20' ? 35.2 : 22.1, 
-      valueB: populationB === 'promo' ? 15.8 : 24.5,
+      valueA: popA.avgMarginPercent, 
+      valueB: popB.avgMarginPercent,
       format: 'percent',
       confidence: 'medium'
     },
     { 
       key: 'order_frequency', 
-      label: 'Tần suất mua/năm', 
-      valueA: populationA === 'top20' ? 8.5 : 3.2, 
-      valueB: populationB === 'dormant' ? 1.2 : 2.8,
+      label: 'Tần suất mua', 
+      valueA: popA.avgFrequency, 
+      valueB: popB.avgFrequency,
       format: 'number',
       confidence: 'high'
     },
@@ -121,17 +106,28 @@ function ConfidenceBadge({ level }: { level: 'high' | 'medium' | 'low' }) {
 }
 
 export function PopulationComparison() {
-  const [populationA, setPopulationA] = useState<string>('top20');
-  const [populationB, setPopulationB] = useState<string>('dormant');
+  const [populationAId, setPopulationAId] = useState<string>('');
+  const [populationBId, setPopulationBId] = useState<string>('');
 
-  const popA = mockPopulations.find(p => p.id === populationA);
-  const popB = mockPopulations.find(p => p.id === populationB);
-  const metrics = populationA && populationB ? getComparisonMetrics(populationA, populationB) : [];
+  const { data: populations, isLoading } = useCDPPopulationComparison();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const pops = populations || [];
+  const popA = pops.find(p => p.populationId === populationAId);
+  const popB = pops.find(p => p.populationId === populationBId);
+  const metrics = getComparisonMetrics(popA, popB);
 
   const swapPopulations = () => {
-    const temp = populationA;
-    setPopulationA(populationB);
-    setPopulationB(temp);
+    const temp = populationAId;
+    setPopulationAId(populationBId);
+    setPopulationBId(temp);
   };
 
   return (
@@ -148,64 +144,71 @@ export function PopulationComparison() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
-            {/* Population A */}
-            <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">Tập A</label>
-              <Select value={populationA} onValueChange={setPopulationA}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn tập khách..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockPopulations.filter(p => p.id !== populationB).map(pop => (
-                    <SelectItem key={pop.id} value={pop.id}>
-                      {pop.name} ({pop.customerCount.toLocaleString()})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {pops.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">Chưa có tập khách nào để so sánh</p>
             </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              {/* Population A */}
+              <div className="flex-1 space-y-2">
+                <label className="text-sm font-medium">Tập A</label>
+                <Select value={populationAId} onValueChange={setPopulationAId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn tập khách..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pops.filter(p => p.populationId !== populationBId).map(pop => (
+                      <SelectItem key={pop.populationId} value={pop.populationId}>
+                        {pop.populationName} ({pop.customerCount.toLocaleString()})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Swap Button */}
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="mt-6"
-              onClick={swapPopulations}
-            >
-              <ArrowLeftRight className="w-4 h-4" />
-            </Button>
+              {/* Swap Button */}
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="mt-6"
+                onClick={swapPopulations}
+                disabled={!populationAId || !populationBId}
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+              </Button>
 
-            {/* Population B */}
-            <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">Tập B</label>
-              <Select value={populationB} onValueChange={setPopulationB}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn tập khách..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockPopulations.filter(p => p.id !== populationA).map(pop => (
-                    <SelectItem key={pop.id} value={pop.id}>
-                      {pop.name} ({pop.customerCount.toLocaleString()})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Population B */}
+              <div className="flex-1 space-y-2">
+                <label className="text-sm font-medium">Tập B</label>
+                <Select value={populationBId} onValueChange={setPopulationBId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn tập khách..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pops.filter(p => p.populationId !== populationAId).map(pop => (
+                      <SelectItem key={pop.populationId} value={pop.populationId}>
+                        {pop.populationName} ({pop.customerCount.toLocaleString()})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Comparison Results */}
-      {populationA && populationB && popA && popB && (
+      {popA && popB && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Kết quả so sánh</CardTitle>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{popA.name}: <strong>{popA.customerCount.toLocaleString()}</strong></span>
+                <span>{popA.populationName}: <strong>{popA.customerCount.toLocaleString()}</strong></span>
                 <span>vs</span>
-                <span>{popB.name}: <strong>{popB.customerCount.toLocaleString()}</strong></span>
+                <span>{popB.populationName}: <strong>{popB.customerCount.toLocaleString()}</strong></span>
               </div>
             </div>
           </CardHeader>
@@ -214,21 +217,11 @@ export function PopulationComparison() {
               <thead>
                 <tr className="border-b bg-muted/30">
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Chỉ số</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    Tập A
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    Tập B
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    Chênh lệch
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    % Thay đổi
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
-                    Độ tin cậy
-                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Tập A</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Tập B</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Chênh lệch</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">% Thay đổi</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Độ tin cậy</th>
                 </tr>
               </thead>
               <tbody>

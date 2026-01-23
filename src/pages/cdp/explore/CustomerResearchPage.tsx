@@ -1,40 +1,43 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { ExploreLayout } from '@/components/cdp/explore/ExploreLayout';
 import { ResearchStatsPanel } from '@/components/cdp/explore/ResearchStatsPanel';
 import { CustomerResearchFilters } from '@/components/cdp/explore/CustomerResearchFilters';
-import { CustomerResearchTable, ResearchCustomer } from '@/components/cdp/explore/CustomerResearchTable';
+import { CustomerResearchTable } from '@/components/cdp/explore/CustomerResearchTable';
 import { ResearchActionBar } from '@/components/cdp/explore/ResearchActionBar';
-
-// Mock data
-const mockCustomers: ResearchCustomer[] = Array.from({ length: 50 }, (_, i) => ({
-  id: `c${i + 1}`,
-  anonymousId: `KH-${String(i + 1001).padStart(6, '0')}`,
-  behaviorStatus: ['active', 'dormant', 'at_risk', 'new'][i % 4] as ResearchCustomer['behaviorStatus'],
-  totalSpend: Math.floor(Math.random() * 50000000) + 500000,
-  orderCount: Math.floor(Math.random() * 20) + 1,
-  lastPurchase: new Date(Date.now() - Math.floor(Math.random() * 90) * 24 * 60 * 60 * 1000),
-  repurchaseCycle: Math.floor(Math.random() * 60) + 10,
-  aov: Math.floor(Math.random() * 3000000) + 200000,
-  trend: ['up', 'down', 'stable'][i % 3] as ResearchCustomer['trend'],
-  returnRate: Math.random() * 25,
-  marginContribution: Math.floor(Math.random() * 5000000) - 1000000,
-}));
+import { useCDPCustomerResearch, useCDPResearchStats } from '@/hooks/useCDPExplore';
 
 export default function CustomerResearchPage() {
   const [filters, setFilters] = useState({});
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const stats = {
-    customerCount: 12450,
-    totalRevenue: 45600000000,
-    medianAOV: 1250000,
-    medianRepurchaseCycle: 32,
-    returnRate: 8.5,
-    promotionDependency: 42,
+  const { data: statsData, isLoading: statsLoading } = useCDPResearchStats();
+  const { data: customersData, isLoading: customersLoading } = useCDPCustomerResearch(page, 10);
+
+  const stats = statsData || {
+    customerCount: 0,
+    totalRevenue: 0,
+    medianAOV: 0,
+    medianRepurchaseCycle: 30,
+    returnRate: 0,
+    promotionDependency: 0,
   };
 
+  const customers = customersData?.customers || [];
+  const totalCount = customersData?.totalCount || 0;
+
   const activeFiltersCount = Object.keys(filters).filter(k => filters[k as keyof typeof filters]).length;
+
+  if (statsLoading && customersLoading) {
+    return (
+      <ExploreLayout title="Tập khách nghiên cứu">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </ExploreLayout>
+    );
+  }
 
   return (
     <ExploreLayout title="Tập khách nghiên cứu">
@@ -45,12 +48,12 @@ export default function CustomerResearchPage() {
           <CustomerResearchFilters
             filters={filters}
             onFiltersChange={setFilters}
-            filterImpacts={{ orderCount: -1234, lastPurchase: -567 }}
+            filterImpacts={{ orderCount: -Math.floor(stats.customerCount * 0.1), lastPurchase: -Math.floor(stats.customerCount * 0.05) }}
           />
           <div className="space-y-4">
             <CustomerResearchTable
-              customers={mockCustomers.slice(0, 10)}
-              totalCount={mockCustomers.length}
+              customers={customers}
+              totalCount={totalCount}
               page={page}
               pageSize={10}
               onPageChange={setPage}
