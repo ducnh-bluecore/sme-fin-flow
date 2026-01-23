@@ -67,19 +67,21 @@ export function useActiveTenant() {
         .from('profiles')
         .select('active_tenant_id')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError) throw profileError;
+      // PGRST116 = no rows found - user has no profile yet
+      if (profileError && profileError.code !== 'PGRST116') throw profileError;
       if (!profile?.active_tenant_id) return null;
 
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .select('*')
         .eq('id', profile.active_tenant_id)
-        .single();
+        .maybeSingle();
 
-      if (tenantError) throw tenantError;
-      return tenant as Tenant;
+      // PGRST116 = no rows found - tenant doesn't exist
+      if (tenantError && tenantError.code !== 'PGRST116') throw tenantError;
+      return tenant as Tenant | null;
     },
   });
 }

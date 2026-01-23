@@ -116,14 +116,15 @@ export function useCDPEquityOverview() {
         .from('v_cdp_equity_overview')
         .select('*')
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
+      // PGRST116 = no rows found - this is OK, return null
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching equity overview:', error);
         throw error;
       }
 
-      return data as EquityOverview;
+      return data as EquityOverview | null;
     },
     enabled: !!tenantId && !isTenantLoading,
   });
@@ -210,12 +211,16 @@ export function useCDPEquitySnapshot() {
         .from('v_cdp_equity_snapshot')
         .select('*')
         .eq('tenant_id', tenantId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
+      // PGRST116 = no rows found - this is OK, return null
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching equity snapshot:', error);
         throw error;
       }
+
+      // Return null if no data found
+      if (!data) return null;
 
       // Parse top_drivers from JSONB
       const topDrivers = Array.isArray(data?.top_drivers) 
