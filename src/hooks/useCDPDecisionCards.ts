@@ -97,18 +97,29 @@ export function useCDPDecisionCardDetail(cardId: string | undefined) {
       if (error) throw error;
       if (!data) return null;
 
-      // Parse source insights from JSONB
+      // Parse source insights from JSONB - can be object or array
       let sourceInsights: DecisionCardDetail['sourceInsights'] = [];
-      if (data.source_insights && Array.isArray(data.source_insights)) {
-        sourceInsights = data.source_insights.map((s: unknown) => {
-          const record = s as Record<string, unknown>;
-          return {
+      if (data.source_insights) {
+        if (Array.isArray(data.source_insights)) {
+          sourceInsights = data.source_insights.map((s: unknown) => {
+            const record = s as Record<string, unknown>;
+            return {
+              code: String(record.code || record.insight_code || 'INS-001'),
+              title: String(record.title || 'Insight liên quan'),
+              change: String(record.change || '—'),
+              impact: String(record.impact || '—'),
+            };
+          });
+        } else if (typeof data.source_insights === 'object') {
+          // Single object case
+          const record = data.source_insights as Record<string, unknown>;
+          sourceInsights = [{
             code: String(record.code || record.insight_code || 'INS-001'),
-            title: String(record.title || 'Insight'),
-            change: String(record.change || '-10%'),
-            impact: String(record.impact || 'Medium'),
-          };
-        });
+            title: String(record.title || 'Insight liên quan'),
+            change: String(record.change || '—'),
+            impact: String(record.impact || '—'),
+          }];
+        }
       }
 
       // Parse affected population
