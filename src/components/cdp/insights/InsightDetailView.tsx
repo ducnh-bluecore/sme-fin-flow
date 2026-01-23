@@ -10,7 +10,9 @@ import {
   Activity,
   Eye,
   Clock,
-  Link2
+  Link2,
+  Shield,
+  ExternalLink
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -254,12 +256,22 @@ export function InsightDetailView({ insight, onCreateDecisionCard }: InsightDeta
         <CardContent>
           <div className="space-y-3">
             {insight.sampleCustomers.map((customer) => (
-              <div key={customer.anonymousId} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+              <div 
+                key={customer.anonymousId} 
+                className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group cursor-pointer"
+                onClick={() => navigate(`/cdp/audit/${customer.anonymousId}`)}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                    <Users className="w-5 h-5 text-muted-foreground" />
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10">
+                    <Users className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
                   </div>
-                  <span className="font-mono text-sm">{customer.anonymousId}</span>
+                  <div>
+                    <span className="font-mono text-sm group-hover:text-primary transition-colors">{customer.anonymousId}</span>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <Shield className="w-3 h-3" />
+                      Xem hồ sơ kiểm chứng
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <div className="text-right">
@@ -275,6 +287,7 @@ export function InsightDetailView({ insight, onCreateDecisionCard }: InsightDeta
                     <p className="font-medium">{formatCurrency(customer.currentValue)}</p>
                     <p className="text-xs text-muted-foreground">Hiện tại</p>
                   </div>
+                  <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             ))}
