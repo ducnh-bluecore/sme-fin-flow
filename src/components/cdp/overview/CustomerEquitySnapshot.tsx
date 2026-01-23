@@ -110,7 +110,7 @@ export function CustomerEquitySnapshot() {
             }`}>
               {changeDirection === 'up' && <TrendingUp className="w-3 h-3" />}
               {changeDirection === 'down' && <TrendingDown className="w-3 h-3" />}
-              <span>{changeDirection === 'up' ? '+' : ''}{equityChange.toFixed(1)}% vs kỳ trước</span>
+              <span>{changeDirection === 'up' ? '+' : ''}{(equityChange ?? 0).toFixed(1)}% vs kỳ trước</span>
             </div>
           </div>
 
@@ -127,7 +127,7 @@ export function CustomerEquitySnapshot() {
             <p className="text-xl font-bold text-destructive">₫{formatCurrency(atRiskValue)}</p>
             <div className="flex items-center gap-1 text-xs text-destructive mt-1">
               <AlertTriangle className="w-3 h-3" />
-              <span>{atRiskPercent.toFixed(1)}% tổng equity</span>
+              <span>{(atRiskPercent ?? 0).toFixed(1)}% tổng equity</span>
             </div>
           </div>
 
