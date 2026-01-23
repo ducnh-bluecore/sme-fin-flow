@@ -4436,7 +4436,28 @@ export type Database = {
             foreignKeyName: "cdp_decision_insight_links_insight_event_id_fkey"
             columns: ["insight_event_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_demand_insights"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_highlight_signals"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_feed"
             referencedColumns: ["event_id"]
           },
           {
@@ -4699,7 +4720,28 @@ export type Database = {
             foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
             columns: ["insight_event_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_demand_insights"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_highlight_signals"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_feed"
             referencedColumns: ["event_id"]
           },
           {
@@ -20257,6 +20299,80 @@ export type Database = {
           },
         ]
       }
+      v_cdp_demand_category_counts: {
+        Row: {
+          active_count: number | null
+          category: string | null
+          tenant_id: string | null
+          total_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_demand_insights: {
+        Row: {
+          affected_customers: number | null
+          business_meaning_vi: string | null
+          category: string | null
+          code: string | null
+          description: string | null
+          detected_at: string | null
+          event_id: string | null
+          name_vi: string | null
+          product_group: string | null
+          revenue_contribution: number | null
+          risk_vi: string | null
+          severity: string | null
+          shift_direction: string | null
+          shift_percent: number | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_registry"
+            referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_registry_summary"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_demand_insights_triggered: {
         Row: {
           affected_customers: number | null
@@ -20444,6 +20560,138 @@ export type Database = {
           },
         ]
       }
+      v_cdp_insight_detail: {
+        Row: {
+          baseline_value: number | null
+          business_implication: string | null
+          change_direction: string | null
+          change_percent: number | null
+          code: string | null
+          confidence: string | null
+          cooldown_until: string | null
+          current_value: number | null
+          detected_at: string | null
+          drivers: Json | null
+          event_id: string | null
+          linked_decision_card_id: string | null
+          linked_decision_card_status: string | null
+          metric_name: string | null
+          metric_unit: string | null
+          period_baseline: string | null
+          period_current: string | null
+          population_name: string | null
+          population_size: number | null
+          revenue_contribution: number | null
+          sample_customers: Json | null
+          severity: string | null
+          snapshot_date: string | null
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+          topic: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["linked_decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["linked_decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["linked_decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_pending_decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_registry"
+            referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_registry_summary"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_insight_feed: {
+        Row: {
+          as_of_date: string | null
+          change_direction: string | null
+          change_percent: number | null
+          code: string | null
+          confidence: string | null
+          cooldown_until: string | null
+          detected_at: string | null
+          event_id: string | null
+          population_name: string | null
+          population_size: number | null
+          revenue_contribution: number | null
+          severity: string | null
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+          topic: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_registry"
+            referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_registry_summary"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_insight_registry_stats: {
         Row: {
           enabled_count: number | null
@@ -20489,6 +20737,30 @@ export type Database = {
           topic: string | null
           triggered_count: number | null
           window_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_insight_topic_counts: {
+        Row: {
+          active_count: number | null
+          tenant_id: string | null
+          topic: string | null
+          total_count: number | null
         }
         Relationships: [
           {
