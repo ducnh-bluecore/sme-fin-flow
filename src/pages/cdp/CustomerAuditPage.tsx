@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Shield, Eye, Loader2 } from 'lucide-react';
+import { ArrowLeft, Shield, Eye, Loader2, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,13 +8,19 @@ import { IdentityMergeBlock } from '@/components/cdp/audit/IdentityMergeBlock';
 import { TransactionSummaryBlock } from '@/components/cdp/audit/TransactionSummaryBlock';
 import { RFMVerificationBlock } from '@/components/cdp/audit/RFMVerificationBlock';
 import { SourceEvidenceBlock } from '@/components/cdp/audit/SourceEvidenceBlock';
+import { CategorySpendBlock } from '@/components/cdp/audit/CategorySpendBlock';
+import { PurchaseTimelineBlock } from '@/components/cdp/audit/PurchaseTimelineBlock';
+import { TopProductsBlock } from '@/components/cdp/audit/TopProductsBlock';
+import { BasketEvolutionBlock } from '@/components/cdp/audit/BasketEvolutionBlock';
 import { useCDPCustomerAudit } from '@/hooks/useCDPAudit';
+import { useCDPCustomerOrderItems } from '@/hooks/useCDPCustomerOrderItems';
 
 export default function CustomerAuditPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   
   const { data: customer, isLoading, error } = useCDPCustomerAudit(customerId);
+  const { data: orderItemsData } = useCDPCustomerOrderItems(customerId);
 
   if (isLoading) {
     return (
@@ -141,6 +147,43 @@ export default function CustomerAuditPage() {
               <SourceEvidenceBlock sources={customer.sources} />
             </div>
           </div>
+
+          {/* Purchase Behavior Analysis Section */}
+          {orderItemsData && orderItemsData.items.length > 0 && (
+            <>
+              <div className="mt-8 pt-6 border-t">
+                <div className="flex items-center gap-2 mb-4">
+                  <ShoppingBag className="w-5 h-5" />
+                  <h2 className="text-lg font-semibold">Phân tích Thói quen Mua hàng</h2>
+                  <Badge variant="outline" className="text-xs">
+                    {orderItemsData.items.length} sản phẩm
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Dữ liệu chi tiết về danh mục, sản phẩm và xu hướng mua hàng của khách
+                </p>
+              </div>
+
+              {/* Purchase Analysis Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Category Spend */}
+                <CategorySpendBlock data={orderItemsData.categorySpend} />
+                
+                {/* Top Products */}
+                <TopProductsBlock products={orderItemsData.topProducts} />
+                
+                {/* Purchase Timeline */}
+                <PurchaseTimelineBlock orders={orderItemsData.timelineOrders} />
+                
+                {/* Basket Evolution */}
+                <BasketEvolutionBlock 
+                  shifts={orderItemsData.basketEvolution.shifts}
+                  earlyPeriod={orderItemsData.basketEvolution.earlyPeriod}
+                  recentPeriod={orderItemsData.basketEvolution.recentPeriod}
+                />
+              </div>
+            </>
+          )}
 
           {/* Footer Disclaimer */}
           <div className="mt-8 p-4 bg-muted/30 rounded-lg border border-dashed text-center">
