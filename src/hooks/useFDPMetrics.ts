@@ -1,24 +1,33 @@
 /**
  * ============================================
- * FDP METRICS - SINGLE SOURCE OF TRUTH (SSOT)
+ * ⛔⛔⛔ DEPRECATED - DO NOT USE ⛔⛔⛔
  * ============================================
  * 
- * FDP Manifesto Principle #3: Truth > Flexibility
+ * ⚠️ THIS HOOK VIOLATES FDP MANIFESTO PRINCIPLE #2: SSOT
+ * ⚠️ THIS HOOK PERFORMS CLIENT-SIDE COMPUTATION - FORBIDDEN
  * 
- * Hook này là NGUỒN DUY NHẤT cho tất cả metrics tài chính và marketing.
- * Tất cả hooks/components PHẢI dùng hook này thay vì tự tính.
+ * REPLACEMENT: useFDPFinanceSSOT() from '@/hooks/useFDPFinanceSSOT'
  * 
- * KHÔNG ĐƯỢC:
- * - Tự tính ROAS, CAC, CM ở component
- * - Dùng hardcoded ratios (60% COGS, 15% fees)
- * - Query trực tiếp và tự tính
+ * This hook performs heavy client-side calculations which:
+ * 1. Creates SSOT violations (multiple sources of truth)
+ * 2. Can produce different results across components
+ * 3. Violates the DATABASE-FIRST architecture
  * 
- * Data Sources (Unified):
- * - Revenue: external_orders + invoices + revenues
- * - COGS: external_orders.cost_of_goods + expenses(category=cogs)
- * - Platform Fees: channel_fees + external_orders(platform_fee + commission_fee + payment_fee)
- * - Marketing Spend: promotion_campaigns.actual_cost + marketing_expenses + expenses(category=marketing)
+ * Identified violations:
+ * - Lines 251-373: Client-side aggregations
+ * - Calculates: Net Revenue, CM, ROAS, CAC, LTV in React
+ * - Should fetch from: central_metrics_snapshots
+ * 
+ * @deprecated Use useFDPFinanceSSOT() instead
+ * @see src/hooks/useFDPFinanceSSOT.ts
+ * @see public/docs/BLUECORE-SYSTEM-AUDIT-AS-IS.md Section 3.1.3
  */
+
+console.warn(
+  '[DEPRECATED] useFDPMetrics is deprecated and will be removed.\n' +
+  'Use useFDPFinanceSSOT() from @/hooks/useFDPFinanceSSOT instead.\n' +
+  'This hook performs client-side computation which violates SSOT.'
+);
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
