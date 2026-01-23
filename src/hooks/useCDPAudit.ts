@@ -50,13 +50,24 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         .select('connector_type, status, last_sync_at')
         .eq('tenant_id', tenantId);
 
-      // Get order channels from cdp_orders for this customer
-      const { data: orderChannels } = await supabase
+      // Get REAL order stats per channel from cdp_orders for this customer
+      const { data: channelStats } = await supabase
         .from('cdp_orders')
-        .select('channel')
+        .select('channel, net_revenue')
         .eq('customer_id', customerId);
 
-      const activeChannels = [...new Set((orderChannels || []).map(o => o.channel).filter(Boolean))];
+      // Aggregate by channel
+      const channelAggregates: Record<string, { orderCount: number; totalValue: number }> = {};
+      (channelStats || []).forEach(order => {
+        const ch = order.channel || 'unknown';
+        if (!channelAggregates[ch]) {
+          channelAggregates[ch] = { orderCount: 0, totalValue: 0 };
+        }
+        channelAggregates[ch].orderCount += 1;
+        channelAggregates[ch].totalValue += Number(order.net_revenue) || 0;
+      });
+
+      const activeChannels = Object.keys(channelAggregates);
       
       // Build sources array from real connectors and order data
       const sources: Array<{
@@ -82,22 +93,23 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
       // Add connectors that have actual data
       (connectors || []).forEach(connector => {
         const displayName = connectorDisplayNames[connector.connector_type] || connector.connector_type;
-        const hasOrderData = activeChannels.some(ch => 
+        
+        // Find matching channel data
+        const matchingChannel = activeChannels.find(ch => 
           ch?.toLowerCase().includes(connector.connector_type.toLowerCase())
         );
+        
+        const channelData = matchingChannel ? channelAggregates[matchingChannel] : null;
+        const hasOrderData = !!channelData;
         
         const isActive = connector.status === 'active' || connector.status === 'connected';
         
         if (isActive || hasOrderData) {
-          const orderCountForSource = hasOrderData 
-            ? Math.ceil(data.order_count / Math.max(activeChannels.length, 1))
-            : 0;
-          
           sources.push({
             name: displayName,
             hasData: hasOrderData,
-            orderCount: orderCountForSource,
-            totalValue: hasOrderData ? Math.ceil(data.total_spend / Math.max(activeChannels.length, 1)) : 0,
+            orderCount: channelData?.orderCount || 0,
+            totalValue: channelData?.totalValue || 0,
             lastSync: connector.last_sync_at 
               ? new Date(connector.last_sync_at).toLocaleDateString('vi-VN')
               : undefined,
@@ -108,11 +120,12 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
       // If no connectors but we have channel data from orders, use that
       if (sources.length === 0 && activeChannels.length > 0) {
         activeChannels.forEach(channelName => {
+          const stats = channelAggregates[channelName];
           sources.push({
-            name: channelName || 'Nguồn không xác định',
+            name: connectorDisplayNames[channelName.toLowerCase()] || channelName || 'Nguồn không xác định',
             hasData: true,
-            orderCount: Math.ceil(data.order_count / activeChannels.length),
-            totalValue: Math.ceil(data.total_spend / activeChannels.length),
+            orderCount: stats.orderCount,
+            totalValue: stats.totalValue,
             lastSync: new Date().toLocaleDateString('vi-VN'),
           });
         });
