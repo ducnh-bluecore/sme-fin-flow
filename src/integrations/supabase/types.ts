@@ -26365,6 +26365,14 @@ export type Database = {
           out_sample_customers: Json
         }[]
       }
+      cdp_evaluate_segments: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: {
+          customer_count: number
+          segment_id: string
+          segment_name: string
+        }[]
+      }
       cdp_format_currency: { Args: { amount: number }; Returns: string }
       cdp_insert_insight_event: {
         Args: {
