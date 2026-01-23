@@ -4553,6 +4553,13 @@ export type Database = {
             foreignKeyName: "cdp_card_activity_log_decision_card_id_fkey"
             columns: ["decision_card_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_card_activity_log_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
           },
@@ -4635,6 +4642,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_cohort_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
             referencedColumns: ["id"]
           },
           {
@@ -4840,6 +4861,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_customer_identities_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_identities_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cdp_customer_identities_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4931,6 +4966,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
             referencedColumns: ["id"]
           },
           {
@@ -5052,6 +5101,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
             referencedColumns: ["id"]
           },
           {
@@ -5281,6 +5344,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_card_snapshots_decision_card_id_fkey"
             columns: ["decision_card_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_card_snapshots_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
           },
@@ -5461,6 +5531,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
             columns: ["decision_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
           },
@@ -5536,6 +5613,13 @@ export type Database = {
             columns: ["decision_id"]
             isOneToOne: false
             referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
             referencedColumns: ["id"]
           },
           {
@@ -5662,6 +5746,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_issue_map_decision_id_fkey"
             columns: ["decision_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_issue_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
           },
@@ -5740,6 +5831,13 @@ export type Database = {
             columns: ["decision_card_id"]
             isOneToOne: false
             referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_reviews_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
             referencedColumns: ["id"]
           },
           {
@@ -5833,6 +5931,13 @@ export type Database = {
             columns: ["decision_card_id"]
             isOneToOne: false
             referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decisions_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
             referencedColumns: ["id"]
           },
           {
@@ -6478,6 +6583,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -6507,6 +6626,87 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      cdp_population_changelog: {
+        Row: {
+          action: string
+          changed_at: string | null
+          changed_by: string | null
+          changes: string | null
+          id: string
+          metadata: Json | null
+          population_id: string | null
+          population_name: string | null
+          population_type: string | null
+          purpose: string | null
+          tenant_id: string
+          version: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changes?: string | null
+          id?: string
+          metadata?: Json | null
+          population_id?: string | null
+          population_name?: string | null
+          population_type?: string | null
+          purpose?: string | null
+          tenant_id: string
+          version?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changes?: string | null
+          id?: string
+          metadata?: Json | null
+          population_id?: string | null
+          population_name?: string | null
+          population_type?: string | null
+          purpose?: string | null
+          tenant_id?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_overview_stats"
@@ -6557,6 +6757,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_refunds_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_refunds_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cdp_refunds_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -6600,6 +6814,93 @@ export type Database = {
           },
         ]
       }
+      cdp_saved_views: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          customer_count: number | null
+          description: string | null
+          filter_criteria: Json | null
+          id: string
+          is_active: boolean | null
+          linked_decisions: number | null
+          linked_insights: number | null
+          name: string
+          purpose: string | null
+          revenue_share: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          customer_count?: number | null
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          is_active?: boolean | null
+          linked_decisions?: number | null
+          linked_insights?: number | null
+          name: string
+          purpose?: string | null
+          revenue_share?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          customer_count?: number | null
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string
+          is_active?: boolean | null
+          linked_decisions?: number | null
+          linked_insights?: number | null
+          name?: string
+          purpose?: string | null
+          revenue_share?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_segment_membership_daily: {
         Row: {
           as_of_date: string
@@ -6631,6 +6932,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
             referencedColumns: ["id"]
           },
           {
@@ -6865,6 +7180,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_value_tier_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_value_tier_membership_daily_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
             referencedColumns: ["id"]
           },
           {
@@ -24007,6 +24336,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cdp_customer_metrics_rolling_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -24156,6 +24499,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_metrics_rolling_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
             referencedColumns: ["id"]
           },
           {
@@ -25266,6 +25623,118 @@ export type Database = {
           },
         ]
       }
+      v_cdp_customer_audit: {
+        Row: {
+          anonymized_email: string | null
+          anonymized_phone: string | null
+          aov: number | null
+          clv: number | null
+          created_at: string | null
+          days_since_last_purchase: number | null
+          id: string | null
+          internal_id: string | null
+          merge_confidence: number | null
+          merge_status: string | null
+          order_count: number | null
+          rfm_f: number | null
+          rfm_m: number | null
+          rfm_r: number | null
+          source_count: number | null
+          tenant_id: string | null
+          total_spend: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_customer_research: {
+        Row: {
+          anonymous_id: string | null
+          aov: number | null
+          behavior_status: string | null
+          created_at: string | null
+          id: string | null
+          last_purchase: string | null
+          margin_contribution: number | null
+          order_count: number | null
+          repurchase_cycle: number | null
+          return_rate: number | null
+          tenant_id: string | null
+          total_spend: number | null
+          trend: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_data_quality: {
         Row: {
           cogs_coverage: number | null
@@ -25374,6 +25843,108 @@ export type Database = {
           },
         ]
       }
+      v_cdp_decision_cards_detail: {
+        Row: {
+          affected_population: Json | null
+          created_at: string | null
+          decision: Json | null
+          equity_impact: number | null
+          id: string | null
+          options: string[] | null
+          owner: string | null
+          population_size: number | null
+          post_decision_review: string | null
+          priority: string | null
+          problem_statement: string | null
+          review_deadline: string | null
+          risks: Json | null
+          severity: string | null
+          source_equity: boolean | null
+          source_insights: Json | null
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Insert: {
+          affected_population?: Json | null
+          created_at?: string | null
+          decision?: never
+          equity_impact?: never
+          id?: string | null
+          options?: never
+          owner?: string | null
+          population_size?: never
+          post_decision_review?: never
+          priority?: string | null
+          problem_statement?: string | null
+          review_deadline?: string | null
+          risks?: never
+          severity?: string | null
+          source_equity?: never
+          source_insights?: never
+          status?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          affected_population?: Json | null
+          created_at?: string | null
+          decision?: never
+          equity_impact?: never
+          id?: string | null
+          options?: never
+          owner?: string | null
+          population_size?: never
+          post_decision_review?: never
+          priority?: string | null
+          problem_statement?: string | null
+          review_deadline?: string | null
+          risks?: never
+          severity?: string | null
+          source_equity?: never
+          source_insights?: never
+          status?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_decision_evidence: {
         Row: {
           as_of_date: string | null
@@ -25397,6 +25968,13 @@ export type Database = {
             columns: ["decision_id"]
             isOneToOne: false
             referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
             referencedColumns: ["id"]
           },
           {
@@ -26097,6 +26675,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
             columns: ["linked_decision_card_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_decision_cards_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["linked_decision_card_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
           },
@@ -26534,6 +27119,97 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cdp_population_changelog: {
+        Row: {
+          action: string | null
+          changed_at: string | null
+          changed_by: string | null
+          changes: string | null
+          id: string | null
+          metadata: Json | null
+          population_name: string | null
+          purpose: string | null
+          tenant_id: string | null
+          version: string | null
+        }
+        Insert: {
+          action?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          changes?: string | null
+          id?: string | null
+          metadata?: Json | null
+          population_name?: string | null
+          purpose?: string | null
+          tenant_id?: string | null
+          version?: string | null
+        }
+        Update: {
+          action?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          changes?: string | null
+          id?: string | null
+          metadata?: Json | null
+          population_name?: string | null
+          purpose?: string | null
+          tenant_id?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_population_changelog_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_population_comparison: {
+        Row: {
+          avg_aov: number | null
+          avg_frequency: number | null
+          avg_margin_percent: number | null
+          avg_repurchase_cycle: number | null
+          avg_return_rate: number | null
+          customer_count: number | null
+          population_id: string | null
+          population_name: string | null
+          population_type: string | null
+          tenant_id: string | null
+          total_revenue: number | null
+        }
+        Relationships: []
+      }
       v_cdp_population_summary: {
         Row: {
           cohort_count: number | null
@@ -26544,6 +27220,138 @@ export type Database = {
           total_insights: number | null
         }
         Relationships: []
+      }
+      v_cdp_research_stats: {
+        Row: {
+          avg_return_rate: number | null
+          customer_count: number | null
+          median_aov: number | null
+          median_repurchase_cycle: number | null
+          promotion_dependency: number | null
+          tenant_id: string | null
+          total_revenue: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_saved_research_views: {
+        Row: {
+          created_at: string | null
+          creator: string | null
+          customer_count: number | null
+          description: string | null
+          filter_criteria: Json | null
+          id: string | null
+          is_active: boolean | null
+          linked_decisions: number | null
+          linked_insights: number | null
+          name: string | null
+          purpose: string | null
+          revenue_share: number | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          creator?: string | null
+          customer_count?: never
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string | null
+          is_active?: boolean | null
+          linked_decisions?: never
+          linked_insights?: never
+          name?: string | null
+          purpose?: never
+          revenue_share?: never
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          creator?: string | null
+          customer_count?: never
+          description?: string | null
+          filter_criteria?: Json | null
+          id?: string | null
+          is_active?: boolean | null
+          linked_decisions?: never
+          linked_insights?: never
+          name?: string | null
+          purpose?: never
+          revenue_share?: never
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_saved_views_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_cdp_segment_summaries: {
         Row: {
