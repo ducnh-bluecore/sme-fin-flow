@@ -28196,6 +28196,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      cdp_populate_customer_identities: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
+      cdp_populate_rolling_metrics: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       cdp_refresh_demand_insights: { Args: never; Returns: undefined }
       cdp_refresh_mvs: { Args: never; Returns: undefined }
       cdp_run_daily: {
