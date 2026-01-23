@@ -751,6 +751,16 @@ serve(async (req) => {
   let supabase: any = null;
 
   try {
+    // Security: Require service role key for BigQuery sync operations
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${supabaseKey}`) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized - Service role key required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const body = await req.json();
     const { 
       integration_id, 
@@ -812,10 +822,10 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccount);
     console.log('Got BigQuery access token');
 
-    // Initialize Supabase client
+    // Initialize Supabase client (service role key already validated above)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    supabase = createClient(supabaseUrl, supabaseKey);
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // ========== NEW: Sync from Data Models ==========
     if (action === 'sync_from_models') {

@@ -1,4 +1,4 @@
-import { TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
+import { TrendingDown, TrendingUp, AlertTriangle, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function CustomerEquitySnapshot() {
   const navigate = useNavigate();
-  const { data: equityData, isLoading } = useCDPEquitySnapshot();
+  const { data: equityData, isLoading, error } = useCDPEquitySnapshot();
 
   const formatCurrency = (value: number) => {
     if (value >= 1_000_000_000) {
@@ -42,18 +42,45 @@ export function CustomerEquitySnapshot() {
     );
   }
 
-  // Use data from hook or fallback
-  const totalEquity12M = equityData?.total_equity_12m || 45000000000;
-  const totalEquity24M = equityData?.total_equity_24m || 72000000000;
-  const atRiskValue = equityData?.at_risk_value || 8100000000;
-  const atRiskPercent = equityData?.at_risk_percent || 18;
-  const equityChange = equityData?.equity_change || 12.5;
-  const changeDirection = equityData?.change_direction || 'up';
-  const topDrivers = equityData?.top_drivers || [
-    { label: 'Churn Rate tăng', impact: -2500000000, direction: 'negative' as const },
-    { label: 'Upsell thành công', impact: 1800000000, direction: 'positive' as const },
-    { label: 'Dormant customers', impact: -1200000000, direction: 'negative' as const },
-  ];
+  // NO FALLBACK VALUES - Show empty state when data is missing
+  if (!equityData || error) {
+    return (
+      <Card className="border-primary/20">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Giá trị Khách hàng</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <Database className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm font-medium text-muted-foreground mb-2">
+              Chưa có dữ liệu Customer Equity
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Import dữ liệu khách hàng và đơn hàng để tính toán giá trị LTV
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/connectors')}
+            >
+              Kết nối dữ liệu
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Use ONLY real data from DB - no fallbacks
+  const totalEquity12M = equityData.total_equity_12m;
+  const totalEquity24M = equityData.total_equity_24m;
+  const atRiskValue = equityData.at_risk_value;
+  const atRiskPercent = equityData.at_risk_percent;
+  const equityChange = equityData.equity_change;
+  const changeDirection = equityData.change_direction;
+  const topDrivers = equityData.top_drivers || [];
 
   return (
     <Card className="border-primary/20">
@@ -87,9 +114,9 @@ export function CustomerEquitySnapshot() {
             </div>
           </div>
 
-          {/* Total Equity 24M */}
+          {/* Total Equity 24M - Marked as forecast */}
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Tổng Equity (24 tháng)</p>
+            <p className="text-xs text-muted-foreground mb-1">Tổng Equity (24 tháng) <span className="text-warning">(Dự báo)</span></p>
             <p className="text-xl font-bold text-muted-foreground">₫{formatCurrency(totalEquity24M)}</p>
             <p className="text-xs text-muted-foreground mt-1">Dự báo mở rộng</p>
           </div>
@@ -107,16 +134,20 @@ export function CustomerEquitySnapshot() {
           {/* Top Drivers */}
           <div>
             <p className="text-xs text-muted-foreground mb-2">Động lực chính</p>
-            <div className="space-y-1">
-              {topDrivers.slice(0, 3).map((driver, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground truncate">{driver.label}</span>
-                  <span className={driver.direction === 'positive' ? 'text-success' : 'text-destructive'}>
-                    {driver.direction === 'positive' ? '+' : ''}₫{formatCurrency(Math.abs(driver.impact))}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {topDrivers.length > 0 ? (
+              <div className="space-y-1">
+                {topDrivers.slice(0, 3).map((driver, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground truncate">{driver.label}</span>
+                    <span className={driver.direction === 'positive' ? 'text-success' : 'text-destructive'}>
+                      {driver.direction === 'positive' ? '+' : ''}₫{formatCurrency(Math.abs(driver.impact))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Chưa có dữ liệu</p>
+            )}
           </div>
         </div>
       </CardContent>

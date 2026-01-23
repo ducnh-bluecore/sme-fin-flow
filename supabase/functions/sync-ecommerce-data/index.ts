@@ -427,6 +427,16 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Security: Require service role key for e-commerce sync operations
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${supabaseKey}`) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized - Service role key required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json().catch(() => ({}));
