@@ -142,7 +142,7 @@ export function EquityEvidencePanel() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/cdp/explore/audit/${customer.customer_id}`)}
+                          onClick={() => navigate(`/cdp/audit/${customer.customer_id}`)}
                           title="Xem hồ sơ kiểm chứng"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
