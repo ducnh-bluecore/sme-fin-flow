@@ -85,10 +85,11 @@ export function useFederatedDecisions(
   // Fetch from decision_cards table (unified storage)
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['federated-decisions', tenantId, domains, status, severity, ownerRole, limit],
-    queryFn: async () => {
+    queryFn: async (): Promise<DecisionContract[]> => {
       if (!tenantId) return [];
 
-      let query = supabase
+      // Build query with explicit typing to avoid deep type inference
+      const { data, error } = await supabase
         .from('decision_cards')
         .select(`
           *,
@@ -99,21 +100,26 @@ export function useFederatedDecisions(
         .in('status', status)
         .order('created_at', { ascending: false })
         .limit(limit);
-
-      if (severity && severity.length > 0) {
-        query = query.in('severity', severity);
-      }
-
-      if (ownerRole && ownerRole.length > 0) {
-        query = query.in('owner_role', ownerRole);
-      }
-
-      const { data, error } = await query;
       
       if (error) throw error;
       
+      // Filter in JS for optional filters to avoid complex query chaining
+      let filteredData = data || [];
+      
+      if (severity && severity.length > 0) {
+        filteredData = filteredData.filter(row => 
+          severity.includes((row as Record<string, unknown>).severity as DecisionSeverity)
+        );
+      }
+
+      if (ownerRole && ownerRole.length > 0) {
+        filteredData = filteredData.filter(row => 
+          ownerRole.includes((row as Record<string, unknown>).owner_role as string)
+        );
+      }
+      
       // Transform DB rows to DecisionContract format
-      return (data || []).map(row => transformDbToContract(row));
+      return filteredData.map(row => transformDbToContract(row as Record<string, unknown>));
     },
     enabled: !!tenantId,
   });
