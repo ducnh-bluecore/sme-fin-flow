@@ -5,15 +5,15 @@ import { ResearchStatsPanel } from '@/components/cdp/explore/ResearchStatsPanel'
 import { CustomerResearchFilters } from '@/components/cdp/explore/CustomerResearchFilters';
 import { CustomerResearchTable } from '@/components/cdp/explore/CustomerResearchTable';
 import { ResearchActionBar } from '@/components/cdp/explore/ResearchActionBar';
-import { useCDPCustomerResearch, useCDPResearchStats } from '@/hooks/useCDPExplore';
+import { useCDPCustomerResearch, useCDPResearchStats, ResearchFilters } from '@/hooks/useCDPExplore';
 
 export default function CustomerResearchPage() {
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState<ResearchFilters>({});
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: statsData, isLoading: statsLoading } = useCDPResearchStats();
-  const { data: customersData, isLoading: customersLoading } = useCDPCustomerResearch(page, 10);
+  const { data: customersData, isLoading: customersLoading } = useCDPCustomerResearch(page, 10, filters);
 
   const stats = statsData || {
     customerCount: 0,
@@ -27,7 +27,7 @@ export default function CustomerResearchPage() {
   const customers = customersData?.customers || [];
   const totalCount = customersData?.totalCount || 0;
 
-  const activeFiltersCount = Object.keys(filters).filter(k => filters[k as keyof typeof filters]).length;
+  const activeFiltersCount = Object.keys(filters).filter(k => filters[k as keyof ResearchFilters] && filters[k as keyof ResearchFilters] !== 'all').length;
 
   if (statsLoading && customersLoading) {
     return (

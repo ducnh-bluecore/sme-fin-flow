@@ -63,23 +63,98 @@ export interface ChangeLogEntry {
   changes: string | null;
 }
 
-// Hook: Customer Research List
-export function useCDPCustomerResearch(page = 1, pageSize = 10) {
+// Filter types
+export interface ResearchFilters {
+  orderCount?: string;
+  lastPurchase?: string;
+  repurchaseCycle?: string;
+  totalSpend?: string;
+  aov?: string;
+  returnRate?: string;
+  marginContribution?: string;
+  channel?: string;
+  category?: string;
+}
+
+// Hook: Customer Research List with filters
+export function useCDPCustomerResearch(page = 1, pageSize = 10, filters: ResearchFilters = {}) {
   const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
-    queryKey: ['cdp-customer-research', tenantId, page, pageSize],
+    queryKey: ['cdp-customer-research', tenantId, page, pageSize, filters],
     queryFn: async (): Promise<{ customers: ResearchCustomer[]; totalCount: number }> => {
       if (!tenantId) return { customers: [], totalCount: 0 };
 
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('v_cdp_customer_research')
         .select('*', { count: 'exact' })
-        .eq('tenant_id', tenantId)
+        .eq('tenant_id', tenantId);
+
+      // Apply order count filter
+      if (filters.orderCount && filters.orderCount !== 'all') {
+        if (filters.orderCount === '1') {
+          query = query.eq('order_count', 1);
+        } else if (filters.orderCount === '2-5') {
+          query = query.gte('order_count', 2).lte('order_count', 5);
+        } else if (filters.orderCount === '6-10') {
+          query = query.gte('order_count', 6).lte('order_count', 10);
+        } else if (filters.orderCount === '>10') {
+          query = query.gt('order_count', 10);
+        }
+      }
+
+      // Apply last purchase filter (days ago)
+      if (filters.lastPurchase && filters.lastPurchase !== 'all') {
+        const now = new Date();
+        if (filters.lastPurchase === '≤30') {
+          const date30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          query = query.gte('last_purchase', date30.toISOString());
+        } else if (filters.lastPurchase === '31-60') {
+          const date30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          const date60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+          query = query.lt('last_purchase', date30.toISOString()).gte('last_purchase', date60.toISOString());
+        } else if (filters.lastPurchase === '61-90') {
+          const date60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+          const date90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          query = query.lt('last_purchase', date60.toISOString()).gte('last_purchase', date90.toISOString());
+        } else if (filters.lastPurchase === '>90') {
+          const date90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          query = query.lt('last_purchase', date90.toISOString());
+        }
+      }
+
+      // Apply total spend filter
+      if (filters.totalSpend && filters.totalSpend !== 'all') {
+        if (filters.totalSpend === '<1tr') {
+          query = query.lt('total_spend', 1000000);
+        } else if (filters.totalSpend === '1-5tr') {
+          query = query.gte('total_spend', 1000000).lt('total_spend', 5000000);
+        } else if (filters.totalSpend === '5-20tr') {
+          query = query.gte('total_spend', 5000000).lt('total_spend', 20000000);
+        } else if (filters.totalSpend === '>20tr') {
+          query = query.gte('total_spend', 20000000);
+        }
+      }
+
+      // Apply AOV filter
+      if (filters.aov && filters.aov !== 'all') {
+        if (filters.aov === '<200k') {
+          query = query.lt('aov', 200000);
+        } else if (filters.aov === '200k-500k') {
+          query = query.gte('aov', 200000).lt('aov', 500000);
+        } else if (filters.aov === '500k-1tr') {
+          query = query.gte('aov', 500000).lt('aov', 1000000);
+        } else if (filters.aov === '>1tr') {
+          query = query.gte('aov', 1000000);
+        }
+      }
+
+      const { data, error, count } = await query
+        .order('total_spend', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
