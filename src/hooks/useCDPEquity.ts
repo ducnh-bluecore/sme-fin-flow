@@ -232,7 +232,7 @@ export function useCDPEquitySnapshot() {
   });
 }
 
-// Hook: Fetch LTV Models
+// Hook: Fetch LTV Models - Returns placeholder models since v_cdp_ltv_models doesn't exist yet
 export function useCDPLTVModels() {
   const { data: activeTenant, isLoading: isTenantLoading } = useActiveTenant();
   const tenantId = activeTenant?.id;
@@ -242,20 +242,10 @@ export function useCDPLTVModels() {
     queryFn: async (): Promise<LTVModel[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('v_cdp_ltv_models')
-        .select('*')
-        .eq('tenant_id', tenantId);
-
-      if (error) {
-        console.error('Error fetching LTV models:', error);
-        throw error;
-      }
-
-      return (data || []).map(d => ({
-        ...d,
-        confidence: d.confidence as 'high' | 'medium' | 'low',
-      })) as LTVModel[];
+      // NOTE: v_cdp_ltv_models view doesn't exist yet
+      // Return empty array - UI will show appropriate empty state
+      console.warn('[CDP] v_cdp_ltv_models view not implemented. Returning empty models.');
+      return [];
     },
     enabled: !!tenantId && !isTenantLoading,
   });
