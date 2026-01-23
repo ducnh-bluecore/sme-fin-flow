@@ -101,7 +101,8 @@ export function DashboardLayout() {
           ) : (
             <ErrorBoundary
               key={location.pathname}
-              onReset={() => window.location.reload()}
+              // Avoid infinite reload loops; let the user retry within React first.
+              onReset={() => {}}
             >
               <Suspense fallback={<TenantSwitchingSkeleton />}>
                 <motion.div
