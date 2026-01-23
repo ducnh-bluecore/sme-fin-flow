@@ -69,7 +69,7 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
 
       const activeChannels = Object.keys(channelAggregates);
       
-      // Build sources array from real connectors and order data
+      // Build sources array - merge connectors with channel data, avoid duplicates
       const sources: Array<{
         name: string;
         hasData: boolean;
@@ -88,15 +88,21 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         'shopee': 'Shopee',
         'lazada': 'Lazada',
         'tiktok': 'TikTok Shop',
+        'tiktok_shop': 'TikTok Shop',
+        'bigquery': 'BigQuery',
       };
 
-      // Add connectors that have actual data
+      // Track which channels have been added to avoid duplicates
+      const addedChannels = new Set<string>();
+
+      // First: Add connectors and merge with their channel data
       (connectors || []).forEach(connector => {
-        const displayName = connectorDisplayNames[connector.connector_type] || connector.connector_type;
+        const connectorType = connector.connector_type.toLowerCase();
+        const displayName = connectorDisplayNames[connectorType] || connector.connector_type;
         
-        // Find matching channel data
+        // Find matching channel data (case-insensitive, partial match)
         const matchingChannel = activeChannels.find(ch => 
-          ch?.toLowerCase().includes(connector.connector_type.toLowerCase())
+          ch?.toLowerCase().includes(connectorType) || connectorType.includes(ch?.toLowerCase() || '')
         );
         
         const channelData = matchingChannel ? channelAggregates[matchingChannel] : null;
@@ -114,22 +120,39 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
               ? new Date(connector.last_sync_at).toLocaleDateString('vi-VN')
               : undefined,
           });
+          
+          // Mark this channel as added
+          if (matchingChannel) {
+            addedChannels.add(matchingChannel);
+          }
+          addedChannels.add(connectorType);
         }
       });
 
-      // If no connectors but we have channel data from orders, use that
-      if (sources.length === 0 && activeChannels.length > 0) {
-        activeChannels.forEach(channelName => {
-          const stats = channelAggregates[channelName];
-          sources.push({
-            name: connectorDisplayNames[channelName.toLowerCase()] || channelName || 'Nguồn không xác định',
-            hasData: true,
-            orderCount: stats.orderCount,
-            totalValue: stats.totalValue,
-            lastSync: new Date().toLocaleDateString('vi-VN'),
-          });
+      // Second: Add remaining channels that weren't matched to any connector
+      activeChannels.forEach(channelName => {
+        const channelLower = channelName?.toLowerCase() || '';
+        
+        // Skip if already added via connector
+        if (addedChannels.has(channelName) || addedChannels.has(channelLower)) {
+          return;
+        }
+        
+        // Check if any added channel is similar
+        const alreadyAdded = [...addedChannels].some(added => 
+          added.includes(channelLower) || channelLower.includes(added)
+        );
+        if (alreadyAdded) return;
+
+        const stats = channelAggregates[channelName];
+        sources.push({
+          name: connectorDisplayNames[channelLower] || channelName || 'Nguồn không xác định',
+          hasData: true,
+          orderCount: stats.orderCount,
+          totalValue: stats.totalValue,
+          lastSync: new Date().toLocaleDateString('vi-VN'),
         });
-      }
+      });
 
       // If still no sources, show a placeholder indicating data origin
       if (sources.length === 0 && data.order_count > 0) {
