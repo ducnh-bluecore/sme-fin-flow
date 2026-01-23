@@ -1,9 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 
 interface SimulatedRule {
   metricCode: string;
@@ -164,50 +159,13 @@ async function estimateApprovalImpact(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Use shared auth - handles CORS and JWT validation
+  const authResult = await requireAuth(req);
+  if (isErrorResponse(authResult)) return authResult;
+  
+  const { supabase: supabaseClient, tenantId, userId } = authResult;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: tenantUser } = await supabaseClient
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!tenantUser) {
-      return new Response(JSON.stringify({ error: 'No active tenant' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tenantId = tenantUser.tenant_id;
     const url = new URL(req.url);
     const path = url.pathname.split('/').filter(Boolean).pop();
 
@@ -229,12 +187,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (!appetite) {
-        return new Response(JSON.stringify({ 
-          error: 'No active risk appetite to simulate against' 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('No active risk appetite to simulate against', 400);
       }
 
       // Run simulations
@@ -307,25 +260,20 @@ Deno.serve(async (req) => {
             simulatedAt: new Date().toISOString(),
             changesApplied: simulatedChanges.length,
           },
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         testId: stressTest?.id,
         impactSummary,
         detailedImpacts: ruleImpacts,
         simulatedAt: new Date().toISOString(),
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -342,12 +290,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (!appetite) {
-        return new Response(JSON.stringify({ 
-          error: 'No active risk appetite' 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('No active risk appetite', 400);
       }
 
       const ruleImpacts = await simulateRuleImpact(
@@ -360,7 +303,7 @@ Deno.serve(async (req) => {
       const newBreaches = ruleImpacts.filter(r => r.impactType === 'new_breach');
       const resolved = ruleImpacts.filter(r => r.impactType === 'resolved');
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         preview: true,
         newBreaches: newBreaches.length,
         resolved: resolved.length,
@@ -370,8 +313,6 @@ Deno.serve(async (req) => {
           : resolved.length > 0
             ? `${resolved.length} current breach(es) would be resolved.`
             : 'No impact on current breach status.',
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -387,15 +328,10 @@ Deno.serve(async (req) => {
         .limit(limit);
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify({ tests }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ tests });
     }
 
     // GET /:id - Get specific test
@@ -408,26 +344,15 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: 'Test not found' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Test not found', 404);
       }
 
-      return new Response(JSON.stringify(test), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(test);
     }
 
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Not found', 404);
 
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(error?.message || 'Unknown error', 500);
   }
 });

@@ -1,9 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 
 interface MetricValue {
   code: string;
@@ -291,50 +286,13 @@ async function executeEnforcementAction(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Use shared auth - handles CORS and JWT validation
+  const authResult = await requireAuth(req);
+  if (isErrorResponse(authResult)) return authResult;
+  
+  const { supabase: supabaseClient, tenantId } = authResult;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: tenantUser } = await supabaseClient
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!tenantUser) {
-      return new Response(JSON.stringify({ error: 'No active tenant' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tenantId = tenantUser.tenant_id;
     const url = new URL(req.url);
     const path = url.pathname.split('/').filter(Boolean).pop();
 
@@ -349,11 +307,9 @@ Deno.serve(async (req) => {
         .single();
 
       if (!appetite) {
-        return new Response(JSON.stringify({ 
+        return jsonResponse({ 
           hasActiveAppetite: false, 
           evaluations: [] 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -382,7 +338,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         hasActiveAppetite: true,
         appetiteId: appetite.id,
         version: appetite.version,
@@ -390,8 +346,6 @@ Deno.serve(async (req) => {
         evaluations,
         breachCount: evaluations.filter(e => e.isBreached).length,
         evaluatedAt: new Date().toISOString(),
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -405,11 +359,9 @@ Deno.serve(async (req) => {
         .single();
 
       if (!appetite) {
-        return new Response(JSON.stringify({ 
+        return jsonResponse({ 
           detected: false, 
           reason: 'No active risk appetite' 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -473,13 +425,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         detected: true,
         appetiteId: appetite.id,
         newBreaches: breaches,
         detectedAt: new Date().toISOString(),
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -504,97 +454,66 @@ Deno.serve(async (req) => {
 
       const { data: breaches, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        return errorResponse(error.message, 400);
+      }
 
-      return new Response(JSON.stringify({ breaches }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ breaches });
     }
 
     // POST /resolve - Resolve a breach
     if (req.method === 'POST' && path === 'resolve') {
-      const { breachId, notes } = await req.json();
+      const { breachId, resolution } = await req.json();
 
       const { data: breach, error } = await supabaseClient
         .from('risk_breach_events')
         .update({
           is_resolved: true,
           resolved_at: new Date().toISOString(),
-          resolved_by: user.id,
-          resolution_notes: notes,
+          resolution_notes: resolution,
         })
         .eq('id', breachId)
         .eq('tenant_id', tenantId)
         .select()
         .single();
 
-      if (error) throw error;
-
-      // Audit log
-      await supabaseClient.from('audit_events').insert({
-        tenant_id: tenantId,
-        actor_type: 'USER',
-        actor_id: user.id,
-        action: 'RESOLVE_RISK_BREACH',
-        resource_type: 'risk_breach_event',
-        resource_id: breachId,
-        after_state: { resolved: true, notes },
-      });
-
-      return new Response(JSON.stringify({ success: true, breach }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // GET /impact-preview - Preview impact of a rule
-    if (req.method === 'GET' && path === 'impact-preview') {
-      const metricCode = url.searchParams.get('metric_code');
-      const operator = url.searchParams.get('operator');
-      const threshold = parseFloat(url.searchParams.get('threshold') || '0');
-      const days = parseInt(url.searchParams.get('days') || '30');
-
-      if (!metricCode || !operator) {
-        return new Response(JSON.stringify({ error: 'Missing parameters' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (error) {
+        return errorResponse(error.message, 400);
       }
 
-      // Get current metric value
-      const currentMetric = await getMetricValue(supabaseClient, tenantId, metricCode);
-      const wouldBreachNow = currentMetric 
-        ? evaluateRule(currentMetric.value, operator, threshold)
-        : false;
+      return jsonResponse(breach);
+    }
 
-      // Simulate historical impact (simplified)
-      const impact = {
+    // GET /impact-preview - Preview impact of potential threshold change
+    if (req.method === 'GET' && path === 'impact-preview') {
+      const metricCode = url.searchParams.get('metricCode');
+      const newThreshold = parseFloat(url.searchParams.get('threshold') || '0');
+      const operator = url.searchParams.get('operator') || '>';
+
+      if (!metricCode) {
+        return errorResponse('metricCode is required', 400);
+      }
+
+      const metricData = await getMetricValue(supabaseClient, tenantId, metricCode);
+      if (!metricData) {
+        return errorResponse('Unknown metric', 400);
+      }
+
+      const wouldBreach = evaluateRule(metricData.value, operator, newThreshold);
+
+      return jsonResponse({
         metricCode,
-        currentValue: currentMetric?.value || 0,
-        proposedThreshold: threshold,
+        currentValue: metricData.value,
+        proposedThreshold: newThreshold,
         operator,
-        wouldBreachNow,
-        historicalNote: `If this rule were active in the last ${days} days, monitoring would have been enhanced.`,
-        recommendation: wouldBreachNow 
-          ? 'Current value would trigger this rule immediately'
-          : 'Current value is within acceptable range',
-      };
-
-      return new Response(JSON.stringify(impact), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        wouldBreach,
+        source: metricData.source,
       });
     }
 
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Not found', 404);
 
-  } catch (error: unknown) {
-    console.error('Risk appetite error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch (error: any) {
+    return errorResponse(error?.message || 'Unknown error', 500);
   }
 });
