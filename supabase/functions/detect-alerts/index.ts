@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * SECURITY: JWT validation OR service role required
+ * This function can be called by:
+ * 1. Authenticated users (for their tenant)
+ * 2. Scheduled functions (with service role)
+ */
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -70,10 +77,65 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { tenant_id, use_precalculated = true } = await req.json();
+    const { tenant_id: requestedTenantId, use_precalculated = true } = await req.json();
 
-    if (!tenant_id) {
-      throw new Error('tenant_id is required');
+    // SECURITY: Validate access to tenant
+    let tenantId: string;
+    
+    const authHeader = req.headers.get('Authorization');
+    const isServiceRole = authHeader === `Bearer ${supabaseKey}`;
+    
+    if (isServiceRole) {
+      // Called by scheduled function with service role - trust tenant_id param
+      if (!requestedTenantId) {
+        throw new Error('tenant_id is required for service role calls');
+      }
+      tenantId = requestedTenantId;
+      console.log(`Service role call for tenant: ${tenantId}`);
+    } else if (authHeader?.startsWith('Bearer ')) {
+      // User call - validate JWT and tenant access
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+      
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: 'Unauthorized', code: 'INVALID_TOKEN' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = claimsData.claims.sub as string;
+      
+      // Get user's tenant
+      const { data: tenantUser, error: tenantError } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (tenantError || !tenantUser?.tenant_id) {
+        return new Response(JSON.stringify({ error: 'Forbidden - No tenant access', code: 'NO_TENANT' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // SECURITY: Verify requested tenant matches user's tenant
+      if (requestedTenantId && requestedTenantId !== tenantUser.tenant_id) {
+        console.error(`Cross-tenant access denied: user ${userId} tried to access ${requestedTenantId}`);
+        return new Response(JSON.stringify({ error: 'Forbidden - Cross-tenant access denied', code: 'CROSS_TENANT' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      tenantId = tenantUser.tenant_id;
+      console.log(`User ${userId} detecting alerts for tenant: ${tenantId}`);
+    } else {
+      return new Response(JSON.stringify({ error: 'Unauthorized', code: 'NO_AUTH' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const result: DetectionResult = { triggered: 0, checked: 0, errors: [], calculations: [] };
@@ -82,7 +144,7 @@ serve(async (req) => {
     const { data: intelligentRules } = await supabase
       .from('intelligent_alert_rules')
       .select('*')
-      .eq('tenant_id', tenant_id)
+      .eq('tenant_id', tenantId)
       .eq('is_enabled', true)
       .order('priority', { ascending: true });
 
@@ -93,7 +155,7 @@ serve(async (req) => {
       console.log('Using pre-calculated metrics from object_calculated_metrics...');
       
       // Process alerts from pre-calculated metrics - SUPER FAST!
-      const alertsFromPrecalc = await processFromPrecalculatedMetrics(supabase, tenant_id, intelligentRules || []);
+      const alertsFromPrecalc = await processFromPrecalculatedMetrics(supabase, tenantId, intelligentRules || []);
       result.triggered += alertsFromPrecalc.triggered;
       result.checked += alertsFromPrecalc.checked;
       result.calculations.push(...alertsFromPrecalc.calculations);
@@ -101,20 +163,20 @@ serve(async (req) => {
     } else {
       // Fallback to legacy calculation
       console.log('Using legacy on-demand calculations...');
-      await updateDynamicCalculations(supabase, tenant_id);
+      await updateDynamicCalculations(supabase, tenantId);
       
       const { data: objects } = await supabase
         .from('alert_objects')
         .select('*')
-        .eq('tenant_id', tenant_id)
+        .eq('tenant_id', tenantId)
         .eq('is_monitored', true)
         .limit(500);
 
-      const additionalData = await fetchAdditionalData(supabase, tenant_id);
+      const additionalData = await fetchAdditionalData(supabase, tenantId);
 
       for (const rule of intelligentRules || []) {
         try {
-          const alerts = await processUniversalRule(supabase, tenant_id, rule, objects || [], additionalData);
+          const alerts = await processUniversalRule(supabase, tenantId, rule, objects || [], additionalData);
           result.triggered += alerts.length;
           result.checked++;
           result.calculations.push({ rule: rule.rule_code, alerts_created: alerts.length });
@@ -125,13 +187,13 @@ serve(async (req) => {
     }
 
     // Step 3: Get additional data for cross-object detection
-    const additionalData = await fetchAdditionalData(supabase, tenant_id);
+    const additionalData = await fetchAdditionalData(supabase, tenantId);
 
     // Step 4: Process basic alert configs  
     const { data: configs } = await supabase
       .from('extended_alert_configs')
       .select('*')
-      .eq('tenant_id', tenant_id)
+      .eq('tenant_id', tenantId)
       .eq('enabled', true);
 
     console.log(`Found ${configs?.length || 0} basic alert configs`);
@@ -140,13 +202,13 @@ serve(async (req) => {
     const { data: objectsForBasic } = await supabase
       .from('alert_objects')
       .select('*')
-      .eq('tenant_id', tenant_id)
+      .eq('tenant_id', tenantId)
       .eq('is_monitored', true)
       .limit(200);
 
     for (const config of configs || []) {
       try {
-        const alerts = await detectAlertsForConfig(supabase, tenant_id, config, objectsForBasic || []);
+        const alerts = await detectAlertsForConfig(supabase, tenantId, config, objectsForBasic || []);
         result.triggered += alerts.length;
         result.checked++;
       } catch (e) {
@@ -156,7 +218,7 @@ serve(async (req) => {
     }
 
     // Step 5: Run cross-object detection using pre-calculated data
-    const additionalAlerts = await runCrossObjectDetection(supabase, tenant_id, objectsForBasic || [], additionalData);
+    const additionalAlerts = await runCrossObjectDetection(supabase, tenantId, objectsForBasic || [], additionalData);
     result.triggered += additionalAlerts;
 
     return new Response(JSON.stringify({
