@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useNotificationCenter } from '@/hooks/useNotificationCenter';
+import { useCDPEquitySnapshot } from '@/hooks/useCDPOverview';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
@@ -191,6 +192,9 @@ export default function PortalPage() {
   // Fetch alert stats
   const { stats: alertStats, isLoading: alertsLoading } = useNotificationCenter();
   
+  // Fetch CDP equity snapshot for CDP card stats
+  const { data: cdpEquity, isLoading: cdpLoading } = useCDPEquitySnapshot();
+  
   // Fetch database stats for Data Warehouse
   const { data: dbStats, isLoading: dbStatsLoading } = useQuery({
     queryKey: ['portal-db-stats', tenantId],
@@ -264,7 +268,7 @@ export default function PortalPage() {
     return (financeSnapshot.overdueAR || 0) + (financeSnapshot.slowMovingInventory || 0);
   }, [financeSnapshot]);
 
-  const isLoading = financeLoading || alertsLoading;
+  const isLoading = financeLoading || alertsLoading || cdpLoading;
 
   // App Modules with real data
   const appModules: AppModule[] = [
@@ -339,6 +343,10 @@ export default function PortalPage() {
       borderColor: 'hsl(270, 60%, 85%)',
       status: 'active',
       path: '/cdp',
+      metrics: [
+        { label: 'Customer Equity', value: formatVND(cdpEquity?.totalEquity12M) },
+        { label: 'At Risk', value: formatVND(cdpEquity?.atRiskValue) },
+      ]
     },
   ];
 
