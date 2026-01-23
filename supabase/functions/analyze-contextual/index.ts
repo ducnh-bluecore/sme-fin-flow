@@ -2,6 +2,11 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * SECURITY: JWT validation required
+ * Per Security Manifesto: All functions MUST validate JWT, tenant isolation from claims
+ */
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -126,40 +131,48 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Auth
+    // SECURITY: Validate JWT using getClaims
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No authorization header" }), {
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: "Unauthorized", code: "UNAUTHORIZED" }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    if (claimsError || !claimsData?.claims) {
+      console.error("JWT validation failed:", claimsError?.message);
+      return new Response(JSON.stringify({ error: "Unauthorized", code: "INVALID_TOKEN" }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const userId = claimsData.claims.sub as string;
+
+    // SECURITY: Get tenant from tenant_users (tenant isolation)
+    const { data: tenantUser, error: tenantError } = await supabase
+      .from('tenant_users')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (tenantError || !tenantUser?.tenant_id) {
+      console.error("Tenant resolution failed:", tenantError?.message);
+      return new Response(JSON.stringify({ error: "Forbidden - No tenant access", code: "NO_TENANT" }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const tenantId = tenantUser.tenant_id;
+
     // Get context from request
     const { context = 'general' } = await req.json();
-    console.log(`Analyzing context: ${context} for user: ${user.id}`);
-
-    // Get active tenant
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('active_tenant_id')
-      .eq('id', user.id)
-      .single();
-
-    const tenantId = profile?.active_tenant_id;
-    if (!tenantId) {
-      throw new Error("No active tenant");
-    }
+    console.log(`Analyzing context: ${context} for user: ${userId}`);
 
     // Fetch data based on context
     const [
@@ -474,7 +487,7 @@ Trả lời bằng tiếng Việt, ngắn gọn, súc tích. Sử dụng emoji p
       
       await supabase.from('ai_usage_logs').insert({
         tenant_id: tenantId,
-        user_id: user.id,
+        user_id: userId,
         model: modelName,
         prompt_tokens: usage.prompt_tokens,
         completion_tokens: usage.completion_tokens,
