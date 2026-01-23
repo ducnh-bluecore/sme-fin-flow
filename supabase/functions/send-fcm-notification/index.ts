@@ -162,6 +162,39 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // SECURITY: Validate JWT or service role
+    const authHeader = req.headers.get('Authorization');
+    const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+    let validatedTenantId: string | null = null;
+
+    if (isServiceRole) {
+      console.log('Service role call - trusted');
+    } else if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: 'Unauthorized', code: 'INVALID_TOKEN' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = claimsData.claims.sub as string;
+      const { data: tenantUser } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      validatedTenantId = tenantUser?.tenant_id || null;
+    } else {
+      return new Response(JSON.stringify({ error: 'Unauthorized', code: 'NO_AUTH' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const payload: FCMNotificationPayload = await req.json();
     console.log('Received FCM notification payload:', payload);
 
@@ -170,6 +203,15 @@ serve(async (req) => {
         JSON.stringify({ error: 'tenant_id and title are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // SECURITY: Verify tenant access (skip for service role)
+    if (!isServiceRole && validatedTenantId && validatedTenantId !== payload.tenant_id) {
+      console.error(`Cross-tenant access denied: user tried to send FCM to tenant ${payload.tenant_id}`);
+      return new Response(JSON.stringify({ error: 'Forbidden - Cross-tenant access denied' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Determine target users

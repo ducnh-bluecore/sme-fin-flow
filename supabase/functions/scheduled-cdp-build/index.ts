@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+/**
+ * SECURITY: Service role required - scheduled function
+ * This function is called by cron jobs to build CDP metrics for all tenants
+ */
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -25,6 +30,16 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // SECURITY: Require service role key for scheduled functions
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader !== `Bearer ${supabaseServiceKey}`) {
+      console.error("Unauthorized: scheduled-cdp-build requires service role key");
+      return new Response(JSON.stringify({ error: "Unauthorized - Service role required" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

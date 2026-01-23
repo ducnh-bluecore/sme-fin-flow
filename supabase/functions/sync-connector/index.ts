@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * SECURITY: JWT validation OR service role required
+ * This function can be called by:
+ * 1. Authenticated users (for their tenant's integrations)
+ * 2. Scheduled sync jobs (with service role)
+ */
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -40,7 +47,7 @@ serve(async (req) => {
       throw new Error('integration_id is required');
     }
 
-    // Get integration details
+    // Get integration details first to check tenant
     const { data: integration, error: integrationError } = await supabase
       .from('connector_integrations')
       .select('*')
@@ -49,6 +56,59 @@ serve(async (req) => {
 
     if (integrationError || !integration) {
       throw new Error(`Integration not found: ${integrationError?.message}`);
+    }
+
+    // SECURITY: Validate access
+    const authHeader = req.headers.get('Authorization');
+    const isServiceRole = authHeader === `Bearer ${supabaseKey}`;
+
+    if (!isServiceRole) {
+      // User call - validate JWT and tenant access
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(JSON.stringify({ error: 'Unauthorized', code: 'NO_AUTH' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: 'Unauthorized', code: 'INVALID_TOKEN' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = claimsData.claims.sub as string;
+
+      // Get user's tenant
+      const { data: tenantUser, error: tenantError } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (tenantError || !tenantUser?.tenant_id) {
+        return new Response(JSON.stringify({ error: 'Forbidden - No tenant access', code: 'NO_TENANT' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // SECURITY: Verify integration belongs to user's tenant
+      if (integration.tenant_id !== tenantUser.tenant_id) {
+        console.error(`Cross-tenant access denied: user ${userId} tried to sync integration ${integration_id}`);
+        return new Response(JSON.stringify({ error: 'Forbidden - Cross-tenant access denied', code: 'CROSS_TENANT' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log(`User ${userId} syncing integration for tenant: ${tenantUser.tenant_id}`);
+    } else {
+      console.log(`Service role syncing integration for tenant: ${integration.tenant_id}`);
     }
 
     console.log(`Starting sync for ${integration.connector_type} - ${integration.shop_name}`);
