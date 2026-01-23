@@ -24472,6 +24472,7 @@ export type Database = {
         Row: {
           anonymized_id: string | null
           behavior_status: string | null
+          customer_id: string | null
           data_confidence: number | null
           estimated_ltv: number | null
           last_purchase: string | null
@@ -24481,28 +24482,49 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_equity_overview"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_equity_snapshot"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"

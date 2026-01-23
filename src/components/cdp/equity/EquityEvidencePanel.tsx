@@ -1,13 +1,16 @@
-import { Users, ShieldCheck, Eye, Loader2 } from 'lucide-react';
+import { Users, ShieldCheck, Eye, Loader2, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { useCDPEquityEvidence } from '@/hooks/useCDPEquity';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function EquityEvidencePanel() {
+  const navigate = useNavigate();
   const { data: sampleCustomers, isLoading } = useCDPEquityEvidence();
 
   const formatCurrency = (value: number) => {
@@ -110,6 +113,7 @@ export function EquityEvidencePanel() {
                     <TableHead>Mua gần nhất</TableHead>
                     <TableHead className="text-right">Số đơn</TableHead>
                     <TableHead className="text-right">Độ tin cậy</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -133,6 +137,16 @@ export function EquityEvidencePanel() {
                       </TableCell>
                       <TableCell className={`text-right font-medium ${getConfidenceColor(customer.data_confidence)}`}>
                         {customer.data_confidence}%
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/cdp/explore/audit/${customer.customer_id}`)}
+                          title="Xem hồ sơ kiểm chứng"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

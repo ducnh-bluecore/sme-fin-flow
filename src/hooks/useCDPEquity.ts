@@ -87,6 +87,7 @@ export interface LTVAuditHistory {
 
 export interface EquityEvidence {
   tenant_id: string;
+  customer_id: string;
   anonymized_id: string;
   segment: string;
   estimated_ltv: number;
