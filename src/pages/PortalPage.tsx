@@ -185,6 +185,14 @@ export default function PortalPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { data: tenantId } = useActiveTenantId();
+
+  const debugEnabled = useMemo(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('debug') === '1';
+    } catch {
+      return false;
+    }
+  }, []);
   
   // Fetch real financial data from SSOT
   const { data: financeSnapshot, isLoading: financeLoading } = useFinanceTruthSnapshot();
@@ -397,6 +405,20 @@ export default function PortalPage() {
       </Helmet>
 
       <div className="min-h-screen bg-background">
+        {debugEnabled && (
+          <div className="fixed left-4 top-4 z-[9998] w-[min(520px,calc(100vw-2rem))] rounded-xl border border-border bg-card/95 backdrop-blur p-3 shadow-elevated">
+            <div className="text-xs font-semibold text-foreground">Portal Debug</div>
+            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+              <div className="truncate"><span className="font-medium text-foreground">tenantId:</span> {tenantId ?? 'null'}</div>
+              <div className="truncate"><span className="font-medium text-foreground">language:</span> {language}</div>
+              <div className="truncate"><span className="font-medium text-foreground">financeLoading:</span> {String(financeLoading)}</div>
+              <div className="truncate"><span className="font-medium text-foreground">alertsLoading:</span> {String(alertsLoading)}</div>
+              <div className="truncate"><span className="font-medium text-foreground">cdpLoading:</span> {String(cdpLoading)}</div>
+              <div className="truncate"><span className="font-medium text-foreground">dbStatsLoading:</span> {String(dbStatsLoading)}</div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <header className="border-b border-border bg-card">
           <div className="max-w-7xl mx-auto px-6 py-5">
