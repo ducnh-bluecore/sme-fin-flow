@@ -28,17 +28,18 @@ export function CrashOverlay() {
   const [debug, setDebug] = useState<DebugInfo | null>(null);
   const [open, setOpen] = useState(true);
 
-  const isDev = useMemo(() => {
-    // Vite sets import.meta.env.DEV; keep a safe fallback.
-    try {
-      return !!import.meta.env.DEV;
-    } catch {
-      return false;
-    }
+  const enabled = useMemo(() => {
+    // Lovable Preview often runs as a production build, so import.meta.env.DEV can be false.
+    // We want this overlay ONLY in Preview; keep it off in the published app.
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLovablePreview = host.includes('id-preview--') && host.endsWith('.lovable.app');
+    const url = typeof window !== 'undefined' ? new URL(window.location.href) : null;
+    const forced = url ? url.searchParams.get('debug') === '1' : false;
+    return isLovablePreview || forced;
   }, []);
 
   useEffect(() => {
-    if (!isDev) return;
+    if (!enabled) return;
 
     let cancelled = false;
 
@@ -158,10 +159,10 @@ export function CrashOverlay() {
       console.error = originalConsoleError;
       cancelled = true;
     };
-  }, [isDev]);
+  }, [enabled]);
 
-  // In prod (published), keep this overlay completely off.
-  if (!isDev) return null;
+  // In published app, keep this overlay off.
+  if (!enabled) return null;
 
   // If user closed it, keep it closed for this session.
   if (!open) return null;
