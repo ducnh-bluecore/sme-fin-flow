@@ -9,6 +9,11 @@ import { AlertCircle } from 'lucide-react';
 export function EquityDistributionTable() {
   const { data: buckets, isLoading, error } = useCDPEquityDistribution();
 
+  const formatCount = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return '—';
+    return value.toLocaleString('vi-VN');
+  };
+
   const formatCurrency = (value: number | null) => {
     if (value === null) return '—';
     if (value >= 1_000_000_000) {
@@ -123,7 +128,7 @@ export function EquityDistributionTable() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        {bucket.customer_count.toLocaleString()}
+                        {formatCount(bucket.customer_count)}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         ₫{formatCurrency(bucket.equity_avg)}

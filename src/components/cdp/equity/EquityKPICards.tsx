@@ -14,7 +14,8 @@ export function EquityKPICards({ timeframe = '12' }: EquityKPICardsProps) {
   const { data: equityData, isLoading, error } = useCDPEquityOverview();
   const navigate = useNavigate();
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return '—';
     if (value >= 1_000_000_000) {
       return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
     }
@@ -85,7 +86,41 @@ export function EquityKPICards({ timeframe = '12' }: EquityKPICardsProps) {
   const equityChange = equityData.equity_change;
   const atRiskValue = equityData.at_risk_value;
   const atRiskPercent = equityData.at_risk_percent;
-  const isPositiveChange = equityChange >= 0;
+
+  // If the view row exists but key metrics are NULL, treat as insufficient data
+  if (totalEquity == null && atRiskValue == null) {
+    const dataQuality: CDPDataQuality = {
+      overall_score: 0,
+      quality_level: 'insufficient',
+      identity_coverage: createUnavailableMetric(0, 'Chưa đủ dữ liệu'),
+      cogs_coverage: createUnavailableMetric(0, 'Chưa đủ dữ liệu'),
+      order_coverage: createUnavailableMetric(0, 'Chưa đủ dữ liệu'),
+      days_since_last_order: 999,
+      data_freshness_level: 'very_stale',
+      minimum_customers_required: CDP_MINIMUM_THRESHOLDS.MIN_CUSTOMERS_FOR_EQUITY,
+      minimum_orders_required: CDP_MINIMUM_THRESHOLDS.MIN_ORDERS_FOR_LTV,
+      actual_customers: 0,
+      actual_orders: 0,
+      is_sufficient_for_insights: false,
+      is_sufficient_for_equity: false,
+      issues: [{
+        id: 'equity_null_metrics',
+        severity: 'critical',
+        label: 'Dữ liệu Customer Equity chưa được tính',
+        action: 'Import dữ liệu & chạy build để tính toán LTV'
+      }]
+    };
+
+    return (
+      <CDPEmptyState
+        reason="Chưa đủ dữ liệu để hiển thị Customer Equity. Hệ thống chưa tính ra các metric chính."
+        dataQuality={dataQuality}
+        onImportClick={() => navigate('/connectors')}
+      />
+    );
+  }
+
+  const isPositiveChange = (equityChange ?? 0) >= 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -109,7 +144,7 @@ export function EquityKPICards({ timeframe = '12' }: EquityKPICardsProps) {
                   <TrendingDown className="w-4 h-4" />
                 )}
                 <span>
-                  {isPositiveChange ? '+' : ''}{equityChange.toFixed(1)}% so với kỳ trước
+                  {equityChange == null ? '—' : `${isPositiveChange ? '+' : ''}${equityChange.toFixed(1)}% so với kỳ trước`}
                 </span>
               </div>
             </div>
@@ -136,7 +171,7 @@ export function EquityKPICards({ timeframe = '12' }: EquityKPICardsProps) {
               </p>
               <div className="flex items-center gap-1 mt-2 text-sm text-warning-foreground">
                 <AlertTriangle className="w-4 h-4" />
-                <span>{atRiskPercent.toFixed(1)}% tổng giá trị</span>
+                <span>{atRiskPercent == null ? '—' : `${atRiskPercent.toFixed(1)}% tổng giá trị`}</span>
               </div>
             </div>
             <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
