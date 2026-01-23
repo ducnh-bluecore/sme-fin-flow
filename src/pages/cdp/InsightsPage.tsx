@@ -6,7 +6,8 @@ import {
   ShieldAlert, 
   Database,
   Filter,
-  SortDesc
+  SortDesc,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,10 +22,11 @@ import {
 } from '@/components/ui/select';
 import { InsightLayout } from '@/components/cdp/insights/InsightLayout';
 import { InsightFeedCard, InsightFeedItem } from '@/components/cdp/insights/InsightFeedCard';
+import { useCDPInsights, InsightTopic } from '@/hooks/useCDPInsightFeed';
 import { cn } from '@/lib/utils';
 
 // Topic filter options
-type TopicFilter = 'all' | 'demand' | 'value' | 'timing' | 'risk' | 'equity';
+type TopicFilter = 'all' | InsightTopic;
 
 const topicLabels: Record<TopicFilter, string> = {
   all: 'Tất cả chủ đề',
@@ -42,94 +44,6 @@ const topicIcons: Record<string, typeof DollarSign> = {
   risk: ShieldAlert,
   equity: Database,
 };
-
-// Mock data for insights feed
-const mockInsights: InsightFeedItem[] = [
-  {
-    code: 'V01',
-    title: 'Chi tiêu trung bình của nhóm Top 20% giảm 15.9% so với 30 ngày trước',
-    topic: 'value',
-    populationName: 'Top 20% khách hàng',
-    populationSize: 2456,
-    revenueContribution: 65,
-    severity: 'high',
-    confidence: 'high',
-    detectedAt: new Date('2025-01-18'),
-    status: 'active',
-    changePercent: -15.9,
-    changeDirection: 'down',
-  },
-  {
-    code: 'T01',
-    title: 'Khoảng cách giữa các đơn hàng của khách mua lại tăng 12 ngày',
-    topic: 'timing',
-    populationName: 'Khách mua lại',
-    populationSize: 8234,
-    revenueContribution: 78,
-    severity: 'medium',
-    confidence: 'high',
-    detectedAt: new Date('2025-01-17'),
-    status: 'active',
-    changePercent: 18.5,
-    changeDirection: 'up',
-  },
-  {
-    code: 'R02',
-    title: 'Tỷ lệ hoàn trả của khách mới tăng từ 8% lên 14%',
-    topic: 'risk',
-    populationName: 'Khách mới (< 60 ngày)',
-    populationSize: 1567,
-    revenueContribution: 12,
-    severity: 'high',
-    confidence: 'medium',
-    detectedAt: new Date('2025-01-16'),
-    status: 'active',
-    changePercent: 75,
-    changeDirection: 'up',
-  },
-  {
-    code: 'V02',
-    title: 'AOV nén lại: khách chi trung bình thấp hơn 18% so với Q4/2024',
-    topic: 'value',
-    populationName: 'Toàn bộ khách hàng',
-    populationSize: 12450,
-    revenueContribution: 100,
-    severity: 'medium',
-    confidence: 'high',
-    detectedAt: new Date('2025-01-15'),
-    status: 'cooldown',
-    changePercent: -18,
-    changeDirection: 'down',
-  },
-  {
-    code: 'E01',
-    title: 'Customer Equity của phân khúc Loyal giảm 8.2% trong 30 ngày',
-    topic: 'equity',
-    populationName: 'Loyal (> 5 đơn)',
-    populationSize: 3421,
-    revenueContribution: 52,
-    severity: 'medium',
-    confidence: 'medium',
-    detectedAt: new Date('2025-01-14'),
-    status: 'active',
-    changePercent: -8.2,
-    changeDirection: 'down',
-  },
-  {
-    code: 'D01',
-    title: 'Tần suất mua của nhóm Dormant không có dấu hiệu phục hồi',
-    topic: 'demand',
-    populationName: 'Dormant (> 90 ngày)',
-    populationSize: 4532,
-    revenueContribution: 8,
-    severity: 'low',
-    confidence: 'high',
-    detectedAt: new Date('2025-01-12'),
-    status: 'active',
-    changePercent: -2.1,
-    changeDirection: 'down',
-  },
-];
 
 // Summary stats component
 function TopicSummaryCards({ 
