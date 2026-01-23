@@ -10,6 +10,7 @@ import { TenantProvider } from "@/contexts/TenantContext";
 import { DateRangeProvider } from "@/contexts/DateRangeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { GlobalErrorBoundary } from "@/components/shared/GlobalErrorBoundary";
+import { CrashOverlay } from "@/components/debug/CrashOverlay";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { SuperAdminRoute } from "@/components/admin/SuperAdminRoute";
@@ -557,6 +558,7 @@ const App = () => (
             <AuthProvider>
               <TenantProvider>
                 <DateRangeProvider>
+                  <CrashOverlay />
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
