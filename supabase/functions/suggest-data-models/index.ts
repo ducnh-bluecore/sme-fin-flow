@@ -375,6 +375,16 @@ serve(async (req) => {
   }
 
   try {
+    // Security: Require service role key for BigQuery operations
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${supabaseKey}`) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized - Service role key required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     const { project_id } = await req.json();
     
     const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
