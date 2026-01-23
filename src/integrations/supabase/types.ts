@@ -26406,6 +26406,11 @@ export type Database = {
         }
         Returns: Json
       }
+      get_ai_usage_stats: {
+        Args: { p_days?: number; p_tenant_id: string }
+        Returns: Json
+      }
+      get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_insight: {
         Args: {
           p_decision_type: string
