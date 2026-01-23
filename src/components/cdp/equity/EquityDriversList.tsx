@@ -1,10 +1,11 @@
-import { TrendingDown, TrendingUp, ExternalLink, AlertCircle } from 'lucide-react';
+import { TrendingDown, TrendingUp, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useCDPEquityDrivers } from '@/hooks/useCDPEquity';
 
-interface EquityDriver {
+interface EquityDriverUI {
   id: string;
   factor: string;
   description: string;
@@ -15,63 +16,21 @@ interface EquityDriver {
   relatedInsightId?: string;
 }
 
-const defaultDrivers: EquityDriver[] = [
-  {
-    id: 'dr1',
-    factor: 'Chu kỳ mua lại chậm hơn',
-    description: 'Thời gian giữa các lần mua tăng 15% trong 60 ngày qua',
-    impact: -2100000000,
-    direction: 'down',
-    severity: 'high',
-    trend: '+15% thời gian giữa các lần mua',
-    relatedInsightId: 'T01',
-  },
-  {
-    id: 'dr2',
-    factor: 'Giảm AOV',
-    description: 'Giá trị đơn hàng trung bình giảm ở nhóm TOP20-30',
-    impact: -1500000000,
-    direction: 'down',
-    severity: 'medium',
-    trend: '-8% AOV nhóm TOP20-30',
-    relatedInsightId: 'V02',
-  },
-  {
-    id: 'dr3',
-    factor: 'Tăng tỷ lệ hoàn trả',
-    description: 'Tỷ lệ hoàn trả tăng đáng kể ở một số danh mục',
-    impact: -800000000,
-    direction: 'down',
-    severity: 'medium',
-    trend: '+3.2pp tỷ lệ hoàn trả',
-    relatedInsightId: 'E03',
-  },
-  {
-    id: 'dr4',
-    factor: 'Phụ thuộc khuyến mãi',
-    description: 'Tỷ lệ đơn có khuyến mãi tăng, ảnh hưởng margin',
-    impact: -600000000,
-    direction: 'down',
-    severity: 'low',
-    trend: '+12% đơn có KM',
-  },
-  {
-    id: 'dr5',
-    factor: 'Khách mới chất lượng',
-    description: 'Nhóm khách mới 90 ngày có retention tốt hơn kỳ trước',
-    impact: 450000000,
-    direction: 'up',
-    severity: 'low',
-    trend: '+5% retention khách mới',
-  },
-];
-
-interface EquityDriversListProps {
-  drivers?: EquityDriver[];
-}
-
-export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversListProps) {
+export function EquityDriversList() {
   const navigate = useNavigate();
+  const { data: driversData, isLoading } = useCDPEquityDrivers();
+
+  // Transform database data to UI format
+  const drivers: EquityDriverUI[] = (driversData || []).map(d => ({
+    id: d.driver_id,
+    factor: d.factor,
+    description: d.description,
+    impact: d.impact,
+    direction: d.direction,
+    severity: d.severity,
+    trend: d.trend,
+    relatedInsightId: d.related_insight_id || undefined,
+  }));
 
   const formatCurrency = (value: number) => {
     const absValue = Math.abs(value);
@@ -84,7 +43,7 @@ export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversLis
     return absValue.toLocaleString('vi-VN');
   };
 
-  const getSeverityStyles = (severity: EquityDriver['severity'], direction: 'up' | 'down') => {
+  const getSeverityStyles = (severity: EquityDriverUI['severity'], direction: 'up' | 'down') => {
     if (direction === 'up') {
       return 'border-success/30 bg-success/5';
     }
@@ -97,6 +56,14 @@ export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversLis
         return 'border-border';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const negativeDrivers = drivers.filter(d => d.direction === 'down');
   const positiveDrivers = drivers.filter(d => d.direction === 'up');
@@ -121,67 +88,77 @@ export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversLis
         </CardContent>
       </Card>
 
+      {drivers.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="text-muted-foreground">Chưa có dữ liệu về các yếu tố ảnh hưởng</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Negative Drivers */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingDown className="w-5 h-5 text-destructive" />
-            Yếu tố có Tác động Tiêu cực
-          </CardTitle>
-          <CardDescription>
-            Các yếu tố đang góp phần làm giảm giá trị kỳ vọng từ tập khách hàng
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {negativeDrivers.map((driver) => (
-            <div 
-              key={driver.id} 
-              className={`p-4 rounded-lg border ${getSeverityStyles(driver.severity, driver.direction)}`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium">{driver.factor}</h4>
-                    <Badge 
-                      variant="outline" 
-                      className={
-                        driver.severity === 'high' 
-                          ? 'bg-destructive/10 text-destructive border-destructive/20' 
-                          : driver.severity === 'medium'
-                          ? 'bg-warning/10 text-warning-foreground border-warning/20'
-                          : ''
-                      }
-                    >
-                      {driver.severity === 'high' ? 'Cao' : driver.severity === 'medium' ? 'TB' : 'Thấp'}
-                    </Badge>
+      {negativeDrivers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingDown className="w-5 h-5 text-destructive" />
+              Yếu tố có Tác động Tiêu cực
+            </CardTitle>
+            <CardDescription>
+              Các yếu tố đang góp phần làm giảm giá trị kỳ vọng từ tập khách hàng
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {negativeDrivers.map((driver) => (
+              <div 
+                key={driver.id} 
+                className={`p-4 rounded-lg border ${getSeverityStyles(driver.severity, driver.direction)}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium">{driver.factor}</h4>
+                      <Badge 
+                        variant="outline" 
+                        className={
+                          driver.severity === 'high' 
+                            ? 'bg-destructive/10 text-destructive border-destructive/20' 
+                            : driver.severity === 'medium'
+                            ? 'bg-warning/10 text-warning-foreground border-warning/20'
+                            : ''
+                        }
+                      >
+                        {driver.severity === 'high' ? 'Cao' : driver.severity === 'medium' ? 'TB' : 'Thấp'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">{driver.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium">Xu hướng:</span> {driver.trend}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">{driver.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Xu hướng:</span> {driver.trend}
-                  </p>
-                </div>
-                <div className="text-right ml-4">
-                  <p className="text-lg font-bold text-destructive">
-                    -₫{formatCurrency(driver.impact)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">ảnh hưởng</p>
-                  {driver.relatedInsightId && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="mt-2 text-xs"
-                      onClick={() => navigate(`/cdp/insights/${driver.relatedInsightId}`)}
-                    >
-                      Xem Insight
-                      <ExternalLink className="w-3 h-3 ml-1" />
-                    </Button>
-                  )}
+                  <div className="text-right ml-4">
+                    <p className="text-lg font-bold text-destructive">
+                      -₫{formatCurrency(Math.abs(driver.impact))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">ảnh hưởng</p>
+                    {driver.relatedInsightId && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-2 text-xs"
+                        onClick={() => navigate(`/cdp/insights/${driver.relatedInsightId}`)}
+                      >
+                        Xem Insight
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Positive Drivers */}
       {positiveDrivers.length > 0 && (
@@ -225,26 +202,34 @@ export function EquityDriversList({ drivers = defaultDrivers }: EquityDriversLis
       )}
 
       {/* Summary */}
-      <Card className="border-primary/20">
-        <CardContent className="py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Tổng hợp Ảnh hưởng ròng</p>
-              <p className="text-xs text-muted-foreground">
-                Tổng tác động của các yếu tố trên đến Customer Equity
-              </p>
+      {drivers.length > 0 && (
+        <Card className="border-primary/20">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Tổng hợp Ảnh hưởng ròng</p>
+                <p className="text-xs text-muted-foreground">
+                  Tổng tác động của các yếu tố trên đến Customer Equity
+                </p>
+              </div>
+              <div className="text-right">
+                {(() => {
+                  const netImpact = drivers.reduce((sum, d) => sum + d.impact, 0);
+                  const isNegative = netImpact < 0;
+                  return (
+                    <>
+                      <p className={`text-xl font-bold ${isNegative ? 'text-destructive' : 'text-success'}`}>
+                        {isNegative ? '-' : '+'}₫{formatCurrency(Math.abs(netImpact))}
+                      </p>
+                      <p className="text-xs text-muted-foreground">ảnh hưởng ròng</p>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xl font-bold text-destructive">
-                -₫{formatCurrency(
-                  drivers.reduce((sum, d) => sum + d.impact, 0) * -1
-                )}
-              </p>
-              <p className="text-xs text-muted-foreground">ảnh hưởng ròng</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
