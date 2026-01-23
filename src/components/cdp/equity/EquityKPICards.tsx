@@ -1,21 +1,15 @@
 import { TrendingUp, TrendingDown, AlertTriangle, Wallet } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useCDPEquityOverview } from '@/hooks/useCDPEquity';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface EquityKPICardsProps {
-  totalEquity: number;
-  equityChange: number;
-  atRiskValue: number;
-  atRiskPercent: number;
-  timeframe: '12' | '24';
+  timeframe?: '12' | '24';
 }
 
-export function EquityKPICards({
-  totalEquity = 45000000000,
-  equityChange = 12.5,
-  atRiskValue = 8100000000,
-  atRiskPercent = 18,
-  timeframe = '12'
-}: EquityKPICardsProps) {
+export function EquityKPICards({ timeframe = '12' }: EquityKPICardsProps) {
+  const { data: equityData, isLoading } = useCDPEquityOverview();
+
   const formatCurrency = (value: number) => {
     if (value >= 1_000_000_000) {
       return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
@@ -26,6 +20,33 @@ export function EquityKPICards({
     return value.toLocaleString('vi-VN') + ' đ';
   };
 
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="border-primary/20">
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-32 mb-2" />
+            <Skeleton className="h-10 w-48 mb-2" />
+            <Skeleton className="h-4 w-24" />
+          </CardContent>
+        </Card>
+        <Card className="border-warning/30">
+          <CardContent className="pt-6">
+            <Skeleton className="h-8 w-32 mb-2" />
+            <Skeleton className="h-10 w-48 mb-2" />
+            <Skeleton className="h-4 w-24" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const totalEquity = timeframe === '12' 
+    ? (equityData?.total_equity_12m || 45000000000)
+    : (equityData?.total_equity_24m || 72000000000);
+  const equityChange = equityData?.equity_change || 12.5;
+  const atRiskValue = equityData?.at_risk_value || 8100000000;
+  const atRiskPercent = equityData?.at_risk_percent || 18;
   const isPositiveChange = equityChange >= 0;
 
   return (

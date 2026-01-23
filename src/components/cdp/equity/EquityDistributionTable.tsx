@@ -2,29 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useCDPEquityDistribution } from '@/hooks/useCDPEquity';
+import { Skeleton } from '@/components/ui/skeleton';
 
-interface SegmentEquity {
-  name: string;
-  equity: number;
-  share: number;
-  customerCount: number;
-  avgLTV: number;
-  status: 'normal' | 'at_risk' | 'inactive';
-}
+export function EquityDistributionTable() {
+  const { data: segments, isLoading } = useCDPEquityDistribution();
 
-interface EquityDistributionTableProps {
-  segments?: SegmentEquity[];
-}
-
-const defaultSegments: SegmentEquity[] = [
-  { name: 'TOP10 (Cao nhất)', equity: 22500000000, share: 50, customerCount: 1200, avgLTV: 18750000, status: 'normal' },
-  { name: 'TOP20', equity: 9000000000, share: 20, customerCount: 1200, avgLTV: 7500000, status: 'normal' },
-  { name: 'TOP30', equity: 6750000000, share: 15, customerCount: 1200, avgLTV: 5625000, status: 'at_risk' },
-  { name: 'Trung bình', equity: 4500000000, share: 10, customerCount: 3600, avgLTV: 1250000, status: 'at_risk' },
-  { name: 'Thấp / Không hoạt động', equity: 2250000000, share: 5, customerCount: 4800, avgLTV: 468750, status: 'inactive' },
-];
-
-export function EquityDistributionTable({ segments = defaultSegments }: EquityDistributionTableProps) {
   const formatCurrency = (value: number) => {
     if (value >= 1_000_000_000) {
       return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
@@ -35,7 +18,7 @@ export function EquityDistributionTable({ segments = defaultSegments }: EquityDi
     return value.toLocaleString('vi-VN');
   };
 
-  const getStatusBadge = (status: SegmentEquity['status']) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'normal':
         return <Badge variant="outline" className="bg-success/10 text-success border-success/20">Bình thường</Badge>;
@@ -43,8 +26,30 @@ export function EquityDistributionTable({ segments = defaultSegments }: EquityDi
         return <Badge variant="outline" className="bg-warning/10 text-warning-foreground border-warning/20">Rủi ro</Badge>;
       case 'inactive':
         return <Badge variant="outline" className="bg-muted text-muted-foreground">Không hoạt động</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-5 w-64 mb-2" />
+          <Skeleton className="h-4 w-96" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map(i => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const displaySegments = segments && segments.length > 0 ? segments : [];
 
   return (
     <Card>
@@ -67,27 +72,27 @@ export function EquityDistributionTable({ segments = defaultSegments }: EquityDi
             </TableRow>
           </TableHeader>
           <TableBody>
-            {segments.map((segment) => (
-              <TableRow key={segment.name}>
-                <TableCell className="font-medium">{segment.name}</TableCell>
+            {displaySegments.map((segment) => (
+              <TableRow key={segment.segment_id}>
+                <TableCell className="font-medium">{segment.segment_name}</TableCell>
                 <TableCell className="text-right font-medium">
                   ₫{formatCurrency(segment.equity)}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <Progress value={segment.share} className="h-2 flex-1" />
+                    <Progress value={segment.share_percent} className="h-2 flex-1" />
                     <span className="text-xs text-muted-foreground w-10 text-right">
-                      {segment.share}%
+                      {segment.share_percent}%
                     </span>
                   </div>
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  {segment.customerCount.toLocaleString()}
+                  {segment.customer_count.toLocaleString()}
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">
-                  ₫{formatCurrency(segment.avgLTV)}
+                  ₫{formatCurrency(segment.avg_ltv)}
                 </TableCell>
-                <TableCell>{getStatusBadge(segment.status)}</TableCell>
+                <TableCell>{getStatusBadge(segment.display_status)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -95,7 +100,7 @@ export function EquityDistributionTable({ segments = defaultSegments }: EquityDi
 
         <div className="mt-4 p-3 bg-muted/50 rounded-lg">
           <p className="text-xs text-muted-foreground">
-            <strong>Ghi chú:</strong> Các con số trên dựa trên mô hình LTV Cơ sở, cập nhật ngày 20/01/2026. 
+            <strong>Ghi chú:</strong> Các con số trên dựa trên mô hình LTV Cơ sở. 
             Giá trị kỳ vọng có thể thay đổi khi điều chỉnh giả định trong mô hình.
           </p>
         </div>

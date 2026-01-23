@@ -129,21 +129,7 @@ export default function CDPOverviewPage() {
 
         {/* Section 4 & 5: Two columns - Equity Snapshot & Decision Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {equityLoading ? (
-            <Card className="h-64 animate-pulse bg-muted/50" />
-          ) : equity ? (
-            <CustomerEquitySnapshot
-              totalEquity12M={equity.totalEquity12M}
-              totalEquity24M={equity.totalEquity24M}
-              atRiskValue={equity.atRiskValue}
-              atRiskPercent={equity.atRiskPercent}
-              equityChange={equity.equityChange}
-              changeDirection={equity.changeDirection}
-              topDrivers={equity.topDrivers}
-            />
-          ) : (
-            <EmptyState message="Chưa có dữ liệu Customer Equity" />
-          )}
+          <CustomerEquitySnapshot />
 
           {decisionsLoading ? (
             <Card className="h-64 animate-pulse bg-muted/50" />
