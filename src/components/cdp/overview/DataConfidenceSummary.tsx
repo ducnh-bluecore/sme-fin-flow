@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Database, AlertTriangle, CheckCircle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,14 +19,11 @@ interface DataConfidenceSummaryProps {
   }>;
 }
 
-export function DataConfidenceSummary({
-  overallScore,
-  identityCoverage,
-  matchAccuracy,
-  returnDataCompleteness,
-  dataFreshnessDays,
-  issues
-}: DataConfidenceSummaryProps) {
+export const DataConfidenceSummary = forwardRef<HTMLDivElement, DataConfidenceSummaryProps>(
+  function DataConfidenceSummary(
+    { overallScore, identityCoverage, matchAccuracy, returnDataCompleteness, dataFreshnessDays, issues },
+    ref
+  ) {
   const navigate = useNavigate();
 
   const getScoreColor = (score: number) => {
@@ -157,9 +155,9 @@ export function DataConfidenceSummary({
                 </Badge>
               )}
             </div>
-          </div>
+        </div>
         )}
       </CardContent>
     </Card>
   );
-}
+});
