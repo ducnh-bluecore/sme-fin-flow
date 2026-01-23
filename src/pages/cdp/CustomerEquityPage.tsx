@@ -141,15 +141,15 @@ export default function CustomerEquityPage() {
             <Card className="border-primary/20 bg-primary/5">
               <CardContent className="py-4">
                 <p className="text-xs text-muted-foreground mb-1">Tổng Equity (12 tháng)</p>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(equityData.total_equity_12m)}</p>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(equityData.total_equity_12m ?? 0)}</p>
                 <div className="flex items-center gap-1 mt-1">
-                  {equityData.equity_change >= 0 ? (
+                  {(equityData.equity_change ?? 0) >= 0 ? (
                     <TrendingUp className="w-3 h-3 text-success" />
                   ) : (
                     <TrendingDown className="w-3 h-3 text-destructive" />
                   )}
-                  <span className={`text-xs ${equityData.equity_change >= 0 ? 'text-success' : 'text-destructive'}`}>
-                    {equityData.equity_change >= 0 ? '+' : ''}{equityData.equity_change.toFixed(1)}% YoY
+                  <span className={`text-xs ${(equityData.equity_change ?? 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    {(equityData.equity_change ?? 0) >= 0 ? '+' : ''}{(equityData.equity_change ?? 0).toFixed(1)}% YoY
                   </span>
                 </div>
               </CardContent>
@@ -157,14 +157,14 @@ export default function CustomerEquityPage() {
             <Card>
               <CardContent className="py-4">
                 <p className="text-xs text-muted-foreground mb-1">Tổng Equity (24 tháng)</p>
-                <p className="text-2xl font-bold">{formatCurrency(equityData.total_equity_24m)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(equityData.total_equity_24m ?? 0)}</p>
               </CardContent>
             </Card>
             <Card className="border-warning/30 bg-warning/5">
               <CardContent className="py-4">
                 <p className="text-xs text-muted-foreground mb-1">Giá trị có rủi ro</p>
-                <p className="text-2xl font-bold text-warning-foreground">{formatCurrency(equityData.at_risk_value)}</p>
-                <span className="text-xs text-warning-foreground">{equityData.at_risk_percent.toFixed(1)}% tổng equity</span>
+                <p className="text-2xl font-bold text-warning-foreground">{formatCurrency(equityData.at_risk_value ?? 0)}</p>
+                <span className="text-xs text-warning-foreground">{(equityData.at_risk_percent ?? 0).toFixed(1)}% tổng equity</span>
               </CardContent>
             </Card>
             <Card>
@@ -213,26 +213,23 @@ export default function CustomerEquityPage() {
                   </div>
                 ) : distribution && distribution.length > 0 ? (
                   <div className="space-y-4">
-                    {distribution.map((segment) => (
-                      <div key={segment.segment_id} className="flex items-center gap-4">
-                        <div className="w-20 font-medium">{segment.segment_name}</div>
-                        <div className="flex-1">
-                          <Progress value={segment.share_percent} className="h-3" />
+                    {distribution.map((segment, idx) => {
+                      const totalEquity = distribution.reduce((sum, d) => sum + (d.equity_sum ?? 0), 0);
+                      const sharePercent = totalEquity > 0 ? ((segment.equity_sum ?? 0) / totalEquity) * 100 : 0;
+                      return (
+                        <div key={segment.bucket || idx} className="flex items-center gap-4">
+                          <div className="w-20 font-medium">{segment.bucket}</div>
+                          <div className="flex-1">
+                            <Progress value={sharePercent} className="h-3" />
+                          </div>
+                          <div className="w-32 text-right font-medium">{formatCurrency(segment.equity_sum ?? 0)}</div>
+                          <div className="w-16 text-right text-sm text-muted-foreground">{sharePercent.toFixed(1)}%</div>
+                          <Badge variant="outline" className="bg-muted/50">
+                            {segment.customer_count} KH
+                          </Badge>
                         </div>
-                        <div className="w-32 text-right font-medium">{formatCurrency(segment.equity)}</div>
-                        <div className="w-16 text-right text-sm text-muted-foreground">{segment.share_percent}%</div>
-                        <Badge 
-                          variant="outline" 
-                          className={
-                            segment.display_status === 'normal' ? 'bg-success/10 text-success border-success/20' :
-                            segment.display_status === 'at_risk' ? 'bg-warning/10 text-warning-foreground border-warning/20' :
-                            'bg-destructive/10 text-destructive border-destructive/20'
-                          }
-                        >
-                          {segment.display_status === 'normal' ? 'Thấp' : segment.display_status === 'at_risk' ? 'TB' : 'Cao'}
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">Chưa có dữ liệu phân bổ equity</p>
@@ -300,20 +297,27 @@ export default function CustomerEquityPage() {
                   </div>
                 ) : drivers && drivers.length > 0 ? (
                   <div className="space-y-4">
-                    {drivers.map((driver) => (
-                      <div key={driver.driver_id} className="flex items-center justify-between p-3 border rounded-lg">
+                    {drivers.map((driver, idx) => (
+                      <div key={driver.factor || idx} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            driver.severity === 'high' ? 'bg-destructive/10' : 'bg-warning/10'
+                            driver.direction === 'negative' ? 'bg-destructive/10' : 'bg-success/10'
                           }`}>
-                            <TrendingDown className={`w-4 h-4 ${
-                              driver.severity === 'high' ? 'text-destructive' : 'text-warning-foreground'
-                            }`} />
+                            {driver.direction === 'negative' ? (
+                              <TrendingDown className="w-4 h-4 text-destructive" />
+                            ) : (
+                              <TrendingUp className="w-4 h-4 text-success" />
+                            )}
                           </div>
-                          <span className="font-medium">{driver.factor}</span>
+                          <div>
+                            <span className="font-medium">{driver.factor}</span>
+                            <p className="text-xs text-muted-foreground">{driver.description}</p>
+                          </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-destructive font-medium">{formatCurrency(driver.impact)}</span>
+                          <span className={driver.direction === 'negative' ? 'text-destructive font-medium' : 'text-success font-medium'}>
+                            {driver.impact_percent != null ? `${driver.impact_percent.toFixed(1)}%` : 'N/A'}
+                          </span>
                           <Button variant="ghost" size="sm">
                             <ChevronRight className="w-4 h-4" />
                           </Button>
