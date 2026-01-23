@@ -26231,6 +26231,27 @@ export type Database = {
         }
         Returns: number
       }
+      cdp_detect_margin_drift: {
+        Args: {
+          p_baseline_days?: number
+          p_tenant_id: string
+          p_window_days?: number
+        }
+        Returns: {
+          out_baseline_margin: number
+          out_business_implication: string
+          out_change_percent: number
+          out_code: string
+          out_current_margin: number
+          out_customer_count: number
+          out_detected: boolean
+          out_drivers: Json
+          out_margin_loss: number
+          out_revenue_contribution: number
+          out_sample_customers: Json
+        }[]
+      }
+      cdp_format_currency: { Args: { amount: number }; Returns: string }
       cdp_insert_insight_event: {
         Args: {
           p_as_of_date: string
@@ -26262,6 +26283,14 @@ export type Database = {
         Returns: undefined
       }
       cdp_run_daily_all: { Args: { p_as_of_date: string }; Returns: undefined }
+      cdp_run_insight_detection: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          code: string
+          details: string
+          is_detected: boolean
+        }[]
+      }
       cdp_run_insights: {
         Args: {
           p_as_of_date: string
