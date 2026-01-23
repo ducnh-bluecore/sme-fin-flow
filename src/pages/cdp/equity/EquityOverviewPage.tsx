@@ -22,14 +22,7 @@ export default function EquityOverviewPage() {
 
         <EquityLayout>
           <div className="space-y-6">
-            <EquityKPICards 
-              totalEquity={45000000000}
-              equityChange={12.5}
-              atRiskValue={8100000000}
-              atRiskPercent={18}
-              timeframe="12"
-            />
-            
+            <EquityKPICards />
             <EquityDistributionTable />
           </div>
         </EquityLayout>

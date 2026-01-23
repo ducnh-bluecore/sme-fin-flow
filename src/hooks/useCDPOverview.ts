@@ -239,7 +239,7 @@ export function useCDPEquitySnapshot() {
         totalEquity24M: data.total_equity_24m || 0,
         atRiskValue: data.at_risk_value || 0,
         atRiskPercent: data.at_risk_percent || 0,
-        equityChange: data.equity_change_percent || 0,
+        equityChange: data.equity_change || 0,
         changeDirection: (data.change_direction || 'stable') as DirectionType,
         topDrivers: [], // Would need separate table for drivers
       };
