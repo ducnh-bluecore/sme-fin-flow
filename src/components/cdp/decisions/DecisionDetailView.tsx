@@ -56,14 +56,17 @@ interface DecisionDetailViewProps {
   };
 }
 
-const statusStyles = {
+const statusStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
   new: { bg: 'bg-info/10', text: 'text-info', border: 'border-info/20', label: 'Mới' },
   reviewing: { bg: 'bg-warning/10', text: 'text-warning-foreground', border: 'border-warning/20', label: 'Đang xem xét' },
+  decide: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20', label: 'Đã quyết' },
   decided: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20', label: 'Đã quyết' },
   archived: { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-muted', label: 'Lưu trữ' },
 };
 
-const riskLevelStyles = {
+const defaultStatusStyle = { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-muted', label: 'Không xác định' };
+
+const riskLevelStyles: Record<string, string> = {
   low: 'bg-muted text-muted-foreground',
   medium: 'bg-warning/10 text-warning-foreground',
   high: 'bg-destructive/10 text-destructive',
@@ -73,7 +76,7 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
   const navigate = useNavigate();
   const [decisionOutcome, setDecisionOutcome] = useState(card.decision?.outcome || '');
   const [decisionNote, setDecisionNote] = useState(card.decision?.note || '');
-  const statusStyle = statusStyles[card.status];
+  const statusStyle = statusStyles[card.status] || defaultStatusStyle;
 
   const formatCurrency = (value: number) => {
     if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
