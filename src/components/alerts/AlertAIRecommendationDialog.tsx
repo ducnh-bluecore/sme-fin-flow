@@ -81,9 +81,10 @@ export function AlertAIRecommendationDialog({
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('external_id', alert.external_object_id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
+      // PGRST116 = no rows found - this is OK
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching product:', error);
         return null;
       }

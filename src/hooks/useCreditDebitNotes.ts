@@ -219,11 +219,13 @@ export function useCreditNoteDetail(id: string | undefined) {
       if (!id) return null;
       
       const [noteResult, itemsResult] = await Promise.all([
-        supabase.from('adjustment_notes').select('*').eq('id', id).single(),
+        supabase.from('adjustment_notes').select('*').eq('id', id).maybeSingle(),
         supabase.from('adjustment_note_items').select('*').eq('adjustment_note_id', id),
       ]);
       
-      if (noteResult.error) throw noteResult.error;
+      // Note not found - return null instead of throwing
+      if (noteResult.error && noteResult.error.code !== 'PGRST116') throw noteResult.error;
+      if (!noteResult.data) return null;
       
       return {
         note: toOldCreditNoteFormat(noteResult.data as AdjustmentNote),
@@ -370,11 +372,13 @@ export function useDebitNoteDetail(id: string | undefined) {
       if (!id) return null;
       
       const [noteResult, itemsResult] = await Promise.all([
-        supabase.from('adjustment_notes').select('*').eq('id', id).single(),
+        supabase.from('adjustment_notes').select('*').eq('id', id).maybeSingle(),
         supabase.from('adjustment_note_items').select('*').eq('adjustment_note_id', id),
       ]);
       
-      if (noteResult.error) throw noteResult.error;
+      // Note not found - return null instead of throwing
+      if (noteResult.error && noteResult.error.code !== 'PGRST116') throw noteResult.error;
+      if (!noteResult.data) return null;
       
       return {
         note: toOldDebitNoteFormat(noteResult.data as AdjustmentNote),

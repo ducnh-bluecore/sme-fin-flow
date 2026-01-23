@@ -98,12 +98,14 @@ export function useBillDetail(billId: string | undefined) {
       if (!billId) return null;
       
       const [billResult, itemsResult, paymentsResult] = await Promise.all([
-        supabase.from('bills').select('*').eq('id', billId).single(),
+        supabase.from('bills').select('*').eq('id', billId).maybeSingle(),
         supabase.from('bill_items').select('*').eq('bill_id', billId),
         supabase.from('vendor_payments').select('*').eq('bill_id', billId),
       ]);
       
-      if (billResult.error) throw billResult.error;
+      // Bill not found - return null instead of throwing
+      if (billResult.error && billResult.error.code !== 'PGRST116') throw billResult.error;
+      if (!billResult.data) return null;
       
       return {
         bill: billResult.data as Bill,
