@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useActiveTenant';
+import { useActiveTenant } from '@/hooks/useTenant';
 
 // Types for Customer Research
 export interface ResearchCustomer {
@@ -65,7 +65,7 @@ export interface ChangeLogEntry {
 
 // Hook: Customer Research List
 export function useCDPCustomerResearch(page = 1, pageSize = 10) {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
@@ -107,7 +107,7 @@ export function useCDPCustomerResearch(page = 1, pageSize = 10) {
 
 // Hook: Research Stats
 export function useCDPResearchStats() {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
@@ -148,7 +148,7 @@ export function useCDPResearchStats() {
 
 // Hook: Saved Research Views
 export function useCDPSavedViews() {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
@@ -184,7 +184,7 @@ export function useCDPSavedViews() {
 
 // Hook: Population Comparison
 export function useCDPPopulationComparison() {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
@@ -219,7 +219,7 @@ export function useCDPPopulationComparison() {
 
 // Hook: Population Changelog
 export function useCDPPopulationChangelog() {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({

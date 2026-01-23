@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useActiveTenant';
+import { useActiveTenant } from '@/hooks/useTenant';
 
 export interface DecisionCardDetail {
   id: string;
@@ -39,7 +39,7 @@ export interface DecisionCardDetail {
 }
 
 export function useCDPDecisionCardDetail(cardId: string | undefined) {
-  const { activeTenant } = useActiveTenant();
+  const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
 
   return useQuery({
