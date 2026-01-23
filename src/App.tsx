@@ -204,6 +204,8 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/auth" element={<AuthPage />} />
+      {/* Backwards-compat: some environments/users still land on /login */}
+      <Route path="/login" element={<Navigate to="/auth" replace />} />
       <Route path="/portal" element={
         <ProtectedRoute>
           <PortalPage />
@@ -550,11 +552,11 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LanguageProvider>
-          <AuthProvider>
-            <TenantProvider>
-              <DateRangeProvider>
-                <GlobalErrorBoundary level="page">
+        <GlobalErrorBoundary level="page">
+          <LanguageProvider>
+            <AuthProvider>
+              <TenantProvider>
+                <DateRangeProvider>
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
@@ -567,11 +569,11 @@ const App = () => (
                       <AppRoutes />
                     </Suspense>
                   </BrowserRouter>
-                </GlobalErrorBoundary>
-              </DateRangeProvider>
-            </TenantProvider>
-          </AuthProvider>
-        </LanguageProvider>
+                </DateRangeProvider>
+              </TenantProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </GlobalErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   </HelmetProvider>
