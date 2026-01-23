@@ -144,9 +144,10 @@ export default function MarketingModePage() {
     const totalClicks = marketingPerformance.reduce((sum, c) => sum + c.clicks, 0);
     const totalLeads = marketingModeSummary.total_leads;
     
-    // Estimate cart metrics based on funnel data
-    const estimatedAddToCarts = Math.round(totalClicks * 0.15);
-    const estimatedCheckouts = Math.round(estimatedAddToCarts * 0.55);
+    // ⚠️ ESTIMATED cart metrics - no real funnel data available
+    // Real data would come from analytics_events or funnel_data table
+    const estimatedAddToCarts = Math.round(totalClicks * 0.15); // ⚠️ Estimate: 15% ATC rate
+    const estimatedCheckouts = Math.round(estimatedAddToCarts * 0.55); // ⚠️ Estimate: 55% checkout rate
     
     return {
       total_impressions: totalImpressions,
@@ -168,8 +169,8 @@ export default function MarketingModePage() {
       acos: marketingModeSummary.overall_roas > 0 ? (1 / marketingModeSummary.overall_roas) * 100 : 0,
       cpa: marketingModeSummary.overall_cpa,
       total_spend: totalSpend,
-      profit_margin: 18.5,
-      ltv_cac_ratio: 2.8,
+      profit_margin: 18.5, // ⚠️ ESTIMATED - needs real P&L data
+      ltv_cac_ratio: 2.8, // ⚠️ ESTIMATED - needs real LTV calculation
       impressions_trend: 0,
       clicks_trend: 0,
       orders_trend: 0,

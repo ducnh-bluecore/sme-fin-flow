@@ -516,10 +516,13 @@ export function useMDPData() {
       if (hasRealCOGS) {
         const totalCOGS = Object.values(cogsLookup).reduce((sum, v) => sum + v.cogs, 0);
         const totalRev = Object.values(cogsLookup).reduce((sum, v) => sum + v.revenue, 0);
-        const cogsRatio = totalRev > 0 ? totalCOGS / totalRev : 0.55;
+        const cogsRatio = totalRev > 0 ? totalCOGS / totalRev : 0;
         cogs = netRevenue * cogsRatio;
+        console.warn('[MDP] No real COGS data - using derived ratio. Please import order_items with unit_cogs for accurate CM.');
       } else {
-        // Fallback: estimate 55% COGS (with warning logged)
+        // ⚠️ ESTIMATED - No real data available
+        // Log warning so engineers know this is not real data
+        console.warn('[MDP] ⚠️ ESTIMATED: Using 55% COGS fallback. Import order_items with unit_cogs for real data.');
         cogs = netRevenue * 0.55;
       }
 
@@ -533,9 +536,14 @@ export function useMDPData() {
       } else if (hasRealSettlements) {
         const feeRatio = settlementsTotals.gross_sales > 0 
           ? (settlementsTotals.total_commission + settlementsTotals.total_service_fee) / settlementsTotals.gross_sales 
-          : 0.12;
+          : 0;
         platformFees = netRevenue * feeRatio;
+        if (feeRatio === 0) {
+          console.warn('[MDP] Settlement data exists but no fee ratio calculable.');
+        }
       } else {
+        // ⚠️ ESTIMATED - No real data available
+        console.warn('[MDP] ⚠️ ESTIMATED: Using 12% platform fee fallback. Import channel_fees or settlements for real data.');
         platformFees = netRevenue * 0.12;
       }
 
