@@ -44,8 +44,8 @@ export function useCDPPopulationCatalog() {
         return [];
       }
 
-      // Calculate total revenue for share calculation
-      const totalRevenue = (data || []).reduce((sum, p) => sum + (p.total_revenue || 0), 0);
+      // Calculate total revenue for share calculation (fallback if view doesn't have revenue_share)
+      const totalRevenue = (data || []).reduce((sum, p) => sum + (Number(p.total_revenue) || 0), 0);
 
       return (data || []).map(row => ({
         id: row.population_id,
@@ -54,7 +54,7 @@ export function useCDPPopulationCatalog() {
         definition: row.definition || '',
         size: row.customer_count || 0,
         revenueShare: totalRevenue > 0 
-          ? ((row.total_revenue || 0) / totalRevenue) * 100 
+          ? (Number(row.total_revenue) || 0) / totalRevenue * 100 
           : 0,
         stability: (row.stability || 'stable') as StabilityLevel,
         insightCount: row.insight_count || 0,

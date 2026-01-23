@@ -256,10 +256,10 @@ export function useCDPDataQuality() {
 
       return {
         totalOrders: Number(data.total_orders) || 0,
-        matchedOrders: Number(data.matched_orders) || 0,
+        matchedOrders: Number(data.orders_with_identity) || 0,
         identityCoverage: Number(data.identity_coverage) || 0,
         cogsCoverage: Number(data.cogs_coverage) || 0,
-        freshnessHours: Number(data.freshness_hours) || 0,
+        freshnessHours: (Number(data.days_since_last_order) || 0) * 24,
         isReliable: Boolean(data.is_reliable),
       };
     },

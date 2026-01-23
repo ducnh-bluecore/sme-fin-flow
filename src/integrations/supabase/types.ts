@@ -25266,85 +25266,18 @@ export type Database = {
           },
         ]
       }
-      v_cdp_data_confidence_latest: {
-        Row: {
-          as_of_date: string | null
-          data_freshness_days: number | null
-          flags: Json | null
-          identity_coverage: number | null
-          issues: Json | null
-          match_accuracy: number | null
-          overall_score: number | null
-          return_data_completeness: number | null
-          tenant_id: string | null
-        }
-        Insert: {
-          as_of_date?: string | null
-          data_freshness_days?: number | null
-          flags?: Json | null
-          identity_coverage?: never
-          issues?: never
-          match_accuracy?: never
-          overall_score?: number | null
-          return_data_completeness?: never
-          tenant_id?: string | null
-        }
-        Update: {
-          as_of_date?: string | null
-          data_freshness_days?: number | null
-          flags?: Json | null
-          identity_coverage?: never
-          issues?: never
-          match_accuracy?: never
-          overall_score?: number | null
-          return_data_completeness?: never
-          tenant_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_equity_overview"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_equity_snapshot"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_overview_stats"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
       v_cdp_data_quality: {
         Row: {
           cogs_coverage: number | null
-          freshness_hours: number | null
+          computed_at: string | null
+          confidence_level: string | null
+          days_since_last_order: number | null
+          first_order_date: string | null
           identity_coverage: number | null
           is_reliable: boolean | null
-          matched_orders: number | null
+          last_order_date: string | null
+          orders_with_cogs: number | null
+          orders_with_identity: number | null
           tenant_id: string | null
           total_orders: number | null
         }

@@ -163,7 +163,7 @@ export function useCDPDataConfidence() {
     queryKey: ['cdp-data-confidence', tenantId],
     queryFn: async (): Promise<DataConfidence> => {
       const { data, error } = await supabase
-        .from('v_cdp_data_confidence_latest')
+        .from('v_cdp_data_quality')
         .select('*')
         .eq('tenant_id', tenantId)
         .maybeSingle();
@@ -182,21 +182,30 @@ export function useCDPDataConfidence() {
         };
       }
 
-      // Parse issues from JSONB
-      const issues = Array.isArray(data.issues) 
-        ? data.issues.map((issue: any) => ({
-            id: issue.id || String(Math.random()),
-            label: issue.label || '',
-            severity: (issue.severity || 'info') as 'critical' | 'warning' | 'info',
-          }))
-        : [];
+      // Calculate overall score from available metrics
+      const identityCov = Number(data.identity_coverage) || 0;
+      const cogsCov = Number(data.cogs_coverage) || 0;
+      const overallScore = Math.round((identityCov * 0.6 + cogsCov * 0.4));
+
+      // Generate issues based on metrics
+      const issues: Array<{ id: string; label: string; severity: 'critical' | 'warning' | 'info' }> = [];
+      if (identityCov < 80) {
+        issues.push({ id: 'identity', label: 'Identity coverage thấp', severity: identityCov < 50 ? 'critical' : 'warning' });
+      }
+      if (cogsCov < 70) {
+        issues.push({ id: 'cogs', label: 'COGS coverage thấp', severity: cogsCov < 40 ? 'critical' : 'warning' });
+      }
+      const daysSinceOrder = Number(data.days_since_last_order) || 0;
+      if (daysSinceOrder > 7) {
+        issues.push({ id: 'freshness', label: 'Dữ liệu cũ', severity: daysSinceOrder > 30 ? 'critical' : 'warning' });
+      }
 
       return {
-        overallScore: data.overall_score || 0,
-        identityCoverage: data.identity_coverage || 0,
-        matchAccuracy: data.match_accuracy || 0,
-        returnDataCompleteness: data.return_data_completeness || 0,
-        dataFreshnessDays: data.data_freshness_days || 0,
+        overallScore,
+        identityCoverage: identityCov,
+        matchAccuracy: Math.round(identityCov * 0.95), // Approximate
+        returnDataCompleteness: cogsCov,
+        dataFreshnessDays: daysSinceOrder,
         issues,
       };
     },
