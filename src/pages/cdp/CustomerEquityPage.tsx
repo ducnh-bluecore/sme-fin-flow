@@ -225,7 +225,7 @@ export default function CustomerEquityPage() {
                           <div className="w-32 text-right font-medium">{formatCurrency(segment.equity_sum ?? 0)}</div>
                           <div className="w-16 text-right text-sm text-muted-foreground">{sharePercent.toFixed(1)}%</div>
                           <Badge variant="outline" className="bg-muted/50">
-                            {segment.customer_count} KH
+                            {segment.customer_count ?? 0} KH
                           </Badge>
                         </div>
                       );
