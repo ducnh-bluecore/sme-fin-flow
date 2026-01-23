@@ -122,17 +122,13 @@ export function useCDPDecisionCardDetail(cardId: string | undefined) {
         }
       }
 
-      // Parse affected population
-      const affectedPopulation = data.affected_population ? {
-        description: (data.affected_population as Record<string, unknown>).description as string || 'Affected customers',
-        size: Number((data.affected_population as Record<string, unknown>).size) || data.population_size || 0,
-        revenueShare: Number((data.affected_population as Record<string, unknown>).revenue_share) || 0,
-        equityShare: Number((data.affected_population as Record<string, unknown>).equity_share) || 0,
-      } : {
-        description: 'Affected customers',
-        size: data.population_size || 0,
-        revenueShare: 0,
-        equityShare: 0,
+      // Parse affected population - prefer population_size from view
+      const popData = data.affected_population as Record<string, unknown> | null;
+      const affectedPopulation = {
+        description: String(popData?.description || popData?.segment || 'Khách hàng bị ảnh hưởng'),
+        size: data.population_size || Number(popData?.size) || 0,
+        revenueShare: Number(popData?.revenue_share) || 0,
+        equityShare: Number(popData?.equity_share) || 0,
       };
 
       // Parse risks

@@ -24087,48 +24087,6 @@ export type Database = {
           tenant_id: string | null
           title: string | null
         }
-        Insert: {
-          affected_population?: Json | null
-          created_at?: string | null
-          decision?: never
-          equity_impact?: never
-          id?: string | null
-          options?: never
-          owner?: string | null
-          population_size?: never
-          post_decision_review?: never
-          priority?: string | null
-          problem_statement?: string | null
-          review_deadline?: string | null
-          risks?: never
-          severity?: string | null
-          source_equity?: never
-          source_insights?: never
-          status?: string | null
-          tenant_id?: string | null
-          title?: string | null
-        }
-        Update: {
-          affected_population?: Json | null
-          created_at?: string | null
-          decision?: never
-          equity_impact?: never
-          id?: string | null
-          options?: never
-          owner?: string | null
-          population_size?: never
-          post_decision_review?: never
-          priority?: string | null
-          problem_statement?: string | null
-          review_deadline?: string | null
-          risks?: never
-          severity?: string | null
-          source_equity?: never
-          source_insights?: never
-          status?: string | null
-          tenant_id?: string | null
-          title?: string | null
-        }
         Relationships: [
           {
             foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
