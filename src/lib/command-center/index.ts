@@ -60,8 +60,42 @@ export {
   buildCDPDecision,
 } from './decision-builders';
 
-// Federation hook
+// Federation hook (unified)
 export {
   useFederatedDecisions,
   type FederatedDecisionsResult,
 } from './useFederatedDecisions';
+
+// Domain-specific Command Center hooks
+export {
+  useFDPCommandCenter,
+  useFDPDecide,
+  useFDPEscalate,
+  type FDPCommandCenterFilters,
+  type FDPCommandCenterResult,
+} from './useFDPCommandCenter';
+
+export {
+  useMDPCommandCenter,
+  useMDPDecide,
+  useMDPEscalate,
+  type MDPCommandCenterFilters,
+  type MDPCommandCenterResult,
+} from './useMDPCommandCenter';
+
+export {
+  useCDPCommandCenter,
+  useCDPDecide,
+  useCDPEscalate,
+  type CDPCommandCenterFilters,
+  type CDPCommandCenterResult,
+} from './useCDPCommandCenter';
+
+export {
+  useControlTowerCommandCenter,
+  useControlTowerDecide,
+  useControlTowerDismiss,
+  useControlTowerReassign,
+  type ControlTowerFilters,
+  type ControlTowerResult,
+} from './useControlTowerCommandCenter';
