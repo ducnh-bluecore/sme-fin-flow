@@ -1,50 +1,17 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 
 // Configurable assumptions
 const MANUAL_RECONCILIATION_MINUTES = 7;
 const HOURLY_RATE_VND = 150000; // VND per hour for ops staff
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  // Use shared auth - handles CORS and JWT validation
+  const authResult = await requireAuth(req);
+  if (isErrorResponse(authResult)) return authResult;
+  
+  const { supabase: supabaseClient, tenantId, userId } = authResult;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Get tenant
-    const { data: tenantUser } = await supabaseClient
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!tenantUser) {
-      return new Response(JSON.stringify({ error: 'No tenant found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const tenantId = tenantUser.tenant_id;
     const url = new URL(req.url);
     const period = url.searchParams.get('period') || '30d';
 
@@ -84,22 +51,22 @@ serve(async (req) => {
     const outcomesList = outcomes || [];
 
     // Calculate KPIs
-    const autoConfirmedCount = outcomesList.filter(o => o.outcome === 'AUTO_CONFIRMED').length;
-    const manualConfirmedCount = outcomesList.filter(o => o.outcome === 'CONFIRMED_MANUAL').length;
-    const rejectedCount = outcomesList.filter(o => o.outcome === 'REJECTED').length;
+    const autoConfirmedCount = outcomesList.filter((o: any) => o.outcome === 'AUTO_CONFIRMED').length;
+    const manualConfirmedCount = outcomesList.filter((o: any) => o.outcome === 'CONFIRMED_MANUAL').length;
+    const rejectedCount = outcomesList.filter((o: any) => o.outcome === 'REJECTED').length;
     const totalSuggestions = outcomesList.length;
 
     // False auto = auto-confirmed that were later marked incorrect (VOID in ledger)
     const falseAutoCount = outcomesList.filter(
-      o => o.outcome === 'AUTO_CONFIRMED' && o.final_result === 'INCORRECT'
+      (o: any) => o.outcome === 'AUTO_CONFIRMED' && o.final_result === 'INCORRECT'
     ).length;
 
     // Average confidence at time of decision
     const confidences = outcomesList
-      .filter(o => o.confidence_at_time !== null)
-      .map(o => Number(o.confidence_at_time));
+      .filter((o: any) => o.confidence_at_time !== null)
+      .map((o: any) => Number(o.confidence_at_time));
     const avgConfidence = confidences.length > 0
-      ? confidences.reduce((a, b) => a + b, 0) / confidences.length
+      ? confidences.reduce((a: number, b: number) => a + b, 0) / confidences.length
       : 0;
 
     // Calculate savings
@@ -120,7 +87,7 @@ serve(async (req) => {
     // Estimate cash acceleration (simplified: assume auto-reconciliation saves 2 days on average)
     const AVG_DAYS_SAVED_BY_AUTO = 2;
     const cashAccelerationAmount = (recentLinks || [])
-      .reduce((sum, link) => sum + Number(link.amount || 0), 0);
+      .reduce((sum: number, link: any) => sum + Number(link.amount || 0), 0);
     const cashAccelerationDays = autoConfirmedCount * AVG_DAYS_SAVED_BY_AUTO;
 
     // Calculate rates
@@ -145,8 +112,8 @@ serve(async (req) => {
       .gte('created_at', prevStartDate.toISOString())
       .lt('created_at', startDateStr);
 
-    const prevAutoCount = (prevOutcomes || []).filter(o => o.outcome === 'AUTO_CONFIRMED').length;
-    const prevManualCount = (prevOutcomes || []).filter(o => o.outcome === 'CONFIRMED_MANUAL').length;
+    const prevAutoCount = (prevOutcomes || []).filter((o: any) => o.outcome === 'AUTO_CONFIRMED').length;
+    const prevManualCount = (prevOutcomes || []).filter((o: any) => o.outcome === 'CONFIRMED_MANUAL').length;
     const prevTotal = prevAutoCount + prevManualCount;
     const prevAutoRate = prevTotal > 0 ? (prevAutoCount / prevTotal) * 100 : 0;
     
@@ -160,8 +127,8 @@ serve(async (req) => {
       .gte('created_at', startDateStr)
       .lte('created_at', endDateStr);
 
-    const blockedCount = (guardrailEvents || []).filter(e => e.verdict === 'BLOCK').length;
-    const manualOverrides = (guardrailEvents || []).filter(e => e.verdict === 'OVERRIDE_ALLOWED').length;
+    const blockedCount = (guardrailEvents || []).filter((e: any) => e.verdict === 'BLOCK').length;
+    const manualOverrides = (guardrailEvents || []).filter((e: any) => e.verdict === 'OVERRIDE_ALLOWED').length;
 
     // Get exceptions resolved by auto
     const { data: resolvedExceptions } = await supabaseClient
@@ -255,16 +222,11 @@ serve(async (req) => {
       console.error('Error storing decision snapshot:', snapshotError);
     }
 
-    return new Response(JSON.stringify(kpiData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return jsonResponse(kpiData);
 
   } catch (error: unknown) {
     console.error('Error in reconciliation-kpis:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return errorResponse(message, 500);
   }
 });

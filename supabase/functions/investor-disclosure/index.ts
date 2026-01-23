@@ -1,9 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 
 /**
  * GOVERNANCE PATCH v3.1 - Investor Disclosure Sanitization
@@ -195,87 +190,43 @@ function generateComplianceStatement(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Use shared auth - handles CORS and JWT validation
+  const authResult = await requireAuth(req);
+  if (isErrorResponse(authResult)) return authResult;
+  
+  const { supabase: supabaseClient, tenantId, userId } = authResult;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: tenantUser } = await supabaseClient
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!tenantUser) {
-      return new Response(JSON.stringify({ error: 'No active tenant' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tenantId = tenantUser.tenant_id;
     const url = new URL(req.url);
     const path = url.pathname.split('/').filter(Boolean).pop();
 
     // GET /generate - Generate disclosure from current risk appetite
     if (req.method === 'GET' && path === 'generate') {
       const period = url.searchParams.get('period') || 'Q1';
+      const authHeader = req.headers.get('Authorization');
       
       // Call risk-appetite/evaluate to get current state
       const evaluateResponse = await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/risk-appetite/evaluate`,
         {
           headers: {
-            'Authorization': authHeader,
+            'Authorization': authHeader || '',
             'Content-Type': 'application/json',
           },
         }
       );
 
       if (!evaluateResponse.ok) {
-        return new Response(JSON.stringify({ 
-          error: 'Failed to evaluate risk appetite' 
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Failed to evaluate risk appetite', 500);
       }
 
       const evaluation = await evaluateResponse.json();
       
       if (!evaluation.hasActiveAppetite) {
-        return new Response(JSON.stringify({ 
+        return jsonResponse({ 
           error: 'No active risk appetite defined',
           suggestion: 'Please configure a Board-approved risk appetite first'
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        }, 400);
       }
 
       // Transform evaluations to investor-safe metrics
@@ -302,7 +253,7 @@ Deno.serve(async (req) => {
         ? `For ${period}, the organization operated within all Board-defined risk parameters. Financial controls remain effective with ${keyRisks.filter(r => r.domain === 'Automation').length > 0 ? 'automation safeguards' : 'manual oversight'} ensuring transaction integrity.`
         : `For ${period}, ${breaches.length} risk metric(s) exceeded Board thresholds. Management has implemented targeted mitigations. All automated processes include human oversight and approval requirements.`;
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         period,
         riskAppetiteVersion: evaluation.version,
         summary,
@@ -311,8 +262,6 @@ Deno.serve(async (req) => {
         complianceStatement,
         generatedAt: new Date().toISOString(),
         status: 'draft',
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -341,21 +290,16 @@ Deno.serve(async (req) => {
           mitigations,
           compliance_statement: complianceStatement,
           status: 'draft',
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify(disclosure), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(disclosure);
     }
 
     // POST /approve - Approve disclosure
@@ -367,7 +311,7 @@ Deno.serve(async (req) => {
         .from('investor_risk_disclosures')
         .update({
           status: 'approved',
-          approved_by: user.id,
+          approved_by: userId,
           approved_at: new Date().toISOString(),
         })
         .eq('id', disclosureId)
@@ -376,25 +320,20 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
       // Audit log
       await supabaseClient.from('audit_events').insert({
         tenant_id: tenantId,
         actor_type: 'USER',
-        actor_id: user.id,
+        actor_id: userId,
         action: 'APPROVE_INVESTOR_DISCLOSURE',
         resource_type: 'investor_risk_disclosure',
         resource_id: disclosureId,
       });
 
-      return new Response(JSON.stringify(disclosure), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(disclosure);
     }
 
     // POST /publish - Publish disclosure
@@ -415,15 +354,10 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify(disclosure), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(disclosure);
     }
 
     // GET /list - List all disclosures
@@ -443,15 +377,10 @@ Deno.serve(async (req) => {
       const { data: disclosures, error } = await query;
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify({ disclosures }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ disclosures });
     }
 
     // GET /:id - Get single disclosure
@@ -464,26 +393,15 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: 'Disclosure not found' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Disclosure not found', 404);
       }
 
-      return new Response(JSON.stringify(disclosure), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(disclosure);
     }
 
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Not found', 404);
 
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(error?.message || 'Unknown error', 500);
   }
 });

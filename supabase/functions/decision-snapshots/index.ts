@@ -1,10 +1,5 @@
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
 
 interface SnapshotRequest {
   tenantId: string;
@@ -60,10 +55,22 @@ Deno.serve(async (req) => {
   // Get auth user if available
   const authHeader = req.headers.get('Authorization');
   let userId: string | null = null;
+  let userTenantId: string | null = null;
+  
   if (authHeader) {
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user } } = await supabase.auth.getUser(token);
-    userId = user?.id || null;
+    const { data: claimsData } = await supabase.auth.getClaims(token);
+    if (claimsData?.claims) {
+      userId = claimsData.claims.sub as string;
+      
+      // Get tenant from tenant_users
+      const { data: tenantUser } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      userTenantId = tenantUser?.tenant_id || null;
+    }
   }
 
   const url = new URL(req.url);
@@ -74,19 +81,18 @@ Deno.serve(async (req) => {
     if (req.method === 'POST' && (path === '/snapshots' || path === '')) {
       const body: SnapshotRequest = await req.json();
       
+      // Validate tenant access
+      if (userTenantId && body.tenantId !== userTenantId) {
+        return errorResponse('Cross-tenant access denied', 403);
+      }
+      
       // Validate truth_level/authority constraints
       if (body.truthLevel === 'provisional' && body.authority !== 'RULE') {
-        return new Response(
-          JSON.stringify({ error: 'Provisional snapshots must have authority=RULE' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('Provisional snapshots must have authority=RULE', 400);
       }
       
       if (body.truthLevel === 'settled' && !['BANK', 'MANUAL', 'ACCOUNTING', 'GATEWAY', 'CARRIER'].includes(body.authority)) {
-        return new Response(
-          JSON.stringify({ error: 'Settled snapshots must have authority in [BANK, MANUAL, ACCOUNTING, GATEWAY, CARRIER]' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('Settled snapshots must have authority in [BANK, MANUAL, ACCOUNTING, GATEWAY, CARRIER]', 400);
       }
 
       const { data, error } = await supabase
@@ -113,23 +119,21 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      return new Response(
-        JSON.stringify({ id: data.id, createdAt: data.created_at }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ id: data.id, createdAt: data.created_at });
     }
 
     // GET /latest - Get latest snapshot
     if (req.method === 'GET' && path === '/latest') {
       const tenantId = url.searchParams.get('tenantId');
       const metricCode = url.searchParams.get('metricCode');
-      const currency = url.searchParams.get('currency') || 'VND';
 
       if (!tenantId || !metricCode) {
-        return new Response(
-          JSON.stringify({ error: 'tenantId and metricCode are required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('tenantId and metricCode are required', 400);
+      }
+
+      // Validate tenant access
+      if (userTenantId && tenantId !== userTenantId) {
+        return errorResponse('Cross-tenant access denied', 403);
       }
 
       const { data, error } = await supabase
@@ -141,10 +145,7 @@ Deno.serve(async (req) => {
 
       if (error && error.code !== 'PGRST116') throw error;
 
-      return new Response(
-        JSON.stringify(data || null),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(data || null);
     }
 
     // GET /explain/:id - Explain snapshot
@@ -158,6 +159,11 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) throw error;
+
+      // Validate tenant access
+      if (userTenantId && data.tenant_id !== userTenantId) {
+        return errorResponse('Cross-tenant access denied', 403);
+      }
 
       const snapshot = data as DecisionSnapshot;
       const derivedFrom = snapshot.derived_from as Record<string, unknown>;
@@ -181,10 +187,7 @@ Deno.serve(async (req) => {
         }
       };
 
-      return new Response(
-        JSON.stringify(explanation),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(explanation);
     }
 
     // POST /compute/cash - Compute and write cash snapshots
@@ -193,10 +196,12 @@ Deno.serve(async (req) => {
       const tenantId = body.tenantId;
 
       if (!tenantId) {
-        return new Response(
-          JSON.stringify({ error: 'tenantId is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('tenantId is required', 400);
+      }
+
+      // Validate tenant access
+      if (userTenantId && tenantId !== userTenantId) {
+        return errorResponse('Cross-tenant access denied', 403);
       }
 
       const now = new Date();
@@ -212,7 +217,7 @@ Deno.serve(async (req) => {
       if (bankError) throw bankError;
 
       const cashToday = (bankAccounts || []).reduce(
-        (sum, acc) => sum + (acc.current_balance || 0), 0
+        (sum: number, acc: any) => sum + (acc.current_balance || 0), 0
       );
 
       // 2. Get bank transactions for cash_flow_today
@@ -226,11 +231,11 @@ Deno.serve(async (req) => {
       if (txnError) throw txnError;
 
       const credits = (transactions || [])
-        .filter(t => t.transaction_type === 'credit')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        .filter((t: any) => t.transaction_type === 'credit')
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
       const debits = (transactions || [])
-        .filter(t => t.transaction_type === 'debit')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        .filter((t: any) => t.transaction_type === 'debit')
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
       const cashFlowToday = credits - debits;
 
       // 3. Get AR, AP, weekly sales for cash_next_7d (provisional)
@@ -243,7 +248,7 @@ Deno.serve(async (req) => {
       if (invError) throw invError;
 
       const totalAR = (invoices || []).reduce(
-        (sum, inv) => sum + ((inv.total_amount || 0) - (inv.paid_amount || 0)), 0
+        (sum: number, inv: any) => sum + ((inv.total_amount || 0) - (inv.paid_amount || 0)), 0
       );
 
       const { data: bills, error: billError } = await supabase
@@ -255,7 +260,7 @@ Deno.serve(async (req) => {
       if (billError) throw billError;
 
       const totalAP = (bills || []).reduce(
-        (sum, bill) => sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 0
+        (sum: number, bill: any) => sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 0
       );
 
       // Estimate weekly sales from recent orders
@@ -269,7 +274,7 @@ Deno.serve(async (req) => {
       if (orderError) throw orderError;
 
       const weeklySales = (recentOrders || []).reduce(
-        (sum, o) => sum + (o.total_amount || 0), 0
+        (sum: number, o: any) => sum + (o.total_amount || 0), 0
       );
 
       // Cash Next 7 Days = cash_today + (15% AR) + (80% weekly sales) - (20% AP)
@@ -297,7 +302,7 @@ Deno.serve(async (req) => {
           confidence: 100,
           as_of: asOf,
           derived_from: {
-            evidence: (bankAccounts || []).map(acc => ({
+            evidence: (bankAccounts || []).map((acc: any) => ({
               type: 'bank_account',
               id: acc.id,
               name: acc.bank_name,
@@ -391,18 +396,15 @@ Deno.serve(async (req) => {
       if (e3) throw e3;
       snapshotIds.push(forecastSnap.id);
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          snapshotIds,
-          metrics: {
-            cash_today: { value: cashToday, truthLevel: 'settled', authority: 'BANK' },
-            cash_flow_today: { value: cashFlowToday, truthLevel: 'settled', authority: 'BANK' },
-            cash_next_7d: { value: cashNext7d, truthLevel: 'provisional', authority: 'RULE', confidence: 75 },
-          }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({
+        success: true,
+        snapshotIds,
+        metrics: {
+          cash_today: { value: cashToday, truthLevel: 'settled', authority: 'BANK' },
+          cash_flow_today: { value: cashFlowToday, truthLevel: 'settled', authority: 'BANK' },
+          cash_next_7d: { value: cashNext7d, truthLevel: 'provisional', authority: 'RULE', confidence: 75 },
+        }
+      });
     }
 
     // GET /check-stale - Check if snapshots are stale
@@ -411,10 +413,12 @@ Deno.serve(async (req) => {
       const metricCode = url.searchParams.get('metricCode');
 
       if (!tenantId) {
-        return new Response(
-          JSON.stringify({ error: 'tenantId is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return errorResponse('tenantId is required', 400);
+      }
+
+      // Validate tenant access
+      if (userTenantId && tenantId !== userTenantId) {
+        return errorResponse('Cross-tenant access denied', 403);
       }
 
       let query = supabase
@@ -442,32 +446,23 @@ Deno.serve(async (req) => {
       }
 
       // Check for missing metrics
-      const existingMetrics = (data || []).map(d => d.metric_code);
+      const existingMetrics = (data || []).map((d: any) => d.metric_code);
       const requiredMetrics = ['cash_today', 'cash_flow_today', 'cash_next_7d'];
       const missingMetrics = requiredMetrics.filter(m => !existingMetrics.includes(m));
 
-      return new Response(
-        JSON.stringify({
-          isStale: staleMetrics.length > 0 || missingMetrics.length > 0,
-          staleMetrics,
-          missingMetrics,
-          thresholdMs: STALE_THRESHOLD_MS,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({
+        isStale: staleMetrics.length > 0 || missingMetrics.length > 0,
+        staleMetrics,
+        missingMetrics,
+        thresholdMs: STALE_THRESHOLD_MS,
+      });
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Not found' }),
-      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse('Not found', 404);
 
   } catch (error) {
     console.error('Decision snapshots error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(message, 500);
   }
 });

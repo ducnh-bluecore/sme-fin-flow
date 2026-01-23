@@ -1,9 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 
 interface ScenarioAssumptions {
   revenueChange?: number;        // % change
@@ -283,50 +278,13 @@ async function checkRiskBreaches(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Use shared auth - handles CORS and JWT validation
+  const authResult = await requireAuth(req);
+  if (isErrorResponse(authResult)) return authResult;
+  
+  const { supabase: supabaseClient, tenantId, userId } = authResult;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: tenantUser } = await supabaseClient
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!tenantUser) {
-      return new Response(JSON.stringify({ error: 'No active tenant' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tenantId = tenantUser.tenant_id;
     const url = new URL(req.url);
     const path = url.pathname.split('/').filter(Boolean).pop();
 
@@ -384,19 +342,16 @@ Deno.serve(async (req) => {
           risk_breaches: riskBreaches, // Simulated breaches, not actual
           control_impacts: controlImpacts,
           baseline_snapshot: baseline,
-          created_by: user.id,
+          created_by: userId,
         })
         .select()
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         scenarioId: scenario?.id,
         scenarioName,
         scenarioType,
@@ -408,8 +363,6 @@ Deno.serve(async (req) => {
         // Explicitly mark as simulation - NOT truth data
         isSimulation: true,
         truthLevel: 'simulated', // Never 'settled' or 'provisional'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -418,12 +371,7 @@ Deno.serve(async (req) => {
       const scenarioIds = url.searchParams.get('ids')?.split(',') || [];
 
       if (scenarioIds.length < 2) {
-        return new Response(JSON.stringify({ 
-          error: 'At least 2 scenario IDs required for comparison' 
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('At least 2 scenario IDs required for comparison', 400);
       }
 
       const { data: scenarios, error } = await supabaseClient
@@ -433,10 +381,7 @@ Deno.serve(async (req) => {
         .in('id', scenarioIds);
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
       // Build comparison matrix
@@ -461,7 +406,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         scenarios: scenarios?.map(s => ({
           id: s.id,
           name: s.scenario_name,
@@ -469,8 +414,6 @@ Deno.serve(async (req) => {
           breachCount: (s.risk_breaches as RiskBreach[])?.length || 0,
         })),
         comparison,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -491,78 +434,63 @@ Deno.serve(async (req) => {
       const { data: scenarios, error } = await query;
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify({ scenarios }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ scenarios });
     }
 
     // GET /templates - Get scenario templates
     if (req.method === 'GET' && path === 'templates') {
       const templates = [
         {
-          type: 'REVENUE_SHOCK',
-          name: 'Revenue Decline',
-          description: 'Simulate impact of sales decrease',
+          id: 'REVENUE_SHOCK',
+          name: 'Revenue Shock',
+          description: 'Simulate sudden revenue decline',
           defaultAssumptions: { revenueChange: -20 },
         },
         {
-          type: 'AR_DELAY',
-          name: 'Collection Slowdown',
+          id: 'AR_DELAY',
+          name: 'AR Collection Delay',
           description: 'Simulate delayed customer payments',
-          defaultAssumptions: { arDelayDays: 15 },
+          defaultAssumptions: { arDelayDays: 30 },
         },
         {
-          type: 'COST_INFLATION',
-          name: 'Cost Increase',
+          id: 'COST_INFLATION',
+          name: 'Cost Inflation',
           description: 'Simulate rising operational costs',
-          defaultAssumptions: { costInflation: 10 },
+          defaultAssumptions: { costInflation: 15 },
         },
         {
-          type: 'AUTOMATION_PAUSE',
-          name: 'Automation Disabled',
-          description: 'Simulate manual-only operations',
+          id: 'AUTOMATION_PAUSE',
+          name: 'Automation Pause',
+          description: 'Simulate disabling auto-reconciliation',
           defaultAssumptions: { automationPaused: true },
         },
       ];
 
-      return new Response(JSON.stringify({ templates }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ templates });
     }
 
     // POST /archive - Archive a scenario
     if (req.method === 'POST' && path === 'archive') {
-      const body = await req.json();
-      const { scenarioId } = body;
+      const { scenarioId } = await req.json();
 
-      const { data: scenario, error } = await supabaseClient
+      const { error } = await supabaseClient
         .from('board_scenarios')
-        .update({ is_archived: true, updated_at: new Date().toISOString() })
+        .update({ is_archived: true })
         .eq('id', scenarioId)
-        .eq('tenant_id', tenantId)
-        .select()
-        .single();
+        .eq('tenant_id', tenantId);
 
       if (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse(error.message, 400);
       }
 
-      return new Response(JSON.stringify(scenario), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ success: true });
     }
 
     // GET /:id - Get specific scenario
-    if (req.method === 'GET' && path !== 'list' && path !== 'compare' && path !== 'templates') {
+    if (req.method === 'GET' && path !== 'list' && path !== 'templates' && path !== 'compare') {
       const { data: scenario, error } = await supabaseClient
         .from('board_scenarios')
         .select('*')
@@ -571,26 +499,17 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        return new Response(JSON.stringify({ error: 'Scenario not found' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Scenario not found', 404);
       }
 
-      return new Response(JSON.stringify(scenario), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(scenario);
     }
 
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse('Not found', 404);
 
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  } catch (error: unknown) {
+    console.error('Board scenarios error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return errorResponse(message, 500);
   }
 });

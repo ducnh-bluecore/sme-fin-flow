@@ -1,9 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from '../_shared/auth.ts';
 
 interface BoardSummary {
   financialTruth: {
@@ -58,58 +53,13 @@ interface BoardSummary {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // Use shared auth - handles CORS and JWT validation
+  const authResult = await requireAuth(req);
+  if (isErrorResponse(authResult)) return authResult;
+  
+  const { supabase: supabaseClient, tenantId } = authResult;
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    // Authenticate
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Get tenant
-    const { data: tenantUser } = await supabaseClient
-      .from('tenant_users')
-      .select('tenant_id, role')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!tenantUser) {
-      return new Response(JSON.stringify({ error: 'No active tenant' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const tenantId = tenantUser.tenant_id;
-
     // Parse query params for period
     const url = new URL(req.url);
     const period = url.searchParams.get('period') || '30d';
@@ -134,8 +84,8 @@ Deno.serve(async (req) => {
       .eq('tenant_id', tenantId)
       .in('metric_code', ['cash_today', 'cash_next_7d']);
 
-    const cashTodaySnap = cashSnapshots?.find(s => s.metric_code === 'cash_today');
-    const cashNext7dSnap = cashSnapshots?.find(s => s.metric_code === 'cash_next_7d');
+    const cashTodaySnap = cashSnapshots?.find((s: any) => s.metric_code === 'cash_today');
+    const cashNext7dSnap = cashSnapshots?.find((s: any) => s.metric_code === 'cash_next_7d');
 
     // ========== 2. RISK EXPOSURE ==========
     const { data: openExceptions } = await supabaseClient
@@ -144,11 +94,11 @@ Deno.serve(async (req) => {
       .eq('tenant_id', tenantId)
       .eq('status', 'open');
 
-    const arOverdueExceptions = openExceptions?.filter(e => e.exception_type === 'AR_OVERDUE') || [];
-    const totalArOverdue = arOverdueExceptions.reduce((sum, e) => sum + (Number(e.impact_amount) || 0), 0);
+    const arOverdueExceptions = openExceptions?.filter((e: any) => e.exception_type === 'AR_OVERDUE') || [];
+    const totalArOverdue = arOverdueExceptions.reduce((sum: number, e: any) => sum + (Number(e.impact_amount) || 0), 0);
     
     // Find largest risk
-    const sortedByImpact = [...(openExceptions || [])].sort((a, b) => 
+    const sortedByImpact = [...(openExceptions || [])].sort((a: any, b: any) => 
       (Number(b.impact_amount) || 0) - (Number(a.impact_amount) || 0)
     );
     const largestRisk = sortedByImpact[0] ? {
@@ -173,9 +123,9 @@ Deno.serve(async (req) => {
       .gte('created_at', periodStart.toISOString());
 
     const totalReconciliations = recentOutcomes?.length || 0;
-    const autoConfirmed = recentOutcomes?.filter(o => o.outcome === 'AUTO_CONFIRMED').length || 0;
-    const manualConfirmed = recentOutcomes?.filter(o => o.outcome === 'CONFIRMED').length || 0;
-    const falseAuto = recentOutcomes?.filter(o => o.outcome === 'FALSE_AUTO').length || 0;
+    const autoConfirmed = recentOutcomes?.filter((o: any) => o.outcome === 'AUTO_CONFIRMED').length || 0;
+    const manualConfirmed = recentOutcomes?.filter((o: any) => o.outcome === 'CONFIRMED').length || 0;
+    const falseAuto = recentOutcomes?.filter((o: any) => o.outcome === 'FALSE_AUTO').length || 0;
 
     // Guardrail events
     const { data: guardrailEvents } = await supabaseClient
@@ -184,7 +134,7 @@ Deno.serve(async (req) => {
       .eq('tenant_id', tenantId)
       .gte('created_at', periodStart.toISOString());
 
-    const blockedByGuardrail = guardrailEvents?.filter(e => e.event_type === 'BLOCKED').length || 0;
+    const blockedByGuardrail = guardrailEvents?.filter((e: any) => e.event_type === 'BLOCKED').length || 0;
 
     const autoRate = totalReconciliations > 0 ? (autoConfirmed / totalReconciliations) * 100 : 0;
     const manualRate = totalReconciliations > 0 ? (manualConfirmed / totalReconciliations) * 100 : 0;
@@ -239,7 +189,7 @@ Deno.serve(async (req) => {
       .select('id, enabled')
       .eq('tenant_id', tenantId);
 
-    const enabledPolicies = policies?.filter(p => p.enabled).length || 0;
+    const enabledPolicies = policies?.filter((p: any) => p.enabled).length || 0;
     const totalPolicyTypes = 4; // AUTO_RECONCILIATION, MANUAL_RECONCILIATION, VOID_RECONCILIATION, ML_ENABLEMENT
     const policyCoverage = (enabledPolicies / totalPolicyTypes) * 100;
 
@@ -277,13 +227,13 @@ Deno.serve(async (req) => {
       .lte('detected_at', comparisonEnd.toISOString());
 
     const previousArOverdue = previousExceptions
-      ?.filter(e => e.exception_type === 'AR_OVERDUE')
-      .reduce((sum, e) => sum + (Number(e.impact_amount) || 0), 0) || 0;
+      ?.filter((e: any) => e.exception_type === 'AR_OVERDUE')
+      .reduce((sum: number, e: any) => sum + (Number(e.impact_amount) || 0), 0) || 0;
     const riskChange = totalArOverdue - previousArOverdue;
     const riskChangePercent = previousArOverdue !== 0 ? (riskChange / previousArOverdue) * 100 : 0;
 
     // New exceptions in period
-    const newExceptions = openExceptions?.filter(e => 
+    const newExceptions = openExceptions?.filter((e: any) => 
       new Date(e.detected_at) >= periodStart
     ).length || 0;
 
@@ -339,7 +289,7 @@ Deno.serve(async (req) => {
         status: mlStatus,
         accuracy: latestMLPerf?.accuracy ?? null,
         calibrationError: latestMLPerf?.calibration_error ?? null,
-        driftSignals: (activeDriftSignals || []).map(d => ({
+        driftSignals: (activeDriftSignals || []).map((d: any) => ({
           type: d.drift_type,
           severity: d.severity,
           metric: d.metric,
@@ -379,16 +329,11 @@ Deno.serve(async (req) => {
       },
     };
 
-    return new Response(JSON.stringify(summary), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse(summary);
 
   } catch (error: unknown) {
     console.error('Board summary error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(message, 500);
   }
 });
