@@ -41,14 +41,15 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
     return value.toLocaleString();
   };
 
-  // Calculate contribution margin using same formula as CMO Mode for consistency
+  // ⚠️ ESTIMATED VALUES - marked explicitly per MDP Manifesto
   // CM = Revenue - COGS(40%) - Fees(15%) - Ad Spend
-  // Note: MarketingModeSummary doesn't have CM, so we calculate it the same way as CMO Mode
-  const estimatedCOGS = summary.total_revenue * 0.40;
-  const estimatedFees = summary.total_revenue * 0.15;
+  // Note: These are estimates when real cost data is unavailable
+  const estimatedCOGS = summary.total_revenue * 0.40; // ⚠️ Estimate
+  const estimatedFees = summary.total_revenue * 0.15; // ⚠️ Estimate
   const contributionMargin = summary.total_revenue - estimatedCOGS - estimatedFees - summary.total_spend;
   const cmPercent = summary.total_revenue > 0 ? (contributionMargin / summary.total_revenue) * 100 : 0;
   const profitROAS = summary.total_spend > 0 ? contributionMargin / summary.total_spend : 0;
+  const isEstimated = true; // Flag for UI to show estimation warning
   
   // For display - total costs breakdown
   const totalCosts = estimatedCOGS + estimatedFees + summary.total_spend;
@@ -73,11 +74,11 @@ export function PerformanceOverview({ summary }: PerformanceOverviewProps) {
       trend: null,
     },
     {
-      label: 'Contribution Margin',
+      label: 'Contribution Margin (Ước tính)',
       value: `${formatCurrency(contributionMargin)}đ`,
       icon: Wallet,
       color: contributionMargin >= 0 ? 'green' : 'red',
-      subtext: `CM%: ${cmPercent.toFixed(1)}%`,
+      subtext: `CM%: ${cmPercent.toFixed(1)}% • COGS/Fees ước tính`,
       metricKey: 'contribution_margin',
       isHighlight: true,
       trend: contributionMargin >= 0 ? 'up' : 'down',

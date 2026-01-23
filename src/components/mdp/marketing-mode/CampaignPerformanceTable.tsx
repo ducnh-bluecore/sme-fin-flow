@@ -60,10 +60,12 @@ interface CampaignPerformanceTableProps {
 
 type SortField = 'spend' | 'orders' | 'revenue' | 'cpa' | 'roas' | 'profit_roas' | 'contribution_margin';
 
-// Estimate contribution margin from campaign data
+// ⚠️ ESTIMATED contribution margin from campaign data
+// Per MDP Manifesto: These values are estimates, not real cost data
 const estimateContributionMargin = (campaign: MarketingPerformance) => {
   // CM = Revenue - COGS - Channel Fees - Ad Spend
-  // Estimate COGS at 40% of revenue, channel fees at 15%
+  // ⚠️ ESTIMATED: COGS at 40% of revenue, channel fees at 15%
+  // Real data would come from order_items.unit_cogs and channel_fees
   const estimatedCOGS = campaign.revenue * 0.40;
   const estimatedChannelFees = campaign.revenue * 0.15;
   const cm = campaign.revenue - estimatedCOGS - estimatedChannelFees - campaign.spend;

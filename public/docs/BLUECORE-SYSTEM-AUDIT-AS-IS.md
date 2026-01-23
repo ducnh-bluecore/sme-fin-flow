@@ -242,15 +242,17 @@ const clicks = Math.floor(impressions * 0.02); // 2% CTR estimate
 const leads = Math.floor(clicks * 0.1); // 10% lead rate estimate
 ```
 
-2. **COGS Estimation:**
+2. **COGS Estimation:** ✅ FIXED - Now logs warning
 ```typescript
-// Line 504-507: Fallback to 55% COGS when no real data
+// Line 521-524: Fallback to 55% COGS with explicit warning
+console.warn('[MDP] ⚠️ ESTIMATED: Using 55% COGS fallback. Import order_items with unit_cogs for real data.');
 cogs = netRevenue * 0.55;
 ```
 
-3. **Fee Estimation:**
+3. **Fee Estimation:** ✅ FIXED - Now logs warning
 ```typescript
-// Line 522-523: Fallback to 12% fees
+// Line 540-541: Fallback to 12% fees with explicit warning
+console.warn('[MDP] ⚠️ ESTIMATED: Using 12% platform fee fallback. Import channel_fees or settlements for real data.');
 platformFees = netRevenue * 0.12;
 ```
 
