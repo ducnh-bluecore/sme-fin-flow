@@ -1,3 +1,19 @@
+/**
+ * @deprecated useMDPData - VIOLATES MDP MANIFESTO
+ * 
+ * This hook computes business metrics in frontend with SILENT DEFAULTS:
+ * - Line 506: 55% COGS fallback (no warning to user)
+ * - Line 522: 12% platform fees fallback (no warning to user)
+ * - Lines 379-414: Generates alerts in frontend (should be backend only)
+ * 
+ * MIGRATION: Use useMDPSSOT instead which:
+ * - Marks all estimated values with confidence scores
+ * - Only fetches alerts from backend (decision_cards table)
+ * - Provides explicit data quality indicators
+ * 
+ * @see src/hooks/useMDPSSOT.ts
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
@@ -6,6 +22,7 @@ import { useMemo } from 'react';
 import { useChannelBudgets } from './useChannelBudgets';
 
 // ============ MDP CORE - UNIFIED DATA LAYER ============
+// ⚠️ DEPRECATED: Use useMDPSSOT for new development
 // Một data layer duy nhất phục vụ 2 modes: Marketing Mode & CMO Mode
 
 // === MARKETING MODE TYPES (Execution) ===
