@@ -1,9 +1,10 @@
 # BLUECORE DATA PLATFORM - TECHNICAL SYSTEM AUDIT (AS-IS)
 
 > **Audit Date:** 2026-01-23  
+> **Last Updated:** 2026-01-23 (Post Security & SSOT Refactor)  
 > **Document Type:** System Constitution / Refactoring Baseline  
 > **Scope:** Complete code audit of existing implementation  
-> **Status:** Accurate representation of current codebase
+> **Status:** CURRENT - Reflects security fixes and CDP SSOT improvements
 
 ---
 
@@ -529,37 +530,83 @@ WITH fallback_drivers AS (
 
 ## 6. EDGE FUNCTIONS INVENTORY
 
-### 6.1 Scheduled Functions
+### 6.1 Security Standard (UPDATED 2026-01-23)
 
-| Function | Purpose | verify_jwt |
-|----------|---------|------------|
-| `scheduled-detect-alerts` | Run alert detection for all tenants | false |
-| `scheduled-sync` | Sync all connector integrations | false |
-| `scheduled-bigquery-sync` | Sync BigQuery data | false |
-| `scheduled-cdp-build` | Run CDP daily build | false |
-| `process-scheduled-notifications` | Process due notifications | false |
-| `process-alert-notifications` | Process alert notifications | false |
+**Location:** `supabase/functions/_shared/auth.ts`
 
-### 6.2 On-Demand Functions
+All Edge Functions now follow a standardized security pattern:
 
-| Function | Purpose | verify_jwt |
-|----------|---------|------------|
-| `detect-alerts` | Run alert detection for single tenant | false |
-| `sync-connector` | Sync single connector | false |
-| `sync-bigquery` | Sync BigQuery tables | false |
-| `sync-ecommerce-data` | Sync e-commerce data | false |
-| `batch-import-data` | Bulk data import | false |
-| `generate-decision-cards` | Generate decision cards | false |
-| `inventory-recommendations` | AI inventory recommendations | false |
-| `decision-advisor` | AI decision advisor | false |
-| `whatif-chat` | What-if chat AI | false |
-| `analyze-contextual` | Contextual AI analysis | false |
+| Function Type | Auth Method | Description |
+|--------------|-------------|-------------|
+| User-facing | `requireAuth(req)` | Validates JWT, extracts userId/tenantId |
+| Scheduled/System | `requireServiceRole(req)` | Validates SUPABASE_SERVICE_ROLE_KEY |
 
-### 6.3 ⚠️ Security Note
+### 6.2 Functions Using requireAuth (User-Facing) ✅
 
-All Edge Functions have `verify_jwt = false` in `supabase/config.toml`. This means:
-- Functions are publicly callable without authentication
-- Must rely on internal auth checks
+| Function | Purpose |
+|----------|---------|
+| `decision-advisor` | AI decision advisor |
+| `board-summary` | Board summary generation |
+| `board-scenarios` | Board scenario analysis |
+| `decision-snapshots` | Decision snapshot capture |
+| `approvals` | Approval workflows |
+| `exceptions` | Exception handling |
+| `audit` | Audit logging |
+| `investor-disclosure` | Investor reports |
+| `ml-monitoring` | ML model monitoring |
+| `ml-reconciliation` | ML reconciliation |
+| `risk-appetite` | Risk appetite config |
+| `risk-stress-test` | Stress test analysis |
+| `auto-measure-outcomes` | Outcome measurement |
+| `whatif-chat` | What-if AI chat |
+| `reconciliation-kpis` | Reconciliation KPIs |
+| `reconciliation-suggestions` | Reconciliation AI |
+
+### 6.3 Functions Using requireServiceRole (Scheduled/System) ✅
+
+| Function | Purpose |
+|----------|---------|
+| `detect-alerts` | Alert detection for tenant |
+| `detect-cross-domain-alerts` | Cross-domain alert detection |
+| `scheduled-detect-alerts` | Scheduled alert detection |
+| `scheduled-cdp-build` | CDP daily build |
+| `process-scheduled-notifications` | Scheduled notifications |
+| `process-alert-notifications` | Alert notifications |
+| `generate-decision-cards` | Decision card generation |
+| `sync-connector` | Connector sync |
+| `batch-import-data` | Bulk data import |
+| `suggest-data-models` | Data model AI |
+| `sync-bigquery` | BigQuery sync |
+| `sync-ecommerce-data` | E-commerce sync |
+
+### 6.4 Functions with verify_jwt=false (Public APIs)
+
+| Function | Purpose | Security Notes |
+|----------|---------|----------------|
+| `bigquery-list` | BigQuery schema listing | Reads only, no tenant data |
+| `bigquery-realtime` | BigQuery realtime | Uses service account |
+| `mongodb-query` | MongoDB queries | Uses connection string |
+| `get-vapid-key` | Push notification key | Public key only |
+| `send-fcm-notification` | FCM notifications | Internal use |
+| `send-notification` | General notifications | Internal use |
+| `inventory-recommendations` | AI recommendations | Public callable |
+| `optimize-channel-budget` | Budget optimization | Public callable |
+| `create-tenant-with-owner` | Tenant creation | Admin-only logic inside |
+
+### 6.5 Auth Helper Functions
+
+```typescript
+// supabase/functions/_shared/auth.ts
+
+// For user-initiated requests with JWT
+export async function requireAuth(req: Request): Promise<SecureContext | Response>
+
+// For scheduled/internal functions with service role
+export function requireServiceRole(req: Request): { supabase: SupabaseClient } | Response
+
+// Validate tenant access
+export function validateTenantAccess(requestedTenantId: string, userTenantId: string): boolean
+```
 
 ---
 
@@ -598,52 +645,68 @@ All Edge Functions have `verify_jwt = false` in `supabase/config.toml`. This mea
 
 ---
 
-## 8. GAP & RISK REGISTER
+## 8. GAP & RISK REGISTER (UPDATED 2026-01-23)
 
 ### 8.1 ❌ DECLARED BUT NOT IMPLEMENTED
 
 | Feature | Location | Status |
 |---------|----------|--------|
-| CDP Real-time Equity | v_cdp_equity_* views | Hardcoded fallback |
+| CDP Real-time Equity | v_cdp_equity_* views | ⚠️ Still uses hardcoded fallback in DB views |
 | CDP Population Metrics | mv_cdp_* materialized views | Schema exists, data uncertain |
 | Bluecore Scores persistence | bluecore_scores table | Calculated in hook, not persisted |
 | ML Reconciliation | ml-reconciliation edge function | Exists but uncertain usage |
 
-### 8.2 ⚠️ SSOT VIOLATIONS
+### 8.2 ⚠️ SSOT VIOLATIONS (PARTIALLY FIXED)
 
-| Metric | Violation | Locations |
-|--------|-----------|-----------|
-| Net Revenue | Multiple computations | useFDPMetrics, central_metrics_snapshots, fdp_daily_metrics |
-| Contribution Margin | Different formulas | useFDPMetrics (order-level), useMDPData (campaign-level) |
-| ROAS | Three definitions | Revenue ROAS, Profit ROAS, FDP ROAS |
-| Customer Count | Multiple sources | useFDPMetrics.customers, central_metrics_snapshots.total_customers |
+| Metric | Status | Notes |
+|--------|--------|-------|
+| Net Revenue | ⚠️ PARTIAL | useFDPMetrics deprecated, useFinanceTruthSnapshot canonical |
+| Contribution Margin | ⚠️ PARTIAL | Different formulas in FDP vs MDP hooks |
+| ROAS | ⚠️ PARTIAL | Three definitions still exist (Revenue, Profit, FDP) |
+| Customer Count | ✅ FIXED | Now uses central_metrics_snapshots |
 
-### 8.3 ⚠️ DATA QUALITY RISKS
+**Deprecated Hooks (Do Not Use):**
+- `useFDPMetrics` → Use `useFDPFinanceSSOT` or `useFinanceTruthSnapshot`
+- `useMDPData` → Use `useMDPSSOT`
+- `useCentralFinancialMetrics` → Use `useFinanceTruthSnapshot`
 
-| Risk | Description | Impact |
-|------|-------------|--------|
-| COGS Estimation | Falls back to 55% when no real COGS | Incorrect margin calculations |
-| Fee Estimation | Falls back to 12% when no real fees | Incorrect profitability |
-| Impression/Click Estimation | Derived from spend | Unreliable funnel metrics |
-| CDP Hardcoded Data | Equity views return static values | Misleading customer insights |
+### 8.3 ✅ SECURITY FIXES COMPLETED (2026-01-23)
 
-### 8.4 ⚠️ AREAS DANGEROUS TO REFACTOR
+| Issue | Status | Fix Applied |
+|-------|--------|-------------|
+| Edge Functions without auth | ✅ FIXED | Added requireAuth/requireServiceRole to all user-facing and scheduled functions |
+| Tenant isolation | ✅ FIXED | JWT claims used for tenant_id extraction |
+| Cross-tenant access | ✅ FIXED | validateTenantAccess helper implemented |
 
-| Area | Reason |
-|------|--------|
-| useFDPMetrics | 600+ lines, many consumers, complex formulas |
-| useMDPData | 900+ lines, two modes, many derived metrics |
-| Reconciliation | SSOT pattern is correct but complex |
-| Alert Detection | Multiple edge functions, scheduled jobs |
-| Decision Cards | Auto-generated + DB-stored cards, complex flow |
+### 8.4 ⚠️ DATA QUALITY RISKS (PARTIALLY MITIGATED)
 
-### 8.5 ⚠️ AMBIGUOUS OWNERSHIP
+| Risk | Status | Mitigation |
+|------|--------|------------|
+| COGS Estimation (55% fallback) | ⚠️ EXISTS | useMDPData still uses silent fallback |
+| Fee Estimation (12% fallback) | ⚠️ EXISTS | useMDPData still uses silent fallback |
+| Impression/Click Estimation | ⚠️ EXISTS | useMDPData derives from spend |
+| CDP Hardcoded Data | ⚠️ EXISTS | DB views still return static values |
+| Cash Forecast estimation labels | ✅ FIXED | Added "(Dự báo)" label to estimated values |
 
-| Feature | Who Computes? | Who Should? |
-|---------|---------------|-------------|
-| Bluecore Scores | useBluecoreScores hook | Should be DB-computed |
-| Risk Alerts | useRiskAlerts hook | Should use detect-alerts function |
-| CDP Insights | Mixed (hook + views) | Should be DB-only |
+### 8.5 ⚠️ AREAS DANGEROUS TO REFACTOR
+
+| Area | Reason | Risk Level |
+|------|--------|------------|
+| useFDPMetrics | 600+ lines, many consumers, complex formulas | HIGH |
+| useMDPData | 900+ lines, two modes, many derived metrics | HIGH |
+| Reconciliation | SSOT pattern is correct but complex | MEDIUM |
+| Alert Detection | Multiple edge functions, scheduled jobs | MEDIUM |
+| Decision Cards | Auto-generated + DB-stored cards, complex flow | MEDIUM |
+
+### 8.6 ⚠️ AMBIGUOUS OWNERSHIP (IDENTIFIED)
+
+| Feature | Current Owner | Recommended Owner |
+|---------|---------------|-------------------|
+| Bluecore Scores | useBluecoreScores hook | DB-computed (RPC/view) |
+| Risk Alerts | useRiskAlerts hook | detect-alerts function |
+| CDP Insights | Mixed (hook + views) | DB views only |
+| Channel Revenue | FDP + MDP both compute | Single DB view |
+| Customer LTV | FDP + CDP both compute | CDP only |
 
 ---
 
