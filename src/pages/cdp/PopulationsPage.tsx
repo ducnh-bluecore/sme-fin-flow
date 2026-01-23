@@ -8,83 +8,22 @@ import {
   Calendar, 
   BarChart3,
   ArrowUpDown,
-  Filter
+  Loader2
 } from 'lucide-react';
 import { PopulationLayout } from '@/components/cdp/populations/PopulationLayout';
 import { PopulationCatalogTable, PopulationItem } from '@/components/cdp/populations/PopulationCatalogTable';
-import { useCDPData } from '@/hooks/useCDPData';
+import { useCDPPopulations } from '@/hooks/useCDPPopulations';
 
 export default function PopulationsPage() {
-  const { segmentSummaries, summaryStats, isLoading } = useCDPData();
+  const { 
+    populations, 
+    tierPopulations, 
+    segmentPopulations, 
+    cohortPopulations, 
+    isLoading 
+  } = useCDPPopulations();
+  
   const [sortBy, setSortBy] = useState<'size' | 'revenue' | 'stability'>('revenue');
-
-  // Transform data into population items
-  const allPopulations = useMemo<PopulationItem[]>(() => {
-    const populations: PopulationItem[] = [];
-
-    // Value Tiers
-    const tiers = [
-      { name: 'TOP10', pct: 0.1, revShare: 45, stability: 'stable' as const },
-      { name: 'TOP20', pct: 0.1, revShare: 25, stability: 'stable' as const },
-      { name: 'TOP30', pct: 0.1, revShare: 15, stability: 'drifting' as const },
-      { name: 'CÒN LẠI', pct: 0.7, revShare: 15, stability: 'volatile' as const },
-    ];
-
-    tiers.forEach((tier, i) => {
-      populations.push({
-        id: `tier-${i}`,
-        name: tier.name,
-        type: 'tier',
-        definition: `${tier.name === 'CÒN LẠI' ? 'Bottom 70%' : tier.name.replace('TOP', 'Top ')} khách hàng theo doanh thu thuần 365 ngày`,
-        size: Math.round(summaryStats.totalCustomers * tier.pct),
-        revenueShare: tier.revShare,
-        stability: tier.stability,
-        insightCount: Math.floor(Math.random() * 3),
-      });
-    });
-
-    // Segments from data
-    segmentSummaries.forEach((seg, i) => {
-      populations.push({
-        id: `segment-${i}`,
-        name: seg.name,
-        type: 'segment',
-        definition: getSegmentDefinition(seg.name),
-        size: seg.customerCount,
-        revenueShare: seg.totalRevenue / (summaryStats.totalRevenue || 1) * 100,
-        stability: getStability(seg.trend),
-        insightCount: Math.floor(Math.random() * 4),
-      });
-    });
-
-    // Cohorts
-    const cohorts = [
-      { name: 'Mua Q4-2024', pct: 0.15, revShare: 8.5, stability: 'drifting' as const },
-      { name: 'Mua Q3-2024', pct: 0.18, revShare: 12.3, stability: 'stable' as const },
-      { name: 'Mua Q2-2024', pct: 0.2, revShare: 18.7, stability: 'stable' as const },
-      { name: 'Mua Q1-2024', pct: 0.12, revShare: 10.2, stability: 'drifting' as const },
-    ];
-
-    cohorts.forEach((cohort, i) => {
-      populations.push({
-        id: `cohort-${i}`,
-        name: cohort.name,
-        type: 'cohort',
-        definition: `Khách hàng có lần mua đầu tiên trong ${cohort.name.replace('Mua ', '')}`,
-        size: Math.round(summaryStats.totalCustomers * cohort.pct),
-        revenueShare: cohort.revShare,
-        stability: cohort.stability,
-        insightCount: Math.floor(Math.random() * 2),
-      });
-    });
-
-    return populations;
-  }, [segmentSummaries, summaryStats]);
-
-  // Filter by type
-  const tierPopulations = allPopulations.filter(p => p.type === 'tier');
-  const segmentPopulations = allPopulations.filter(p => p.type === 'segment');
-  const cohortPopulations = allPopulations.filter(p => p.type === 'cohort');
 
   // Sort function
   const sortPopulations = (pops: PopulationItem[]) => {
@@ -93,13 +32,30 @@ export default function PopulationsPage() {
         case 'size': return b.size - a.size;
         case 'revenue': return b.revenueShare - a.revenueShare;
         case 'stability': {
-          const order = { stable: 0, drifting: 1, volatile: 2 };
-          return order[a.stability] - order[b.stability];
+          const order: Record<string, number> = { stable: 0, drifting: 1, volatile: 2 };
+          return (order[a.stability] ?? 0) - (order[b.stability] ?? 0);
         }
         default: return 0;
       }
     });
   };
+
+  if (isLoading) {
+    return (
+      <PopulationLayout
+        title="Danh mục Tập khách hàng"
+        subtitle="Các tập khách phục vụ phân tích & insight — chế độ chỉ đọc"
+      >
+        <Helmet>
+          <title>Tập khách hàng | CDP - Bluecore</title>
+        </Helmet>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Đang tải...</span>
+        </div>
+      </PopulationLayout>
+    );
+  }
 
   return (
     <PopulationLayout
@@ -118,7 +74,7 @@ export default function PopulationsPage() {
             <TabsList>
               <TabsTrigger value="all" className="gap-2">
                 Tất cả
-                <Badge variant="secondary" className="text-xs">{allPopulations.length}</Badge>
+                <Badge variant="secondary" className="text-xs">{populations.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="tiers" className="gap-2">
                 <BarChart3 className="w-3.5 h-3.5" />
@@ -167,8 +123,8 @@ export default function PopulationsPage() {
 
           <TabsContent value="all">
             <PopulationCatalogTable 
-              populations={sortPopulations(allPopulations)} 
-              isLoading={isLoading}
+              populations={sortPopulations(populations)} 
+              isLoading={false}
             />
           </TabsContent>
 
@@ -180,7 +136,7 @@ export default function PopulationsPage() {
               </p>
               <PopulationCatalogTable 
                 populations={sortPopulations(tierPopulations)} 
-                isLoading={isLoading}
+                isLoading={false}
               />
             </div>
           </TabsContent>
@@ -193,7 +149,7 @@ export default function PopulationsPage() {
               </p>
               <PopulationCatalogTable 
                 populations={sortPopulations(segmentPopulations)} 
-                isLoading={isLoading}
+                isLoading={false}
               />
             </div>
           </TabsContent>
@@ -206,7 +162,7 @@ export default function PopulationsPage() {
               </p>
               <PopulationCatalogTable 
                 populations={sortPopulations(cohortPopulations)} 
-                isLoading={isLoading}
+                isLoading={false}
               />
             </div>
           </TabsContent>
@@ -214,22 +170,4 @@ export default function PopulationsPage() {
       </div>
     </PopulationLayout>
   );
-}
-
-// Helper functions
-function getSegmentDefinition(name: string): string {
-  const definitions: Record<string, string> = {
-    'Top 10%': 'Khách hàng trong top 10% theo lifetime revenue với 3+ lần mua',
-    'P75-P90': 'Khách hàng trong phân vị 75-90% theo doanh thu thuần',
-    'P50-P75': 'Khách hàng trong phân vị 50-75% theo doanh thu thuần',
-    'P25-P50': 'Khách hàng trong phân vị 25-50% theo doanh thu thuần',
-    'Bottom 25%': 'Khách hàng trong phân vị dưới 25% theo doanh thu thuần',
-  };
-  return definitions[name] || `Khách hàng được phân loại là ${name} dựa trên hành vi`;
-}
-
-function getStability(trend: 'up' | 'down' | 'stable'): 'stable' | 'drifting' | 'volatile' {
-  if (trend === 'stable') return 'stable';
-  if (trend === 'down') return 'volatile';
-  return 'drifting';
 }

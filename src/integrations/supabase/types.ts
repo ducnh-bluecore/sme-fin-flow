@@ -20860,6 +20860,34 @@ export type Database = {
           },
         ]
       }
+      v_cdp_population_catalog: {
+        Row: {
+          created_at: string | null
+          customer_count: number | null
+          definition: string | null
+          insight_count: number | null
+          name: string | null
+          population_id: string | null
+          population_type: string | null
+          stability: string | null
+          status: string | null
+          tenant_id: string | null
+          total_revenue: number | null
+          version: number | null
+        }
+        Relationships: []
+      }
+      v_cdp_population_summary: {
+        Row: {
+          cohort_count: number | null
+          segment_count: number | null
+          tenant_id: string | null
+          tier_count: number | null
+          total_count: number | null
+          total_insights: number | null
+        }
+        Relationships: []
+      }
       v_cdp_topic_summaries: {
         Row: {
           category: string | null
