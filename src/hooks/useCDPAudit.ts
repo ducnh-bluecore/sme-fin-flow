@@ -92,18 +92,25 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         'bigquery': 'BigQuery',
       };
 
-      // Track which channels have been added to avoid duplicates
+      // Track which display names have been added to avoid duplicates
+      const addedDisplayNames = new Set<string>();
       const addedChannels = new Set<string>();
 
-      // First: Add connectors and merge with their channel data
+      // First: Add connectors and merge with their channel data (dedupe by displayName)
       (connectors || []).forEach(connector => {
         const connectorType = connector.connector_type.toLowerCase();
         const displayName = connectorDisplayNames[connectorType] || connector.connector_type;
         
+        // Skip if this displayName was already added (avoid duplicate Lazada, TikTok Shop, etc.)
+        if (addedDisplayNames.has(displayName)) {
+          return;
+        }
+        
         // Find matching channel data (case-insensitive, partial match)
-        const matchingChannel = activeChannels.find(ch => 
-          ch?.toLowerCase().includes(connectorType) || connectorType.includes(ch?.toLowerCase() || '')
-        );
+        const matchingChannel = activeChannels.find(ch => {
+          const chLower = ch?.toLowerCase() || '';
+          return chLower.includes(connectorType) || connectorType.includes(chLower);
+        });
         
         const channelData = matchingChannel ? channelAggregates[matchingChannel] : null;
         const hasOrderData = !!channelData;
@@ -121,7 +128,8 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
               : undefined,
           });
           
-          // Mark this channel as added
+          // Mark as added
+          addedDisplayNames.add(displayName);
           if (matchingChannel) {
             addedChannels.add(matchingChannel);
           }
@@ -137,21 +145,24 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         if (addedChannels.has(channelName) || addedChannels.has(channelLower)) {
           return;
         }
+
+        const displayName = connectorDisplayNames[channelLower] || channelName || 'Nguồn không xác định';
         
-        // Check if any added channel is similar
-        const alreadyAdded = [...addedChannels].some(added => 
-          added.includes(channelLower) || channelLower.includes(added)
-        );
-        if (alreadyAdded) return;
+        // Skip if this displayName was already added
+        if (addedDisplayNames.has(displayName)) {
+          return;
+        }
 
         const stats = channelAggregates[channelName];
         sources.push({
-          name: connectorDisplayNames[channelLower] || channelName || 'Nguồn không xác định',
+          name: displayName,
           hasData: true,
           orderCount: stats.orderCount,
           totalValue: stats.totalValue,
           lastSync: new Date().toLocaleDateString('vi-VN'),
         });
+        
+        addedDisplayNames.add(displayName);
       });
 
       // If still no sources, show a placeholder indicating data origin
