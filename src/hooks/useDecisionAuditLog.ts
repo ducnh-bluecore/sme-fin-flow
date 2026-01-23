@@ -190,7 +190,7 @@ export function useEntityDecisionHistory(entityType: string, entityId: string | 
   });
 }
 
-// Hook to get decision stats from audit log
+// Hook to get decision stats from audit log - USES DB RPC (no frontend computation)
 export function useDecisionAuditStats() {
   const { data: tenantId } = useActiveTenantId();
 
@@ -199,30 +199,28 @@ export function useDecisionAuditStats() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
-        .from('decision_audit_log')
-        .select('id, action_type, decision_status, impact_amount, card_id, auto_card_id, decided_at')
-        .eq('tenant_id', tenantId);
+      // Call DB RPC instead of fetching + computing in frontend
+      const { data, error } = await supabase.rpc('get_decision_audit_stats', {
+        p_tenant_id: tenantId
+      });
 
       if (error) throw error;
 
-      const now = new Date();
-      const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      // Type assertion for RPC response
+      const result = data as Record<string, unknown> | null;
 
-      const stats = {
-        totalDecisions: data.length,
-        dbCardDecisions: data.filter(d => d.card_id).length,
-        autoCardDecisions: data.filter(d => d.auto_card_id).length,
-        decidedCount: data.filter(d => d.decision_status === 'DECIDED').length,
-        dismissedCount: data.filter(d => d.decision_status === 'DISMISSED').length,
-        snoozedCount: data.filter(d => d.decision_status === 'SNOOZED').length,
-        last7DaysCount: data.filter(d => new Date(d.decided_at) > last7Days).length,
-        last30DaysCount: data.filter(d => new Date(d.decided_at) > last30Days).length,
-        totalImpact: data.reduce((sum, d) => sum + Math.abs(d.impact_amount || 0), 0),
+      // Map snake_case from DB to camelCase for frontend with safe access
+      return {
+        totalDecisions: (result?.total_decisions as number) ?? 0,
+        dbCardDecisions: (result?.db_card_decisions as number) ?? 0,
+        autoCardDecisions: (result?.auto_card_decisions as number) ?? 0,
+        decidedCount: (result?.decided_count as number) ?? 0,
+        dismissedCount: (result?.dismissed_count as number) ?? 0,
+        snoozedCount: (result?.snoozed_count as number) ?? 0,
+        last7DaysCount: (result?.last_7_days_count as number) ?? 0,
+        last30DaysCount: (result?.last_30_days_count as number) ?? 0,
+        totalImpact: (result?.total_impact as number) ?? 0,
       };
-
-      return stats;
     },
     enabled: !!tenantId,
   });
