@@ -6,52 +6,83 @@ import { CDPLayout } from '@/components/layout/CDPLayout';
 import { DecisionLayout } from '@/components/cdp/decisions/DecisionLayout';
 import { DecisionQueueCard, DecisionCardData } from '@/components/cdp/decisions/DecisionQueueCard';
 import { DecisionQueueFilters } from '@/components/cdp/decisions/DecisionQueueFilters';
-import { useCDPInsightFeed } from '@/hooks/useCDPInsightFeed';
+import { useCDPDecisionCards } from '@/hooks/useCDPDecisionCards';
 
 // Helper functions
-function getOwnerFromCategory(category: string): 'CEO' | 'CFO' | 'COO' {
-  const mapping: Record<string, 'CEO' | 'CFO' | 'COO'> = {
-    value: 'CFO',
-    velocity: 'COO',
-    mix: 'CEO',
-    risk: 'CFO',
-    quality: 'COO'
-  };
-  return mapping[category] || 'CEO';
+function getOwnerFromRole(role: string): 'CEO' | 'CFO' | 'COO' {
+  const normalized = role?.toUpperCase();
+  if (normalized === 'CFO') return 'CFO';
+  if (normalized === 'COO' || normalized === 'OPS') return 'COO';
+  return 'CEO';
 }
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function mapStatus(status: string): 'new' | 'reviewing' | 'decided' | 'archived' {
+  const statusMap: Record<string, 'new' | 'reviewing' | 'decided' | 'archived'> = {
+    'NEW': 'new',
+    'IN_REVIEW': 'reviewing',
+    'DECIDED': 'decided',
+    'ARCHIVED': 'archived',
+  };
+  return statusMap[status] || 'new';
+}
+
+function mapSeverity(severity: string): 'low' | 'medium' | 'high' {
+  const severityMap: Record<string, 'low' | 'medium' | 'high'> = {
+    'CRITICAL': 'high',
+    'HIGH': 'high',
+    'MEDIUM': 'medium',
+    'LOW': 'low',
+  };
+  return severityMap[severity] || 'medium';
+}
+
+function mapPriority(priority: string): number {
+  const priorityMap: Record<string, number> = {
+    'P0': 0,
+    'P1': 1,
+    'P2': 2,
+    'P3': 3,
+  };
+  return priorityMap[priority] ?? 2;
+}
+
 export default function DecisionCardsPage() {
-  const { data: insights = [], isLoading } = useCDPInsightFeed();
+  const { data: cards = [], isLoading } = useCDPDecisionCards();
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
 
-  // Transform DB insights into decision cards
+  // Transform DB cards into UI format
   const decisionCards: DecisionCardData[] = useMemo(() => {
-    return insights
-      .filter((i) => i.severity === 'critical' || i.severity === 'high')
-      .map((insight): DecisionCardData => ({
-        id: insight.event_id,
-        title: `Xem xét: ${insight.title}`,
-        sourceInsights: [insight.code],
-        sourceEquity: insight.topic === 'equity' || insight.topic === 'value',
-        severity: insight.severity === 'critical' ? 'high' : 
-                  insight.severity === 'high' ? 'medium' : 'low',
-        priority: insight.severity === 'critical' ? 1 : 2,
-        owner: getOwnerFromCategory(insight.topic || 'value'),
-        reviewDeadline: formatDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
-        status: 'new',
-        createdAt: formatDate(new Date(insight.detected_at)),
-        populationSize: insight.population_size || 0,
-        equityImpact: undefined
-      }));
-  }, [insights]);
+    return cards.map((card): DecisionCardData => ({
+      id: card.id,
+      title: card.title,
+      sourceInsights: card.source_ref?.insight_code 
+        ? [String(card.source_ref.insight_code)] 
+        : card.source_ref?.code 
+          ? [String(card.source_ref.code)]
+          : [],
+      sourceEquity: card.category === 'VALUE' || card.category === 'EQUITY',
+      severity: mapSeverity(card.severity),
+      priority: mapPriority(card.priority),
+      owner: getOwnerFromRole(card.owner_role),
+      reviewDeadline: card.review_by 
+        ? formatDate(new Date(card.review_by)) 
+        : card.decision_due 
+          ? formatDate(new Date(card.decision_due))
+          : '',
+      status: mapStatus(card.status),
+      createdAt: formatDate(new Date(card.created_at)),
+      populationSize: undefined,
+      equityImpact: undefined
+    }));
+  }, [cards]);
 
   // Count by status
   const counts = useMemo(() => ({

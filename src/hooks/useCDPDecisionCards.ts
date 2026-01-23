@@ -2,6 +2,22 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenant } from '@/hooks/useTenant';
 
+export interface DecisionCardSummary {
+  id: string;
+  title: string;
+  summary: string | null;
+  status: 'NEW' | 'IN_REVIEW' | 'DECIDED' | 'ARCHIVED';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  priority: 'P0' | 'P1' | 'P2' | 'P3';
+  owner_role: string;
+  category: string;
+  created_at: string;
+  review_by: string | null;
+  decision_due: string | null;
+  source_type: string;
+  source_ref: Record<string, unknown> | null;
+}
+
 export interface DecisionCardDetail {
   id: string;
   title: string;
@@ -38,6 +54,30 @@ export interface DecisionCardDetail {
   postDecisionReview?: string;
 }
 
+// Hook to fetch list of decision cards from cdp_decision_cards table
+export function useCDPDecisionCards() {
+  const { data: activeTenant } = useActiveTenant();
+  const tenantId = activeTenant?.id;
+
+  return useQuery({
+    queryKey: ['cdp-decision-cards-list', tenantId],
+    queryFn: async (): Promise<DecisionCardSummary[]> => {
+      if (!tenantId) return [];
+
+      const { data, error } = await supabase
+        .from('cdp_decision_cards')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as DecisionCardSummary[];
+    },
+    enabled: !!tenantId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
 export function useCDPDecisionCardDetail(cardId: string | undefined) {
   const { data: activeTenant } = useActiveTenant();
   const tenantId = activeTenant?.id;
@@ -60,20 +100,23 @@ export function useCDPDecisionCardDetail(cardId: string | undefined) {
       // Parse source insights from JSONB
       let sourceInsights: DecisionCardDetail['sourceInsights'] = [];
       if (data.source_insights && Array.isArray(data.source_insights)) {
-        sourceInsights = data.source_insights.map((s: any) => ({
-          code: s.code || s.insight_code || 'INS-001',
-          title: s.title || 'Insight',
-          change: s.change || '-10%',
-          impact: s.impact || 'Medium',
-        }));
+        sourceInsights = data.source_insights.map((s: unknown) => {
+          const record = s as Record<string, unknown>;
+          return {
+            code: String(record.code || record.insight_code || 'INS-001'),
+            title: String(record.title || 'Insight'),
+            change: String(record.change || '-10%'),
+            impact: String(record.impact || 'Medium'),
+          };
+        });
       }
 
       // Parse affected population
       const affectedPopulation = data.affected_population ? {
-        description: (data.affected_population as any).description || 'Affected customers',
-        size: Number((data.affected_population as any).size) || data.population_size || 0,
-        revenueShare: Number((data.affected_population as any).revenue_share) || 0,
-        equityShare: Number((data.affected_population as any).equity_share) || 0,
+        description: (data.affected_population as Record<string, unknown>).description as string || 'Affected customers',
+        size: Number((data.affected_population as Record<string, unknown>).size) || data.population_size || 0,
+        revenueShare: Number((data.affected_population as Record<string, unknown>).revenue_share) || 0,
+        equityShare: Number((data.affected_population as Record<string, unknown>).equity_share) || 0,
       } : {
         description: 'Affected customers',
         size: data.population_size || 0,
@@ -83,10 +126,10 @@ export function useCDPDecisionCardDetail(cardId: string | undefined) {
 
       // Parse risks
       const risks = data.risks ? {
-        revenue: (data.risks as any).revenue || 'Revenue at risk',
-        cashflow: (data.risks as any).cashflow || 'Cash flow impact',
-        longTerm: (data.risks as any).longTerm || 'Long-term implications',
-        level: ((data.risks as any).level || data.severity || 'medium') as 'low' | 'medium' | 'high',
+        revenue: (data.risks as Record<string, unknown>).revenue as string || 'Revenue at risk',
+        cashflow: (data.risks as Record<string, unknown>).cashflow as string || 'Cash flow impact',
+        longTerm: (data.risks as Record<string, unknown>).longTerm as string || 'Long-term implications',
+        level: ((data.risks as Record<string, unknown>).level || data.severity || 'medium') as 'low' | 'medium' | 'high',
       } : {
         revenue: 'Revenue at risk',
         cashflow: 'Cash flow impact',
