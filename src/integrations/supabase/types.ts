@@ -5040,6 +5040,10 @@ export type Database = {
           category: string
           created_at: string
           decision_due: string | null
+          decision_note: string | null
+          decision_outcome: string | null
+          decision_recorded_at: string | null
+          decision_recorded_by: string | null
           id: string
           owner_role: string
           population_ref: Json
@@ -5061,6 +5065,10 @@ export type Database = {
           category: string
           created_at?: string
           decision_due?: string | null
+          decision_note?: string | null
+          decision_outcome?: string | null
+          decision_recorded_at?: string | null
+          decision_recorded_by?: string | null
           id?: string
           owner_role?: string
           population_ref?: Json
@@ -5082,6 +5090,10 @@ export type Database = {
           category?: string
           created_at?: string
           decision_due?: string | null
+          decision_note?: string | null
+          decision_outcome?: string | null
+          decision_recorded_at?: string | null
+          decision_recorded_by?: string | null
           id?: string
           owner_role?: string
           population_ref?: Json

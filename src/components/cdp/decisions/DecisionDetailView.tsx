@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Clock,
   Eye,
-  ShieldCheck
+  ShieldCheck,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DecisionCardData } from './DecisionQueueCard';
+import { useRecordDecision } from '@/hooks/useCDPDecisionCards';
 
 interface DecisionDetailViewProps {
   card: DecisionCardData & {
@@ -77,6 +79,18 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
   const [decisionOutcome, setDecisionOutcome] = useState(card.decision?.outcome || '');
   const [decisionNote, setDecisionNote] = useState(card.decision?.note || '');
   const statusStyle = statusStyles[card.status] || defaultStatusStyle;
+  const recordDecision = useRecordDecision();
+
+  const handleRecordDecision = () => {
+    if (!decisionOutcome || !decisionNote.trim()) return;
+    
+    recordDecision.mutate({
+      cardId: card.id,
+      outcome: decisionOutcome,
+      note: decisionNote,
+      decidedBy: card.owner || 'CEO',
+    });
+  };
 
   const formatCurrency = (value: number) => {
     if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
@@ -335,10 +349,15 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
               </div>
               <Button 
                 className="w-full" 
-                disabled={!decisionOutcome || !decisionNote.trim()}
+                disabled={!decisionOutcome || !decisionNote.trim() || recordDecision.isPending}
+                onClick={handleRecordDecision}
               >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Ghi nhận Quyết định
+                {recordDecision.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                )}
+                {recordDecision.isPending ? 'Đang lưu...' : 'Ghi nhận Quyết định'}
               </Button>
             </div>
           )}

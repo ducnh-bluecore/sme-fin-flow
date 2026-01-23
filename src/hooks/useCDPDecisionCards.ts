@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenant } from '@/hooks/useTenant';
-
+import { toast } from 'sonner';
 export interface DecisionCardSummary {
   id: string;
   title: string;
@@ -167,5 +167,60 @@ export function useCDPDecisionCardDetail(cardId: string | undefined) {
     },
     enabled: !!tenantId && !!cardId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Mutation hook to record a decision
+export function useRecordDecision() {
+  const { data: activeTenant } = useActiveTenant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      cardId,
+      outcome,
+      note,
+      decidedBy,
+    }: {
+      cardId: string;
+      outcome: string;
+      note: string;
+      decidedBy: string;
+    }) => {
+      if (!activeTenant?.id) throw new Error('No tenant');
+
+      const decisionData = {
+        outcome,
+        note,
+        decidedAt: new Date().toISOString(),
+        decidedBy,
+      };
+
+      const { data, error } = await supabase
+        .from('cdp_decision_cards')
+        .update({
+          status: 'DECIDED',
+          decision_outcome: outcome,
+          decision_note: note,
+          decision_recorded_at: new Date().toISOString(),
+          decision_recorded_by: decidedBy,
+        })
+        .eq('id', cardId)
+        .eq('tenant_id', activeTenant.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      toast.success('Đã ghi nhận quyết định thành công');
+      queryClient.invalidateQueries({ queryKey: ['cdp-decision-card-detail', activeTenant?.id, variables.cardId] });
+      queryClient.invalidateQueries({ queryKey: ['cdp-decision-cards-list'] });
+    },
+    onError: (error) => {
+      console.error('Failed to record decision:', error);
+      toast.error('Không thể ghi nhận quyết định. Vui lòng thử lại.');
+    },
   });
 }
