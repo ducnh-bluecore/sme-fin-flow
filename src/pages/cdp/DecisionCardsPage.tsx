@@ -6,7 +6,7 @@ import { CDPLayout } from '@/components/layout/CDPLayout';
 import { DecisionLayout } from '@/components/cdp/decisions/DecisionLayout';
 import { DecisionQueueCard, DecisionCardData } from '@/components/cdp/decisions/DecisionQueueCard';
 import { DecisionQueueFilters } from '@/components/cdp/decisions/DecisionQueueFilters';
-import { useCDPInsightDetection } from '@/hooks/useCDPInsightDetection';
+import { useCDPInsightFeed } from '@/hooks/useCDPInsightFeed';
 
 // Helper functions
 function getOwnerFromCategory(category: string): 'CEO' | 'CFO' | 'COO' {
@@ -20,90 +20,50 @@ function getOwnerFromCategory(category: string): 'CEO' | 'CFO' | 'COO' {
   return mapping[category] || 'CEO';
 }
 
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
 function formatDate(date: Date): string {
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function DecisionCardsPage() {
-  const { insights, isLoading } = useCDPInsightDetection();
+  const { data: insights = [], isLoading } = useCDPInsightFeed();
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
 
-  // Transform insights into decision cards
+  // Transform DB insights into decision cards
   const decisionCards: DecisionCardData[] = useMemo(() => {
     return insights
-      .filter((i) => i.definition.risk.severity === 'critical' || i.definition.risk.severity === 'high')
+      .filter((i) => i.severity === 'critical' || i.severity === 'high')
       .map((insight): DecisionCardData => ({
-        id: insight.code,
-        title: insight.decisionPrompt || `Xem xét: ${insight.definition.nameVi || insight.definition.name}`,
+        id: insight.event_id,
+        title: `Xem xét: ${insight.title}`,
         sourceInsights: [insight.code],
-        sourceEquity: insight.definition.category === 'value',
-        severity: insight.definition.risk.severity === 'critical' ? 'high' : 
-                  insight.definition.risk.severity === 'high' ? 'medium' : 'low',
-        priority: insight.definition.risk.severity === 'critical' ? 1 : 2,
-        owner: getOwnerFromCategory(insight.definition.category),
-        reviewDeadline: formatDate(addDays(new Date(), 7)),
+        sourceEquity: insight.topic === 'equity' || insight.topic === 'value',
+        severity: insight.severity === 'critical' ? 'high' : 
+                  insight.severity === 'high' ? 'medium' : 'low',
+        priority: insight.severity === 'critical' ? 1 : 2,
+        owner: getOwnerFromCategory(insight.topic || 'value'),
+        reviewDeadline: formatDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
         status: 'new',
-        createdAt: formatDate(new Date()),
-        populationSize: insight.population.customerCount,
+        createdAt: formatDate(new Date(insight.detected_at)),
+        populationSize: insight.population_size || 0,
         equityImpact: undefined
       }));
   }, [insights]);
 
-  // Add some mock decided cards for demo
-  const allCards: DecisionCardData[] = useMemo(() => {
-    const mockDecided: DecisionCardData[] = [
-      {
-        id: 'DC-001',
-        title: 'Khách hàng TOP20 có xu hướng giảm tần suất mua',
-        sourceInsights: ['T01', 'V02'],
-        sourceEquity: true,
-        severity: 'high',
-        priority: 1,
-        owner: 'CFO',
-        reviewDeadline: '15/01/2026',
-        status: 'decided',
-        createdAt: '08/01/2026',
-        populationSize: 2400,
-        equityImpact: 3200000000
-      },
-      {
-        id: 'DC-002',
-        title: 'Tỷ lệ hoàn trả tăng đột biến ở danh mục Điện tử',
-        sourceInsights: ['E03'],
-        severity: 'medium',
-        priority: 2,
-        owner: 'COO',
-        reviewDeadline: '18/01/2026',
-        status: 'reviewing',
-        createdAt: '10/01/2026',
-        populationSize: 850,
-        equityImpact: 800000000
-      }
-    ];
-    return [...decisionCards, ...mockDecided];
-  }, [decisionCards]);
-
   // Count by status
   const counts = useMemo(() => ({
-    new: allCards.filter(c => c.status === 'new').length,
-    reviewing: allCards.filter(c => c.status === 'reviewing').length,
-    decided: allCards.filter(c => c.status === 'decided').length,
-    archived: allCards.filter(c => c.status === 'archived').length,
-  }), [allCards]);
+    new: decisionCards.filter(c => c.status === 'new').length,
+    reviewing: decisionCards.filter(c => c.status === 'reviewing').length,
+    decided: decisionCards.filter(c => c.status === 'decided').length,
+    archived: decisionCards.filter(c => c.status === 'archived').length,
+  }), [decisionCards]);
 
   // Apply filters
   const filteredCards = useMemo(() => {
-    return allCards.filter(card => {
+    return decisionCards.filter(card => {
       if (statusFilter !== 'all' && card.status !== statusFilter) return false;
       if (ownerFilter !== 'all' && card.owner !== ownerFilter) return false;
       if (severityFilter !== 'all' && card.severity !== severityFilter) return false;
@@ -116,7 +76,7 @@ export default function DecisionCardsPage() {
       }
       return a.priority - b.priority;
     });
-  }, [allCards, statusFilter, ownerFilter, severityFilter]);
+  }, [decisionCards, statusFilter, ownerFilter, severityFilter]);
 
   const clearFilters = () => {
     setStatusFilter('all');

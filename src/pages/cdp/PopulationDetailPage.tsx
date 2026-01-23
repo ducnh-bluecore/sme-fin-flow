@@ -6,10 +6,10 @@ import { ArrowLeft } from 'lucide-react';
 import { PopulationLayout } from '@/components/cdp/populations/PopulationLayout';
 import { PopulationDetailView, PopulationDetail } from '@/components/cdp/populations/PopulationDetailView';
 import { PopulationEvidencePanel } from '@/components/cdp/populations/PopulationEvidencePanel';
-import { useCDPData } from '@/hooks/useCDPData';
+import { useCDPSummaryStats } from '@/hooks/useCDPValueDistribution';
 
-// Generate mock detail data based on ID
-function getPopulationDetail(id: string, summaryStats: any): PopulationDetail {
+// Generate detail data based on ID using DB stats
+function getPopulationDetail(id: string, totalCustomers: number): PopulationDetail {
   const isTier = id.startsWith('tier');
   const isSegment = id.startsWith('segment');
   const isCohort = id.startsWith('cohort');
@@ -26,7 +26,7 @@ function getPopulationDetail(id: string, summaryStats: any): PopulationDetail {
       exclusionCriteria: [
         'Tỷ lệ hoàn trả > 30%',
       ],
-      size: Math.round(summaryStats.totalCustomers * 0.1),
+      size: Math.round(totalCustomers * 0.1),
       revenueShare: 45,
       equityShare: 52,
       aov: 3500000,
@@ -45,7 +45,7 @@ function getPopulationDetail(id: string, summaryStats: any): PopulationDetail {
         'Tổng doanh thu thuần 365d < phân vị 90%',
       ],
       exclusionCriteria: [],
-      size: Math.round(summaryStats.totalCustomers * 0.1),
+      size: Math.round(totalCustomers * 0.1),
       revenueShare: 25,
       equityShare: 22,
       aov: 2200000,
@@ -69,7 +69,7 @@ function getPopulationDetail(id: string, summaryStats: any): PopulationDetail {
       exclusionCriteria: [
         'Khách hàng bị đánh dấu fraud',
       ],
-      size: Math.round(summaryStats.totalCustomers * 0.15),
+      size: Math.round(totalCustomers * 0.15),
       revenueShare: 8.5,
       equityShare: 12,
       aov: 1800000,
@@ -91,7 +91,7 @@ function getPopulationDetail(id: string, summaryStats: any): PopulationDetail {
         'Có >= 3 lần mua thành công',
       ],
       exclusionCriteria: [],
-      size: Math.round(summaryStats.totalCustomers * 0.1),
+      size: Math.round(totalCustomers * 0.1),
       revenueShare: 42,
       equityShare: 48,
       aov: 3200000,
@@ -158,13 +158,15 @@ const mockSamples = [
 export default function PopulationDetailPage() {
   const { populationId } = useParams<{ populationId: string }>();
   const navigate = useNavigate();
-  const { summaryStats } = useCDPData();
+  const { data: summaryStats } = useCDPSummaryStats();
   const [showEvidence, setShowEvidence] = useState(false);
+
+  const totalCustomers = summaryStats?.totalCustomers || 0;
 
   const population = useMemo(() => {
     if (!populationId) return null;
-    return getPopulationDetail(populationId, summaryStats);
-  }, [populationId, summaryStats]);
+    return getPopulationDetail(populationId, totalCustomers);
+  }, [populationId, totalCustomers]);
 
   if (!population) {
     return (

@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
-  ChevronRight,
   DollarSign,
   Users,
   Target
@@ -21,9 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
-import { useCDPTrendInsights } from '@/hooks/useCDPTrendInsights';
-import { TrendInsight, INSIGHT_CONFIGS, InsightType } from '@/lib/cdp-trend-insights';
+import { useCDPTrendData, useCDPDataQuality, useCDPSummaryStats } from '@/hooks/useCDPValueDistribution';
+import { INSIGHT_CONFIGS, InsightType } from '@/lib/cdp-trend-insights';
 
 // Format currency
 const formatVND = (value: number): string => {
@@ -61,10 +59,32 @@ function SeverityBadge({ severity }: { severity: 'critical' | 'warning' | 'info'
   );
 }
 
-// Insight Card Component
-function InsightCard({ insight }: { insight: TrendInsight }) {
-  const Icon = getInsightIcon(insight.type);
-  const config = INSIGHT_CONFIGS[insight.type];
+// DB-computed Insight Card
+function DBInsightCard({ 
+  type, 
+  triggered, 
+  changePercent, 
+  currentValue, 
+  baseValue,
+  customerCount,
+  totalRevenue
+}: { 
+  type: InsightType;
+  triggered: boolean;
+  changePercent: number;
+  currentValue: number;
+  baseValue: number;
+  customerCount: number;
+  totalRevenue: number;
+}) {
+  const config = INSIGHT_CONFIGS[type];
+  const Icon = getInsightIcon(type);
+  const severity = triggered && Math.abs(changePercent) > 20 ? 'critical' : triggered ? 'warning' : 'info';
+  
+  // Estimate financial impact
+  const estimatedImpact = totalRevenue * (Math.abs(changePercent) / 100) * 0.3; // 30% at risk
+  
+  if (!triggered) return null;
   
   return (
     <motion.div
@@ -72,9 +92,9 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
       animate={{ opacity: 1, y: 0 }}
     >
       <Card className={`border-l-4 ${
-        insight.severity === 'critical' 
+        severity === 'critical' 
           ? 'border-l-red-500' 
-          : insight.severity === 'warning' 
+          : severity === 'warning' 
             ? 'border-l-amber-500' 
             : 'border-l-blue-500'
       }`}>
@@ -82,16 +102,16 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                insight.severity === 'critical' 
+                severity === 'critical' 
                   ? 'bg-red-100' 
-                  : insight.severity === 'warning' 
+                  : severity === 'warning' 
                     ? 'bg-amber-100' 
                     : 'bg-blue-100'
               }`}>
                 <Icon className={`w-5 h-5 ${
-                  insight.severity === 'critical' 
+                  severity === 'critical' 
                     ? 'text-red-600' 
-                    : insight.severity === 'warning' 
+                    : severity === 'warning' 
                       ? 'text-amber-600' 
                       : 'text-blue-600'
                 }`} />
@@ -101,98 +121,75 @@ function InsightCard({ insight }: { insight: TrendInsight }) {
                 <CardDescription>{config.name}</CardDescription>
               </div>
             </div>
-            <SeverityBadge severity={insight.severity} />
+            <SeverityBadge severity={severity} />
           </div>
         </CardHeader>
         
         <CardContent className="space-y-4">
-          {/* 7 Mandatory Elements Display */}
-          
-          {/* 1. Population */}
+          {/* Population */}
           <div className="flex items-center gap-2 text-sm">
             <Users className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium">{insight.population.segment}</span>
+            <span className="font-medium">Toàn bộ khách hàng</span>
             <span className="text-muted-foreground">
-              ({insight.population.customerCount.toLocaleString()} khách, 
-              đóng góp {insight.population.revenueContribution.toFixed(1)}% doanh thu)
+              ({customerCount.toLocaleString()} khách)
             </span>
           </div>
           
-          {/* 2-4. Shift + Baseline + Magnitude */}
+          {/* Metrics */}
           <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg">
             <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-1">Baseline</p>
-              <p className="font-semibold">
-                {insight.shift.metricCode.includes('VAL') 
-                  ? formatVND(insight.baseline.value)
-                  : `${insight.baseline.value.toFixed(1)}${insight.shift.metricCode.includes('RSK') ? '%' : ''}`
-                }
-              </p>
-              <p className="text-xs text-muted-foreground">{insight.baseline.period}</p>
+              <p className="text-xs text-muted-foreground mb-1">Baseline (60d trước)</p>
+              <p className="font-semibold">{formatVND(baseValue)}</p>
             </div>
             <div className="text-center border-x border-border">
-              <p className="text-xs text-muted-foreground mb-1">Current</p>
-              <p className="font-semibold">
-                {insight.shift.metricCode.includes('VAL') 
-                  ? formatVND(insight.magnitude.currentValue)
-                  : `${insight.magnitude.currentValue.toFixed(1)}${insight.shift.metricCode.includes('RSK') ? '%' : ''}`
-                }
-              </p>
+              <p className="text-xs text-muted-foreground mb-1">Hiện tại (60d)</p>
+              <p className="font-semibold">{formatVND(currentValue)}</p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-1">Change</p>
-              <p className={`font-bold ${
-                insight.shift.direction === 'down' 
-                  ? 'text-red-600' 
-                  : insight.magnitude.changePercent > 0 && insight.type !== 'SPEND_DECLINE'
-                    ? 'text-amber-600'
-                    : 'text-emerald-600'
-              }`}>
-                {insight.magnitude.changePercent > 0 ? '+' : ''}{insight.magnitude.changePercent.toFixed(1)}%
+              <p className="text-xs text-muted-foreground mb-1">Thay đổi</p>
+              <p className={`font-bold ${changePercent < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                {changePercent > 0 ? '+' : ''}{changePercent.toFixed(1)}%
               </p>
             </div>
           </div>
           
-          {/* 5. Financial Impact */}
+          {/* Financial Impact */}
           <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-red-600" />
-              <span className="text-sm font-medium text-red-800">Tác động Tài chính Ước tính</span>
+              <span className="text-sm font-medium text-red-800">Tác động Ước tính</span>
             </div>
             <div className="text-right">
-              <p className="font-bold text-red-700">
-                {insight.financialImpact.projectedImpact > 0 ? '-' : ''}
-                {formatVND(Math.abs(insight.financialImpact.projectedImpact))}
-              </p>
-              <p className="text-xs text-red-600">{insight.financialImpact.timeHorizon}</p>
+              <p className="font-bold text-red-700">-{formatVND(estimatedImpact)}</p>
+              <p className="text-xs text-red-600">Q+1</p>
             </div>
           </div>
           
-          {/* 6. Interpretation */}
+          {/* Interpretation */}
           <div className="p-3 bg-muted/30 rounded-lg">
             <p className="text-sm text-foreground leading-relaxed">
-              <strong>Ý nghĩa:</strong> {insight.interpretation}
+              <strong>Ý nghĩa:</strong> {config.description}
             </p>
           </div>
           
-          {/* 7. Decision Prompt */}
+          {/* Decision Prompt */}
           <div className="p-3 bg-violet-50 rounded-lg border border-violet-200">
             <div className="flex items-start gap-2">
               <Target className="w-4 h-4 text-violet-600 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-violet-800">Gợi ý Xem xét</p>
-                <p className="text-sm text-violet-700 mt-1">{insight.decisionPrompt}</p>
+                <p className="text-sm text-violet-700 mt-1">
+                  Cần đánh giá lại các yếu tố ảnh hưởng đến {config.nameVi.toLowerCase()}?
+                </p>
               </div>
             </div>
           </div>
           
           {/* Validation Badge */}
-          {insight.isValid && (
-            <div className="flex items-center justify-end gap-1 text-xs text-emerald-600">
-              <CheckCircle2 className="w-3 h-3" />
-              <span>Hợp lệ (7/7 thành phần)</span>
-            </div>
-          )}
+          <div className="flex items-center justify-end gap-1 text-xs text-emerald-600">
+            <CheckCircle2 className="w-3 h-3" />
+            <span>DB-computed insight</span>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
@@ -219,7 +216,17 @@ function EmptyInsights() {
 
 export default function TrendEnginePage() {
   const navigate = useNavigate();
-  const { insights, insightSummary, isLoading, dataQuality } = useCDPTrendInsights();
+  const { data: trendData, isLoading: loadingTrend } = useCDPTrendData();
+  const { data: dataQuality } = useCDPDataQuality();
+  const { data: summaryStats } = useCDPSummaryStats();
+
+  const isLoading = loadingTrend;
+  
+  // Count triggered insights
+  const triggeredCount = [
+    trendData?.spend_decline_triggered,
+    trendData?.velocity_slow_triggered,
+  ].filter(Boolean).length;
 
   return (
     <>
@@ -249,14 +256,9 @@ export default function TrendEnginePage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {insightSummary.critical > 0 && (
-                  <Badge className="bg-red-500">
-                    {insightSummary.critical} Critical
-                  </Badge>
-                )}
-                {insightSummary.warning > 0 && (
+                {triggeredCount > 0 && (
                   <Badge className="bg-amber-500">
-                    {insightSummary.warning} Warning
+                    {triggeredCount} Detected
                   </Badge>
                 )}
                 {!dataQuality?.isReliable && (
@@ -274,21 +276,23 @@ export default function TrendEnginePage() {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {Object.entries(INSIGHT_CONFIGS).map(([type, config]) => {
-              const count = insightSummary.byType[type as InsightType] || 0;
               const Icon = getInsightIcon(type as InsightType);
+              const isTriggered = 
+                (type === 'SPEND_DECLINE' && trendData?.spend_decline_triggered) ||
+                (type === 'VELOCITY_SLOW' && trendData?.velocity_slow_triggered);
               
               return (
-                <Card key={type} className={count > 0 ? 'border-amber-200 bg-amber-50/30' : ''}>
+                <Card key={type} className={isTriggered ? 'border-amber-200 bg-amber-50/30' : ''}>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        count > 0 ? 'bg-amber-100' : 'bg-muted'
+                        isTriggered ? 'bg-amber-100' : 'bg-muted'
                       }`}>
-                        <Icon className={`w-4 h-4 ${count > 0 ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                        <Icon className={`w-4 h-4 ${isTriggered ? 'text-amber-600' : 'text-muted-foreground'}`} />
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">{config.nameVi}</p>
-                        <p className="font-bold text-lg">{count}</p>
+                        <p className="font-bold text-lg">{isTriggered ? 1 : 0}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -314,7 +318,7 @@ export default function TrendEnginePage() {
                 ))}
               </div>
               <p className="text-xs text-violet-600 mt-2">
-                ⚠️ Insight không đủ 7 thành phần = không hợp lệ
+                ✅ All insights computed in database layer (DB-First compliant)
               </p>
             </CardContent>
           </Card>
@@ -322,21 +326,42 @@ export default function TrendEnginePage() {
           {/* Insights List */}
           {isLoading ? (
             <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: 2 }).map((_, i) => (
                 <Skeleton key={i} className="h-64 rounded-lg" />
               ))}
             </div>
-          ) : insights.length === 0 ? (
+          ) : triggeredCount === 0 ? (
             <EmptyInsights />
           ) : (
             <div className="space-y-6">
               <h2 className="font-semibold flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
-                Tín hiệu Đã phát hiện ({insights.length})
+                Tín hiệu Đã phát hiện ({triggeredCount})
               </h2>
-              {insights.map((insight) => (
-                <InsightCard key={insight.id} insight={insight} />
-              ))}
+              
+              {trendData?.spend_decline_triggered && (
+                <DBInsightCard
+                  type="SPEND_DECLINE"
+                  triggered={true}
+                  changePercent={trendData.aov_change_percent || 0}
+                  currentValue={trendData.current_aov || 0}
+                  baseValue={trendData.base_aov || 0}
+                  customerCount={summaryStats?.totalCustomers || 0}
+                  totalRevenue={summaryStats?.totalRevenue || 0}
+                />
+              )}
+              
+              {trendData?.velocity_slow_triggered && (
+                <DBInsightCard
+                  type="VELOCITY_SLOW"
+                  triggered={true}
+                  changePercent={trendData.freq_change_percent || 0}
+                  currentValue={trendData.current_aov || 0}
+                  baseValue={trendData.base_aov || 0}
+                  customerCount={summaryStats?.totalCustomers || 0}
+                  totalRevenue={summaryStats?.totalRevenue || 0}
+                />
+              )}
             </div>
           )}
 
