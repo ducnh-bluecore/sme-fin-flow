@@ -26303,8 +26303,8 @@ export type Database = {
         Returns: Json
       }
       cdp_build_customer_metrics_daily: {
-        Args: { p_as_of_date: string; p_tenant_id: string }
-        Returns: undefined
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: number
       }
       cdp_build_customer_metrics_rolling: {
         Args: { p_as_of_date: string; p_tenant_id: string }
