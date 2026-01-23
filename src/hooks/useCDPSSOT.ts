@@ -313,17 +313,17 @@ export function useCDPSSOT(): CDPSSOTResult {
       return [];
     }
     
-    // Map real data
+    // Map real data from new bucket-based schema
     return rawData.map(row => ({
-      segment_id: row.segment_id || '',
-      segment_name: row.segment_name || 'Unknown',
-      segment_type: (row.segment_type as 'tier' | 'segment' | 'cohort') || 'segment',
-      equity: createAvailableMetric(row.equity || 0, 'v_cdp_equity_distribution'),
-      share_percent: createAvailableMetric(row.share_percent || 0, 'v_cdp_equity_distribution'),
+      segment_id: row.bucket || 'unknown',
+      segment_name: row.bucket || 'Unknown',
+      segment_type: 'tier' as const,
+      equity: createAvailableMetric(row.equity_sum || 0, 'v_cdp_equity_distribution'),
+      share_percent: createAvailableMetric(0, 'v_cdp_equity_distribution'), // Calculated in view
       customer_count: createAvailableMetric(row.customer_count || 0, 'v_cdp_equity_distribution'),
-      avg_ltv: createAvailableMetric(row.avg_ltv || 0, 'v_cdp_equity_distribution'),
-      risk_level: mapRiskLevel(row.display_status),
-      display_status: (row.display_status as 'normal' | 'at_risk' | 'inactive') || 'normal',
+      avg_ltv: createAvailableMetric(row.equity_avg || 0, 'v_cdp_equity_distribution'),
+      risk_level: 'medium' as const,
+      display_status: 'normal' as const,
     }));
   }, [customersQuery.data, equityDistributionQuery.data]);
 
@@ -336,16 +336,16 @@ export function useCDPSSOT(): CDPSSOTResult {
       return [];
     }
     
-    // Map real data
-    return rawData.map(row => ({
-      driver_id: row.driver_id || '',
+    // Map real data from new schema
+    return rawData.map((row, idx) => ({
+      driver_id: `driver-${idx}`,
       factor: row.factor || 'Unknown',
       description: row.description || '',
-      impact: createAvailableMetric(row.impact || 0, 'v_cdp_equity_drivers'),
-      direction: (row.direction as 'up' | 'down') || 'down',
-      severity: (row.severity as 'high' | 'medium' | 'low') || 'medium',
-      trend: row.trend || '',
-      related_insight_id: row.related_insight_id || null,
+      impact: createAvailableMetric(row.impact_percent || 0, 'v_cdp_equity_drivers'),
+      direction: (row.direction === 'positive' ? 'up' : 'down') as 'up' | 'down',
+      severity: Math.abs(row.impact_percent || 0) >= 25 ? 'high' : Math.abs(row.impact_percent || 0) >= 10 ? 'medium' : 'low' as 'high' | 'medium' | 'low',
+      trend: '',
+      related_insight_id: null,
     }));
   }, [equityDriversQuery.data]);
 

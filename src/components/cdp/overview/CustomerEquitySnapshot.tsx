@@ -138,9 +138,9 @@ export function CustomerEquitySnapshot() {
               <div className="space-y-1">
                 {topDrivers.slice(0, 3).map((driver, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground truncate">{driver.label}</span>
+                    <span className="text-muted-foreground truncate">{driver.factor}</span>
                     <span className={driver.direction === 'positive' ? 'text-success' : 'text-destructive'}>
-                      {driver.direction === 'positive' ? '+' : ''}₫{formatCurrency(Math.abs(driver.impact))}
+                      {driver.direction === 'positive' ? '+' : ''}{driver.impact?.toFixed(1) || 0}%
                     </span>
                   </div>
                 ))}
