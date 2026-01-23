@@ -4493,6 +4493,149 @@ export type Database = {
           },
         ]
       }
+      cdp_customer_equity_computed: {
+        Row: {
+          aov_90d: number | null
+          as_of_date: string
+          churn_risk_score: number | null
+          computed_at: string
+          contribution_profit_90d: number | null
+          customer_id: string
+          data_quality_flags: Json
+          equity_12m: number | null
+          equity_24m: number | null
+          equity_confidence: number | null
+          equity_estimation_method: string | null
+          equity_is_estimated: boolean
+          equity_reason: string | null
+          frequency_180d: number | null
+          gross_profit_30d: number | null
+          gross_profit_90d: number | null
+          monetary_180d: number | null
+          net_revenue_180d: number
+          net_revenue_30d: number
+          net_revenue_90d: number
+          orders_180d: number
+          orders_30d: number
+          orders_90d: number
+          recency_days: number | null
+          refund_rate_90d: number | null
+          repeat_rate_180d: number | null
+          risk_level: string | null
+          tenant_id: string
+        }
+        Insert: {
+          aov_90d?: number | null
+          as_of_date: string
+          churn_risk_score?: number | null
+          computed_at?: string
+          contribution_profit_90d?: number | null
+          customer_id: string
+          data_quality_flags?: Json
+          equity_12m?: number | null
+          equity_24m?: number | null
+          equity_confidence?: number | null
+          equity_estimation_method?: string | null
+          equity_is_estimated?: boolean
+          equity_reason?: string | null
+          frequency_180d?: number | null
+          gross_profit_30d?: number | null
+          gross_profit_90d?: number | null
+          monetary_180d?: number | null
+          net_revenue_180d?: number
+          net_revenue_30d?: number
+          net_revenue_90d?: number
+          orders_180d?: number
+          orders_30d?: number
+          orders_90d?: number
+          recency_days?: number | null
+          refund_rate_90d?: number | null
+          repeat_rate_180d?: number | null
+          risk_level?: string | null
+          tenant_id: string
+        }
+        Update: {
+          aov_90d?: number | null
+          as_of_date?: string
+          churn_risk_score?: number | null
+          computed_at?: string
+          contribution_profit_90d?: number | null
+          customer_id?: string
+          data_quality_flags?: Json
+          equity_12m?: number | null
+          equity_24m?: number | null
+          equity_confidence?: number | null
+          equity_estimation_method?: string | null
+          equity_is_estimated?: boolean
+          equity_reason?: string | null
+          frequency_180d?: number | null
+          gross_profit_30d?: number | null
+          gross_profit_90d?: number | null
+          monetary_180d?: number | null
+          net_revenue_180d?: number
+          net_revenue_30d?: number
+          net_revenue_90d?: number
+          orders_180d?: number
+          orders_30d?: number
+          orders_90d?: number
+          recency_days?: number | null
+          refund_rate_90d?: number | null
+          repeat_rate_180d?: number | null
+          risk_level?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_equity_computed_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_customer_identities: {
         Row: {
           confidence: number
@@ -24442,29 +24585,51 @@ export type Database = {
       }
       v_cdp_equity_distribution: {
         Row: {
-          avg_ltv: number | null
+          bucket: string | null
           customer_count: number | null
-          display_status: string | null
-          equity: number | null
-          segment_id: string | null
-          segment_name: string | null
-          segment_type: string | null
-          share_percent: number | null
+          equity_avg: number | null
+          equity_sum: number | null
+          estimated_count: number | null
           tenant_id: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_cdp_equity_drivers: {
         Row: {
           description: string | null
           direction: string | null
-          driver_id: string | null
           factor: string | null
-          impact: number | null
-          related_insight_id: string | null
-          severity: string | null
+          impact_percent: number | null
           tenant_id: string | null
-          trend: string | null
         }
         Relationships: []
       }
@@ -24534,70 +24699,37 @@ export type Database = {
       }
       v_cdp_equity_overview: {
         Row: {
+          as_of_date: string | null
           at_risk_percent: number | null
           at_risk_value: number | null
+          avg_equity_12m: number | null
           change_direction: string | null
+          customers_with_equity: number | null
+          data_quality_summary: Json | null
           equity_change: number | null
+          estimated_share: number | null
           last_updated: string | null
           tenant_id: string | null
+          total_customers: number | null
           total_equity_12m: number | null
           total_equity_24m: number | null
-        }
-        Insert: {
-          at_risk_percent?: never
-          at_risk_value?: never
-          change_direction?: never
-          equity_change?: never
-          last_updated?: never
-          tenant_id?: string | null
-          total_equity_12m?: never
-          total_equity_24m?: never
-        }
-        Update: {
-          at_risk_percent?: never
-          at_risk_value?: never
-          change_direction?: never
-          equity_change?: never
-          last_updated?: never
-          tenant_id?: string | null
-          total_equity_12m?: never
-          total_equity_24m?: never
         }
         Relationships: []
       }
       v_cdp_equity_snapshot: {
         Row: {
+          as_of_date: string | null
           at_risk_percent: number | null
           at_risk_value: number | null
           change_direction: string | null
+          data_quality_summary: Json | null
           equity_change: number | null
+          estimated_share: number | null
           last_updated: string | null
           tenant_id: string | null
           top_drivers: Json | null
           total_equity_12m: number | null
           total_equity_24m: number | null
-        }
-        Insert: {
-          at_risk_percent?: never
-          at_risk_value?: never
-          change_direction?: never
-          equity_change?: never
-          last_updated?: never
-          tenant_id?: string | null
-          top_drivers?: never
-          total_equity_12m?: never
-          total_equity_24m?: never
-        }
-        Update: {
-          at_risk_percent?: never
-          at_risk_value?: never
-          change_direction?: never
-          equity_change?: never
-          last_updated?: never
-          tenant_id?: string | null
-          top_drivers?: never
-          total_equity_12m?: never
-          total_equity_24m?: never
         }
         Relationships: []
       }
@@ -25088,20 +25220,6 @@ export type Database = {
           model_name: string | null
           tenant_id: string | null
           user_name: string | null
-        }
-        Relationships: []
-      }
-      v_cdp_ltv_models: {
-        Row: {
-          at_risk_percent: number | null
-          confidence: string | null
-          description: string | null
-          is_active: boolean | null
-          model_id: string | null
-          name: string | null
-          tenant_id: string | null
-          timeframe: string | null
-          total_equity: number | null
         }
         Relationships: []
       }
@@ -26180,6 +26298,10 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: undefined
       }
+      cdp_build_customer_equity: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: Json
+      }
       cdp_build_customer_metrics_daily: {
         Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: undefined
@@ -26275,6 +26397,10 @@ export type Database = {
         Returns: undefined
       }
       cdp_run_daily_all: { Args: { p_as_of_date: string }; Returns: undefined }
+      cdp_run_daily_build: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: Json
+      }
       cdp_run_insight_detection: {
         Args: { p_tenant_id: string }
         Returns: {

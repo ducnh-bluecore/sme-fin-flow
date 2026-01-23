@@ -2,56 +2,61 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenant } from './useTenant';
 
-// Types for Equity views
+// Types for Equity views - Aligned with v_cdp_equity_* schema
 export interface EquityOverview {
   tenant_id: string;
-  total_equity_12m: number;
-  total_equity_24m: number;
-  at_risk_value: number;
-  at_risk_percent: number;
-  equity_change: number;
-  change_direction: 'up' | 'down' | 'stable';
-  last_updated: string;
+  as_of_date: string | null;
+  total_customers: number;
+  customers_with_equity: number;
+  total_equity_12m: number | null;
+  total_equity_24m: number | null;
+  avg_equity_12m: number | null;
+  at_risk_value: number | null;
+  at_risk_percent: number | null;
+  equity_change: number | null;
+  change_direction: string | null;
+  estimated_share: number | null;
+  data_quality_summary: Record<string, unknown> | null;
+  last_updated: string | null;
 }
 
+// NEW: Bucket-based distribution from computed table
 export interface EquityDistribution {
   tenant_id: string;
-  segment_id: string;
-  segment_name: string;
-  segment_type: string;
-  equity: number;
-  share_percent: number;
+  bucket: string; // '0-1M', '1-3M', '3-10M', '10M+', 'unknown'
   customer_count: number;
-  avg_ltv: number;
-  display_status: 'normal' | 'at_risk' | 'inactive';
+  equity_sum: number | null;
+  equity_avg: number | null;
+  estimated_count: number;
 }
 
+// NEW: Driver analysis from computed table
 export interface EquityDriver {
   tenant_id: string;
-  driver_id: string;
-  factor: string;
+  factor: string; // 'Recency', 'Frequency', 'Monetary'
+  impact_percent: number | null;
+  direction: string; // 'positive', 'negative', 'neutral'
   description: string;
-  impact: number;
-  direction: 'up' | 'down';
-  severity: 'high' | 'medium' | 'low';
-  trend: string;
-  related_insight_id: string | null;
 }
 
 export interface EquitySnapshot {
   tenant_id: string;
-  total_equity_12m: number;
-  total_equity_24m: number;
-  at_risk_value: number;
-  at_risk_percent: number;
-  equity_change: number;
-  change_direction: 'up' | 'down' | 'stable';
+  as_of_date: string | null;
+  total_equity_12m: number | null;
+  total_equity_24m: number | null;
+  at_risk_value: number | null;
+  at_risk_percent: number | null;
+  equity_change: number | null;
+  change_direction: string | null;
+  estimated_share: number | null;
+  data_quality_summary: Record<string, unknown> | null;
   top_drivers: Array<{
-    label: string;
-    impact: number;
-    direction: 'positive' | 'negative';
-  }>;
-  last_updated: string;
+    factor: string;
+    impact: number | null;
+    direction: string;
+    description: string;
+  }> | null;
+  last_updated: string | null;
 }
 
 // New types for sub-pages
@@ -144,7 +149,15 @@ export function useCDPEquityDistribution() {
         throw error;
       }
 
-      return (data || []) as EquityDistribution[];
+      // Map to EquityDistribution interface
+      return (data || []).map(row => ({
+        tenant_id: row.tenant_id,
+        bucket: row.bucket,
+        customer_count: row.customer_count,
+        equity_sum: row.equity_sum,
+        equity_avg: row.equity_avg,
+        estimated_count: row.estimated_count,
+      })) as EquityDistribution[];
     },
     enabled: !!tenantId && !isTenantLoading,
   });
@@ -170,7 +183,14 @@ export function useCDPEquityDrivers() {
         throw error;
       }
 
-      return (data || []) as EquityDriver[];
+      // Map to EquityDriver interface
+      return (data || []).map(row => ({
+        tenant_id: row.tenant_id,
+        factor: row.factor,
+        impact_percent: row.impact_percent,
+        direction: row.direction,
+        description: row.description,
+      })) as EquityDriver[];
     },
     enabled: !!tenantId && !isTenantLoading,
   });
