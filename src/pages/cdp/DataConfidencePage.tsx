@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CDPLayout } from '@/components/layout/CDPLayout';
-import { useCDPData } from '@/hooks/useCDPData';
+import { useCDPDataQuality } from '@/hooks/useCDPValueDistribution';
 
 // Coverage meter component
 function CoverageMeter({ 
@@ -87,20 +87,13 @@ function TrendBadge({ trend, value }: { trend: 'up' | 'down' | 'stable'; value?:
 }
 
 export default function DataConfidencePage() {
-  const { dataQualityMetrics, isLoading } = useCDPData();
+  const { data: dataQuality, isLoading } = useCDPDataQuality();
 
-  // Default metrics if not loaded
-  const metrics = dataQualityMetrics || {
-    identityCoverage: 0,
-    cogsCoverage: 0,
-    freshnessHours: 0,
-    totalOrders: 0,
-    matchedOrders: 0
-  };
-
-  const identityCoverage = metrics.identityCoverage || 85;
-  const cogsCoverage = metrics.cogsCoverage || 72;
-  const isReliable = identityCoverage >= 80 && cogsCoverage >= 70;
+  // Use data from DB view
+  const identityCoverage = dataQuality?.identityCoverage ?? 0;
+  const cogsCoverage = dataQuality?.cogsCoverage ?? 0;
+  const freshnessHours = dataQuality?.freshnessHours ?? 0;
+  const isReliable = dataQuality?.isReliable ?? false;
 
   return (
     <CDPLayout>
@@ -165,32 +158,6 @@ export default function DataConfidencePage() {
           </div>
         </section>
 
-        {/* Matching Confidence */}
-        <section>
-          <h3 className="font-semibold mb-4">Độ tin cậy ghép nối</h3>
-          <Card>
-            <CardContent className="py-6">
-              <div className="grid grid-cols-3 gap-6">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Tỷ lệ khớp Email</p>
-                  <p className="text-2xl font-bold">92.3%</p>
-                  <TrendBadge trend="stable" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Tỷ lệ khớp SĐT</p>
-                  <p className="text-2xl font-bold">78.5%</p>
-                  <TrendBadge trend="up" value={2.1} />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Liên kết đa kênh</p>
-                  <p className="text-2xl font-bold">65.2%</p>
-                  <TrendBadge trend="down" value={-1.3} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
         {/* Data Freshness */}
         <section>
           <h3 className="font-semibold mb-4">Độ mới dữ liệu</h3>
@@ -200,23 +167,34 @@ export default function DataConfidencePage() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Clock className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Đồng bộ đơn hàng lần cuối</p>
+                    <p className="text-sm text-muted-foreground">Dữ liệu gần nhất</p>
                   </div>
-                  <p className="text-lg font-semibold">2 giờ trước</p>
+                  <p className="text-lg font-semibold">
+                    {freshnessHours < 1 
+                      ? 'Dưới 1 giờ' 
+                      : freshnessHours < 24 
+                        ? `${Math.round(freshnessHours)} giờ trước`
+                        : `${Math.round(freshnessHours / 24)} ngày trước`
+                    }
+                  </p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Build CDP lần cuối</p>
+                    <Database className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Tổng đơn hàng</p>
                   </div>
-                  <p className="text-lg font-semibold">6 giờ trước</p>
+                  <p className="text-lg font-semibold">
+                    {(dataQuality?.totalOrders ?? 0).toLocaleString()}
+                  </p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Lần chạy tiếp theo</p>
+                    <CheckCircle2 className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Đơn đã ghép</p>
                   </div>
-                  <p className="text-lg font-semibold">02:15 sáng</p>
+                  <p className="text-lg font-semibold">
+                    {(dataQuality?.matchedOrders ?? 0).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </CardContent>

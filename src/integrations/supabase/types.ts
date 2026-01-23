@@ -25338,6 +25338,54 @@ export type Database = {
           },
         ]
       }
+      v_cdp_data_quality: {
+        Row: {
+          cogs_coverage: number | null
+          freshness_hours: number | null
+          identity_coverage: number | null
+          is_reliable: boolean | null
+          matched_orders: number | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_data_quality_latest: {
         Row: {
           as_of_date: string | null
@@ -26564,6 +26612,106 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cdp_segment_summaries: {
+        Row: {
+          avg_frequency: number | null
+          avg_margin: number | null
+          avg_revenue: number | null
+          customer_count: number | null
+          name: string | null
+          percent_of_total: number | null
+          tenant_id: string | null
+          total_revenue: number | null
+          trend: string | null
+          trend_percent: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_summary_stats: {
+        Row: {
+          avg_customer_value: number | null
+          avg_frequency: number | null
+          avg_order_value: number | null
+          tenant_id: string | null
+          top20_percent: number | null
+          top20_revenue: number | null
+          total_customers: number | null
+          total_revenue: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_overview_stats"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_topic_summaries: {
         Row: {
           category: string | null
@@ -26611,6 +26759,35 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      v_cdp_trend_insights: {
+        Row: {
+          aov_change_percent: number | null
+          base_aov: number | null
+          base_customers: number | null
+          current_aov: number | null
+          current_customers: number | null
+          freq_change_percent: number | null
+          spend_decline_triggered: boolean | null
+          tenant_id: string | null
+          velocity_slow_triggered: boolean | null
+        }
+        Relationships: []
+      }
+      v_cdp_value_distribution: {
+        Row: {
+          max_val: number | null
+          mean_val: number | null
+          metric_name: string | null
+          min_val: number | null
+          p10: number | null
+          p25: number | null
+          p50: number | null
+          p75: number | null
+          p90: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
       }
       v_customer_ar_summary: {
         Row: {
