@@ -91,8 +91,11 @@ const DemandInsightsPage = lazy(() => import("./pages/cdp/DemandInsightsPage"));
 // Equity sub-pages
 const EquityOverviewPage = lazy(() => import("./pages/cdp/equity/EquityOverviewPage"));
 const LTVModelPage = lazy(() => import("./pages/cdp/equity/LTVModelPage"));
+const LTVEnginePage = lazy(() => import("./pages/cdp/LTVEnginePage"));
 const EquityDriversPage = lazy(() => import("./pages/cdp/equity/EquityDriversPage"));
 const EquityEvidencePage = lazy(() => import("./pages/cdp/equity/EquityEvidencePage"));
+// CDP Q&A
+const CustomerQAPage = lazy(() => import("./pages/cdp/CustomerQAPage"));
 const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
 const PopulationDetailPage = lazy(() => import("./pages/cdp/PopulationDetailPage"));
 const PopulationGovernancePage = lazy(() => import("./pages/cdp/PopulationGovernancePage"));
@@ -284,6 +287,16 @@ const AppRoutes = () => {
       <Route path="/cdp/equity/evidence" element={
         <ProtectedRoute>
           <EquityEvidencePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/ltv-engine" element={
+        <ProtectedRoute>
+          <LTVEnginePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/cdp/qa" element={
+        <ProtectedRoute>
+          <CustomerQAPage />
         </ProtectedRoute>
       } />
       <Route path="/cdp/populations" element={
