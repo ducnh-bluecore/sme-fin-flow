@@ -15,7 +15,8 @@ import {
   Menu,
   Compass,
   Wallet,
-  Layers
+  Layers,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -45,9 +46,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Tổng quan', href: '/cdp', icon: LayoutGrid },
+  { label: 'Hỏi về KH', href: '/cdp/qa', icon: MessageCircle },
   { label: 'Khám phá', href: '/cdp/explore', icon: Compass },
   { label: 'Insight', href: '/cdp/insights', icon: TrendingUp },
   { label: 'Giá trị Khách hàng', href: '/cdp/equity', icon: Wallet },
+  { label: 'LTV Engine', href: '/cdp/ltv-engine', icon: TrendingUp },
   { label: 'Tập khách hàng', href: '/cdp/populations', icon: Layers },
   { label: 'Thẻ Quyết định', href: '/cdp/decisions', icon: FileCheck },
   { label: 'Độ tin cậy Dữ liệu', href: '/cdp/confidence', icon: ShieldCheck },
