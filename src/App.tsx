@@ -88,12 +88,8 @@ const SavedViewsPage = lazy(() => import("./pages/cdp/explore/SavedViewsPage"));
 const InsightDetailPage = lazy(() => import("./pages/cdp/InsightDetailPage"));
 const InsightRegistryPage = lazy(() => import("./pages/cdp/InsightRegistryPage"));
 const DemandInsightsPage = lazy(() => import("./pages/cdp/DemandInsightsPage"));
-// Equity sub-pages
-const EquityOverviewPage = lazy(() => import("./pages/cdp/equity/EquityOverviewPage"));
-const LTVModelPage = lazy(() => import("./pages/cdp/equity/LTVModelPage"));
+// Equity pages consolidated into LTV Engine
 const LTVEnginePage = lazy(() => import("./pages/cdp/LTVEnginePage"));
-const EquityDriversPage = lazy(() => import("./pages/cdp/equity/EquityDriversPage"));
-const EquityEvidencePage = lazy(() => import("./pages/cdp/equity/EquityEvidencePage"));
 // CDP Q&A
 const CustomerQAPage = lazy(() => import("./pages/cdp/CustomerQAPage"));
 const PopulationsPage = lazy(() => import("./pages/cdp/PopulationsPage"));
@@ -269,26 +265,11 @@ const AppRoutes = () => {
           <DemandInsightsPage />
         </ProtectedRoute>
       } />
-      <Route path="/cdp/equity" element={
-        <ProtectedRoute>
-          <EquityOverviewPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/cdp/equity/model" element={
-        <ProtectedRoute>
-          <LTVModelPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/cdp/equity/drivers" element={
-        <ProtectedRoute>
-          <EquityDriversPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/cdp/equity/evidence" element={
-        <ProtectedRoute>
-          <EquityEvidencePage />
-        </ProtectedRoute>
-      } />
+      {/* Redirect old equity routes to unified LTV Engine */}
+      <Route path="/cdp/equity" element={<Navigate to="/cdp/ltv-engine" replace />} />
+      <Route path="/cdp/equity/model" element={<Navigate to="/cdp/ltv-engine" replace />} />
+      <Route path="/cdp/equity/drivers" element={<Navigate to="/cdp/ltv-engine" replace />} />
+      <Route path="/cdp/equity/evidence" element={<Navigate to="/cdp/ltv-engine" replace />} />
       <Route path="/cdp/ltv-engine" element={
         <ProtectedRoute>
           <LTVEnginePage />

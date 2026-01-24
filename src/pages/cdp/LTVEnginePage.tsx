@@ -9,9 +9,11 @@ import { AssumptionEditor } from '@/components/cdp/ltv/AssumptionEditor';
 import { ScenarioBuilder, Scenario } from '@/components/cdp/ltv/ScenarioBuilder';
 import { ScenarioComparison } from '@/components/cdp/ltv/ScenarioComparison';
 import { LTVDecayAlert } from '@/components/cdp/ltv/LTVDecayAlert';
+import { EquityDrivers } from '@/components/cdp/ltv/EquityDrivers';
+import { EquityEvidence } from '@/components/cdp/ltv/EquityEvidence';
 import { useLTVScenarioComparison, useLTVDecayDetection, useCreateDecayDecisionCard } from '@/hooks/useCDPScenarios';
 import { useActiveLTVModel } from '@/hooks/useCDPLTVEngine';
-import { LayoutGrid, Users, Megaphone, Settings, Sparkles, AlertTriangle } from 'lucide-react';
+import { LayoutGrid, Users, Megaphone, Settings, Sparkles, AlertTriangle, TrendingUp, ShieldCheck } from 'lucide-react';
 
 export default function LTVEnginePage() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -34,15 +36,15 @@ export default function LTVEnginePage() {
       <div className="space-y-6 max-w-7xl">
         {/* Header */}
         <div>
-          <h1 className="text-xl font-semibold mb-1">LTV Intelligence Engine</h1>
+          <h1 className="text-xl font-semibold mb-1">Giá trị Khách hàng</h1>
           <p className="text-sm text-muted-foreground">
-            Phân tích và dự báo giá trị vòng đời khách hàng với giả định tùy chỉnh
+            Customer Equity – Tài sản doanh thu kỳ vọng từ khách hàng hiện tại
           </p>
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="overview" className="gap-2">
               <LayoutGrid className="h-4 w-4" />
               Tổng quan
@@ -54,6 +56,10 @@ export default function LTVEnginePage() {
             <TabsTrigger value="source" className="gap-2">
               <Megaphone className="h-4 w-4" />
               Theo Nguồn
+            </TabsTrigger>
+            <TabsTrigger value="drivers" className="gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Động lực
             </TabsTrigger>
             <TabsTrigger value="whatif" className="gap-2">
               <Sparkles className="h-4 w-4" />
@@ -67,6 +73,10 @@ export default function LTVEnginePage() {
                   {decayAlerts.length}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="evidence" className="gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Bằng chứng
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -84,6 +94,10 @@ export default function LTVEnginePage() {
 
           <TabsContent value="source">
             <LTVBySource />
+          </TabsContent>
+
+          <TabsContent value="drivers">
+            <EquityDrivers />
           </TabsContent>
 
           <TabsContent value="whatif">
@@ -109,6 +123,10 @@ export default function LTVEnginePage() {
               isLoading={decayLoading}
               onCreateDecisionCard={(alert) => createDecisionCard.mutate(alert)}
             />
+          </TabsContent>
+
+          <TabsContent value="evidence">
+            <EquityEvidence />
           </TabsContent>
 
           <TabsContent value="settings">
