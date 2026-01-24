@@ -26298,6 +26298,10 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: undefined
       }
+      cdp_build_cohort_membership: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: undefined
+      }
       cdp_build_customer_equity: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: Json
