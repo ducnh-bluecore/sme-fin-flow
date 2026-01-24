@@ -85,7 +85,7 @@ export function ResearchStatsPanel({ stats, filterImpact }: ResearchStatsPanelPr
       <StatCard
         icon={Calendar}
         label="Chu kỳ mua lại"
-        value={`${stats.medianRepurchaseCycle} ngày`}
+        value={`${Math.round(stats.medianRepurchaseCycle)} ngày`}
         subValue="Trung vị"
       />
       <StatCard
