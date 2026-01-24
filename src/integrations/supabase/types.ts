@@ -6158,6 +6158,102 @@ export type Database = {
           },
         ]
       }
+      cdp_ltv_model_assumptions: {
+        Row: {
+          aov_growth_rate: number
+          category_adjustments: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_rate: number
+          id: string
+          is_active: boolean | null
+          margin_proxy: number
+          model_name: string
+          retention_decay_rate: number
+          retention_year_1: number
+          retention_year_2: number
+          retention_year_3: number
+          risk_multiplier: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          aov_growth_rate?: number
+          category_adjustments?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_rate?: number
+          id?: string
+          is_active?: boolean | null
+          margin_proxy?: number
+          model_name: string
+          retention_decay_rate?: number
+          retention_year_1?: number
+          retention_year_2?: number
+          retention_year_3?: number
+          risk_multiplier?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          aov_growth_rate?: number
+          category_adjustments?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_rate?: number
+          id?: string
+          is_active?: boolean | null
+          margin_proxy?: number
+          model_name?: string
+          retention_decay_rate?: number
+          retention_year_1?: number
+          retention_year_2?: number
+          retention_year_3?: number
+          risk_multiplier?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_ltv_model_assumptions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_ltv_model_assumptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_ltv_model_assumptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_ltv_model_assumptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_ltv_model_assumptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_order_items: {
         Row: {
           category: string | null
@@ -25432,6 +25528,98 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cdp_ltv_by_cohort: {
+        Row: {
+          avg_orders: number | null
+          avg_profit: number | null
+          avg_revenue: number | null
+          cohort_month: string | null
+          cohort_size: number | null
+          estimated_ltv_12m: number | null
+          estimated_ltv_24m: number | null
+          ltv_trend_vs_prev: number | null
+          quality_score: string | null
+          retention_rate_12m: number | null
+          retention_rate_3m: number | null
+          retention_rate_6m: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_ltv_by_source: {
+        Row: {
+          acquisition_source: string | null
+          avg_ltv_12m: number | null
+          avg_ltv_24m: number | null
+          avg_orders: number | null
+          avg_profit: number | null
+          avg_revenue: number | null
+          customer_count: number | null
+          estimated_cac: number | null
+          ltv_cac_ratio: number | null
+          payback_months: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_ltv_rules: {
         Row: {
           behavior: string | null
@@ -25442,6 +25630,54 @@ export type Database = {
           tenant_id: string | null
         }
         Relationships: []
+      }
+      v_cdp_ltv_summary: {
+        Row: {
+          at_risk_count: number | null
+          at_risk_equity: number | null
+          avg_ltv_12m: number | null
+          avg_ltv_24m: number | null
+          bronze_count: number | null
+          gold_count: number | null
+          median_ltv_12m: number | null
+          median_ltv_24m: number | null
+          platinum_count: number | null
+          silver_count: number | null
+          tenant_id: string | null
+          total_customers: number | null
+          total_equity_12m: number | null
+          total_equity_24m: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_cdp_overview_stats: {
         Row: {
@@ -26860,6 +27096,30 @@ export type Database = {
       cdp_build_value_tiers: {
         Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: undefined
+      }
+      cdp_calculate_customer_ltv: {
+        Args: {
+          p_horizon_months?: number
+          p_model_id?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          aov_factor: number
+          base_value: number
+          calculation_method: string
+          confidence_score: number
+          customer_id: string
+          customer_name: string
+          discount_factor: number
+          first_order_date: string
+          last_order_date: string
+          ltv_12m: number
+          ltv_24m: number
+          ltv_36m: number
+          order_count: number
+          retention_factor: number
+          risk_factor: number
+        }[]
       }
       cdp_check_insight_cooldown: {
         Args: {
