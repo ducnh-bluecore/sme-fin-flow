@@ -5,7 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target } from 'lucide-react';
 import { useLTVSummary, useActiveLTVModel } from '@/hooks/useCDPLTVEngine';
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return '0';
   if (value >= 1_000_000_000) {
     return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
   }
@@ -16,6 +17,10 @@ function formatCurrency(value: number): string {
     return `${(value / 1_000).toFixed(0)}K`;
   }
   return value.toLocaleString('vi-VN');
+}
+
+function safeNumber(value: number | null | undefined): number {
+  return value ?? 0;
 }
 
 export function LTVOverview() {
@@ -52,18 +57,22 @@ export function LTVOverview() {
     );
   }
 
-  const atRiskPercent = summary.total_equity_12m > 0 
-    ? (summary.at_risk_equity / summary.total_equity_12m) * 100 
+  const totalEquity12m = safeNumber(summary.total_equity_12m);
+  const atRiskEquity = safeNumber(summary.at_risk_equity);
+  const atRiskPercent = totalEquity12m > 0 
+    ? (atRiskEquity / totalEquity12m) * 100 
     : 0;
 
   const tierData = [
-    { tier: 'Platinum', count: summary.platinum_count, color: 'bg-violet-500' },
-    { tier: 'Gold', count: summary.gold_count, color: 'bg-amber-500' },
-    { tier: 'Silver', count: summary.silver_count, color: 'bg-slate-400' },
-    { tier: 'Bronze', count: summary.bronze_count, color: 'bg-orange-600' },
+    { tier: 'Platinum', count: safeNumber(summary.platinum_count), color: 'bg-violet-500' },
+    { tier: 'Gold', count: safeNumber(summary.gold_count), color: 'bg-amber-500' },
+    { tier: 'Silver', count: safeNumber(summary.silver_count), color: 'bg-slate-400' },
+    { tier: 'Bronze', count: safeNumber(summary.bronze_count), color: 'bg-orange-600' },
   ];
 
   const totalTierCount = tierData.reduce((sum, t) => sum + t.count, 0);
+  const totalCustomers = safeNumber(summary.total_customers);
+  const atRiskCount = safeNumber(summary.at_risk_count);
 
   return (
     <div className="space-y-6">
@@ -99,7 +108,7 @@ export function LTVOverview() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(summary.total_equity_12m)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {summary.total_customers.toLocaleString()} khách hàng
+              {totalCustomers.toLocaleString()} khách hàng
             </p>
           </CardContent>
         </Card>
@@ -144,7 +153,7 @@ export function LTVOverview() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(summary.at_risk_equity)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {atRiskPercent.toFixed(1)}% tổng equity ({summary.at_risk_count} KH)
+              {atRiskPercent.toFixed(1)}% tổng equity ({atRiskCount} KH)
             </p>
           </CardContent>
         </Card>

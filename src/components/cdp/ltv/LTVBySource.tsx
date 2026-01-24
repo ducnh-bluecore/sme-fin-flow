@@ -6,7 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Megaphone, Users, TrendingUp, DollarSign, Clock } from 'lucide-react';
 import { useLTVBySource } from '@/hooks/useCDPLTVEngine';
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return '0';
   if (value >= 1_000_000_000) {
     return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
   }
@@ -17,6 +18,10 @@ function formatCurrency(value: number): string {
     return `${(value / 1_000).toFixed(0)}K`;
   }
   return value.toLocaleString('vi-VN');
+}
+
+function safeNumber(value: number | null | undefined): number {
+  return value ?? 0;
 }
 
 function getSourceIcon(source: string) {
@@ -92,13 +97,15 @@ export function LTVBySource() {
     );
   }
 
-  // Calculate totals
-  const totalCustomers = sources.reduce((sum, s) => sum + s.customer_count, 0);
-  const avgLTV = sources.reduce((sum, s) => sum + s.avg_ltv_24m * s.customer_count, 0) / totalCustomers;
+  // Calculate totals (null-safe)
+  const totalCustomers = sources.reduce((sum, s) => sum + safeNumber(s.customer_count), 0);
+  const avgLTV = totalCustomers > 0 
+    ? sources.reduce((sum, s) => sum + safeNumber(s.avg_ltv_24m) * safeNumber(s.customer_count), 0) / totalCustomers 
+    : 0;
 
   // Find best source
   const bestSource = sources.reduce((best, s) => 
-    s.avg_ltv_24m > (best?.avg_ltv_24m || 0) ? s : best
+    safeNumber(s.avg_ltv_24m) > safeNumber(best?.avg_ltv_24m) ? s : best
   , sources[0]);
 
   return (
@@ -190,17 +197,17 @@ export function LTVBySource() {
               </TableHeader>
               <TableBody>
                 {sources.map((source) => {
-                  const percent = (source.customer_count / totalCustomers) * 100;
+                  const percent = totalCustomers > 0 ? (safeNumber(source.customer_count) / totalCustomers) * 100 : 0;
                   return (
                     <TableRow key={source.acquisition_source}>
                       <TableCell className="font-medium">
                         <span className="flex items-center gap-2">
-                          {getSourceIcon(source.acquisition_source)}
-                          {source.acquisition_source}
+                          {getSourceIcon(source.acquisition_source || 'unknown')}
+                          {source.acquisition_source || 'Không xác định'}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        {source.customer_count.toLocaleString()}
+                        {safeNumber(source.customer_count).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center gap-2 justify-end">
@@ -214,7 +221,7 @@ export function LTVBySource() {
                         {formatCurrency(source.avg_revenue)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {source.avg_orders.toFixed(1)}
+                        {safeNumber(source.avg_orders).toFixed(1)}
                       </TableCell>
                       <TableCell className="text-right">
                         {formatCurrency(source.avg_ltv_12m)}
