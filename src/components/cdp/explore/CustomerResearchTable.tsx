@@ -148,7 +148,7 @@ function CustomerEvidenceDialog({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Chu kỳ mua lại</span>
-                <span className="text-sm font-medium">{customer.repurchaseCycle} ngày</span>
+                <span className="text-sm font-medium">{Math.round(customer.repurchaseCycle)} ngày</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">Xu hướng giá trị</span>
@@ -290,7 +290,7 @@ export function CustomerResearchTable({
                     {formatDate(customer.lastPurchase)}
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
-                    {customer.repurchaseCycle}d
+                    {Math.round(customer.repurchaseCycle)}d
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex justify-center">
