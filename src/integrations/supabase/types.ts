@@ -25356,6 +25356,7 @@ export type Database = {
           name: string | null
           population_id: string | null
           population_type: string | null
+          revenue_share: number | null
           stability: string | null
           status: string | null
           tenant_id: string | null
@@ -25445,32 +25446,6 @@ export type Database = {
           population_type: string | null
           tenant_id: string | null
           total_revenue: number | null
-        }
-        Relationships: []
-      }
-      v_cdp_population_detail: {
-        Row: {
-          avg_order_value: number | null
-          created_at: string | null
-          criteria_json: Json | null
-          customer_count: number | null
-          customer_share: number | null
-          definition: string | null
-          estimated_equity: number | null
-          insight_count: number | null
-          last_updated: string | null
-          name: string | null
-          natural_language_description: string | null
-          population_id: string | null
-          population_type: string | null
-          purchase_cycle_days: number | null
-          return_rate: number | null
-          revenue_share: number | null
-          stability: string | null
-          status: string | null
-          tenant_id: string | null
-          total_revenue: number | null
-          version: number | null
         }
         Relationships: []
       }
