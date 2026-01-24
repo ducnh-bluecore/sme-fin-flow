@@ -9,7 +9,7 @@ import { vi } from 'date-fns/locale';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export function EquityEvidencePanel() {
+export function EquityEvidence() {
   const navigate = useNavigate();
   const { data: sampleCustomers, isLoading } = useCDPEquityEvidence();
 
