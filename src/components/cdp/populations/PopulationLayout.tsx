@@ -37,8 +37,8 @@ export function PopulationLayout({ children, title, subtitle }: PopulationLayout
                   không phải cá nhân. Định nghĩa được version hóa và chỉ đọc để đảm bảo nhất quán.
                 </p>
               </div>
-              <Badge variant="outline" className="bg-info/10 text-info border-info/20 shrink-0">
-                Không kích hoạt
+              <Badge variant="outline" className="bg-success/10 text-success border-success/20 shrink-0">
+                Đã kích hoạt
               </Badge>
             </div>
           </CardContent>
