@@ -14138,6 +14138,134 @@ export type Database = {
           },
         ]
       }
+      metric_calculation_log: {
+        Row: {
+          calculated_at: string | null
+          calculated_value: number | null
+          calculation_input: Json | null
+          data_quality_score: number | null
+          execution_time_ms: number | null
+          id: string
+          is_cached: boolean | null
+          metric_code: string
+          source_location: string
+          tenant_id: string
+        }
+        Insert: {
+          calculated_at?: string | null
+          calculated_value?: number | null
+          calculation_input?: Json | null
+          data_quality_score?: number | null
+          execution_time_ms?: number | null
+          id?: string
+          is_cached?: boolean | null
+          metric_code: string
+          source_location: string
+          tenant_id: string
+        }
+        Update: {
+          calculated_at?: string | null
+          calculated_value?: number | null
+          calculation_input?: Json | null
+          data_quality_score?: number | null
+          execution_time_ms?: number | null
+          id?: string
+          is_cached?: boolean | null
+          metric_code?: string
+          source_location?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metric_calculation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metric_calculation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "metric_calculation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "metric_calculation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      metric_registry: {
+        Row: {
+          category: string
+          created_at: string | null
+          deprecation_date: string | null
+          formula: string
+          id: string
+          is_aggregatable: boolean | null
+          metric_code: string
+          metric_name: string
+          metric_name_vi: string
+          module: string
+          precision_level: number | null
+          replacement_metric_code: string | null
+          requires_tenant_filter: boolean | null
+          source_view: string
+          time_window: string | null
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          deprecation_date?: string | null
+          formula: string
+          id?: string
+          is_aggregatable?: boolean | null
+          metric_code: string
+          metric_name: string
+          metric_name_vi: string
+          module: string
+          precision_level?: number | null
+          replacement_metric_code?: string | null
+          requires_tenant_filter?: boolean | null
+          source_view: string
+          time_window?: string | null
+          unit: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          deprecation_date?: string | null
+          formula?: string
+          id?: string
+          is_aggregatable?: boolean | null
+          metric_code?: string
+          metric_name?: string
+          metric_name_vi?: string
+          module?: string
+          precision_level?: number | null
+          replacement_metric_code?: string | null
+          requires_tenant_filter?: boolean | null
+          source_view?: string
+          time_window?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       metric_trend_snapshots: {
         Row: {
           created_at: string | null
@@ -19105,6 +19233,80 @@ export type Database = {
           },
           {
             foreignKeyName: "social_mentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      ssot_violation_log: {
+        Row: {
+          actual_value: number | null
+          detected_at: string | null
+          deviation_percent: number | null
+          expected_value: number | null
+          id: string
+          metric_code: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          severity: string | null
+          source_file: string | null
+          tenant_id: string | null
+          violation_type: string
+        }
+        Insert: {
+          actual_value?: number | null
+          detected_at?: string | null
+          deviation_percent?: number | null
+          expected_value?: number | null
+          id?: string
+          metric_code?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          source_file?: string | null
+          tenant_id?: string | null
+          violation_type: string
+        }
+        Update: {
+          actual_value?: number | null
+          detected_at?: string | null
+          deviation_percent?: number | null
+          expected_value?: number | null
+          id?: string
+          metric_code?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          source_file?: string | null
+          tenant_id?: string | null
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ssot_violation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ssot_violation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ssot_violation_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ssot_violation_log_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -25819,6 +26021,17 @@ export type Database = {
           },
         ]
       }
+      v_governance_dashboard: {
+        Row: {
+          category: string | null
+          critical_unresolved: number | null
+          deprecated_metrics: number | null
+          module: string | null
+          total_metrics: number | null
+          violations_7d: number | null
+        }
+        Relationships: []
+      }
       v_invoice_settled_paid: {
         Row: {
           invoice_id: string | null
@@ -26030,6 +26243,16 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      v_unified_metrics: {
+        Row: {
+          metric_code: string | null
+          metric_date: string | null
+          module: string | null
+          tenant_id: string | null
+          value: number | null
+        }
+        Relationships: []
       }
       vendor_credit_notes_view: {
         Row: {
@@ -26448,6 +26671,18 @@ export type Database = {
         Returns: undefined
       }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
+      check_metric_consistency: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          deviation_percent: number
+          metric_pair: string
+          source_a: string
+          source_b: string
+          status: string
+          value_a: number
+          value_b: number
+        }[]
+      }
       check_policy_approval: {
         Args: { p_context: Json; p_policy_type: string; p_tenant_id: string }
         Returns: {
@@ -26648,6 +26883,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_metric_value: {
+        Args: { p_date?: string; p_metric_code: string; p_tenant_id: string }
+        Returns: number
       }
       get_sku_master_unit_cost: {
         Args: { p_sku: string; p_tenant_id: string }
