@@ -55,8 +55,9 @@ export function useCDPPopulationCatalog() {
     queryFn: async (): Promise<PopulationItem[]> => {
       if (!tenantId) return [];
 
+      // Query from view with computed revenue_share
       const { data, error } = await supabase
-        .from('v_cdp_population_catalog')
+        .from('v_cdp_population_catalog' as any)
         .select('*')
         .eq('tenant_id', tenantId);
 
@@ -65,18 +66,13 @@ export function useCDPPopulationCatalog() {
         return [];
       }
 
-      // Calculate total revenue for share calculation (fallback if view doesn't have revenue_share)
-      const totalRevenue = (data || []).reduce((sum, p) => sum + (Number(p.total_revenue) || 0), 0);
-
-      return (data || []).map(row => ({
+      return (data || []).map((row: any) => ({
         id: row.population_id,
         name: row.name,
         type: row.population_type as PopulationType,
         definition: row.definition || '',
         size: row.customer_count || 0,
-        revenueShare: totalRevenue > 0 
-          ? (Number(row.total_revenue) || 0) / totalRevenue * 100 
-          : 0,
+        revenueShare: Number(row.revenue_share) || 0,
         stability: (row.stability || 'stable') as StabilityLevel,
         insightCount: row.insight_count || 0,
       }));
@@ -165,7 +161,7 @@ export function useCDPPopulationDetail(populationId: string | undefined) {
       if (!tenantId || !populationId) return null;
 
       const { data, error } = await supabase
-        .from('v_cdp_population_detail')
+        .from('v_cdp_population_detail' as any)
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('population_id', populationId)
@@ -178,27 +174,29 @@ export function useCDPPopulationDetail(populationId: string | undefined) {
 
       if (!data) return null;
 
+      const row = data as any;
+
       return {
-        id: data.population_id,
-        name: data.name,
-        type: data.population_type as PopulationType,
-        definition: data.definition || '',
-        naturalLanguageDescription: data.natural_language_description || '',
-        customerCount: data.customer_count || 0,
-        totalRevenue: Number(data.total_revenue) || 0,
-        revenueShare: Number(data.revenue_share) || 0,
-        customerShare: Number(data.customer_share) || 0,
-        estimatedEquity: Number(data.estimated_equity) || 0,
-        avgOrderValue: Number(data.avg_order_value) || 0,
-        purchaseCycleDays: Math.round(Number(data.purchase_cycle_days) || 30),
-        returnRate: Number(data.return_rate) || 0,
-        stability: (data.stability || 'stable') as StabilityLevel,
-        insightCount: data.insight_count || 0,
-        version: data.version || 1,
-        lastUpdated: data.last_updated 
-          ? new Date(data.last_updated).toLocaleDateString('vi-VN')
+        id: row.population_id,
+        name: row.name,
+        type: row.population_type as PopulationType,
+        definition: row.definition || '',
+        naturalLanguageDescription: row.natural_language_description || '',
+        customerCount: row.customer_count || 0,
+        totalRevenue: Number(row.total_revenue) || 0,
+        revenueShare: Number(row.revenue_share) || 0,
+        customerShare: Number(row.customer_share) || 0,
+        estimatedEquity: Number(row.estimated_equity) || 0,
+        avgOrderValue: Number(row.avg_order_value) || 0,
+        purchaseCycleDays: Math.round(Number(row.purchase_cycle_days) || 30),
+        returnRate: Number(row.return_rate) || 0,
+        stability: (row.stability || 'stable') as StabilityLevel,
+        insightCount: row.insight_count || 0,
+        version: row.version || 1,
+        lastUpdated: row.last_updated 
+          ? new Date(row.last_updated).toLocaleDateString('vi-VN')
           : new Date().toLocaleDateString('vi-VN'),
-        criteriaJson: data.criteria_json as Record<string, unknown> | null,
+        criteriaJson: row.criteria_json as Record<string, unknown> | null,
       };
     },
     enabled: !!tenantId && !!populationId,
