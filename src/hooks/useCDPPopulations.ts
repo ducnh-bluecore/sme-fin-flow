@@ -16,6 +16,27 @@ export interface PopulationItem {
   insightCount: number;
 }
 
+export interface PopulationDetailData {
+  id: string;
+  name: string;
+  type: PopulationType;
+  definition: string;
+  naturalLanguageDescription: string;
+  customerCount: number;
+  totalRevenue: number;
+  revenueShare: number;
+  customerShare: number;
+  estimatedEquity: number;
+  avgOrderValue: number;
+  purchaseCycleDays: number;
+  returnRate: number;
+  stability: StabilityLevel;
+  insightCount: number;
+  version: number;
+  lastUpdated: string;
+  criteriaJson: Record<string, unknown> | null;
+}
+
 export interface PopulationSummary {
   tierCount: number;
   segmentCount: number;
@@ -131,4 +152,56 @@ export function useCDPPopulations() {
     isLoading: catalogQuery.isLoading || summaryQuery.isLoading,
     error: catalogQuery.error || summaryQuery.error,
   };
+}
+
+// Hook for single population detail
+export function useCDPPopulationDetail(populationId: string | undefined) {
+  const { data: activeTenant } = useActiveTenant();
+  const tenantId = activeTenant?.id;
+
+  return useQuery({
+    queryKey: ['cdp-population-detail', tenantId, populationId],
+    queryFn: async (): Promise<PopulationDetailData | null> => {
+      if (!tenantId || !populationId) return null;
+
+      const { data, error } = await supabase
+        .from('v_cdp_population_detail')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('population_id', populationId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching population detail:', error);
+        return null;
+      }
+
+      if (!data) return null;
+
+      return {
+        id: data.population_id,
+        name: data.name,
+        type: data.population_type as PopulationType,
+        definition: data.definition || '',
+        naturalLanguageDescription: data.natural_language_description || '',
+        customerCount: data.customer_count || 0,
+        totalRevenue: Number(data.total_revenue) || 0,
+        revenueShare: Number(data.revenue_share) || 0,
+        customerShare: Number(data.customer_share) || 0,
+        estimatedEquity: Number(data.estimated_equity) || 0,
+        avgOrderValue: Number(data.avg_order_value) || 0,
+        purchaseCycleDays: Math.round(Number(data.purchase_cycle_days) || 30),
+        returnRate: Number(data.return_rate) || 0,
+        stability: (data.stability || 'stable') as StabilityLevel,
+        insightCount: data.insight_count || 0,
+        version: data.version || 1,
+        lastUpdated: data.last_updated 
+          ? new Date(data.last_updated).toLocaleDateString('vi-VN')
+          : new Date().toLocaleDateString('vi-VN'),
+        criteriaJson: data.criteria_json as Record<string, unknown> | null,
+      };
+    },
+    enabled: !!tenantId && !!populationId,
+    staleTime: 5 * 60 * 1000,
+  });
 }
