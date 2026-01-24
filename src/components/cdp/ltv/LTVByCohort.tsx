@@ -7,7 +7,8 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useLTVByCohort } from '@/hooks/useCDPLTVEngine';
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number | null | undefined): string {
+  if (value == null) return '0';
   if (value >= 1_000_000_000) {
     return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
   }
@@ -18,6 +19,10 @@ function formatCurrency(value: number): string {
     return `${(value / 1_000).toFixed(0)}K`;
   }
   return value.toLocaleString('vi-VN');
+}
+
+function safeNumber(value: number | null | undefined): number {
+  return value ?? 0;
 }
 
 function QualityBadge({ score }: { score: 'high' | 'medium' | 'low' }) {
@@ -34,27 +39,28 @@ function QualityBadge({ score }: { score: 'high' | 'medium' | 'low' }) {
   );
 }
 
-function TrendIndicator({ value }: { value: number }) {
-  if (value > 5) {
+function TrendIndicator({ value }: { value: number | null | undefined }) {
+  const safeValue = safeNumber(value);
+  if (safeValue > 5) {
     return (
       <span className="flex items-center gap-1 text-green-600 text-sm">
         <TrendingUp className="h-3 w-3" />
-        +{value.toFixed(1)}%
+        +{safeValue.toFixed(1)}%
       </span>
     );
   }
-  if (value < -5) {
+  if (safeValue < -5) {
     return (
       <span className="flex items-center gap-1 text-red-600 text-sm">
         <TrendingDown className="h-3 w-3" />
-        {value.toFixed(1)}%
+        {safeValue.toFixed(1)}%
       </span>
     );
   }
   return (
     <span className="flex items-center gap-1 text-muted-foreground text-sm">
       <Minus className="h-3 w-3" />
-      {value.toFixed(1)}%
+      {safeValue.toFixed(1)}%
     </span>
   );
 }
@@ -100,9 +106,13 @@ export function LTVByCohort() {
     );
   }
 
-  // Calculate average metrics for summary
-  const avgRetention3m = cohorts.reduce((sum, c) => sum + c.retention_rate_3m, 0) / cohorts.length;
-  const avgLTV12m = cohorts.reduce((sum, c) => sum + c.estimated_ltv_12m, 0) / cohorts.length;
+  // Calculate average metrics for summary (null-safe)
+  const avgRetention3m = cohorts.length > 0 
+    ? cohorts.reduce((sum, c) => sum + safeNumber(c.retention_rate_3m), 0) / cohorts.length 
+    : 0;
+  const avgLTV12m = cohorts.length > 0 
+    ? cohorts.reduce((sum, c) => sum + safeNumber(c.estimated_ltv_12m), 0) / cohorts.length 
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -170,16 +180,16 @@ export function LTVByCohort() {
                       {format(parseISO(cohort.cohort_month), 'MMM yyyy', { locale: vi })}
                     </TableCell>
                     <TableCell className="text-right">
-                      {cohort.cohort_size.toLocaleString()}
+                      {safeNumber(cohort.cohort_size).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(cohort.avg_revenue)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {cohort.retention_rate_3m.toFixed(1)}%
+                      {safeNumber(cohort.retention_rate_3m).toFixed(1)}%
                     </TableCell>
                     <TableCell className="text-right">
-                      {cohort.retention_rate_6m.toFixed(1)}%
+                      {safeNumber(cohort.retention_rate_6m).toFixed(1)}%
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(cohort.estimated_ltv_12m)}
