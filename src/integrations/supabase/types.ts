@@ -20986,6 +20986,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "voucher_usage_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "v_mdp_campaign_performance"
+            referencedColumns: ["campaign_id"]
+          },
+          {
             foreignKeyName: "voucher_usage_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -25936,6 +25943,57 @@ export type Database = {
         }
         Relationships: []
       }
+      v_channel_pl_summary: {
+        Row: {
+          avg_order_value: number | null
+          cancelled_count: number | null
+          channel: string | null
+          cogs: number | null
+          commission_fee: number | null
+          gross_profit: number | null
+          gross_revenue: number | null
+          margin_percent: number | null
+          net_revenue: number | null
+          order_count: number | null
+          payment_fee: number | null
+          period: string | null
+          platform_fee: number | null
+          return_rate: number | null
+          shipping_fee: number | null
+          tenant_id: string | null
+          total_fees: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_customer_ar_summary: {
         Row: {
           avg_payment_days: number | null
@@ -26018,6 +26076,62 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_decision_latest"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_fdp_finance_summary: {
+        Row: {
+          aov: number | null
+          cancelled_orders: number | null
+          computed_at: string | null
+          contribution_margin: number | null
+          delivered_orders: number | null
+          gross_margin_percent: number | null
+          gross_profit: number | null
+          gross_revenue: number | null
+          has_real_cogs: boolean | null
+          has_real_fees: boolean | null
+          has_real_marketing: boolean | null
+          net_revenue: number | null
+          returned_orders: number | null
+          roas: number | null
+          shipping_fees: number | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_marketing_spend: number | null
+          total_opex: number | null
+          total_platform_fees: number | null
+          total_returns: number | null
+          unique_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
           },
         ]
       }
@@ -26179,6 +26293,203 @@ export type Database = {
           },
           {
             foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_mdp_campaign_performance: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          campaign_type: string | null
+          channel: string | null
+          clicks_estimated: number | null
+          clicks_is_estimated: boolean | null
+          conversion_rate: number | null
+          cpa: number | null
+          cpc: number | null
+          ctr: number | null
+          end_date: string | null
+          impressions_estimated: number | null
+          impressions_is_estimated: boolean | null
+          leads_estimated: number | null
+          leads_is_estimated: boolean | null
+          orders: number | null
+          revenue: number | null
+          roas: number | null
+          spend: number | null
+          start_date: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          campaign_type?: string | null
+          channel?: string | null
+          clicks_estimated?: never
+          clicks_is_estimated?: never
+          conversion_rate?: never
+          cpa?: never
+          cpc?: never
+          ctr?: never
+          end_date?: string | null
+          impressions_estimated?: never
+          impressions_is_estimated?: never
+          leads_estimated?: never
+          leads_is_estimated?: never
+          orders?: never
+          revenue?: never
+          roas?: never
+          spend?: never
+          start_date?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          campaign_type?: string | null
+          channel?: string | null
+          clicks_estimated?: never
+          clicks_is_estimated?: never
+          conversion_rate?: never
+          cpa?: never
+          cpc?: never
+          ctr?: never
+          end_date?: string | null
+          impressions_estimated?: never
+          impressions_is_estimated?: never
+          leads_estimated?: never
+          leads_is_estimated?: never
+          orders?: never
+          revenue?: never
+          roas?: never
+          spend?: never
+          start_date?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_mdp_funnel_summary: {
+        Row: {
+          clicks: number | null
+          clicks_cvr: number | null
+          clicks_drop: number | null
+          impressions: number | null
+          impressions_cvr: number | null
+          impressions_drop: number | null
+          is_estimated: boolean | null
+          leads: number | null
+          leads_cvr: number | null
+          leads_drop: number | null
+          orders: number | null
+          orders_cvr: number | null
+          orders_drop: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_mdp_mode_summary: {
+        Row: {
+          active_campaigns: number | null
+          execution_alerts_count: number | null
+          overall_conversion: number | null
+          overall_cpa: number | null
+          overall_ctr: number | null
+          overall_roas: number | null
+          tenant_id: string | null
+          total_leads: number | null
+          total_orders: number | null
+          total_revenue: number | null
+          total_spend: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
