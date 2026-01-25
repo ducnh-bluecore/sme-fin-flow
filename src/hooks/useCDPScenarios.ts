@@ -5,9 +5,18 @@ import { toast } from 'sonner';
 
 export interface Scenario {
   name: string;
+  // Core LTV levers
   retention_boost: number;
   aov_boost: number;
   discount_adjust: number;
+  // Extended parameters
+  frequency_boost: number;      // Thay đổi tần suất mua
+  churn_reduction: number;      // Giảm tỷ lệ rời bỏ
+  margin_adjust: number;        // Thay đổi biên lợi nhuận
+  cac_adjust: number;           // Thay đổi chi phí CAC
+  // Scope & Horizon
+  time_horizon: '6m' | '12m' | '24m';
+  population_scope: 'all' | 'top20' | 'at_risk' | 'new_customers' | 'repeat';
 }
 
 export interface ScenarioResult {
