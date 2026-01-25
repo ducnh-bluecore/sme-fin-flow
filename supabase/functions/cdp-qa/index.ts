@@ -198,7 +198,11 @@ serve(async (req) => {
     }
 
     const sqlGenJson = (await sqlGenResp.json()) as OpenAIChatResponse;
-    const rawSql = (sqlGenJson.choices?.[0]?.message?.content || '').trim();
+    // LLMs sometimes add trailing semicolons; disallow/strip them to keep RPC safe.
+    const rawSql = (sqlGenJson.choices?.[0]?.message?.content || '')
+      .trim()
+      // remove any semicolons to prevent statement chaining and parser edge cases
+      .replace(/;/g, '');
     if (!rawSql) {
       return new Response(JSON.stringify({ error: 'AI không tạo được truy vấn' }), {
         status: 500,
