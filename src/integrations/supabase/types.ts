@@ -5799,10 +5799,12 @@ export type Database = {
           default_population_ref: Json
           default_priority: string
           default_severity: string
+          description: string | null
           insight_code: string
           is_enabled: boolean
           name: string
           owner_role: string
+          owners: string[] | null
           population_type: string
           threshold_json: Json
           window_days: number
@@ -5814,10 +5816,12 @@ export type Database = {
           default_population_ref?: Json
           default_priority?: string
           default_severity?: string
+          description?: string | null
           insight_code: string
           is_enabled?: boolean
           name: string
           owner_role?: string
+          owners?: string[] | null
           population_type: string
           threshold_json?: Json
           window_days?: number
@@ -5829,10 +5833,12 @@ export type Database = {
           default_population_ref?: Json
           default_priority?: string
           default_severity?: string
+          description?: string | null
           insight_code?: string
           is_enabled?: boolean
           name?: string
           owner_role?: string
+          owners?: string[] | null
           population_type?: string
           threshold_json?: Json
           window_days?: number
@@ -24088,43 +24094,29 @@ export type Database = {
           triggered_count: number | null
           window_days: number | null
         }
-        Insert: {
-          baseline_days?: number | null
-          category?: string | null
-          code?: string | null
-          cooldown_days?: number | null
-          description?: never
-          is_enabled?: boolean | null
-          is_triggered?: never
-          last_triggered_date?: never
-          name?: string | null
-          owners?: never
-          population_type?: string | null
-          tenant_id?: never
-          threshold?: never
-          topic?: string | null
-          triggered_count?: never
-          window_days?: number | null
-        }
-        Update: {
-          baseline_days?: number | null
-          category?: string | null
-          code?: string | null
-          cooldown_days?: number | null
-          description?: never
-          is_enabled?: boolean | null
-          is_triggered?: never
-          last_triggered_date?: never
-          name?: string | null
-          owners?: never
-          population_type?: string | null
-          tenant_id?: never
-          threshold?: never
-          topic?: string | null
-          triggered_count?: never
-          window_days?: number | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_cdp_insight_topic_counts: {
         Row: {
