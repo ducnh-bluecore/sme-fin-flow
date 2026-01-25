@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
 import { addMonths, format, startOfMonth } from 'date-fns';
-import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 
 export interface RollingForecastItem {
   id: string;
@@ -172,7 +172,7 @@ export function useSaveRollingForecast() {
 export function useGenerateRollingForecast() {
   const queryClient = useQueryClient();
   const { data: tenantId } = useActiveTenantId();
-  const { data: centralMetrics } = useCentralFinancialMetrics();
+  const { data: snapshot } = useFinanceTruthSnapshot();
   
   return useMutation({
     mutationFn: async () => {
@@ -182,14 +182,15 @@ export function useGenerateRollingForecast() {
       const startDate = startOfMonth(new Date());
       const forecasts: Partial<RollingForecastItem>[] = [];
       
-      // Use SSOT metrics for baseline (monthly averages from central source)
-      // If centralMetrics available, calculate monthly average; otherwise use defaults
-      const avgRevenue = centralMetrics 
-        ? (centralMetrics.netRevenue / Math.max(centralMetrics.daysInPeriod / 30, 1))
+      // Use SSOT snapshot for baseline (90 days = 3 months)
+      const avgRevenue = snapshot 
+        ? (snapshot.netRevenue / 3)
         : 100000000; // Default 100M VND/month
         
-      const avgExpense = centralMetrics
-        ? (centralMetrics.totalOpex / Math.max(centralMetrics.daysInPeriod / 30, 1))
+      // Derive OpEx from gross profit - EBITDA
+      const totalOpex = snapshot ? (snapshot.grossProfit - snapshot.ebitda) : 0;
+      const avgExpense = snapshot
+        ? (totalOpex / 3)
         : 80000000; // Default 80M VND/month
       
       // Generate forecasts with growth assumptions

@@ -36,7 +36,7 @@ import {
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useQuickWins } from '@/hooks/useQuickWins';
 import { useRiskAlerts } from '@/hooks/useRiskAlerts';
@@ -524,17 +524,26 @@ function RiskAlertCard({
 
 export default function ExecutiveSummaryPage() {
   const { t } = useLanguage();
-  const { data: metrics, isLoading } = useCentralFinancialMetrics();
+  const { data: snapshot, isLoading } = useFinanceTruthSnapshot();
   const { data: runwayData } = useCashRunway();
   const { quickWins, totalPotentialSavings, isLoading: quickWinsLoading } = useQuickWins();
   const { data: riskAlerts, isLoading: riskAlertsLoading } = useRiskAlerts();
 
+  // Map snapshot to legacy metrics shape for backward compatibility
+  const metrics = snapshot ? {
+    dso: snapshot.dso,
+    grossMargin: snapshot.grossMarginPercent,
+    cashOnHand: snapshot.cashToday,
+    totalRevenue: snapshot.netRevenue,
+    daysInPeriod: 90,
+  } : undefined;
+
   // Calculate health score based on central metrics
   const calculateHealthScore = () => {
-    if (!metrics) return 72;
+    if (!snapshot) return 72;
     let score = 70;
-    if (metrics.dso && metrics.dso < 45) score += 10;
-    if (metrics.grossMargin && metrics.grossMargin > 30) score += 10;
+    if (snapshot.dso && snapshot.dso < 45) score += 10;
+    if (snapshot.grossMarginPercent && snapshot.grossMarginPercent > 30) score += 10;
     if (runwayData?.runwayMonths && runwayData.runwayMonths > 6) score += 10;
     return Math.min(score, 100);
   };
