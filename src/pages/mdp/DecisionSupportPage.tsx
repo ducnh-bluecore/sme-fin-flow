@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMDPData, ProfitAttribution, CashImpact } from '@/hooks/useMDPData';
+import { useMDPDataSSOT, ProfitAttribution, CashImpact } from '@/hooks/useMDPDataSSOT';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -111,7 +111,7 @@ export default function DecisionSupportPage() {
     thresholds,
     isLoading, 
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   const [selectedChannel, setSelectedChannel] = useState<ChannelDecision | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);

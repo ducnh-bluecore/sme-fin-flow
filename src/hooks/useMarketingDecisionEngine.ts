@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMDPData } from './useMDPData';
+import { useMDPDataSSOT } from './useMDPDataSSOT';
 import { 
   MarketingDecisionCard, 
   CEOMarketingSnapshot,
@@ -33,7 +33,7 @@ export function useMarketingDecisionEngine() {
     cmoModeSummary,
     isLoading,
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   // Generate Decision Cards from deterministic rules
   const decisionCards = useMemo<MarketingDecisionCard[]>(() => {

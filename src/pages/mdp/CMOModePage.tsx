@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useMDPData } from '@/hooks/useMDPData';
+import { useMDPDataSSOT } from '@/hooks/useMDPDataSSOT';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 
@@ -102,7 +102,7 @@ export default function CMOModePage() {
     cmoModeSummary,
     isLoading, 
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   // Calculate CMO-level metrics (profit focused)
   const totalRevenue = profitAttribution.reduce((sum, p) => sum + (p.gross_revenue || 0), 0);
