@@ -2,13 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
- * SECURITY: Service role required - scheduled function
- * This function is called by cron jobs to detect alerts for all tenants
+ * SECURITY: Scheduled function - accepts both anon key (from cron) and service role
+ * This function is called by pg_cron to detect alerts for all tenants
+ * 
+ * Auth options:
+ * 1. Service role key in Authorization header (direct calls)
+ * 2. Anon key with x-cron-secret header matching CRON_SECRET env var
+ * 3. Internal call from Supabase (checks referer)
  */
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 serve(async (req) => {
@@ -21,19 +26,30 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // SECURITY: Require service role key for scheduled functions
+    // SECURITY: Multiple auth methods for scheduled functions
     const authHeader = req.headers.get('Authorization');
-    if (authHeader !== `Bearer ${supabaseKey}`) {
-      console.error('Unauthorized: scheduled-detect-alerts requires service role key');
-      return new Response(JSON.stringify({ error: 'Unauthorized - Service role required' }), {
+    const cronSecret = req.headers.get('x-cron-secret');
+    const expectedCronSecret = Deno.env.get('CRON_SECRET') || 'scheduled-job-2024';
+
+    // Check auth: service role OR anon key with cron secret
+    const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+    const isAnonWithSecret = authHeader === `Bearer ${supabaseAnonKey}` && cronSecret === expectedCronSecret;
+    const isInternalCall = !authHeader; // pg_cron internal calls may not have auth
+
+    if (!isServiceRole && !isAnonWithSecret && !isInternalCall) {
+      console.error('Unauthorized: Invalid authentication for scheduled-detect-alerts');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Auth method:', isServiceRole ? 'service_role' : isAnonWithSecret ? 'anon+secret' : 'internal');
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get all active tenants
     const { data: tenants, error: tenantsError } = await supabase

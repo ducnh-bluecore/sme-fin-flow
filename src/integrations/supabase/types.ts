@@ -22614,6 +22614,75 @@ export type Database = {
           },
         ]
       }
+      view_refresh_queue: {
+        Row: {
+          error_message: string | null
+          id: string
+          processed_at: string | null
+          queued_at: string | null
+          status: string | null
+          tenant_id: string
+          triggered_by: string | null
+          view_name: string
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          processed_at?: string | null
+          queued_at?: string | null
+          status?: string | null
+          tenant_id: string
+          triggered_by?: string | null
+          view_name: string
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          processed_at?: string | null
+          queued_at?: string | null
+          status?: string | null
+          tenant_id?: string
+          triggered_by?: string | null
+          view_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "view_refresh_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "view_refresh_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "view_refresh_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "view_refresh_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "view_refresh_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       voucher_usage: {
         Row: {
           campaign_id: string | null
@@ -29997,6 +30066,14 @@ export type Database = {
           unique_users: number
         }[]
       }
+      get_control_tower_summary: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_insight: {
         Args: {
@@ -30044,6 +30121,10 @@ export type Database = {
           total_quantity: number
           total_revenue: number
         }[]
+      }
+      get_fdp_period_summary: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: Json
       }
       get_forecast_historical_stats: {
         Args: { p_days?: number; p_tenant_id: string }
