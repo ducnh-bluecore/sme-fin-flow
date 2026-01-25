@@ -192,15 +192,16 @@ export function buildFDPDecision(params: FDPDecisionParams): DecisionContract {
     SKU_STOP: {
       metricCode: 'sku_margin',
       entityType: 'sku',
-      title: (name) => `SKU ${name} đang lỗ`,
-      problem: (name, impact) => `SKU ${name} có margin âm, gây thiệt hại ${formatCurrency(impact)}/ngày. Cần dừng bán hoặc điều chỉnh giá.`,
+      title: (name) => `Đề xuất xem xét SKU ${name}`,
+      problem: (name, impact) => `SKU ${name} có margin âm, đang gây thiệt hại ước tính ${formatCurrency(impact)}/ngày. Đề xuất xem xét dừng bán hoặc điều chỉnh giá để cải thiện biên lợi nhuận.`,
       severity: 'high',
       ownerRole: 'CFO',
       deadlineHours: 24,
       actions: [
-        createAction({ actionId: 'stop_sku', label: 'Dừng bán SKU', actionType: 'KILL', isRecommended: true }),
+        createAction({ actionId: 'stop_sku', label: 'Đề xuất: Dừng bán', actionType: 'KILL', isRecommended: true }),
         createAction({ actionId: 'adjust_price', label: 'Điều chỉnh giá', actionType: 'ADJUST_STRATEGY' }),
-        createAction({ actionId: 'investigate', label: 'Điều tra thêm', actionType: 'INVESTIGATE' }),
+        createAction({ actionId: 'investigate', label: 'Phân tích thêm', actionType: 'INVESTIGATE' }),
+        createAction({ actionId: 'ignore', label: 'Bỏ qua đề xuất này', actionType: 'ACCEPT_RISK' }),
       ],
     },
     CASH_CRITICAL: {
@@ -301,15 +302,16 @@ export function buildMDPDecision(params: MDPDecisionParams): DecisionContract {
   }> = {
     CAMPAIGN_BURNING_CASH: {
       metricCode: 'profit_roas',
-      title: (name) => `Campaign ${name} đang đốt tiền`,
-      problem: (name, channel, impact) => `Campaign ${name} trên ${channel} có ROAS âm, đốt ${formatCurrency(impact)}/ngày. Cần dừng ngay.`,
+      title: (name) => `Đề xuất xem xét Campaign ${name}`,
+      problem: (name, channel, impact) => `Campaign ${name} trên ${channel} có ROAS âm, đang tiêu tốn ước tính ${formatCurrency(impact)}/ngày. Đề xuất xem xét tạm dừng hoặc điều chỉnh chiến lược vì chi phí đang vượt doanh thu.`,
       severity: 'critical',
       ownerRole: 'CEO',
       deadlineHours: 4,
       actions: [
-        createAction({ actionId: 'kill', label: 'KILL - Dừng ngay', actionType: 'KILL', isRecommended: true }),
-        createAction({ actionId: 'pause', label: 'PAUSE - Tạm dừng', actionType: 'PAUSE' }),
-        createAction({ actionId: 'investigate', label: 'Điều tra thêm', actionType: 'INVESTIGATE' }),
+        createAction({ actionId: 'kill', label: 'Đề xuất: Dừng campaign', actionType: 'KILL', isRecommended: true }),
+        createAction({ actionId: 'pause', label: 'Tạm dừng để đánh giá', actionType: 'PAUSE' }),
+        createAction({ actionId: 'investigate', label: 'Phân tích chi tiết', actionType: 'INVESTIGATE' }),
+        createAction({ actionId: 'ignore', label: 'Bỏ qua đề xuất này', actionType: 'ACCEPT_RISK' }),
       ],
     },
     FAKE_GROWTH: {

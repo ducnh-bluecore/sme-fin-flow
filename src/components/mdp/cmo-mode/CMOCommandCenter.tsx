@@ -67,9 +67,9 @@ export function CMOCommandCenter({ profitData, cashImpact, riskAlerts, summary }
       entity_name: alert.campaign_name,
       entity_id: alert.campaign_name,
       priority: alert.severity === 'critical' ? 'critical' : 'high',
-      headline: alert.type === 'negative_margin' ? 'ĐANG LỖ - Cần dừng ngay' : 
-                alert.type === 'burning_cash' ? 'ĐỐT TIỀN - Tác động cash flow' :
-                alert.type === 'cac_exceeds_ltv' ? 'CAC > LTV - Không bền vững' : 'Cần review',
+      headline: alert.type === 'negative_margin' ? 'Đề xuất xem xét: Margin âm' : 
+                alert.type === 'burning_cash' ? 'Đề xuất xem xét: Chi phí vượt doanh thu' :
+                alert.type === 'cac_exceeds_ltv' ? 'Đề xuất xem xét: CAC cao hơn LTV' : 'Gợi ý review',
       reason: alert.message,
       impact_amount: alert.impact_amount,
       deadline_hours: alert.severity === 'critical' ? 4 : 24,

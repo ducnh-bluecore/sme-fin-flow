@@ -52,9 +52,9 @@ function SeverityBadge({ severity }: { severity: 'critical' | 'high' | 'medium' 
   };
 
   const labels = {
-    critical: 'Nghiêm trọng',
-    high: 'Cao',
-    medium: 'Trung bình'
+    critical: 'Ưu tiên cao',
+    high: 'Nên xem xét',
+    medium: 'Tham khảo'
   };
 
   return (

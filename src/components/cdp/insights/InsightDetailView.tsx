@@ -203,13 +203,19 @@ export function InsightDetailView({ insight, onCreateDecisionCard }: InsightDeta
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-warning-foreground" />
-            Vì sao điều này quan trọng
+            Ý nghĩa kinh doanh
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <p className="text-sm leading-relaxed text-foreground">
             {insight.businessImplication}
           </p>
+          <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium">📊 Nguồn dữ liệu:</span> Phân tích dựa trên giao dịch thực tế từ {insight.periodBaseline} đến {insight.periodCurrent}. 
+              Độ tin cậy: {confidenceConfig[insight.confidence].label}. Quyết định cuối cùng thuộc về doanh nghiệp.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -334,13 +340,18 @@ export function InsightDetailView({ insight, onCreateDecisionCard }: InsightDeta
                 <div>
                   <p className="font-medium text-muted-foreground">Chưa có Thẻ Quyết định</p>
                   <p className="text-xs text-muted-foreground">
-                    Tạo thẻ để đưa insight này vào quy trình xem xét điều hành
+                    Nếu insight này cần được xem xét ở cấp điều hành, bạn có thể tạo thẻ quyết định
                   </p>
                 </div>
               </div>
-              <Button size="sm" onClick={onCreateDecisionCard}>
-                Tạo Thẻ Quyết định
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="text-muted-foreground">
+                  Bỏ qua insight này
+                </Button>
+                <Button size="sm" onClick={onCreateDecisionCard}>
+                  Tạo Thẻ Quyết định
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

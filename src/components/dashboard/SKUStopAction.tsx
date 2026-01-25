@@ -202,11 +202,11 @@ export default function SKUStopAction({ stopSKUs, onAcknowledge }: SKUStopAction
                 </div>
                 <div>
                   <CardTitle className="text-lg text-red-500 flex items-center gap-2">
-                    SKU CẦN DỪNG BÁN
+                    Đề xuất Xem xét SKU
                     <Badge variant="destructive">{visibleSKUs.length}</Badge>
                   </CardTitle>
                   <p className="text-xs text-muted-foreground">
-                    FDP Principle #6: Unit Economics → Action
+                    Các SKU có margin âm - đề xuất xem xét điều chỉnh hoặc tạm dừng
                   </p>
                 </div>
               </div>
