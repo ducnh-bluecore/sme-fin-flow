@@ -84,38 +84,19 @@ export function LTVOverview() {
     (selectedSegment.type === 'rfm' && rfmLoading) ||
     ((selectedSegment.type === 'segment' || selectedSegment.type === 'cohort') && populationLoading);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-        <Skeleton className="h-64" />
-      </div>
-    );
-  }
-
-  if (!summary) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <Users className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">Chưa có dữ liệu LTV</h3>
-          <p className="text-sm text-muted-foreground max-w-md">
-            Cần có dữ liệu khách hàng và đơn hàng để tính toán LTV. 
-            Hãy đảm bảo đã import dữ liệu từ các nguồn.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const isFiltered = selectedSegment.type !== 'all';
 
-  // Use filtered data based on segment type
+  // Use filtered data based on segment type - MUST be called before any early returns
   const displayData = useMemo(() => {
+    // If still loading or no summary, return defaults
+    if (!summary) {
+      return {
+        totalCustomers: 0,
+        totalEquity12m: 0,
+        realizedRevenue: 0,
+      };
+    }
+
     // Tier filtering
     if (selectedSegment.type === 'tier' && tierFilterData) {
       return {
@@ -150,6 +131,35 @@ export function LTVOverview() {
       realizedRevenue: safeNumber(realizedData?.realized_revenue),
     };
   }, [selectedSegment, tierFilterData, rfmFilterData, populationDetail, summary, realizedData]);
+
+  // Early returns AFTER all hooks
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">Chưa có dữ liệu LTV</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Cần có dữ liệu khách hàng và đơn hàng để tính toán LTV. 
+            Hãy đảm bảo đã import dữ liệu từ các nguồn.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const totalEquity12m = displayData.totalEquity12m;
   const atRiskEquity = safeNumber(summary.at_risk_equity);
