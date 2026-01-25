@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CDPLayout } from '@/components/layout/CDPLayout';
+import { InsightLayout } from '@/components/cdp/insights/InsightLayout';
 import { cn } from '@/lib/utils';
 import { 
   DemandInsightCategory, 
@@ -211,7 +211,7 @@ export default function DemandInsightsPage() {
 
   if (isLoading) {
     return (
-      <CDPLayout>
+      <InsightLayout title="Nhu cầu & Sản phẩm" description="Dịch chuyển nhu cầu và cấu trúc chi tiêu">
         <Helmet>
           <title>Nhu cầu & Sản phẩm | CDP - Bluecore</title>
         </Helmet>
@@ -219,12 +219,12 @@ export default function DemandInsightsPage() {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">Đang tải...</span>
         </div>
-      </CDPLayout>
+      </InsightLayout>
     );
   }
 
   return (
-    <CDPLayout>
+    <InsightLayout title="Nhu cầu & Sản phẩm" description="Dịch chuyển nhu cầu và cấu trúc chi tiêu">
       <Helmet>
         <title>Nhu cầu & Sản phẩm | CDP - Bluecore</title>
         <meta name="description" content="Phân tích dịch chuyển nhu cầu và cấu trúc chi tiêu theo nhóm sản phẩm" />
@@ -317,6 +317,6 @@ export default function DemandInsightsPage() {
           </p>
         </div>
       </div>
-    </CDPLayout>
+    </InsightLayout>
   );
 }
