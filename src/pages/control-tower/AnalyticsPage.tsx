@@ -32,13 +32,13 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { useControlTowerAnalytics } from '@/hooks/useControlTowerAnalytics';
+import { useControlTowerAnalyticsSSoT } from '@/hooks/useControlTowerSSOT';
 import DataSourceHealthPanel from '@/components/control-tower/DataSourceHealthPanel';
 import StoreHealthMap from '@/components/control-tower/StoreHealthMap';
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState('overview');
-  const { data, isLoading } = useControlTowerAnalytics();
+  const { data, isLoading } = useControlTowerAnalyticsSSoT();
 
   const revenueData = data?.revenueData || [];
   const categoryData = data?.categoryData || [];
