@@ -29401,6 +29401,10 @@ export type Database = {
         Returns: string
       }
       detect_real_alerts: { Args: { p_tenant_id: string }; Returns: number }
+      execute_readonly_query: {
+        Args: { params?: Json; query_text: string }
+        Returns: Json
+      }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
