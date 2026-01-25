@@ -4,29 +4,34 @@
  */
 import { useState } from 'react';
 import { CDPLayout } from '@/components/layout/CDPLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, Users, Package } from 'lucide-react';
+import { Plus, TrendingUp, Users, Package, CalendarIcon } from 'lucide-react';
 import { ProductForecastForm } from '@/components/cdp/product-forecast/ProductForecastForm';
 import { ProductForecastList } from '@/components/cdp/product-forecast/ProductForecastList';
 import { useProductForecasts, useCategoryConversionStats, useActiveCustomerCount } from '@/hooks/cdp/useProductForecast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const TIMEFRAME_OPTIONS = [
-  { value: '30', label: '30 ngày' },
-  { value: '60', label: '60 ngày' },
-  { value: '90', label: '90 ngày' },
-  { value: '180', label: '180 ngày' },
-  { value: '365', label: '365 ngày' },
-];
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, subDays } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 export default function ProductForecastPage() {
   const [showForm, setShowForm] = useState(false);
-  const [activeTimeframeDays, setActiveTimeframeDays] = useState<number>(90);
+  
+  // Default: last 90 days
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 90),
+    to: new Date(),
+  });
   
   const { data: forecasts, isLoading: forecastsLoading } = useProductForecasts();
   const { data: categoryStats, isLoading: statsLoading } = useCategoryConversionStats();
-  const { data: activeCustomerCount, isLoading: customerCountLoading } = useActiveCustomerCount(activeTimeframeDays);
+  const { data: activeCustomerCount, isLoading: customerCountLoading } = useActiveCustomerCount(
+    dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+    dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined
+  );
 
   const isLoading = forecastsLoading || statsLoading || customerCountLoading;
 
@@ -78,23 +83,45 @@ export default function ProductForecastPage() {
                   <p className="text-2xl font-semibold">
                     {activeCustomerCount?.toLocaleString() || 0}
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm text-muted-foreground">KH active trong</p>
-                    <Select 
-                      value={String(activeTimeframeDays)} 
-                      onValueChange={(v) => setActiveTimeframeDays(Number(v))}
-                    >
-                      <SelectTrigger className="h-6 w-[90px] text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIMEFRAME_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "h-6 text-xs justify-start font-normal",
+                            !dateRange && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-1 h-3 w-3" />
+                          {dateRange?.from ? (
+                            dateRange.to ? (
+                              <>
+                                {format(dateRange.from, "dd/MM/yy", { locale: vi })} - {format(dateRange.to, "dd/MM/yy", { locale: vi })}
+                              </>
+                            ) : (
+                              format(dateRange.from, "dd/MM/yy", { locale: vi })
+                            )
+                          ) : (
+                            <span>Chọn khoảng thời gian</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-background" align="start">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={dateRange?.from}
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          numberOfMonths={2}
+                          locale={vi}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>

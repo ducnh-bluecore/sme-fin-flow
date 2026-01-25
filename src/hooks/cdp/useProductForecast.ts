@@ -363,39 +363,24 @@ export function useAvailableCategories() {
   });
 }
 
-// Count unique active customers within a configurable timeframe
-export function useActiveCustomerCount(days: number = 90) {
+// Count unique active customers within a configurable date range
+export function useActiveCustomerCount(startDate?: string, endDate?: string) {
   const { activeTenant } = useTenant();
 
   return useQuery({
-    queryKey: ['cdp-active-customer-count', activeTenant?.id, days],
+    queryKey: ['cdp-active-customer-count', activeTenant?.id, startDate, endDate],
     queryFn: async () => {
-      if (!activeTenant?.id) return 0;
+      if (!activeTenant?.id || !startDate || !endDate) return 0;
 
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      const cutoffStr = cutoffDate.toISOString().split('T')[0];
-
-      const { count, error } = await supabase
-        .from('cdp_orders')
-        .select('customer_id', { count: 'exact', head: true })
-        .eq('tenant_id', activeTenant.id)
-        .gte('order_date', cutoffStr);
-
-      if (error) {
-        console.error('[useActiveCustomerCount] Error:', error);
-        return 0;
-      }
-
-      // Get distinct count via separate query
-      const { data, error: dataError } = await supabase
+      const { data, error } = await supabase
         .from('cdp_orders')
         .select('customer_id')
         .eq('tenant_id', activeTenant.id)
-        .gte('order_date', cutoffStr);
+        .gte('order_date', startDate)
+        .lte('order_date', endDate);
 
-      if (dataError) {
-        console.error('[useActiveCustomerCount] Data Error:', dataError);
+      if (error) {
+        console.error('[useActiveCustomerCount] Error:', error);
         return 0;
       }
 
@@ -403,6 +388,6 @@ export function useActiveCustomerCount(days: number = 90) {
       const uniqueCustomers = new Set(data?.map(d => d.customer_id) || []);
       return uniqueCustomers.size;
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!activeTenant?.id && !!startDate && !!endDate,
   });
 }
