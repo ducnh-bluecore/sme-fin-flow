@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useCashRunway } from './useCashRunway';
 import { useARAgingData } from './useDashboardData';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
-import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 
@@ -16,12 +15,11 @@ export interface RiskAlert {
 }
 
 export function useRiskAlerts() {
-  // Use SSOT: central_metrics_snapshots via useFinanceTruthSnapshot
+  // SSOT: central_metrics_snapshots via useFinanceTruthSnapshot
   const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
   const { data: runwayData, isLoading: runwayLoading } = useCashRunway();
   const { data: arAgingData, isLoading: arLoading } = useARAgingData();
   const { data: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
-  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
 
   const riskAlerts = useMemo(() => {
     const alerts: RiskAlert[] = [];
@@ -49,7 +47,7 @@ export function useRiskAlerts() {
     }
 
     // 2. DSO Risk - use SSOT from snapshot
-    const dso = centralMetrics?.dso ?? snapshot?.dso ?? 0;
+    const dso = snapshot?.dso ?? 0;
     if (dso > FDP_THRESHOLDS.DSO_CRITICAL_DAYS) {
       alerts.push({
         id: 'dso-critical',
@@ -114,7 +112,7 @@ export function useRiskAlerts() {
     }
 
     // 5. Gross Margin Risk - using SSOT from snapshot
-    const grossMargin = snapshot?.grossMarginPercent || centralMetrics?.grossMargin || 0;
+    const grossMargin = snapshot?.grossMarginPercent || 0;
     if (grossMargin > 0 && grossMargin < FDP_THRESHOLDS.GROSS_MARGIN_CRITICAL_PERCENT) {
       alerts.push({
         id: 'margin-critical',
@@ -136,7 +134,7 @@ export function useRiskAlerts() {
     }
 
     // 6. CCC (Cash Conversion Cycle) Risk - use SSOT
-    const ccc = centralMetrics?.ccc ?? snapshot?.ccc ?? 0;
+    const ccc = snapshot?.ccc ?? 0;
     if (ccc > FDP_THRESHOLDS.CCC_CRITICAL_DAYS) {
       alerts.push({
         id: 'ccc-critical',
@@ -189,10 +187,10 @@ export function useRiskAlerts() {
     alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
     return alerts;
-  }, [snapshot, runwayData, arAgingData, channelData, centralMetrics]);
+  }, [snapshot, runwayData, arAgingData, channelData]);
 
   return {
     data: riskAlerts,
-    isLoading: snapshotLoading || runwayLoading || arLoading || channelLoading || metricsLoading,
+    isLoading: snapshotLoading || runwayLoading || arLoading || channelLoading,
   };
 }

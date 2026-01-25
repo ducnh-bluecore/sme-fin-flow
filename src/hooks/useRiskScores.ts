@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useDashboardKPICache } from './useDashboardCache';
 import { useCashRunway } from './useCashRunway';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
-import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 
 export interface RiskScore {
   category: string;
@@ -29,9 +29,10 @@ export function useRiskScores(): RiskSummary {
   const { data: kpiData, isLoading: kpiLoading } = useDashboardKPICache();
   const { data: cashRunway, isLoading: runwayLoading } = useCashRunway();
   const { data: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
-  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
+  // SSOT: Use useFinanceTruthSnapshot instead of deprecated useCentralFinancialMetrics
+  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
 
-  const isLoading = kpiLoading || runwayLoading || channelLoading || metricsLoading;
+  const isLoading = kpiLoading || runwayLoading || channelLoading || snapshotLoading;
 
   const riskScores = useMemo(() => {
     const scores: RiskScore[] = [];
@@ -55,7 +56,7 @@ export function useRiskScores(): RiskSummary {
 
     // 2. Credit Risk - based on DSO and overdue AR
     let creditScore = 50;
-    const effectiveDso = centralMetrics?.dso ?? kpiData?.dso ?? 0;
+    const effectiveDso = snapshot?.dso ?? kpiData?.dso ?? 0;
     if (kpiData) {
       const dso = effectiveDso;
       const overdueAR = kpiData.overdueAR || 0;
@@ -111,7 +112,7 @@ export function useRiskScores(): RiskSummary {
 
     // 4. Operational Risk - based on CCC and gross margin
     let operationalScore = 50;
-    const effectiveCcc = centralMetrics?.ccc ?? kpiData?.ccc ?? 0;
+    const effectiveCcc = snapshot?.ccc ?? kpiData?.ccc ?? 0;
     if (kpiData) {
       const ccc = effectiveCcc;
       const grossMargin = kpiData.grossMargin || 0;
