@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target, PieChart, CheckCircle2, Clock } from 'lucide-react';
-import { useLTVSummary, useActiveLTVModel } from '@/hooks/useCDPLTVEngine';
+import { useLTVSummary, useActiveLTVModel, useRealizedRevenue } from '@/hooks/useCDPLTVEngine';
 import { cn } from '@/lib/utils';
 
 function formatCurrency(value: number | null | undefined): string {
@@ -27,8 +27,9 @@ function safeNumber(value: number | null | undefined): number {
 export function LTVOverview() {
   const { data: summary, isLoading: summaryLoading } = useLTVSummary();
   const { data: activeModel, isLoading: modelLoading } = useActiveLTVModel();
+  const { data: realizedData, isLoading: realizedLoading } = useRealizedRevenue();
 
-  const isLoading = summaryLoading || modelLoading;
+  const isLoading = summaryLoading || modelLoading || realizedLoading;
 
   if (isLoading) {
     return (
@@ -75,14 +76,19 @@ export function LTVOverview() {
   const totalCustomers = safeNumber(summary.total_customers);
   const atRiskCount = safeNumber(summary.at_risk_count);
 
-  // Calculate realized vs unrealized value
-  // Realized = revenue already collected from customers (approximated from actual orders)
-  // Since LTVSummary doesn't include realized_revenue yet, we estimate:
-  // - For retail, typically 35-45% of 12m equity has been realized from past purchases
-  const estimatedRealizedPercent = 0.40; // Conservative estimate
-  const realizedRevenue = totalEquity12m * estimatedRealizedPercent;
-  const unrealizedValue = totalEquity12m - realizedRevenue;
-  const realizedPercent = estimatedRealizedPercent * 100;
+  // REALIZED = Actual revenue already collected from orders (last 12 months)
+  // PROJECTED = LTV forecast for next 12 months (totalEquity12m)
+  // These are DIFFERENT time periods:
+  // - Realized: Past 12 months (actual)
+  // - Projected: Next 12 months (forecast)
+  const realizedRevenue = safeNumber(realizedData?.realized_revenue_12m);
+  const projectedRevenue = totalEquity12m; // This is FUTURE projection, not overlap
+  
+  // Total customer value = Past (collected) + Future (projected)
+  const totalCustomerValue = realizedRevenue + projectedRevenue;
+  const realizedPercent = totalCustomerValue > 0 
+    ? (realizedRevenue / totalCustomerValue) * 100 
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -99,17 +105,17 @@ export function LTVOverview() {
             </Badge>
           </div>
           <CardDescription>
-            Toàn bộ giá trị tài sản khách hàng - đã thực hiện và tiềm năng
+            Doanh thu đã thu (12 tháng qua) + Dự báo (12 tháng tới)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Main Metrics Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Total Equity */}
+            {/* Total Value */}
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Tổng Equity (12 tháng)</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(totalEquity12m)}</p>
-              <p className="text-xs text-muted-foreground">Customer Lifetime Value</p>
+              <p className="text-xs text-muted-foreground">Tổng giá trị KH</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(totalCustomerValue)}</p>
+              <p className="text-xs text-muted-foreground">Quá khứ + Tương lai</p>
             </div>
             
             {/* Average LTV */}
@@ -119,32 +125,32 @@ export function LTVOverview() {
               <p className="text-xs text-muted-foreground">Median: {formatCurrency(summary.median_ltv_12m)}</p>
             </div>
             
-            {/* Realized */}
+            {/* Realized - PAST 12 months */}
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                <p className="text-xs text-muted-foreground">Đã thực hiện</p>
+                <p className="text-xs text-muted-foreground">Đã thu (12 tháng qua)</p>
               </div>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(realizedRevenue)}</p>
-              <p className="text-xs text-muted-foreground">Doanh thu đã thu</p>
+              <p className="text-xs text-muted-foreground">Dữ liệu thật</p>
             </div>
             
-            {/* Unrealized */}
+            {/* Projected - NEXT 12 months */}
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-amber-600" />
-                <p className="text-xs text-muted-foreground">Còn lại (Tiềm năng)</p>
+                <Clock className="h-3.5 w-3.5 text-blue-600" />
+                <p className="text-xs text-muted-foreground">Dự báo (12 tháng tới)</p>
               </div>
-              <p className="text-2xl font-bold text-amber-600">{formatCurrency(unrealizedValue)}</p>
-              <p className="text-xs text-muted-foreground">Giá trị chưa khai thác</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(projectedRevenue)}</p>
+              <p className="text-xs text-muted-foreground">Customer Equity</p>
             </div>
           </div>
 
-          {/* Progress Bar - Realized vs Unrealized */}
+          {/* Progress Bar - Past vs Future */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Tỷ lệ khai thác giá trị</span>
-              <span className="font-medium">{realizedPercent.toFixed(1)}% đã thực hiện</span>
+              <span className="text-muted-foreground">Phân bổ giá trị khách hàng</span>
+              <span className="font-medium">{realizedPercent.toFixed(1)}% đã thu</span>
             </div>
             <div className="h-3 bg-muted rounded-full overflow-hidden flex">
               <div 
@@ -152,18 +158,18 @@ export function LTVOverview() {
                 style={{ width: `${realizedPercent}%` }}
               />
               <div 
-                className="h-full bg-amber-400 transition-all"
+                className="h-full bg-blue-400 transition-all"
                 style={{ width: `${100 - realizedPercent}%` }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                Đã thu: {formatCurrency(realizedRevenue)}
+                12 tháng qua: {formatCurrency(realizedRevenue)}
               </span>
               <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-amber-400" />
-                Còn lại: {formatCurrency(unrealizedValue)}
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                12 tháng tới: {formatCurrency(projectedRevenue)}
               </span>
             </div>
           </div>
