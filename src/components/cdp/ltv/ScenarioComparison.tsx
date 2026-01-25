@@ -26,9 +26,24 @@ interface ScenarioResult {
   yoy_growth_projected: number;
 }
 
+// Scenario input from ScenarioBuilder - used to apply strategic levers
+interface InputScenario {
+  name: string;
+  retention_boost: number;
+  aov_boost: number;
+  discount_adjust: number;
+  frequency_boost: number;
+  churn_reduction: number;
+  margin_adjust: number;
+  cac_adjust: number;
+  time_horizon: '6m' | '12m' | '24m';
+  population_scope: string;
+}
+
 interface ScenarioComparisonProps {
   results: ScenarioResult[];
   isLoading: boolean;
+  inputScenarios?: InputScenario[];
 }
 
 const COLORS = ['hsl(var(--muted))', 'hsl(var(--primary))', 'hsl(142, 76%, 36%)', 'hsl(45, 93%, 47%)', 'hsl(0, 84%, 60%)'];
@@ -55,6 +70,93 @@ const calculateQuarterlyBreakdown = (totalEquity: number): QuarterlyBreakdown =>
   q3: totalEquity * QUARTERLY_WEIGHTS.q3,
   q4: totalEquity * QUARTERLY_WEIGHTS.q4,
 });
+
+/**
+ * Calculate the impact of strategic levers on equity
+ * 
+ * FDP Manifesto: REVENUE ↔ COST - Mọi doanh thu đều đi kèm chi phí
+ * 
+ * Strategic Levers that affect REVENUE:
+ * - frequency_boost: More purchases = more revenue (1:1 ratio)
+ * - churn_reduction: Less churn = more retained revenue (1:0.8 ratio - conservative)
+ * - retention_boost: Already handled by RPC
+ * - aov_boost: Already handled by RPC
+ * 
+ * Financial Levers that affect PROFIT (not revenue):
+ * - margin_adjust: Affects profit, not top-line revenue
+ * - cac_adjust: Affects profit, not top-line revenue
+ * - discount_adjust: Affects profit, not top-line revenue
+ */
+const calculateStrategicLeverImpact = (
+  baseEquity: number,
+  inputScenario?: InputScenario
+): { adjustedEquity: number; leverImpact: number; leverBreakdown: { frequency: number; churn: number } } => {
+  if (!inputScenario) {
+    return { adjustedEquity: baseEquity, leverImpact: 0, leverBreakdown: { frequency: 0, churn: 0 } };
+  }
+
+  // frequency_boost: Each 1% increase in frequency = ~1% more transactions = ~1% more revenue
+  const frequencyImpact = inputScenario.frequency_boost * 1.0;
+  
+  // churn_reduction: Each 1% reduction in churn = ~0.8% more retained customers = ~0.8% more revenue
+  // Conservative because churn reduction takes time to fully materialize
+  const churnImpact = inputScenario.churn_reduction * 0.8;
+  
+  // Total revenue impact from strategic levers
+  const totalLeverImpact = frequencyImpact + churnImpact;
+  
+  // Apply to base equity
+  const adjustedEquity = baseEquity * (1 + totalLeverImpact);
+  
+  return {
+    adjustedEquity,
+    leverImpact: totalLeverImpact,
+    leverBreakdown: {
+      frequency: frequencyImpact,
+      churn: churnImpact,
+    },
+  };
+};
+
+// Apply strategic levers to RPC results
+const applyStrategicLevers = (
+  results: ScenarioResult[],
+  inputScenarios?: InputScenario[]
+): ScenarioResult[] => {
+  if (!inputScenarios || inputScenarios.length === 0) return results;
+  
+  return results.map((result, idx) => {
+    // Baseline (first result) - no adjustment
+    if (idx === 0) return result;
+    
+    // Find matching input scenario (offset by 1 because baseline is first)
+    const inputScenario = inputScenarios[idx - 1];
+    if (!inputScenario) return result;
+    
+    // Apply strategic lever impact
+    const { adjustedEquity, leverImpact } = calculateStrategicLeverImpact(
+      safeNumber(result.total_equity_12m),
+      inputScenario
+    );
+    
+    // Calculate baseline for delta comparison
+    const baselineEquity = safeNumber(results[0]?.total_equity_12m);
+    const newDelta = adjustedEquity - baselineEquity;
+    const newDeltaPercent = baselineEquity > 0 ? (newDelta / baselineEquity) * 100 : 0;
+    
+    // Apply to 24m as well (proportional)
+    const equity24m = safeNumber(result.total_equity_24m);
+    const adjusted24m = equity24m * (1 + leverImpact);
+    
+    return {
+      ...result,
+      total_equity_12m: adjustedEquity,
+      total_equity_24m: adjusted24m,
+      delta_vs_base_12m: newDelta,
+      delta_percent_12m: newDeltaPercent,
+    };
+  });
+};
 
 // Calculate YoY metrics from available data
 const calculateYoYMetrics = (baseline: ScenarioResult, scenario?: ScenarioResult) => {
@@ -478,9 +580,20 @@ function MethodologyNote() {
             <p className="font-medium">Về phương pháp tính toán:</p>
             <ul className="list-disc list-inside space-y-0.5 ml-2">
               <li><strong>Thực tế:</strong> Dữ liệu LTV được tính từ giao dịch thực, áp dụng retention curve và discount rate từ mô hình hiện tại.</li>
-              <li><strong>Ước tính:</strong> Điều chỉnh các tham số (retention, AOV, discount) và chiếu đến equity mới. Đây là con số giả định.</li>
-              <li><strong>Phân bổ quý:</strong> Dựa trên seasonal pattern của 12 tháng qua để ước tính phân bổ doanh thu.</li>
-              <li>Công thức: LTV = Σ (Profit × Retention<sub>t</sub> × Growth<sub>t</sub>) / (1 + Discount)<sup>t</sup></li>
+              <li><strong>Đòn bẩy chiến lược (ảnh hưởng doanh thu):</strong>
+                <ul className="list-disc list-inside ml-4 mt-0.5">
+                  <li>Retention & AOV: Tính trực tiếp qua LTV model</li>
+                  <li>Tần suất mua: Mỗi +1% = +1% doanh thu</li>
+                  <li>Giảm churn: Mỗi +1% = +0.8% doanh thu (bảo thủ)</li>
+                </ul>
+              </li>
+              <li><strong>Điều chỉnh tài chính (KHÔNG ảnh hưởng doanh thu):</strong>
+                <ul className="list-disc list-inside ml-4 mt-0.5">
+                  <li>Biên lợi nhuận: Ảnh hưởng profit, không ảnh hưởng top-line</li>
+                  <li>Chi phí CAC: Ảnh hưởng ROI, không ảnh hưởng doanh thu</li>
+                </ul>
+              </li>
+              <li><strong>Phân bổ quý:</strong> Dựa trên seasonal pattern (Q1: 22%, Q2: 26%, Q3: 24%, Q4: 28%)</li>
             </ul>
           </div>
         </div>
@@ -490,7 +603,7 @@ function MethodologyNote() {
 }
 
 // Main Component
-export function ScenarioComparison({ results, isLoading }: ScenarioComparisonProps) {
+export function ScenarioComparison({ results, isLoading, inputScenarios }: ScenarioComparisonProps) {
   if (isLoading) {
     return (
       <Card>
@@ -505,8 +618,12 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
     return <EmptyState />;
   }
 
-  const baseline = results[0];
-  const scenarios = results.slice(1);
+  // Apply strategic levers (frequency_boost, churn_reduction) to RPC results
+  // These levers affect REVENUE, while financial levers (margin, CAC) only affect PROFIT
+  const adjustedResults = applyStrategicLevers(results, inputScenarios);
+
+  const baseline = adjustedResults[0];
+  const scenarios = adjustedResults.slice(1);
   const bestScenario = scenarios.length > 0 
     ? scenarios.reduce((best, s) => safeNumber(s.delta_percent_12m) > safeNumber(best.delta_percent_12m) ? s : best, scenarios[0])
     : undefined;
@@ -529,18 +646,18 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
             <CardTitle className="text-base flex items-center gap-2">
               So sánh tất cả kịch bản
               <Badge variant="secondary" className="text-[10px]">
-                {results.length} kịch bản
+                {adjustedResults.length} kịch bản
               </Badge>
             </CardTitle>
             <CardDescription>
-              Customer Equity dự kiến 12 tháng - So sánh giữa thực tế và các giả định
+              Customer Equity dự kiến 12 tháng - Bao gồm tác động từ đòn bẩy chiến lược
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart 
-                  data={results.map((r, i) => ({
+                  data={adjustedResults.map((r, i) => ({
                     name: r.scenario_name,
                     equity: safeNumber(r.total_equity_12m),
                     delta: safeNumber(r.delta_percent_12m),
@@ -567,7 +684,7 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
                     contentStyle={{ fontSize: 12 }}
                   />
                   <Bar dataKey="equity" radius={[0, 4, 4, 0]}>
-                    {results.map((_, index) => (
+                    {adjustedResults.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Bar>
@@ -579,7 +696,7 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
       )}
 
       {/* 4. Detailed Table */}
-      <ScenariosTable results={results} />
+      <ScenariosTable results={adjustedResults} />
 
       {/* 5. Methodology Note */}
       <MethodologyNote />
