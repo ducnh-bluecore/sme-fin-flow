@@ -246,6 +246,44 @@ export function useLTVSummary() {
   });
 }
 
+/**
+ * Fetch actual realized revenue from cdp_orders (last 12 months)
+ * This is the REAL revenue already collected, not projected
+ */
+export function useRealizedRevenue() {
+  const { data: tenantId } = useActiveTenantId();
+
+  return useQuery({
+    queryKey: ['cdp', 'realized-revenue', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+
+      // Get actual revenue from orders in the last 12 months
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const dateStr = oneYearAgo.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('cdp_orders')
+        .select('net_revenue')
+        .eq('tenant_id', tenantId)
+        .gte('order_date', dateStr);
+
+      if (error) throw error;
+      
+      const totalRealized = (data || []).reduce((sum, order) => 
+        sum + (order.net_revenue || 0), 0
+      );
+      
+      return {
+        realized_revenue_12m: totalRealized,
+        order_count: data?.length || 0
+      };
+    },
+    enabled: !!tenantId,
+  });
+}
+
 // ============ MUTATIONS ============
 
 export interface CreateLTVModelInput {
