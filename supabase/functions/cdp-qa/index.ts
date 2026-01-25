@@ -246,21 +246,47 @@ serve(async (req) => {
       });
     }
 
-    // RPC returns data in nested structure - unwrap it
-    // Format: [{ execute_readonly_query: [...actualRows...] }] or just [...actualRows...]
-    let safeRows: unknown[] = [];
-    if (Array.isArray(rpcResult)) {
-      if (rpcResult.length > 0 && rpcResult[0]?.execute_readonly_query) {
-        // Nested format from RPC
-        safeRows = rpcResult[0].execute_readonly_query || [];
-      } else {
-        // Direct array format
-        safeRows = rpcResult;
+    // RPC returns JSONB; PostgREST/Supabase-js can surface it as:
+    // - [{ execute_readonly_query: [...] }] (scalar wrapped)
+    // - [...] (direct array)
+    // - "[...]" (stringified JSON)
+    // - { execute_readonly_query: [...] } (object)
+    let normalized: unknown = rpcResult;
+    if (typeof normalized === 'string') {
+      try {
+        normalized = JSON.parse(normalized);
+      } catch {
+        // keep as-is; will fall through to empty
       }
-    } else if (rpcResult && typeof rpcResult === 'object') {
-      // Single object result
-      safeRows = [rpcResult];
     }
+
+    let safeRows: unknown[] = [];
+    if (Array.isArray(normalized)) {
+      if (normalized.length > 0 && typeof normalized[0] === 'object' && normalized[0] !== null) {
+        const first = normalized[0] as Record<string, unknown>;
+        const maybeWrapped = first['execute_readonly_query'];
+        if (Array.isArray(maybeWrapped)) {
+          safeRows = maybeWrapped;
+        } else {
+          safeRows = normalized;
+        }
+      } else {
+        safeRows = normalized;
+      }
+    } else if (normalized && typeof normalized === 'object') {
+      const obj = normalized as Record<string, unknown>;
+      const maybeWrapped = obj['execute_readonly_query'];
+      safeRows = Array.isArray(maybeWrapped) ? maybeWrapped : [normalized];
+    }
+
+    // Minimal observability for reliability debugging
+    console.log('[cdp-qa] readonly_query', {
+      tenant: activeTenantId,
+      sql_preview: finalSql.slice(0, 180),
+      rpc_type: typeof rpcResult,
+      normalized_is_array: Array.isArray(normalized),
+      rowCount: safeRows.length,
+    });
     const sampleRows = safeRows.slice(0, 50);
 
     // 3) Ask AI to answer based on real query results (stream)
