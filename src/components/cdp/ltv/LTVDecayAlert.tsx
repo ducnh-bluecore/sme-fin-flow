@@ -158,21 +158,37 @@ export function LTVDecayAlert({ alerts, isLoading, onCreateDecisionCard }: LTVDe
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <p className="text-xs text-muted-foreground italic">
-                    💡 {alert.recommendation}
+                <div className="space-y-2 pt-2 border-t border-border/50">
+                  <div className="flex items-start gap-2 p-2 bg-muted/50 rounded text-xs">
+                    <Info className="w-3 h-3 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <span className="font-medium">Đề xuất: </span>
+                      <span className="text-muted-foreground">{alert.recommendation}</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    * Dữ liệu dựa trên phân tích cohort/segment từ {new Date().toLocaleDateString('vi-VN')}. Quyết định cuối cùng thuộc về doanh nghiệp.
                   </p>
-                  {onCreateDecisionCard && (
+                  <div className="flex items-center justify-end gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-xs h-7"
-                      onClick={() => onCreateDecisionCard(alert)}
+                      className="text-xs h-7 text-muted-foreground"
                     >
-                      Tạo Thẻ Quyết định
-                      <ArrowRight className="h-3 w-3 ml-1" />
+                      Bỏ qua
                     </Button>
-                  )}
+                    {onCreateDecisionCard && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => onCreateDecisionCard(alert)}
+                      >
+                        Tạo Thẻ Quyết định
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </AlertDescription>
             </Alert>

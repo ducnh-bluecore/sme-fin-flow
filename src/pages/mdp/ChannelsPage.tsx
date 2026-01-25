@@ -596,14 +596,14 @@ export default function ChannelsPage() {
                 <CardHeader>
                   <CardTitle className={cn("flex items-center gap-2", config.color)}>
                     <Icon className="h-5 w-5" />
-                    {type === 'scale' && 'Kênh nên SCALE'}
-                    {type === 'reduce' && 'Kênh cần GIẢM ngân sách'}
-                    {type === 'stop' && 'Kênh cần DỪNG ngay'}
+                    {type === 'scale' && 'Đề xuất tăng ngân sách'}
+                    {type === 'reduce' && 'Đề xuất xem xét giảm ngân sách'}
+                    {type === 'stop' && 'Đề xuất tạm dừng để đánh giá'}
                   </CardTitle>
                   <CardDescription>
-                    {type === 'scale' && 'Margin tốt + Cash nhanh - Tăng ngân sách để tối đa hóa lợi nhuận'}
-                    {type === 'reduce' && 'Có vấn đề về margin hoặc cash - Cần xem xét lại chiến lược'}
-                    {type === 'stop' && 'Đang đốt tiền - Dừng để cắt lỗ ngay lập tức'}
+                    {type === 'scale' && 'Margin tốt + Cash nhanh - Cân nhắc tăng ngân sách để tối đa hóa lợi nhuận'}
+                    {type === 'reduce' && 'Phát hiện vấn đề về margin hoặc cash - Nên xem xét lại chiến lược'}
+                    {type === 'stop' && 'Chi phí đang vượt doanh thu - Nên xem xét tạm dừng để đánh giá'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -639,9 +639,9 @@ export default function ChannelsPage() {
                             variant={type === 'stop' ? 'destructive' : type === 'scale' ? 'default' : 'outline'}
                             onClick={() => navigate(`/channel/${encodeURIComponent(channel.channel)}`)}
                           >
-                            {type === 'scale' && 'Scale ngay'}
-                            {type === 'reduce' && 'Xem xét'}
-                            {type === 'stop' && 'Dừng ngay'}
+                            {type === 'scale' && 'Xem chi tiết'}
+                            {type === 'reduce' && 'Xem chi tiết'}
+                            {type === 'stop' && 'Xem chi tiết'}
                           </Button>
                         </div>
                       </div>

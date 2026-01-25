@@ -111,9 +111,9 @@ export function QuickActionCards({ profitData, cashImpact, summary, onAction }: 
               {lossMakingCampaigns.length} lỗ
             </Badge>
           </div>
-          <h3 className="font-bold text-lg text-red-400 mb-1">PAUSE</h3>
+          <h3 className="font-bold text-lg text-red-400 mb-1">Đề xuất Xem xét</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Campaigns đang đốt tiền cần dừng ngay
+            Campaigns có chi phí vượt doanh thu - nên xem xét tạm dừng
           </p>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Đang mất mỗi ngày</span>
