@@ -15,7 +15,10 @@ function formatCurrency(value: number | null | undefined): string {
     return `${(value / 1_000_000_000).toFixed(1)} tỷ`;
   }
   if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(0)}M`;
+    // Show 1 decimal for millions to avoid rounding confusion
+    const formatted = (value / 1_000_000).toFixed(1);
+    // Remove trailing .0 for cleaner display
+    return formatted.endsWith('.0') ? `${parseInt(formatted)}M` : `${formatted}M`;
   }
   if (value >= 1_000) {
     return `${(value / 1_000).toFixed(0)}K`;
