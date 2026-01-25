@@ -5376,6 +5376,112 @@ export type Database = {
           },
         ]
       }
+      cdp_insight_audit_log: {
+        Row: {
+          checked_at: string
+          created_at: string
+          failure_reasons: string[] | null
+          id: string
+          insight_code: string
+          insight_event_id: string | null
+          insight_metrics: Json | null
+          passed: boolean
+          source_metrics: Json | null
+          tenant_id: string | null
+          validation_result: Json
+        }
+        Insert: {
+          checked_at?: string
+          created_at?: string
+          failure_reasons?: string[] | null
+          id?: string
+          insight_code: string
+          insight_event_id?: string | null
+          insight_metrics?: Json | null
+          passed?: boolean
+          source_metrics?: Json | null
+          tenant_id?: string | null
+          validation_result?: Json
+        }
+        Update: {
+          checked_at?: string
+          created_at?: string
+          failure_reasons?: string[] | null
+          id?: string
+          insight_code?: string
+          insight_event_id?: string | null
+          insight_metrics?: Json | null
+          passed?: boolean
+          source_metrics?: Json | null
+          tenant_id?: string | null
+          validation_result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_evidence"
+            referencedColumns: ["insight_event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_demand_insights"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_highlight_signals"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_feed"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_insight_cluster_members: {
         Row: {
           cluster_id: string
@@ -23897,6 +24003,40 @@ export type Database = {
           },
         ]
       }
+      v_cdp_insight_quality_summary: {
+        Row: {
+          codes_tested: number | null
+          failed_count: number | null
+          last_check_at: string | null
+          pass_rate: number | null
+          passed_count: number | null
+          tenant_id: string | null
+          total_insights: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_insight_registry_stats: {
         Row: {
           enabled_count: number | null
@@ -23938,41 +24078,53 @@ export type Database = {
           description: string | null
           is_enabled: boolean | null
           is_triggered: boolean | null
-          last_triggered_at: string | null
           last_triggered_date: string | null
           name: string | null
           owners: string[] | null
           population_type: string | null
           tenant_id: string | null
           threshold: string | null
-          threshold_json: Json | null
           topic: string | null
           triggered_count: number | null
           window_days: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
+        Insert: {
+          baseline_days?: number | null
+          category?: string | null
+          code?: string | null
+          cooldown_days?: number | null
+          description?: never
+          is_enabled?: boolean | null
+          is_triggered?: never
+          last_triggered_date?: never
+          name?: string | null
+          owners?: never
+          population_type?: string | null
+          tenant_id?: never
+          threshold?: never
+          topic?: string | null
+          triggered_count?: never
+          window_days?: number | null
+        }
+        Update: {
+          baseline_days?: number | null
+          category?: string | null
+          code?: string | null
+          cooldown_days?: number | null
+          description?: never
+          is_enabled?: boolean | null
+          is_triggered?: never
+          last_triggered_date?: never
+          name?: string | null
+          owners?: never
+          population_type?: string | null
+          tenant_id?: never
+          threshold?: never
+          topic?: string | null
+          triggered_count?: never
+          window_days?: number | null
+        }
+        Relationships: []
       }
       v_cdp_insight_topic_counts: {
         Row: {
@@ -25800,6 +25952,20 @@ export type Database = {
       cdp_toggle_insight_enabled: {
         Args: { p_enabled: boolean; p_insight_code: string }
         Returns: undefined
+      }
+      cdp_validate_insight_accuracy: {
+        Args: { p_insight_code?: string; p_tenant_id: string }
+        Returns: {
+          customer_match: boolean
+          insight_code: string
+          insight_event_id: string
+          metric_match: boolean
+          overall_passed: boolean
+          reported_customer_count: number
+          reported_metric_value: number
+          source_customer_count: number
+          source_metric_value: number
+        }[]
       }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
       check_metric_consistency: {

@@ -28,9 +28,11 @@ import {
   Database, 
   RefreshCw,
   Shield,
-  Activity
+  Activity,
+  Brain
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { InsightQualityCard } from './InsightQualityCard';
 
 interface HealthCheck {
   name: string;
@@ -452,6 +454,9 @@ export function SSOTComplianceDashboard() {
             ))}
           </div>
         </div>
+
+        {/* Insight Quality Gate - Phase 3 */}
+        <InsightQualityCard />
 
         {/* Compliance Score */}
         <div className="grid grid-cols-4 gap-4">
