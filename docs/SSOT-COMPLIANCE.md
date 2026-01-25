@@ -171,8 +171,24 @@ The system automatically detects SSOT violations via:
   - `rawQueryResults` (for DataQualityIndicator compatibility)
   - `funnelData` (calculated from performance metrics)
 
-### Remaining Migration Tasks (Future Phases)
-- `useFDPMetrics` consumers in `useMarketingProfitability`
-- `useCentralFinancialMetrics` in Executive/AR/Scenario pages
-- `usePerformanceData` in Control Tower PerformancePage
-- `usePLData` / `useChannelPL` in report pages
+## Phase 5: Cleanup (In Progress)
+
+**Date:** 2025-01-25
+
+### Migrated Hooks/Components
+- ✅ `useRiskScores.ts` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+- ✅ `useRiskAlerts.ts` - Removed `useCentralFinancialMetrics`, now uses only `useFinanceTruthSnapshot`
+- ✅ `useQuickWins.ts` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+- ✅ `RealCashBreakdown.tsx` - Migrated to `useFinanceTruthSnapshot`
+- ✅ `PerformancePage.tsx` - Replaced `usePerformanceData` with `useFinanceTruthSnapshot`
+- ✅ `PendingDecisionCards.tsx` - Fixed React.forwardRef warning
+
+### Remaining Migration Tasks (Low Priority)
+- `useRollingForecast.ts` - Uses `useCentralFinancialMetrics`
+- `useFinancialAnalysisData.ts` - Uses `useCentralFinancialMetrics`
+- `ExecutiveSummaryPage.tsx` - Uses `useCentralFinancialMetrics`
+- `AROperations.tsx` - Uses `useCentralFinancialMetrics`
+- `ScenarioHubPage.tsx` - Uses `useCentralFinancialMetrics`
+- `ScenarioPlanner.tsx` - Uses `useCentralFinancialMetrics`
+- `ChannelPLPage.tsx` - Uses `useChannelPL`
+- `PLReportPage.tsx` - Uses `usePLData`

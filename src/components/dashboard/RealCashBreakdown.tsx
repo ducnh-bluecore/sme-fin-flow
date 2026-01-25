@@ -26,7 +26,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { formatVNDCompact, formatVND } from '@/lib/formatters';
-import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -42,10 +42,22 @@ interface CashCategory {
 }
 
 export default function RealCashBreakdown() {
-  const { data: metrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
+  // SSOT: Use useFinanceTruthSnapshot instead of deprecated useCentralFinancialMetrics
+  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
   const { data: cashRunway, isLoading: runwayLoading } = useCashRunway();
 
-  const isLoading = metricsLoading || runwayLoading;
+  const isLoading = snapshotLoading || runwayLoading;
+
+  // Map snapshot to metrics shape for backward compatibility
+  const metrics = snapshot ? {
+    cashToday: snapshot.cashToday,
+    totalAR: snapshot.totalAR,
+    overdueAR: snapshot.overdueAR,
+    totalInventoryValue: snapshot.totalInventoryValue,
+    totalMarketingSpend: snapshot.totalMarketingSpend,
+    arAgingCurrent: snapshot.arAgingCurrent,
+    arAging90d: snapshot.arAging90d + (snapshot.arAging60d ?? 0), // Combine 60+ days as at-risk
+  } : null;
 
   if (isLoading) {
     return (
@@ -62,17 +74,16 @@ export default function RealCashBreakdown() {
     );
   }
 
-  // Calculate cash categories
-  const bankBalance = metrics?.cashOnHand || 0;
+  // Calculate cash categories - using SSOT metrics
+  const bankBalance = metrics?.cashToday || 0;
   const totalAR = metrics?.totalAR || 0;
   const overdueAR = metrics?.overdueAR || 0;
   const currentAR = totalAR - overdueAR;
   
   // Estimate locked cash (inventory + estimated ads float)
-  const inventoryValue = metrics?.inventory || 0;
-  // Estimate ads float as 5% of monthly revenue (typical for e-commerce)
-  const monthlyRevenue = (metrics?.totalRevenue || 0) / (metrics?.daysInPeriod || 30) * 30;
-  const estimatedAdsFloat = monthlyRevenue * 0.05;
+  const inventoryValue = metrics?.totalInventoryValue || 0;
+  // Estimate ads float based on marketing spend
+  const estimatedAdsFloat = (metrics?.totalMarketingSpend || 0) * 0.2; // 20% of marketing as float
   const lockedCash = inventoryValue + estimatedAdsFloat;
 
   // Calculate risk levels

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useInvoices } from './useInvoiceData';
 import { useDashboardKPICache } from './useDashboardCache';
 import { useChannelAnalyticsCache } from './useChannelAnalyticsCache';
-import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 
 export interface QuickWin {
   id: string;
@@ -24,8 +24,8 @@ export function useQuickWins() {
   const { data: invoices, isLoading: invoicesLoading } = useInvoices();
   const { data: kpiData, isLoading: kpiLoading } = useDashboardKPICache();
   const { cacheData: channelData, isLoading: channelLoading } = useChannelAnalyticsCache();
-  // Use central metrics for DSO (Single Source of Truth)
-  const { data: centralMetrics, isLoading: metricsLoading } = useCentralFinancialMetrics();
+  // SSOT: Use useFinanceTruthSnapshot instead of deprecated useCentralFinancialMetrics
+  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
 
   const quickWins = useMemo(() => {
     const wins: QuickWin[] = [];
@@ -124,12 +124,12 @@ export function useQuickWins() {
       }
     }
 
-    // 4. DSO Improvement - use central metrics (Single Source of Truth)
-    const dso = centralMetrics?.dso ?? kpiData?.dso ?? 0;
-    const totalAR = centralMetrics?.totalAR ?? kpiData?.totalAR ?? 0;
+    // 4. DSO Improvement - use SSOT snapshot
+    const dso = snapshot?.dso ?? kpiData?.dso ?? 0;
+    const arTotal = snapshot?.totalAR ?? kpiData?.totalAR ?? 0;
     if (dso > 45) {
       // Each day of DSO reduction = revenue / 365 * days
-      const dailyRevenue = totalAR / dso || 0;
+      const dailyRevenue = arTotal / dso || 0;
       const targetDSOReduction = Math.min(10, dso - 45);
       const cashFlowImprovement = dailyRevenue * targetDSOReduction;
 
@@ -187,7 +187,7 @@ export function useQuickWins() {
     return wins
       .filter(w => w.savings > 0 || w.category === 'revenue')
       .sort((a, b) => b.savings - a.savings);
-  }, [invoices, kpiData, channelData, centralMetrics]);
+  }, [invoices, kpiData, channelData, snapshot]);
 
   const totalPotentialSavings = useMemo(() => {
     return quickWins.reduce((sum, w) => sum + w.savings, 0);
@@ -196,6 +196,6 @@ export function useQuickWins() {
   return {
     quickWins,
     totalPotentialSavings,
-    isLoading: invoicesLoading || kpiLoading || channelLoading || metricsLoading,
+    isLoading: invoicesLoading || kpiLoading || channelLoading || snapshotLoading,
   };
 }
