@@ -74,6 +74,63 @@ const riskLevelStyles: Record<string, string> = {
   high: 'bg-destructive/10 text-destructive',
 };
 
+// Helper: Convert technical problem statement to business language
+function formatProblemAsBusinessContext(rawStatement: string, customerCount: number, riskAmount: number): string {
+  // Parse common patterns and convert to business language
+  const lowerStatement = rawStatement.toLowerCase();
+  
+  // Pattern: LTV/inactive customers
+  if (lowerStatement.includes('inactive') || lowerStatement.includes('churn') || lowerStatement.includes('ltv')) {
+    const avgLTV = riskAmount && customerCount ? Math.round(riskAmount / customerCount) : 0;
+    return `Nhóm ${customerCount.toLocaleString()} khách hàng có giá trị cao (LTV trung bình ~${avgLTV > 0 ? (avgLTV / 1_000_000).toFixed(1) + 'M' : '1M+'} VND) đang ngừng mua hàng. Nếu không can thiệp, doanh nghiệp có thể mất ${riskAmount > 0 ? (riskAmount / 1_000_000).toFixed(0) + 'M VND' : 'một khoản đáng kể'} doanh thu tiềm năng.`;
+  }
+  
+  // Pattern: Discount/margin erosion
+  if (lowerStatement.includes('discount') || lowerStatement.includes('margin') || lowerStatement.includes('shopee')) {
+    return `Chi phí khuyến mãi/chiết khấu đang ăn mòn biên lợi nhuận. Xu hướng này nếu tiếp tục sẽ ảnh hưởng trực tiếp đến dòng tiền và khả năng sinh lời của kênh bán.`;
+  }
+  
+  // Pattern: Fee/platform cost
+  if (lowerStatement.includes('fee') || lowerStatement.includes('tiktok') || lowerStatement.includes('platform')) {
+    return `Chi phí vận hành trên kênh bán đang tăng cao hơn mức bền vững. Cần đánh giá lại cơ cấu chi phí để đảm bảo lợi nhuận dương.`;
+  }
+  
+  // Pattern: Cohort/new customer quality
+  if (lowerStatement.includes('cohort') || lowerStatement.includes('acquisition') || lowerStatement.includes('new customer')) {
+    return `Chất lượng khách hàng mới đang có dấu hiệu suy giảm. Điều này ảnh hưởng trực tiếp đến giá trị tài sản khách hàng dài hạn và ROI của hoạt động marketing.`;
+  }
+  
+  // Default: Clean up technical jargon
+  return rawStatement
+    .replace(/FDP\s*external_orders:/gi, 'Dữ liệu cho thấy:')
+    .replace(/LTV\s*avg/gi, 'giá trị trung bình')
+    .replace(/inactive\s*(\d+)\+?\s*days/gi, 'không hoạt động hơn $1 ngày')
+    .replace(/Total\s*risk:/gi, 'Tổng giá trị rủi ro:');
+}
+
+// Helper: Generate business implication
+function getBusinessImplication(title: string, riskAmount: number, customerCount: number): string {
+  const lowerTitle = title.toLowerCase();
+  
+  if (lowerTitle.includes('churn') || lowerTitle.includes('retain') || lowerTitle.includes('ltv')) {
+    return `Khách hàng giá trị cao một khi rời đi rất khó thu hút lại. Chi phí acquire khách mới thường cao gấp 5-7 lần chi phí giữ chân khách hiện tại.`;
+  }
+  
+  if (lowerTitle.includes('discount') || lowerTitle.includes('margin')) {
+    return `Biên lợi nhuận bị xói mòn sẽ tạo áp lực lên dòng tiền và hạn chế khả năng đầu tư phát triển. Cần cân bằng giữa tăng trưởng và lợi nhuận.`;
+  }
+  
+  if (lowerTitle.includes('fee') || lowerTitle.includes('cost')) {
+    return `Chi phí vận hành tăng không kiểm soát sẽ ảnh hưởng trực tiếp đến điểm hòa vốn và khả năng cạnh tranh về giá.`;
+  }
+  
+  if (lowerTitle.includes('cohort') || lowerTitle.includes('acquisition')) {
+    return `Chất lượng khách hàng mới quyết định giá trị tài sản khách hàng (Customer Equity) trong 12-24 tháng tới.`;
+  }
+  
+  return `Vấn đề này nếu không được xử lý có thể ảnh hưởng đến ${riskAmount > 0 ? (riskAmount / 1_000_000).toFixed(0) + 'M VND' : 'doanh thu'} trong kỳ tới.`;
+}
+
 export function DecisionDetailView({ card }: DecisionDetailViewProps) {
   const navigate = useNavigate();
   const [decisionOutcome, setDecisionOutcome] = useState(card.decision?.outcome || '');
@@ -145,22 +202,53 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
         </CardHeader>
       </Card>
 
-      {/* [B] Problem Statement - Key Insight */}
+      {/* [B] Problem Statement - Business Context */}
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
-            Vấn đề Cần Quyết định
+            Vấn đề Kinh doanh
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-base leading-relaxed font-medium">{card.problemStatement}</p>
-          {card.equityImpact > 0 && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Ước tính tác động:</span>
-              <span className="text-destructive font-bold">₫{formatCurrency(card.equityImpact)}</span>
+        <CardContent className="space-y-4">
+          {/* Business Interpretation */}
+          <div className="space-y-2">
+            <p className="text-base leading-relaxed font-medium">
+              {formatProblemAsBusinessContext(card.problemStatement, card.affectedPopulation.size, card.equityImpact)}
+            </p>
+          </div>
+          
+          {/* Key Business Metrics - At a Glance */}
+          {(card.equityImpact > 0 || card.affectedPopulation.size > 0) && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-3 border-t">
+              {card.affectedPopulation.size > 0 && (
+                <div className="bg-background p-3 rounded-lg">
+                  <p className="text-2xl font-bold text-primary">{card.affectedPopulation.size.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">khách hàng bị ảnh hưởng</p>
+                </div>
+              )}
+              {card.equityImpact > 0 && (
+                <div className="bg-background p-3 rounded-lg">
+                  <p className="text-2xl font-bold text-destructive">₫{formatCurrency(card.equityImpact)}</p>
+                  <p className="text-xs text-muted-foreground">doanh thu đang rủi ro</p>
+                </div>
+              )}
+              {card.affectedPopulation.revenueShare > 0 && (
+                <div className="bg-background p-3 rounded-lg">
+                  <p className="text-2xl font-bold">{card.affectedPopulation.revenueShare}%</p>
+                  <p className="text-xs text-muted-foreground">tỷ trọng doanh thu</p>
+                </div>
+              )}
             </div>
           )}
+          
+          {/* Why it matters - Business implication */}
+          <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+            <p className="text-sm font-medium text-warning-foreground mb-1">⚠️ Tại sao cần quan tâm?</p>
+            <p className="text-sm text-muted-foreground">
+              {getBusinessImplication(card.title, card.equityImpact, card.affectedPopulation.size)}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
