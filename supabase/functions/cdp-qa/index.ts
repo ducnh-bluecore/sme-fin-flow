@@ -50,11 +50,11 @@ serve(async (req) => {
       );
     }
 
-    // Get API key for Lovable AI
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    // Get API key for OpenAI
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -117,15 +117,15 @@ ${SUGGESTED_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
 Tenant ID hiện tại: ${activeTenantId}`;
 
-    // Call Lovable AI
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call OpenAI API
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
