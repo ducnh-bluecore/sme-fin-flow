@@ -43,9 +43,24 @@ ${CDP_QUERYABLE_VIEWS.map(v => `- ${v}`).join('\n')}
 4) Luôn chọn các cột đúng theo schema mô tả.
 5) Nếu câu hỏi không thể trả lời bằng các view hiện có, vẫn phải trả về một SQL hợp lệ để kiểm tra "không có dữ liệu" (ví dụ SELECT ... LIMIT 0) trên một view phù hợp nhất.
 
+QUY TẮC VỀ DATE/TIME (tránh lỗi runtime):
+- Nếu cần dùng mốc tháng mà bạn viết dạng YYYY-MM thì PHẢI chuyển thành ngày hợp lệ: 'YYYY-MM-01'.
+- Khi so sánh theo năm, ưu tiên dùng EXTRACT(YEAR FROM <date_column>) hoặc date_trunc('year', <date_column>) thay vì so sánh chuỗi.
+
 SCHEMA CONTEXT:
 ${schemaContext}
 `;
+}
+
+function sanitizeGeneratedSql(sql: string): string {
+  // 1) Remove semicolons completely (prevents statement chaining)
+  let s = sql.trim().replace(/;/g, '');
+
+  // 2) Fix common invalid date literals like '2023-01' -> '2023-01-01'
+  //    This avoids Postgres: invalid input syntax for type date
+  s = s.replace(/'([0-9]{4})-([0-9]{2})'\b/g, "'$1-$2-01'");
+
+  return s.trim();
 }
 
 function buildAnswerPrompt(params: {
@@ -199,10 +214,7 @@ serve(async (req) => {
 
     const sqlGenJson = (await sqlGenResp.json()) as OpenAIChatResponse;
     // LLMs sometimes add trailing semicolons; disallow/strip them to keep RPC safe.
-    const rawSql = (sqlGenJson.choices?.[0]?.message?.content || '')
-      .trim()
-      // remove any semicolons to prevent statement chaining and parser edge cases
-      .replace(/;/g, '');
+    const rawSql = sanitizeGeneratedSql(sqlGenJson.choices?.[0]?.message?.content || '');
     if (!rawSql) {
       return new Response(JSON.stringify({ error: 'AI không tạo được truy vấn' }), {
         status: 500,
