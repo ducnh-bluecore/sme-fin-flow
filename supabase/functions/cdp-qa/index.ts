@@ -233,9 +233,9 @@ serve(async (req) => {
     const finalSql = injectTenantFilter(rawSql, activeTenantId);
 
     // 2) Execute query (read-only) and collect sample
-    const { data: rows, error: queryError } = await supabase.rpc('execute_readonly_query', {
+    const { data: rpcResult, error: queryError } = await supabase.rpc('execute_readonly_query', {
       query_text: finalSql,
-      params: [],
+      params: {},
     });
 
     if (queryError) {
@@ -246,7 +246,21 @@ serve(async (req) => {
       });
     }
 
-    const safeRows = Array.isArray(rows) ? rows : [];
+    // RPC returns data in nested structure - unwrap it
+    // Format: [{ execute_readonly_query: [...actualRows...] }] or just [...actualRows...]
+    let safeRows: unknown[] = [];
+    if (Array.isArray(rpcResult)) {
+      if (rpcResult.length > 0 && rpcResult[0]?.execute_readonly_query) {
+        // Nested format from RPC
+        safeRows = rpcResult[0].execute_readonly_query || [];
+      } else {
+        // Direct array format
+        safeRows = rpcResult;
+      }
+    } else if (rpcResult && typeof rpcResult === 'object') {
+      // Single object result
+      safeRows = [rpcResult];
+    }
     const sampleRows = safeRows.slice(0, 50);
 
     // 3) Ask AI to answer based on real query results (stream)
