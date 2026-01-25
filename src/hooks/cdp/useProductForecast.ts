@@ -4,7 +4,13 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useTenant } from '@/contexts/TenantContext';
+import { useTenantContext } from '@/contexts/TenantContext';
+
+// Wrapper to match expected interface
+function useTenant() {
+  const { activeTenant } = useTenantContext();
+  return { activeTenant };
+}
 
 export interface ProductBenchmark {
   tenant_id: string;
