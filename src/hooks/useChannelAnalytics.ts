@@ -102,14 +102,39 @@ export function useChannelPerformance() {
   return useQuery({
     queryKey: ['channel-performance', tenantId],
     queryFn: async () => {
-      // First try the view
+      // DB-First: Try the new aggregated view first (avoids 1000 row limit)
       const { data: viewData, error: viewError } = await supabase
-        .from('channel_performance_summary')
+        .from('v_channel_performance')
         .select('*')
         .eq('tenant_id', tenantId);
 
       if (!viewError && viewData && viewData.length > 0) {
         return viewData.map(item => ({
+          connector_name: item.channel || 'Unknown',
+          connector_type: item.channel || 'unknown',
+          shop_name: null,
+          integration_id: '',
+          total_orders: Number(item.total_orders) || 0,
+          gross_revenue: Number(item.gross_revenue) || 0,
+          net_revenue: Number(item.net_revenue) || 0,
+          total_fees: Number(item.total_fees) || 0,
+          total_cogs: Number(item.total_cogs) || 0,
+          gross_profit: Number(item.gross_profit) || 0,
+          avg_order_value: Number(item.avg_order_value) || 0,
+          cancelled_orders: Number(item.cancelled_orders) || 0,
+          returned_orders: Number(item.returned_orders) || 0,
+          source: 'ecommerce' as const,
+        })) as ChannelPerformance[];
+      }
+
+      // Fallback: Try legacy channel_performance_summary view
+      const { data: legacyData, error: legacyError } = await supabase
+        .from('channel_performance_summary')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (!legacyError && legacyData && legacyData.length > 0) {
+        return legacyData.map(item => ({
           connector_name: item.connector_name || 'Unknown',
           connector_type: item.connector_type || 'unknown',
           shop_name: item.shop_name,
