@@ -2,35 +2,51 @@
  * CDP Product Forecast Page
  * Ước lượng doanh số sản phẩm mới dựa trên affinity matching + benchmark
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { CDPLayout } from '@/components/layout/CDPLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, Users, Package, CalendarIcon } from 'lucide-react';
+import { Plus, TrendingUp, Users, Package } from 'lucide-react';
 import { ProductForecastForm } from '@/components/cdp/product-forecast/ProductForecastForm';
 import { ProductForecastList } from '@/components/cdp/product-forecast/ProductForecastList';
 import { useProductForecasts, useCategoryConversionStats, useActiveCustomerCount } from '@/hooks/cdp/useProductForecast';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format, subDays } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import { DateRange } from 'react-day-picker';
+import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfQuarter, startOfYear } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+// Date range presets
+const DATE_PRESETS = {
+  '30': { label: '30 ngày qua', getDates: () => ({ from: subDays(new Date(), 29), to: new Date() }) },
+  '60': { label: '60 ngày qua', getDates: () => ({ from: subDays(new Date(), 59), to: new Date() }) },
+  '90': { label: '90 ngày qua', getDates: () => ({ from: subDays(new Date(), 89), to: new Date() }) },
+  '180': { label: '180 ngày qua', getDates: () => ({ from: subDays(new Date(), 179), to: new Date() }) },
+  'this_month': { label: 'Tháng này', getDates: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
+  'last_month': { label: 'Tháng trước', getDates: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
+  'this_quarter': { label: 'Quý này', getDates: () => ({ from: startOfQuarter(new Date()), to: new Date() }) },
+  'this_year': { label: 'Năm nay', getDates: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+} as const;
+
+type DatePresetKey = keyof typeof DATE_PRESETS;
 
 export default function ProductForecastPage() {
   const [showForm, setShowForm] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('90');
   
-  // Default: last 90 days
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 90),
-    to: new Date(),
-  });
+  // Calculate dates from preset
+  const dateRange = useMemo(() => {
+    return DATE_PRESETS[selectedPreset].getDates();
+  }, [selectedPreset]);
   
   const { data: forecasts, isLoading: forecastsLoading } = useProductForecasts();
   const { data: categoryStats, isLoading: statsLoading } = useCategoryConversionStats();
   const { data: activeCustomerCount, isLoading: customerCountLoading } = useActiveCustomerCount(
-    dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-    dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined
+    format(dateRange.from, 'yyyy-MM-dd'),
+    format(dateRange.to, 'yyyy-MM-dd')
   );
 
   const isLoading = forecastsLoading || statsLoading || customerCountLoading;
@@ -85,43 +101,18 @@ export default function ProductForecastPage() {
                   </p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm text-muted-foreground">KH active trong</p>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            "h-6 text-xs justify-start font-normal",
-                            !dateRange && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-1 h-3 w-3" />
-                          {dateRange?.from ? (
-                            dateRange.to ? (
-                              <>
-                                {format(dateRange.from, "dd/MM/yy", { locale: vi })} - {format(dateRange.to, "dd/MM/yy", { locale: vi })}
-                              </>
-                            ) : (
-                              format(dateRange.from, "dd/MM/yy", { locale: vi })
-                            )
-                          ) : (
-                            <span>Chọn khoảng thời gian</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-background" align="start">
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={dateRange?.from}
-                          selected={dateRange}
-                          onSelect={setDateRange}
-                          numberOfMonths={2}
-                          locale={vi}
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <Select value={selectedPreset} onValueChange={(v) => setSelectedPreset(v as DatePresetKey)}>
+                      <SelectTrigger className="h-6 text-xs w-auto min-w-[120px] font-normal">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        {Object.entries(DATE_PRESETS).map(([key, { label }]) => (
+                          <SelectItem key={key} value={key} className="text-xs">
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
