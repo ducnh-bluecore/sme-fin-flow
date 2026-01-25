@@ -71,7 +71,7 @@ const FORBIDDEN_PATTERNS = [
   /\bEXECUTE\b/i,
   /--/,  // SQL comments
   /\/\*/,  // Block comments
-  /;.*;/,  // Multiple statements
+  /;/,  // Any semicolon (prevents statement chaining + parser edge cases)
 ];
 
 // Validate that SQL is SELECT only and uses allowed views
