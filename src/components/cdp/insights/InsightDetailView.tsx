@@ -12,7 +12,10 @@ import {
   Clock,
   Link2,
   Shield,
-  ExternalLink
+  ExternalLink,
+  Lightbulb,
+  Target,
+  User
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +70,13 @@ export interface InsightDetailData {
   // Detection info
   detectedAt: string;
   cooldownUntil?: string;
+  
+  // NEW: Actionable fields
+  recommendedAction?: string;
+  urgency?: 'low' | 'medium' | 'high' | 'critical';
+  estimatedImpact?: number;
+  impactCurrency?: string;
+  actionOwner?: string;
 }
 
 interface InsightDetailViewProps {
@@ -210,6 +220,36 @@ export function InsightDetailView({ insight, onCreateDecisionCard }: InsightDeta
           <p className="text-sm leading-relaxed text-foreground">
             {insight.businessImplication}
           </p>
+          
+          {/* NEW: Recommended Action Block */}
+          {insight.recommendedAction && (
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-start gap-3">
+                <Lightbulb className="w-5 h-5 text-primary mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-medium text-sm text-primary mb-1">Đề xuất hành động</p>
+                  <p className="text-sm text-foreground">{insight.recommendedAction}</p>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    {insight.actionOwner && (
+                      <span className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        Người phụ trách: {insight.actionOwner}
+                      </span>
+                    )}
+                    {insight.urgency && (
+                      <span className="flex items-center gap-1">
+                        <Target className="w-3 h-3" />
+                        Mức độ: {insight.urgency === 'critical' ? 'Khẩn cấp' : 
+                                  insight.urgency === 'high' ? 'Cao' : 
+                                  insight.urgency === 'medium' ? 'Trung bình' : 'Thấp'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
             <p className="text-xs text-muted-foreground">
               <span className="font-medium">📊 Nguồn dữ liệu:</span> Phân tích dựa trên giao dịch thực tế từ {insight.periodBaseline} đến {insight.periodCurrent}. 

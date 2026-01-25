@@ -43,6 +43,12 @@ export interface InsightDetailData {
   cooldown_until: string | null;
   linked_decision_card_id: string | null;
   linked_decision_card_status: string | null;
+  // NEW: Actionable fields
+  recommended_action: string;
+  urgency: 'low' | 'medium' | 'high' | 'critical';
+  estimated_impact: number;
+  impact_currency: string;
+  action_owner: string;
 }
 
 // Hook for insight detail
@@ -128,6 +134,12 @@ export function useCDPInsightDetail(insightCode: string | undefined) {
         cooldown_until: data.cooldown_until,
         linked_decision_card_id: data.linked_decision_card_id,
         linked_decision_card_status: data.linked_decision_card_status,
+        // NEW: Actionable fields
+        recommended_action: data.recommended_action || 'Chưa có đề xuất cụ thể',
+        urgency: (data.urgency || 'low') as 'low' | 'medium' | 'high' | 'critical',
+        estimated_impact: data.estimated_impact || 0,
+        impact_currency: data.impact_currency || 'VND',
+        action_owner: data.action_owner || 'CEO',
       };
     },
     enabled: !!tenantId && !!insightCode,
