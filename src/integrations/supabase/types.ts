@@ -6979,6 +6979,114 @@ export type Database = {
           },
         ]
       }
+      cdp_product_forecasts: {
+        Row: {
+          accuracy_pct: number | null
+          actual_orders: number | null
+          benchmark_auto_suggested: string[] | null
+          benchmark_manual_selected: string[] | null
+          benchmark_product_ids: string[] | null
+          calculation_details: Json | null
+          confidence_level: string | null
+          conversion_rate: number | null
+          created_at: string | null
+          created_by: string | null
+          estimated_existing_orders: number | null
+          estimated_new_orders: number | null
+          estimated_total_orders: number | null
+          forecast_name: string
+          id: string
+          matched_customer_count: number | null
+          new_customer_pct: number | null
+          product_definition: Json
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          accuracy_pct?: number | null
+          actual_orders?: number | null
+          benchmark_auto_suggested?: string[] | null
+          benchmark_manual_selected?: string[] | null
+          benchmark_product_ids?: string[] | null
+          calculation_details?: Json | null
+          confidence_level?: string | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          estimated_existing_orders?: number | null
+          estimated_new_orders?: number | null
+          estimated_total_orders?: number | null
+          forecast_name: string
+          id?: string
+          matched_customer_count?: number | null
+          new_customer_pct?: number | null
+          product_definition?: Json
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          accuracy_pct?: number | null
+          actual_orders?: number | null
+          benchmark_auto_suggested?: string[] | null
+          benchmark_manual_selected?: string[] | null
+          benchmark_product_ids?: string[] | null
+          calculation_details?: Json | null
+          confidence_level?: string | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          estimated_existing_orders?: number | null
+          estimated_new_orders?: number | null
+          estimated_total_orders?: number | null
+          forecast_name?: string
+          id?: string
+          matched_customer_count?: number | null
+          new_customer_pct?: number | null
+          product_definition?: Json
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_product_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_product_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_product_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_product_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_product_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_refunds: {
         Row: {
           created_at: string
@@ -26111,6 +26219,58 @@ export type Database = {
           },
         ]
       }
+      v_cdp_category_conversion_stats: {
+        Row: {
+          avg_price: number | null
+          category: string | null
+          category_penetration_pct: number | null
+          orders_per_buyer: number | null
+          price_p25: number | null
+          price_p50: number | null
+          price_p75: number | null
+          tenant_id: string | null
+          total_active_customers: number | null
+          total_orders: number | null
+          unique_buyers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_customer_audit: {
         Row: {
           anonymized_email: string | null
@@ -26162,6 +26322,81 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_customer_category_affinity: {
+        Row: {
+          affinity_score: number | null
+          avg_price_bought: number | null
+          category: string | null
+          category_last_purchase: string | null
+          category_orders: number | null
+          category_spend: number | null
+          customer_id: string | null
+          overall_last_purchase: string | null
+          overall_spend: number | null
+          price_tier: string | null
+          recency_status: string | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -27871,6 +28106,62 @@ export type Database = {
           total_insights: number | null
         }
         Relationships: []
+      }
+      v_cdp_product_benchmark: {
+        Row: {
+          avg_order_value: number | null
+          avg_unit_price: number | null
+          category: string | null
+          existing_customers: number | null
+          first_sale_date: string | null
+          max_price: number | null
+          min_price: number | null
+          new_customer_pct: number | null
+          new_customers: number | null
+          price_tier: string | null
+          product_id: string | null
+          tenant_id: string | null
+          total_orders: number | null
+          total_revenue: number | null
+          unique_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_cdp_research_stats: {
         Row: {
