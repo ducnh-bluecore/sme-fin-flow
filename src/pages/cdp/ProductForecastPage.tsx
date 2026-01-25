@@ -6,11 +6,12 @@ import { useState, useMemo } from 'react';
 import { CDPLayout } from '@/components/layout/CDPLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, TrendingUp, Users, Package } from 'lucide-react';
+import { Plus, TrendingUp, Users, Package, CalendarIcon } from 'lucide-react';
 import { ProductForecastForm } from '@/components/cdp/product-forecast/ProductForecastForm';
 import { ProductForecastList } from '@/components/cdp/product-forecast/ProductForecastList';
 import { useProductForecasts, useCategoryConversionStats, useActiveCustomerCount } from '@/hooks/cdp/useProductForecast';
 import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfQuarter, startOfYear } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import {
   Select,
   SelectContent,
@@ -18,6 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 // Date range presets
 const DATE_PRESETS = {
@@ -31,6 +39,7 @@ const DATE_PRESETS = {
   'last_month': { label: 'Tháng trước', getDates: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
   'this_quarter': { label: 'Quý này', getDates: () => ({ from: startOfQuarter(new Date()), to: new Date() }) },
   'this_year': { label: 'Năm nay', getDates: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+  'custom': { label: 'Tùy chỉnh', getDates: () => ({ from: subDays(new Date(), 89), to: new Date() }) },
 } as const;
 
 type DatePresetKey = keyof typeof DATE_PRESETS;
@@ -38,11 +47,16 @@ type DatePresetKey = keyof typeof DATE_PRESETS;
 export default function ProductForecastPage() {
   const [showForm, setShowForm] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<DatePresetKey>('90');
+  const [customFromDate, setCustomFromDate] = useState<Date>(subDays(new Date(), 89));
+  const [customToDate, setCustomToDate] = useState<Date>(new Date());
   
-  // Calculate dates from preset
+  // Calculate dates from preset or custom
   const dateRange = useMemo(() => {
+    if (selectedPreset === 'custom') {
+      return { from: customFromDate, to: customToDate };
+    }
     return DATE_PRESETS[selectedPreset].getDates();
-  }, [selectedPreset]);
+  }, [selectedPreset, customFromDate, customToDate]);
   
   const { data: forecasts, isLoading: forecastsLoading } = useProductForecasts();
   const { data: categoryStats, isLoading: statsLoading } = useCategoryConversionStats();
@@ -116,6 +130,59 @@ export default function ProductForecastPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {/* Custom date pickers */}
+                  {selectedPreset === 'custom' && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn("h-7 text-xs justify-start font-normal gap-1")}
+                          >
+                            <CalendarIcon className="h-3 w-3" />
+                            {format(customFromDate, "dd/MM/yyyy", { locale: vi })}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customFromDate}
+                            onSelect={(date) => date && setCustomFromDate(date)}
+                            disabled={(date) => date > customToDate || date > new Date()}
+                            locale={vi}
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      
+                      <span className="text-xs text-muted-foreground">đến</span>
+                      
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn("h-7 text-xs justify-start font-normal gap-1")}
+                          >
+                            <CalendarIcon className="h-3 w-3" />
+                            {format(customToDate, "dd/MM/yyyy", { locale: vi })}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customToDate}
+                            onSelect={(date) => date && setCustomToDate(date)}
+                            disabled={(date) => date < customFromDate || date > new Date()}
+                            locale={vi}
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
