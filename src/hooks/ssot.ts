@@ -39,6 +39,18 @@ export {
   MDP_METRIC_CODES,
 } from './useMDPSSOT';
 
+export {
+  useMDPDataSSOT,
+} from './useMDPDataSSOT';
+
+// ============================================
+// FDP Aggregated Metrics (SSOT-compliant)
+// ============================================
+export {
+  useFDPAggregatedMetricsSSOT,
+  type AggregatedFDPMetricsSSOT,
+} from './useFDPAggregatedMetricsSSOT';
+
 // ============================================
 // CDP - Customer Data Platform
 // ============================================
@@ -107,9 +119,14 @@ export {
 export { useFDPMetrics } from './useFDPMetrics';
 
 /**
- * @deprecated Use useMDPSSOT instead
+ * @deprecated Use useMDPSSOT or useMDPDataSSOT instead
  */
 export { useMDPData } from './useMDPData';
+
+/**
+ * @deprecated Use useFDPAggregatedMetricsSSOT instead
+ */
+export { useFDPAggregatedMetrics } from './useFDPAggregatedMetrics';
 
 /**
  * @deprecated Use useChannelPLSSOT instead

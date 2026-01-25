@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
-import { useMDPData, MarketingPerformance } from '@/hooks/useMDPData';
+import { useMDPDataSSOT, MarketingPerformance } from '@/hooks/useMDPDataSSOT';
 import { MDPModeSwitcher, MDPMode } from '@/components/mdp/MDPModeSwitcher';
+import { DataQualityBadge } from '@/components/ui/estimation-badge';
 import { toast } from 'sonner';
 
 // Marketing Mode Components
@@ -47,10 +48,13 @@ export default function MDPDashboardPage() {
     riskAlerts,
     cmoModeSummary,
     
+    // SSOT extras
+    dataQuality,
+    
     // Shared
     isLoading, 
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   // Dialog states
   const [selectedCampaign, setSelectedCampaign] = useState<MarketingPerformance | null>(null);
@@ -194,6 +198,18 @@ export default function MDPDashboardPage() {
     // CMO Mode
     return (
       <div className="space-y-6">
+        {/* Data Quality Indicator */}
+        {dataQuality && dataQuality.quality_level !== 'excellent' && (
+          <div className="flex justify-end">
+            <DataQualityBadge
+              qualityScore={dataQuality.quality_score}
+              qualityLevel={dataQuality.quality_level}
+              estimatedFieldsCount={dataQuality.estimated_fields.length}
+              totalFields={10}
+            />
+          </div>
+        )}
+        
         {/* Quick Action Cards - Decision-first */}
         <QuickActionCards 
           profitData={profitAttribution}

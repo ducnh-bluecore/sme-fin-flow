@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useMDPData, MDP_THRESHOLDS } from '@/hooks/useMDPData';
+import { useMDPDataSSOT, MDP_THRESHOLDS } from '@/hooks/useMDPDataSSOT';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -73,7 +73,7 @@ export default function ChannelsPage() {
     cashImpact,
     isLoading, 
     error 
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   // Aggregate and analyze channels
   const channelAnalysis = useMemo<ChannelAnalysis[]>(() => {
