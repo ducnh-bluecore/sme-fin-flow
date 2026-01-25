@@ -45,7 +45,8 @@ ${CDP_QUERYABLE_VIEWS.map(v => `- ${v}`).join('\n')}
 
 QUY TẮC VỀ DATE/TIME (tránh lỗi runtime):
 - Nếu cần dùng mốc tháng mà bạn viết dạng YYYY-MM thì PHẢI chuyển thành ngày hợp lệ: 'YYYY-MM-01'.
-- Khi so sánh theo năm, ưu tiên dùng EXTRACT(YEAR FROM <date_column>) hoặc date_trunc('year', <date_column>) thay vì so sánh chuỗi.
+ - Khi so sánh theo năm: KHÔNG dùng EXTRACT/DATE_PART. Luôn dùng filter theo khoảng ngày:
+   <date_column> >= 'YYYY-01-01' AND <date_column> < 'YYYY+1-01-01'.
 
 SCHEMA CONTEXT:
 ${schemaContext}
@@ -65,6 +66,19 @@ function sanitizeGeneratedSql(sql: string): string {
   s = s.replace(/\bLIMIT\s+0\b/gi, 'LIMIT 50');
 
   return s.trim();
+}
+
+function rejectSqlThatWillBreakReadonlyValidator(sql: string): { ok: true } | { ok: false; reason: string } {
+  // The database-side read-only validator (inside execute_readonly_query) can mis-parse
+  // expressions like EXTRACT(YEAR FROM cohort_month) and treat the column name as a table.
+  // To keep reliability high, we hard-block these patterns and force date-range filters instead.
+  if (/\bEXTRACT\s*\(/i.test(sql)) {
+    return { ok: false, reason: "Không dùng EXTRACT(...). Hãy lọc theo khoảng ngày (>= 'YYYY-01-01' AND < 'YYYY+1-01-01')." };
+  }
+  if (/\bDATE_PART\s*\(/i.test(sql)) {
+    return { ok: false, reason: "Không dùng DATE_PART(...). Hãy lọc theo khoảng ngày (>= 'YYYY-01-01' AND < 'YYYY+1-01-01')." };
+  }
+  return { ok: true };
 }
 
 function buildAnswerPrompt(params: {
@@ -226,8 +240,26 @@ serve(async (req) => {
       });
     }
 
+    const readonlyCompat = rejectSqlThatWillBreakReadonlyValidator(rawSql);
+    if (!readonlyCompat.ok) {
+      console.warn('[cdp-qa] blocked_sql_incompatible_with_readonly_validator', {
+        tenant: activeTenantId,
+        reason: readonlyCompat.reason,
+        sql_preview: rawSql.slice(0, 220),
+      });
+      return new Response(JSON.stringify({ error: `Truy vấn không hợp lệ: ${readonlyCompat.reason}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { valid, error: sqlError } = validateSQL(rawSql);
     if (!valid) {
+      console.warn('[cdp-qa] invalid_sql', {
+        tenant: activeTenantId,
+        sql_preview: rawSql.slice(0, 220),
+        sqlError,
+      });
       return new Response(JSON.stringify({ error: `Truy vấn không hợp lệ: ${sqlError}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -243,7 +275,11 @@ serve(async (req) => {
     });
 
     if (queryError) {
-      console.error('CDP-QA query error:', queryError);
+      console.error('CDP-QA query error:', {
+        ...queryError,
+        tenant: activeTenantId,
+        sql_preview: finalSql.slice(0, 320),
+      });
       return new Response(JSON.stringify({ error: 'Lỗi truy vấn dữ liệu (read-only query)' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
