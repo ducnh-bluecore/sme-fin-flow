@@ -19,6 +19,13 @@ export interface Scenario {
   population_scope: 'all' | 'top20' | 'at_risk' | 'new_customers' | 'repeat';
 }
 
+export interface QuarterlyBreakdown {
+  q1: number;
+  q2: number;
+  q3: number;
+  q4: number;
+}
+
 export interface ScenarioResult {
   scenario_name: string;
   total_customers: number;
@@ -27,6 +34,11 @@ export interface ScenarioResult {
   avg_ltv_12m: number;
   delta_vs_base_12m: number;
   delta_percent_12m: number;
+  // Extended metrics
+  quarterly_breakdown: QuarterlyBreakdown;
+  previous_year_revenue: number;
+  yoy_growth_percent: number;
+  yoy_growth_projected: number;
 }
 
 export interface DecayAlert {
