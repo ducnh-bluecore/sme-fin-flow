@@ -145,16 +145,22 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
         </CardHeader>
       </Card>
 
-      {/* [B] Problem Statement */}
-      <Card>
-        <CardHeader>
+      {/* [B] Problem Statement - Key Insight */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+            <FileText className="w-5 h-5 text-primary" />
             Vấn đề Cần Quyết định
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm leading-relaxed">{card.problemStatement}</p>
+          <p className="text-base leading-relaxed font-medium">{card.problemStatement}</p>
+          {card.equityImpact > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Ước tính tác động:</span>
+              <span className="text-destructive font-bold">₫{formatCurrency(card.equityImpact)}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -232,31 +238,33 @@ export function DecisionDetailView({ card }: DecisionDetailViewProps) {
       </Card>
 
       {/* [E] Risk if Not Addressed */}
-      <Card className="border-destructive/20">
+      <Card className="border-destructive/20 bg-destructive/5">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-destructive" />
-            Đánh giá Rủi ro và Tác động
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Đánh giá Rủi ro và Tác động
+            </CardTitle>
+            <Badge className={riskLevelStyles[card.risks.level]}>
+              {card.risks.level === 'high' ? 'Rủi ro Cao' : card.risks.level === 'medium' ? 'Rủi ro Trung bình' : 'Rủi ro Thấp'}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-3 border rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Rủi ro về Doanh thu</p>
-              <p className="text-sm font-medium">{card.risks.revenue}</p>
+            <div className="p-4 border rounded-lg bg-background">
+              <p className="text-xs text-muted-foreground mb-2">Rủi ro về Doanh thu</p>
+              <p className="text-sm font-medium leading-relaxed">{card.risks.revenue}</p>
             </div>
-            <div className="p-3 border rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Rủi ro về Dòng tiền</p>
-              <p className="text-sm font-medium">{card.risks.cashflow}</p>
+            <div className="p-4 border rounded-lg bg-background">
+              <p className="text-xs text-muted-foreground mb-2">Rủi ro về Dòng tiền</p>
+              <p className="text-sm font-medium leading-relaxed">{card.risks.cashflow}</p>
             </div>
-            <div className="p-3 border rounded-lg">
-              <p className="text-xs text-muted-foreground mb-1">Rủi ro về Dài hạn</p>
-              <p className="text-sm font-medium">{card.risks.longTerm}</p>
+            <div className="p-4 border rounded-lg bg-background">
+              <p className="text-xs text-muted-foreground mb-2">Rủi ro về Dài hạn</p>
+              <p className="text-sm font-medium leading-relaxed">{card.risks.longTerm}</p>
             </div>
           </div>
-          <Badge className={riskLevelStyles[card.risks.level]}>
-            Mức độ rủi ro: {card.risks.level === 'high' ? 'Cao' : card.risks.level === 'medium' ? 'Trung bình' : 'Thấp'}
-          </Badge>
         </CardContent>
       </Card>
 
