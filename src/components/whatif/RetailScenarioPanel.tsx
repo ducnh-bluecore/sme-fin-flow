@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatVNDCompact } from '@/lib/formatters';
-import { useKPIData } from '@/hooks/useKPIData';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { RetailChannelParamsPanel, defaultRetailParams, RetailChannelParams } from './RetailChannelParams';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -226,8 +226,14 @@ function KPICard({
 }
 
 export function RetailScenarioPanel() {
-  const { data: kpiData, isLoading } = useKPIData();
+  const { data: snapshot, isLoading } = useFinanceTruthSnapshot();
   const [params, setParams] = useState<RetailChannelParams>(defaultRetailParams);
+  
+  // Map snapshot to legacy kpiData shape for compatibility
+  const kpiData = snapshot ? { 
+    totalRevenue: snapshot.netRevenue,
+    ebitda: snapshot.ebitda,
+  } : undefined;
   
   // Base revenue from KPI data or default
   const baseRevenue = kpiData?.totalRevenue || 10_000_000_000; // 10 tỷ default

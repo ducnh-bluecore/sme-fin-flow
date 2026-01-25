@@ -1,4 +1,4 @@
-import { useMDPData } from '@/hooks/useMDPData';
+import { useMDPDataSSOT } from '@/hooks/useMDPDataSSOT';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, Info, TrendingUp, TrendingDown } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function CashImpactPage() {
     cmoModeSummary,
     isLoading, 
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   const formatCurrency = (value: number) => {
     if (Math.abs(value) >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;

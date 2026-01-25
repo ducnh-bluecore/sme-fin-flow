@@ -56,12 +56,33 @@ if (!hasRealCOGS) {
 
 ## Canonical Hooks
 
-| Module | Canonical Hook | Deprecated Alternative |
-|--------|---------------|----------------------|
-| FDP | `useFDPFinanceSSOT` | ~~useFDPMetrics~~ |
-| MDP | `useMDPSSOT` | ~~useMDPData~~ |
-| Channel | `useChannelPLSSOT` | ~~useChannelPL~~ |
-| KPI | `useFinanceTruthSnapshot` | ~~useKPIData~~ |
+| Module | Canonical Hook | Deprecated Alternative | Status |
+|--------|---------------|----------------------|--------|
+| FDP | `useFDPFinanceSSOT` | ~~useFDPMetrics~~ | ✅ Migrated |
+| FDP | `useFDPPeriodSummary` | ~~useFDPAggregatedMetrics~~ | ✅ Migrated |
+| MDP | `useMDPDataSSOT` | ~~useMDPData~~ | ✅ Migrated |
+| Channel | `useChannelPLSSOT` | ~~useChannelPL~~ | ✅ Migrated |
+| KPI | `useFinanceTruthSnapshot` | ~~useKPIData~~ | ✅ Migrated |
+| Control Tower | `useControlTowerAnalyticsSSoT` | N/A | ✅ New |
+
+## Migration Status (Phase 3 Complete)
+
+### Migrated Pages
+- `MDPDashboardPage` → useMDPDataSSOT
+- `CMOModePage` → useMDPDataSSOT
+- `DecisionSupportPage` → useMDPDataSSOT
+- `ChannelsPage` → useMDPDataSSOT
+- `ROIAnalyticsPage` → useMDPDataSSOT
+- `BudgetOptimizerPage` → useMDPDataSSOT
+- `CampaignsPage` → useMDPDataSSOT
+- `ScenarioPlannerPage` → useMDPDataSSOT
+- `ProfitAttributionPage` → useMDPDataSSOT
+- `CashImpactPage` → useMDPDataSSOT
+- `RiskAlertsPage` → useMDPDataSSOT
+- `MarketingModePage` → useMDPDataSSOT
+- `RetailScenarioPanel` → useFinanceTruthSnapshot
+- `WhatIfSimulationPanel` → useFinanceTruthSnapshot
+- `AnalyticsPage (Control Tower)` → useControlTowerAnalyticsSSoT
 
 ## Pre-commit Check
 

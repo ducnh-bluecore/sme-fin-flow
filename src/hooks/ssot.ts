@@ -44,12 +44,26 @@ export {
 } from './useMDPDataSSOT';
 
 // ============================================
+// Control Tower
+// ============================================
+export {
+  useControlTowerAnalyticsSSoT,
+  type ControlTowerData,
+} from './useControlTowerSSOT';
+
+// ============================================
 // FDP Aggregated Metrics (SSOT-compliant)
 // ============================================
 export {
   useFDPAggregatedMetricsSSOT,
   type AggregatedFDPMetricsSSOT,
 } from './useFDPAggregatedMetricsSSOT';
+
+// FDP Period Summary (DB-first aggregation)
+export {
+  useFDPPeriodSummary,
+  type FDPPeriodSummary,
+} from './useFDPPeriodSummary';
 
 // ============================================
 // CDP - Customer Data Platform
