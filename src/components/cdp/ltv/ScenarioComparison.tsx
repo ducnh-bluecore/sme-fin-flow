@@ -1,8 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, TrendingUp, TrendingDown, Minus, BarChart3, Database, Sparkles, Info } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, BarChart3, Database, Sparkles, Info, Calendar, ArrowRight, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, Legend, ComposedChart, Area } from 'recharts';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface QuarterlyBreakdown {
+  q1: number;
+  q2: number;
+  q3: number;
+  q4: number;
+}
 
 interface ScenarioResult {
   scenario_name: string;
@@ -12,6 +20,10 @@ interface ScenarioResult {
   avg_ltv_12m: number;
   delta_vs_base_12m: number;
   delta_percent_12m: number;
+  quarterly_breakdown: QuarterlyBreakdown;
+  previous_year_revenue: number;
+  yoy_growth_percent: number;
+  yoy_growth_projected: number;
 }
 
 interface ScenarioComparisonProps {
@@ -21,6 +33,424 @@ interface ScenarioComparisonProps {
 
 const COLORS = ['hsl(var(--muted))', 'hsl(var(--primary))', 'hsl(142, 76%, 36%)', 'hsl(45, 93%, 47%)', 'hsl(0, 84%, 60%)'];
 
+const formatCurrency = (value: number) => {
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K`;
+  return value.toFixed(0);
+};
+
+const safeNumber = (val: unknown): number => {
+  if (typeof val === 'number' && !isNaN(val)) return val;
+  return 0;
+};
+
+// Empty state component
+function EmptyState() {
+  return (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground mb-2">
+          Thêm kịch bản để xem so sánh
+        </p>
+        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+          Chọn kịch bản mẫu hoặc tạo kịch bản tùy chỉnh ở panel bên trái để so sánh với dữ liệu thực tế.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Hero Revenue Card Component
+function HeroRevenueCard({ baseline, bestScenario }: { baseline: ScenarioResult; bestScenario?: ScenarioResult }) {
+  const equity12m = safeNumber(baseline?.total_equity_12m);
+  const equity24m = safeNumber(baseline?.total_equity_24m);
+  const prevYearRevenue = safeNumber(baseline?.previous_year_revenue);
+  const yoyGrowth = safeNumber(baseline?.yoy_growth_percent);
+  
+  return (
+    <Card className="bg-gradient-to-br from-primary/5 via-background to-primary/10 border-primary/20">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Calendar className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Doanh thu năm tới từ khách hàng hiện tại</CardTitle>
+              <CardDescription>Dự báo từ Customer Equity của {(baseline?.total_customers ?? 0).toLocaleString()} khách hàng</CardDescription>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-background">
+            <Database className="h-3 w-3 mr-1" />
+            Dữ liệu thật
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 12-month projection */}
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Dự kiến 12 tháng tới</p>
+            <p className="text-3xl font-bold text-primary">{formatCurrency(equity12m)}</p>
+            <p className="text-xs text-muted-foreground">Customer Equity</p>
+          </div>
+          
+          {/* 24-month projection */}
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">Dự kiến 24 tháng tới</p>
+            <p className="text-2xl font-semibold">{formatCurrency(equity24m)}</p>
+            <p className="text-xs text-muted-foreground">Mở rộng dự báo</p>
+          </div>
+          
+          {/* YoY Comparison */}
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">So với năm trước</p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-semibold">{formatCurrency(prevYearRevenue)}</p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              {yoyGrowth !== 0 && (
+                <Badge 
+                  variant={yoyGrowth >= 0 ? 'default' : 'destructive'}
+                  className={cn(
+                    'text-sm',
+                    yoyGrowth >= 0 ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''
+                  )}
+                >
+                  {yoyGrowth >= 0 ? '+' : ''}{yoyGrowth.toFixed(1)}%
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Doanh thu thực 12 tháng qua</p>
+          </div>
+        </div>
+
+        {/* Best Scenario Impact */}
+        {bestScenario && safeNumber(bestScenario.delta_vs_base_12m) !== 0 && (
+          <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium text-amber-800">
+                Nếu áp dụng "{bestScenario.scenario_name}":
+              </span>
+              <span className={cn(
+                'text-sm font-bold',
+                bestScenario.delta_vs_base_12m >= 0 ? 'text-green-600' : 'text-red-600'
+              )}>
+                {bestScenario.delta_vs_base_12m >= 0 ? '+' : ''}{formatCurrency(safeNumber(bestScenario.delta_vs_base_12m))}
+              </span>
+              <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">
+                Ước tính
+              </Badge>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Quarterly Breakdown Component
+function QuarterlyBreakdownChart({ baseline, scenarios }: { baseline: ScenarioResult; scenarios: ScenarioResult[] }) {
+  const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+  const baselineBreakdown = baseline?.quarterly_breakdown ?? { q1: 0, q2: 0, q3: 0, q4: 0 };
+  
+  const chartData = quarters.map((quarter, idx) => {
+    const key = `q${idx + 1}` as keyof QuarterlyBreakdown;
+    const data: Record<string, number | string> = {
+      name: quarter,
+      baseline: safeNumber(baselineBreakdown[key]),
+    };
+    
+    scenarios.forEach((s, i) => {
+      const breakdown = s?.quarterly_breakdown ?? { q1: 0, q2: 0, q3: 0, q4: 0 };
+      data[`scenario_${i}`] = safeNumber(breakdown[key]);
+    });
+    
+    return data;
+  });
+
+  const totalBaseline = safeNumber(baselineBreakdown.q1) + safeNumber(baselineBreakdown.q2) + 
+                        safeNumber(baselineBreakdown.q3) + safeNumber(baselineBreakdown.q4);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Phân bổ theo Quý</CardTitle>
+          </div>
+          <TooltipProvider>
+            <UITooltip>
+              <TooltipTrigger>
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-xs">Dự báo doanh thu phân bổ theo quý dựa trên mẫu seasonal từ dữ liệu lịch sử.</p>
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
+        </div>
+        <CardDescription>Doanh thu dự kiến Q1 - Q4 năm tới</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          {quarters.map((quarter, idx) => {
+            const key = `q${idx + 1}` as keyof QuarterlyBreakdown;
+            const value = safeNumber(baselineBreakdown[key]);
+            const percent = totalBaseline > 0 ? (value / totalBaseline * 100) : 0;
+            return (
+              <div key={quarter} className="text-center p-2 rounded-lg bg-muted/50">
+                <p className="text-xs font-medium text-muted-foreground">{quarter}</p>
+                <p className="text-lg font-bold">{formatCurrency(value)}</p>
+                <p className="text-[10px] text-muted-foreground">{percent.toFixed(0)}%</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Chart */}
+        <div className="h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" fontSize={12} />
+              <YAxis tickFormatter={formatCurrency} fontSize={11} />
+              <Tooltip 
+                formatter={(value: number) => formatCurrency(value)}
+                contentStyle={{ fontSize: 12 }}
+              />
+              <Legend />
+              <Bar 
+                dataKey="baseline" 
+                name="Thực tế (Baseline)" 
+                fill="hsl(var(--primary))" 
+                radius={[4, 4, 0, 0]} 
+              />
+              {scenarios.map((s, i) => (
+                <Line
+                  key={i}
+                  type="monotone"
+                  dataKey={`scenario_${i}`}
+                  name={s.scenario_name}
+                  stroke={COLORS[(i + 1) % COLORS.length]}
+                  strokeWidth={2}
+                  dot={{ fill: COLORS[(i + 1) % COLORS.length], r: 4 }}
+                />
+              ))}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// YoY Comparison Component
+function YoYComparisonCard({ baseline, bestScenario }: { baseline: ScenarioResult; bestScenario?: ScenarioResult }) {
+  const prevYear = safeNumber(baseline?.previous_year_revenue);
+  const currentProj = safeNumber(baseline?.total_equity_12m);
+  const yoyGrowth = safeNumber(baseline?.yoy_growth_percent);
+  const projectedGrowth = safeNumber(bestScenario?.yoy_growth_projected);
+
+  const trendData = [
+    { period: 'Năm trước', actual: prevYear, projected: null },
+    { period: 'Năm nay (dự kiến)', actual: null, projected: currentProj },
+    ...(bestScenario ? [{ 
+      period: `${bestScenario.scenario_name}`, 
+      actual: null, 
+      projected: safeNumber(bestScenario.total_equity_12m)
+    }] : []),
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">So sánh Year-over-Year</CardTitle>
+          </div>
+          <Badge variant="outline" className="text-[10px]">
+            12 tháng
+          </Badge>
+        </div>
+        <CardDescription>Doanh thu năm trước vs Dự báo năm tới</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          {/* Previous Year */}
+          <div className="p-3 rounded-lg bg-muted/50 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Năm trước</p>
+            <p className="text-xl font-bold">{formatCurrency(prevYear)}</p>
+            <Badge variant="outline" className="text-[10px] mt-1">
+              Dữ liệu thật
+            </Badge>
+          </div>
+          
+          {/* Current Projection */}
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Năm tới (Baseline)</p>
+            <p className="text-xl font-bold text-primary">{formatCurrency(currentProj)}</p>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              {yoyGrowth >= 0 ? (
+                <TrendingUp className="h-3 w-3 text-green-600" />
+              ) : (
+                <TrendingDown className="h-3 w-3 text-red-600" />
+              )}
+              <span className={cn(
+                'text-xs font-medium',
+                yoyGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+              )}>
+                {yoyGrowth >= 0 ? '+' : ''}{yoyGrowth.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+          
+          {/* Best Scenario */}
+          {bestScenario && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
+              <p className="text-xs text-muted-foreground mb-1 truncate" title={bestScenario.scenario_name}>
+                {bestScenario.scenario_name.slice(0, 15)}...
+              </p>
+              <p className="text-xl font-bold text-amber-700">
+                {formatCurrency(safeNumber(bestScenario.total_equity_12m))}
+              </p>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <span className={cn(
+                  'text-xs font-medium',
+                  projectedGrowth >= 0 ? 'text-green-600' : 'text-red-600'
+                )}>
+                  {projectedGrowth >= 0 ? '+' : ''}{projectedGrowth.toFixed(1)}%
+                </span>
+                <Badge variant="secondary" className="text-[8px] bg-amber-100 text-amber-700">
+                  Ước tính
+                </Badge>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Visual Progress */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Tiến độ so với năm trước</span>
+            <span>{yoyGrowth >= 0 ? '+' : ''}{yoyGrowth.toFixed(1)}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className={cn(
+                "h-full rounded-full transition-all",
+                yoyGrowth >= 0 ? "bg-green-500" : "bg-red-500"
+              )}
+              style={{ width: `${Math.min(Math.abs(yoyGrowth) + 50, 100)}%` }}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Scenarios Table Component
+function ScenariosTable({ results }: { results: ScenarioResult[] }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Chi tiết so sánh</CardTitle>
+        <CardDescription>
+          Xem đầy đủ các chỉ số giữa thực tế và giả định
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 font-medium">Kịch bản</th>
+                <th className="text-center py-2 font-medium w-20">Loại</th>
+                <th className="text-right py-2 font-medium">Khách hàng</th>
+                <th className="text-right py-2 font-medium">Equity 12M</th>
+                <th className="text-right py-2 font-medium">Equity 24M</th>
+                <th className="text-right py-2 font-medium">Avg LTV</th>
+                <th className="text-right py-2 font-medium">Δ vs Thực tế</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((result, index) => (
+                <tr key={index} className={cn(
+                  'border-b last:border-0',
+                  index === 0 && 'bg-primary/5'
+                )}>
+                  <td className="py-2">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className={cn(index === 0 && 'font-medium')}>
+                        {result.scenario_name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="text-center py-2">
+                    {index === 0 ? (
+                      <Badge variant="outline" className="text-[10px]">
+                        Thực tế
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-800 border-amber-200">
+                        Ước tính
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="text-right py-2">{safeNumber(result.total_customers).toLocaleString()}</td>
+                  <td className="text-right py-2 font-medium">{formatCurrency(safeNumber(result.total_equity_12m))}</td>
+                  <td className="text-right py-2">{formatCurrency(safeNumber(result.total_equity_24m))}</td>
+                  <td className="text-right py-2">{formatCurrency(safeNumber(result.avg_ltv_12m))}</td>
+                  <td className={cn(
+                    'text-right py-2 font-medium',
+                    index === 0 ? 'text-muted-foreground' :
+                      safeNumber(result.delta_percent_12m) >= 0 ? 'text-green-600' : 'text-red-600'
+                  )}>
+                    {index === 0 ? '—' : `${safeNumber(result.delta_percent_12m) >= 0 ? '+' : ''}${safeNumber(result.delta_percent_12m).toFixed(1)}%`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Methodology Note Component
+function MethodologyNote() {
+  return (
+    <Card className="bg-muted/30">
+      <CardContent className="py-3 px-4">
+        <div className="flex items-start gap-3">
+          <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium">Về phương pháp tính toán:</p>
+            <ul className="list-disc list-inside space-y-0.5 ml-2">
+              <li><strong>Thực tế:</strong> Dữ liệu LTV được tính từ giao dịch thực, áp dụng retention curve và discount rate từ mô hình hiện tại.</li>
+              <li><strong>Ước tính:</strong> Điều chỉnh các tham số (retention, AOV, discount) và chiếu đến equity mới. Đây là con số giả định.</li>
+              <li><strong>Phân bổ quý:</strong> Dựa trên seasonal pattern của 12 tháng qua để ước tính phân bổ doanh thu.</li>
+              <li>Công thức: LTV = Σ (Profit × Retention<sub>t</sub> × Growth<sub>t</sub>) / (1 + Discount)<sup>t</sup></li>
+            </ul>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Main Component
 export function ScenarioComparison({ results, isLoading }: ScenarioComparisonProps) {
   if (isLoading) {
     return (
@@ -33,154 +463,27 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
   }
 
   if (results.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground mb-2">
-            Thêm kịch bản để xem so sánh
-          </p>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Chọn kịch bản mẫu hoặc tạo kịch bản tùy chỉnh ở panel bên trái để so sánh với dữ liệu thực tế.
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <EmptyState />;
   }
-
-  const formatCurrency = (value: number) => {
-    if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
-    if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-    if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K`;
-    return value.toFixed(0);
-  };
 
   const baseline = results[0];
   const scenarios = results.slice(1);
-
-  const chartData = results.map((r, i) => ({
-    name: r.scenario_name,
-    equity: r.total_equity_12m,
-    delta: r.delta_percent_12m,
-    fill: COLORS[i % COLORS.length],
-  }));
+  const bestScenario = scenarios.length > 0 
+    ? scenarios.reduce((best, s) => safeNumber(s.delta_percent_12m) > safeNumber(best.delta_percent_12m) ? s : best, scenarios[0])
+    : undefined;
 
   return (
     <div className="space-y-4">
-      {/* Side-by-side: Thực tế vs Giả định */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Baseline - Thực tế */}
-        <Card className="border-2 border-primary/30 bg-primary/5">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base">Thực tế (Baseline)</CardTitle>
-            </div>
-            <CardDescription className="flex items-center gap-1">
-              <Badge variant="outline" className="text-[10px] bg-background">
-                Dữ liệu thật
-              </Badge>
-              Từ hệ thống CDP
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Tổng Customer Equity</p>
-                <p className="text-2xl font-bold">{formatCurrency(baseline.total_equity_12m)}</p>
-                <p className="text-xs text-muted-foreground">12 tháng</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">LTV Trung bình</p>
-                <p className="text-2xl font-bold">{formatCurrency(baseline.avg_ltv_12m)}</p>
-                <p className="text-xs text-muted-foreground">/ khách hàng</p>
-              </div>
-            </div>
-            <div className="pt-2 border-t">
-              <p className="text-xs text-muted-foreground mb-1">Khách hàng hoạt động</p>
-              <p className="text-lg font-semibold">{baseline.total_customers.toLocaleString()}</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* 1. Hero Card - Doanh thu năm tới từ KH cũ */}
+      <HeroRevenueCard baseline={baseline} bestScenario={bestScenario} />
 
-        {/* Best Scenario - Giả định tốt nhất */}
-        {scenarios.length > 0 ? (
-          <Card className="border-2 border-dashed border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-600" />
-                <CardTitle className="text-base">
-                  {scenarios.reduce((best, s) => s.delta_percent_12m > best.delta_percent_12m ? s : best, scenarios[0]).scenario_name}
-                </CardTitle>
-              </div>
-              <CardDescription className="flex items-center gap-1">
-                <Badge variant="outline" className="text-[10px] bg-amber-100 border-amber-300 text-amber-800">
-                  Ước tính
-                </Badge>
-                Kịch bản giả định tốt nhất
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(() => {
-                const bestScenario = scenarios.reduce((best, s) => s.delta_percent_12m > best.delta_percent_12m ? s : best, scenarios[0]);
-                return (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Tổng Customer Equity</p>
-                        <p className="text-2xl font-bold">{formatCurrency(bestScenario.total_equity_12m)}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          {bestScenario.delta_percent_12m >= 0 ? (
-                            <TrendingUp className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3 text-red-600" />
-                          )}
-                          <span className={cn(
-                            'text-xs font-medium',
-                            bestScenario.delta_percent_12m >= 0 ? 'text-green-600' : 'text-red-600'
-                          )}>
-                            {bestScenario.delta_percent_12m >= 0 ? '+' : ''}{bestScenario.delta_percent_12m.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Chênh lệch</p>
-                        <p className={cn(
-                          'text-2xl font-bold',
-                          bestScenario.delta_vs_base_12m >= 0 ? 'text-green-600' : 'text-red-600'
-                        )}>
-                          {bestScenario.delta_vs_base_12m >= 0 ? '+' : ''}{formatCurrency(bestScenario.delta_vs_base_12m)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">so với thực tế</p>
-                      </div>
-                    </div>
-                    <div className="pt-2 border-t">
-                      <div className="flex items-start gap-2 p-2 bg-background/80 rounded-md">
-                        <Info className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-muted-foreground">
-                          Con số này được ước tính dựa trên mô hình LTV với các giả định đã chọn. 
-                          Kết quả thực tế có thể khác tùy thuộc vào điều kiện thị trường.
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-2 border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <Sparkles className="h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Chọn một kịch bản để so sánh
-              </p>
-            </CardContent>
-          </Card>
-        )}
+      {/* 2. Quarterly Breakdown + YoY Comparison */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <QuarterlyBreakdownChart baseline={baseline} scenarios={scenarios} />
+        <YoYComparisonCard baseline={baseline} bestScenario={bestScenario} />
       </div>
 
-      {/* All Scenarios Comparison */}
+      {/* 3. All Scenarios Chart */}
       {scenarios.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -197,7 +500,15 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
           <CardContent>
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} layout="vertical">
+                <BarChart 
+                  data={results.map((r, i) => ({
+                    name: r.scenario_name,
+                    equity: safeNumber(r.total_equity_12m),
+                    delta: safeNumber(r.delta_percent_12m),
+                    fill: COLORS[i % COLORS.length],
+                  }))} 
+                  layout="vertical"
+                >
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                   <XAxis 
                     type="number" 
@@ -213,12 +524,12 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
                     tickFormatter={(value) => value.length > 18 ? `${value.slice(0, 18)}...` : value}
                   />
                   <Tooltip 
-                    formatter={(value: number, name: string) => [formatCurrency(value), 'Equity 12M']}
+                    formatter={(value: number) => [formatCurrency(value), 'Equity 12M']}
                     contentStyle={{ fontSize: 12 }}
                   />
                   <Bar dataKey="equity" radius={[0, 4, 4, 0]}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} />
+                    {results.map((_, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -228,91 +539,11 @@ export function ScenarioComparison({ results, isLoading }: ScenarioComparisonPro
         </Card>
       )}
 
-      {/* Detailed Table with Clear Labels */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Chi tiết so sánh</CardTitle>
-          <CardDescription>
-            Xem đầy đủ các chỉ số giữa thực tế và giả định
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 font-medium">Kịch bản</th>
-                  <th className="text-center py-2 font-medium w-20">Loại</th>
-                  <th className="text-right py-2 font-medium">Khách hàng</th>
-                  <th className="text-right py-2 font-medium">Equity 12M</th>
-                  <th className="text-right py-2 font-medium">Equity 24M</th>
-                  <th className="text-right py-2 font-medium">Avg LTV</th>
-                  <th className="text-right py-2 font-medium">Δ vs Thực tế</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result, index) => (
-                  <tr key={index} className={cn(
-                    'border-b last:border-0',
-                    index === 0 && 'bg-primary/5'
-                  )}>
-                    <td className="py-2">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className={cn(index === 0 && 'font-medium')}>
-                          {result.scenario_name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="text-center py-2">
-                      {index === 0 ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          Thực tế
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-800 border-amber-200">
-                          Ước tính
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="text-right py-2">{result.total_customers.toLocaleString()}</td>
-                    <td className="text-right py-2 font-medium">{formatCurrency(result.total_equity_12m)}</td>
-                    <td className="text-right py-2">{formatCurrency(result.total_equity_24m)}</td>
-                    <td className="text-right py-2">{formatCurrency(result.avg_ltv_12m)}</td>
-                    <td className={cn(
-                      'text-right py-2 font-medium',
-                      index === 0 ? 'text-muted-foreground' :
-                        result.delta_percent_12m >= 0 ? 'text-green-600' : 'text-red-600'
-                    )}>
-                      {index === 0 ? '—' : `${result.delta_percent_12m >= 0 ? '+' : ''}${result.delta_percent_12m.toFixed(1)}%`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 4. Detailed Table */}
+      <ScenariosTable results={results} />
 
-      {/* Methodology Note */}
-      <Card className="bg-muted/30">
-        <CardContent className="py-3 px-4">
-          <div className="flex items-start gap-3">
-            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p className="font-medium">Về phương pháp tính toán:</p>
-              <ul className="list-disc list-inside space-y-0.5 ml-2">
-                <li><strong>Thực tế:</strong> Dữ liệu LTV được tính từ giao dịch thực, áp dụng retention curve và discount rate từ mô hình hiện tại.</li>
-                <li><strong>Ước tính:</strong> Điều chỉnh các tham số (retention, AOV, discount) và chiếu đến equity mới. Đây là con số giả định.</li>
-                <li>Công thức: LTV = Σ (Profit × Retention<sub>t</sub> × Growth<sub>t</sub>) / (1 + Discount)<sup>t</sup></li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 5. Methodology Note */}
+      <MethodologyNote />
     </div>
   );
 }
