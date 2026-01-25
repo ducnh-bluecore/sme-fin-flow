@@ -30,30 +30,33 @@ export function useAuditLogs() {
   });
 }
 
+/**
+ * DB-First: Uses RPC get_audit_log_stats to aggregate in database
+ * Avoids 1000 row limit issue
+ */
 export function useAuditLogStats() {
   return useQuery({
     queryKey: ['audit-log-stats'],
     queryFn: async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
       const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .gte('created_at', today.toISOString());
+        .rpc('get_audit_log_stats', { p_tenant_id: null });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useAuditLogStats] RPC error:', error);
+        return {
+          totalToday: 0,
+          uniqueUsers: 0,
+          criticalActions: 0,
+        };
+      }
 
-      const logs = data || [];
-      const uniqueUsers = new Set(logs.map(log => log.user_id)).size;
-      const criticalActions = logs.filter(log => 
-        ['delete', 'update'].includes(log.action.toLowerCase())
-      ).length;
-
+      // RPC returns array with single row
+      const stats = Array.isArray(data) ? data[0] : data;
+      
       return {
-        totalToday: logs.length,
-        uniqueUsers,
-        criticalActions,
+        totalToday: stats?.total_today ?? 0,
+        uniqueUsers: stats?.unique_users ?? 0,
+        criticalActions: stats?.critical_actions ?? 0,
       };
     },
   });

@@ -50,21 +50,17 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         .select('connector_type, status, last_sync_at')
         .eq('tenant_id', tenantId);
 
-      // Get REAL order stats per channel from cdp_orders for this customer
+      // Get REAL order stats per channel from cdp_orders using RPC (avoids 1000 row limit)
       const { data: channelStats } = await supabase
-        .from('cdp_orders')
-        .select('channel, net_revenue')
-        .eq('customer_id', customerId);
+        .rpc('cdp_customer_channel_stats', { p_customer_id: customerId });
 
-      // Aggregate by channel
+      // Build channel aggregates from RPC result
       const channelAggregates: Record<string, { orderCount: number; totalValue: number }> = {};
-      (channelStats || []).forEach(order => {
-        const ch = order.channel || 'unknown';
-        if (!channelAggregates[ch]) {
-          channelAggregates[ch] = { orderCount: 0, totalValue: 0 };
-        }
-        channelAggregates[ch].orderCount += 1;
-        channelAggregates[ch].totalValue += Number(order.net_revenue) || 0;
+      (channelStats || []).forEach((stat: { channel: string; order_count: number; total_value: number }) => {
+        channelAggregates[stat.channel] = {
+          orderCount: stat.order_count,
+          totalValue: Number(stat.total_value) || 0,
+        };
       });
 
       const activeChannels = Object.keys(channelAggregates);

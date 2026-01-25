@@ -25979,6 +25979,58 @@ export type Database = {
           },
         ]
       }
+      v_audience_rfm_summary: {
+        Row: {
+          at_risk: number | null
+          avg_aov: number | null
+          avg_frequency: number | null
+          avg_ltv: number | null
+          avg_recency_days: number | null
+          champions: number | null
+          hibernating: number | null
+          loyal: number | null
+          new_customers: number | null
+          tenant_id: string | null
+          total_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_audit_auto_reconcile_evidence: {
         Row: {
           action: string | null
@@ -28496,6 +28548,107 @@ export type Database = {
         }
         Relationships: []
       }
+      v_channel_daily_revenue: {
+        Row: {
+          channel: string | null
+          gross_revenue: number | null
+          net_revenue: number | null
+          order_count: number | null
+          order_date: string | null
+          platform_fees: number | null
+          profit: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_channel_performance: {
+        Row: {
+          avg_order_value: number | null
+          cancelled_orders: number | null
+          channel: string | null
+          gross_profit: number | null
+          gross_revenue: number | null
+          net_revenue: number | null
+          returned_orders: number | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_fees: number | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_channel_pl_summary: {
         Row: {
           avg_order_value: number | null
@@ -28648,27 +28801,18 @@ export type Database = {
       }
       v_fdp_finance_summary: {
         Row: {
-          aov: number | null
-          cancelled_orders: number | null
-          computed_at: string | null
+          avg_order_value: number | null
+          cac: number | null
           contribution_margin: number | null
-          delivered_orders: number | null
-          gross_margin_percent: number | null
+          contribution_margin_percent: number | null
           gross_profit: number | null
           gross_revenue: number | null
-          has_real_cogs: boolean | null
-          has_real_fees: boolean | null
-          has_real_marketing: boolean | null
           net_revenue: number | null
-          returned_orders: number | null
-          roas: number | null
-          shipping_fees: number | null
           tenant_id: string | null
           total_cogs: number | null
+          total_fees: number | null
           total_marketing_spend: number | null
-          total_opex: number | null
-          total_platform_fees: number | null
-          total_returns: number | null
+          total_orders: number | null
           unique_customers: number | null
         }
         Relationships: [
@@ -28888,6 +29032,57 @@ export type Database = {
           },
           {
             foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_mdp_campaign_attribution: {
+        Row: {
+          ad_spend: number | null
+          channel: string | null
+          cogs: number | null
+          contribution_margin: number | null
+          contribution_margin_percent: number | null
+          gross_revenue: number | null
+          net_revenue: number | null
+          order_count: number | null
+          platform_fees: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_overview"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_equity_snapshot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "external_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -29558,6 +29753,14 @@ export type Database = {
         }
         Returns: number
       }
+      cdp_customer_channel_stats: {
+        Args: { p_customer_id: string }
+        Returns: {
+          channel: string
+          order_count: number
+          total_value: number
+        }[]
+      }
       cdp_detect_ltv_decay: {
         Args: { p_tenant_id: string; p_threshold_percent?: number }
         Returns: {
@@ -29786,6 +29989,14 @@ export type Database = {
         Args: { p_days?: number; p_tenant_id: string }
         Returns: Json
       }
+      get_audit_log_stats: {
+        Args: { p_tenant_id?: string }
+        Returns: {
+          critical_actions: number
+          total_today: number
+          unique_users: number
+        }[]
+      }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_insight: {
         Args: {
@@ -29832,6 +30043,16 @@ export type Database = {
           total_profit: number
           total_quantity: number
           total_revenue: number
+        }[]
+      }
+      get_forecast_historical_stats: {
+        Args: { p_days?: number; p_tenant_id: string }
+        Returns: {
+          avg_daily_inflow: number
+          avg_daily_outflow: number
+          total_credit: number
+          total_debit: number
+          unique_days: number
         }[]
       }
       get_latest_central_metrics: {

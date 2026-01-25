@@ -130,19 +130,25 @@ export function useForecastInputs() {
     staleTime: 60000,
   });
 
-  const { data: historicalTxns, isLoading: histLoading } = useQuery({
-    queryKey: ['forecast-historical', tenantId],
+  // DB-First: Use RPC to get historical stats (avoids 1000 row limit)
+  const { data: historicalStats, isLoading: histLoading } = useQuery({
+    queryKey: ['forecast-historical-stats', tenantId],
     queryFn: async () => {
-      if (!tenantId) return [];
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      if (!tenantId) return null;
       
-      const { data } = await supabase
-        .from('bank_transactions')
-        .select('amount, transaction_type, transaction_date')
-        .eq('tenant_id', tenantId)
-        .gte('transaction_date', ninetyDaysAgo.toISOString().split('T')[0]);
-      return data || [];
+      const { data, error } = await supabase
+        .rpc('get_forecast_historical_stats', { 
+          p_tenant_id: tenantId,
+          p_days: 90
+        });
+      
+      if (error) {
+        console.error('[useForecastInputs] RPC error:', error);
+        return null;
+      }
+      
+      // RPC returns array with single row
+      return Array.isArray(data) ? data[0] : data;
     },
     enabled: !!tenantId,
     staleTime: 60000,
@@ -200,15 +206,10 @@ export function useForecastInputs() {
       .filter(o => o.delivered_at && new Date(o.delivered_at) > fourteenDaysAgo)
       .reduce((sum, o) => sum + (o.seller_income || 0), 0);
 
-    // Historical averages
-    const creditTxns = (historicalTxns || []).filter(t => t.transaction_type === 'credit');
-    const debitTxns = (historicalTxns || []).filter(t => t.transaction_type === 'debit');
-    
-    const totalCredit = creditTxns.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
-    const totalDebit = debitTxns.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
-    
-    const uniqueDates = new Set((historicalTxns || []).map(t => t.transaction_date));
-    const historicalDays = uniqueDates.size || 1;
+    // Historical averages - now from RPC (DB-First)
+    const totalCredit = Number(historicalStats?.total_credit) || 0;
+    const totalDebit = Number(historicalStats?.total_debit) || 0;
+    const historicalDays = Number(historicalStats?.unique_days) || 1;
 
     // Data status
     const hasBankData = (bankAccounts || []).length > 0;
@@ -268,7 +269,7 @@ export function useForecastInputs() {
         dataQualityScore: score,
       },
     };
-  }, [bankAccounts, invoices, bills, expenses, orders, historicalTxns]);
+  }, [bankAccounts, invoices, bills, expenses, orders, historicalStats]);
 
   const isLoading = tenantLoading || bankLoading || invoiceLoading || billLoading || expenseLoading || orderLoading || histLoading;
 
