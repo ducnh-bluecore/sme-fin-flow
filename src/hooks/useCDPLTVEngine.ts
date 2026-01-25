@@ -247,8 +247,9 @@ export function useLTVSummary() {
 }
 
 /**
- * Fetch actual realized revenue from cdp_orders (last 12 months)
- * This is the REAL revenue already collected, not projected
+ * Fetch actual realized revenue from cdp_orders (ALL TIME - not just 12 months)
+ * This is the REAL revenue already collected from customers, not projected
+ * Used to calculate: Còn lại = Equity - Đã thu
  */
 export function useRealizedRevenue() {
   const { data: tenantId } = useActiveTenantId();
@@ -258,16 +259,12 @@ export function useRealizedRevenue() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Get actual revenue from orders in the last 12 months
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      const dateStr = oneYearAgo.toISOString().split('T')[0];
-
+      // Get ALL actual revenue from orders (total collected from these customers)
+      // Use order_at (correct column name, not order_date)
       const { data, error } = await supabase
         .from('cdp_orders')
         .select('net_revenue')
-        .eq('tenant_id', tenantId)
-        .gte('order_date', dateStr);
+        .eq('tenant_id', tenantId);
 
       if (error) throw error;
       
@@ -276,7 +273,7 @@ export function useRealizedRevenue() {
       );
       
       return {
-        realized_revenue_12m: totalRealized,
+        realized_revenue: totalRealized,
         order_count: data?.length || 0
       };
     },
