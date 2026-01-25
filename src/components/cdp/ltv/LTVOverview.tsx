@@ -71,13 +71,13 @@ export function LTVOverview() {
   const tierLabel = selectedSegment.type === 'tier' 
     ? selectedSegment.id.replace('tier-', '') 
     : undefined;
-  const { data: tierData, isLoading: tierLoading } = useCDPTierData(tierLabel);
+  const { data: tierFilterData, isLoading: tierLoading } = useCDPTierData(tierLabel);
   
   // For RFM segments - extract RFM name from ID (e.g., "rfm-champions" -> "Champions")
   const rfmSegment = selectedSegment.type === 'rfm' 
     ? selectedSegment.name
     : undefined;
-  const { data: rfmData, isLoading: rfmLoading } = useCDPRFMData(rfmSegment);
+  const { data: rfmFilterData, isLoading: rfmLoading } = useCDPRFMData(rfmSegment);
 
   const isLoading = summaryLoading || modelLoading || realizedLoading || 
     (selectedSegment.type === 'tier' && tierLoading) ||
@@ -117,20 +117,20 @@ export function LTVOverview() {
   // Use filtered data based on segment type
   const displayData = useMemo(() => {
     // Tier filtering
-    if (selectedSegment.type === 'tier' && tierData) {
+    if (selectedSegment.type === 'tier' && tierFilterData) {
       return {
-        totalCustomers: tierData.customerCount,
-        totalEquity12m: tierData.estimatedEquity,
-        realizedRevenue: tierData.totalRevenue,
+        totalCustomers: tierFilterData.customerCount,
+        totalEquity12m: tierFilterData.estimatedEquity,
+        realizedRevenue: tierFilterData.totalRevenue,
       };
     }
     
     // RFM filtering
-    if (selectedSegment.type === 'rfm' && rfmData) {
+    if (selectedSegment.type === 'rfm' && rfmFilterData) {
       return {
-        totalCustomers: rfmData.customerCount,
-        totalEquity12m: rfmData.estimatedEquity,
-        realizedRevenue: rfmData.totalRevenue,
+        totalCustomers: rfmFilterData.customerCount,
+        totalEquity12m: rfmFilterData.estimatedEquity,
+        realizedRevenue: rfmFilterData.totalRevenue,
       };
     }
     
@@ -149,7 +149,7 @@ export function LTVOverview() {
       totalEquity12m: safeNumber(summary.total_equity_12m),
       realizedRevenue: safeNumber(realizedData?.realized_revenue),
     };
-  }, [selectedSegment, tierData, rfmData, populationDetail, summary, realizedData]);
+  }, [selectedSegment, tierFilterData, rfmFilterData, populationDetail, summary, realizedData]);
 
   const totalEquity12m = displayData.totalEquity12m;
   const atRiskEquity = safeNumber(summary.at_risk_equity);
