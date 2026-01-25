@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useChannelBudgets } from './useChannelBudgets';
-import { useMDPData } from './useMDPData';
+import { useMDPDataSSOT } from './useMDPDataSSOT';
 
 /**
  * UNIFIED CHANNEL METRICS - Single Source of Truth
@@ -8,7 +8,7 @@ import { useMDPData } from './useMDPData';
  * Hook này là nguồn dữ liệu duy nhất cho tất cả metrics theo kênh.
  * Mọi component đều PHẢI dùng hook này để đảm bảo consistency.
  * 
- * Data sources (all from useMDPData - SINGLE SOURCE):
+ * Data sources (all from useMDPDataSSOT - SINGLE SOURCE):
  * - budgetPacingData: actualSpend = campaign actual_cost + marketing_expenses
  * - marketingPerformance: revenue, orders, clicks, impressions
  * - profitAttribution: COGS, fees, CM (using same formula as CMO Mode)
@@ -118,7 +118,7 @@ export function useUnifiedChannelMetrics() {
     cmoModeSummary,
     dataQuality,
     isLoading: mdpLoading 
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   const hasConfiguredBudgets = useMemo(() => {
     return budgets.some(b => b.is_active && (b.budget_amount || 0) > 0);

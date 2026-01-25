@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useMDPData } from '@/hooks/useMDPData';
+import { useMDPDataSSOT } from '@/hooks/useMDPDataSSOT';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ export default function CustomerLTVPage() {
     thresholds,
     isLoading, 
     error 
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   const [activeTab, setActiveTab] = useState('overview');
 

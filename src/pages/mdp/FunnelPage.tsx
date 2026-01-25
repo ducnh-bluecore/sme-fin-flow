@@ -1,4 +1,4 @@
-import { useMDPData } from '@/hooks/useMDPData';
+import { useMDPDataSSOT } from '@/hooks/useMDPDataSSOT';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { FunnelChart } from '@/components/mdp/marketing-mode';
 import { cn } from '@/lib/utils';
 
 export default function FunnelPage() {
-  const { funnelData, marketingPerformance, marketingModeSummary, isLoading, error } = useMDPData();
+  const { funnelData, marketingPerformance, marketingModeSummary, isLoading, error } = useMDPDataSSOT();
 
   if (error) {
     return (

@@ -65,9 +65,9 @@ if (!hasRealCOGS) {
 | KPI | `useFinanceTruthSnapshot` | ~~useKPIData~~ | ✅ Migrated |
 | Control Tower | `useControlTowerAnalyticsSSoT` | N/A | ✅ New |
 
-## Migration Status (Phase 3 Complete)
+## Migration Status (Phase 4 Complete)
 
-### Migrated Pages
+### Migrated Pages (Phase 1-3)
 - `MDPDashboardPage` → useMDPDataSSOT
 - `CMOModePage` → useMDPDataSSOT
 - `DecisionSupportPage` → useMDPDataSSOT
@@ -83,6 +83,12 @@ if (!hasRealCOGS) {
 - `RetailScenarioPanel` → useFinanceTruthSnapshot
 - `WhatIfSimulationPanel` → useFinanceTruthSnapshot
 - `AnalyticsPage (Control Tower)` → useControlTowerAnalyticsSSoT
+
+### Migrated Pages (Phase 4)
+- `FunnelPage` → useMDPDataSSOT
+- `CustomerLTVPage` → useMDPDataSSOT
+- `MarketingModePage` → useMDPDataSSOT (complete)
+- `useUnifiedChannelMetrics` → useMDPDataSSOT
 
 ## Pre-commit Check
 
@@ -147,3 +153,26 @@ The system automatically detects SSOT violations via:
 - FDP Manifesto Principle #2: SINGLE SOURCE OF TRUTH
 - MDP Manifesto: Profit before Performance
 - Custom Knowledge: DB-First architecture
+
+## Phase 4 Completion Summary
+
+**Date:** 2025-01-25
+
+### Changes Made
+1. **FunnelPage.tsx** - Migrated from `useMDPData` to `useMDPDataSSOT`
+2. **CustomerLTVPage.tsx** - Migrated from `useMDPData` to `useMDPDataSSOT`
+3. **MarketingModePage.tsx** - Completed migration to `useMDPDataSSOT`
+4. **useUnifiedChannelMetrics.ts** - Migrated from `useMDPData` to `useMDPDataSSOT`
+
+### Hook Enhancements
+- `useMDPDataSSOT` now exports:
+  - `budgetPacingData` (derived from attribution)
+  - `totalPlannedBudget` / `totalActualSpend`
+  - `rawQueryResults` (for DataQualityIndicator compatibility)
+  - `funnelData` (calculated from performance metrics)
+
+### Remaining Migration Tasks (Future Phases)
+- `useFDPMetrics` consumers in `useMarketingProfitability`
+- `useCentralFinancialMetrics` in Executive/AR/Scenario pages
+- `usePerformanceData` in Control Tower PerformancePage
+- `usePLData` / `useChannelPL` in report pages
