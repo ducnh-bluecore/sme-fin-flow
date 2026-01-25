@@ -9,14 +9,26 @@ import { Button } from '@/components/ui/button';
 import { Plus, TrendingUp, Users, Package } from 'lucide-react';
 import { ProductForecastForm } from '@/components/cdp/product-forecast/ProductForecastForm';
 import { ProductForecastList } from '@/components/cdp/product-forecast/ProductForecastList';
-import { useProductForecasts, useCategoryConversionStats } from '@/hooks/cdp/useProductForecast';
+import { useProductForecasts, useCategoryConversionStats, useActiveCustomerCount } from '@/hooks/cdp/useProductForecast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const TIMEFRAME_OPTIONS = [
+  { value: '30', label: '30 ngày' },
+  { value: '60', label: '60 ngày' },
+  { value: '90', label: '90 ngày' },
+  { value: '180', label: '180 ngày' },
+  { value: '365', label: '365 ngày' },
+];
 
 export default function ProductForecastPage() {
   const [showForm, setShowForm] = useState(false);
+  const [activeTimeframeDays, setActiveTimeframeDays] = useState<number>(90);
+  
   const { data: forecasts, isLoading: forecastsLoading } = useProductForecasts();
   const { data: categoryStats, isLoading: statsLoading } = useCategoryConversionStats();
+  const { data: activeCustomerCount, isLoading: customerCountLoading } = useActiveCustomerCount(activeTimeframeDays);
 
-  const isLoading = forecastsLoading || statsLoading;
+  const isLoading = forecastsLoading || statsLoading || customerCountLoading;
 
   // Summary stats
   const totalForecasts = forecasts?.length || 0;
@@ -62,12 +74,28 @@ export default function ProductForecastPage() {
                 <div className="p-2 bg-blue-500/10 rounded-lg">
                   <Users className="h-5 w-5 text-blue-500" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-2xl font-semibold">
-                    {/* Use total_active_customers from first category - represents unique active customers */}
-                    {categoryStats?.[0]?.total_active_customers?.toLocaleString() || 0}
+                    {activeCustomerCount?.toLocaleString() || 0}
                   </p>
-                  <p className="text-sm text-muted-foreground">Khách hàng có thể target</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">KH active trong</p>
+                    <Select 
+                      value={String(activeTimeframeDays)} 
+                      onValueChange={(v) => setActiveTimeframeDays(Number(v))}
+                    >
+                      <SelectTrigger className="h-6 w-[90px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMEFRAME_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </CardContent>

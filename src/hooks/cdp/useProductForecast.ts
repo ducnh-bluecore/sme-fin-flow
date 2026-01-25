@@ -362,3 +362,47 @@ export function useAvailableCategories() {
     enabled: !!activeTenant?.id,
   });
 }
+
+// Count unique active customers within a configurable timeframe
+export function useActiveCustomerCount(days: number = 90) {
+  const { activeTenant } = useTenant();
+
+  return useQuery({
+    queryKey: ['cdp-active-customer-count', activeTenant?.id, days],
+    queryFn: async () => {
+      if (!activeTenant?.id) return 0;
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+      const { count, error } = await supabase
+        .from('cdp_orders')
+        .select('customer_id', { count: 'exact', head: true })
+        .eq('tenant_id', activeTenant.id)
+        .gte('order_date', cutoffStr);
+
+      if (error) {
+        console.error('[useActiveCustomerCount] Error:', error);
+        return 0;
+      }
+
+      // Get distinct count via separate query
+      const { data, error: dataError } = await supabase
+        .from('cdp_orders')
+        .select('customer_id')
+        .eq('tenant_id', activeTenant.id)
+        .gte('order_date', cutoffStr);
+
+      if (dataError) {
+        console.error('[useActiveCustomerCount] Data Error:', dataError);
+        return 0;
+      }
+
+      // Count unique customers
+      const uniqueCustomers = new Set(data?.map(d => d.customer_id) || []);
+      return uniqueCustomers.size;
+    },
+    enabled: !!activeTenant?.id,
+  });
+}
