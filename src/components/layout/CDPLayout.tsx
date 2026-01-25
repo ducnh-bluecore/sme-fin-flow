@@ -50,6 +50,7 @@ const navItems: NavItem[] = [
   { label: 'Khám phá', href: '/cdp/explore', icon: Compass },
   { label: 'Insight', href: '/cdp/insights', icon: TrendingUp },
   { label: 'Giá trị Khách hàng', href: '/cdp/ltv-engine', icon: Wallet },
+  { label: 'Dự báo Sản phẩm', href: '/cdp/product-forecast', icon: TrendingUp },
   { label: 'Tập khách hàng', href: '/cdp/populations', icon: Layers },
   { label: 'Thẻ Quyết định', href: '/cdp/decisions', icon: FileCheck },
   { label: 'Độ tin cậy Dữ liệu', href: '/cdp/confidence', icon: ShieldCheck },
