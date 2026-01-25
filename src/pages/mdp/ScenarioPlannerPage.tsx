@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useMDPData } from '@/hooks/useMDPData';
+import { useMDPDataSSOT } from '@/hooks/useMDPDataSSOT';
 import { useBudgetOptimizerData } from '@/hooks/useMDPExtendedData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,7 @@ export default function ScenarioPlannerPage() {
     profitAttribution,
     isLoading: isMDPLoading, 
     error 
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   // Also fetch from Budget Optimizer data source for fallback
   const { channelBudgets, isLoading: isBudgetLoading } = useBudgetOptimizerData();

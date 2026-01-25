@@ -49,7 +49,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { formatVNDCompact } from '@/lib/formatters';
-import { useKPIData } from '@/hooks/useKPIData';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useWhatIfDefaults } from '@/hooks/useWhatIfDefaults';
 import { useWhatIfRealData } from '@/hooks/useWhatIfRealData';
 import { 
@@ -154,7 +154,14 @@ function SliderInput({
 }
 
 export function WhatIfSimulationPanel() {
-  const { data: kpiData, isLoading: kpiLoading } = useKPIData();
+  const { data: snapshot, isLoading: kpiLoading } = useFinanceTruthSnapshot();
+  // Map snapshot to legacy kpiData shape for compatibility
+  const kpiData = snapshot ? { 
+    totalRevenue: snapshot.netRevenue, 
+    grossMargin: snapshot.grossMarginPercent,
+    ebitda: snapshot.ebitda,
+    cashToday: snapshot.cashToday,
+  } : undefined;
   const { data: defaults, isLoading: defaultsLoading } = useWhatIfDefaults();
   const { data: realData, isLoading: realLoading } = useWhatIfRealData();
   const { data: savedScenarios = [], isLoading: scenariosLoading } = useWhatIfScenarios();

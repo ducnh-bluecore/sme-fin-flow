@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMDPData, MarketingRiskAlert } from '@/hooks/useMDPData';
+import { useMDPDataSSOT, MarketingRiskAlert } from '@/hooks/useMDPDataSSOT';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -245,7 +245,7 @@ const generateAIInsights = (alerts: MarketingRiskAlert[]) => {
 
 export default function RiskAlertsPage() {
   const navigate = useNavigate();
-  const { riskAlerts, profitAttribution, cashImpact, dataQuality, thresholds, isLoading, error } = useMDPData();
+  const { riskAlerts, profitAttribution, cashImpact, dataQuality, thresholds, isLoading, error } = useMDPDataSSOT();
   
   // Filter & Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -1288,43 +1288,43 @@ export default function RiskAlertsPage() {
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             "w-2 h-2 rounded-full",
-                            dataQuality.hasRealCOGS ? "bg-green-400" : "bg-yellow-400"
+                            dataQuality?.has_real_cogs ? "bg-green-400" : "bg-yellow-400"
                           )} />
                           <span>COGS</span>
                         </div>
                         <span className={cn(
                           "text-right",
-                          dataQuality.hasRealCOGS ? "text-green-400" : "text-yellow-400"
+                          dataQuality?.has_real_cogs ? "text-green-400" : "text-yellow-400"
                         )}>
-                          {dataQuality.hasRealCOGS ? "Dữ liệu thực" : "Ước tính 55%"}
+                          {dataQuality?.has_real_cogs ? "Dữ liệu thực" : "Ước tính 55%"}
                         </span>
                         
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             "w-2 h-2 rounded-full",
-                            dataQuality.hasRealFees ? "bg-green-400" : "bg-yellow-400"
+                            dataQuality?.has_real_fees ? "bg-green-400" : "bg-yellow-400"
                           )} />
                           <span>Platform Fees</span>
                         </div>
                         <span className={cn(
                           "text-right",
-                          dataQuality.hasRealFees ? "text-green-400" : "text-yellow-400"
+                          dataQuality?.has_real_fees ? "text-green-400" : "text-yellow-400"
                         )}>
-                          {dataQuality.hasRealFees ? "Dữ liệu thực" : "Ước tính 12%"}
+                          {dataQuality?.has_real_fees ? "Dữ liệu thực" : "Ước tính 12%"}
                         </span>
                         
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             "w-2 h-2 rounded-full",
-                            dataQuality.hasRealSettlements ? "bg-green-400" : "bg-yellow-400"
+                            dataQuality?.has_real_settlements ? "bg-green-400" : "bg-yellow-400"
                           )} />
                           <span>Settlements</span>
                         </div>
                         <span className={cn(
                           "text-right",
-                          dataQuality.hasRealSettlements ? "text-green-400" : "text-yellow-400"
+                          dataQuality?.has_real_settlements ? "text-green-400" : "text-yellow-400"
                         )}>
-                          {dataQuality.hasRealSettlements ? "Dữ liệu thực" : "Ước tính"}
+                          {dataQuality?.has_real_settlements ? "Dữ liệu thực" : "Ước tính"}
                         </span>
                       </div>
 
@@ -1334,9 +1334,9 @@ export default function RiskAlertsPage() {
                         <span className="text-sm font-medium">Độ tin cậy</span>
                         <div className="flex items-center gap-2">
                           {(() => {
-                            const score = (dataQuality.hasRealCOGS ? 1 : 0) + 
-                                         (dataQuality.hasRealFees ? 1 : 0) + 
-                                         (dataQuality.hasRealSettlements ? 1 : 0);
+                            const score = (dataQuality?.has_real_cogs ? 1 : 0) + 
+                                         (dataQuality?.has_real_fees ? 1 : 0) + 
+                                         (dataQuality?.has_real_settlements ? 1 : 0);
                             const level = score === 3 ? 'Cao' : score >= 1 ? 'Trung bình' : 'Thấp';
                             const color = score === 3 ? 'text-green-400' : score >= 1 ? 'text-yellow-400' : 'text-red-400';
                             return (
@@ -1353,7 +1353,7 @@ export default function RiskAlertsPage() {
                         </div>
                       </div>
                       
-                      {!dataQuality.hasRealCOGS && !dataQuality.hasRealFees && (
+                      {!dataQuality?.has_real_cogs && !dataQuality?.has_real_fees && (
                         <p className="text-xs text-yellow-400 mt-2">
                           ⚠️ Đề xuất: Import dữ liệu COGS và Fees từ ERP/Channel để tăng độ chính xác
                         </p>

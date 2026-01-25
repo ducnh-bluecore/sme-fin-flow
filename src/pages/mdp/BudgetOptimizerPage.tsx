@@ -33,7 +33,7 @@ import {
   PieChart as RechartsPieChart, Pie, Cell, Legend, ComposedChart, Line
 } from 'recharts';
 import { useBudgetOptimizerData } from '@/hooks/useMDPExtendedData';
-import { useMDPData } from '@/hooks/useMDPData';
+import { useMDPDataSSOT } from '@/hooks/useMDPDataSSOT';
 import { BudgetOptimizationPanel } from '@/components/whatif/BudgetOptimizationPanel';
 
 const CHART_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#6366f1', '#ef4444', '#14b8a6'];
@@ -52,7 +52,7 @@ export default function BudgetOptimizerPage() {
   
   // Fetch real data
   const { channelBudgets, isLoading: isBudgetLoading, error: budgetError } = useBudgetOptimizerData();
-  const { profitAttribution, cashImpact, riskAlerts, isLoading: isMDPLoading } = useMDPData();
+  const { profitAttribution, cashImpact, riskAlerts, isLoading: isMDPLoading } = useMDPDataSSOT();
   
   const isLoading = isBudgetLoading || isMDPLoading;
 

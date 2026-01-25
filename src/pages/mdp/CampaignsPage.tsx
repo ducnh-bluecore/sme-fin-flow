@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMDPData, MarketingPerformance } from '@/hooks/useMDPData';
+import { useMDPDataSSOT, MarketingPerformance } from '@/hooks/useMDPDataSSOT';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
@@ -21,7 +21,7 @@ export default function CampaignsPage() {
     cmoModeSummary,
     isLoading, 
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
 
   const [selectedCampaign, setSelectedCampaign] = useState<MarketingPerformance | null>(null);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
