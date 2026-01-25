@@ -64,7 +64,8 @@ export default function ProductForecastPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-semibold">
-                    {categoryStats?.reduce((sum, c) => sum + c.unique_buyers, 0)?.toLocaleString() || 0}
+                    {/* Use total_active_customers from first category - represents unique active customers */}
+                    {categoryStats?.[0]?.total_active_customers?.toLocaleString() || 0}
                   </p>
                   <p className="text-sm text-muted-foreground">Khách hàng có thể target</p>
                 </div>
