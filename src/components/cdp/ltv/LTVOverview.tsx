@@ -76,18 +76,21 @@ export function LTVOverview() {
   const totalCustomers = safeNumber(summary.total_customers);
   const atRiskCount = safeNumber(summary.at_risk_count);
 
-  // REALIZED = Actual revenue already collected from orders (last 12 months)
-  // PROJECTED = LTV forecast for next 12 months (totalEquity12m)
-  // These are DIFFERENT time periods:
-  // - Realized: Past 12 months (actual)
-  // - Projected: Next 12 months (forecast)
-  const realizedRevenue = safeNumber(realizedData?.realized_revenue_12m);
-  const projectedRevenue = totalEquity12m; // This is FUTURE projection, not overlap
+  // LOGIC ĐÚNG:
+  // - Tổng tiềm năng = Đã thu + Còn lại (Equity 12m)
+  // - Đã thu = Doanh thu THẬT từ tất cả orders đã thực hiện (data thật)
+  // - Còn lại = Equity 12m = Dự báo giá trị tương lai (có thể thu thêm)
+  // 
+  // Ví dụ: 190 KH có tổng tiềm năng 240M
+  //        Đã thu: 90M (orders thực)
+  //        Còn lại: 150M (equity = có thể thu thêm trong 12 tháng tới)
   
-  // Total customer value = Past (collected) + Future (projected)
-  const totalCustomerValue = realizedRevenue + projectedRevenue;
-  const realizedPercent = totalCustomerValue > 0 
-    ? (realizedRevenue / totalCustomerValue) * 100 
+  const realizedRevenue = safeNumber(realizedData?.realized_revenue); // Doanh thu đã thu (thật)
+  const remainingPotential = totalEquity12m; // Equity 12m = Còn có thể thu
+  const totalPotentialValue = realizedRevenue + remainingPotential; // Tổng tiềm năng
+  
+  const realizedPercent = totalPotentialValue > 0 
+    ? (realizedRevenue / totalPotentialValue) * 100 
     : 0;
 
   return (
@@ -105,17 +108,17 @@ export function LTVOverview() {
             </Badge>
           </div>
           <CardDescription>
-            Doanh thu đã thu (12 tháng qua) + Dự báo (12 tháng tới)
+            Tổng tiềm năng = Đã thu + Còn có thể thu (12 tháng tới)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Main Metrics Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Total Value */}
+            {/* Total Potential Value */}
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Tổng giá trị KH</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(totalCustomerValue)}</p>
-              <p className="text-xs text-muted-foreground">Quá khứ + Tương lai</p>
+              <p className="text-xs text-muted-foreground">Tổng tiềm năng KH</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(totalPotentialValue)}</p>
+              <p className="text-xs text-muted-foreground">Đã thu + Còn lại</p>
             </div>
             
             {/* Average LTV */}
@@ -125,31 +128,31 @@ export function LTVOverview() {
               <p className="text-xs text-muted-foreground">Median: {formatCurrency(summary.median_ltv_12m)}</p>
             </div>
             
-            {/* Realized - PAST 12 months */}
+            {/* Realized - Already collected */}
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                <p className="text-xs text-muted-foreground">Đã thu (12 tháng qua)</p>
+                <p className="text-xs text-muted-foreground">Đã thu (thực tế)</p>
               </div>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(realizedRevenue)}</p>
-              <p className="text-xs text-muted-foreground">Dữ liệu thật</p>
+              <p className="text-xs text-muted-foreground">Dữ liệu thật từ orders</p>
             </div>
             
-            {/* Projected - NEXT 12 months */}
+            {/* Remaining - Can still collect */}
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-blue-600" />
-                <p className="text-xs text-muted-foreground">Dự báo (12 tháng tới)</p>
+                <Clock className="h-3.5 w-3.5 text-amber-600" />
+                <p className="text-xs text-muted-foreground">Còn có thể thu</p>
               </div>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(projectedRevenue)}</p>
-              <p className="text-xs text-muted-foreground">Customer Equity</p>
+              <p className="text-2xl font-bold text-amber-600">{formatCurrency(remainingPotential)}</p>
+              <p className="text-xs text-muted-foreground">Dự báo 12 tháng tới</p>
             </div>
           </div>
 
-          {/* Progress Bar - Past vs Future */}
+          {/* Progress Bar - Realized vs Remaining */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Phân bổ giá trị khách hàng</span>
+              <span className="text-muted-foreground">Tỷ lệ khai thác giá trị khách hàng</span>
               <span className="font-medium">{realizedPercent.toFixed(1)}% đã thu</span>
             </div>
             <div className="h-3 bg-muted rounded-full overflow-hidden flex">
@@ -158,18 +161,18 @@ export function LTVOverview() {
                 style={{ width: `${realizedPercent}%` }}
               />
               <div 
-                className="h-full bg-blue-400 transition-all"
+                className="h-full bg-amber-400 transition-all"
                 style={{ width: `${100 - realizedPercent}%` }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                12 tháng qua: {formatCurrency(realizedRevenue)}
+                Đã thu: {formatCurrency(realizedRevenue)}
               </span>
               <span className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-blue-400" />
-                12 tháng tới: {formatCurrency(projectedRevenue)}
+                <div className="w-2 h-2 rounded-full bg-amber-400" />
+                Còn lại: {formatCurrency(remainingPotential)}
               </span>
             </div>
           </div>
