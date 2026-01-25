@@ -11,7 +11,8 @@ import {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // IMPORTANT: must include any custom headers sent by the browser (e.g. x-tenant-id)
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-tenant-id',
 };
 
 interface Message {

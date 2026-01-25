@@ -8,12 +8,7 @@ interface Message {
   content: string;
 }
 
-// Use environment variable for Supabase URL
-const getSupabaseUrl = () => {
-  // Try environment variable first, fallback to hardcoded
-  return import.meta.env.VITE_SUPABASE_URL || 'https://bwelonzvndchpjnfvawt.supabase.co';
-};
-const CHAT_URL = `${getSupabaseUrl()}/functions/v1/cdp-qa`;
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cdp-qa`;
 
 export function useCDPQA() {
   const [messages, setMessages] = useState<Message[]>([]);
