@@ -4,9 +4,12 @@ import {
   Trash2, 
   Lightbulb, 
   Users,
-  TrendingDown,
   AlertTriangle,
-  ChevronRight
+  ChevronRight,
+  Save,
+  Loader2,
+  Database,
+  CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,25 +23,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
-interface HypothesisCondition {
-  id: string;
-  metric: string;
-  operator: string;
-  value: string;
-  timeframe: string;
-}
-
-interface HypothesisResult {
-  customerCount: number;
-  percentOfTotal: number;
-  avgAOV: number;
-  avgAOVDelta: number;
-  returnRate: number;
-  returnRateDelta: number;
-  systemSuggestion?: string;
-}
+import { useHypothesisQuery, useSaveAsSegment, HypothesisCondition } from '@/hooks/cdp/useHypothesisQuery';
 
 const metricOptions = [
   { value: 'aov', label: 'AOV (giá trị đơn TB)' },
@@ -46,7 +43,6 @@ const metricOptions = [
   { value: 'total_spend', label: 'Tổng chi tiêu' },
   { value: 'repurchase_cycle', label: 'Chu kỳ mua lại' },
   { value: 'return_rate', label: 'Tỷ lệ hoàn trả' },
-  { value: 'last_purchase', label: 'Lần mua gần nhất' },
   { value: 'margin_contribution', label: 'Đóng góp biên' },
 ];
 
@@ -67,35 +63,17 @@ const timeframeOptions = [
   { value: 'all', label: 'toàn bộ' },
 ];
 
-// Mock result based on conditions
-function calculateMockResult(conditions: HypothesisCondition[]): HypothesisResult | null {
-  if (conditions.length === 0) return null;
-  
-  // Simulate different results based on conditions
-  const hasDownTrend = conditions.some(c => c.operator === 'change_down');
-  const hasHighReturn = conditions.some(c => c.metric === 'return_rate' && c.operator === 'gt');
-  
-  return {
-    customerCount: hasDownTrend ? 1234 : 3456,
-    percentOfTotal: hasDownTrend ? 12.5 : 35.2,
-    avgAOV: hasDownTrend ? 850000 : 1250000,
-    avgAOVDelta: hasDownTrend ? -18.5 : 5.2,
-    returnRate: hasHighReturn ? 22.3 : 8.7,
-    returnRateDelta: hasHighReturn ? 8.1 : -2.3,
-    systemSuggestion: hasDownTrend 
-      ? 'Dữ liệu cho thấy xu hướng suy giảm giá trị ở tập khách này. Đề xuất rà soát rủi ro doanh thu và dòng tiền liên quan.'
-      : hasHighReturn
-        ? 'Tỷ lệ hoàn trả cao hơn mức trung bình có thể ảnh hưởng đến biên lợi nhuận thực tế. Cần được xem xét ở cấp điều hành.'
-        : undefined,
-  };
-}
-
 export function HypothesisBuilder() {
   const [conditions, setConditions] = useState<HypothesisCondition[]>([
-    { id: '1', metric: 'aov', operator: 'change_down', value: '20', timeframe: '60d' }
+    { id: '1', metric: 'aov', operator: 'gte', value: '500000', timeframe: '90d' }
   ]);
-  
-  const result = calculateMockResult(conditions);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [segmentName, setSegmentName] = useState('');
+  const [segmentDescription, setSegmentDescription] = useState('');
+
+  // Real data query
+  const { data: result, isLoading, isFetching } = useHypothesisQuery(conditions);
+  const saveAsSegment = useSaveAsSegment();
 
   const addCondition = () => {
     setConditions([
@@ -121,9 +99,33 @@ export function HypothesisBuilder() {
   };
 
   const formatCurrency = (value: number): string => {
+    if (value >= 1e9) return `${(value / 1e9).toFixed(1)} tỷ`;
     if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
     if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K`;
     return value.toLocaleString('vi-VN');
+  };
+
+  const handleSaveSegment = async () => {
+    if (!segmentName.trim()) return;
+    
+    await saveAsSegment.mutateAsync({
+      name: segmentName,
+      description: segmentDescription,
+      conditions,
+    });
+    
+    setSaveDialogOpen(false);
+    setSegmentName('');
+    setSegmentDescription('');
+  };
+
+  // Generate description from conditions
+  const generateDescription = () => {
+    return conditions.map(c => {
+      const metric = metricOptions.find(m => m.value === c.metric)?.label || c.metric;
+      const op = operatorOptions.find(o => o.value === c.operator)?.label || c.operator;
+      return `${metric} ${op} ${c.value}`;
+    }).join(' VÀ ');
   };
 
   return (
@@ -136,7 +138,7 @@ export function HypothesisBuilder() {
             Xây dựng giả thuyết hành vi
           </CardTitle>
           <CardDescription>
-            Định nghĩa điều kiện để tìm nhóm khách hàng theo giả thuyết của bạn
+            Định nghĩa điều kiện để tìm nhóm khách hàng theo giả thuyết của bạn. Dữ liệu được query trực tiếp từ database.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -148,10 +150,11 @@ export function HypothesisBuilder() {
                 const metric = metricOptions.find(m => m.value === c.metric)?.label.toLowerCase();
                 const op = operatorOptions.find(o => o.value === c.operator)?.label;
                 const time = timeframeOptions.find(t => t.value === c.timeframe)?.label;
+                const unit = ['aov', 'total_spend', 'margin_contribution'].includes(c.metric) ? 'đ' : '';
                 return (
                   <span key={c.id}>
                     {i > 0 && ' VÀ '}
-                    <strong>{metric}</strong> {op} <strong>{c.value}%</strong> {time}
+                    <strong>{metric}</strong> {op} <strong>{c.value}{unit}</strong> {time}
                   </span>
                 );
               })}"
@@ -196,10 +199,9 @@ export function HypothesisBuilder() {
                     type="text"
                     value={condition.value}
                     onChange={(e) => updateCondition(condition.id, 'value', e.target.value)}
-                    className="w-20"
+                    className="w-24"
                     placeholder="Giá trị"
                   />
-                  <span className="text-sm text-muted-foreground">%</span>
                 </div>
                 <Select
                   value={condition.timeframe}
@@ -235,67 +237,151 @@ export function HypothesisBuilder() {
       </Card>
 
       {/* Results Card */}
-      {result && (
+      {(isLoading || result) && (
         <Card className="border-primary/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Kết quả giả thuyết</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                Kết quả giả thuyết
+                {isFetching && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+              </CardTitle>
+              {result?.isRealData && (
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20 gap-1">
+                  <Database className="w-3 h-3" />
+                  Dữ liệu thật
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Key Metrics */}
-            <div className="grid grid-cols-4 gap-4">
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Quy mô</span>
-                </div>
-                <p className="text-xl font-semibold">{result.customerCount.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">{result.percentOfTotal}% tổng số</p>
+            {isLoading && !result ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Đang query dữ liệu...</span>
               </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs text-muted-foreground">AOV trung bình</span>
-                </div>
-                <p className="text-xl font-semibold">{formatCurrency(result.avgAOV)}</p>
-                <p className={cn(
-                  "text-xs",
-                  result.avgAOVDelta >= 0 ? "text-success" : "text-destructive"
-                )}>
-                  {result.avgAOVDelta >= 0 ? '+' : ''}{result.avgAOVDelta.toFixed(1)}% so với TB
-                </p>
-              </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs text-muted-foreground">Tỷ lệ hoàn trả</span>
-                </div>
-                <p className="text-xl font-semibold">{result.returnRate.toFixed(1)}%</p>
-                <p className={cn(
-                  "text-xs",
-                  result.returnRateDelta <= 0 ? "text-success" : "text-destructive"
-                )}>
-                  {result.returnRateDelta >= 0 ? '+' : ''}{result.returnRateDelta.toFixed(1)}% so với TB
-                </p>
-              </div>
-              <div className="p-4 bg-muted/30 rounded-lg flex flex-col justify-center">
-                <Button size="sm" className="w-full" variant="outline">
-                  Xem chi tiết tập khách
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-
-            {/* System Suggestion */}
-            {result.systemSuggestion && (
+            ) : result ? (
               <>
-                <Separator />
-                <div className="flex items-start gap-3 p-3 bg-warning/5 border border-warning/20 rounded-lg">
-                  <AlertTriangle className="w-4 h-4 text-warning mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">Gợi ý từ hệ thống</p>
-                    <p className="text-sm text-muted-foreground">{result.systemSuggestion}</p>
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Quy mô</span>
+                    </div>
+                    <p className="text-xl font-semibold">{result.customerCount.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">{result.percentOfTotal}% tổng số</p>
+                  </div>
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-muted-foreground">AOV trung bình</span>
+                    </div>
+                    <p className="text-xl font-semibold">{formatCurrency(result.avgAOV)}</p>
+                    <p className={cn(
+                      "text-xs",
+                      result.avgAOVDelta >= 0 ? "text-success" : "text-destructive"
+                    )}>
+                      {result.avgAOVDelta >= 0 ? '+' : ''}{result.avgAOVDelta.toFixed(1)}% so với TB tenant
+                    </p>
+                  </div>
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-muted-foreground">Tổng chi tiêu</span>
+                    </div>
+                    <p className="text-xl font-semibold">{formatCurrency(result.totalSpend)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Biên: {formatCurrency(result.marginContribution)}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-muted/30 rounded-lg flex flex-col gap-2">
+                    <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          className="w-full" 
+                          disabled={result.customerCount === 0}
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Lưu thành Tập khách
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Lưu tập khách hàng mới</DialogTitle>
+                          <DialogDescription>
+                            Tập khách sẽ được lưu và có thể sử dụng cho phân tích, insight.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="name">Tên tập khách</Label>
+                            <Input
+                              id="name"
+                              value={segmentName}
+                              onChange={(e) => setSegmentName(e.target.value)}
+                              placeholder="VD: Khách VIP AOV cao"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="description">Mô tả</Label>
+                            <Textarea
+                              id="description"
+                              value={segmentDescription}
+                              onChange={(e) => setSegmentDescription(e.target.value)}
+                              placeholder={generateDescription()}
+                              rows={3}
+                            />
+                          </div>
+                          <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                            <p className="font-medium mb-1">Điều kiện:</p>
+                            <p className="text-muted-foreground">{generateDescription()}</p>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+                            Hủy
+                          </Button>
+                          <Button 
+                            onClick={handleSaveSegment} 
+                            disabled={!segmentName.trim() || saveAsSegment.isPending}
+                          >
+                            {saveAsSegment.isPending ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                            )}
+                            Lưu
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <Button size="sm" className="w-full" variant="outline">
+                      Xem chi tiết
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
                   </div>
                 </div>
+
+                {/* System Suggestion */}
+                {result.systemSuggestion && (
+                  <>
+                    <Separator />
+                    <div className="flex items-start gap-3 p-3 bg-warning/5 border border-warning/20 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-warning mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">Gợi ý từ hệ thống</p>
+                        <p className="text-sm text-muted-foreground">{result.systemSuggestion}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Data Source */}
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Database className="w-3 h-3" />
+                  Nguồn: {result.dataSource}
+                </div>
               </>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       )}
