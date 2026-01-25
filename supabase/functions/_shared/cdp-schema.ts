@@ -91,13 +91,31 @@ export function validateSQL(sql: string): { valid: boolean; error?: string } {
   }
   
   // Check that only allowed views are queried
-  const fromMatch = sql.match(/FROM\s+([a-z_0-9]+)/gi);
-  if (fromMatch) {
-    for (const match of fromMatch) {
-      const tableName = match.replace(/FROM\s+/i, '').toLowerCase();
-      if (!CDP_QUERYABLE_VIEWS.includes(tableName as CDPQueryableView)) {
-        return { valid: false, error: `Table/view '${tableName}' is not allowed` };
-      }
+  // Use a more precise regex that avoids matching EXTRACT(... FROM column) or similar
+  // Match: FROM <table> but NOT preceded by '(' (like in EXTRACT(YEAR FROM ...))
+  // We look for FROM at word boundary, followed by table name, not inside function calls
+  const tableMatches: string[] = [];
+  
+  // Strategy: find all FROM <identifier> patterns, then filter out false positives
+  const allFromMatches = sql.matchAll(/\bFROM\s+([a-z_][a-z_0-9]*)/gi);
+  for (const m of allFromMatches) {
+    const fullMatch = m[0];
+    const tableName = m[1].toLowerCase();
+    const matchIndex = m.index ?? 0;
+    
+    // Check if this FROM is preceded by '(' within ~20 chars (EXTRACT, DATE_PART, etc.)
+    const preceding = sql.slice(Math.max(0, matchIndex - 20), matchIndex);
+    if (/\(\s*[A-Z_]+\s*$/i.test(preceding)) {
+      // This is likely EXTRACT(YEAR FROM ...) or similar - skip
+      continue;
+    }
+    
+    tableMatches.push(tableName);
+  }
+  
+  for (const tableName of tableMatches) {
+    if (!CDP_QUERYABLE_VIEWS.includes(tableName as CDPQueryableView)) {
+      return { valid: false, error: `Table/view '${tableName}' is not allowed` };
     }
   }
   
