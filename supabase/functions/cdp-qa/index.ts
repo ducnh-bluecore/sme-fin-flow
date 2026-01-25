@@ -41,7 +41,7 @@ RÀNG BUỘC BẮT BUỘC:
 3) CHỈ được query các view trong whitelist dưới đây (không được join sang bảng khác):
 ${CDP_QUERYABLE_VIEWS.map(v => `- ${v}`).join('\n')}
 4) Luôn chọn các cột đúng theo schema mô tả.
-5) Nếu câu hỏi không thể trả lời bằng các view hiện có, vẫn phải trả về một SQL hợp lệ để kiểm tra "không có dữ liệu" (ví dụ SELECT ... LIMIT 0) trên một view phù hợp nhất.
+ 5) Tuyệt đối KHÔNG dùng 'LIMIT 0'. Nếu câu hỏi không thể trả lời đầy đủ, vẫn trả về một SQL SELECT hợp lệ trên 1 view phù hợp nhất với 'LIMIT 50' để kiểm tra dữ liệu.
 
 QUY TẮC VỀ DATE/TIME (tránh lỗi runtime):
 - Nếu cần dùng mốc tháng mà bạn viết dạng YYYY-MM thì PHẢI chuyển thành ngày hợp lệ: 'YYYY-MM-01'.
@@ -59,6 +59,10 @@ function sanitizeGeneratedSql(sql: string): string {
   // 2) Fix common invalid date literals like '2023-01' -> '2023-01-01'
   //    This avoids Postgres: invalid input syntax for type date
   s = s.replace(/'([0-9]{4})-([0-9]{2})'\b/g, "'$1-$2-01'");
+
+  // 3) Reliability: never allow LIMIT 0 (it guarantees empty results and breaks UX)
+  //    If the model tries to "probe" with LIMIT 0, convert to a small safe sample.
+  s = s.replace(/\bLIMIT\s+0\b/gi, 'LIMIT 50');
 
   return s.trim();
 }
