@@ -112,6 +112,7 @@ export default function LTVEnginePage() {
                 <ScenarioComparison 
                   results={scenarioResults}
                   isLoading={scenariosLoading}
+                  inputScenarios={scenarios}
                 />
               </div>
             </div>
