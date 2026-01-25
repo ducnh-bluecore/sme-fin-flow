@@ -12,6 +12,7 @@ import { CategorySpendBlock } from '@/components/cdp/audit/CategorySpendBlock';
 import { PurchaseTimelineBlock } from '@/components/cdp/audit/PurchaseTimelineBlock';
 import { TopProductsBlock } from '@/components/cdp/audit/TopProductsBlock';
 import { BasketEvolutionBlock } from '@/components/cdp/audit/BasketEvolutionBlock';
+import { CLVBreakdownBlock } from '@/components/cdp/audit/CLVBreakdownBlock';
 import { useCDPCustomerAudit } from '@/hooks/useCDPAudit';
 import { useCDPCustomerOrderItems } from '@/hooks/useCDPCustomerOrderItems';
 
@@ -129,6 +130,13 @@ export default function CustomerAuditPage() {
                 clv={customer.clv}
                 avgClvSegment={customer.avgClvSegment}
                 segmentName="tập tương đương"
+              />
+
+              {/* Block 5: CLV Breakdown with Benchmark */}
+              <CLVBreakdownBlock
+                realizedRevenue={customer.totalSpend}
+                remainingPotential={customer.clv * 0.4}
+                totalCLV={customer.totalSpend + customer.clv * 0.4}
               />
             </div>
 
