@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useMDPData, MarketingPerformance } from '@/hooks/useMDPData';
+import { useMDPDataSSOT, type MarketingPerformance } from '@/hooks/useMDPDataSSOT';
 import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -104,7 +104,7 @@ export default function MarketingModePage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
   
-  // Get data from hook
+  // Get data from SSOT hook
   const { 
     marketingPerformance,
     executionAlerts,
@@ -115,7 +115,7 @@ export default function MarketingModePage() {
     rawQueryResults,
     isLoading, 
     error,
-  } = useMDPData();
+  } = useMDPDataSSOT();
   
   // Data quality
   const dataQualitySources = useMDPDataQuality(rawQueryResults);
