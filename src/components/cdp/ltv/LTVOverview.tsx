@@ -93,6 +93,19 @@ export function LTVOverview() {
     ? (realizedRevenue / totalPotentialValue) * 100 
     : 0;
 
+  // Tính CLV đúng = Tổng tiềm năng / Số KH (bao gồm cả đã thu + còn lại)
+  const avgCLVTotal = totalCustomers > 0 
+    ? totalPotentialValue / totalCustomers 
+    : 0;
+
+  const avgRealizedPerKH = totalCustomers > 0 
+    ? realizedRevenue / totalCustomers 
+    : 0;
+
+  const avgRemainingPerKH = totalCustomers > 0 
+    ? remainingPotential / totalCustomers 
+    : 0;
+
   return (
     <div className="space-y-6">
       {/* Hero Card - Customer Value Overview */}
@@ -121,11 +134,13 @@ export function LTVOverview() {
               <p className="text-xs text-muted-foreground">Đã thu + Còn lại</p>
             </div>
             
-            {/* Average LTV */}
+            {/* Average CLV per customer - CORRECT calculation */}
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">LTV Trung bình / KH</p>
-              <p className="text-2xl font-bold">{formatCurrency(summary.avg_ltv_12m)}</p>
-              <p className="text-xs text-muted-foreground">Median: {formatCurrency(summary.median_ltv_12m)}</p>
+              <p className="text-xs text-muted-foreground">CLV Trung bình / KH</p>
+              <p className="text-2xl font-bold">{formatCurrency(avgCLVTotal)}</p>
+              <p className="text-xs text-muted-foreground">
+                Đã thu: {formatCurrency(avgRealizedPerKH)} | Còn: {formatCurrency(avgRemainingPerKH)}
+              </p>
             </div>
             
             {/* Realized - Already collected */}
