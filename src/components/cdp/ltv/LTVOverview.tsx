@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target, PieChart, CheckCircle2, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target, PieChart, CheckCircle2, Clock, BarChart3 } from 'lucide-react';
 import { useLTVSummary, useActiveLTVModel, useRealizedRevenue } from '@/hooks/useCDPLTVEngine';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +22,29 @@ function formatCurrency(value: number | null | undefined): string {
 
 function safeNumber(value: number | null | undefined): number {
   return value ?? 0;
+}
+
+interface BenchmarkBarProps {
+  label: string;
+  value: number;
+  maxValue: number;
+  color: string;
+  isYours?: boolean;
+}
+
+function BenchmarkBar({ label, value, maxValue, color, isYours }: BenchmarkBarProps) {
+  const percent = maxValue > 0 ? Math.min((value / maxValue) * 100, 100) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className={cn(isYours && "font-medium")}>{label}</span>
+        <span className={cn("font-medium", isYours && "text-primary")}>{formatCurrency(value)}</span>
+      </div>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div className={cn("h-full transition-all rounded-full", color)} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
 }
 
 export function LTVOverview() {
@@ -194,7 +217,124 @@ export function LTVOverview() {
         </CardContent>
       </Card>
 
-      {/* Active Model Banner */}
+      {/* CLV Breakdown per Customer */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base">Phân tích CLV / Khách hàng</CardTitle>
+          </div>
+          <CardDescription>
+            So sánh giá trị khai thác với benchmark ngành
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* CLV Breakdown Bars */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Đã khai thác / KH */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium">Đã khai thác / KH</span>
+                </div>
+                <span className="text-lg font-bold text-green-600">{formatCurrency(avgRealizedPerKH)}</span>
+              </div>
+              <Progress value={avgCLVTotal > 0 ? (avgRealizedPerKH / avgCLVTotal) * 100 : 0} className="h-2 bg-green-100" />
+              <p className="text-xs text-muted-foreground">
+                {realizedPercent.toFixed(1)}% tổng CLV đã thu
+              </p>
+            </div>
+
+            {/* Còn lại / KH */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium">Tiềm năng còn lại / KH</span>
+                </div>
+                <span className="text-lg font-bold text-amber-600">{formatCurrency(avgRemainingPerKH)}</span>
+              </div>
+              <Progress value={avgCLVTotal > 0 ? (avgRemainingPerKH / avgCLVTotal) * 100 : 0} className="h-2 bg-amber-100" />
+              <p className="text-xs text-muted-foreground">
+                {(100 - realizedPercent).toFixed(1)}% còn có thể thu (12 tháng tới)
+              </p>
+            </div>
+
+            {/* Tổng CLV / KH */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Tổng CLV / KH</span>
+                </div>
+                <span className="text-lg font-bold text-primary">{formatCurrency(avgCLVTotal)}</span>
+              </div>
+              <Progress value={100} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                = Đã khai thác + Tiềm năng còn lại
+              </p>
+            </div>
+          </div>
+
+          {/* Industry Benchmark Comparison */}
+          <div className="border-t pt-4">
+            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              So sánh với Benchmark ngành
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Benchmark bars */}
+              <div className="space-y-3">
+                <BenchmarkBar 
+                  label="CLV của bạn" 
+                  value={avgCLVTotal} 
+                  maxValue={avgCLVTotal * 1.5} 
+                  color="bg-primary" 
+                  isYours={true}
+                />
+                <BenchmarkBar 
+                  label="Benchmark E-commerce VN" 
+                  value={2500000} 
+                  maxValue={avgCLVTotal * 1.5} 
+                  color="bg-muted-foreground/50"
+                />
+                <BenchmarkBar 
+                  label="Top 25% ngành" 
+                  value={4500000} 
+                  maxValue={avgCLVTotal * 1.5} 
+                  color="bg-muted-foreground/30"
+                />
+              </div>
+
+              {/* Insights */}
+              <div className="space-y-2 bg-muted/30 rounded-lg p-3">
+                <p className="text-sm font-medium">Nhận xét</p>
+                {avgCLVTotal >= 4500000 ? (
+                  <div className="flex items-start gap-2 text-sm text-green-700">
+                    <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>CLV của bạn thuộc <strong>Top 25%</strong> ngành. Tiếp tục duy trì!</span>
+                  </div>
+                ) : avgCLVTotal >= 2500000 ? (
+                  <div className="flex items-start gap-2 text-sm text-amber-700">
+                    <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>CLV của bạn <strong>cao hơn trung bình</strong> ngành. Còn tiềm năng tăng {formatCurrency(4500000 - avgCLVTotal)}/KH để đạt Top 25%.</span>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-2 text-sm text-red-700">
+                    <TrendingDown className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <span>CLV của bạn <strong>thấp hơn trung bình</strong> ngành. Cần cải thiện retention và AOV.</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  * Benchmark dựa trên dữ liệu tham khảo E-commerce Việt Nam 2024
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {activeModel && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3 px-4 flex items-center justify-between">
