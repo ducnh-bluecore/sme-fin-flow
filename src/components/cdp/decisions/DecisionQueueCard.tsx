@@ -16,6 +16,7 @@ export interface DecisionCardData {
   createdAt: string;
   populationSize?: number;
   equityImpact?: number;
+  problemStatement?: string; // Added to show direct insight on card
 }
 
 interface DecisionQueueCardProps {
@@ -82,32 +83,40 @@ export function DecisionQueueCard({ card }: DecisionQueueCardProps) {
             </div>
 
             {/* Title */}
-            <h3 className="font-medium text-base mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+            <h3 className="font-medium text-base mb-1 line-clamp-2 group-hover:text-primary transition-colors">
               {card.title}
             </h3>
+
+            {/* Problem Statement - Direct Insight */}
+            {card.problemStatement && (
+              <p className="text-sm text-muted-foreground mb-2 line-clamp-2 bg-muted/50 px-2 py-1.5 rounded">
+                {card.problemStatement}
+              </p>
+            )}
 
             {/* Source & Meta */}
             <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <FileText className="w-3.5 h-3.5" />
                 Nguồn: {card.sourceInsights.join(', ')}
-                {card.sourceEquity && ', Customer Equity'}
               </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                Hạn: {card.reviewDeadline}
-              </span>
+              {card.reviewDeadline && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Hạn: {card.reviewDeadline}
+                </span>
+              )}
             </div>
 
             {/* Impact Info */}
             {(card.populationSize || card.equityImpact) && (
               <div className="flex items-center gap-4 mt-2 text-xs">
-                {card.populationSize && (
+                {card.populationSize > 0 && (
                   <span className="text-muted-foreground">
-                    ~{card.populationSize.toLocaleString()} khách hàng
+                    {card.populationSize.toLocaleString()} khách hàng bị ảnh hưởng
                   </span>
                 )}
-                {card.equityImpact && (
+                {card.equityImpact > 0 && (
                   <span className="text-destructive font-medium">
                     Rủi ro: ₫{formatCurrency(card.equityImpact)}
                   </span>

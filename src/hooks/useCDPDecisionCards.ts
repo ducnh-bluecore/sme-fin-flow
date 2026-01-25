@@ -6,6 +6,7 @@ export interface DecisionCardSummary {
   id: string;
   title: string;
   summary: string | null;
+  problem_statement: string | null; // Added for direct insight display
   status: 'NEW' | 'IN_REVIEW' | 'DECIDED' | 'ARCHIVED';
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   priority: 'P0' | 'P1' | 'P2' | 'P3';

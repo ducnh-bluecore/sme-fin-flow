@@ -79,6 +79,7 @@ export default function DecisionCardsPage() {
           : '',
       status: mapStatus(card.status),
       createdAt: formatDate(new Date(card.created_at)),
+      problemStatement: card.problem_statement || card.summary || undefined,
       populationSize: undefined,
       equityImpact: undefined
     }));
