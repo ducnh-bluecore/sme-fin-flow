@@ -23,7 +23,7 @@ import ScenarioPage from './ScenarioPage';
 import { WhatIfSimulationPanel } from '@/components/whatif/WhatIfSimulationPanel';
 import { useWhatIfScenarios, type WhatIfScenario } from '@/hooks/useWhatIfScenarios';
 import { useCreateScenario } from '@/hooks/useScenarioData';
-import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function ScenarioHubPage() {
@@ -32,15 +32,15 @@ export default function ScenarioHubPage() {
 
   // What-If -> Financial scenario import
   const { user } = useAuth();
-  const { data: metrics } = useCentralFinancialMetrics();
+  const { data: snapshot } = useFinanceTruthSnapshot();
   const { data: whatIfScenarios } = useWhatIfScenarios();
   const createScenario = useCreateScenario();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const currentBaseRevenue = useMemo(() => {
-    // Use central metrics: totalRevenue for the period -> estimate monthly
-    return metrics?.totalRevenue ? metrics.totalRevenue / (metrics.daysInPeriod / 30) : 0;
-  }, [metrics]);
+    // Use SSOT snapshot: netRevenue for the period -> estimate monthly (90 days default)
+    return snapshot?.netRevenue ? snapshot.netRevenue / 3 : 0;
+  }, [snapshot]);
 
   const handleImportWhatIfScenario = async (whatIfScenario: WhatIfScenario) => {
     await createScenario.mutateAsync({

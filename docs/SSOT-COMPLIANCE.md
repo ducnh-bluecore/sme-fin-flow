@@ -183,12 +183,14 @@ The system automatically detects SSOT violations via:
 - ✅ `PerformancePage.tsx` - Replaced `usePerformanceData` with `useFinanceTruthSnapshot`
 - ✅ `PendingDecisionCards.tsx` - Fixed React.forwardRef warning
 
+### Phase 5b Migrated (2025-01-25)
+- ✅ `ExecutiveSummaryPage.tsx` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+- ✅ `AROperations.tsx` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+- ✅ `ScenarioHubPage.tsx` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+- ✅ `ScenarioPlanner.tsx` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+- ✅ `useRollingForecast.ts` - Replaced `useCentralFinancialMetrics` with `useFinanceTruthSnapshot`
+
 ### Remaining Migration Tasks (Low Priority)
-- `useRollingForecast.ts` - Uses `useCentralFinancialMetrics`
-- `useFinancialAnalysisData.ts` - Uses `useCentralFinancialMetrics`
-- `ExecutiveSummaryPage.tsx` - Uses `useCentralFinancialMetrics`
-- `AROperations.tsx` - Uses `useCentralFinancialMetrics`
-- `ScenarioHubPage.tsx` - Uses `useCentralFinancialMetrics`
-- `ScenarioPlanner.tsx` - Uses `useCentralFinancialMetrics`
+- `useFinancialAnalysisData.ts` - Contains client-side calculations (needs DB RPC)
 - `ChannelPLPage.tsx` - Uses `useChannelPL`
 - `PLReportPage.tsx` - Uses `usePLData`

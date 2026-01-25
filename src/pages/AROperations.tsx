@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatVND, formatVNDCompact } from '@/lib/formatters';
-import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useTopCustomersAR } from '@/hooks/useTopCustomersAR';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,8 +51,15 @@ export default function AROperations() {
   // Date range filter
   const [dateRange, setDateRange] = useState('this_year');
   
-  const { data: metrics, isLoading: kpiLoading } = useCentralFinancialMetrics();
+  const { data: snapshot, isLoading: kpiLoading } = useFinanceTruthSnapshot();
   const { data: customers = [], isLoading: customersLoading } = useTopCustomersAR(10);
+  
+  // Map snapshot to metrics for AR display
+  const metrics = snapshot ? {
+    totalAR: snapshot.totalAR,
+    overdueAR: snapshot.overdueAR,
+    dso: snapshot.dso,
+  } : undefined;
   
   // Add customer form state
   const [showAddCustomer, setShowAddCustomer] = useState(false);

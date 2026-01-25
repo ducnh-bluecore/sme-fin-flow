@@ -3,19 +3,19 @@ import { motion } from 'framer-motion';
 import { Slider } from '@/components/ui/slider';
 import { formatVNDCompact } from '@/lib/formatters';
 import { useCashRunway } from '@/hooks/useCashRunway';
-import { useCentralFinancialMetrics } from '@/hooks/useCentralFinancialMetrics';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { Loader2 } from 'lucide-react';
 
 function ScenarioPlannerComponent() {
   const [revenueChange, setRevenueChange] = useState(0);
   const [dsoChange, setDsoChange] = useState(0);
   const { data: cashRunwayData, isLoading: isCashLoading } = useCashRunway();
-  const { data: metrics, isLoading: isMetricsLoading } = useCentralFinancialMetrics();
+  const { data: snapshot, isLoading: isMetricsLoading } = useFinanceTruthSnapshot();
 
   const isLoading = isCashLoading || isMetricsLoading;
 
   const projections = useMemo(() => {
-    if (!cashRunwayData || !metrics) {
+    if (!cashRunwayData || !snapshot) {
       return {
         projectedRevenue: 0,
         projectedDSO: 0,
@@ -26,9 +26,9 @@ function ScenarioPlannerComponent() {
       };
     }
 
-    // Use actual data from central metrics
-    const baseRevenue = metrics.totalRevenue > 0 ? metrics.totalRevenue / 6 : 0; // Monthly revenue (data is 6 months)
-    const baseDSO = metrics.dso || 0;
+    // Use SSOT snapshot data - 90 days = 3 months
+    const baseRevenue = snapshot.netRevenue > 0 ? snapshot.netRevenue / 3 : 0; // Monthly revenue
+    const baseDSO = snapshot.dso || 0;
     const currentCash = cashRunwayData.currentCash;
     const avgMonthlyBurn = cashRunwayData.avgMonthlyBurn;
     const baseRunwayMonths = cashRunwayData.runwayMonths;
@@ -68,7 +68,7 @@ function ScenarioPlannerComponent() {
       arChange: arImpact,
       baseRunwayMonths,
     };
-  }, [revenueChange, dsoChange, cashRunwayData, metrics]);
+  }, [revenueChange, dsoChange, cashRunwayData, snapshot]);
 
   const handleRevenueChange = useCallback((value: number[]) => setRevenueChange(value[0]), []);
   const handleDsoChange = useCallback((value: number[]) => setDsoChange(value[0]), []);
