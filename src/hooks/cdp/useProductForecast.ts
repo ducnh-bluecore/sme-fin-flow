@@ -376,8 +376,8 @@ export function useActiveCustomerCount(startDate?: string, endDate?: string) {
         .from('cdp_orders')
         .select('customer_id')
         .eq('tenant_id', activeTenant.id)
-        .gte('order_date', startDate)
-        .lte('order_date', endDate);
+        .gte('order_at', startDate)
+        .lte('order_at', endDate);
 
       if (error) {
         console.error('[useActiveCustomerCount] Error:', error);
