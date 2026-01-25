@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -6,9 +6,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target, PieChart, CheckCircle2, Clock, BarChart3, Filter } from 'lucide-react';
 import { useLTVSummary, useActiveLTVModel, useRealizedRevenue } from '@/hooks/useCDPLTVEngine';
 import { useCDPPopulationDetail } from '@/hooks/useCDPPopulations';
+import { useCDPTierData, useCDPRFMData } from '@/hooks/useCDPTierData';
 import { SegmentSelector, SelectedSegment } from './SegmentSelector';
 import { cn } from '@/lib/utils';
-
 function formatCurrency(value: number | null | undefined): string {
   if (value == null) return '0';
   if (value >= 1_000_000_000) {
@@ -60,14 +60,29 @@ export function LTVOverview() {
   const { data: summary, isLoading: summaryLoading } = useLTVSummary();
   const { data: activeModel, isLoading: modelLoading } = useActiveLTVModel();
   const { data: realizedData, isLoading: realizedLoading } = useRealizedRevenue();
-  const { data: populationDetail, isLoading: populationLoading } = useCDPPopulationDetail(
-    selectedSegment.type !== 'all' && selectedSegment.type !== 'rfm' ? selectedSegment.id : undefined
-  );
+  
+  // For custom segments/populations - use population detail
+  const populationId = selectedSegment.type === 'segment' || selectedSegment.type === 'cohort' 
+    ? selectedSegment.id 
+    : undefined;
+  const { data: populationDetail, isLoading: populationLoading } = useCDPPopulationDetail(populationId);
+  
+  // For tiers - extract tier label from ID (e.g., "tier-REST" -> "REST")
+  const tierLabel = selectedSegment.type === 'tier' 
+    ? selectedSegment.id.replace('tier-', '') 
+    : undefined;
+  const { data: tierData, isLoading: tierLoading } = useCDPTierData(tierLabel);
+  
+  // For RFM segments - extract RFM name from ID (e.g., "rfm-champions" -> "Champions")
+  const rfmSegment = selectedSegment.type === 'rfm' 
+    ? selectedSegment.name
+    : undefined;
+  const { data: rfmData, isLoading: rfmLoading } = useCDPRFMData(rfmSegment);
 
   const isLoading = summaryLoading || modelLoading || realizedLoading || 
-    (selectedSegment.type !== 'all' && selectedSegment.type !== 'rfm' && populationLoading);
-
-  const isFiltered = selectedSegment.type !== 'all';
+    (selectedSegment.type === 'tier' && tierLoading) ||
+    (selectedSegment.type === 'rfm' && rfmLoading) ||
+    ((selectedSegment.type === 'segment' || selectedSegment.type === 'cohort') && populationLoading);
 
   if (isLoading) {
     return (
@@ -97,16 +112,44 @@ export function LTVOverview() {
     );
   }
 
-  // Use filtered data if a segment is selected, otherwise use full summary
-  const displayData = isFiltered && populationDetail ? {
-    totalCustomers: populationDetail.customerCount,
-    totalEquity12m: populationDetail.estimatedEquity,
-    realizedRevenue: populationDetail.totalRevenue,
-  } : {
-    totalCustomers: safeNumber(summary.total_customers),
-    totalEquity12m: safeNumber(summary.total_equity_12m),
-    realizedRevenue: safeNumber(realizedData?.realized_revenue),
-  };
+  const isFiltered = selectedSegment.type !== 'all';
+
+  // Use filtered data based on segment type
+  const displayData = useMemo(() => {
+    // Tier filtering
+    if (selectedSegment.type === 'tier' && tierData) {
+      return {
+        totalCustomers: tierData.customerCount,
+        totalEquity12m: tierData.estimatedEquity,
+        realizedRevenue: tierData.totalRevenue,
+      };
+    }
+    
+    // RFM filtering
+    if (selectedSegment.type === 'rfm' && rfmData) {
+      return {
+        totalCustomers: rfmData.customerCount,
+        totalEquity12m: rfmData.estimatedEquity,
+        realizedRevenue: rfmData.totalRevenue,
+      };
+    }
+    
+    // Custom segment/cohort filtering
+    if ((selectedSegment.type === 'segment' || selectedSegment.type === 'cohort') && populationDetail) {
+      return {
+        totalCustomers: populationDetail.customerCount,
+        totalEquity12m: populationDetail.estimatedEquity,
+        realizedRevenue: populationDetail.totalRevenue,
+      };
+    }
+    
+    // Default: all customers
+    return {
+      totalCustomers: safeNumber(summary.total_customers),
+      totalEquity12m: safeNumber(summary.total_equity_12m),
+      realizedRevenue: safeNumber(realizedData?.realized_revenue),
+    };
+  }, [selectedSegment, tierData, rfmData, populationDetail, summary, realizedData]);
 
   const totalEquity12m = displayData.totalEquity12m;
   const atRiskEquity = safeNumber(summary.at_risk_equity);
@@ -114,14 +157,14 @@ export function LTVOverview() {
     ? (atRiskEquity / totalEquity12m) * 100 
     : 0;
 
-  const tierData = [
+  const summaryTierData = [
     { tier: 'Platinum', count: safeNumber(summary.platinum_count), color: 'bg-violet-500' },
     { tier: 'Gold', count: safeNumber(summary.gold_count), color: 'bg-amber-500' },
     { tier: 'Silver', count: safeNumber(summary.silver_count), color: 'bg-slate-400' },
     { tier: 'Bronze', count: safeNumber(summary.bronze_count), color: 'bg-orange-600' },
   ];
 
-  const totalTierCount = tierData.reduce((sum, t) => sum + t.count, 0);
+  const totalTierCount = summaryTierData.reduce((sum, t) => sum + t.count, 0);
   const totalCustomers = displayData.totalCustomers;
   const atRiskCount = safeNumber(summary.at_risk_count);
 
@@ -463,7 +506,7 @@ export function LTVOverview() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {tierData.map((tier) => {
+          {summaryTierData.map((tier) => {
             const percent = totalTierCount > 0 ? (tier.count / totalTierCount) * 100 : 0;
             return (
               <div key={tier.tier} className="space-y-2">
