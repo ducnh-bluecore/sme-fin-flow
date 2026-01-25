@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target, PieChart, CheckCircle2, Clock, BarChart3 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, AlertTriangle, DollarSign, Target, PieChart, CheckCircle2, Clock, BarChart3, Filter } from 'lucide-react';
 import { useLTVSummary, useActiveLTVModel, useRealizedRevenue } from '@/hooks/useCDPLTVEngine';
+import { useCDPPopulationDetail } from '@/hooks/useCDPPopulations';
+import { SegmentSelector, SelectedSegment } from './SegmentSelector';
 import { cn } from '@/lib/utils';
 
 function formatCurrency(value: number | null | undefined): string {
@@ -48,11 +51,23 @@ function BenchmarkBar({ label, value, maxValue, color, isYours }: BenchmarkBarPr
 }
 
 export function LTVOverview() {
+  const [selectedSegment, setSelectedSegment] = useState<SelectedSegment>({
+    id: 'all',
+    name: 'Tất cả khách hàng',
+    type: 'all',
+  });
+
   const { data: summary, isLoading: summaryLoading } = useLTVSummary();
   const { data: activeModel, isLoading: modelLoading } = useActiveLTVModel();
   const { data: realizedData, isLoading: realizedLoading } = useRealizedRevenue();
+  const { data: populationDetail, isLoading: populationLoading } = useCDPPopulationDetail(
+    selectedSegment.type !== 'all' && selectedSegment.type !== 'rfm' ? selectedSegment.id : undefined
+  );
 
-  const isLoading = summaryLoading || modelLoading || realizedLoading;
+  const isLoading = summaryLoading || modelLoading || realizedLoading || 
+    (selectedSegment.type !== 'all' && selectedSegment.type !== 'rfm' && populationLoading);
+
+  const isFiltered = selectedSegment.type !== 'all';
 
   if (isLoading) {
     return (
@@ -82,7 +97,18 @@ export function LTVOverview() {
     );
   }
 
-  const totalEquity12m = safeNumber(summary.total_equity_12m);
+  // Use filtered data if a segment is selected, otherwise use full summary
+  const displayData = isFiltered && populationDetail ? {
+    totalCustomers: populationDetail.customerCount,
+    totalEquity12m: populationDetail.estimatedEquity,
+    realizedRevenue: populationDetail.totalRevenue,
+  } : {
+    totalCustomers: safeNumber(summary.total_customers),
+    totalEquity12m: safeNumber(summary.total_equity_12m),
+    realizedRevenue: safeNumber(realizedData?.realized_revenue),
+  };
+
+  const totalEquity12m = displayData.totalEquity12m;
   const atRiskEquity = safeNumber(summary.at_risk_equity);
   const atRiskPercent = totalEquity12m > 0 
     ? (atRiskEquity / totalEquity12m) * 100 
@@ -96,21 +122,17 @@ export function LTVOverview() {
   ];
 
   const totalTierCount = tierData.reduce((sum, t) => sum + t.count, 0);
-  const totalCustomers = safeNumber(summary.total_customers);
+  const totalCustomers = displayData.totalCustomers;
   const atRiskCount = safeNumber(summary.at_risk_count);
 
   // LOGIC ĐÚNG:
   // - Tổng tiềm năng = Đã thu + Còn lại (Equity 12m)
   // - Đã thu = Doanh thu THẬT từ tất cả orders đã thực hiện (data thật)
   // - Còn lại = Equity 12m = Dự báo giá trị tương lai (có thể thu thêm)
-  // 
-  // Ví dụ: 190 KH có tổng tiềm năng 240M
-  //        Đã thu: 90M (orders thực)
-  //        Còn lại: 150M (equity = có thể thu thêm trong 12 tháng tới)
   
-  const realizedRevenue = safeNumber(realizedData?.realized_revenue); // Doanh thu đã thu (thật)
-  const remainingPotential = totalEquity12m; // Equity 12m = Còn có thể thu
-  const totalPotentialValue = realizedRevenue + remainingPotential; // Tổng tiềm năng
+  const realizedRevenue = displayData.realizedRevenue;
+  const remainingPotential = totalEquity12m;
+  const totalPotentialValue = realizedRevenue + remainingPotential;
   
   const realizedPercent = totalPotentialValue > 0 
     ? (realizedRevenue / totalPotentialValue) * 100 
@@ -131,20 +153,35 @@ export function LTVOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Segment Selector */}
+      <div className="flex items-center justify-between">
+        <SegmentSelector value={selectedSegment} onChange={setSelectedSegment} />
+        {isFiltered && (
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <Filter className="h-3 w-3" />
+            Đang lọc: {selectedSegment.name}
+          </Badge>
+        )}
+      </div>
+
       {/* Hero Card - Customer Value Overview */}
       <Card className="bg-gradient-to-br from-primary/5 via-background to-primary/10 border-primary/20">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <PieChart className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Tổng quan Giá trị Khách hàng</CardTitle>
+              <CardTitle className="text-lg">
+                {isFiltered ? `Giá trị: ${selectedSegment.name}` : 'Tổng quan Giá trị Khách hàng'}
+              </CardTitle>
             </div>
             <Badge variant="outline" className="bg-background">
               {totalCustomers.toLocaleString()} khách hàng
             </Badge>
           </div>
           <CardDescription>
-            Tổng tiềm năng = Đã thu + Còn có thể thu (12 tháng tới)
+            {isFiltered 
+              ? `Phân tích CLV cho nhóm "${selectedSegment.name}"`
+              : 'Tổng tiềm năng = Đã thu + Còn có thể thu (12 tháng tới)'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
