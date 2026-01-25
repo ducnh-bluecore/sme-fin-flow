@@ -3979,6 +3979,13 @@ export type Database = {
             foreignKeyName: "cdp_card_activity_log_decision_card_id_fkey"
             columns: ["decision_card_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
+          },
+          {
+            foreignKeyName: "cdp_card_activity_log_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
           },
@@ -4780,6 +4787,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_card_snapshots_decision_card_id_fkey"
             columns: ["decision_card_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_card_snapshots_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
           },
@@ -4951,6 +4965,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
             columns: ["decision_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
           },
@@ -5020,6 +5041,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
           },
           {
             foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
@@ -5138,6 +5166,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_issue_map_decision_id_fkey"
             columns: ["decision_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_issue_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
           },
@@ -5210,6 +5245,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_reviews_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
           },
           {
             foreignKeyName: "cdp_decision_reviews_decision_card_id_fkey"
@@ -5296,6 +5338,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_decision_queue"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decisions_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
           },
           {
             foreignKeyName: "cdp_decisions_decision_card_id_fkey"
@@ -5495,13 +5544,16 @@ export type Database = {
       }
       cdp_insight_events: {
         Row: {
+          action_owner: string | null
           as_of_date: string
           confidence: number | null
           cooldown_until: string | null
           created_at: string
+          estimated_impact: number | null
           evidence: Json | null
           headline: string
           id: string
+          impact_currency: string | null
           impact_snapshot: Json
           insight_code: string
           metric_snapshot: Json
@@ -5510,6 +5562,7 @@ export type Database = {
           narrative: string | null
           population_ref: Json
           population_type: string
+          recommended_action: string | null
           run_id: string
           severity: string | null
           status: string | null
@@ -5518,15 +5571,19 @@ export type Database = {
           tenant_id: string
           title: string | null
           updated_at: string | null
+          urgency: string | null
         }
         Insert: {
+          action_owner?: string | null
           as_of_date: string
           confidence?: number | null
           cooldown_until?: string | null
           created_at?: string
+          estimated_impact?: number | null
           evidence?: Json | null
           headline: string
           id?: string
+          impact_currency?: string | null
           impact_snapshot?: Json
           insight_code: string
           metric_snapshot?: Json
@@ -5535,6 +5592,7 @@ export type Database = {
           narrative?: string | null
           population_ref?: Json
           population_type: string
+          recommended_action?: string | null
           run_id: string
           severity?: string | null
           status?: string | null
@@ -5543,15 +5601,19 @@ export type Database = {
           tenant_id: string
           title?: string | null
           updated_at?: string | null
+          urgency?: string | null
         }
         Update: {
+          action_owner?: string | null
           as_of_date?: string
           confidence?: number | null
           cooldown_until?: string | null
           created_at?: string
+          estimated_impact?: number | null
           evidence?: Json | null
           headline?: string
           id?: string
+          impact_currency?: string | null
           impact_snapshot?: Json
           insight_code?: string
           metric_snapshot?: Json
@@ -5560,6 +5622,7 @@ export type Database = {
           narrative?: string | null
           population_ref?: Json
           population_type?: string
+          recommended_action?: string | null
           run_id?: string
           severity?: string | null
           status?: string | null
@@ -5568,6 +5631,7 @@ export type Database = {
           tenant_id?: string
           title?: string | null
           updated_at?: string | null
+          urgency?: string | null
         }
         Relationships: [
           {
@@ -5576,6 +5640,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cdp_insight_registry"
             referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "cdp_insight_events_insight_code_fkey"
@@ -23094,6 +23165,13 @@ export type Database = {
             foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
             columns: ["decision_id"]
             isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
           },
@@ -23124,6 +23202,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cdp_insight_registry"
             referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "cdp_insight_events_insight_code_fkey"
@@ -23285,6 +23370,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cdp_insight_registry"
             referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "cdp_insight_events_insight_code_fkey"
@@ -23576,6 +23668,13 @@ export type Database = {
             foreignKeyName: "cdp_insight_events_insight_code_fkey"
             columns: ["insight_code"]
             isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
             referencedRelation: "v_cdp_insight_registry_summary"
             referencedColumns: ["code"]
           },
@@ -23677,6 +23776,7 @@ export type Database = {
       }
       v_cdp_insight_detail: {
         Row: {
+          action_owner: string | null
           baseline_value: number | null
           business_implication: string | null
           change_direction: string | null
@@ -23687,7 +23787,9 @@ export type Database = {
           current_value: number | null
           detected_at: string | null
           drivers: Json | null
+          estimated_impact: number | null
           event_id: string | null
+          impact_currency: string | null
           linked_decision_card_id: string | null
           linked_decision_card_status: string | null
           metric_name: string | null
@@ -23696,6 +23798,7 @@ export type Database = {
           period_current: string | null
           population_name: string | null
           population_size: number | null
+          recommended_action: string | null
           revenue_contribution: number | null
           sample_customers: Json | null
           severity: string | null
@@ -23704,50 +23807,9 @@ export type Database = {
           tenant_id: string | null
           title: string | null
           topic: string | null
+          urgency: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
-            columns: ["linked_decision_card_id"]
-            isOneToOne: false
-            referencedRelation: "cdp_decision_cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
-            columns: ["linked_decision_card_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_decision_cards_detail"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
-            columns: ["linked_decision_card_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_decision_queue"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
-            columns: ["linked_decision_card_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_pending_decisions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_insight_events_insight_code_fkey"
-            columns: ["code"]
-            isOneToOne: false
-            referencedRelation: "cdp_insight_registry"
-            referencedColumns: ["insight_code"]
-          },
-          {
-            foreignKeyName: "cdp_insight_events_insight_code_fkey"
-            columns: ["code"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_insight_registry_summary"
-            referencedColumns: ["code"]
-          },
           {
             foreignKeyName: "cdp_insight_events_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -23797,6 +23859,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cdp_insight_registry"
             referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "cdp_insight_events_insight_code_fkey"
@@ -25638,6 +25707,7 @@ export type Database = {
           p_window_days?: number
         }
         Returns: {
+          out_action_owner: string
           out_baseline_margin: number
           out_business_implication: string
           out_change_percent: number
@@ -25646,9 +25716,12 @@ export type Database = {
           out_customer_count: number
           out_detected: boolean
           out_drivers: Json
+          out_estimated_impact: number
           out_margin_loss: number
+          out_recommended_action: string
           out_revenue_contribution: number
           out_sample_customers: Json
+          out_urgency: string
         }[]
       }
       cdp_evaluate_segments: {

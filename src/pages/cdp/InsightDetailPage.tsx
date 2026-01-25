@@ -93,6 +93,12 @@ export default function InsightDetailPage() {
     linkedDecisionCardStatus: insightData.linked_decision_card_status || undefined,
     detectedAt: insightData.detected_at,
     cooldownUntil: insightData.cooldown_until || undefined,
+    // NEW: Actionable fields
+    recommendedAction: insightData.recommended_action,
+    urgency: insightData.urgency,
+    estimatedImpact: insightData.estimated_impact,
+    impactCurrency: insightData.impact_currency,
+    actionOwner: insightData.action_owner,
   };
 
   return (
