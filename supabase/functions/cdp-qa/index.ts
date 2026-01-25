@@ -25,6 +25,71 @@ interface RequestBody {
   tenantId?: string;
 }
 
+type OpenAIChatResponse = {
+  choices?: Array<{ message?: { content?: string } }>;
+};
+
+function buildSqlGenerationPrompt(schemaContext: string): string {
+  return `Bạn là CDP Query Generator của Bluecore.
+
+MỤC TIÊU:
+- Chuyển câu hỏi tiếng Việt thành 1 câu SQL SELECT để truy vấn dữ liệu CDP.
+
+RÀNG BUỘC BẮT BUỘC:
+1) CHỈ TRẢ VỀ DUY NHẤT 1 câu SQL (plain text). Không markdown, không giải thích, không JSON.
+2) SQL phải là SELECT.
+3) CHỈ được query các view trong whitelist dưới đây (không được join sang bảng khác):
+${CDP_QUERYABLE_VIEWS.map(v => `- ${v}`).join('\n')}
+4) Luôn chọn các cột đúng theo schema mô tả.
+5) Nếu câu hỏi không thể trả lời bằng các view hiện có, vẫn phải trả về một SQL hợp lệ để kiểm tra "không có dữ liệu" (ví dụ SELECT ... LIMIT 0) trên một view phù hợp nhất.
+
+SCHEMA CONTEXT:
+${schemaContext}
+`;
+}
+
+function buildAnswerPrompt(params: {
+  question: string;
+  sql: string;
+  rowCount: number;
+  sampleRows: unknown;
+}): string {
+  const { question, sql, rowCount, sampleRows } = params;
+  return `Bạn là CDP Assistant của Bluecore - hỗ trợ CEO/CFO ra quyết định dựa trên dữ liệu khách hàng.
+
+NHIỆM VỤ:
+- Trả lời câu hỏi bằng tiếng Việt ngắn gọn, quyết định-được (decision-grade).
+- CHỈ dùng số liệu trong "KẾT QUẢ TRUY VẤN".
+- Nếu rowCount = 0 hoặc dữ liệu thiếu: nói rõ "Không có dữ liệu" và nêu rõ view/field nào đang thiếu để trả lời tốt hơn.
+
+QUY TẮC:
+1) Không bịa số.
+2) Format tiền VND (triệu, tỷ) nếu có.
+3) Nếu phát hiện rủi ro/giảm giá trị: đề xuất hành động (STOP/INVEST/INVESTIGATE).
+
+CÂU HỎI:
+${question}
+
+SQL ĐÃ CHẠY:
+${sql}
+
+KẾT QUẢ TRUY VẤN:
+- rowCount: ${rowCount}
+- sampleRows(JSON): ${JSON.stringify(sampleRows).slice(0, 8000)}
+`;
+}
+
+async function openaiChat(apiKey: string, body: Record<string, unknown>): Promise<Response> {
+  return await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -75,8 +140,9 @@ serve(async (req) => {
       );
     }
 
-    // Get user's tenant
-    let activeTenantId = tenantId;
+    // Get tenant id (prefer header)
+    const headerTenantId = req.headers.get('x-tenant-id') || undefined;
+    let activeTenantId = headerTenantId || tenantId;
     if (!activeTenantId) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -94,68 +160,123 @@ serve(async (req) => {
       );
     }
 
-    // Build system prompt
     const schemaContext = buildSchemaContext();
-    const systemPrompt = `Bạn là CDP Assistant của Bluecore - hỗ trợ phân tích dữ liệu khách hàng.
 
-NHIỆM VỤ:
-- Trả lời câu hỏi về khách hàng, LTV, cohort, segment bằng tiếng Việt
-- Sử dụng dữ liệu từ database views để đưa ra insight
-- Giải thích số liệu một cách dễ hiểu cho CEO/CFO
-
-QUY TẮC:
-1. Luôn trả lời bằng tiếng Việt, ngắn gọn và có số liệu cụ thể
-2. Nếu phát hiện vấn đề (LTV giảm, rủi ro cao), đề xuất hành động
-3. Format số tiền theo VND (triệu, tỷ)
-4. Không bao giờ tiết lộ thông tin kỹ thuật về database schema
-5. Nếu không có dữ liệu, nói rõ lý do
-
-CONTEXT DỮ LIỆU:
-${schemaContext}
-
-GỢI Ý CÂU HỎI:
-${SUGGESTED_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join('\n')}
-
-Tenant ID hiện tại: ${activeTenantId}`;
-
-    // Call OpenAI API
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-        max_tokens: 1000,
-        temperature: 0.7,
-      }),
+    // 1) Generate SQL (non-stream)
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+    const sqlGenResp = await openaiChat(apiKey, {
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: buildSqlGenerationPrompt(schemaContext) },
+        { role: 'user', content: lastUserMessage },
+      ],
+      temperature: 0.1,
+      max_tokens: 250,
+      stream: false,
     });
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
+    if (!sqlGenResp.ok) {
+      const status = sqlGenResp.status;
       if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Quá nhiều request, vui lòng thử lại sau' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Quá nhiều request, vui lòng thử lại sau' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
       if (status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Hết credits AI, liên hệ admin' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Hết credits AI, liên hệ admin' }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
-      throw new Error(`AI gateway error: ${status}`);
+      const t = await sqlGenResp.text();
+      console.error('SQL gen error:', status, t);
+      return new Response(JSON.stringify({ error: 'Lỗi AI (tạo truy vấn)' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const sqlGenJson = (await sqlGenResp.json()) as OpenAIChatResponse;
+    const rawSql = (sqlGenJson.choices?.[0]?.message?.content || '').trim();
+    if (!rawSql) {
+      return new Response(JSON.stringify({ error: 'AI không tạo được truy vấn' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { valid, error: sqlError } = validateSQL(rawSql);
+    if (!valid) {
+      return new Response(JSON.stringify({ error: `Truy vấn không hợp lệ: ${sqlError}` }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const finalSql = injectTenantFilter(rawSql, activeTenantId);
+
+    // 2) Execute query (read-only) and collect sample
+    const { data: rows, error: queryError } = await supabase.rpc('execute_readonly_query', {
+      query_text: finalSql,
+      params: [],
+    });
+
+    if (queryError) {
+      console.error('CDP-QA query error:', queryError);
+      return new Response(JSON.stringify({ error: 'Lỗi truy vấn dữ liệu (read-only query)' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const sampleRows = safeRows.slice(0, 50);
+
+    // 3) Ask AI to answer based on real query results (stream)
+    const answerPrompt = buildAnswerPrompt({
+      question: lastUserMessage,
+      sql: finalSql,
+      rowCount: safeRows.length,
+      sampleRows,
+    });
+
+    const aiAnswerResp = await openaiChat(apiKey, {
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: answerPrompt },
+        // keep some conversation context for follow-ups
+        ...messages.slice(-6),
+      ],
+      stream: true,
+      max_tokens: 900,
+      temperature: 0.3,
+    });
+
+    if (!aiAnswerResp.ok) {
+      const status = aiAnswerResp.status;
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: 'Quá nhiều request, vui lòng thử lại sau' }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: 'Hết credits AI, liên hệ admin' }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const t = await aiAnswerResp.text();
+      console.error('Answer stream error:', status, t);
+      return new Response(JSON.stringify({ error: 'Lỗi AI (trả lời)' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Return streaming response
-    return new Response(aiResponse.body, {
+    return new Response(aiAnswerResp.body, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
