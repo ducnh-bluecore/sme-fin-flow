@@ -54,11 +54,12 @@ export function LTVDecayAlert({ alerts, isLoading, onCreateDecisionCard }: LTVDe
     );
   }
 
-  const formatCurrency = (value: number) => {
-    if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
-    if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-    if (value >= 1e3) return `${(value / 1e3).toFixed(0)}K`;
-    return value.toFixed(0);
+  const formatCurrency = (value: number | null | undefined) => {
+    const safeValue = value ?? 0;
+    if (safeValue >= 1e9) return `${(safeValue / 1e9).toFixed(1)}B`;
+    if (safeValue >= 1e6) return `${(safeValue / 1e6).toFixed(1)}M`;
+    if (safeValue >= 1e3) return `${(safeValue / 1e3).toFixed(0)}K`;
+    return safeValue.toFixed(0);
   };
 
   const getSeverityConfig = (severity: string) => {
@@ -143,7 +144,7 @@ export function LTVDecayAlert({ alerts, isLoading, onCreateDecisionCard }: LTVDe
                   <div>
                     <span className="text-muted-foreground">Giảm</span>
                     <p className={cn('font-medium', config.textClass)}>
-                      {alert.decline_percent.toFixed(1)}%
+                      {(alert.decline_percent ?? 0).toFixed(1)}%
                     </p>
                   </div>
                   <div>
