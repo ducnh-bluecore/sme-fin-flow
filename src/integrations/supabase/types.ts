@@ -27457,35 +27457,35 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_equity_overview"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_equity_snapshot"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -27509,35 +27509,35 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_equity_overview"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_equity_snapshot"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "customers_tenant_id_fkey"
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
