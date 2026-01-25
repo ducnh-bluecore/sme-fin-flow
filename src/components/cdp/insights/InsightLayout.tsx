@@ -42,8 +42,10 @@ const subNavItems = [
 export function InsightLayout({ children, title = 'Insight', description }: InsightLayoutProps) {
   const location = useLocation();
   
-  // Check if we're on detail page
-  const isDetailPage = location.pathname.includes('/cdp/insights/') && location.pathname !== '/cdp/insights';
+  // Check if we're on detail page (insight detail view, not list pages)
+  // List pages: /cdp/insights, /cdp/insights/demand, /cdp/insight-registry
+  const listPaths = ['/cdp/insights', '/cdp/insights/demand', '/cdp/insight-registry'];
+  const isDetailPage = !listPaths.includes(location.pathname);
   
   return (
     <CDPLayout>
