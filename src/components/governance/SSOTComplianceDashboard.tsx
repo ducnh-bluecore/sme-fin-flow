@@ -54,8 +54,11 @@ export function SSOTComplianceDashboard() {
 
   const isLoading = registryLoading || consistencyLoading || governanceLoading;
 
-  // Define critical health checks
+  // Define critical health checks for ALL modules
   const criticalChecks: Omit<HealthCheck, 'status' | 'message' | 'lastChecked'>[] = [
+    // ═══════════════════════════════════════════════════════════════════
+    // CDP - Customer Data Platform
+    // ═══════════════════════════════════════════════════════════════════
     {
       name: 'CDP Equity Snapshot',
       view: 'v_cdp_equity_snapshot',
@@ -66,10 +69,62 @@ export function SSOTComplianceDashboard() {
       view: 'v_cdp_data_quality',
       expectedBehavior: 'Phải trả về confidence_level không null khi có orders'
     },
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // FDP - Financial Data Platform
+    // ═══════════════════════════════════════════════════════════════════
     {
-      name: 'Finance Snapshots',
+      name: 'FDP Finance Summary',
+      view: 'v_fdp_finance_summary',
+      expectedBehavior: 'Phải trả về net_revenue > 0 khi có delivered orders'
+    },
+    {
+      name: 'FDP Period Summary (RPC)',
+      view: 'get_fdp_period_summary',
+      expectedBehavior: 'RPC phải trả về totalRevenue > 0 khi có orders trong date range'
+    },
+    {
+      name: 'Central Metrics Snapshots',
       view: 'central_metrics_snapshots',
       expectedBehavior: 'Phải có snapshot gần nhất trong 24h'
+    },
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // MDP - Marketing Data Platform
+    // ═══════════════════════════════════════════════════════════════════
+    {
+      name: 'MDP Campaign Performance',
+      view: 'v_mdp_campaign_performance',
+      expectedBehavior: 'Phải trả về campaigns khi có data trong promotion_campaigns'
+    },
+    {
+      name: 'MDP Mode Summary',
+      view: 'v_mdp_mode_summary',
+      expectedBehavior: 'Phải trả về tổng spend và orders khi có campaigns'
+    },
+    {
+      name: 'MDP Funnel Summary',
+      view: 'v_mdp_funnel_summary',
+      expectedBehavior: 'Phải trả về funnel data khi có campaigns'
+    },
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // CONTROL TOWER
+    // ═══════════════════════════════════════════════════════════════════
+    {
+      name: 'Control Tower Summary (RPC)',
+      view: 'get_control_tower_summary',
+      expectedBehavior: 'RPC phải trả về totalRevenue > 0 khi có orders'
+    },
+    {
+      name: 'Decision Cards',
+      view: 'decision_cards',
+      expectedBehavior: 'Table phải accessible và không có orphan records'
+    },
+    {
+      name: 'Early Warning Alerts',
+      view: 'early_warning_alerts',
+      expectedBehavior: 'Table phải accessible với proper schema'
     }
   ];
 
@@ -79,78 +134,99 @@ export function SSOTComplianceDashboard() {
     setIsRunningHealthChecks(true);
     const results: HealthCheck[] = [];
 
-    for (const check of criticalChecks) {
+    // Helper: Run all checks in parallel for speed
+    const checkPromises = criticalChecks.map(async (check) => {
       try {
+        // ═══════════════════════════════════════════════════════════════════
+        // CDP CHECKS
+        // ═══════════════════════════════════════════════════════════════════
         if (check.view === 'v_cdp_equity_snapshot') {
-          const { data, error } = await supabase
-            .from('v_cdp_equity_snapshot')
-            .select('total_equity_12m, total_equity_24m')
-            .eq('tenant_id', tenantId)
-            .maybeSingle();
+          const [viewResult, sourceResult] = await Promise.all([
+            supabase.from('v_cdp_equity_snapshot')
+              .select('total_equity_12m, total_equity_24m')
+              .eq('tenant_id', tenantId)
+              .maybeSingle(),
+            supabase.from('cdp_customer_equity_computed')
+              .select('equity_12m')
+              .eq('tenant_id', tenantId)
+              .not('equity_12m', 'is', null)
+              .limit(1)
+          ]);
 
-          // Check source data exists
-          const { data: sourceData } = await supabase
-            .from('cdp_customer_equity_computed')
-            .select('equity_12m')
-            .eq('tenant_id', tenantId)
-            .not('equity_12m', 'is', null)
-            .limit(1);
-
-          const hasSourceData = sourceData && sourceData.length > 0;
-          const hasViewData = data && data.total_equity_12m !== null;
+          const hasSourceData = sourceResult.data && sourceResult.data.length > 0;
+          const hasViewData = viewResult.data && viewResult.data.total_equity_12m !== null;
 
           if (hasSourceData && !hasViewData) {
-            results.push({
-              ...check,
-              status: 'failing',
-              message: `REGRESSION: Source có data, nhưng view trả về NULL`,
-              lastChecked: new Date()
-            });
+            return { ...check, status: 'failing' as const, message: `REGRESSION: Source có data, nhưng view trả về NULL`, lastChecked: new Date() };
           } else if (hasSourceData && hasViewData) {
-            results.push({
-              ...check,
-              status: 'passing',
-              message: `OK: View trả về ${formatValue(data.total_equity_12m)} equity`,
-              lastChecked: new Date()
-            });
+            return { ...check, status: 'passing' as const, message: `OK: ${formatValue(viewResult.data.total_equity_12m)} equity`, lastChecked: new Date() };
           } else {
-            results.push({
-              ...check,
-              status: 'warning',
-              message: 'Chưa có dữ liệu equity trong source table',
-              lastChecked: new Date()
-            });
+            return { ...check, status: 'warning' as const, message: 'Chưa có dữ liệu equity trong source', lastChecked: new Date() };
           }
-        } else if (check.view === 'v_cdp_data_quality') {
+        }
+        
+        if (check.view === 'v_cdp_data_quality') {
           const { data, error } = await supabase
             .from('v_cdp_data_quality')
             .select('confidence_level, is_reliable')
             .eq('tenant_id', tenantId)
             .maybeSingle();
 
-          if (error) {
-            results.push({
-              ...check,
-              status: 'failing',
-              message: `Error: ${error.message}`,
-              lastChecked: new Date()
-            });
-          } else if (data) {
-            results.push({
-              ...check,
-              status: 'passing',
-              message: `OK: confidence=${data.confidence_level}`,
-              lastChecked: new Date()
-            });
-          } else {
-            results.push({
-              ...check,
-              status: 'warning',
-              message: 'No data quality record',
-              lastChecked: new Date()
-            });
+          if (error) return { ...check, status: 'failing' as const, message: `Error: ${error.message}`, lastChecked: new Date() };
+          if (data) return { ...check, status: 'passing' as const, message: `OK: confidence=${data.confidence_level}`, lastChecked: new Date() };
+          return { ...check, status: 'warning' as const, message: 'No data quality record', lastChecked: new Date() };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // FDP CHECKS
+        // ═══════════════════════════════════════════════════════════════════
+        if (check.view === 'v_fdp_finance_summary') {
+          const [viewResult, sourceResult] = await Promise.all([
+            supabase.from('v_fdp_finance_summary')
+              .select('net_revenue, gross_revenue')
+              .eq('tenant_id', tenantId)
+              .maybeSingle(),
+            supabase.from('external_orders')
+              .select('id')
+              .eq('tenant_id', tenantId)
+              .eq('status', 'delivered')
+              .limit(1)
+          ]);
+
+          const hasSourceData = sourceResult.data && sourceResult.data.length > 0;
+          const hasViewData = viewResult.data && (viewResult.data.net_revenue ?? 0) > 0;
+
+          if (hasSourceData && !hasViewData) {
+            return { ...check, status: 'failing' as const, message: `REGRESSION: Có delivered orders nhưng view trả về 0`, lastChecked: new Date() };
+          } else if (hasViewData) {
+            return { ...check, status: 'passing' as const, message: `OK: Net Revenue = ${formatValue(viewResult.data.net_revenue)}`, lastChecked: new Date() };
           }
-        } else if (check.view === 'central_metrics_snapshots') {
+          return { ...check, status: 'warning' as const, message: 'Chưa có delivered orders', lastChecked: new Date() };
+        }
+
+        if (check.view === 'get_fdp_period_summary') {
+          const today = new Date();
+          const startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const endDate = today.toISOString().split('T')[0];
+          
+          const { data, error } = await supabase.rpc('get_fdp_period_summary', {
+            p_tenant_id: tenantId,
+            p_start_date: startDate,
+            p_end_date: endDate,
+          });
+
+          if (error) return { ...check, status: 'failing' as const, message: `RPC Error: ${error.message}`, lastChecked: new Date() };
+          
+          const result = data as Record<string, unknown>;
+          const totalRevenue = (result?.totalRevenue as number) ?? 0;
+          
+          if (totalRevenue > 0) {
+            return { ...check, status: 'passing' as const, message: `OK: Revenue = ${formatValue(totalRevenue)}`, lastChecked: new Date() };
+          }
+          return { ...check, status: 'warning' as const, message: 'RPC trả về 0 revenue', lastChecked: new Date() };
+        }
+
+        if (check.view === 'central_metrics_snapshots') {
           const { data, error } = await supabase
             .from('central_metrics_snapshots')
             .select('snapshot_at')
@@ -159,41 +235,119 @@ export function SSOTComplianceDashboard() {
             .limit(1)
             .maybeSingle();
 
-          if (error) {
-            results.push({
-              ...check,
-              status: 'failing',
-              message: `Error: ${error.message}`,
-              lastChecked: new Date()
-            });
-          } else if (data) {
+          if (error) return { ...check, status: 'failing' as const, message: `Error: ${error.message}`, lastChecked: new Date() };
+          if (data) {
             const hoursAgo = (Date.now() - new Date(data.snapshot_at).getTime()) / (1000 * 60 * 60);
-            results.push({
-              ...check,
-              status: hoursAgo < 24 ? 'passing' : 'warning',
-              message: `Last snapshot: ${hoursAgo.toFixed(1)}h ago`,
-              lastChecked: new Date()
-            });
-          } else {
-            results.push({
-              ...check,
-              status: 'warning',
-              message: 'No snapshots found',
-              lastChecked: new Date()
-            });
+            return { ...check, status: hoursAgo < 24 ? 'passing' as const : 'warning' as const, message: `Last snapshot: ${hoursAgo.toFixed(1)}h ago`, lastChecked: new Date() };
           }
+          return { ...check, status: 'warning' as const, message: 'No snapshots found', lastChecked: new Date() };
         }
-      } catch (err) {
-        results.push({
-          ...check,
-          status: 'failing',
-          message: `Exception: ${err}`,
-          lastChecked: new Date()
-        });
-      }
-    }
 
-    setHealthChecks(results);
+        // ═══════════════════════════════════════════════════════════════════
+        // MDP CHECKS
+        // ═══════════════════════════════════════════════════════════════════
+        if (check.view === 'v_mdp_campaign_performance') {
+          const [viewResult, sourceResult] = await Promise.all([
+            supabase.from('v_mdp_campaign_performance')
+              .select('campaign_id, spend')
+              .eq('tenant_id', tenantId)
+              .limit(5),
+            supabase.from('promotion_campaigns')
+              .select('id')
+              .eq('tenant_id', tenantId)
+              .limit(1)
+          ]);
+
+          const hasSourceData = sourceResult.data && sourceResult.data.length > 0;
+          const hasViewData = viewResult.data && viewResult.data.length > 0;
+
+          if (hasSourceData && !hasViewData) {
+            return { ...check, status: 'failing' as const, message: `REGRESSION: Có campaigns nhưng view trống`, lastChecked: new Date() };
+          } else if (hasViewData) {
+            return { ...check, status: 'passing' as const, message: `OK: ${viewResult.data.length} campaigns visible`, lastChecked: new Date() };
+          }
+          return { ...check, status: 'warning' as const, message: 'Chưa có campaign data', lastChecked: new Date() };
+        }
+
+        if (check.view === 'v_mdp_mode_summary') {
+          const { data, error } = await supabase
+            .from('v_mdp_mode_summary')
+            .select('total_spend, total_orders')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (error) return { ...check, status: 'failing' as const, message: `Error: ${error.message}`, lastChecked: new Date() };
+          if (data) return { ...check, status: 'passing' as const, message: `OK: Spend=${formatValue(data.total_spend ?? 0)}`, lastChecked: new Date() };
+          return { ...check, status: 'warning' as const, message: 'No mode summary data', lastChecked: new Date() };
+        }
+
+        if (check.view === 'v_mdp_funnel_summary') {
+          const { data, error } = await supabase
+            .from('v_mdp_funnel_summary')
+            .select('impressions, orders')
+            .eq('tenant_id', tenantId)
+            .maybeSingle();
+
+          if (error) return { ...check, status: 'failing' as const, message: `Error: ${error.message}`, lastChecked: new Date() };
+          if (data) return { ...check, status: 'passing' as const, message: `OK: ${data.orders ?? 0} orders in funnel`, lastChecked: new Date() };
+          return { ...check, status: 'warning' as const, message: 'No funnel data', lastChecked: new Date() };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CONTROL TOWER CHECKS
+        // ═══════════════════════════════════════════════════════════════════
+        if (check.view === 'get_control_tower_summary') {
+          const today = new Date();
+          const startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const endDate = today.toISOString().split('T')[0];
+          
+          const { data, error } = await supabase.rpc('get_control_tower_summary', {
+            p_tenant_id: tenantId,
+            p_start_date: startDate,
+            p_end_date: endDate,
+          });
+
+          if (error) return { ...check, status: 'failing' as const, message: `RPC Error: ${error.message}`, lastChecked: new Date() };
+          
+          const result = data as Record<string, unknown>;
+          const totalRevenue = (result?.totalRevenue as number) ?? 0;
+          
+          if (totalRevenue > 0) {
+            return { ...check, status: 'passing' as const, message: `OK: Revenue = ${formatValue(totalRevenue)}`, lastChecked: new Date() };
+          }
+          return { ...check, status: 'warning' as const, message: 'RPC trả về 0 revenue', lastChecked: new Date() };
+        }
+
+        if (check.view === 'decision_cards') {
+          const { error, count } = await supabase
+            .from('decision_cards')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId);
+
+          if (error) return { ...check, status: 'failing' as const, message: `Error: ${error.message}`, lastChecked: new Date() };
+          return { ...check, status: 'passing' as const, message: `OK: ${count ?? 0} decision cards accessible`, lastChecked: new Date() };
+        }
+
+        if (check.view === 'early_warning_alerts') {
+          const { error, count } = await supabase
+            .from('early_warning_alerts')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenantId);
+
+          if (error) return { ...check, status: 'failing' as const, message: `Error: ${error.message}`, lastChecked: new Date() };
+          return { ...check, status: 'passing' as const, message: `OK: ${count ?? 0} alerts accessible`, lastChecked: new Date() };
+        }
+
+        // Default fallback
+        return { ...check, status: 'warning' as const, message: 'Check not implemented', lastChecked: new Date() };
+        
+      } catch (err) {
+        return { ...check, status: 'failing' as const, message: `Exception: ${err}`, lastChecked: new Date() };
+      }
+    });
+
+    const resolvedResults = await Promise.all(checkPromises);
+    setHealthChecks(resolvedResults);
     setIsRunningHealthChecks(false);
   }, [tenantId]);
 
