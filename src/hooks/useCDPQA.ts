@@ -8,7 +8,9 @@ interface Message {
   content: string;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cdp-qa`;
+// Use the project URL from Supabase client
+const SUPABASE_URL = 'https://bwelonzvndchpjnfvawt.supabase.co';
+const CHAT_URL = `${SUPABASE_URL}/functions/v1/cdp-qa`;
 
 export function useCDPQA() {
   const [messages, setMessages] = useState<Message[]>([]);
