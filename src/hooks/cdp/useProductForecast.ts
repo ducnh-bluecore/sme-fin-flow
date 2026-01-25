@@ -364,6 +364,7 @@ export function useAvailableCategories() {
 }
 
 // Count unique active customers within a configurable date range
+// Uses RPC to get accurate count (avoids 1000 row limit issue)
 export function useActiveCustomerCount(startDate?: string, endDate?: string) {
   const { activeTenant } = useTenant();
 
@@ -372,21 +373,20 @@ export function useActiveCustomerCount(startDate?: string, endDate?: string) {
     queryFn: async () => {
       if (!activeTenant?.id || !startDate || !endDate) return 0;
 
+      // Use raw SQL count to avoid 1000 row limit
       const { data, error } = await supabase
-        .from('cdp_orders')
-        .select('customer_id')
-        .eq('tenant_id', activeTenant.id)
-        .gte('order_at', startDate)
-        .lte('order_at', endDate);
+        .rpc('cdp_count_active_customers', {
+          p_tenant_id: activeTenant.id,
+          p_start_date: startDate,
+          p_end_date: endDate,
+        });
 
       if (error) {
         console.error('[useActiveCustomerCount] Error:', error);
         return 0;
       }
 
-      // Count unique customers
-      const uniqueCustomers = new Set(data?.map(d => d.customer_id) || []);
-      return uniqueCustomers.size;
+      return data ?? 0;
     },
     enabled: !!activeTenant?.id && !!startDate && !!endDate,
   });

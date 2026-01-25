@@ -29545,6 +29545,10 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: undefined
       }
+      cdp_count_active_customers: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: number
+      }
       cdp_create_decision_cards_from_insights: {
         Args: {
           p_as_of_date: string
