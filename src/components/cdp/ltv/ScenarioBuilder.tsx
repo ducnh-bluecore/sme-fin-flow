@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +104,7 @@ interface SliderFieldProps {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  onChangeCommitted?: (value: number) => void;
   min: number;
   max: number;
   step?: number;
@@ -111,7 +112,7 @@ interface SliderFieldProps {
   icon?: React.ReactNode;
 }
 
-function SliderField({ label, value, onChange, min, max, step = 1, tooltip, icon }: SliderFieldProps) {
+function SliderField({ label, value, onChange, onChangeCommitted, min, max, step = 1, tooltip, icon }: SliderFieldProps) {
   const formatPercent = (v: number) => {
     const percent = (v * 100).toFixed(step < 1 ? 1 : 0);
     return v >= 0 ? `+${percent}%` : `${percent}%`;
@@ -141,6 +142,7 @@ function SliderField({ label, value, onChange, min, max, step = 1, tooltip, icon
       <Slider
         value={[value * 100]}
         onValueChange={([v]) => onChange(v / 100)}
+        onValueCommit={([v]) => onChangeCommitted?.(v / 100)}
         min={min}
         max={max}
         step={step}
@@ -156,6 +158,13 @@ export function ScenarioBuilder({
   maxScenarios = 4 
 }: ScenarioBuilderProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  // Local state for immediate slider feedback (no API calls)
+  const [localScenarios, setLocalScenarios] = useState<Scenario[]>(scenarios);
+  
+  // Sync local state when parent scenarios change
+  if (scenarios.length !== localScenarios.length) {
+    setLocalScenarios(scenarios);
+  }
 
   const addScenario = (preset?: Partial<Scenario>) => {
     if (scenarios.length >= maxScenarios) return;
@@ -166,19 +175,38 @@ export function ScenarioBuilder({
       name: preset?.name || `Kịch bản ${scenarios.length + 1}`,
     };
     
-    onScenariosChange([...scenarios, newScenario]);
+    const updated = [...scenarios, newScenario];
+    setLocalScenarios(updated);
+    onScenariosChange(updated);
     setExpandedIndex(scenarios.length);
   };
 
   const removeScenario = (index: number) => {
-    onScenariosChange(scenarios.filter((_, i) => i !== index));
+    const updated = scenarios.filter((_, i) => i !== index);
+    setLocalScenarios(updated);
+    onScenariosChange(updated);
     if (expandedIndex === index) setExpandedIndex(null);
   };
 
-  const updateScenario = (index: number, updates: Partial<Scenario>) => {
-    onScenariosChange(
-      scenarios.map((s, i) => (i === index ? { ...s, ...updates } : s))
+  // Update local state immediately (no API call)
+  const updateLocalScenario = useCallback((index: number, updates: Partial<Scenario>) => {
+    setLocalScenarios(prev => 
+      prev.map((s, i) => (i === index ? { ...s, ...updates } : s))
     );
+  }, []);
+
+  // Commit to parent (triggers API call) only on slider release or select change
+  const commitScenario = useCallback((index: number, updates: Partial<Scenario>) => {
+    const updated = localScenarios.map((s, i) => (i === index ? { ...s, ...updates } : s));
+    setLocalScenarios(updated);
+    onScenariosChange(updated);
+  }, [localScenarios, onScenariosChange]);
+
+  // For non-slider changes (select, input), update immediately
+  const updateScenario = (index: number, updates: Partial<Scenario>) => {
+    const updated = localScenarios.map((s, i) => (i === index ? { ...s, ...updates } : s));
+    setLocalScenarios(updated);
+    onScenariosChange(updated);
   };
 
   const formatPercent = (value: number) => {
@@ -227,7 +255,7 @@ export function ScenarioBuilder({
         {scenarios.length > 0 && (
           <div className="space-y-3">
             <Label className="text-xs text-muted-foreground">Kịch bản đang so sánh:</Label>
-            {scenarios.map((scenario, index) => (
+            {localScenarios.map((scenario, index) => (
               <Collapsible 
                 key={index}
                 open={expandedIndex === index}
@@ -333,7 +361,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="Retention Rate"
                             value={scenario.retention_boost}
-                            onChange={(v) => updateScenario(index, { retention_boost: v })}
+                            onChange={(v) => updateLocalScenario(index, { retention_boost: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { retention_boost: v })}
                             min={-30}
                             max={40}
                             tooltip="Tỷ lệ khách hàng quay lại mua sau kỳ đầu tiên"
@@ -341,7 +370,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="AOV (Giá trị đơn TB)"
                             value={scenario.aov_boost}
-                            onChange={(v) => updateScenario(index, { aov_boost: v })}
+                            onChange={(v) => updateLocalScenario(index, { aov_boost: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { aov_boost: v })}
                             min={-30}
                             max={50}
                             tooltip="Thay đổi giá trị trung bình mỗi đơn hàng"
@@ -349,7 +379,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="Purchase Frequency"
                             value={scenario.frequency_boost}
-                            onChange={(v) => updateScenario(index, { frequency_boost: v })}
+                            onChange={(v) => updateLocalScenario(index, { frequency_boost: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { frequency_boost: v })}
                             min={-30}
                             max={50}
                             tooltip="Số lần mua hàng trung bình trong kỳ"
@@ -357,7 +388,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="Churn Reduction"
                             value={scenario.churn_reduction}
-                            onChange={(v) => updateScenario(index, { churn_reduction: v })}
+                            onChange={(v) => updateLocalScenario(index, { churn_reduction: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { churn_reduction: v })}
                             min={-20}
                             max={30}
                             tooltip="Giảm tỷ lệ khách hàng rời bỏ (churn)"
@@ -377,7 +409,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="Biên lợi nhuận"
                             value={scenario.margin_adjust}
-                            onChange={(v) => updateScenario(index, { margin_adjust: v })}
+                            onChange={(v) => updateLocalScenario(index, { margin_adjust: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { margin_adjust: v })}
                             min={-20}
                             max={20}
                             step={0.5}
@@ -386,7 +419,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="Chi phí CAC"
                             value={scenario.cac_adjust}
-                            onChange={(v) => updateScenario(index, { cac_adjust: v })}
+                            onChange={(v) => updateLocalScenario(index, { cac_adjust: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { cac_adjust: v })}
                             min={-30}
                             max={50}
                             tooltip="Chi phí thu hút/giữ chân khách hàng thay đổi"
@@ -394,7 +428,8 @@ export function ScenarioBuilder({
                           <SliderField
                             label="Discount Rate"
                             value={scenario.discount_adjust}
-                            onChange={(v) => updateScenario(index, { discount_adjust: v })}
+                            onChange={(v) => updateLocalScenario(index, { discount_adjust: v })}
+                            onChangeCommitted={(v) => commitScenario(index, { discount_adjust: v })}
                             min={-5}
                             max={10}
                             step={0.5}
