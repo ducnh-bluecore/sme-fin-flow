@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { ExploreLayout } from '@/components/cdp/explore/ExploreLayout';
 import { ResearchStatsPanel } from '@/components/cdp/explore/ResearchStatsPanel';
@@ -9,6 +10,7 @@ import { SaveViewDialog } from '@/components/cdp/explore/SaveViewDialog';
 import { useCDPCustomerResearch, useCDPResearchStats, ResearchFilters, useSaveResearchView } from '@/hooks/useCDPExplore';
 
 export default function CustomerResearchPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<ResearchFilters>({});
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,7 +84,13 @@ export default function CustomerResearchPage() {
           onSave={(name, description) => {
             saveViewMutation.mutate(
               { name, description, filters },
-              { onSuccess: () => setSaveDialogOpen(false) }
+              { 
+                onSuccess: (data) => {
+                  setSaveDialogOpen(false);
+                  // Navigate to the newly created population detail page
+                  navigate(`/cdp/populations/${data.id}`);
+                }
+              }
             );
           }}
           isSaving={saveViewMutation.isPending}
