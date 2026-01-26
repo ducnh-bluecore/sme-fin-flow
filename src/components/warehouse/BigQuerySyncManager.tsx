@@ -75,12 +75,14 @@ export function BigQuerySyncManager() {
   };
 
   // Get current data counts
+  // eslint-disable-next-line no-restricted-syntax -- STAGING MONITORING: intentionally checks staging table counts
   const { data: currentCounts, refetch: refetchCounts } = useQuery({
     queryKey: ['data-counts', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
       
       const [orders, items, products, customers, settlements] = await Promise.all([
+        // ⚠️ STAGING MONITORING: external_orders is staging table, count for sync status only
         supabase.from('external_orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
         supabase.from('external_order_items').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
         supabase.from('external_products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),

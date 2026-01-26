@@ -3,9 +3,10 @@
  * PRODUCT METRICS - SINGLE SOURCE OF TRUTH
  * ============================================
  * 
+ * ✅ SSOT COMPLIANT
  * Reads from product_metrics table which is calculated from:
  * - Master products table (pricing)
- * - external_orders (sales data)
+ * - cdp_orders (sales data - Layer 1 SSOT)
  * 
  * This replaces sku_profitability_cache for SSOT compliance.
  */

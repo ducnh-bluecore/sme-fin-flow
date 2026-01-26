@@ -204,14 +204,16 @@ export default function PortalPage() {
   const { data: cdpEquity, isLoading: cdpLoading } = useCDPEquitySnapshot();
   
   // Fetch database stats for Data Warehouse
+  // eslint-disable-next-line no-restricted-syntax -- STAGING MONITORING: checks table counts including staging
   const { data: dbStats, isLoading: dbStatsLoading } = useQuery({
     queryKey: ['portal-db-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
       
       // Count tables in public schema that have data
+      // ⚠️ MONITORING: external_orders is staging, counted for sync status only
       const tableQueries = [
-        'external_orders',
+        'external_orders', // Staging table - for sync status
         'invoices',
         'bank_transactions',
         'products',
