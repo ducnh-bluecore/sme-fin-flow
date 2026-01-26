@@ -218,23 +218,23 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
         value2 = snapshot?.ccc ?? null;
         break;
       case 'revenue_exec_pl':
-        value1 = kpiCache?.net_revenue ? Number(kpiCache.net_revenue) : null;
-        value2 = financeSummary?.net_revenue ? Number(financeSummary.net_revenue) : null;
+        value1 = kpiCache?.net_revenue != null ? Number(kpiCache.net_revenue) : null;
+        value2 = financeSummary?.net_revenue != null ? Number(financeSummary.net_revenue) : null;
         break;
       case 'revenue_dashboard_channel':
-        value1 = kpiCache?.net_revenue ? Number(kpiCache.net_revenue) : null;
-        value2 = channelCache?.net_revenue ? Number(channelCache.net_revenue) : null;
+        value1 = kpiCache?.net_revenue != null ? Number(kpiCache.net_revenue) : null;
+        value2 = channelCache?.net_revenue != null ? Number(channelCache.net_revenue) : null;
         break;
       case 'cogs_pl_dashboard':
-        value1 = financeSummary?.total_cogs ? Number(financeSummary.total_cogs) : null;
-        value2 = kpiCache?.total_cogs ? Number(kpiCache.total_cogs) : null;
+        value1 = financeSummary?.total_cogs != null ? Number(financeSummary.total_cogs) : null;
+        value2 = kpiCache?.total_cogs != null ? Number(kpiCache.total_cogs) : null;
         break;
       case 'cash_flow_dashboard':
         value1 = totalBankBalance;
-        value2 = kpiCache?.cash_today ? Number(kpiCache.cash_today) : null;
+        value2 = kpiCache?.cash_today != null ? Number(kpiCache.cash_today) : null;
         break;
       case 'gross_margin_calc':
-        value1 = kpiCache?.gross_margin ? Number(kpiCache.gross_margin) : null;
+        value1 = kpiCache?.gross_margin != null ? Number(kpiCache.gross_margin) : null;
         value2 = snapshot?.gross_margin_percent ?? null;
         break;
     }
