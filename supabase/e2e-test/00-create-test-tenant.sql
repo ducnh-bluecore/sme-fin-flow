@@ -37,33 +37,17 @@ BEGIN
   END IF;
 END $$;
 
--- Tạo connector integrations cần thiết cho test data
-INSERT INTO connector_integrations (id, tenant_id, platform, status, credentials, settings, created_at)
+-- Tạo connector integrations cần thiết cho test data (với đúng schema)
+INSERT INTO connector_integrations (id, tenant_id, connector_type, connector_name, shop_id, shop_name, status, created_at)
 VALUES
-  -- Shopee connector
   ('eeeeeeee-1111-1111-1111-111111111111', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 
-   'shopee', 'active', 
-   '{"test": true}'::jsonb, 
-   '{"shop_name": "E2E Test Shopee"}'::jsonb, 
-   '2024-01-01'::timestamptz),
-  -- Lazada connector
+   'shopee', 'E2E Test Shopee', 'e2e-shopee-001', 'E2E Test Shopee', 'active', '2024-01-01'::timestamptz),
   ('eeeeeeee-2222-2222-2222-222222222222', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 
-   'lazada', 'active', 
-   '{"test": true}'::jsonb, 
-   '{"shop_name": "E2E Test Lazada"}'::jsonb, 
-   '2024-01-01'::timestamptz),
-  -- TikTok Shop connector
+   'lazada', 'E2E Test Lazada', 'e2e-lazada-001', 'E2E Test Lazada', 'active', '2024-01-01'::timestamptz),
   ('eeeeeeee-3333-3333-3333-333333333333', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 
-   'tiktok', 'active', 
-   '{"test": true}'::jsonb, 
-   '{"shop_name": "E2E Test TikTok"}'::jsonb, 
-   '2024-01-01'::timestamptz),
-  -- Website/WooCommerce connector
+   'tiktok_shop', 'E2E Test TikTok', 'e2e-tiktok-001', 'E2E Test TikTok', 'active', '2024-01-01'::timestamptz),
   ('eeeeeeee-4444-4444-4444-444444444444', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 
-   'woocommerce', 'active', 
-   '{"test": true}'::jsonb, 
-   '{"shop_name": "E2E Test Website"}'::jsonb, 
-   '2024-01-01'::timestamptz)
+   'woocommerce', 'E2E Test Website', 'e2e-web-001', 'E2E Test Website', 'active', '2024-01-01'::timestamptz)
 ON CONFLICT (id) DO NOTHING;
 
 -- Thông báo kết quả
