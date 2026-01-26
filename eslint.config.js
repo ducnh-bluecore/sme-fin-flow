@@ -43,6 +43,11 @@ export default tseslint.config(
           "message": "⛔ DEPRECATED: Use useFinanceTruthFacts instead"
         }]
       }],
+      // ⛔ SSOT GUARDRAILS - Prevent direct queries to external_orders (staging table)
+      "no-restricted-syntax": ["warn", {
+        "selector": "CallExpression[callee.property.name='from'][arguments.0.value='external_orders']",
+        "message": "⚠️ SSOT: Query cdp_orders instead of external_orders. external_orders is staging-only (auto-synced via trigger)."
+      }],
     },
   },
 );

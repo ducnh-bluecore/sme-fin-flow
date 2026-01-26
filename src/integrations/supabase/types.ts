@@ -26006,34 +26006,31 @@ export type Database = {
       }
       v_cdp_segment_summaries: {
         Row: {
-          avg_frequency: number | null
-          avg_margin: number | null
-          avg_revenue: number | null
+          avg_orders_per_customer: number | null
+          avg_revenue_per_customer: number | null
           customer_count: number | null
-          name: string | null
-          percent_of_total: number | null
+          segment: string | null
+          segment_margin: number | null
+          segment_revenue: number | null
           tenant_id: string | null
-          total_revenue: number | null
-          trend: string | null
-          trend_percent: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26043,32 +26040,33 @@ export type Database = {
       }
       v_cdp_summary_stats: {
         Row: {
-          avg_customer_value: number | null
           avg_frequency: number | null
           avg_order_value: number | null
+          one_time_customers: number | null
+          repeat_customers: number | null
+          repeat_rate: number | null
           tenant_id: string | null
-          top20_percent: number | null
-          top20_revenue: number | null
           total_customers: number | null
+          total_orders: number | null
           total_revenue: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26113,31 +26111,74 @@ export type Database = {
       v_cdp_trend_insights: {
         Row: {
           aov_change_percent: number | null
-          base_aov: number | null
-          base_customers: number | null
           current_aov: number | null
-          current_customers: number | null
-          freq_change_percent: number | null
-          spend_decline_triggered: boolean | null
+          current_orders: number | null
+          customer_id: string | null
+          previous_aov: number | null
+          previous_orders: number | null
           tenant_id: string | null
-          velocity_slow_triggered: boolean | null
+          trend_type: string | null
         }
         Relationships: []
       }
       v_cdp_value_distribution: {
         Row: {
-          max_val: number | null
-          mean_val: number | null
-          metric_name: string | null
-          min_val: number | null
-          p10: number | null
+          avg_order_value: number | null
+          customer_id: string | null
+          order_count: number | null
           p25: number | null
           p50: number | null
           p75: number | null
           p90: number | null
+          p95: number | null
           tenant_id: string | null
+          total_revenue: number | null
+          value_tier: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_channel_analytics_total: {
         Row: {
@@ -26172,32 +26213,33 @@ export type Database = {
       }
       v_channel_daily_revenue: {
         Row: {
+          avg_order_value: number | null
           channel: string | null
+          cogs: number | null
+          gross_margin: number | null
           gross_revenue: number | null
           net_revenue: number | null
           order_count: number | null
-          order_date: string | null
-          platform_fees: number | null
-          profit: number | null
+          revenue_date: string | null
           tenant_id: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26207,35 +26249,34 @@ export type Database = {
       }
       v_channel_performance: {
         Row: {
-          avg_order_value: number | null
-          cancelled_orders: number | null
           channel: string | null
-          gross_profit: number | null
+          cogs: number | null
+          gross_margin: number | null
           gross_revenue: number | null
+          margin_percent: number | null
+          month: string | null
           net_revenue: number | null
-          returned_orders: number | null
+          order_count: number | null
           tenant_id: string | null
-          total_cogs: number | null
-          total_fees: number | null
-          total_orders: number | null
+          unique_customers: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26245,41 +26286,37 @@ export type Database = {
       }
       v_channel_pl_summary: {
         Row: {
-          avg_order_value: number | null
-          cancelled_count: number | null
           channel: string | null
+          cm_percent: number | null
           cogs: number | null
-          commission_fee: number | null
-          gross_profit: number | null
+          contribution_margin: number | null
+          gross_margin: number | null
           gross_revenue: number | null
-          margin_percent: number | null
+          marketing_spend: number | null
           net_revenue: number | null
           order_count: number | null
-          payment_fee: number | null
           period: string | null
-          platform_fee: number | null
-          return_rate: number | null
-          shipping_fee: number | null
+          roas: number | null
           tenant_id: string | null
-          total_fees: number | null
+          unique_customers: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26630,34 +26667,37 @@ export type Database = {
       }
       v_mdp_campaign_attribution: {
         Row: {
-          ad_spend: number | null
+          attributed_customers: number | null
+          attributed_margin: number | null
+          attributed_orders: number | null
+          attributed_revenue: number | null
+          cac: number | null
           channel: string | null
-          cogs: number | null
-          contribution_margin: number | null
-          contribution_margin_percent: number | null
-          gross_revenue: number | null
-          net_revenue: number | null
-          order_count: number | null
-          platform_fees: number | null
+          clicks: number | null
+          impressions: number | null
+          period: string | null
+          profit_roas: number | null
+          roas: number | null
+          spend: number | null
           tenant_id: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"

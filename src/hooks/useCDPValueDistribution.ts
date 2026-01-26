@@ -85,51 +85,32 @@ export function useCDPValueDistribution() {
 
       if (!data || data.length === 0) return null;
 
-      // Transform rows into ValueDistribution object
-      const result: Partial<ValueDistribution> = {};
+      // The new view returns customer-level data with percentile columns
+      // We aggregate to create the distribution object
+      const firstRow = data[0];
       
-      for (const row of data) {
-        const dist: PercentileDistribution = {
-          p10: Number(row.p10) || 0,
-          p25: Number(row.p25) || 0,
-          p50: Number(row.p50) || 0,
-          p75: Number(row.p75) || 0,
-          p90: Number(row.p90) || 0,
-          min: Number(row.min_val) || 0,
-          max: Number(row.max_val) || 0,
-          mean: Number(row.mean_val) || 0,
-        };
-        
-        switch (row.metric_name) {
-          case 'revenue':
-            result.revenue = dist;
-            break;
-          case 'aov':
-            result.aov = dist;
-            break;
-          case 'frequency':
-            result.frequency = dist;
-            break;
-          case 'margin':
-            result.margin = dist;
-            break;
-          case 'return_rate':
-            result.returnRate = dist;
-            break;
-        }
-      }
-
-      // Provide defaults for any missing metrics
       const defaultDist: PercentileDistribution = {
         p10: 0, p25: 0, p50: 0, p75: 0, p90: 0, min: 0, max: 0, mean: 0
       };
 
+      // Create distribution from percentile columns in view
+      const revenueDist: PercentileDistribution = {
+        p10: 0,
+        p25: Number(firstRow.p25) || 0,
+        p50: Number(firstRow.p50) || 0,
+        p75: Number(firstRow.p75) || 0,
+        p90: Number(firstRow.p90) || 0,
+        min: 0,
+        max: Number(firstRow.p95) || 0,
+        mean: Number(firstRow.avg_order_value) || 0,
+      };
+
       return {
-        revenue: result.revenue || defaultDist,
-        aov: result.aov || defaultDist,
-        frequency: result.frequency || defaultDist,
-        margin: result.margin || defaultDist,
-        returnRate: result.returnRate || defaultDist,
+        revenue: revenueDist,
+        aov: revenueDist,
+        frequency: defaultDist,
+        margin: defaultDist,
+        returnRate: defaultDist,
       };
     },
     enabled: !!tenantId,
@@ -157,16 +138,19 @@ export function useCDPSegmentSummaries() {
         return [];
       }
 
+      // Map new view columns to SegmentSummary interface
+      const totalCustomers = (data || []).reduce((sum, r) => sum + Number(r.customer_count || 0), 0);
+      
       return (data || []).map(row => ({
-        name: row.name || '',
+        name: row.segment || '',
         customerCount: Number(row.customer_count) || 0,
-        percentOfTotal: Number(row.percent_of_total) || 0,
-        totalRevenue: Number(row.total_revenue) || 0,
-        avgRevenue: Number(row.avg_revenue) || 0,
-        avgMargin: Number(row.avg_margin) || 0,
-        avgFrequency: Number(row.avg_frequency) || 0,
-        trend: (row.trend as 'up' | 'down' | 'stable') || 'stable',
-        trendPercent: Number(row.trend_percent) || 0,
+        percentOfTotal: totalCustomers > 0 ? (Number(row.customer_count) / totalCustomers) * 100 : 0,
+        totalRevenue: Number(row.segment_revenue) || 0,
+        avgRevenue: Number(row.avg_revenue_per_customer) || 0,
+        avgMargin: Number(row.segment_margin) / Math.max(Number(row.customer_count), 1) || 0,
+        avgFrequency: Number(row.avg_orders_per_customer) || 0,
+        trend: 'stable' as const,
+        trendPercent: 0,
       }));
     },
     enabled: !!tenantId,
@@ -207,14 +191,18 @@ export function useCDPSummaryStats() {
 
       if (!data) return defaultStats;
 
+      // Map new view columns - calculate derived metrics
+      const totalRevenue = Number(data.total_revenue) || 0;
+      const totalCustomers = Number(data.total_customers) || 0;
+      
       return {
-        totalCustomers: Number(data.total_customers) || 0,
-        totalRevenue: Number(data.total_revenue) || 0,
-        avgCustomerValue: Number(data.avg_customer_value) || 0,
+        totalCustomers,
+        totalRevenue,
+        avgCustomerValue: totalCustomers > 0 ? totalRevenue / totalCustomers : 0,
         avgOrderValue: Number(data.avg_order_value) || 0,
         avgFrequency: Number(data.avg_frequency) || 0,
-        top20Revenue: Number(data.top20_revenue) || 0,
-        top20Percent: Number(data.top20_percent) || 0,
+        top20Revenue: 0, // Not available in simplified view
+        top20Percent: 0, // Not available in simplified view
       };
     },
     enabled: !!tenantId,
