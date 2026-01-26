@@ -8238,6 +8238,85 @@ export type Database = {
           },
         ]
       }
+      control_tower_priority_queue: {
+        Row: {
+          action_url: string | null
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          id: string
+          impact_amount: number | null
+          priority_score: number | null
+          recommended_action: string | null
+          signal_type: string
+          source_id: string | null
+          source_module: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          urgency_hours: number | null
+        }
+        Insert: {
+          action_url?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact_amount?: number | null
+          priority_score?: number | null
+          recommended_action?: string | null
+          signal_type: string
+          source_id?: string | null
+          source_module: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          urgency_hours?: number | null
+        }
+        Update: {
+          action_url?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact_amount?: number | null
+          priority_score?: number | null
+          recommended_action?: string | null
+          signal_type?: string
+          source_id?: string | null
+          source_module?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          urgency_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "control_tower_priority_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "control_tower_priority_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "control_tower_priority_queue_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cost_centers: {
         Row: {
           budget_amount: number | null
