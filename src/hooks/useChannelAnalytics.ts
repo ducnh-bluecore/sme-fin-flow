@@ -66,8 +66,8 @@ export function useAllRevenueData() {
       // Fetch all revenue sources in parallel
       const [externalOrdersRes, invoicesRes, revenuesRes] = await Promise.all([
         supabase
-          .from('external_orders')
-          .select('id, channel, order_date, total_amount, seller_income, cost_of_goods, platform_fee, commission_fee, payment_fee, gross_profit, status')
+          .from('cdp_orders')
+          .select('id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
           .eq('tenant_id', tenantId)
           .limit(50000),
         supabase
@@ -136,8 +136,8 @@ export function useChannelPerformance() {
           .select('id, connector_name, connector_type, shop_name')
           .eq('tenant_id', tenantId),
         supabase
-          .from('external_orders')
-          .select('integration_id, status, total_amount, cost_of_goods, platform_fee, commission_fee, payment_fee')
+          .from('cdp_orders')
+          .select('channel, gross_revenue, cogs')
           .eq('tenant_id', tenantId),
         supabase
           .from('channel_fees')
@@ -171,36 +171,51 @@ export function useChannelPerformance() {
         });
       });
 
-      // Aggregate orders
+      // Aggregate orders by channel (since cdp_orders doesn't have integration_id)
+      const channelPerfMap = new Map<string, ChannelPerformance>();
+      
       orders.forEach(order => {
-        const perf = performanceMap.get(order.integration_id);
-        if (perf) {
-          perf.total_orders++;
-          perf.gross_revenue += order.total_amount || 0;
-          perf.total_cogs += order.cost_of_goods || 0;
-          perf.total_fees += (order.platform_fee || 0) + (order.commission_fee || 0) + (order.payment_fee || 0);
-          
-          if (order.status === 'cancelled') perf.cancelled_orders++;
-          if (order.status === 'returned') perf.returned_orders++;
-        }
+        const channel = order.channel || 'Unknown';
+        const existing = channelPerfMap.get(channel) || {
+          connector_name: channel,
+          connector_type: channel.toLowerCase(),
+          shop_name: null,
+          integration_id: channel,
+          total_orders: 0,
+          gross_revenue: 0,
+          net_revenue: 0,
+          total_fees: 0,
+          total_cogs: 0,
+          gross_profit: 0,
+          avg_order_value: 0,
+          cancelled_orders: 0,
+          returned_orders: 0,
+          source: 'ecommerce' as const,
+        };
+        
+        existing.total_orders++;
+        existing.gross_revenue += Number(order.gross_revenue) || 0;
+        existing.total_cogs += Number(order.cogs) || 0;
+        // cdp_orders doesn't have fee columns - fees = 0
+        
+        channelPerfMap.set(channel, existing);
       });
 
-      // Add fees from channel_fees table
-      fees.forEach(fee => {
-        const perf = performanceMap.get(fee.integration_id);
-        if (perf) {
-          perf.total_fees += fee.amount || 0;
-        }
-      });
-
-      // Calculate net revenue and profit
-      performanceMap.forEach(perf => {
+      // Calculate net revenue and profit for each channel
+      channelPerfMap.forEach(perf => {
         perf.net_revenue = perf.gross_revenue - perf.total_fees;
         perf.gross_profit = perf.net_revenue - perf.total_cogs;
         perf.avg_order_value = perf.total_orders > 0 ? perf.gross_revenue / perf.total_orders : 0;
       });
 
-      return Array.from(performanceMap.values());
+      // Merge with integration-based performance
+      performanceMap.forEach((perf, key) => {
+        if (!channelPerfMap.has(key)) {
+          channelPerfMap.set(key, perf);
+        }
+      });
+
+      return Array.from(channelPerfMap.values());
     },
     enabled: !!tenantId,
     staleTime: 60000, // 1 minute
@@ -274,21 +289,20 @@ export function useOrderStatusSummary() {
   return useQuery({
     queryKey: ['order-status-summary', tenantId],
     queryFn: async () => {
+      // Use cdp_orders (SSOT) - status is assumed 'delivered' for financial metrics
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('status, total_amount')
+        .from('cdp_orders')
+        .select('gross_revenue')
         .eq('tenant_id', tenantId);
 
       if (error) throw error;
 
+      // cdp_orders contains only delivered/confirmed orders - aggregate as single status
       const statusMap = new Map<string, { count: number; total_amount: number }>();
-      (data || []).forEach((order) => {
-        const status = order.status || 'unknown';
-        const current = statusMap.get(status) || { count: 0, total_amount: 0 };
-        statusMap.set(status, {
-          count: current.count + 1,
-          total_amount: current.total_amount + (order.total_amount || 0),
-        });
+      const totalAmount = (data || []).reduce((sum, o) => sum + (Number(o.gross_revenue) || 0), 0);
+      statusMap.set('delivered', {
+        count: (data || []).length,
+        total_amount: totalAmount,
       });
 
       return Array.from(statusMap.entries()).map(([status, data]) => ({
@@ -381,23 +395,22 @@ export function useExternalOrders(options?: {
   return useQuery({
     queryKey: ['external-orders', tenantId, options],
     queryFn: async () => {
+      // Use cdp_orders (SSOT) for financial metrics
       let query = supabase
-        .from('external_orders')
-        .select('*')
+        .from('cdp_orders')
+        .select('id, tenant_id, channel, order_at, customer_id, gross_revenue, net_revenue, cogs, gross_margin')
         .eq('tenant_id', tenantId)
-        .order('order_date', { ascending: false });
+        .order('order_at', { ascending: false });
 
       if (options?.channel && options.channel !== 'all') {
         query = query.eq('channel', options.channel);
       }
-      if (options?.status && options.status !== 'all') {
-        query = query.eq('status', options.status as ExternalOrder['status']);
-      }
+      // Note: cdp_orders doesn't have status column - all orders are considered delivered
       if (options?.startDate) {
-        query = query.gte('order_date', options.startDate);
+        query = query.gte('order_at', options.startDate);
       }
       if (options?.endDate) {
-        query = query.lte('order_date', options.endDate);
+        query = query.lte('order_at', options.endDate);
       }
       if (options?.limit) {
         query = query.limit(options.limit);
@@ -405,7 +418,23 @@ export function useExternalOrders(options?: {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as ExternalOrder[];
+      
+      // Map to legacy ExternalOrder format for backward compatibility
+      return (data || []).map(o => ({
+        id: o.id,
+        tenant_id: o.tenant_id,
+        channel: o.channel,
+        customer_id: o.customer_id,
+        order_date: o.order_at,
+        total_amount: o.gross_revenue,
+        seller_income: o.net_revenue,
+        cost_of_goods: o.cogs,
+        gross_profit: o.gross_margin,
+        status: 'delivered' as const,
+        platform_fee: 0,
+        commission_fee: 0,
+        payment_fee: 0,
+      })) as unknown as ExternalOrder[];
     },
     enabled: !!tenantId,
   });

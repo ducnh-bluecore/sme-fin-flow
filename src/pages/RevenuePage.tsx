@@ -143,17 +143,25 @@ export default function RevenuePage() {
 
   // Fetch external orders for integrated revenue
   const { data: externalOrders = [] } = useQuery({
-    queryKey: ["external-orders-revenue", tenantId, start, end],
+    queryKey: ["cdp-orders-revenue", tenantId, start, end],
     queryFn: async () => {
+      // Use cdp_orders (SSOT) instead of external_orders
       const { data, error } = await supabase
-        .from("external_orders")
-        .select("integration_id, total_amount, status, channel, order_date")
+        .from("cdp_orders")
+        .select("channel, gross_revenue, order_at")
         .eq('tenant_id', tenantId)
-        .gte('order_date', start)
-        .lte('order_date', end);
+        .gte('order_at', start)
+        .lte('order_at', end);
 
       if (error) throw error;
-      return data || [];
+      // Map to legacy format
+      return (data || []).map(o => ({
+        integration_id: o.channel, // Use channel as pseudo-integration_id
+        total_amount: o.gross_revenue,
+        status: 'delivered',
+        channel: o.channel,
+        order_date: o.order_at,
+      }));
     },
     enabled: !!tenantId,
   });

@@ -203,25 +203,20 @@ export function SKUCostBreakdownDialog({
       const orderIds = [...new Set(items.map(i => i.external_order_id))];
 
       // Fetch orders - conditionally apply date filter
+      // Use cdp_orders (SSOT) instead of external_orders
       let ordersQuery = supabase
-        .from('external_orders')
+        .from('cdp_orders')
         .select(`
           id,
-          order_number,
           channel,
-          order_date,
-          total_amount,
-          cost_of_goods,
-          platform_fee,
-          commission_fee,
-          payment_fee,
-          shipping_fee,
-          other_fees,
-          status
+          order_at,
+          gross_revenue,
+          cogs,
+          net_revenue,
+          gross_margin
         `)
         .eq('tenant_id', tenantId)
-        .in('id', orderIds)
-        .in('status', ['pending', 'delivered']);
+        .in('id', orderIds);
       
       // Only apply date filter if not ignoring date range
       if (!ignoreDateRange) {
@@ -248,23 +243,25 @@ export function SKUCostBreakdownDialog({
           ? itemTotalAmount 
           : unitPrice * qty;
 
-        const orderRevenue = Number(order.total_amount || 0);
+        // Use cdp_orders columns - map appropriately
+        const orderRevenue = Number(order.gross_revenue || 0);
         const revenueShare = orderRevenue > 0 ? itemRevenue / orderRevenue : 0;
 
-        const platformFee = Number(order.platform_fee || 0);
-        const commissionFee = Number(order.commission_fee || 0);
-        const paymentFee = Number(order.payment_fee || 0);
-        const shippingFee = Number(order.shipping_fee || 0);
-        const otherFees = Number(order.other_fees || 0);
-        const totalOrderFees = platformFee + commissionFee + paymentFee + shippingFee + otherFees;
-        const allocatedFees = totalOrderFees * revenueShare;
+        // cdp_orders doesn't have individual fee columns - use 0
+        const platformFee = 0;
+        const commissionFee = 0;
+        const paymentFee = 0;
+        const shippingFee = 0;
+        const otherFees = 0;
+        const totalOrderFees = 0;
+        const allocatedFees = 0;
 
         // Calculate COGS - SSOT: Prioritize master unit cost from products table
         // This ensures consistent COGS across all channels for the same SKU
         const unitCogs = item.unit_cogs != null ? Number(item.unit_cogs) : 0;
         const totalCogs = item.total_cogs != null ? Number(item.total_cogs) : 0;
         const grossProfit = item.gross_profit != null ? Number(item.gross_profit) : 0;
-        const orderCogs = Number(order.cost_of_goods || 0);
+        const orderCogs = Number(order.cogs || 0);
 
         let itemCogs = 0;
         if (masterUnitCost && masterUnitCost > 0) {
@@ -284,9 +281,9 @@ export function SKUCostBreakdownDialog({
         const marginPercent = itemRevenue > 0 ? (netProfit / itemRevenue) * 100 : 0;
 
         breakdowns.push({
-          order_number: order.order_number || 'N/A',
+          order_number: order.id.slice(0, 8), // Use ID prefix as order number
           channel: order.channel || 'Unknown',
-          order_date: order.order_date,
+          order_date: order.order_at,
           quantity: qty,
           unit_price: unitPrice,
           item_revenue: itemRevenue,

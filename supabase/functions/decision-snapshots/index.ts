@@ -263,18 +263,18 @@ Deno.serve(async (req) => {
         (sum: number, bill: any) => sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 0
       );
 
-      // Estimate weekly sales from recent orders
+      // Estimate weekly sales from recent orders (SSOT: cdp_orders)
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const { data: recentOrders, error: orderError } = await supabase
-        .from('external_orders')
-        .select('total_amount, order_date')
+        .from('cdp_orders')
+        .select('gross_revenue, order_at')
         .eq('tenant_id', tenantId)
-        .gte('order_date', sevenDaysAgo);
+        .gte('order_at', sevenDaysAgo);
 
       if (orderError) throw orderError;
 
       const weeklySales = (recentOrders || []).reduce(
-        (sum: number, o: any) => sum + (o.total_amount || 0), 0
+        (sum: number, o: any) => sum + (o.gross_revenue || 0), 0
       );
 
       // Cash Next 7 Days = cash_today + (15% AR) + (80% weekly sales) - (20% AP)
