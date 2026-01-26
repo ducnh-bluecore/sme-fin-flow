@@ -26139,6 +26139,37 @@ export type Database = {
         }
         Relationships: []
       }
+      v_channel_analytics_total: {
+        Row: {
+          gross_revenue: number | null
+          net_revenue: number | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_analytics_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_analytics_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "channel_analytics_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_channel_daily_revenue: {
         Row: {
           channel: string | null
@@ -27968,10 +27999,12 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
-      refresh_dashboard_kpi_cache: {
-        Args: { p_date_range?: number; p_tenant_id: string }
-        Returns: undefined
-      }
+      refresh_dashboard_kpi_cache:
+        | { Args: never; Returns: undefined }
+        | {
+            Args: { p_date_range?: number; p_tenant_id: string }
+            Returns: undefined
+          }
       refresh_pl_cache: {
         Args: { p_month?: number; p_tenant_id: string; p_year?: number }
         Returns: undefined
