@@ -6,6 +6,7 @@ import { Header } from './Header';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GovernanceOverlay } from '@/components/governance/GovernanceOverlay';
 
 // Simplified page variants - removed exit animation to prevent blank screens
 const pageVariants = {
@@ -105,6 +106,9 @@ export function DashboardLayout() {
               onReset={() => {}}
             >
               <Suspense fallback={<TenantSwitchingSkeleton />}>
+                {/* Governance Dashboard - shows when ?governance=1 */}
+                <GovernanceOverlay />
+                
                 <motion.div
                   key={location.pathname}
                   variants={pageVariants}
