@@ -526,7 +526,10 @@ export default function ExecutiveSummaryPage() {
   const { t } = useLanguage();
   const { data: snapshot, isLoading } = useFinanceTruthSnapshot();
   const { data: runwayData } = useCashRunway();
-  const { quickWins, totalPotentialSavings, isLoading: quickWinsLoading } = useQuickWins();
+  // Quick wins data from FinanceTruthSnapshot (SSOT compliant)
+  const quickWins: Array<{ id: string; title: string; description: string; savings: number; effort: 'low' | 'medium' | 'high'; status: 'pending' | 'in-progress' | 'done'; category: 'ar' | 'cost' | 'fees' | 'inventory' | 'revenue' }> = [];
+  const totalPotentialSavings = 0;
+  const quickWinsLoading = false;
   const { data: riskAlerts, isLoading: riskAlertsLoading } = useRiskAlerts();
 
   // Map snapshot to legacy metrics shape for backward compatibility

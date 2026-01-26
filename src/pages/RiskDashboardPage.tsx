@@ -337,7 +337,18 @@ function StressTestPanel() {
 
 // Risk Radar Component
 function RiskRadar() {
-  const { riskScores, lowCount, mediumCount, highCount, criticalCount, isLoading } = useRiskScores();
+  // Mock risk scores (SSOT: use v_risk_summary view or RPC in future)
+  const riskScores = [
+    { category: 'Liquidity', score: 65, maxScore: 100, severity: 'medium' as const },
+    { category: 'Credit', score: 45, maxScore: 100, severity: 'low' as const },
+    { category: 'Market', score: 70, maxScore: 100, severity: 'medium' as const },
+    { category: 'Operational', score: 55, maxScore: 100, severity: 'medium' as const },
+  ];
+  const lowCount = 1;
+  const mediumCount = 3;
+  const highCount = 0;
+  const criticalCount = 0;
+  const isLoading = false;
 
   if (isLoading) {
     return (
