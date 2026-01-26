@@ -3,7 +3,7 @@
 
 ## PHASE 4 - COMPLETED (2026-01-26)
 
-All 20 queries have been migrated from `external_orders` → `cdp_orders`.
+All 23 queries have been migrated from `external_orders` → `cdp_orders`.
 
 ## COLUMN MAPPING APPLIED
 ```text
@@ -24,7 +24,7 @@ fees (platform/commission)   → 0 (not available in cdp_orders)
 
 | File | Status |
 |------|--------|
-| `useMDPExtendedData.ts` | ✅ Complete (5 queries) |
+| `useMDPExtendedData.ts` | ✅ Complete (8 queries) |
 | `useMDPSSOT.ts` | ✅ Complete (1 query) |
 | `useMDPData.ts` | ✅ Complete (1 query) |
 | `useFDPMetrics.ts` | ✅ Complete (1 query) |
@@ -47,3 +47,4 @@ fees (platform/commission)   → 0 (not available in cdp_orders)
 - ✅ All TypeScript errors resolved
 - ✅ ESLint guardrails active for external_orders queries
 - ✅ Governance Dashboard (?governance=1) available for monitoring
+- ✅ 100% SSOT Compliance confirmed
