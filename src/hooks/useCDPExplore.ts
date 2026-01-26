@@ -362,7 +362,7 @@ export function useSaveResearchView() {
           description,
           definition_json: { rules, source: 'research_view' },
           status: 'active',
-          owner_role: 'user',
+          owner_role: 'Growth', // Valid values: CEO, CFO, Growth, Ops
         })
         .select()
         .single();
