@@ -5,15 +5,18 @@ import { ResearchStatsPanel } from '@/components/cdp/explore/ResearchStatsPanel'
 import { CustomerResearchFilters } from '@/components/cdp/explore/CustomerResearchFilters';
 import { CustomerResearchTable } from '@/components/cdp/explore/CustomerResearchTable';
 import { ResearchActionBar } from '@/components/cdp/explore/ResearchActionBar';
-import { useCDPCustomerResearch, useCDPResearchStats, ResearchFilters } from '@/hooks/useCDPExplore';
+import { SaveViewDialog } from '@/components/cdp/explore/SaveViewDialog';
+import { useCDPCustomerResearch, useCDPResearchStats, ResearchFilters, useSaveResearchView } from '@/hooks/useCDPExplore';
 
 export default function CustomerResearchPage() {
   const [filters, setFilters] = useState<ResearchFilters>({});
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
   const { data: statsData, isLoading: statsLoading } = useCDPResearchStats();
   const { data: customersData, isLoading: customersLoading } = useCDPCustomerResearch(page, 10, filters);
+  const saveViewMutation = useSaveResearchView();
 
   const stats = statsData || {
     customerCount: 0,
@@ -67,8 +70,22 @@ export default function CustomerResearchPage() {
           currentFiltersCount={activeFiltersCount}
           matchingCustomers={stats.customerCount}
           revenueShare={100}
-          onSaveView={() => {}}
+          onSaveView={() => setSaveDialogOpen(true)}
           onCreateDecisionCard={() => {}}
+        />
+
+        <SaveViewDialog
+          open={saveDialogOpen}
+          onOpenChange={setSaveDialogOpen}
+          filters={filters}
+          customerCount={stats.customerCount}
+          onSave={(name, description) => {
+            saveViewMutation.mutate(
+              { name, description, filters },
+              { onSuccess: () => setSaveDialogOpen(false) }
+            );
+          }}
+          isSaving={saveViewMutation.isPending}
         />
       </div>
     </ExploreLayout>

@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenant } from '@/hooks/useTenant';
+import { toast } from 'sonner';
 
 // Types for Customer Research
 export interface ResearchCustomer {
@@ -323,5 +324,59 @@ export function useCDPPopulationChangelog() {
     },
     enabled: !!tenantId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Hook: Save Research View (mutation)
+export function useSaveResearchView() {
+  const { data: activeTenant } = useActiveTenant();
+  const tenantId = activeTenant?.id;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      name, 
+      description, 
+      filters 
+    }: { 
+      name: string; 
+      description: string; 
+      filters: ResearchFilters;
+    }) => {
+      if (!tenantId) throw new Error('Không tìm thấy tenant');
+
+      // Convert filters to definition_json format
+      const rules = Object.entries(filters)
+        .filter(([_, value]) => value && value !== 'all')
+        .map(([field, value]) => ({
+          field,
+          op: 'eq',
+          value,
+        }));
+
+      const { data, error } = await supabase
+        .from('cdp_segments')
+        .insert({
+          tenant_id: tenantId,
+          name,
+          description,
+          definition_json: { rules, source: 'research_view' },
+          status: 'active',
+          owner_role: 'user',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Đã lưu góc nhìn nghiên cứu');
+      queryClient.invalidateQueries({ queryKey: ['cdp-saved-views'] });
+      queryClient.invalidateQueries({ queryKey: ['cdp-population-catalog'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Lỗi: ${error.message}`);
+    },
   });
 }
