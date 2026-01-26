@@ -222,11 +222,12 @@ export default function TrendEnginePage() {
 
   const isLoading = loadingTrend;
   
+  // Derive triggered states from trend_type field in new view structure
+  const spendDeclineTriggered = trendData?.trend_type === 'DOWNGRADING';
+  const velocitySlowTriggered = trendData?.trend_type === 'CHURNING';
+  
   // Count triggered insights
-  const triggeredCount = [
-    trendData?.spend_decline_triggered,
-    trendData?.velocity_slow_triggered,
-  ].filter(Boolean).length;
+  const triggeredCount = [spendDeclineTriggered, velocitySlowTriggered].filter(Boolean).length;
 
   return (
     <>
@@ -278,8 +279,8 @@ export default function TrendEnginePage() {
             {Object.entries(INSIGHT_CONFIGS).map(([type, config]) => {
               const Icon = getInsightIcon(type as InsightType);
               const isTriggered = 
-                (type === 'SPEND_DECLINE' && trendData?.spend_decline_triggered) ||
-                (type === 'VELOCITY_SLOW' && trendData?.velocity_slow_triggered);
+                (type === 'SPEND_DECLINE' && spendDeclineTriggered) ||
+                (type === 'VELOCITY_SLOW' && velocitySlowTriggered);
               
               return (
                 <Card key={type} className={isTriggered ? 'border-amber-200 bg-amber-50/30' : ''}>
@@ -339,25 +340,25 @@ export default function TrendEnginePage() {
                 Tín hiệu Đã phát hiện ({triggeredCount})
               </h2>
               
-              {trendData?.spend_decline_triggered && (
+              {spendDeclineTriggered && (
                 <DBInsightCard
                   type="SPEND_DECLINE"
                   triggered={true}
-                  changePercent={trendData.aov_change_percent || 0}
-                  currentValue={trendData.current_aov || 0}
-                  baseValue={trendData.base_aov || 0}
+                  changePercent={trendData?.aov_change_percent || 0}
+                  currentValue={trendData?.current_aov || 0}
+                  baseValue={trendData?.previous_aov || 0}
                   customerCount={summaryStats?.totalCustomers || 0}
                   totalRevenue={summaryStats?.totalRevenue || 0}
                 />
               )}
               
-              {trendData?.velocity_slow_triggered && (
+              {velocitySlowTriggered && (
                 <DBInsightCard
                   type="VELOCITY_SLOW"
                   triggered={true}
-                  changePercent={trendData.freq_change_percent || 0}
-                  currentValue={trendData.current_aov || 0}
-                  baseValue={trendData.base_aov || 0}
+                  changePercent={trendData?.aov_change_percent || 0}
+                  currentValue={trendData?.current_aov || 0}
+                  baseValue={trendData?.previous_aov || 0}
                   customerCount={summaryStats?.totalCustomers || 0}
                   totalRevenue={summaryStats?.totalRevenue || 0}
                 />

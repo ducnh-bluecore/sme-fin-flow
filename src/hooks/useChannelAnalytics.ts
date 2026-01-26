@@ -114,15 +114,15 @@ export function useChannelPerformance() {
           connector_type: item.channel || 'unknown',
           shop_name: null,
           integration_id: '',
-          total_orders: Number(item.total_orders) || 0,
+          total_orders: Number(item.order_count) || 0,
           gross_revenue: Number(item.gross_revenue) || 0,
           net_revenue: Number(item.net_revenue) || 0,
-          total_fees: Number(item.total_fees) || 0,
-          total_cogs: Number(item.total_cogs) || 0,
-          gross_profit: Number(item.gross_profit) || 0,
-          avg_order_value: Number(item.avg_order_value) || 0,
-          cancelled_orders: Number(item.cancelled_orders) || 0,
-          returned_orders: Number(item.returned_orders) || 0,
+          total_fees: 0, // Not in simplified view
+          total_cogs: Number(item.cogs) || 0,
+          gross_profit: Number(item.gross_margin) || 0,
+          avg_order_value: Number(item.order_count) > 0 ? Number(item.net_revenue) / Number(item.order_count) : 0,
+          cancelled_orders: 0, // Not tracked in simplified view
+          returned_orders: 0, // Not tracked in simplified view
           source: 'ecommerce' as const,
         })) as ChannelPerformance[];
       }
