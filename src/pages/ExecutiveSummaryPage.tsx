@@ -574,13 +574,13 @@ export default function ExecutiveSummaryPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatVNDCompact(15200000000)}</div>
-              <div className="flex items-center gap-1 text-sm text-green-500 mt-1">
+              <div className="text-2xl font-bold">{formatVNDCompact(snapshot?.netRevenue || 0)}</div>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                 <TrendingUp className="h-4 w-4" />
-                +12.5% vs LM
+                {t('exec.allTimePeriod')}
               </div>
-              <Progress value={78} className="mt-3 h-2" />
-              <p className="text-xs text-muted-foreground mt-1">78% {t('exec.target')}</p>
+              <Progress value={Math.min(100, ((snapshot?.netRevenue || 0) / 5000000000) * 100)} className="mt-3 h-2" />
+              <p className="text-xs text-muted-foreground mt-1">{Math.round(((snapshot?.netRevenue || 0) / 5000000000) * 100)}% {t('exec.target')}</p>
             </CardContent>
           </Card>
 
