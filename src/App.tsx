@@ -251,6 +251,11 @@ const AppRoutes = () => {
           <InsightsPage />
         </ProtectedRoute>
       } />
+      <Route path="/cdp/insights/demand" element={
+        <ProtectedRoute>
+          <DemandInsightsPage />
+        </ProtectedRoute>
+      } />
       <Route path="/cdp/insights/:insightCode" element={
         <ProtectedRoute>
           <InsightDetailPage />
@@ -259,11 +264,6 @@ const AppRoutes = () => {
       <Route path="/cdp/insight-registry" element={
         <ProtectedRoute>
           <InsightRegistryPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/cdp/insights/demand" element={
-        <ProtectedRoute>
-          <DemandInsightsPage />
         </ProtectedRoute>
       } />
       {/* Redirect old equity routes to unified LTV Engine */}
