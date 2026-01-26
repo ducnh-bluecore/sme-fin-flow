@@ -6672,6 +6672,91 @@ export type Database = {
           },
         ]
       }
+      cdp_segment_ltv_for_mdp: {
+        Row: {
+          avg_ltv: number | null
+          avg_order_frequency: number | null
+          avg_order_value: number | null
+          churn_rate: number | null
+          created_at: string
+          customer_count: number | null
+          id: string
+          ltv_cac_target_ratio: number | null
+          priority_score: number | null
+          recommended_cac_ceiling: number | null
+          segment_id: string | null
+          segment_name: string
+          segment_type: string | null
+          synced_at: string
+          tenant_id: string
+          total_equity: number | null
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          avg_ltv?: number | null
+          avg_order_frequency?: number | null
+          avg_order_value?: number | null
+          churn_rate?: number | null
+          created_at?: string
+          customer_count?: number | null
+          id?: string
+          ltv_cac_target_ratio?: number | null
+          priority_score?: number | null
+          recommended_cac_ceiling?: number | null
+          segment_id?: string | null
+          segment_name: string
+          segment_type?: string | null
+          synced_at?: string
+          tenant_id: string
+          total_equity?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          avg_ltv?: number | null
+          avg_order_frequency?: number | null
+          avg_order_value?: number | null
+          churn_rate?: number | null
+          created_at?: string
+          customer_count?: number | null
+          id?: string
+          ltv_cac_target_ratio?: number | null
+          priority_score?: number | null
+          recommended_cac_ceiling?: number | null
+          segment_id?: string | null
+          segment_name?: string
+          segment_type?: string | null
+          synced_at?: string
+          tenant_id?: string
+          total_equity?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_segment_ltv_for_mdp_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_ltv_for_mdp_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_segment_ltv_for_mdp_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_segment_membership_daily: {
         Row: {
           as_of_date: string
@@ -11852,6 +11937,85 @@ export type Database = {
           },
           {
             foreignKeyName: "external_products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      fdp_actual_revenue_for_cdp: {
+        Row: {
+          actual_cogs: number | null
+          actual_contribution_margin: number | null
+          actual_customer_count: number | null
+          actual_gross_revenue: number | null
+          actual_net_revenue: number
+          actual_order_count: number | null
+          created_at: string
+          finalized_at: string | null
+          forecast_variance_percent: number | null
+          id: string
+          is_finalized: boolean | null
+          period_month: number
+          period_year: number
+          synced_at: string
+          tenant_id: string
+          variance_reason: string | null
+        }
+        Insert: {
+          actual_cogs?: number | null
+          actual_contribution_margin?: number | null
+          actual_customer_count?: number | null
+          actual_gross_revenue?: number | null
+          actual_net_revenue: number
+          actual_order_count?: number | null
+          created_at?: string
+          finalized_at?: string | null
+          forecast_variance_percent?: number | null
+          id?: string
+          is_finalized?: boolean | null
+          period_month: number
+          period_year: number
+          synced_at?: string
+          tenant_id: string
+          variance_reason?: string | null
+        }
+        Update: {
+          actual_cogs?: number | null
+          actual_contribution_margin?: number | null
+          actual_customer_count?: number | null
+          actual_gross_revenue?: number | null
+          actual_net_revenue?: number
+          actual_order_count?: number | null
+          created_at?: string
+          finalized_at?: string | null
+          forecast_variance_percent?: number | null
+          id?: string
+          is_finalized?: boolean | null
+          period_month?: number
+          period_year?: number
+          synced_at?: string
+          tenant_id?: string
+          variance_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fdp_actual_revenue_for_cdp_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fdp_actual_revenue_for_cdp_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "fdp_actual_revenue_for_cdp_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -27070,6 +27234,20 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
+      cdp_get_actual_revenue_for_calibration: {
+        Args: { p_month?: number; p_tenant_id: string; p_year?: number }
+        Returns: {
+          actual_margin: number
+          actual_revenue: number
+          confidence_level: string
+          data_source: string
+          forecast_variance_percent: number
+          is_cross_module: boolean
+          is_finalized: boolean
+          period_month: number
+          period_year: number
+        }[]
+      }
       cdp_get_customer_acquisition_source: {
         Args: { p_customer_id: string; p_tenant_id: string }
         Returns: {
@@ -27114,6 +27292,10 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: string
+      }
+      cdp_push_segment_ltv_to_mdp: {
+        Args: { p_tenant_id: string }
+        Returns: number
       }
       cdp_refresh_demand_insights: { Args: never; Returns: undefined }
       cdp_refresh_mvs: { Args: never; Returns: undefined }
@@ -27243,6 +27425,14 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
+      cross_module_run_daily_sync: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          records_affected: number
+          status: string
+          sync_step: string
+        }[]
+      }
       detect_cross_domain_variance: {
         Args: { p_tenant_id: string }
         Returns: number
@@ -27281,6 +27471,20 @@ export type Database = {
           period_key: string
           revenue_multiplier: number
         }[]
+      }
+      fdp_push_actual_revenue_to_cdp: {
+        Args: {
+          p_cogs?: number
+          p_contribution_margin?: number
+          p_customer_count?: number
+          p_gross_revenue?: number
+          p_month: number
+          p_net_revenue: number
+          p_order_count?: number
+          p_tenant_id: string
+          p_year: number
+        }
+        Returns: string
       }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
@@ -27596,6 +27800,21 @@ export type Database = {
           data_source: string
           fee_percent: number
           is_cross_module: boolean
+        }[]
+      }
+      mdp_get_segment_ltv: {
+        Args: { p_segment_type?: string; p_tenant_id: string }
+        Returns: {
+          avg_ltv: number
+          confidence_level: string
+          customer_count: number
+          data_source: string
+          is_cross_module: boolean
+          priority_score: number
+          recommended_cac_ceiling: number
+          segment_name: string
+          segment_type: string
+          total_equity: number
         }[]
       }
       mdp_push_acquisition_to_cdp: {

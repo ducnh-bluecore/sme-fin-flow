@@ -4,26 +4,122 @@
  * Central export for all cross-module data flow hooks.
  * These hooks implement the 3-level fallback chain (Locked → Observed → Estimated)
  * and ensure transparent data origin tracking.
+ * 
+ * CROSS-MODULE DATA FLYWHEEL - 12 Integration Cases:
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  CDP ──────> FDP (Case 1: Revenue Forecast)                 │
+ * │  FDP ──────> MDP (Case 2: Locked Costs)                     │
+ * │  CDP ──────> MDP (Case 3: Segment LTV)                      │
+ * │  CDP ──────> MDP (Case 4: Churn Signals)                    │
+ * │  MDP ──────> CDP (Case 5: Attribution CAC)                  │
+ * │  MDP ──────> CDP (Case 6: Acquisition Source)               │
+ * │  FDP ──────> CDP (Case 7: Actual Revenue)                   │
+ * │  FDP ──────> CDP (Case 8: Credit Risk)                      │
+ * │  MDP ──────> FDP (Case 9: Seasonal Patterns)                │
+ * │  MDP ──────> FDP (Case 10: Channel ROI)                     │
+ * │  CT  ──────> All (Case 11: Variance Alerts)                 │
+ * │  All ──────> CT  (Case 12: Priority Queue)                  │
+ * └─────────────────────────────────────────────────────────────┘
  */
 
 // Types
 export * from '@/types/cross-module';
 
 // =====================================================
-// WAVE 1: Foundation
+// CASE 1: CDP → FDP: Revenue Forecast → Monthly Plans
 // =====================================================
-
-// FDP → MDP: Locked Costs for Profit ROAS (Case 2)
-export { useFDPLockedCosts } from './useFDPLockedCosts';
-
-// CDP → FDP: Revenue Allocation Bridge (Case 1)
 export {
   useCDPRevenueAllocations,
   usePushRevenueToFDP,
   useCrossModuleRevenueForecasts,
 } from './useCDPRevenueAllocation';
 
-// Control Tower: Cross-Module Variance Alerts (Case 11)
+// =====================================================
+// CASE 2: FDP → MDP: Locked Costs → Profit ROAS
+// =====================================================
+export { useFDPLockedCosts } from './useFDPLockedCosts';
+
+// =====================================================
+// CASE 3: CDP → MDP: Segment LTV → Budget Allocation
+// =====================================================
+export {
+  useMDPSegmentLTV,
+  usePushSegmentLTVToMDP,
+  useCDPAllSegmentLTV,
+} from './useCDPSegmentLTV';
+
+// =====================================================
+// CASE 4: CDP → MDP: Churn Signal → Retention Campaign
+// =====================================================
+export {
+  useMDPChurnSignals,
+  useGenerateChurnSignals,
+  useChurnSignalStats,
+} from './useCDPChurnSignals';
+
+// =====================================================
+// CASE 5: MDP → CDP: Attribution → Cohort CAC
+// =====================================================
+export {
+  usePushAttributionToCDP,
+  useBatchPushAttributionToCDP,
+} from './useMDPAttributionPush';
+
+export {
+  useCDPCohortCAC,
+  useCDPAllCohortCAC,
+} from './useCDPCohortCAC';
+
+// =====================================================
+// CASE 6: MDP → CDP: New Customer Source → Tagging
+// =====================================================
+export {
+  useCDPAcquisitionSource,
+  usePushAcquisitionToCDP,
+  useBatchPushAcquisitionToCDP,
+} from './useMDPAcquisitionSource';
+
+// =====================================================
+// CASE 7: FDP → CDP: Actual Revenue → Equity Recalibration
+// =====================================================
+export {
+  useCDPActualRevenue,
+  usePushActualRevenueToCDP,
+  useFDPAllActualRevenue,
+  useRunCrossModuleSync,
+} from './useFDPActualRevenue';
+
+// =====================================================
+// CASE 8: FDP → CDP: AR Aging → Credit Risk Score
+// =====================================================
+export {
+  useCDPCreditRisk,
+  useCDPHighRiskCustomers,
+  useSyncARToCDP,
+} from './useCDPCreditRisk';
+
+// =====================================================
+// CASE 9: MDP → FDP: Seasonal Patterns → Revenue Forecast
+// =====================================================
+export {
+  useFDPSeasonalAdjustments,
+  usePushSeasonalToFDP,
+  useMDPAllSeasonalPatterns,
+} from './useMDPSeasonalPatterns';
+
+// =====================================================
+// CASE 10: MDP → FDP: Channel ROI → Budget Reallocation
+// =====================================================
+export {
+  useFDPBudgetRecommendations,
+  usePushChannelROIToFDP,
+  useMDPAllChannelROI,
+  useBatchPushChannelROI,
+} from './useMDPChannelROI';
+
+// =====================================================
+// CASE 11: Control Tower → All: Variance Alert → Decision
+// =====================================================
 export {
   useCrossModuleVarianceAlerts,
   useAcknowledgeVarianceAlert,
@@ -33,29 +129,8 @@ export {
 } from './useCrossModuleVarianceAlerts';
 
 // =====================================================
-// WAVE 2: Core Integration
+// CASE 12: All → Control Tower: Aggregate Signals
 // =====================================================
-
-// MDP → CDP: Attribution → Cohort CAC (Case 5)
-export {
-  usePushAttributionToCDP,
-  useBatchPushAttributionToCDP,
-} from './useMDPAttributionPush';
-
-// CDP: Get CAC for LTV calculation
-export {
-  useCDPCohortCAC,
-  useCDPAllCohortCAC,
-} from './useCDPCohortCAC';
-
-// FDP → CDP: AR Aging → Credit Risk (Case 8)
-export {
-  useCDPCreditRisk,
-  useCDPHighRiskCustomers,
-  useSyncARToCDP,
-} from './useCDPCreditRisk';
-
-// Control Tower: Priority Queue (Case 12)
 export {
   useControlTowerPriorityQueue,
   useControlTowerQueueStats,
@@ -63,36 +138,3 @@ export {
   useUpdateSignalStatus,
   useAssignSignal,
 } from './useControlTowerPriorityQueue';
-
-// =====================================================
-// WAVE 3: Enhancement Flows
-// =====================================================
-
-// CDP → MDP: Churn Signal → Retention Campaign (Case 4)
-export {
-  useMDPChurnSignals,
-  useGenerateChurnSignals,
-  useChurnSignalStats,
-} from './useCDPChurnSignals';
-
-// MDP → CDP: New Customer Source → Tagging (Case 6)
-export {
-  useCDPAcquisitionSource,
-  usePushAcquisitionToCDP,
-  useBatchPushAcquisitionToCDP,
-} from './useMDPAcquisitionSource';
-
-// MDP → FDP: Seasonal Patterns → Revenue Forecast (Case 9)
-export {
-  useFDPSeasonalAdjustments,
-  usePushSeasonalToFDP,
-  useMDPAllSeasonalPatterns,
-} from './useMDPSeasonalPatterns';
-
-// MDP → FDP: Channel ROI → Budget Reallocation (Case 10)
-export {
-  useFDPBudgetRecommendations,
-  usePushChannelROIToFDP,
-  useMDPAllChannelROI,
-  useBatchPushChannelROI,
-} from './useMDPChannelROI';
