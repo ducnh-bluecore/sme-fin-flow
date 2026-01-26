@@ -207,14 +207,13 @@ export function useGenerateVarianceAnalysis() {
         opexBudget = opexPlan ? Number(opexPlan[monthKey]) || 0 : 0;
       }
       
-      // Get actual revenue from external_orders
+      // Get actual revenue from cdp_orders (SSOT)
       const { data: orders } = await supabase
-        .from('external_orders')
-        .select('total_amount')
+        .from('cdp_orders')
+        .select('gross_revenue')
         .eq('tenant_id', tenantId)
-        .eq('status', 'delivered')
-        .gte('order_date', format(periodStart, 'yyyy-MM-dd'))
-        .lte('order_date', format(periodEnd, 'yyyy-MM-dd'));
+        .gte('order_at', format(periodStart, 'yyyy-MM-dd'))
+        .lte('order_at', format(periodEnd, 'yyyy-MM-dd'));
       
       // Get actual expenses
       const { data: expenses } = await supabase
@@ -226,12 +225,11 @@ export function useGenerateVarianceAnalysis() {
       
       // Prior period data
       const { data: priorOrders } = await supabase
-        .from('external_orders')
-        .select('total_amount')
+        .from('cdp_orders')
+        .select('gross_revenue')
         .eq('tenant_id', tenantId)
-        .eq('status', 'delivered')
-        .gte('order_date', format(priorPeriodStart, 'yyyy-MM-dd'))
-        .lte('order_date', format(priorPeriodEnd, 'yyyy-MM-dd'));
+        .gte('order_at', format(priorPeriodStart, 'yyyy-MM-dd'))
+        .lte('order_at', format(priorPeriodEnd, 'yyyy-MM-dd'));
       
       const { data: priorExpenses } = await supabase
         .from('expenses')
@@ -242,12 +240,11 @@ export function useGenerateVarianceAnalysis() {
       
       // Prior year data
       const { data: pyOrders } = await supabase
-        .from('external_orders')
-        .select('total_amount')
+        .from('cdp_orders')
+        .select('gross_revenue')
         .eq('tenant_id', tenantId)
-        .eq('status', 'delivered')
-        .gte('order_date', format(priorYearStart, 'yyyy-MM-dd'))
-        .lte('order_date', format(priorYearEnd, 'yyyy-MM-dd'));
+        .gte('order_at', format(priorYearStart, 'yyyy-MM-dd'))
+        .lte('order_at', format(priorYearEnd, 'yyyy-MM-dd'));
       
       const { data: pyExpenses } = await supabase
         .from('expenses')
@@ -257,11 +254,11 @@ export function useGenerateVarianceAnalysis() {
         .lte('expense_date', format(priorYearEnd, 'yyyy-MM-dd'));
       
       // Calculate totals
-      const actualRevenue = orders?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+      const actualRevenue = orders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
       const actualExpense = expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const priorRevenue = priorOrders?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+      const priorRevenue = priorOrders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
       const priorExpense = priorExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const pyRevenue = pyOrders?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+      const pyRevenue = pyOrders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
       const pyExpense = pyExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       
       // Use scenario budget or fallback to actuals if no budget

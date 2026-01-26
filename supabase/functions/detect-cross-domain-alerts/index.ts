@@ -217,21 +217,21 @@ async function fetchMetricsData(supabase: any, tenantId: string): Promise<Metric
     bankAccounts,
     arData
   ] = await Promise.all([
-    // Recent 7 days orders
+    // Recent 7 days orders (SSOT: cdp_orders)
     supabase
-      .from('external_orders')
-      .select('total_amount, status, order_date, shipping_status')
+      .from('cdp_orders')
+      .select('gross_revenue, order_at')
       .eq('tenant_id', tenantId)
-      .gte('order_date', sevenDaysAgo.toISOString())
-      .lt('order_date', now.toISOString()),
+      .gte('order_at', sevenDaysAgo.toISOString())
+      .lt('order_at', now.toISOString()),
     
     // Previous 7 days orders (for comparison)
     supabase
-      .from('external_orders')
-      .select('total_amount, status, order_date')
+      .from('cdp_orders')
+      .select('gross_revenue, order_at')
       .eq('tenant_id', tenantId)
-      .gte('order_date', fourteenDaysAgo.toISOString())
-      .lt('order_date', sevenDaysAgo.toISOString()),
+      .gte('order_at', fourteenDaysAgo.toISOString())
+      .lt('order_at', sevenDaysAgo.toISOString()),
     
     // Channel P&L for margin data
     supabase

@@ -319,12 +319,13 @@ serve(async (req) => {
           .select('*, scenarios!inner(name, is_active)')
           .eq('tenant_id', tenantId)
           .eq('year', currentYear),
+        // Use cdp_orders (SSOT) instead of external_orders
         supabase
-          .from('external_orders')
-          .select('order_date, total_amount, status')
+          .from('cdp_orders')
+          .select('order_at, gross_revenue')
           .eq('tenant_id', tenantId)
-          .gte('order_date', `${currentYear}-01-01`)
-          .lte('order_date', `${currentYear}-12-31`),
+          .gte('order_at', `${currentYear}-01-01`)
+          .lte('order_at', `${currentYear}-12-31`),
         supabase
           .from('expenses')
           .select('expense_date, amount, category')
@@ -351,13 +352,13 @@ serve(async (req) => {
         const monthStr = month.toString().padStart(2, '0');
         const plan = plans.find(p => p.month === month);
         
-        // Actual revenue from orders (delivered only)
+        // Actual revenue from cdp_orders (all orders in SSOT are completed)
         const actualRevenue = orders
-          .filter(o => {
-            const orderMonth = new Date(o.order_date).getMonth() + 1;
-            return orderMonth === month && o.status === 'delivered';
+          .filter((o: any) => {
+            const orderMonth = new Date(o.order_at).getMonth() + 1;
+            return orderMonth === month;
           })
-          .reduce((sum, o) => sum + (o.total_amount || 0), 0);
+          .reduce((sum: number, o: any) => sum + (o.gross_revenue || 0), 0);
 
         // Actual expenses
         const actualOpex = yearExpenses

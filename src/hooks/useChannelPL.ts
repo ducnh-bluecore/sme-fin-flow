@@ -84,14 +84,14 @@ export function useChannelPL(channelName: string, months: number = 12) {
       // Normalize channel name for query
       const normalizedChannel = channelName.toLowerCase();
 
-      // Fetch orders for this channel
+      // Fetch orders for this channel from cdp_orders (SSOT)
       const { data: orders, error: ordersError } = await supabase
-        .from('external_orders')
-        .select('*')
+        .from('cdp_orders')
+        .select('id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
         .eq('tenant_id', tenantId)
         .ilike('channel', `%${normalizedChannel}%`)
-        .gte('order_date', startDate.toISOString())
-        .lte('order_date', endDate.toISOString());
+        .gte('order_at', startDate.toISOString())
+        .lte('order_at', endDate.toISOString());
 
       if (ordersError) {
         console.error('Error fetching channel orders:', ordersError);
@@ -125,25 +125,22 @@ export function useChannelPL(channelName: string, months: number = 12) {
 
         // Filter orders for this month
         const monthOrders = (orders || []).filter(o => {
-          const orderDate = parseISO(o.order_date);
+          const orderDate = parseISO(o.order_at);
           return orderDate >= monthStart && orderDate <= monthEnd;
         });
 
-        // Calculate revenue
-        const completedOrders = monthOrders.filter(o => 
-          o.status === 'delivered' || o.status === 'confirmed'
-        );
-        const cancelledOrders = monthOrders.filter(o => 
-          o.status === 'cancelled' || o.status === 'returned'
-        );
+        // cdp_orders only contains completed orders (no status filter needed)
+        const completedOrders = monthOrders;
+        const cancelledOrders: typeof monthOrders = []; // cdp_orders doesn't have cancelled orders
 
-        const grossRevenue = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-        const platformFee = completedOrders.reduce((sum, o) => sum + (o.platform_fee || 0), 0);
-        const commissionFee = completedOrders.reduce((sum, o) => sum + (o.commission_fee || 0), 0);
-        const paymentFee = completedOrders.reduce((sum, o) => sum + (o.payment_fee || 0), 0);
-        const shippingFee = completedOrders.reduce((sum, o) => sum + (o.shipping_fee || 0), 0);
-        const cogs = completedOrders.reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
-        const netRevenue = completedOrders.reduce((sum, o) => sum + (o.seller_income || 0), 0);
+        // Map to cdp_orders column names
+        const grossRevenue = completedOrders.reduce((sum, o) => sum + (o.gross_revenue || 0), 0);
+        const platformFee = 0; // cdp_orders doesn't have fee columns
+        const commissionFee = 0;
+        const paymentFee = 0;
+        const shippingFee = 0;
+        const cogs = completedOrders.reduce((sum, o) => sum + (o.cogs || 0), 0);
+        const netRevenue = completedOrders.reduce((sum, o) => sum + (o.net_revenue || 0), 0);
 
         const totalFees = platformFee + commissionFee + paymentFee + shippingFee;
         const grossProfit = grossRevenue - totalFees - cogs;
@@ -158,9 +155,7 @@ export function useChannelPL(channelName: string, months: number = 12) {
         const operatingProfit = grossProfit - adsCost;
         const orderCount = completedOrders.length;
         const avgOrderValue = orderCount > 0 ? grossRevenue / orderCount : 0;
-        const returnRate = monthOrders.length > 0 
-          ? (cancelledOrders.length / monthOrders.length) * 100 
-          : 0;
+        const returnRate = 0; // cdp_orders doesn't track cancelled orders
         const marginPercent = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
 
         return {
@@ -269,8 +264,9 @@ export function useAvailableChannels() {
     queryFn: async (): Promise<string[]> => {
       if (!tenantId) return [];
 
+      // Use cdp_orders (SSOT) for channel discovery
       const { data, error } = await supabase
-        .from('external_orders')
+        .from('cdp_orders')
         .select('channel')
         .eq('tenant_id', tenantId)
         .not('channel', 'is', null);
