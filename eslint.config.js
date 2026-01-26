@@ -34,7 +34,7 @@ export default tseslint.config(
           "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead"
         }, {
           "group": ["**/usePLData*"],
-          "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead"
+          "message": "⚠️ THIN WRAPPER: usePLData is now SSOT-compliant (wraps useFinanceTruthSnapshot). Consider using canonical hooks directly."
         }, {
           "group": ["**/useKPIData*"],
           "message": "⛔ DEPRECATED: Use useFinanceTruthSnapshot instead"
