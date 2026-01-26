@@ -5,6 +5,8 @@ import { Progress } from '@/components/ui/progress';
 
 interface TopProduct {
   productId: string;
+  productName: string;
+  productSku: string;
   category: string;
   totalQty: number;
   totalRevenue: number;
@@ -59,17 +61,26 @@ export function TopProductsBlock({ products, maxDisplay = 5 }: TopProductsBlockP
         {displayProducts.map((product, index) => (
           <div key={product.productId} className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground w-4">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-xs font-medium text-muted-foreground w-4 flex-shrink-0">
                   #{index + 1}
                 </span>
-                <Package className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{product.productId}</span>
-                <Badge variant="outline" className="text-xs capitalize">
+                <Package className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm font-medium truncate block">
+                    {product.productName}
+                  </span>
+                  {product.productSku && (
+                    <span className="text-xs text-muted-foreground">
+                      {product.productSku}
+                    </span>
+                  )}
+                </div>
+                <Badge variant="outline" className="text-xs capitalize flex-shrink-0">
                   {product.category}
                 </Badge>
               </div>
-              <div className="text-right">
+              <div className="text-right flex-shrink-0 ml-2">
                 <span className="text-sm font-semibold">{product.totalQty} sp</span>
                 <span className="text-xs text-muted-foreground ml-2">
                   ({product.orderCount} đơn)

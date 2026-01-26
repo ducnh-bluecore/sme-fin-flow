@@ -34,8 +34,10 @@ interface TimelineOrder {
   totalRevenue: number;
 }
 
-interface TopProduct {
+export interface TopProduct {
   productId: string;
+  productName: string;
+  productSku: string;
   category: string;
   totalQty: number;
   totalRevenue: number;
@@ -156,7 +158,7 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
       const timelineOrders = Object.values(orderMap)
         .sort((a, b) => new Date(b.orderAt).getTime() - new Date(a.orderAt).getTime());
 
-      // Calculate Top Products
+      // Calculate Top Products - collect unique product IDs
       const productTotals: Record<string, { category: string; totalQty: number; totalRevenue: number; orderIds: Set<string> }> = {};
       items.forEach(item => {
         if (!productTotals[item.productId]) {
@@ -172,9 +174,31 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
         productTotals[item.productId].orderIds.add(item.orderId);
       });
 
+      // Fetch product names for UUIDs
+      const productIds = Object.keys(productTotals).filter(id => 
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      );
+      
+      let productInfoMap: Record<string, { name: string; sku: string }> = {};
+      if (productIds.length > 0) {
+        const { data: productData } = await supabase
+          .from('products')
+          .select('id, name, sku')
+          .in('id', productIds);
+        
+        if (productData) {
+          productInfoMap = productData.reduce((acc, p) => {
+            acc[p.id] = { name: p.name || '', sku: p.sku || '' };
+            return acc;
+          }, {} as Record<string, { name: string; sku: string }>);
+        }
+      }
+
       const topProducts: TopProduct[] = Object.entries(productTotals)
         .map(([productId, data]) => ({
           productId,
+          productName: productInfoMap[productId]?.name || productId,
+          productSku: productInfoMap[productId]?.sku || '',
           category: data.category,
           totalQty: data.totalQty,
           totalRevenue: data.totalRevenue,
