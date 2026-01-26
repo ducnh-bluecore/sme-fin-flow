@@ -151,37 +151,8 @@ export function useQuickWins() {
     }
 
     // 5. High Concentration Risk - Diversification
-    if (invoices && invoices.length > 0) {
-      // Group by customer
-      const customerTotals: Record<string, number> = {};
-      invoices.forEach(inv => {
-        const customerName = inv.customers?.name || 'Unknown';
-        customerTotals[customerName] = (customerTotals[customerName] || 0) + (inv.total_amount || 0);
-      });
-
-      const totalAR = Object.values(customerTotals).reduce((sum, val) => sum + val, 0);
-      const sortedCustomers = Object.entries(customerTotals)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3);
-
-      const top3Concentration = sortedCustomers.reduce((sum, [, val]) => sum + val, 0) / totalAR;
-
-      if (top3Concentration > 0.4 && totalAR > 0) {
-        wins.push({
-          id: 'customer-diversification',
-          title: 'Đa dạng hóa khách hàng',
-          description: `Top 3 KH chiếm ${(top3Concentration * 100).toFixed(0)}% doanh thu`,
-          savings: 0, // This is risk mitigation, not direct savings
-          effort: 'high',
-          status: 'pending',
-          category: 'revenue',
-          actionable: false,
-          details: {
-            topItems: sortedCustomers.map(([name]) => name),
-          }
-        });
-      }
-    }
+   // REMOVED: Concentration risk check now handled in Risk Alerts
+   // This was using invoices data which had NULL customer_id causing false 100% concentration
 
     // Sort by savings (highest first), filter out zero savings
     return wins
