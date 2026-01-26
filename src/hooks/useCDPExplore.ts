@@ -361,7 +361,7 @@ export function useSaveResearchView() {
           name,
           description,
           definition_json: { rules, source: 'research_view' },
-          status: 'active',
+          status: 'ACTIVE', // Must be uppercase: ACTIVE or ARCHIVED
           owner_role: 'Growth', // Valid values: CEO, CFO, Growth, Ops
         })
         .select()
