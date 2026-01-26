@@ -1159,40 +1159,9 @@ export default function KPINotificationRulesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Rule Dialog */}
-      <CreateRuleDialog 
-        open={createRuleDialogOpen} 
-        onOpenChange={setCreateRuleDialogOpen} 
-      />
-
-      {/* Edit Rule Params Dialog */}
-      <EditRuleParamsDialog
-        open={editRuleDialogOpen}
-        onOpenChange={setEditRuleDialogOpen}
-        rule={editingRule}
-        onSave={(updates) => {
-          updateRule.mutate(updates, {
-            onSuccess: () => {
-              setEditRuleDialogOpen(false);
-              setEditingRule(null);
-            }
-          });
-        }}
-        isPending={updateRule.isPending}
-      />
-
-      {/* Rule Recipients Dialog */}
-      {recipientsRule && (
-        <RuleRecipientsDialog
-          open={ruleRecipientsDialogOpen}
-          onOpenChange={(open) => {
-            setRuleRecipientsDialogOpen(open);
-            if (!open) setRecipientsRule(null);
-          }}
-          ruleId={recipientsRule.id}
-          ruleName={recipientsRule.rule_name}
-        />
-      )}
+      {/* Create Rule Dialog - Removed (SSOT cleanup) */}
+      {/* Edit Rule Params Dialog - Removed (SSOT cleanup) */}
+      {/* Rule Recipients Dialog - Removed (SSOT cleanup) */}
     </>
   );
 }

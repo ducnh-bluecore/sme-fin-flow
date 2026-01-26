@@ -526,7 +526,7 @@ const AppRoutes = () => {
         <Route path="/board-reports" element={<BoardReportsPage />} />
         <Route path="/strategic-initiatives" element={<StrategicInitiativesPage />} />
         <Route path="/executive-summary" element={<ExecutiveSummaryPage />} />
-        <Route path="/capital-allocation" element={<CapitalAllocationPage />} />
+        <Route path="/capital-allocation" element={<Navigate to="/executive-summary" replace />} />
         <Route path="/decision-support" element={<DecisionSupportPage />} />
         <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
         <Route path="/decision-center" element={<DecisionCenterPage />} />
