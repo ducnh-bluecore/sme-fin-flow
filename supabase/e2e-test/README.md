@@ -54,31 +54,18 @@ Bộ test data và scripts để kiểm tra toàn bộ data flow từ Source →
 
 ## 📊 Expected Values
 
-### Revenue Metrics
-| Metric | Expected Value | Tolerance |
-|--------|----------------|-----------|
-| Gross Revenue | 2,200,000,000 VND | 10% |
-| Net Revenue | 1,584,000,000 VND | 10% |
-| COGS | 839,520,000 VND | 5% |
-| Gross Profit | 673,200,000 VND | 10% |
-| Gross Margin | 42.5% | 2% |
+> **Chi tiết đầy đủ**: Xem file `EXPECTED-VALUES-ALL-SCREENS.md` và `expected-values.json`
 
-### Customer Metrics
-| Metric | Expected Value | Tolerance |
-|--------|----------------|-----------|
-| Total Customers | 500 | 0% |
-| Active (90d) | ~200 | 20% |
-| Total Equity 12M | 1,225,000,000 VND | 20% |
-| Avg CLV | 3,168,000 VND | 20% |
-
-### Cross-Module
-| Flow | Expected Count |
-|------|----------------|
-| FDP Locked Costs | 25 months |
-| CDP Segment LTV | 4 segments |
-| Cohort CAC | 100 records |
-| Variance Alerts | 5-10 |
-| Priority Queue | 10-15 |
+### Summary
+| Metric | Expected Value |
+|--------|----------------|
+| Total Orders | 5,500 |
+| Total Customers | 500 |
+| Total Revenue | ₫2.35B VND |
+| Total Equity 12M | ₫1.23B VND |
+| COGS % | 53% |
+| Cross-Module Rows | 100+ |
+| Control Tower Alerts | 7-12 |
 
 ---
 

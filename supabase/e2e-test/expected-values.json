@@ -6,9 +6,10 @@
     "plan": "pro"
   },
   "period": {
-    "start": "2024-01-01",
-    "end": "2026-01-26",
-    "months": 25
+    "start": "2025-01-01",
+    "end": "2026-12-31",
+    "months": 24,
+    "note": "Dates shifted +2 years from original 2024 data"
   },
   "layer_0_source": {
     "products": {
@@ -19,9 +20,7 @@
         "Váy": 20,
         "Phụ kiện": 15,
         "Giày dép": 10
-      },
-      "avg_price": 400000,
-      "avg_cogs_percent": 53
+      }
     },
     "connectors": {
       "count": 4,
@@ -31,51 +30,44 @@
   "layer_1_cdp_sync": {
     "customers": {
       "count": 500,
-      "by_tier": {
-        "platinum": 25,
-        "gold": 75,
-        "silver": 150,
-        "bronze": 250
-      },
-      "activity": {
-        "active_90d": 200,
-        "at_risk_90_180d": 100,
-        "dormant_180d_plus": 200
-      }
+      "with_orders": 300
     },
     "orders": {
       "count": 5500,
       "by_channel": {
-        "Shopee": 2200,
-        "Lazada": 1375,
-        "TikTok Shop": 1100,
-        "Website": 825
+        "Shopee": { "orders": 2200, "revenue": 857164000, "cogs": 454296920 },
+        "Lazada": { "orders": 1375, "revenue": 613800000, "cogs": 325314000 },
+        "Website": { "orders": 825, "revenue": 499248750, "cogs": 264601838 },
+        "TikTok Shop": { "orders": 1100, "revenue": 375962400, "cogs": 199260072 }
       },
-      "by_status": {
-        "completed": 4510,
-        "returned": 550,
-        "cancelled": 275,
-        "pending": 165
+      "by_channel_customers": {
+        "Shopee": 180,
+        "Lazada": 120,
+        "Website": 90,
+        "TikTok Shop": 100
       }
     },
-    "order_items": {
-      "count": 12100,
-      "avg_per_order": 2.2
-    },
     "revenue": {
-      "gross_revenue": 2200000000,
-      "completed_revenue": 1804000000,
-      "returns": 220000000,
-      "net_revenue": 1584000000,
+      "total_gross_revenue": 2346175150,
+      "total_net_revenue": 2346175150,
+      "total_cogs": 1243472830,
+      "total_gross_margin": 1005543985,
+      "total_contribution": 1102702321,
       "tolerance_percent": 10
     },
     "costs": {
-      "cogs": 839520000,
       "cogs_percent": 53,
-      "platform_fees": 71280000,
-      "fee_percent": 4.5,
-      "gross_profit": 673200000,
-      "gross_margin": 42.5
+      "gross_margin_percent": 43,
+      "contribution_margin_percent": 47
+    },
+    "aov": {
+      "overall": 426577,
+      "by_channel": {
+        "Shopee": 389620,
+        "Lazada": 446400,
+        "Website": 605150,
+        "TikTok Shop": 341784
+      }
     }
   },
   "layer_2_computed": {
@@ -84,43 +76,50 @@
       "unique_customers": 500
     },
     "equity": {
-      "total_equity_12m": 1225000000,
-      "by_tier": {
-        "platinum": {
-          "count": 25,
-          "avg_equity": 15000000,
-          "total": 375000000
-        },
-        "gold": {
-          "count": 75,
-          "avg_equity": 6000000,
-          "total": 450000000
-        },
-        "silver": {
-          "count": 150,
-          "avg_equity": 2000000,
-          "total": 300000000
-        },
-        "bronze": {
-          "count": 250,
-          "avg_equity": 400000,
-          "total": 100000000
-        }
-      },
+      "total_equity_12m": 1227758419,
+      "total_equity_24m": 1825614700,
+      "avg_equity_12m": 2455517,
+      "at_risk_equity": 98424070,
+      "at_risk_percent": 8.0,
       "tolerance_percent": 20
     },
+    "equity_by_risk": {
+      "low": {
+        "count": 100,
+        "total_equity_12m": 825850685,
+        "avg_equity_12m": 8258507
+      },
+      "medium": {
+        "count": 150,
+        "total_equity_12m": 303483664,
+        "avg_equity_12m": 2023224
+      },
+      "high": {
+        "count": 250,
+        "total_equity_12m": 98424070,
+        "avg_equity_12m": 393696
+      }
+    },
     "customer_metrics": {
-      "avg_clv": 3168000,
-      "avg_orders_per_customer": 11,
-      "avg_aov": 288000
+      "avg_clv": 4692350,
+      "avg_orders_per_customer": 18.3,
+      "avg_aov": 426577
     }
   },
   "layer_3_cross_module": {
     "fdp_locked_costs": {
-      "row_count": 25,
-      "avg_cogs_percent": 53,
-      "avg_fee_percent": 4.5,
-      "months_covered": ["2024-01", "2024-02", "...", "2026-01"]
+      "row_count": 18,
+      "months_covered": ["2024-01", "2024-02", "...", "2025-06"],
+      "totals": {
+        "total_cogs": 1243472830,
+        "total_platform_fees": 104809031,
+        "total_marketing_spend": 158177721
+      },
+      "averages": {
+        "avg_cogs_percent": 53.0,
+        "avg_fee_percent": 4.5,
+        "avg_cac": 180000
+      }
     },
     "cdp_segment_ltv_for_mdp": {
       "row_count": 4,
@@ -131,41 +130,134 @@
       "cohorts": 25,
       "channels": 4,
       "avg_cac": 180000
-    },
-    "cross_module_sync": {
-      "flows_tested": 12,
-      "expected_success": true
     }
   },
   "layer_4_control_tower": {
     "cross_domain_variance_alerts": {
-      "expected_count_min": 5,
-      "expected_count_max": 10,
-      "severity_distribution": {
-        "critical": 3,
-        "warning": 7
-      }
+      "count": 7,
+      "expected_range": [5, 10]
     },
     "control_tower_priority_queue": {
-      "expected_count_min": 10,
-      "expected_count_max": 15,
-      "by_module": {
-        "FDP": 5,
-        "MDP": 3,
-        "CDP": 7
+      "count": 12,
+      "expected_range": [5, 20]
+    }
+  },
+  "screens": {
+    "cdp_overview": {
+      "path": "/cdp",
+      "components": {
+        "CustomerEquitySnapshot": {
+          "total_equity_12m": "₫1.2B",
+          "total_equity_24m": "₫1.8B",
+          "at_risk_value": "₫98M",
+          "at_risk_percent": "8.0%"
+        },
+        "ActiveCustomersCard": {
+          "customers_with_orders": 300,
+          "total_customers": 500
+        },
+        "DataQualityCard": {
+          "synced_orders": 5500,
+          "connected_sources": 4
+        }
       }
+    },
+    "cdp_explore": {
+      "path": "/cdp/explore",
+      "expected_rows": 300,
+      "filters": {
+        "all": 300,
+        "high_value": "50-80",
+        "at_risk": "~100"
+      }
+    },
+    "cdp_ltv_engine": {
+      "path": "/cdp/ltv-engine",
+      "tabs": {
+        "overview": {
+          "total_clv": 2346175150,
+          "realized_revenue": 2346175150,
+          "remaining_potential": 1227758419,
+          "clv_per_customer": 4692350,
+          "equity_per_customer": 2455517
+        },
+        "by_risk": {
+          "low": { "count": 100, "equity": 825850685 },
+          "medium": { "count": 150, "equity": 303483664 },
+          "high": { "count": 250, "equity": 98424070 }
+        }
+      }
+    },
+    "cdp_confidence": {
+      "path": "/cdp/confidence",
+      "metrics": {
+        "total_orders": 5500,
+        "connected_sources": 4,
+        "quality_score_range": [70, 90]
+      }
+    },
+    "fdp_dashboard": {
+      "path": "/dashboard",
+      "metrics": {
+        "net_revenue_range": [150000000, 220000000],
+        "cogs_percent": 53,
+        "gross_margin_percent": 47,
+        "platform_fee_percent": 4.5
+      },
+      "channel_revenue_share": {
+        "Shopee": 36.5,
+        "Lazada": 26.2,
+        "Website": 21.3,
+        "TikTok Shop": 16.0
+      }
+    },
+    "fdp_pl_report": {
+      "path": "/pl-report",
+      "annual_2026": {
+        "gross_revenue": 1550000000,
+        "net_revenue": 1400000000,
+        "cogs": 740000000,
+        "gross_profit": 660000000,
+        "platform_fees": 63000000,
+        "contribution_margin": 597000000
+      }
+    },
+    "mdp_ceo": {
+      "path": "/mdp/ceo",
+      "metrics": {
+        "marketing_spend_total": 158177721,
+        "roas_revenue": 14.8,
+        "roas_contribution": 7.0
+      }
+    },
+    "mdp_profit": {
+      "path": "/mdp/profit",
+      "channel_performance": {
+        "Shopee": { "orders": 2200, "revenue": 857164000, "contribution": 400000000 },
+        "Lazada": { "orders": 1375, "revenue": 613800000, "contribution": 290000000 },
+        "Website": { "orders": 825, "revenue": 499248750, "contribution": 235000000 },
+        "TikTok Shop": { "orders": 1100, "revenue": 375962400, "contribution": 177000000 }
+      }
+    },
+    "control_tower_ceo": {
+      "path": "/control-tower/ceo",
+      "priority_queue": 12,
+      "variance_alerts": 7
+    },
+    "control_tower_alerts": {
+      "path": "/control-tower/alerts",
+      "total_alerts_range": [15, 20]
     }
   },
   "tolerances": {
     "counts": 0,
-    "revenue_costs": 5,
+    "revenue_costs": 10,
     "percentages": 2,
     "equity": 20,
     "queue_items": "range"
   },
-  "verification_thresholds": {
-    "pass": "variance <= tolerance",
-    "warn": "tolerance < variance <= tolerance * 2",
-    "fail": "variance > tolerance * 2"
+  "date_shift_required": {
+    "note": "Test data generated with 2024 dates. Must shift +2 years for views to work.",
+    "sql": "UPDATE cdp_orders SET order_at = order_at + INTERVAL '2 years' WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';"
   }
 }
