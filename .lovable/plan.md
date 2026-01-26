@@ -1,387 +1,327 @@
 
-# KẾ HOẠCH TỐI ƯU HỆ THỐNG - SSOT REMEDIATION & CLEANUP
+# KẾ HOẠCH HOÀN THÀNH SSOT OPTIMIZATION
 
 ## EXECUTIVE SUMMARY
 
-Sau khi audit toàn bộ hệ thống, tôi đã xác định:
-- **96 database views** trong schema public
-- **160+ hooks** trong thư mục src/hooks
-- **13 hooks** vi phạm SSOT (query external_orders)
-- **24+ hooks** không được sử dụng hoặc deprecated
-- **15+ views** không được sử dụng
-- **5 cron jobs** đang chạy nhưng thiếu job cho Finance Snapshot
+| Metric | Trước | Sau | Thay đổi |
+|--------|-------|-----|----------|
+| SSOT Violations | 36 queries | 0 | -100% |
+| Orphaned Hooks | 7 files | 0 | -7 files |
+| External_orders queries (frontend) | 28 | 0 | Blocked by ESLint |
 
 ---
 
-## PHASE 1: XÓA VIEWS KHÔNG SỬ DỤNG
+## PHASE 2A: XÓA 7 ORPHANED HOOKS
 
-### Views cần XÓA (không có hook nào reference)
+Các hooks không được import ở bất kỳ đâu:
 
-| View | Lý do xóa |
+| File | Lý do xóa |
 |------|-----------|
-| `balance_sheet_summary` | Không được query từ hooks |
-| `channel_performance_summary` | Replaced by `v_channel_performance` |
-| `daily_channel_revenue` | Replaced by `v_channel_daily_revenue` |
-| `fdp_channel_summary` | Replaced by `v_channel_pl_summary` |
-| `fdp_daily_metrics` | Replaced by `v_fdp_finance_summary` |
-| `fdp_expense_summary` | Không được query |
-| `fdp_invoice_summary` | Không được query |
-| `fdp_monthly_metrics` | Replaced by `v_fdp_finance_summary` |
-| `pl_summary` | Deprecated - không query |
-| `trial_balance` | Không được query |
-| `unified_decision_history` | Replaced by `v_decision_latest` |
-| `v_audit_auto_reconcile_evidence` | Không query |
-| `v_audit_risk_breaches` | Không query |
-| `v_audit_summary` | Không query |
-| `v_cdp_data_quality_latest` | Replaced by `v_cdp_data_quality` |
-| `v_cdp_overview_stats` | Replaced by `v_cdp_summary_stats` |
+| `src/hooks/useAIUsageData.ts` | Consumer (AIUsagePanel) không tồn tại |
+| `src/hooks/useAlertEscalation.ts` | Logic đã chuyển sang Edge Functions |
+| `src/hooks/useAnalyticsData.ts` | Deprecated, replaced by useFinanceTruthSnapshot |
+| `src/hooks/useDecisionAuditLog.ts` | Replaced by unified audit views |
+| `src/hooks/useUnifiedChannelMetrics.ts` | Consolidated into useChannelPLSSOT |
+| `src/hooks/useWorkingCapitalDaily.ts` | Merged into useWorkingCapital |
+| `src/hooks/useFDPAggregatedMetrics.ts` | Replaced by useFDPAggregatedMetricsSSOT |
 
-**SQL Migration:**
-```sql
-DROP VIEW IF EXISTS balance_sheet_summary CASCADE;
-DROP VIEW IF EXISTS channel_performance_summary CASCADE;
-DROP VIEW IF EXISTS daily_channel_revenue CASCADE;
-DROP VIEW IF EXISTS fdp_channel_summary CASCADE;
-DROP VIEW IF EXISTS fdp_daily_metrics CASCADE;
-DROP VIEW IF EXISTS fdp_expense_summary CASCADE;
-DROP VIEW IF EXISTS fdp_invoice_summary CASCADE;
-DROP VIEW IF EXISTS fdp_monthly_metrics CASCADE;
-DROP VIEW IF EXISTS pl_summary CASCADE;
-DROP VIEW IF EXISTS trial_balance CASCADE;
-DROP VIEW IF EXISTS unified_decision_history CASCADE;
-DROP VIEW IF EXISTS v_audit_auto_reconcile_evidence CASCADE;
-DROP VIEW IF EXISTS v_audit_risk_breaches CASCADE;
-DROP VIEW IF EXISTS v_audit_summary CASCADE;
-DROP VIEW IF EXISTS v_cdp_data_quality_latest CASCADE;
-DROP VIEW IF EXISTS v_cdp_overview_stats CASCADE;
-```
+**Action:** Delete 7 files
 
 ---
 
-## PHASE 2: XÓA HOOKS KHÔNG SỬ DỤNG
+## PHASE 3: FIX 28 SSOT VIOLATIONS (Frontend)
 
-### Hooks cần XÓA (không import ở bất kỳ đâu)
+### Column Mapping Reference
 
-| Hook | Lý do xóa |
-|------|-----------|
-| `useABTestingData.ts` | Không có UI import |
-| `useAIUsageData.ts` | Không có component sử dụng |
-| `useAlertDataSources.ts` | Orphaned sau refactor Control Tower |
-| `useAlertEscalation.ts` | Logic đã chuyển vào Edge Functions |
-| `useAlertRuleRecipients.ts` | Orphaned |
-| `useAllChannelsPL.ts` | Replaced by `useChannelPLSSOT` |
-| `useCapacitorPushNotifications.ts` | Mobile không active |
-| `useCapexProjects.ts` | Không có feature page |
-| `useCashConversionCycle.ts` | Calculation moved to DB RPCs |
-| `useControlTowerAnalytics.ts` | Replaced by `useControlTowerSSOT` |
-| `useCreditDebitNotes.ts` | Không sử dụng trong UI |
-| `useDashboardCache.ts` | Replaced by `useFinanceTruthSnapshot` |
-| `useDecisionAnalyses.ts` | Replaced by `useDecisionFlow` |
-| `useDecisionAuditLog.ts` | Replaced by unified audit views |
-| `useDecisionThresholds.ts` | Logic moved to `metric_registry` |
-| `useFinanceTruthFacts.ts` | Deprecated wrapper |
-| `useMonteCarloData.ts` | Replaced by direct RPC calls |
-| `useQuickWins.ts` | Replaced by `useFinanceTruthSnapshot` |
-| `useSupplierPayments.ts` | Replaced by AP/Bills hooks |
-| `useUnifiedChannelMetrics.ts` | Consolidated into `useChannelPLSSOT` |
-| `useUnitEconomics.ts` | Calculations moved to views |
-| `useWorkingCapitalDaily.ts` | Merged into `useWorkingCapital` |
-| `useFDPAggregatedMetrics.ts` | Replaced by `useFDPAggregatedMetricsSSOT` |
-| `useAnalyticsData.ts` | Deprecated |
-
----
-
-## PHASE 3: FIX HOOKS VI PHẠM SSOT (Query external_orders)
-
-### 13 Hooks/Components cần refactor
-
-| File | Thay đổi |
-|------|----------|
-| `useVarianceAnalysis.ts:211-217` | `external_orders` → `cdp_orders` |
-| `useChannelPL.ts:88-94` | `external_orders` → `cdp_orders` |
-| `useWhatIfRealData.ts:104-110` | `external_orders` → `cdp_orders` |
-| `useAudienceData.ts:162-168` | `external_orders` → `cdp_orders` |
-| `useMDPData.ts:246-252` | `external_orders` → `cdp_orders` |
-| `useFDPMetrics.ts:204-210` | `external_orders` → `cdp_orders` |
-| `useWeeklyCashForecast.ts:111-117` | `external_orders` → `cdp_orders` |
-| `useScenarioBudgetData.ts:153-159` | `external_orders` → `cdp_orders` |
-| `useForecastInputs.ts:121-126` | `external_orders` → `cdp_orders` |
-| `useMDPSSOT.ts:151-157` | `external_orders` → `cdp_orders` |
-| `RevenuePage.tsx:148-153` | `external_orders` → `cdp_orders` |
-| `SKUCostBreakdownDialog.tsx:206-212` | `external_orders` → `cdp_orders` |
-| `BigQuerySyncManager.tsx:84` | Giữ nguyên (staging count) |
-
-**Column Mapping khi refactor:**
 ```text
-external_orders.total_amount     → cdp_orders.gross_revenue
-external_orders.seller_income    → cdp_orders.net_revenue
-external_orders.cost_of_goods    → cdp_orders.cogs
-external_orders.order_date       → cdp_orders.order_at
-external_orders.customer_phone   → cdp_orders.customer_id
-external_orders.gross_profit     → cdp_orders.gross_margin
+external_orders              → cdp_orders
+─────────────────────────────────────────────
+total_amount                 → gross_revenue
+seller_income                → net_revenue  
+cost_of_goods               → cogs
+gross_profit                → gross_margin
+order_date                  → order_at (timestamp)
+customer_phone              → customer_id
+platform_fee                → platform_fee (same)
+commission_fee              → commission_fee (same)
+payment_fee                 → payment_fee (same)
+shipping_fee                → shipping_fee (same)
+status                      → status (same)
+channel                     → channel (same)
 ```
 
----
+### 3.1 Hooks cần refactor (15 files, 28 queries)
 
-## PHASE 4: TẠO CRON JOB CHO FINANCE SNAPSHOT
+| File | Queries | Changes |
+|------|---------|---------|
+| `useVarianceAnalysis.ts` | 3 | `external_orders` → `cdp_orders`, `total_amount` → `gross_revenue`, `order_date` → `order_at` |
+| `useChannelAnalytics.ts` | 4 | Already fixed partially, need complete migration |
+| `useChannelPL.ts` | 2 | `external_orders` → `cdp_orders`, map all columns |
+| `useMDPData.ts` | 1 | `external_orders` → `cdp_orders` |
+| `useFDPMetrics.ts` | 1 | `external_orders` → `cdp_orders`, `cost_of_goods` → `cogs` |
+| `useMDPSSOT.ts` | 1 | `external_orders` → `cdp_orders` |
+| `useWeeklyCashForecast.ts` | 1 | `external_orders` → `cdp_orders`, `order_date` → `order_at` |
+| `useScenarioBudgetData.ts` | 1 | `external_orders` → `cdp_orders` |
+| `useForecastInputs.ts` | 1 | `external_orders` → `cdp_orders`, `seller_income` → `net_revenue` |
+| `useAudienceData.ts` | 1 | `external_orders` → `cdp_orders` |
+| `useWhatIfRealData.ts` | 2 | `external_orders` → `cdp_orders`, map columns |
+| `useEcommerceReconciliation.ts` | 3 | Special: READ from cdp_orders, WRITE to external_orders (staging update) |
+| `useMDPDataReadiness.ts` | 2 | `external_orders` → `cdp_orders` |
 
-### Hiện tại có 5 cron jobs:
-1. `cdp_daily_all_tenants` - 19:15 daily
-2. `cdp-daily-build` - 02:00 daily
-3. `generate-decision-cards-daily` - 06:00 daily
-4. `scheduled-detect-alerts-every-15min` - */15 * * * *
-5. `sync-ecommerce-data-every-15min` - 5,20,35,50 * * * *
+### 3.2 Pages/Components cần refactor (2 files)
 
-### Cần thêm:
-- `refresh-finance-snapshot` - Chạy `compute_central_metrics_snapshot` daily
-- `refresh-dashboard-cache` - Chạy `refresh_dashboard_kpi_cache` every 30 min
+| File | Changes |
+|------|---------|
+| `RevenuePage.tsx:149` | `external_orders` → `cdp_orders`, `total_amount` → `gross_revenue` |
+| `SKUCostBreakdownDialog.tsx:207` | `external_orders` → `cdp_orders`, map all columns |
 
-**SQL để thêm cron jobs:**
-```sql
--- 1. Finance Snapshot - Daily at 03:00
-SELECT cron.schedule(
-  'refresh-finance-snapshot-daily',
-  '0 3 * * *',
-  $$
-  SELECT compute_central_metrics_snapshot(tenant_id, current_date)
-  FROM tenants WHERE is_active = true;
-  $$
-);
+### 3.3 Files giữ nguyên (staging count)
 
--- 2. Dashboard Cache - Every 30 minutes
-SELECT cron.schedule(
-  'refresh-dashboard-cache-30min',
-  '*/30 * * * *',
-  $$
-  SELECT refresh_dashboard_kpi_cache();
-  $$
-);
-```
+| File | Reason |
+|------|--------|
+| `BigQuerySyncManager.tsx:84` | Displays staging table count (external_orders) for sync monitoring |
+| `PortalPage.tsx:214` | Checks if external_orders has data (sync status) |
 
 ---
 
-## PHASE 5: TẠO BASE METRICS VIEW (SSOT LAYER)
+## PHASE 3B: FIX EDGE FUNCTIONS (3 files)
 
-Tạo 1 view trung gian làm nguồn chung cho tất cả modules:
+| File | Queries | Changes |
+|------|---------|---------|
+| `detect-cross-domain-alerts/index.ts` | 2 | `external_orders` → `cdp_orders` |
+| `analyze-contextual/index.ts` | 1 | `external_orders` → `cdp_orders` |
+| `decision-snapshots/index.ts` | 1 | `external_orders` → `cdp_orders` |
 
-```sql
-CREATE OR REPLACE VIEW v_base_order_metrics AS
-SELECT 
-  tenant_id,
-  COUNT(*) as total_orders,
-  COUNT(DISTINCT customer_id) as unique_customers,
-  SUM(gross_revenue) as gross_revenue,
-  SUM(net_revenue) as net_revenue,
-  SUM(cogs) as total_cogs,
-  SUM(gross_margin) as gross_profit,
-  SUM(platform_fee) as total_platform_fees,
-  SUM(shipping_fee) as total_shipping_fees,
-  AVG(net_revenue) as avg_order_value
-FROM cdp_orders
-GROUP BY tenant_id;
-
--- Index for performance
-CREATE INDEX IF NOT EXISTS idx_cdp_orders_tenant_metrics 
-ON cdp_orders(tenant_id, order_at, net_revenue, gross_margin);
-```
-
----
-
-## PHASE 6: UPGRADE ESLINT RULE THÀNH ERROR
-
-Chuyển ESLint warning thành error để block hoàn toàn:
-
-```javascript
-// eslint.config.js
-"no-restricted-syntax": ["error", {  // Changed from "warn" to "error"
-  "selector": "CallExpression[callee.property.name='from'][arguments.0.value='external_orders']",
-  "message": "⛔ SSOT VIOLATION: Query cdp_orders instead. external_orders is staging-only."
-}],
-```
-
----
-
-## SUMMARY ACTIONS
-
-| Phase | Công việc | Files thay đổi |
-|-------|-----------|----------------|
-| 1 | Xóa 16 unused views | 1 migration |
-| 2 | Xóa 24 unused hooks | 24 file deletions |
-| 3 | Fix 12 SSOT violations | 12 file edits |
-| 4 | Tạo 2 cron jobs | 1 migration |
-| 5 | Tạo v_base_order_metrics | 1 migration |
-| 6 | Upgrade ESLint rule | 1 config edit |
-
-**Tổng cộng:** ~40 file changes
-
----
-
-## KẾT QUẢ MONG ĐỢI
-
-Sau khi hoàn thành:
-
-1. **Database Views:** Giảm từ 96 → 80 views (xóa 16 redundant)
-2. **Hooks:** Giảm từ 160+ → 136 hooks (xóa 24 orphaned)
-3. **SSOT Compliance:** 100% hooks query từ cdp_orders
-4. **Automated Jobs:** Finance Snapshot + Dashboard Cache tự động refresh
-5. **Governance:** ESLint error block mọi vi phạm SSOT mới
-6. **Performance:** Base Metrics View pre-computed tất cả aggregations
-
----
-
-## VERIFICATION CHECKLIST
-
-Sau khi apply changes, chạy:
-
-1. **Governance Dashboard** (`?governance=1`):
-   - Không còn REGRESSION warnings
-   - FDP Revenue = CDP Revenue = Channel Revenue
-
-2. **ESLint Check:**
-   ```bash
-   npm run lint
-   # Should have 0 errors for external_orders queries
-   ```
-
-3. **Cron Job Verification:**
-   ```sql
-   SELECT * FROM cron.job ORDER BY jobname;
-   -- Should show 7 active jobs
-   ```
+**Edge Functions giữ nguyên (writes to staging):**
+- `batch-import-data/index.ts` - INSERT to external_orders
+- `sync-ecommerce-data/index.ts` - UPSERT to external_orders
+- `sync-bigquery/index.ts` - UPSERT to external_orders
 
 ---
 
 ## CHI TIẾT KỸ THUẬT
 
-### Phase 1: Migration xóa views
-```sql
--- supabase/migrations/cleanup_unused_views.sql
--- Drop views không được reference
+### useVarianceAnalysis.ts (3 queries)
 
-DROP VIEW IF EXISTS balance_sheet_summary CASCADE;
-DROP VIEW IF EXISTS channel_performance_summary CASCADE;
-DROP VIEW IF EXISTS daily_channel_revenue CASCADE;
-DROP VIEW IF EXISTS fdp_channel_summary CASCADE;
-DROP VIEW IF EXISTS fdp_daily_metrics CASCADE;
-DROP VIEW IF EXISTS fdp_expense_summary CASCADE;
-DROP VIEW IF EXISTS fdp_invoice_summary CASCADE;
-DROP VIEW IF EXISTS fdp_monthly_metrics CASCADE;
-DROP VIEW IF EXISTS pl_summary CASCADE;
-DROP VIEW IF EXISTS trial_balance CASCADE;
-DROP VIEW IF EXISTS unified_decision_history CASCADE;
-DROP VIEW IF EXISTS v_audit_auto_reconcile_evidence CASCADE;
-DROP VIEW IF EXISTS v_audit_risk_breaches CASCADE;
-DROP VIEW IF EXISTS v_audit_summary CASCADE;
-DROP VIEW IF EXISTS v_cdp_data_quality_latest CASCADE;
-DROP VIEW IF EXISTS v_cdp_overview_stats CASCADE;
-
-COMMENT ON SCHEMA public IS 'SSOT Cleanup: Removed 16 redundant views on 2026-01-26';
-```
-
-### Phase 2: File deletions
-```text
-src/hooks/useABTestingData.ts
-src/hooks/useAIUsageData.ts
-src/hooks/useAlertDataSources.ts
-src/hooks/useAlertEscalation.ts
-src/hooks/useAlertRuleRecipients.ts
-src/hooks/useAllChannelsPL.ts
-src/hooks/useCapacitorPushNotifications.ts
-src/hooks/useCapexProjects.ts
-src/hooks/useCashConversionCycle.ts
-src/hooks/useControlTowerAnalytics.ts
-src/hooks/useCreditDebitNotes.ts
-src/hooks/useDashboardCache.ts
-src/hooks/useDecisionAnalyses.ts
-src/hooks/useDecisionAuditLog.ts
-src/hooks/useDecisionThresholds.ts
-src/hooks/useFinanceTruthFacts.ts
-src/hooks/useMonteCarloData.ts
-src/hooks/useQuickWins.ts
-src/hooks/useSupplierPayments.ts
-src/hooks/useUnifiedChannelMetrics.ts
-src/hooks/useUnitEconomics.ts
-src/hooks/useWorkingCapitalDaily.ts
-src/hooks/useFDPAggregatedMetrics.ts
-src/hooks/useAnalyticsData.ts
-```
-
-### Phase 3: Hook refactoring pattern
 ```typescript
-// BEFORE (SSOT Violation):
-const { data } = await supabase
+// BEFORE (lines 211-217, 228-234, 244-250)
+const { data: orders } = await supabase
   .from('external_orders')
-  .select('total_amount, order_date')
-  .eq('tenant_id', tenantId);
+  .select('total_amount')
+  .eq('tenant_id', tenantId)
+  .eq('status', 'delivered')
+  .gte('order_date', format(periodStart, 'yyyy-MM-dd'))
+  .lte('order_date', format(periodEnd, 'yyyy-MM-dd'));
 
-// AFTER (SSOT Compliant):
-const { data } = await supabase
+// AFTER
+const { data: orders } = await supabase
   .from('cdp_orders')
-  .select('net_revenue, order_at')
+  .select('gross_revenue')
+  .eq('tenant_id', tenantId)
+  .eq('status', 'delivered')
+  .gte('order_at', format(periodStart, 'yyyy-MM-dd'))
+  .lte('order_at', format(periodEnd, 'yyyy-MM-dd'));
+
+// Also update calculation:
+// orders?.reduce((sum, o) => sum + (o.total_amount || 0), 0)
+// → orders?.reduce((sum, o) => sum + (o.gross_revenue || 0), 0)
+```
+
+### useChannelPL.ts (2 queries)
+
+```typescript
+// BEFORE (lines 88-94)
+const { data: orders } = await supabase
+  .from('external_orders')
+  .select('*')
+  .eq('tenant_id', tenantId)
+  .ilike('channel', `%${normalizedChannel}%`)
+  .gte('order_date', startDate.toISOString())
+  .lte('order_date', endDate.toISOString());
+
+// AFTER
+const { data: orders } = await supabase
+  .from('cdp_orders')
+  .select('*')
+  .eq('tenant_id', tenantId)
+  .ilike('channel', `%${normalizedChannel}%`)
+  .gte('order_at', startDate.toISOString())
+  .lte('order_at', endDate.toISOString());
+```
+
+### useMDPSSOT.ts (1 query)
+
+```typescript
+// BEFORE (lines 151-157)
+const { data, error } = await supabase
+  .from('external_orders')
+  .select('id, channel, status, total_amount, payment_status, order_date, shipping_fee')
+  .eq('tenant_id', tenantId)
+  .gte('order_date', startDateStr)
+  .lte('order_date', endDateStr)
+  .limit(50000);
+
+// AFTER
+const { data, error } = await supabase
+  .from('cdp_orders')
+  .select('id, channel, status, gross_revenue, payment_status, order_at, shipping_fee')
+  .eq('tenant_id', tenantId)
+  .gte('order_at', startDateStr)
+  .lte('order_at', endDateStr)
+  .limit(50000);
+
+// Update interface/usage:
+// total_amount → gross_revenue
+// order_date → order_at
+```
+
+### useEcommerceReconciliation.ts (Special Case)
+
+```typescript
+// READ queries: Change to cdp_orders
+const { data } = await supabase
+  .from('cdp_orders') // Changed from external_orders
+  .select('id, external_order_id, order_number, ...')
   .eq('tenant_id', tenantId);
+
+// WRITE query (line 377): KEEP external_orders
+// This updates staging table which triggers sync to cdp_orders
+const { error } = await supabase
+  .from('external_orders') // KEEP - updates staging
+  .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
+  .in('id', orderIds);
 ```
 
-### Phase 4: Cron jobs migration
-```sql
--- Enable pg_cron and pg_net if not already
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+### RevenuePage.tsx
 
--- Finance Snapshot Daily
-SELECT cron.schedule(
-  'refresh-finance-snapshot-daily',
-  '0 3 * * *',
-  $$
-  DO $$
-  DECLARE
-    t_id UUID;
-  BEGIN
-    FOR t_id IN SELECT id FROM tenants WHERE is_active = true
-    LOOP
-      PERFORM compute_central_metrics_snapshot(t_id, current_date);
-    END LOOP;
-  END $$;
-  $$
-);
+```typescript
+// BEFORE (lines 148-153)
+const { data, error } = await supabase
+  .from("external_orders")
+  .select("integration_id, total_amount, status, channel, order_date")
+  .eq('tenant_id', tenantId)
+  .gte('order_date', start)
+  .lte('order_date', end);
 
--- Dashboard Cache Every 30 min
-SELECT cron.schedule(
-  'refresh-dashboard-cache-30min',
-  '*/30 * * * *',
-  $$
-  SELECT refresh_dashboard_kpi_cache();
-  $$
-);
+// AFTER
+const { data, error } = await supabase
+  .from("cdp_orders")
+  .select("integration_id, gross_revenue, status, channel, order_at")
+  .eq('tenant_id', tenantId)
+  .gte('order_at', start)
+  .lte('order_at', end);
 ```
 
-### Phase 5: Base Metrics View
-```sql
-CREATE OR REPLACE VIEW v_base_order_metrics WITH (security_invoker = on) AS
-SELECT 
-  tenant_id,
-  COUNT(*) as total_orders,
-  COUNT(DISTINCT customer_id) as unique_customers,
-  SUM(COALESCE(gross_revenue, 0)) as gross_revenue,
-  SUM(COALESCE(net_revenue, 0)) as net_revenue,
-  SUM(COALESCE(cogs, 0)) as total_cogs,
-  SUM(COALESCE(gross_margin, 0)) as gross_profit,
-  SUM(COALESCE(platform_fee, 0)) as total_platform_fees,
-  SUM(COALESCE(shipping_fee, 0)) as total_shipping_fees,
-  CASE WHEN COUNT(*) > 0 
-    THEN SUM(COALESCE(net_revenue, 0)) / COUNT(*) 
-    ELSE 0 
-  END as avg_order_value
-FROM cdp_orders
-GROUP BY tenant_id;
+### detect-cross-domain-alerts Edge Function
 
-COMMENT ON VIEW v_base_order_metrics IS 'SSOT Base Layer: Single source for all order aggregations across FDP/MDP/CDP';
+```typescript
+// BEFORE (lines 221-234)
+supabase
+  .from('external_orders')
+  .select('total_amount, status, order_date, shipping_status')
+  .eq('tenant_id', tenantId)
+  .gte('order_date', sevenDaysAgo.toISOString())
+  .lt('order_date', now.toISOString()),
+
+// AFTER
+supabase
+  .from('cdp_orders')
+  .select('gross_revenue, status, order_at, shipping_status')
+  .eq('tenant_id', tenantId)
+  .gte('order_at', sevenDaysAgo.toISOString())
+  .lt('order_at', now.toISOString()),
 ```
 
-### Phase 6: ESLint upgrade
-```javascript
-// eslint.config.js - Line 47-50
-"no-restricted-syntax": ["error", {
-  "selector": "CallExpression[callee.property.name='from'][arguments.0.value='external_orders']",
-  "message": "⛔ SSOT VIOLATION: Query cdp_orders instead. external_orders is staging-only (auto-synced via trigger)."
-}],
+---
+
+## EXECUTION ORDER
+
+### Step 1: Delete Orphaned Hooks (7 files)
+```text
+DELETE: src/hooks/useAIUsageData.ts
+DELETE: src/hooks/useAlertEscalation.ts
+DELETE: src/hooks/useAnalyticsData.ts
+DELETE: src/hooks/useDecisionAuditLog.ts
+DELETE: src/hooks/useUnifiedChannelMetrics.ts
+DELETE: src/hooks/useWorkingCapitalDaily.ts
+DELETE: src/hooks/useFDPAggregatedMetrics.ts
 ```
+
+### Step 2: Fix SSOT Violations - Hooks (15 files)
+Refactor in order of dependency (less dependent first):
+1. `useMDPDataReadiness.ts`
+2. `useForecastInputs.ts`
+3. `useWeeklyCashForecast.ts`
+4. `useScenarioBudgetData.ts`
+5. `useVarianceAnalysis.ts`
+6. `useAudienceData.ts`
+7. `useMDPData.ts`
+8. `useMDPSSOT.ts`
+9. `useFDPMetrics.ts`
+10. `useChannelPL.ts`
+11. `useChannelAnalytics.ts`
+12. `useWhatIfRealData.ts`
+13. `useEcommerceReconciliation.ts`
+
+### Step 3: Fix SSOT Violations - Pages (2 files)
+1. `RevenuePage.tsx`
+2. `SKUCostBreakdownDialog.tsx`
+
+### Step 4: Fix Edge Functions (3 files)
+1. `detect-cross-domain-alerts/index.ts`
+2. `analyze-contextual/index.ts`
+3. `decision-snapshots/index.ts`
+
+### Step 5: Update ssot.ts exports
+Remove deprecated exports for deleted hooks.
+
+---
+
+## VERIFICATION CHECKLIST
+
+After completion:
+
+1. **ESLint Check:**
+```bash
+npm run lint
+# Expected: 0 errors for external_orders in frontend
+```
+
+2. **Governance Dashboard** (`?governance=1`):
+- All health checks PASS
+- No REGRESSION warnings
+- FDP Revenue = MDP Revenue = CDP Revenue
+
+3. **Build Check:**
+```bash
+npm run build
+# Expected: No TypeScript errors
+```
+
+4. **Runtime Test:**
+- Portal loads without errors
+- FDP Revenue page shows data
+- MDP Campaigns page shows data
+- CDP Equity page shows data
+
+---
+
+## ESTIMATED IMPACT
+
+| Metric | Value |
+|--------|-------|
+| Files deleted | 7 |
+| Files modified | 20 |
+| Lines changed | ~200 |
+| SSOT Compliance | 100% |
+| Build time improvement | ~5% (less code) |
+
+---
+
+## ROLLBACK PLAN
+
+If issues occur:
+1. All changes are in single commit
+2. Can revert via Git
+3. ESLint rule can be downgraded back to "warn"
+4. Edge functions auto-deploy, but can rollback via Supabase dashboard
