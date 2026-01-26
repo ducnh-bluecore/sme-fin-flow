@@ -1,0 +1,171 @@
+{
+  "tenant": {
+    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "name": "E2E Test Company",
+    "slug": "e2e-test-company",
+    "plan": "pro"
+  },
+  "period": {
+    "start": "2024-01-01",
+    "end": "2026-01-26",
+    "months": 25
+  },
+  "layer_0_source": {
+    "products": {
+      "count": 100,
+      "categories": {
+        "Áo": 30,
+        "Quần": 25,
+        "Váy": 20,
+        "Phụ kiện": 15,
+        "Giày dép": 10
+      },
+      "avg_price": 400000,
+      "avg_cogs_percent": 53
+    },
+    "connectors": {
+      "count": 4,
+      "list": ["Shopee", "Lazada", "TikTok Shop", "Website"]
+    }
+  },
+  "layer_1_cdp_sync": {
+    "customers": {
+      "count": 500,
+      "by_tier": {
+        "platinum": 25,
+        "gold": 75,
+        "silver": 150,
+        "bronze": 250
+      },
+      "activity": {
+        "active_90d": 200,
+        "at_risk_90_180d": 100,
+        "dormant_180d_plus": 200
+      }
+    },
+    "orders": {
+      "count": 5500,
+      "by_channel": {
+        "Shopee": 2200,
+        "Lazada": 1375,
+        "TikTok Shop": 1100,
+        "Website": 825
+      },
+      "by_status": {
+        "completed": 4510,
+        "returned": 550,
+        "cancelled": 275,
+        "pending": 165
+      }
+    },
+    "order_items": {
+      "count": 12100,
+      "avg_per_order": 2.2
+    },
+    "revenue": {
+      "gross_revenue": 2200000000,
+      "completed_revenue": 1804000000,
+      "returns": 220000000,
+      "net_revenue": 1584000000,
+      "tolerance_percent": 10
+    },
+    "costs": {
+      "cogs": 839520000,
+      "cogs_percent": 53,
+      "platform_fees": 71280000,
+      "fee_percent": 4.5,
+      "gross_profit": 673200000,
+      "gross_margin": 42.5
+    }
+  },
+  "layer_2_computed": {
+    "cdp_customer_equity_computed": {
+      "row_count": 500,
+      "unique_customers": 500
+    },
+    "equity": {
+      "total_equity_12m": 1225000000,
+      "by_tier": {
+        "platinum": {
+          "count": 25,
+          "avg_equity": 15000000,
+          "total": 375000000
+        },
+        "gold": {
+          "count": 75,
+          "avg_equity": 6000000,
+          "total": 450000000
+        },
+        "silver": {
+          "count": 150,
+          "avg_equity": 2000000,
+          "total": 300000000
+        },
+        "bronze": {
+          "count": 250,
+          "avg_equity": 400000,
+          "total": 100000000
+        }
+      },
+      "tolerance_percent": 20
+    },
+    "customer_metrics": {
+      "avg_clv": 3168000,
+      "avg_orders_per_customer": 11,
+      "avg_aov": 288000
+    }
+  },
+  "layer_3_cross_module": {
+    "fdp_locked_costs": {
+      "row_count": 25,
+      "avg_cogs_percent": 53,
+      "avg_fee_percent": 4.5,
+      "months_covered": ["2024-01", "2024-02", "...", "2026-01"]
+    },
+    "cdp_segment_ltv_for_mdp": {
+      "row_count": 4,
+      "segments": ["Champions", "Loyal", "Potential", "New"]
+    },
+    "cdp_customer_cohort_cac": {
+      "row_count": 100,
+      "cohorts": 25,
+      "channels": 4,
+      "avg_cac": 180000
+    },
+    "cross_module_sync": {
+      "flows_tested": 12,
+      "expected_success": true
+    }
+  },
+  "layer_4_control_tower": {
+    "cross_domain_variance_alerts": {
+      "expected_count_min": 5,
+      "expected_count_max": 10,
+      "severity_distribution": {
+        "critical": 3,
+        "warning": 7
+      }
+    },
+    "control_tower_priority_queue": {
+      "expected_count_min": 10,
+      "expected_count_max": 15,
+      "by_module": {
+        "FDP": 5,
+        "MDP": 3,
+        "CDP": 7
+      }
+    }
+  },
+  "tolerances": {
+    "counts": 0,
+    "revenue_costs": 5,
+    "percentages": 2,
+    "equity": 20,
+    "queue_items": "range"
+  },
+  "verification_thresholds": {
+    "pass": "variance <= tolerance",
+    "warn": "tolerance < variance <= tolerance * 2",
+    "fail": "variance > tolerance * 2"
+  }
+}
