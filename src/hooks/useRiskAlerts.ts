@@ -73,7 +73,8 @@ export function useRiskAlerts() {
     const totalAR = snapshot?.totalAR || 0;
     const overdueRate = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
     
-    if (overdueRate > FDP_THRESHOLDS.AR_OVERDUE_CRITICAL_PERCENT) {
+   // Only alert if we have meaningful AR data (> 10M VND) and actual overdue
+   if (totalAR > 10000000 && overdueAR > 0 && overdueRate > FDP_THRESHOLDS.AR_OVERDUE_CRITICAL_PERCENT) {
       alerts.push({
         id: 'overdue-critical',
         title: 'Công nợ quá hạn nghiêm trọng',
@@ -82,7 +83,7 @@ export function useRiskAlerts() {
         metric: `Quá hạn: ${overdueRate.toFixed(0)}%`,
         category: 'receivables',
       });
-    } else if (overdueRate > FDP_THRESHOLDS.AR_OVERDUE_WARNING_PERCENT) {
+   } else if (totalAR > 10000000 && overdueAR > 0 && overdueRate > FDP_THRESHOLDS.AR_OVERDUE_WARNING_PERCENT) {
       alerts.push({
         id: 'overdue-warning',
         title: 'Công nợ quá hạn cao',
@@ -96,7 +97,8 @@ export function useRiskAlerts() {
     // 4. AR Aging - Long overdue (>90 days) - using FDP_THRESHOLDS
     if (arAgingData && arAgingData.length > 0) {
       const over90 = arAgingData.find(b => b.bucket === '>90 ngày');
-      if (over90 && over90.value > 0 && totalAR > 0) {
+     // Only alert if we have meaningful AR and significant >90d amount
+     if (over90 && over90.value > 10000000 && totalAR > 0) {
         const over90Rate = (over90.value / totalAR) * 100;
         if (over90Rate > FDP_THRESHOLDS.AR_AGING_90_CRITICAL_PERCENT) {
           alerts.push({
