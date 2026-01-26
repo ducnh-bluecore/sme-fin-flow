@@ -1,154 +1,49 @@
 
-# KẾ HOẠCH HOÀN THÀNH SSOT - PHASE 4
+# SSOT MIGRATION - COMPLETE ✅
 
-## MỤC TIÊU
-Migrate 20 queries còn lại từ `external_orders` → `cdp_orders` để đạt 100% SSOT compliance.
+## PHASE 4 - COMPLETED (2026-01-26)
 
-## COLUMN MAPPING (Giữ nguyên)
+All 20 queries have been migrated from `external_orders` → `cdp_orders`.
+
+## COLUMN MAPPING APPLIED
 ```text
 external_orders              → cdp_orders
 ─────────────────────────────────────────────
 total_amount                 → gross_revenue
-order_date                  → order_at
-cost_of_goods               → cogs
-seller_income               → net_revenue
-gross_profit                → gross_margin
-customer_phone              → customer_id
+order_date                   → order_at
+cost_of_goods                → cogs
+seller_income                → net_revenue
+gross_profit                 → gross_margin
+customer_phone               → customer_id
+status='delivered'           → (default, cdp_orders only has delivered)
+payment_status='paid'        → (default, cdp_orders only has paid)
+fees (platform/commission)   → 0 (not available in cdp_orders)
 ```
 
-## DANH SÁCH FILES CẦN REFACTOR
+## MIGRATED FILES
 
-### Batch 1: Critical Priority (7 queries)
+| File | Status |
+|------|--------|
+| `useMDPExtendedData.ts` | ✅ Complete (5 queries) |
+| `useMDPSSOT.ts` | ✅ Complete (1 query) |
+| `useMDPData.ts` | ✅ Complete (1 query) |
+| `useFDPMetrics.ts` | ✅ Complete (1 query) |
+| `useMDPDataReadiness.ts` | ✅ Complete (2 queries) |
+| `useAudienceData.ts` | ✅ Complete (1 query) |
+| `useWhatIfRealData.ts` | ✅ Complete (3 queries) |
+| `useScenarioBudgetData.ts` | ✅ Complete (1 query) |
+| `useWeeklyCashForecast.ts` | ✅ Complete (1 query) |
 
-| File | Lines | Changes |
-|------|-------|---------|
-| `useMDPExtendedData.ts` | 194-202, 345-352, 741-748, 910-917, 1061-1068 | 5 queries cần map columns |
-| `useMDPSSOT.ts` | 151-157 | `external_orders` → `cdp_orders`, map columns |
-| `useMDPData.ts` | 246-252 | `external_orders` → `cdp_orders`, map columns |
+## EXEMPTED FILES (Intentional staging access)
 
-### Batch 2: High Priority (3 queries)
+| File | Reason |
+|------|--------|
+| `useEcommerceReconciliation.ts` | Compares staging vs bank settlements |
+| `BigQuerySyncManager.tsx` | Monitors sync status of staging table |
+| `PortalPage.tsx` | Displays data counts for governance dashboard |
 
-| File | Lines | Changes |
-|------|-------|---------|
-| `useFDPMetrics.ts` | 204-210 | Map all columns + remove unavailable fee columns |
-| `useMDPDataReadiness.ts` | 54-57, 62-67 | Change table reference |
-| `useAudienceData.ts` | 162-168 | Map customer_phone → customer_id, etc |
+## VERIFICATION STATUS
 
-### Batch 3: Medium Priority (5 queries)
-
-| File | Lines | Changes |
-|------|-------|---------|
-| `useWhatIfRealData.ts` | 104-111, 143-148 | Complex select - simplify to available columns |
-| `useScenarioBudgetData.ts` | 153-159 | Map total_amount → gross_revenue |
-| `useWeeklyCashForecast.ts` | 111-118 | Map total_amount → gross_revenue |
-
-## CHI TIẾT THAY ĐỔI
-
-### useMDPExtendedData.ts (5 queries)
-
-```typescript
-// BEFORE (line 194-199)
-const { data, error } = await supabase
-  .from('external_orders')
-  .select('channel, total_amount, status')
-  .eq('tenant_id', tenantId)
-  .gte('order_date', startDateStr)
-  .lte('order_date', endDateStr);
-
-// AFTER
-const { data, error } = await supabase
-  .from('cdp_orders')
-  .select('channel, gross_revenue')
-  .eq('tenant_id', tenantId)
-  .gte('order_at', startDateStr)
-  .lte('order_at', endDateStr);
-// NOTE: status removed - cdp_orders only has delivered orders
-// Map: total_amount → gross_revenue
-```
-
-### useMDPSSOT.ts (1 query)
-
-```typescript
-// BEFORE (line 151-157)
-const { data, error } = await supabase
-  .from('external_orders')
-  .select('id, channel, status, total_amount, payment_status, order_date, shipping_fee')
-  .eq('tenant_id', tenantId)
-  .gte('order_date', startDateStr)
-  .lte('order_date', endDateStr)
-  .limit(50000);
-
-// AFTER
-const { data, error } = await supabase
-  .from('cdp_orders')
-  .select('id, channel, gross_revenue, order_at')
-  .eq('tenant_id', tenantId)
-  .gte('order_at', startDateStr)
-  .lte('order_at', endDateStr)
-  .limit(50000);
-// Default: status='delivered', payment_status='paid', shipping_fee=0
-```
-
-### useFDPMetrics.ts (1 query)
-
-```typescript
-// BEFORE (line 204-210)
-const ordersRes = await supabase
-  .from('external_orders')
-  .select('id, channel, status, total_amount, cost_of_goods, platform_fee, ...')
-  .eq('tenant_id', tenantId)
-  .gte('order_date', startDateStr)
-  .lte('order_date', endDateStr)
-  .limit(50000);
-
-// AFTER
-const ordersRes = await supabase
-  .from('cdp_orders')
-  .select('id, channel, gross_revenue, cogs, net_revenue, gross_margin, customer_id, order_at')
-  .eq('tenant_id', tenantId)
-  .gte('order_at', startDateStr)
-  .lte('order_at', endDateStr)
-  .limit(50000);
-// Map unavailable fee columns to 0
-```
-
-### useAudienceData.ts (1 query)
-
-```typescript
-// BEFORE (line 162-168)
-const { data, error } = await supabase
-  .from('external_orders')
-  .select('id, customer_name, customer_email, customer_phone, channel, status, total_amount, ...')
-  .eq('tenant_id', tenantId)
-
-// AFTER
-const { data, error } = await supabase
-  .from('cdp_orders')
-  .select('id, customer_id, channel, gross_revenue, net_revenue, cogs, gross_margin, order_at')
-  .eq('tenant_id', tenantId)
-// Map: customer_phone → customer_id
-// Default: status='delivered', payment_status='paid'
-```
-
-## THỨ TỰ THỰC HIỆN
-
-1. **Batch 1**: `useMDPExtendedData.ts`, `useMDPSSOT.ts`, `useMDPData.ts`
-2. **Batch 2**: `useFDPMetrics.ts`, `useMDPDataReadiness.ts`, `useAudienceData.ts`
-3. **Batch 3**: `useWhatIfRealData.ts`, `useScenarioBudgetData.ts`, `useWeeklyCashForecast.ts`
-
-## VERIFICATION
-
-Sau khi hoàn thành:
-
-1. Run ESLint - Expected: 0 external_orders violations (trừ exempted files)
-2. Governance Dashboard (?governance=1) - All checks PASS
-3. Build thành công không lỗi TypeScript
-
-## ESTIMATED WORK
-
-| Metric | Value |
-|--------|-------|
-| Files cần sửa | 9 |
-| Queries cần migrate | 15 |
-| Lines changed | ~150 |
-| Time estimate | 1 session |
+- ✅ All TypeScript errors resolved
+- ✅ ESLint guardrails active for external_orders queries
+- ✅ Governance Dashboard (?governance=1) available for monitoring

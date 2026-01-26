@@ -159,15 +159,32 @@ export function useAudienceData() {
     queryKey: ['audience-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders instead of external_orders
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('id, customer_name, customer_email, customer_phone, channel, status, total_amount, payment_status, order_date, province_name, shipping_fee, order_discount, cost_of_goods, net_profit')
+        .from('cdp_orders')
+        .select('id, customer_id, channel, gross_revenue, net_revenue, cogs, gross_margin, order_at')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr)
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr)
         .limit(50000);
       if (error) throw error;
-      return (data || []) as OrderData[];
+      // Map cdp_orders to OrderData format for compatibility
+      return (data || []).map(d => ({
+        id: d.id,
+        customer_name: d.customer_id, // customer_id serves as identifier
+        customer_email: null,
+        customer_phone: d.customer_id,
+        channel: d.channel,
+        status: 'delivered', // cdp_orders only has delivered orders
+        total_amount: Number(d.gross_revenue) || 0,
+        payment_status: 'paid', // cdp_orders implies paid
+        order_date: d.order_at,
+        province_name: null,
+        shipping_fee: 0,
+        order_discount: 0,
+        cost_of_goods: Number(d.cogs) || 0,
+        net_profit: Number(d.gross_margin) || 0
+      })) as OrderData[];
     },
     enabled: !!tenantId,
   });

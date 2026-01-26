@@ -243,15 +243,26 @@ export function useMDPData() {
     queryKey: ['mdp-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders instead of external_orders
+      // cdp_orders contains validated financial data (all delivered, paid)
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('id, channel, status, total_amount, payment_status, order_date, shipping_fee')
+        .from('cdp_orders')
+        .select('id, channel, gross_revenue, order_at')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr)
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr)
         .limit(50000);
       if (error) throw error;
-      return data || [];
+      // Map columns for compatibility
+      return (data || []).map(d => ({
+        id: d.id,
+        channel: d.channel,
+        status: 'delivered' as const,
+        total_amount: Number(d.gross_revenue) || 0,
+        payment_status: 'paid' as const,
+        order_date: d.order_at,
+        shipping_fee: 0
+      }));
     },
     enabled: !!tenantId,
   });
@@ -673,10 +684,10 @@ export function useMDPData() {
       }
 
       const amount = order.total_amount || 0;
-      if (order.payment_status === 'paid' && order.status === 'delivered') {
+      // NOTE: cdp_orders only contains delivered & paid orders
+      // So all orders go to cash_received
+      if (order.payment_status === 'paid') {
         existing.cash_received += amount;
-      } else if (order.status === 'cancelled' || order.status === 'returned') {
-        existing.refund_amount += amount;
       } else {
         existing.pending_cash += amount;
       }
