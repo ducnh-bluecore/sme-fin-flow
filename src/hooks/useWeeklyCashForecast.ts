@@ -108,13 +108,14 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
           .eq('tenant_id', tenantId)
           .neq('status', 'paid')
           .neq('status', 'cancelled'),
+        // SSOT: Query cdp_orders instead of external_orders
+        // cdp_orders only contains delivered orders, no status filter needed
         supabase
-          .from('external_orders')
-          .select('total_amount, order_date, status')
+          .from('cdp_orders')
+          .select('gross_revenue, order_at')
           .eq('tenant_id', tenantId)
-          .eq('status', 'delivered')
-          .gte('order_date', startDateStr)
-          .lte('order_date', endDateStr)
+          .gte('order_at', startDateStr)
+          .lte('order_at', endDateStr)
           .limit(50000),
         supabase
           .from('expenses')
@@ -126,7 +127,13 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
 
       const invoices = invoicesRes.data || [];
       const bills = billsRes.data || [];
-      const orders = ordersRes.data || [];
+      // Map cdp_orders to legacy format
+      const rawOrders = ordersRes.data || [];
+      const orders = rawOrders.map(o => ({
+        total_amount: Number((o as any).gross_revenue) || 0,
+        order_date: (o as any).order_at,
+        status: 'delivered' as const
+      }));
       const expenses = expensesRes.data || [];
 
       // Calculate averages from historical data

@@ -149,14 +149,15 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       const startOfYear = `${year}-01-01`;
       const endOfYear = `${year}-12-31`;
 
+      // SSOT: Query cdp_orders instead of external_orders
+      // cdp_orders only contains delivered orders, no status filter needed
       const [ordersRes, expensesRes] = await Promise.all([
         supabase
-          .from('external_orders')
-          .select('total_amount, order_date')
+          .from('cdp_orders')
+          .select('gross_revenue, order_at')
           .eq('tenant_id', tenantId)
-          .eq('status', 'delivered')
-          .gte('order_date', startOfYear)
-          .lte('order_date', endOfYear),
+          .gte('order_at', startOfYear)
+          .lte('order_at', endOfYear),
         supabase
           .from('expenses')
           .select('amount, expense_date')
@@ -165,7 +166,12 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
           .lte('expense_date', endOfYear)
       ]);
 
-      const orders = ordersRes.data || [];
+      // Map cdp_orders to legacy format for compatibility
+      const rawOrders = ordersRes.data || [];
+      const orders = rawOrders.map(o => ({
+        total_amount: Number((o as any).gross_revenue) || 0,
+        order_date: (o as any).order_at
+      }));
       const expenses = expensesRes.data || [];
 
       // Aggregate actuals by month

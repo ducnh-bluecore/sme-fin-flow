@@ -50,9 +50,9 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     queryKey: ['mdp-readiness-orders', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
-      
+      // SSOT: Query cdp_orders instead of external_orders for data readiness
       const { count, error } = await supabase
-        .from('external_orders')
+        .from('cdp_orders')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId);
       
@@ -60,7 +60,7 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
 
       // Get a sample to check fields
       const { data: sample } = await supabase
-        .from('external_orders')
+        .from('cdp_orders')
         .select('*')
         .eq('tenant_id', tenantId)
         .limit(1)

@@ -191,14 +191,21 @@ export function useBudgetOptimizerData() {
     queryKey: ['budget-optimizer-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders instead of external_orders
+      // cdp_orders only contains delivered orders, no status filter needed
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('channel, total_amount, status')
+        .from('cdp_orders')
+        .select('channel, gross_revenue')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr);
       if (error) throw error;
-      return data || [];
+      // Map gross_revenue -> total_amount, default status = 'delivered'
+      return (data || []).map(d => ({
+        channel: d.channel,
+        total_amount: Number(d.gross_revenue) || 0,
+        status: 'delivered' as const
+      }));
     },
     enabled: !!tenantId,
   });
@@ -342,14 +349,23 @@ export function useCustomerLTVData() {
     queryKey: ['ltv-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders instead of external_orders
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('id, channel, customer_name, total_amount, order_date, status')
+        .from('cdp_orders')
+        .select('id, channel, customer_id, gross_revenue, order_at')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr);
       if (error) throw error;
-      return data || [];
+      // Map columns for compatibility: customer_id -> customer_name, gross_revenue -> total_amount
+      return (data || []).map(d => ({
+        id: d.id,
+        channel: d.channel,
+        customer_name: d.customer_id, // CDP uses customer_id
+        total_amount: Number(d.gross_revenue) || 0,
+        order_date: d.order_at,
+        status: 'delivered' as const
+      }));
     },
     enabled: !!tenantId,
   });
@@ -392,10 +408,9 @@ export function useCustomerLTVData() {
       if (ord.customer_name) {
         existing.customers.add(ord.customer_name);
       }
-      if (ord.status !== 'cancelled') {
-        existing.totalRevenue += ord.total_amount || 0;
-        existing.orderCount += 1;
-      }
+      // NOTE: cdp_orders only contains delivered orders, all are valid
+      existing.totalRevenue += ord.total_amount || 0;
+      existing.orderCount += 1;
       channelMap.set(channel, existing);
     });
 
@@ -439,12 +454,11 @@ export function useCustomerLTVData() {
     const customerOrders = new Map<string, { count: number; total: number }>();
     orders.forEach(ord => {
       const customer = ord.customer_name || 'Unknown';
-      if (ord.status !== 'cancelled') {
-        const existing = customerOrders.get(customer) || { count: 0, total: 0 };
-        existing.count += 1;
-        existing.total += ord.total_amount || 0;
-        customerOrders.set(customer, existing);
-      }
+      // NOTE: cdp_orders only contains delivered orders, all are valid
+      const existing = customerOrders.get(customer) || { count: 0, total: 0 };
+      existing.count += 1;
+      existing.total += ord.total_amount || 0;
+      customerOrders.set(customer, existing);
     });
 
     const totalCustomers = customerOrders.size;
@@ -492,8 +506,9 @@ export function useCustomerLTVData() {
     const orders = ordersQuery.data || [];
     const expenses = expensesQuery.data || [];
     
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.total_amount || 0 : 0), 0);
-    const totalOrders = orders.filter(o => o.status !== 'cancelled').length;
+    // NOTE: cdp_orders only contains delivered orders, all are valid
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const totalOrders = orders.length;
     const uniqueCustomers = new Set(orders.map(o => o.customer_name).filter(Boolean)).size;
     const totalSpend = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 

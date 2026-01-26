@@ -201,12 +201,14 @@ export function useFDPMetrics() {
       // Fetch data - split into smaller groups to avoid TypeScript deep instantiation error
       // Use RPC or aggregate query to avoid row limits
       // For now, fetch with explicit large limit to get all orders
+      // SSOT: Query cdp_orders instead of external_orders
+      // cdp_orders has pre-computed metrics, default missing fee columns to 0
       const ordersRes = await supabase
-        .from('external_orders')
-        .select('id, channel, status, total_amount, cost_of_goods, platform_fee, commission_fee, payment_fee, shipping_fee, customer_name, external_order_id, order_date')
+        .from('cdp_orders')
+        .select('id, channel, gross_revenue, cogs, net_revenue, gross_margin, customer_id, order_at')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr)
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr)
         .limit(50000); // Override default 1000 limit
 
       const invoicesRes = await supabase
@@ -249,7 +251,22 @@ export function useFDPMetrics() {
         .select('id')
         .eq('tenant_id', tenantId);
 
-      const orders = ordersRes.data || [];
+      // Map cdp_orders to legacy format for backward compatibility
+      const rawOrders = ordersRes.data || [];
+      const orders = rawOrders.map(o => ({
+        id: o.id,
+        channel: o.channel,
+        status: 'delivered' as const,
+        total_amount: Number(o.gross_revenue) || 0,
+        cost_of_goods: Number(o.cogs) || 0,
+        platform_fee: 0, // Not available in cdp_orders
+        commission_fee: 0,
+        payment_fee: 0,
+        shipping_fee: 0,
+        customer_name: o.customer_id,
+        external_order_id: o.id,
+        order_date: o.order_at
+      }));
       const invoices = invoicesRes.data || [];
       const revenues = revenuesRes.data || [];
       const campaigns = campaignsRes.data || [];
@@ -258,9 +275,10 @@ export function useFDPMetrics() {
       const customers = customersRes.data || [];
 
       // ========== ORDER METRICS ==========
-      const deliveredOrders = orders.filter(o => o.status === 'delivered');
-      const cancelledOrders = orders.filter(o => o.status === 'cancelled');
-      const returnedOrders = orders.filter(o => o.status === 'returned');
+      // NOTE: cdp_orders only contains delivered orders, so all orders are already filtered
+      const deliveredOrders = orders; // All cdp_orders are delivered
+      const cancelledOrders: typeof orders = []; // No cancelled orders in cdp_orders
+      const returnedOrders: typeof orders = []; // No returned orders in cdp_orders
       
       const totalOrders = deliveredOrders.length;
       const orderRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
