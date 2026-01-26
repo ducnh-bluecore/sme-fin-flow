@@ -104,13 +104,14 @@ export function useWorkingCapitalSummary() {
     queryKey: ['working-capital-summary', tenantId, startDateStr, endDateStr],
     queryFn: async (): Promise<WorkingCapitalSummary | null> => {
       // Build current metric from precomputed data ONLY
-      const dso = latestWC?.dso ?? snapshot?.dso ?? 0;
-      const dpo = latestWC?.dpo ?? snapshot?.dpo ?? 0;
-      const dio = latestWC?.dio ?? 0;
-      const ccc = latestWC?.ccc ?? (dso + dio - dpo);
-      const totalAR = latestWC?.totalAR ?? snapshot?.totalAR ?? 0;
-      const totalAP = latestWC?.totalAP ?? snapshot?.totalAP ?? 0;
-      const inventory = latestWC?.inventory ?? snapshot?.totalInventoryValue ?? 0;
+      // Priority: central_metrics_snapshots (SSOT) > working_capital_daily > fallback 0
+      const dso = snapshot?.dso ?? latestWC?.dso ?? 0;
+      const dpo = snapshot?.dpo ?? latestWC?.dpo ?? 0;
+      const dio = snapshot?.dio ?? latestWC?.dio ?? 0;
+      const ccc = snapshot?.ccc ?? latestWC?.ccc ?? (dso + dio - dpo);
+      const totalAR = snapshot?.totalAR ?? latestWC?.totalAR ?? 0;
+      const totalAP = snapshot?.totalAP ?? latestWC?.totalAP ?? 0;
+      const inventory = snapshot?.totalInventoryValue ?? latestWC?.inventory ?? 0;
       
       // Targets from DB or industry defaults
       const targetDSO = 30;
