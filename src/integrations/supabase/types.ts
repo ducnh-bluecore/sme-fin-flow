@@ -26928,6 +26928,10 @@ export type Database = {
         }
         Returns: string
       }
+      control_tower_aggregate_signals: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       detect_cross_domain_variance: {
         Args: { p_tenant_id: string }
         Returns: number
