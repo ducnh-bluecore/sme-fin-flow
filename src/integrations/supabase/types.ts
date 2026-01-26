@@ -27935,6 +27935,18 @@ export type Database = {
         }
         Returns: string
       }
+      populate_central_metric_facts: {
+        Args: {
+          p_period_end?: string
+          p_period_start?: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
+      populate_finance_monthly_summary: {
+        Args: { p_tenant_id: string; p_year_month?: string }
+        Returns: number
+      }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
       recalculate_product_metrics:
         | { Args: { p_sku?: string; p_tenant_id: string }; Returns: number }
