@@ -4019,6 +4019,79 @@ export type Database = {
           },
         ]
       }
+      cdp_churn_signals: {
+        Row: {
+          churn_probability: number | null
+          consumed_at: string | null
+          consumed_by_mdp: boolean | null
+          created_at: string
+          customer_id: string
+          customer_segment: string | null
+          days_since_last_purchase: number | null
+          id: string
+          ltv_at_risk: number | null
+          recommended_action: string | null
+          signal_date: string
+          tenant_id: string
+          updated_at: string
+          urgency_level: string | null
+        }
+        Insert: {
+          churn_probability?: number | null
+          consumed_at?: string | null
+          consumed_by_mdp?: boolean | null
+          created_at?: string
+          customer_id: string
+          customer_segment?: string | null
+          days_since_last_purchase?: number | null
+          id?: string
+          ltv_at_risk?: number | null
+          recommended_action?: string | null
+          signal_date?: string
+          tenant_id: string
+          updated_at?: string
+          urgency_level?: string | null
+        }
+        Update: {
+          churn_probability?: number | null
+          consumed_at?: string | null
+          consumed_by_mdp?: boolean | null
+          created_at?: string
+          customer_id?: string
+          customer_segment?: string | null
+          days_since_last_purchase?: number | null
+          id?: string
+          ltv_at_risk?: number | null
+          recommended_action?: string | null
+          signal_date?: string
+          tenant_id?: string
+          updated_at?: string
+          urgency_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_churn_signals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_churn_signals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_churn_signals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_cohort_membership_daily: {
         Row: {
           as_of_date: string
@@ -14159,6 +14232,228 @@ export type Database = {
           },
           {
             foreignKeyName: "marketing_expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      mdp_channel_roi: {
+        Row: {
+          attributed_orders: number | null
+          attributed_revenue: number | null
+          cac: number | null
+          channel: string
+          contribution_margin: number | null
+          created_at: string
+          id: string
+          new_customers: number | null
+          period_end: string
+          period_start: string
+          profit_roas: number | null
+          recommendation_reason: string | null
+          recommended_budget_change: number | null
+          roas: number | null
+          tenant_id: string
+          total_spend: number | null
+          updated_at: string
+        }
+        Insert: {
+          attributed_orders?: number | null
+          attributed_revenue?: number | null
+          cac?: number | null
+          channel: string
+          contribution_margin?: number | null
+          created_at?: string
+          id?: string
+          new_customers?: number | null
+          period_end: string
+          period_start: string
+          profit_roas?: number | null
+          recommendation_reason?: string | null
+          recommended_budget_change?: number | null
+          roas?: number | null
+          tenant_id: string
+          total_spend?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attributed_orders?: number | null
+          attributed_revenue?: number | null
+          cac?: number | null
+          channel?: string
+          contribution_margin?: number | null
+          created_at?: string
+          id?: string
+          new_customers?: number | null
+          period_end?: string
+          period_start?: string
+          profit_roas?: number | null
+          recommendation_reason?: string | null
+          recommended_budget_change?: number | null
+          roas?: number | null
+          tenant_id?: string
+          total_spend?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      mdp_customer_acquisition_source: {
+        Row: {
+          acquisition_channel: string
+          acquisition_cost: number | null
+          acquisition_date: string
+          ad_group_id: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          created_at: string
+          customer_id: string
+          first_order_id: string | null
+          id: string
+          synced_at: string | null
+          synced_to_cdp: boolean | null
+          tenant_id: string
+        }
+        Insert: {
+          acquisition_channel: string
+          acquisition_cost?: number | null
+          acquisition_date: string
+          ad_group_id?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          customer_id: string
+          first_order_id?: string | null
+          id?: string
+          synced_at?: string | null
+          synced_to_cdp?: boolean | null
+          tenant_id: string
+        }
+        Update: {
+          acquisition_channel?: string
+          acquisition_cost?: number | null
+          acquisition_date?: string
+          ad_group_id?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          customer_id?: string
+          first_order_id?: string | null
+          id?: string
+          synced_at?: string | null
+          synced_to_cdp?: boolean | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdp_customer_acquisition_source_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mdp_customer_acquisition_source_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "mdp_customer_acquisition_source_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      mdp_seasonal_patterns: {
+        Row: {
+          analysis_period_end: string | null
+          analysis_period_start: string | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          order_multiplier: number | null
+          pattern_type: string
+          period_key: string
+          revenue_multiplier: number | null
+          sample_size: number | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_period_end?: string | null
+          analysis_period_start?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          order_multiplier?: number | null
+          pattern_type: string
+          period_key: string
+          revenue_multiplier?: number | null
+          sample_size?: number | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_period_end?: string | null
+          analysis_period_start?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          order_multiplier?: number | null
+          pattern_type?: string
+          period_key?: string
+          revenue_multiplier?: number | null
+          sample_size?: number | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdp_seasonal_patterns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mdp_seasonal_patterns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "mdp_seasonal_patterns_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26771,6 +27066,22 @@ export type Database = {
         }[]
       }
       cdp_format_currency: { Args: { amount: number }; Returns: string }
+      cdp_generate_churn_signals: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
+      cdp_get_customer_acquisition_source: {
+        Args: { p_customer_id: string; p_tenant_id: string }
+        Returns: {
+          acquisition_channel: string
+          acquisition_cost: number
+          acquisition_date: string
+          campaign_name: string
+          confidence_level: string
+          data_source: string
+          is_cross_module: boolean
+        }[]
+      }
       cdp_insert_insight_event: {
         Args: {
           p_as_of_date: string
@@ -26940,6 +27251,36 @@ export type Database = {
       execute_readonly_query: {
         Args: { params: Json; query_text: string }
         Returns: Json
+      }
+      fdp_get_budget_recommendations: {
+        Args: { p_lookback_days?: number; p_tenant_id: string }
+        Returns: {
+          attributed_revenue: number
+          cac: number
+          channel: string
+          confidence_level: string
+          current_spend: number
+          data_source: string
+          is_cross_module: boolean
+          new_customers: number
+          profit_roas: number
+          recommendation_reason: string
+          recommended_change: number
+          roas: number
+        }[]
+      }
+      fdp_get_seasonal_adjustments: {
+        Args: { p_target_month: number; p_tenant_id: string }
+        Returns: {
+          confidence_level: string
+          confidence_score: number
+          data_source: string
+          is_cross_module: boolean
+          order_multiplier: number
+          pattern_type: string
+          period_key: string
+          revenue_multiplier: number
+        }[]
       }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
@@ -27234,6 +27575,19 @@ export type Database = {
         }
         Returns: string
       }
+      mdp_get_churn_signals: {
+        Args: { p_min_urgency?: string; p_tenant_id: string }
+        Returns: {
+          churn_probability: number
+          customer_id: string
+          customer_segment: string
+          days_inactive: number
+          ltv_at_risk: number
+          recommended_action: string
+          signal_id: string
+          urgency_level: string
+        }[]
+      }
       mdp_get_costs_for_roas: {
         Args: { p_month?: number; p_tenant_id: string; p_year?: number }
         Returns: {
@@ -27243,6 +27597,45 @@ export type Database = {
           fee_percent: number
           is_cross_module: boolean
         }[]
+      }
+      mdp_push_acquisition_to_cdp: {
+        Args: {
+          p_acquisition_cost?: number
+          p_acquisition_date?: string
+          p_campaign_id?: string
+          p_campaign_name?: string
+          p_channel: string
+          p_customer_id: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
+      mdp_push_channel_roi_to_fdp: {
+        Args: {
+          p_attributed_orders: number
+          p_attributed_revenue: number
+          p_channel: string
+          p_contribution_margin?: number
+          p_new_customers: number
+          p_period_end: string
+          p_period_start: string
+          p_profit_roas?: number
+          p_tenant_id: string
+          p_total_spend: number
+        }
+        Returns: string
+      }
+      mdp_push_seasonal_to_fdp: {
+        Args: {
+          p_confidence_score?: number
+          p_order_multiplier?: number
+          p_pattern_type: string
+          p_period_key: string
+          p_revenue_multiplier: number
+          p_sample_size?: number
+          p_tenant_id: string
+        }
+        Returns: string
       }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
       recalculate_product_metrics:
