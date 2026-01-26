@@ -194,3 +194,43 @@ The system automatically detects SSOT violations via:
 - `useFinancialAnalysisData.ts` - Contains client-side calculations (needs DB RPC)
 - `ChannelPLPage.tsx` - Uses `useChannelPL`
 - `PLReportPage.tsx` - Uses `usePLData`
+
+## Phase 6: SSOT Views Migration (2026-01-26)
+
+### Issue Identified
+FDP views were reading from `external_orders` / `external_order_items` (Layer 0) while CDP uses `cdp_orders` / `cdp_order_items` (Layer 2). This violated SSOT principle.
+
+### Fix Applied
+All FDP/MDP views now read from `cdp_orders` / `cdp_order_items` (Layer 2) as Single Source of Truth.
+
+### Migrated Views
+| View | Old Source | New Source | Status |
+|------|------------|------------|--------|
+| `fdp_sku_summary` | `external_order_items` | `cdp_order_items` | ✅ Fixed |
+| `channel_performance_summary` | `external_orders` | `cdp_orders` | ✅ Fixed |
+| `daily_channel_revenue` | `external_orders` | `cdp_orders` | ✅ Fixed |
+| `fdp_channel_summary` | `external_orders` | `cdp_orders` | ✅ Fixed |
+| `fdp_daily_metrics` | `external_orders` | `cdp_orders` | ✅ Fixed |
+| `fdp_monthly_metrics` | `external_orders` | `cdp_orders` | ✅ Fixed |
+| `v_cdp_data_quality` | `external_orders` | `cdp_orders` | ✅ Fixed |
+
+### Migrated RPCs
+| Function | Old Source | New Source | Status |
+|----------|------------|------------|--------|
+| `get_control_tower_summary` | `external_orders` | `cdp_orders` | ✅ Fixed |
+| `get_sku_profitability_by_date_range` | `external_order_items` | `cdp_order_items` | ✅ Fixed |
+| `compute_central_metrics_snapshot` | `external_orders` | `cdp_orders` | ✅ Fixed |
+
+### Architecture After Fix
+```
+                          external_orders/items (Layer 0 - Raw)
+                                    │
+                                    ▼ (sync + compute via cdp_run_daily_build)
+                          cdp_orders/items (Layer 2 - Computed SSOT)
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+            FDP Views                          CDP Views
+            (fdp_sku_summary,                  (v_cdp_customer_research,
+             fdp_daily_metrics...)              v_cdp_ltv_rules...)
+```
