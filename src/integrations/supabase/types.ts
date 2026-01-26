@@ -26658,6 +26658,8 @@ export type Database = {
           start_date: string | null
           status: string | null
           tenant_id: string | null
+          total_revenue: number | null
+          total_spend: number | null
         }
         Insert: {
           campaign_id?: string | null
@@ -26678,10 +26680,12 @@ export type Database = {
           orders?: never
           revenue?: never
           roas?: never
-          spend?: never
+          spend?: number | null
           start_date?: string | null
           status?: string | null
           tenant_id?: string | null
+          total_revenue?: never
+          total_spend?: number | null
         }
         Update: {
           campaign_id?: string | null
@@ -26702,10 +26706,12 @@ export type Database = {
           orders?: never
           revenue?: never
           roas?: never
-          spend?: never
+          spend?: number | null
           start_date?: string | null
           status?: string | null
           tenant_id?: string | null
+          total_revenue?: never
+          total_spend?: number | null
         }
         Relationships: [
           {
