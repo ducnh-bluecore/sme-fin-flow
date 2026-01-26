@@ -85,7 +85,20 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         'lazada': 'Lazada',
         'tiktok': 'TikTok Shop',
         'tiktok_shop': 'TikTok Shop',
+        'tiktok shop': 'TikTok Shop',
         'bigquery': 'BigQuery',
+        'woocommerce': 'WooCommerce',
+      };
+      
+      // Map channel names to normalized keys for matching
+      const channelNormalizer = (channel: string): string => {
+        const normalized = channel.toLowerCase().replace(/[\s_-]/g, '');
+        if (normalized.includes('tiktok')) return 'tiktok';
+        if (normalized.includes('shopee')) return 'shopee';
+        if (normalized.includes('lazada')) return 'lazada';
+        if (normalized.includes('website') || normalized.includes('web')) return 'website';
+        if (normalized.includes('woo')) return 'woocommerce';
+        return normalized;
       };
 
       // Track which display names have been added to avoid duplicates
@@ -102,10 +115,10 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
           return;
         }
         
-        // Find matching channel data (case-insensitive, partial match)
+        // Find matching channel data using normalized keys
+        const connectorNormalized = channelNormalizer(connectorType);
         const matchingChannel = activeChannels.find(ch => {
-          const chLower = ch?.toLowerCase() || '';
-          return chLower.includes(connectorType) || connectorType.includes(chLower);
+          return channelNormalizer(ch) === connectorNormalized;
         });
         
         const channelData = matchingChannel ? channelAggregates[matchingChannel] : null;
@@ -135,14 +148,14 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
 
       // Second: Add remaining channels that weren't matched to any connector
       activeChannels.forEach(channelName => {
-        const channelLower = channelName?.toLowerCase() || '';
+        const channelNormalized = channelNormalizer(channelName);
         
-        // Skip if already added via connector
-        if (addedChannels.has(channelName) || addedChannels.has(channelLower)) {
+        // Skip if already added via connector (using normalized key)
+        if (addedChannels.has(channelName) || addedChannels.has(channelNormalized)) {
           return;
         }
 
-        const displayName = connectorDisplayNames[channelLower] || channelName || 'Nguồn không xác định';
+        const displayName = connectorDisplayNames[channelNormalized] || channelName || 'Nguồn không xác định';
         
         // Skip if this displayName was already added
         if (addedDisplayNames.has(displayName)) {
