@@ -22838,6 +22838,9 @@ export type Database = {
       }
       fdp_sku_summary: {
         Row: {
+          avg_unit_cogs: number | null
+          avg_unit_price: number | null
+          category: string | null
           gross_profit: number | null
           margin_percent: number | null
           order_count: number | null
@@ -22850,21 +22853,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "external_order_items_tenant_id_fkey"
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_order_items_tenant_id_fkey"
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_order_items_tenant_id_fkey"
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
