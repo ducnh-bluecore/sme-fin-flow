@@ -3990,6 +3990,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_card_activity_log_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
+          },
+          {
             foreignKeyName: "cdp_card_activity_log_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4183,6 +4190,8 @@ export type Database = {
           aov_90d: number | null
           as_of_date: string
           churn_risk_score: number | null
+          compute_function: string | null
+          compute_version: string | null
           computed_at: string
           contribution_profit_90d: number | null
           customer_id: string
@@ -4213,6 +4222,8 @@ export type Database = {
           aov_90d?: number | null
           as_of_date: string
           churn_risk_score?: number | null
+          compute_function?: string | null
+          compute_version?: string | null
           computed_at?: string
           contribution_profit_90d?: number | null
           customer_id: string
@@ -4243,6 +4254,8 @@ export type Database = {
           aov_90d?: number | null
           as_of_date?: string
           churn_risk_score?: number | null
+          compute_function?: string | null
+          compute_version?: string | null
           computed_at?: string
           contribution_profit_90d?: number | null
           customer_id?: string
@@ -4798,6 +4811,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_decision_card_snapshots_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
+          },
+          {
             foreignKeyName: "cdp_decision_card_snapshots_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4976,6 +4996,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_decision_cluster_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
+          },
+          {
             foreignKeyName: "cdp_decision_cluster_map_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -5055,6 +5082,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
           },
           {
             foreignKeyName: "cdp_decision_insight_links_insight_event_id_fkey"
@@ -5177,6 +5211,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_decision_issue_map_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
+          },
+          {
             foreignKeyName: "cdp_decision_issue_map_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -5259,6 +5300,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_reviews_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
           },
           {
             foreignKeyName: "cdp_decision_reviews_tenant_id_fkey"
@@ -5352,6 +5400,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_pending_decisions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decisions_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
           },
           {
             foreignKeyName: "cdp_decisions_tenant_id_fkey"
@@ -6935,6 +6990,8 @@ export type Database = {
           cash_today: number
           ccc: number
           computation_duration_ms: number | null
+          compute_function: string | null
+          compute_version: string | null
           computed_by: string | null
           contribution_margin: number
           contribution_margin_percent: number
@@ -6947,6 +7004,7 @@ export type Database = {
           gross_margin_percent: number
           gross_profit: number
           id: string
+          input_hash: string | null
           ltv: number
           ltv_cac_ratio: number
           marketing_roas: number
@@ -6978,6 +7036,8 @@ export type Database = {
           cash_today?: number
           ccc?: number
           computation_duration_ms?: number | null
+          compute_function?: string | null
+          compute_version?: string | null
           computed_by?: string | null
           contribution_margin?: number
           contribution_margin_percent?: number
@@ -6990,6 +7050,7 @@ export type Database = {
           gross_margin_percent?: number
           gross_profit?: number
           id?: string
+          input_hash?: string | null
           ltv?: number
           ltv_cac_ratio?: number
           marketing_roas?: number
@@ -7021,6 +7082,8 @@ export type Database = {
           cash_today?: number
           ccc?: number
           computation_duration_ms?: number | null
+          compute_function?: string | null
+          compute_version?: string | null
           computed_by?: string | null
           contribution_margin?: number
           contribution_margin_percent?: number
@@ -7033,6 +7096,7 @@ export type Database = {
           gross_margin_percent?: number
           gross_profit?: number
           id?: string
+          input_hash?: string | null
           ltv?: number
           ltv_cac_ratio?: number
           marketing_roas?: number
@@ -7669,6 +7733,142 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      compute_job_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          duration_ms: number | null
+          error_code: string | null
+          error_message: string | null
+          function_version: string | null
+          id: string
+          input_params: Json | null
+          job_name: string
+          job_trigger: string
+          output_snapshot_id: string | null
+          output_summary: Json | null
+          output_table: string | null
+          retry_count: number | null
+          rows_affected: number | null
+          rows_inserted: number | null
+          rows_updated: number | null
+          snapshot_date: string
+          snapshot_type: string | null
+          started_at: string
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          function_version?: string | null
+          id?: string
+          input_params?: Json | null
+          job_name: string
+          job_trigger: string
+          output_snapshot_id?: string | null
+          output_summary?: Json | null
+          output_table?: string | null
+          retry_count?: number | null
+          rows_affected?: number | null
+          rows_inserted?: number | null
+          rows_updated?: number | null
+          snapshot_date: string
+          snapshot_type?: string | null
+          started_at?: string
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          function_version?: string | null
+          id?: string
+          input_params?: Json | null
+          job_name?: string
+          job_trigger?: string
+          output_snapshot_id?: string | null
+          output_summary?: Json | null
+          output_table?: string | null
+          retry_count?: number | null
+          rows_affected?: number | null
+          rows_inserted?: number | null
+          rows_updated?: number | null
+          snapshot_date?: string
+          snapshot_type?: string | null
+          started_at?: string
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compute_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compute_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "compute_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      compute_retention_policy: {
+        Row: {
+          auto_cleanup: boolean | null
+          cleanup_schedule: string | null
+          created_at: string | null
+          id: string
+          last_cleanup_at: string | null
+          retention_days: number
+          rows_deleted_last: number | null
+          snapshot_type: string
+          table_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_cleanup?: boolean | null
+          cleanup_schedule?: string | null
+          created_at?: string | null
+          id?: string
+          last_cleanup_at?: string | null
+          retention_days?: number
+          rows_deleted_last?: number | null
+          snapshot_type?: string
+          table_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_cleanup?: boolean | null
+          cleanup_schedule?: string | null
+          created_at?: string | null
+          id?: string
+          last_cleanup_at?: string | null
+          retention_days?: number
+          rows_deleted_last?: number | null
+          snapshot_type?: string
+          table_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       confidence_calibration_stats: {
         Row: {
@@ -8966,6 +9166,133 @@ export type Database = {
           },
           {
             foreignKeyName: "decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      decision_evidence_packs: {
+        Row: {
+          computation_duration_ms: number | null
+          compute_function_name: string
+          compute_function_version: string
+          confidence_level: string | null
+          created_at: string | null
+          data_quality_score: number | null
+          decision_id: string
+          estimation_notes: string | null
+          id: string
+          input_data_hash: Json
+          input_row_counts: Json
+          period_end: string
+          period_start: string
+          snapshot_computed_at: string
+          snapshot_ids: string[]
+          snapshot_table: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          computation_duration_ms?: number | null
+          compute_function_name: string
+          compute_function_version?: string
+          confidence_level?: string | null
+          created_at?: string | null
+          data_quality_score?: number | null
+          decision_id: string
+          estimation_notes?: string | null
+          id?: string
+          input_data_hash?: Json
+          input_row_counts?: Json
+          period_end: string
+          period_start: string
+          snapshot_computed_at: string
+          snapshot_ids?: string[]
+          snapshot_table: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          computation_duration_ms?: number | null
+          compute_function_name?: string
+          compute_function_version?: string
+          confidence_level?: string | null
+          created_at?: string | null
+          data_quality_score?: number | null
+          decision_id?: string
+          estimation_notes?: string | null
+          id?: string
+          input_data_hash?: Json
+          input_row_counts?: Json
+          period_end?: string
+          period_start?: string
+          snapshot_computed_at?: string
+          snapshot_ids?: string[]
+          snapshot_table?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_evidence_packs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "cdp_decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_decision_cards_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_decision_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["linked_decision_card_id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_pending_decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_evidence_packs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -13601,16 +13928,27 @@ export type Database = {
       }
       metric_registry: {
         Row: {
+          bounds: Json | null
+          business_context: string | null
           category: string
+          change_log: Json | null
+          compute_frequency: string | null
           created_at: string | null
+          dependencies: string[] | null
           deprecation_date: string | null
+          description: string | null
+          effective_from: string | null
+          effective_until: string | null
           formula: string
+          formula_sql: string | null
           id: string
           is_aggregatable: boolean | null
+          last_computed_at: string | null
           metric_code: string
           metric_name: string
           metric_name_vi: string
           module: string
+          owner: string | null
           precision_level: number | null
           replacement_metric_code: string | null
           requires_tenant_filter: boolean | null
@@ -13618,18 +13956,31 @@ export type Database = {
           time_window: string | null
           unit: string
           updated_at: string | null
+          validation_rules: Json | null
+          version: string | null
         }
         Insert: {
+          bounds?: Json | null
+          business_context?: string | null
           category: string
+          change_log?: Json | null
+          compute_frequency?: string | null
           created_at?: string | null
+          dependencies?: string[] | null
           deprecation_date?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
           formula: string
+          formula_sql?: string | null
           id?: string
           is_aggregatable?: boolean | null
+          last_computed_at?: string | null
           metric_code: string
           metric_name: string
           metric_name_vi: string
           module: string
+          owner?: string | null
           precision_level?: number | null
           replacement_metric_code?: string | null
           requires_tenant_filter?: boolean | null
@@ -13637,18 +13988,31 @@ export type Database = {
           time_window?: string | null
           unit: string
           updated_at?: string | null
+          validation_rules?: Json | null
+          version?: string | null
         }
         Update: {
+          bounds?: Json | null
+          business_context?: string | null
           category?: string
+          change_log?: Json | null
+          compute_frequency?: string | null
           created_at?: string | null
+          dependencies?: string[] | null
           deprecation_date?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_until?: string | null
           formula?: string
+          formula_sql?: string | null
           id?: string
           is_aggregatable?: boolean | null
+          last_computed_at?: string | null
           metric_code?: string
           metric_name?: string
           metric_name_vi?: string
           module?: string
+          owner?: string | null
           precision_level?: number | null
           replacement_metric_code?: string | null
           requires_tenant_filter?: boolean | null
@@ -13656,6 +14020,8 @@ export type Database = {
           time_window?: string | null
           unit?: string
           updated_at?: string | null
+          validation_rules?: Json | null
+          version?: string | null
         }
         Relationships: []
       }
@@ -13713,6 +14079,42 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      metric_version_history: {
+        Row: {
+          change_reason: string | null
+          changed_by: string | null
+          created_at: string | null
+          effective_from: string
+          effective_until: string | null
+          formula_sql: string | null
+          id: string
+          metric_code: string
+          version: string
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          effective_from: string
+          effective_until?: string | null
+          formula_sql?: string | null
+          id?: string
+          metric_code: string
+          version: string
+        }
+        Update: {
+          change_reason?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          effective_from?: string
+          effective_until?: string | null
+          formula_sql?: string | null
+          id?: string
+          metric_code?: string
+          version?: string
+        }
+        Relationships: []
       }
       ml_calibration_snapshots: {
         Row: {
@@ -23288,6 +23690,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cdp_decision_insight_links_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "v_decision_audit_trail"
+            referencedColumns: ["decision_id"]
+          },
+          {
             foreignKeyName: "cdp_decision_insight_links_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -24931,6 +25340,42 @@ export type Database = {
           },
         ]
       }
+      v_compute_job_health: {
+        Row: {
+          avg_duration_ms_7d: number | null
+          failed_24h: number | null
+          health_status: string | null
+          job_name: string | null
+          last_failure_at: string | null
+          last_success_at: string | null
+          runs_24h: number | null
+          success_24h: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compute_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compute_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "compute_job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_customer_ar_summary: {
         Row: {
           avg_payment_days: number | null
@@ -24964,6 +25409,49 @@ export type Database = {
           },
           {
             foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_decision_audit_trail: {
+        Row: {
+          audit_status: string | null
+          category: string | null
+          compute_function_name: string | null
+          compute_function_version: string | null
+          confidence_level: string | null
+          data_quality_score: number | null
+          decision_created_at: string | null
+          decision_id: string | null
+          input_row_counts: Json | null
+          period_end: string | null
+          period_start: string | null
+          severity: string | null
+          snapshot_computed_at: string | null
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_decision_cards_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -25406,6 +25894,26 @@ export type Database = {
           },
         ]
       }
+      v_metric_changelog: {
+        Row: {
+          business_context: string | null
+          change_reason: string | null
+          changed_by: string | null
+          current_formula: string | null
+          current_version: string | null
+          effective_from: string | null
+          history_effective_from: string | null
+          history_effective_until: string | null
+          history_formula: string | null
+          history_version: string | null
+          metric_code: string | null
+          metric_name: string | null
+          metric_name_vi: string | null
+          module: string | null
+          owner: string | null
+        }
+        Relationships: []
+      }
       v_pending_approvals: {
         Row: {
           action: string | null
@@ -25664,6 +26172,24 @@ export type Database = {
       }
     }
     Functions: {
+      attach_evidence_to_decision: {
+        Args: {
+          p_confidence?: string
+          p_decision_id: string
+          p_duration_ms?: number
+          p_function_name: string
+          p_function_version: string
+          p_input_counts?: Json
+          p_input_hash?: Json
+          p_period_end: string
+          p_period_start: string
+          p_quality_score?: number
+          p_snapshot_ids: string[]
+          p_snapshot_table: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       auto_post_journal_entry: {
         Args: { p_entry_id: string }
         Returns: boolean
@@ -25994,6 +26520,21 @@ export type Database = {
         }
         Returns: Json
       }
+      complete_compute_job: {
+        Args: {
+          p_error_code?: string
+          p_error_message?: string
+          p_job_id: string
+          p_output_snapshot_id?: string
+          p_output_summary?: Json
+          p_output_table?: string
+          p_rows_affected?: number
+          p_rows_inserted?: number
+          p_rows_updated?: number
+          p_status?: string
+        }
+        Returns: boolean
+      }
       compute_central_metric_facts: {
         Args: {
           p_period_end?: string
@@ -26094,6 +26635,27 @@ export type Database = {
         Returns: Json
       }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
+      get_decision_evidence: {
+        Args: { p_decision_id: string }
+        Returns: {
+          computed_at: string
+          confidence: string
+          decision_id: string
+          decision_status: string
+          decision_title: string
+          duration_ms: number
+          evidence_id: string
+          function_name: string
+          function_version: string
+          input_counts: Json
+          input_hash: Json
+          period_end: string
+          period_start: string
+          quality_score: number
+          snapshot_ids: string[]
+          snapshot_table: string
+        }[]
+      }
       get_decision_insight: {
         Args: {
           p_decision_type: string
@@ -26169,6 +26731,8 @@ export type Database = {
           cash_today: number
           ccc: number
           computation_duration_ms: number | null
+          compute_function: string | null
+          compute_version: string | null
           computed_by: string | null
           contribution_margin: number
           contribution_margin_percent: number
@@ -26181,6 +26745,7 @@ export type Database = {
           gross_margin_percent: number
           gross_profit: number
           id: string
+          input_hash: string | null
           ltv: number
           ltv_cac_ratio: number
           marketing_roas: number
@@ -26315,7 +26880,35 @@ export type Database = {
         Args: { p_entry_id: string; p_reversal_date?: string }
         Returns: string
       }
+      run_retention_cleanup: {
+        Args: never
+        Returns: {
+          rows_deleted: number
+          table_name: string
+        }[]
+      }
+      start_compute_job: {
+        Args: {
+          p_function_version?: string
+          p_input_params?: Json
+          p_job_name: string
+          p_snapshot_date?: string
+          p_snapshot_type?: string
+          p_tenant_id: string
+          p_trigger?: string
+        }
+        Returns: string
+      }
       sync_budget_actuals: { Args: never; Returns: undefined }
+      update_metric_formula: {
+        Args: {
+          p_change_reason: string
+          p_changed_by?: string
+          p_metric_code: string
+          p_new_formula: string
+        }
+        Returns: boolean
+      }
       validate_period_date: {
         Args: { p_date: string; p_tenant_id: string }
         Returns: string
