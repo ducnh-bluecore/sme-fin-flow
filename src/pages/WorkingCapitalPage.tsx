@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Helmet } from 'react-helmet-async';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -244,9 +245,19 @@ export default function WorkingCapitalPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-green-50 dark:bg-green-950/30">
+          <Card className={cn(
+            "border-2",
+            (summary?.totalPotentialCashRelease || 0) >= 0 
+              ? "bg-sky-50 border-sky-200" 
+              : "bg-red-50 border-red-200"
+          )}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-1">
+              <CardTitle className={cn(
+                "text-sm font-medium flex items-center gap-1",
+                (summary?.totalPotentialCashRelease || 0) >= 0 
+                  ? "text-sky-700" 
+                  : "text-red-700"
+              )}>
                 <TrendingUp className="h-4 w-4" />
                 {t('workingCapital.potentialRelease')}
               </CardTitle>
@@ -256,10 +267,20 @@ export default function WorkingCapitalPage() {
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <>
-                  <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                  <div className={cn(
+                    "text-2xl font-bold",
+                    (summary?.totalPotentialCashRelease || 0) >= 0 
+                      ? "text-sky-600" 
+                      : "text-red-600"
+                  )}>
                     {formatCurrency(summary?.totalPotentialCashRelease || 0)}
                   </div>
-                  <p className="text-xs text-green-600 dark:text-green-500">
+                  <p className={cn(
+                    "text-xs",
+                    (summary?.totalPotentialCashRelease || 0) >= 0 
+                      ? "text-sky-600" 
+                      : "text-red-600"
+                  )}>
                     {t('workingCapital.ifTargetMet')}
                   </p>
                 </>
