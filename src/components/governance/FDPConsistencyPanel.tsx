@@ -193,8 +193,8 @@ export function FDPConsistencyPanel() {
               Critical Checks ({criticalChecks.length})
             </h4>
             <div className="space-y-2">
-              {criticalChecks.map(check => (
-                <ConsistencyCheckRow key={check.id} check={check} />
+              {criticalChecks.map((check, idx) => (
+                <ConsistencyCheckRow key={`critical-${check.id}-${idx}`} check={check} />
               ))}
             </div>
           </div>
@@ -207,8 +207,8 @@ export function FDPConsistencyPanel() {
               Warning Checks ({warningChecks.length})
             </h4>
             <div className="space-y-2">
-              {warningChecks.map(check => (
-                <ConsistencyCheckRow key={check.id} check={check} />
+              {warningChecks.map((check, idx) => (
+                <ConsistencyCheckRow key={`warning-${check.id}-${idx}`} check={check} />
               ))}
             </div>
           </div>
