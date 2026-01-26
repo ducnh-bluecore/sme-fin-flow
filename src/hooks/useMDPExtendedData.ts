@@ -753,12 +753,13 @@ export function useScenarioPlannerData() {
     queryKey: ['scenario-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders (validated financial data)
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('total_amount, status')
+        .from('cdp_orders')
+        .select('gross_revenue')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr);
       if (error) throw error;
       return data || [];
     },
@@ -774,8 +775,9 @@ export function useScenarioPlannerData() {
     const campaignRevenue = campaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
     const campaignOrders = campaigns.reduce((sum, c) => sum + (c.total_orders || 0), 0);
     const expenseSpend = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const orderRevenue = orders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.total_amount || 0 : 0), 0);
-    const orderCount = orders.filter(o => o.status !== 'cancelled').length;
+    // SSOT: cdp_orders only contains delivered orders, no status filter needed
+    const orderRevenue = orders.reduce((sum, o) => sum + (o.gross_revenue || 0), 0);
+    const orderCount = orders.length;
 
     const totalBudget = campaignSpend + expenseSpend;
     const totalRevenue = campaignRevenue || orderRevenue;
@@ -922,12 +924,13 @@ export function useFunnelData() {
     queryKey: ['funnel-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders (validated financial data)
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('channel, total_amount, status')
+        .from('cdp_orders')
+        .select('channel, gross_revenue')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr);
       if (error) throw error;
       return data || [];
     },
@@ -978,8 +981,9 @@ export function useFunnelData() {
 
       analyticsAgg.impressions = estimatedImpressions;
       analyticsAgg.clicks = estimatedClicks;
-      analyticsAgg.orders = totalOrders || orders.filter(o => o.status !== 'cancelled').length;
-      analyticsAgg.revenue = totalRevenue || orders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.total_amount || 0 : 0), 0);
+      // SSOT: cdp_orders only contains delivered orders
+      analyticsAgg.orders = totalOrders || orders.length;
+      analyticsAgg.revenue = totalRevenue || orders.reduce((sum, o) => sum + (o.gross_revenue || 0), 0);
     }
 
     // Estimate add-to-cart and checkout from orders
@@ -1003,14 +1007,13 @@ export function useFunnelData() {
 
     const channelMap = new Map<string, { orders: number; revenue: number; spend: number }>();
 
+    // SSOT: cdp_orders only contains delivered orders
     orders.forEach(ord => {
       const channel = ord.channel || 'Other';
-      if (ord.status !== 'cancelled') {
-        const existing = channelMap.get(channel) || { orders: 0, revenue: 0, spend: 0 };
-        existing.orders += 1;
-        existing.revenue += ord.total_amount || 0;
-        channelMap.set(channel, existing);
-      }
+      const existing = channelMap.get(channel) || { orders: 0, revenue: 0, spend: 0 };
+      existing.orders += 1;
+      existing.revenue += ord.gross_revenue || 0;
+      channelMap.set(channel, existing);
     });
 
     campaigns.forEach(camp => {
@@ -1073,12 +1076,13 @@ export function useChannelsPageData() {
     queryKey: ['channels-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // SSOT: Query cdp_orders (validated financial data)
       const { data, error } = await supabase
-        .from('external_orders')
-        .select('channel, total_amount, status')
+        .from('cdp_orders')
+        .select('channel, gross_revenue')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr);
       if (error) throw error;
       return data || [];
     },
@@ -1164,14 +1168,13 @@ export function useChannelsPageData() {
     });
 
     // Aggregate orders
+    // SSOT: cdp_orders only contains delivered orders
     orders.forEach(o => {
       const channel = o.channel || 'Other';
-      if (o.status !== 'cancelled') {
-        const existing = channelMap.get(channel) || { spend: 0, revenue: 0, orders: 0, impressions: 0, clicks: 0 };
-        existing.orders += 1;
-        existing.revenue += o.total_amount || 0;
-        channelMap.set(channel, existing);
-      }
+      const existing = channelMap.get(channel) || { spend: 0, revenue: 0, orders: 0, impressions: 0, clicks: 0 };
+      existing.orders += 1;
+      existing.revenue += o.gross_revenue || 0;
+      channelMap.set(channel, existing);
     });
 
     return Array.from(channelMap.entries())
