@@ -386,6 +386,7 @@ export function useSaveResearchView() {
       toast.success('Đã lưu góc nhìn nghiên cứu');
       queryClient.invalidateQueries({ queryKey: ['cdp-saved-views'] });
       queryClient.invalidateQueries({ queryKey: ['cdp-population-catalog'] });
+      queryClient.invalidateQueries({ queryKey: ['cdp-population-detail'] });
     },
     onError: (error: Error) => {
       toast.error(`Lỗi: ${error.message}`);
