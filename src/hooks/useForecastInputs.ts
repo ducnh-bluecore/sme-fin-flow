@@ -105,7 +105,7 @@ export function useForecastInputs() {
       if (!tenantId) return [];
       const { data } = await supabase
         .from('expenses')
-        .select('id, amount, is_recurring, recurring_period')
+        .select('id, amount, is_recurring, recurring_period, expense_date, description')
         .eq('tenant_id', tenantId)
         .eq('is_recurring', true);
       return data || [];
@@ -190,13 +190,30 @@ export function useForecastInputs() {
     const apDueWithin60 = apData.filter(a => a.dueDate <= in60Days).reduce((sum, a) => sum + a.balance, 0);
     const apDueWithin90 = apData.filter(a => a.dueDate <= in90Days).reduce((sum, a) => sum + a.balance, 0);
 
-    // Recurring expenses (monthly)
-    const monthlyExpenses = (expenses || []).reduce((sum, exp) => {
-      if (exp.recurring_period === 'monthly') return sum + (exp.amount || 0);
-      if (exp.recurring_period === 'weekly') return sum + (exp.amount || 0) * 4;
-      if (exp.recurring_period === 'yearly') return sum + (exp.amount || 0) / 12;
-      return sum + (exp.amount || 0);
-    }, 0);
+    // Recurring expenses (monthly) - Only count UNIQUE expense types from most recent month
+    // Group expenses by description/type and take the most recent value for each
+    const expensesByType = new Map<string, number>();
+    const sortedExpenses = [...(expenses || [])].sort((a, b) => {
+      const dateA = a.expense_date ? new Date(a.expense_date).getTime() : 0;
+      const dateB = b.expense_date ? new Date(b.expense_date).getTime() : 0;
+      return dateB - dateA; // Most recent first
+    });
+    
+    // For each expense type, only keep the most recent value
+    for (const exp of sortedExpenses) {
+      const key = exp.description || `expense_${exp.id}`;
+      if (!expensesByType.has(key)) {
+        let monthlyAmount = exp.amount || 0;
+        if (exp.recurring_period === 'weekly') {
+          monthlyAmount = monthlyAmount * 4;
+        } else if (exp.recurring_period === 'yearly') {
+          monthlyAmount = monthlyAmount / 12;
+        }
+        expensesByType.set(key, monthlyAmount);
+      }
+    }
+    
+    const monthlyExpenses = Array.from(expensesByType.values()).reduce((sum, amt) => sum + amt, 0);
 
     // Pending settlements (orders delivered but not yet paid out, typically T+7-14)
     const fourteenDaysAgo = new Date(today);
