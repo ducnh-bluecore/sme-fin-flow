@@ -152,7 +152,7 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
     snapshotResult,
     kpiCacheResult,
     financeSummaryResult,
-    channelCacheResult,
+    channelTotalResult,
     bankAccountsResult,
   ] = await Promise.all([
     supabase
@@ -172,8 +172,9 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
       .select('net_revenue, total_cogs')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
+    // Use v_channel_analytics_total (aggregated) instead of individual channel rows
     supabase
-      .from('channel_analytics_cache')
+      .from('v_channel_analytics_total')
       .select('net_revenue')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
@@ -186,7 +187,7 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
   const snapshot = snapshotResult.data;
   const kpiCache = kpiCacheResult.data;
   const financeSummary = financeSummaryResult.data;
-  const channelCache = channelCacheResult.data;
+  const channelTotal = channelTotalResult.data;
   const bankAccounts = bankAccountsResult.data || [];
   
   const totalBankBalance = bankAccounts.reduce(
@@ -223,7 +224,7 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
         break;
       case 'revenue_dashboard_channel':
         value1 = kpiCache?.net_revenue != null ? Number(kpiCache.net_revenue) : null;
-        value2 = channelCache?.net_revenue != null ? Number(channelCache.net_revenue) : null;
+        value2 = channelTotal?.net_revenue != null ? Number(channelTotal.net_revenue) : null;
         break;
       case 'cogs_pl_dashboard':
         value1 = financeSummary?.total_cogs != null ? Number(financeSummary.total_cogs) : null;
