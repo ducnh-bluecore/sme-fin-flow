@@ -368,6 +368,18 @@ export function useSaveResearchView() {
         .single();
 
       if (error) throw error;
+
+      // Evaluate segment membership after creation
+      const { error: evalError } = await supabase.rpc('cdp_evaluate_segments', {
+        p_tenant_id: tenantId,
+        p_as_of_date: new Date().toISOString().split('T')[0], // Today's date
+      });
+
+      if (evalError) {
+        console.warn('Segment evaluation warning:', evalError.message);
+        // Don't throw - segment was created, evaluation can run later
+      }
+
       return data;
     },
     onSuccess: () => {
