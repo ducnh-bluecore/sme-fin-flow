@@ -349,7 +349,7 @@ export default function PLReportPage() {
                   </div>
                   <Badge variant={metric.change >= 0 ? 'default' : 'destructive'} className="text-xs">
                     {metric.change >= 0 ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
-                    {metric.change}%
+                    {typeof metric.change === 'number' ? metric.change.toFixed(1) : metric.change}%
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mb-1">{metric.label}</p>
