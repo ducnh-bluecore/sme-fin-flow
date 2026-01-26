@@ -28043,6 +28043,7 @@ export type Database = {
         | "delivered"
         | "cancelled"
         | "returned"
+        | "refunded"
       revenue_source: "manual" | "integrated"
       revenue_type: "one_time" | "recurring"
       settlement_status: "pending" | "processing" | "completed" | "disputed"
@@ -28215,6 +28216,7 @@ export const Constants = {
         "delivered",
         "cancelled",
         "returned",
+        "refunded",
       ],
       revenue_source: ["manual", "integrated"],
       revenue_type: ["one_time", "recurring"],
