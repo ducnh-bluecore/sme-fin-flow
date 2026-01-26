@@ -69,6 +69,45 @@
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
+│                  LAYER 2.5: ENTERPRISE GOVERNANCE LAYER (NEW)                   │
+│              Decision Lineage • Orchestration • Metric Governance               │
+│                                                                                 │
+│  ┌─────────────────────────────────────┐  ┌─────────────────────────────────┐   │
+│  │   decision_evidence_packs 🆕        │  │  compute_job_runs 🆕            │   │
+│  │   - decision_id → FK decision_cards │  │  - job_name, job_trigger        │   │
+│  │   - snapshot_ids[] (UUID array)     │  │  - started_at, completed_at     │   │
+│  │   - compute_function_version        │  │  - status (running/success/fail)│   │
+│  │   - input_data_hash (JSONB)         │  │  - output_snapshot_id           │   │
+│  │   - input_row_counts (JSONB)        │  │  - rows_affected, error_message │   │
+│  │   - confidence_level (HIGH/MED/LOW) │  │  - snapshot_date (idempotency)  │   │
+│  └─────────────────────────────────────┘  └─────────────────────────────────┘   │
+│                                                                                 │
+│  ┌─────────────────────────────────────┐  ┌─────────────────────────────────┐   │
+│  │   metric_registry (extended) 🆕     │  │  metric_version_history 🆕      │   │
+│  │   - metric_code (PK)                │  │  - metric_code                  │   │
+│  │   - formula_sql                     │  │  - old_formula, new_formula     │   │
+│  │   - description, business_context   │  │  - change_reason                │   │
+│  │   - owner (CEO/CFO/CMO/etc)         │  │  - changed_by, changed_at       │   │
+│  │   - version (v1.0.0, v1.1.0, etc)   │  │  - approved_by                  │   │
+│  │   - effective_from, effective_to    │  │                                 │   │
+│  └─────────────────────────────────────┘  └─────────────────────────────────┘   │
+│                                                                                 │
+│  ┌─────────────────────────────────────┐                                        │
+│  │   compute_retention_policy 🆕       │  📌 Key Functions:                     │
+│  │   - table_name                      │     - attach_evidence_to_decision()    │
+│  │   - retention_days (default 90)     │     - start_compute_job()              │
+│  │   - snapshot_type (daily/weekly)    │     - complete_compute_job()           │
+│  │   - auto_cleanup (boolean)          │     - update_metric_formula()          │
+│  └─────────────────────────────────────┘     - get_decision_evidence()          │
+│                                                                                 │
+│  📌 Views:                                                                      │
+│     - v_decision_audit_trail (CEO audit query)                                  │
+│     - v_compute_job_health (job monitoring)                                     │
+│     - v_metric_changelog (formula change history)                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           LAYER 3: DATABASE VIEWS                               │
 │                                                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────────┐    │
@@ -191,7 +230,7 @@
 │  ║    └── useFinanceTruthSnapshot()                                        ║    │
 │  ║                                                                         ║    │
 │  ║  /pl-report                PLReportPage.tsx                             ║    │
-│  ║    └── usePLData() ⚠️ (cần migrate sang SSOT)                           ║    │
+│  ║    └── usePLData() ✅ (SSOT-compliant thin wrapper)                     ║    │
 │  ╚═════════════════════════════════════════════════════════════════════════╝    │
 │                                                                                 │
 │  ╔═════════════════════════════════════════════════════════════════════════╗    │
@@ -512,10 +551,110 @@ central_metrics_snapshots + early_warning_alerts + decision_cards
 | **Data Warehouse** | Sync raw data từ platforms | - |
 | **Source Tables** | Store normalized transactions | - |
 | **Computed Tables** | Pre-calculate metrics (DB Functions) | - |
+| **Governance Layer** | Lineage, versioning, orchestration | - |
 | **Views** | Aggregate & expose via SQL | - |
 | **Hooks** | Fetch only, map columns | `.reduce()`, `.filter()` aggregations |
 | **Pages** | Display & interact | Business calculations |
 | **Menu** | Navigation routing | - |
+
+---
+
+## Enterprise Governance Layer (Trụ Cột Mới)
+
+### 1. Decision Lineage & Evidence Pack
+
+Mọi Decision Card đều được gắn với "gói bằng chứng" để trả lời audit:
+
+> "Quyết định này dựa trên dữ liệu nào, tại thời điểm nào?"
+
+```sql
+-- Query audit-grade lineage
+SELECT * FROM get_decision_evidence('decision-uuid');
+
+-- Returns:
+{
+  "decision_id": "abc123",
+  "snapshot_computed_at": "2025-01-25T14:30:00Z",
+  "compute_function_version": "v2.1.0",
+  "input_row_counts": { "external_orders": 15234, "invoices": 892 },
+  "input_data_hash": { "external_orders": "sha256:abc...", "invoices": "sha256:def..." },
+  "confidence_level": "HIGH",
+  "period_start": "2024-12-01",
+  "period_end": "2024-12-31"
+}
+```
+
+### 2. Orchestration & Job Scheduling
+
+Mọi compute job đều được track để đảm bảo idempotency và audit:
+
+| Column | Mô tả |
+|--------|-------|
+| `job_name` | Tên function (e.g., `compute_central_metrics_snapshot`) |
+| `job_trigger` | `scheduled` / `jit` / `manual` / `event` |
+| `snapshot_date` | Unique per day (idempotency key) |
+| `status` | `running` → `success` / `failed` / `skipped` |
+| `output_snapshot_id` | FK to resulting snapshot |
+
+```sql
+-- Check job health
+SELECT * FROM v_compute_job_health WHERE status = 'failed';
+```
+
+### 3. Metric Governance & Formula Versioning
+
+Mỗi metric có định nghĩa chính thức với version history:
+
+| Field | Mô tả |
+|-------|-------|
+| `metric_code` | Unique identifier (e.g., `NET_REVENUE`) |
+| `formula_sql` | Công thức SQL chính thức |
+| `owner` | Người chịu trách nhiệm (CEO/CFO/CMO) |
+| `version` | Semantic version (v1.0.0, v1.1.0) |
+| `business_context` | Giải thích cho non-tech stakeholders |
+
+```sql
+-- View metric changelog
+SELECT * FROM v_metric_changelog WHERE metric_code = 'EBITDA';
+```
+
+### Audit-Grade Compliance Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CEO asks: "Quyết định này dựa trên data gì?"                   │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  SELECT * FROM v_decision_audit_trail WHERE decision_id = ?     │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Response:                                                      │
+│  • Snapshot: central_metrics_snapshots #def456                  │
+│  • Computed at: 2025-01-25 14:30:00                             │
+│  • Function version: compute_central_metrics_snapshot v2.1.0    │
+│  • Input: 15,234 orders (hash: sha256:abc...), 892 invoices     │
+│  • Period: 2024-12-01 → 2024-12-31                              │
+│  • Confidence: HIGH                                             │
+│  • Metric formulas used: NET_REVENUE v1.2.0, GROSS_PROFIT v1.0.0│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Mức độ khó copy (Competitive Moat)
+
+| Thành phần | Mức độ copy | Ghi chú |
+|------------|-------------|---------|
+| UI Components | Dễ | Có thể clone từ shadcn/Tailwind |
+| Dashboard logic | Trung bình | Standard BI patterns |
+| SSOT Layering (0-6) | Khó | Requires discipline + architecture |
+| Decision Evidence Pack | Rất khó | Audit-grade, enterprise requirement |
+| Metric Governance | Rất khó | Formula versioning, lineage tracking |
+| Control Tower OS | Rất khó | Decision-first, not dashboard-first |
 
 ---
 
@@ -524,3 +663,6 @@ central_metrics_snapshots + early_warning_alerts + decision_cards
 | Date | Author | Change |
 |------|--------|--------|
 | 2025-01-26 | AI | Initial comprehensive dependency map |
+| 2025-01-26 | AI | Added Layer 2.5: Enterprise Governance (Decision Lineage, Orchestration, Metric Governance) |
+| 2025-01-26 | AI | Fixed P&L SSOT status: usePLData now SSOT-compliant |
+| 2025-01-26 | AI | Added Competitive Moat analysis |
