@@ -2,6 +2,9 @@
  * WorkingCapitalContent - Extracted from WorkingCapitalPage
  * This component displays working capital overview with KPIs, charts, and recommendations
  * Used in WorkingCapitalHubPage as a tab
+ * 
+ * ⚠️ SSOT: Now uses useCashConversionCycle (same as CashConversionCycleContent)
+ * to ensure data consistency across tabs
  */
 
 import { useState } from 'react';
@@ -16,6 +19,7 @@ import {
   ArrowRight, Clock, DollarSign, AlertCircle,
   CheckCircle, MinusCircle, Info, ChevronDown
 } from 'lucide-react';
+import { useCashConversionCycle } from '@/hooks/useCashConversionCycle';
 import { useWorkingCapitalSummary } from '@/hooks/useWorkingCapital';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -35,36 +39,48 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 export default function WorkingCapitalContent() {
-  const { data: summary, isLoading } = useWorkingCapitalSummary();
+  // SSOT: Use same hook as CashConversionCycleContent for consistency
+  const { data: cccData, isLoading: cccLoading } = useCashConversionCycle();
+  // Keep summary for recommendations and trend
+  const { data: summary, isLoading: summaryLoading } = useWorkingCapitalSummary();
   const [showFormulas, setShowFormulas] = useState(false);
   const { t } = useLanguage();
   
-  const current = summary?.current;
+  const isLoading = cccLoading || summaryLoading;
   
+  // Use SSOT data from useCashConversionCycle for core metrics
   const cccChartData = [
     { 
       metric: 'DSO', 
-      current: current?.dso_days || 0, 
-      target: current?.target_dso || 30,
+      current: cccData?.dso || 0, 
+      target: 30,
     },
     { 
       metric: 'DIO', 
-      current: current?.dio_days || 0, 
-      target: current?.target_dio || 0,
+      current: cccData?.dio || 0, 
+      target: 45,
     },
     { 
       metric: 'DPO', 
-      current: current?.dpo_days || 0, 
-      target: current?.target_dpo || 45,
+      current: cccData?.dpo || 0, 
+      target: 45,
     },
   ];
 
-  const trendData = summary?.trend.map(t => ({
-    date: format(parseISO(t.metric_date), 'MMM yy', { locale: vi }),
-    ccc: t.ccc_days,
-    dso: t.dso_days,
-    dpo: t.dpo_days,
-  })).reverse() || [];
+  // Use trends from CCC data (SSOT) if available, fallback to summary
+  const trendData = cccData?.trends?.length > 0 
+    ? cccData.trends.map(t => ({
+        date: t.month,
+        ccc: t.ccc,
+        dso: t.dso,
+        dpo: t.dpo,
+      }))
+    : summary?.trend?.map(t => ({
+        date: format(parseISO(t.metric_date), 'MMM yy', { locale: vi }),
+        ccc: t.ccc_days,
+        dso: t.dso_days,
+        dpo: t.dpo_days,
+      })).reverse() || [];
 
   const priorityColors = {
     high: 'bg-red-500/20 text-red-700 dark:text-red-400 border-red-500',
@@ -117,7 +133,7 @@ export default function WorkingCapitalContent() {
                 <p className="font-medium text-primary">{t('workingCapital.ccc')}</p>
                 <p className="text-muted-foreground font-mono text-xs">{t('workingCapital.cccFormula')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {t('workingCapital.current')}: {current?.dso_days || 0} + {current?.dio_days || 0} - {current?.dpo_days || 0} = {current?.ccc_days || 0} {t('workingCapital.days')}
+                  {t('workingCapital.current')}: {cccData?.dso || 0} + {cccData?.dio || 0} - {cccData?.dpo || 0} = {cccData?.ccc || 0} {t('workingCapital.days')}
                 </p>
               </div>
             </CardContent>
@@ -139,9 +155,9 @@ export default function WorkingCapitalContent() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{current?.dso_days || 0} {t('workingCapital.days')}</div>
+                <div className="text-2xl font-bold">{Math.round(cccData?.dso || 0)} {t('workingCapital.days')}</div>
                 <p className="text-xs text-muted-foreground">
-                  {t('workingCapital.target')}: {current?.target_dso || 30} {t('workingCapital.days')}
+                  {t('workingCapital.target')}: 30 {t('workingCapital.days')}
                 </p>
               </>
             )}
@@ -160,7 +176,7 @@ export default function WorkingCapitalContent() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{current?.dio_days || 0} {t('workingCapital.days')}</div>
+                <div className="text-2xl font-bold">{Math.round(cccData?.dio || 0)} {t('workingCapital.days')}</div>
                 <p className="text-xs text-muted-foreground">{t('workingCapital.inventoryDays')}</p>
               </>
             )}
@@ -179,9 +195,9 @@ export default function WorkingCapitalContent() {
               <Skeleton className="h-8 w-20" />
             ) : (
               <>
-                <div className="text-2xl font-bold">{current?.dpo_days || 0} {t('workingCapital.days')}</div>
+                <div className="text-2xl font-bold">{Math.round(cccData?.dpo || 0)} {t('workingCapital.days')}</div>
                 <p className="text-xs text-muted-foreground">
-                  {t('workingCapital.target')}: {current?.target_dpo || 45} {t('workingCapital.days')}
+                  {t('workingCapital.target')}: 45 {t('workingCapital.days')}
                 </p>
               </>
             )}
@@ -201,7 +217,7 @@ export default function WorkingCapitalContent() {
             ) : (
               <>
                 <div className="text-2xl font-bold flex items-center gap-2">
-                  {current?.ccc_days || 0} {t('workingCapital.days')}
+                  {Math.round(cccData?.ccc || 0)} {t('workingCapital.days')}
                   {getTrendIcon()}
                 </div>
                 <p className="text-xs text-muted-foreground">{getTrendLabel()}</p>
@@ -290,13 +306,13 @@ export default function WorkingCapitalContent() {
             )}
             <div className="mt-4 p-3 bg-muted/50 rounded-lg">
               <div className="flex items-center justify-center gap-2 text-lg font-mono">
-                <span className="text-primary font-bold">{current?.dso_days || 0}</span>
+                <span className="text-primary font-bold">{Math.round(cccData?.dso || 0)}</span>
                 <span className="text-muted-foreground">+</span>
-                <span className="text-primary font-bold">{current?.dio_days || 0}</span>
+                <span className="text-primary font-bold">{Math.round(cccData?.dio || 0)}</span>
                 <span className="text-muted-foreground">-</span>
-                <span className="text-primary font-bold">{current?.dpo_days || 0}</span>
+                <span className="text-primary font-bold">{Math.round(cccData?.dpo || 0)}</span>
                 <span className="text-muted-foreground">=</span>
-                <span className="text-2xl font-bold text-primary">{current?.ccc_days || 0}</span>
+                <span className="text-2xl font-bold text-primary">{Math.round(cccData?.ccc || 0)}</span>
                 <span className="text-sm text-muted-foreground">{t('workingCapital.days')}</span>
               </div>
             </div>
@@ -344,10 +360,10 @@ export default function WorkingCapitalContent() {
             <CardTitle className="text-base">{t('workingCapital.ar')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(current?.accounts_receivable || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(cccData?.avgAR || 0)}</div>
             <div className="mt-2 flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{t('workingCapital.turnover')}:</span>
-              <strong>{formatNumber(current?.ar_turnover || 0)}x</strong>
+              <strong>{formatNumber(cccData?.arTurnover || 0)}x</strong>
             </div>
           </CardContent>
         </Card>
@@ -357,10 +373,10 @@ export default function WorkingCapitalContent() {
             <CardTitle className="text-base">{t('workingCapital.inventory')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(current?.inventory_value || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(cccData?.avgInventory || 0)}</div>
             <div className="mt-2 flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{t('workingCapital.turnover')}:</span>
-              <strong>{formatNumber(current?.inventory_turnover || 0)}x</strong>
+              <strong>{formatNumber(cccData?.inventoryTurnover || 0)}x</strong>
             </div>
           </CardContent>
         </Card>
@@ -370,10 +386,10 @@ export default function WorkingCapitalContent() {
             <CardTitle className="text-base">{t('workingCapital.ap')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(current?.accounts_payable || 0)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(cccData?.avgAP || 0)}</div>
             <div className="mt-2 flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{t('workingCapital.turnover')}:</span>
-              <strong>{formatNumber(current?.ap_turnover || 0)}x</strong>
+              <strong>{formatNumber(cccData?.apTurnover || 0)}x</strong>
             </div>
           </CardContent>
         </Card>
