@@ -27494,8 +27494,8 @@ export type Database = {
       }
       compute_central_metrics_snapshot: {
         Args: {
-          p_period_end?: string
-          p_period_start?: string
+          p_end_date?: string
+          p_start_date?: string
           p_tenant_id: string
         }
         Returns: string
