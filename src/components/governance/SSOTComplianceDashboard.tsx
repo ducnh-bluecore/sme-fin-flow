@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InsightQualityCard } from './InsightQualityCard';
+import { FDPConsistencyPanel } from './FDPConsistencyPanel';
 
 interface HealthCheck {
   name: string;
@@ -454,6 +455,9 @@ export function SSOTComplianceDashboard() {
             ))}
           </div>
         </div>
+
+        {/* FDP Cross-Screen Consistency - New */}
+        <FDPConsistencyPanel />
 
         {/* Insight Quality Gate - Phase 3 */}
         <InsightQualityCard />
