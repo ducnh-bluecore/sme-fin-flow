@@ -121,6 +121,7 @@ export {
   useWorkingCapitalDaily,
   useLatestWorkingCapital,
   useCCCTrend,
+  type FormattedWorkingCapital,
 } from './useWorkingCapitalDaily';
 
 // ============================================

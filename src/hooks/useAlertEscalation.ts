@@ -1,3 +1,7 @@
+/**
+ * useAlertEscalation - Alert escalation rules management
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
@@ -173,7 +177,6 @@ export function useDigestConfig() {
 
       if (error) throw error;
       
-      // Return default config if none exists
       if (!data) {
         return {
           daily_enabled: true,
@@ -195,7 +198,6 @@ export function useDigestConfig() {
     mutationFn: async (newConfig: Omit<DigestConfig, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      // Use upsert to either insert or update
       const { data, error } = await supabase
         .from('alert_digest_configs')
         .upsert({
