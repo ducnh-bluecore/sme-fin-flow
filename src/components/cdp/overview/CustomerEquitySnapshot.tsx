@@ -9,7 +9,11 @@ export function CustomerEquitySnapshot() {
   const navigate = useNavigate();
   const { data: equityData, isLoading, error } = useCDPEquitySnapshot();
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | null | undefined) => {
+    // Handle null/undefined/NaN values
+    if (value == null || isNaN(value)) {
+      return '0';
+    }
     if (value >= 1_000_000_000) {
       return `${(value / 1_000_000_000).toFixed(1)}B`;
     }
@@ -73,13 +77,13 @@ export function CustomerEquitySnapshot() {
     );
   }
 
-  // Use ONLY real data from DB - no fallbacks
-  const totalEquity12M = equityData.total_equity_12m;
-  const totalEquity24M = equityData.total_equity_24m;
-  const atRiskValue = equityData.at_risk_value;
-  const atRiskPercent = equityData.at_risk_percent;
-  const equityChange = equityData.equity_change;
-  const changeDirection = equityData.change_direction;
+  // Use ONLY real data from DB - with null-safe defaults for display
+  const totalEquity12M = equityData.total_equity_12m ?? 0;
+  const totalEquity24M = equityData.total_equity_24m ?? 0;
+  const atRiskValue = equityData.at_risk_value ?? 0;
+  const atRiskPercent = equityData.at_risk_percent ?? 0;
+  const equityChange = equityData.equity_change ?? 0;
+  const changeDirection = equityData.change_direction ?? 'stable';
   const topDrivers = equityData.top_drivers || [];
 
   return (
