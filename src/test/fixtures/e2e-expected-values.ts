@@ -106,6 +106,45 @@ export const LAYER_2_COMPUTED = {
 } as const;
 
 // =============================================================================
+// MDP: Marketing Performance Data
+// =============================================================================
+export const MDP_EXPECTED = {
+  campaigns: {
+    total_count: 10,
+    active_count: 5,
+    completed_count: 3,
+    paused_count: 2,
+    tolerance: 0,
+  },
+  performance: {
+    total_spend: 61500000, // ~61.5M VND
+    total_revenue: 316000000, // ~316M VND
+    avg_roas: 5.14,
+    tolerance_percent: 10,
+  },
+  channels: {
+    facebook: 3,
+    google: 3,
+    tiktok: 2,
+    email: 2,
+  },
+  mode_summary: {
+    active_campaigns: 5,
+    total_spend: 36700000,
+    total_revenue: 200000000,
+    overall_roas: 5.45,
+    tolerance_percent: 10,
+  },
+  funnel: {
+    impressions: 7340000,
+    clicks: 146800,
+    leads: 14680,
+    orders: 537,
+    is_estimated: true,
+  },
+} as const;
+
+// =============================================================================
 // LAYER 3: Cross-Module Data
 // =============================================================================
 export const LAYER_3_CROSS_MODULE = {
