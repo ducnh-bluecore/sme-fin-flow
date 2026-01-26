@@ -176,13 +176,22 @@ export function useTrialBalance() {
     queryFn: async () => {
       if (!tenantId) return [];
       
+      // Use gl_accounts instead of deprecated trial_balance view
       const { data, error } = await supabase
-        .from('trial_balance')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .from('gl_accounts')
+        .select('id, account_code, account_name, account_type, is_active')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
       
       if (error) throw error;
-      return data;
+      return (data || []).map(acc => ({
+        account_id: acc.id,
+        account_code: acc.account_code,
+        account_name: acc.account_name,
+        account_type: acc.account_type,
+        debit: 0,
+        credit: 0,
+      }));
     },
     enabled: !!tenantId,
   });

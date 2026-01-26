@@ -113,13 +113,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "adjustment_note_items_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "adjustment_note_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -264,13 +257,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "adjustment_notes_original_bill_id_fkey"
@@ -2777,13 +2763,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "bill_items_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "bill_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -2920,13 +2899,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bills_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "bills_journal_entry_id_fkey"
@@ -8860,13 +8832,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "customers_gl_receivable_account_id_fkey"
-            columns: ["gl_receivable_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "customers_payment_term_id_fkey"
             columns: ["payment_term_id"]
             isOneToOne: false
@@ -10164,13 +10129,6 @@ export type Database = {
             columns: ["decision_audit_id"]
             isOneToOne: false
             referencedRelation: "decisions_pending_followup"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "decision_outcomes_decision_audit_id_fkey"
-            columns: ["decision_audit_id"]
-            isOneToOne: false
-            referencedRelation: "unified_decision_history"
             referencedColumns: ["id"]
           },
           {
@@ -12666,29 +12624,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fixed_assets_gl_asset_account_id_fkey"
-            columns: ["gl_asset_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "fixed_assets_gl_depreciation_account_id_fkey"
             columns: ["gl_depreciation_account_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fixed_assets_gl_depreciation_account_id_fkey"
-            columns: ["gl_depreciation_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "fixed_assets_gl_expense_account_id_fkey"
-            columns: ["gl_expense_account_id"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
@@ -12697,8 +12634,8 @@ export type Database = {
             foreignKeyName: "fixed_assets_gl_expense_account_id_fkey"
             columns: ["gl_expense_account_id"]
             isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fixed_assets_tenant_id_fkey"
@@ -13030,25 +12967,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "gl_account_defaults_accounts_payable_id_fkey"
-            columns: ["accounts_payable_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "gl_account_defaults_accounts_receivable_id_fkey"
             columns: ["accounts_receivable_id"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_account_defaults_accounts_receivable_id_fkey"
-            columns: ["accounts_receivable_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "gl_account_defaults_bank_id_fkey"
@@ -13058,25 +12981,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "gl_account_defaults_bank_id_fkey"
-            columns: ["bank_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "gl_account_defaults_cash_id_fkey"
             columns: ["cash_id"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_account_defaults_cash_id_fkey"
-            columns: ["cash_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "gl_account_defaults_purchase_expense_id_fkey"
@@ -13086,25 +12995,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "gl_account_defaults_purchase_expense_id_fkey"
-            columns: ["purchase_expense_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "gl_account_defaults_purchase_vat_id_fkey"
             columns: ["purchase_vat_id"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_account_defaults_purchase_vat_id_fkey"
-            columns: ["purchase_vat_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "gl_account_defaults_sales_discount_id_fkey"
@@ -13114,29 +13009,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "gl_account_defaults_sales_discount_id_fkey"
-            columns: ["sales_discount_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "gl_account_defaults_sales_revenue_id_fkey"
             columns: ["sales_revenue_id"]
-            isOneToOne: false
-            referencedRelation: "gl_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_account_defaults_sales_revenue_id_fkey"
-            columns: ["sales_revenue_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
-            foreignKeyName: "gl_account_defaults_sales_vat_id_fkey"
-            columns: ["sales_vat_id"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
@@ -13145,8 +13019,8 @@ export type Database = {
             foreignKeyName: "gl_account_defaults_sales_vat_id_fkey"
             columns: ["sales_vat_id"]
             isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "gl_account_defaults_tenant_id_fkey"
@@ -13236,13 +13110,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_parent_account_id_fkey"
-            columns: ["parent_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "gl_accounts_tenant_id_fkey"
@@ -14291,13 +14158,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "journal_entry_lines_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "journal_entry_lines_cost_center_id_fkey"
@@ -20344,13 +20204,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tax_codes_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "tax_codes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -21058,13 +20911,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "vendors_gl_payable_account_id_fkey"
-            columns: ["gl_payable_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "vendors_payment_term_id_fkey"
@@ -22021,36 +21867,6 @@ export type Database = {
           },
         ]
       }
-      balance_sheet_summary: {
-        Row: {
-          account_type: string | null
-          tenant_id: string | null
-          total_balance: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
       cash_position: {
         Row: {
           account_number: string | null
@@ -22102,51 +21918,6 @@ export type Database = {
           },
           {
             foreignKeyName: "bank_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      channel_performance_summary: {
-        Row: {
-          avg_order_value: number | null
-          cancelled_orders: number | null
-          channel: string | null
-          connector_name: string | null
-          connector_type: string | null
-          gross_profit: number | null
-          gross_revenue: number | null
-          margin_percent: number | null
-          net_revenue: number | null
-          order_count: number | null
-          returned_orders: number | null
-          shop_name: string | null
-          tenant_id: string | null
-          total_cogs: number | null
-          total_fees: number | null
-          total_orders: number | null
-          total_revenue: number | null
-          unique_customers: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -22278,13 +22049,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
-          },
-          {
             foreignKeyName: "adjustment_notes_original_bill_id_fkey"
             columns: ["original_bill_id"]
             isOneToOne: false
@@ -22342,45 +22106,6 @@ export type Database = {
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      daily_channel_revenue: {
-        Row: {
-          channel: string | null
-          cogs: number | null
-          gross_profit: number | null
-          gross_revenue: number | null
-          net_revenue: number | null
-          order_count: number | null
-          order_date: string | null
-          platform_fees: number | null
-          profit: number | null
-          revenue: number | null
-          revenue_date: string | null
-          tenant_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -22510,13 +22235,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "adjustment_notes_original_bill_id_fkey"
@@ -22655,186 +22373,6 @@ export type Database = {
           },
           {
             foreignKeyName: "decision_audit_log_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      fdp_channel_summary: {
-        Row: {
-          avg_order_value: number | null
-          channel: string | null
-          first_order_date: string | null
-          gross_profit: number | null
-          last_order_date: string | null
-          margin_percent: number | null
-          order_count: number | null
-          tenant_id: string | null
-          total_cogs: number | null
-          total_fees: number | null
-          total_revenue: number | null
-          unique_customers: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      fdp_daily_metrics: {
-        Row: {
-          avg_order_value: number | null
-          cogs: number | null
-          fees: number | null
-          gross_profit: number | null
-          margin_percent: number | null
-          metric_date: string | null
-          order_count: number | null
-          revenue: number | null
-          tenant_id: string | null
-          unique_customers: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      fdp_expense_summary: {
-        Row: {
-          category: Database["public"]["Enums"]["expense_category"] | null
-          expense_month: string | null
-          tenant_id: string | null
-          total_amount: number | null
-          transaction_count: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "expenses_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "expenses_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "expenses_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      fdp_invoice_summary: {
-        Row: {
-          invoice_count: number | null
-          invoice_month: string | null
-          outstanding_amount: number | null
-          status: string | null
-          tenant_id: string | null
-          total_amount: number | null
-          total_paid: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "invoices_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      fdp_monthly_metrics: {
-        Row: {
-          avg_order_value: number | null
-          cogs: number | null
-          fees: number | null
-          gross_profit: number | null
-          margin_percent: number | null
-          month_label: string | null
-          month_start: string | null
-          order_count: number | null
-          revenue: number | null
-          tenant_id: string | null
-          unique_customers: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -23422,189 +22960,6 @@ export type Database = {
           },
         ]
       }
-      pl_summary: {
-        Row: {
-          account_type: string | null
-          tenant_id: string | null
-          total_expense: number | null
-          total_revenue: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      trial_balance: {
-        Row: {
-          account_code: string | null
-          account_id: string | null
-          account_name: string | null
-          account_type: string | null
-          credit_balance: number | null
-          current_balance: number | null
-          debit_balance: number | null
-          normal_balance: string | null
-          tenant_id: string | null
-        }
-        Insert: {
-          account_code?: string | null
-          account_id?: string | null
-          account_name?: string | null
-          account_type?: string | null
-          credit_balance?: never
-          current_balance?: number | null
-          debit_balance?: never
-          normal_balance?: string | null
-          tenant_id?: string | null
-        }
-        Update: {
-          account_code?: string | null
-          account_id?: string | null
-          account_name?: string | null
-          account_type?: string | null
-          credit_balance?: never
-          current_balance?: number | null
-          debit_balance?: never
-          normal_balance?: string | null
-          tenant_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "gl_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      unified_decision_history: {
-        Row: {
-          action_label: string | null
-          action_type: string | null
-          card_identifier: string | null
-          card_source: string | null
-          card_type: string | null
-          comment: string | null
-          created_at: string | null
-          decided_at: string | null
-          decided_by: string | null
-          decision_status: string | null
-          dismiss_reason: string | null
-          entity_id: string | null
-          entity_label: string | null
-          entity_type: string | null
-          id: string | null
-          impact_amount: number | null
-          impact_currency: string | null
-          outcome_notes: string | null
-          outcome_value: number | null
-          snoozed_until: string | null
-          tenant_id: string | null
-        }
-        Insert: {
-          action_label?: string | null
-          action_type?: string | null
-          card_identifier?: never
-          card_source?: never
-          card_type?: string | null
-          comment?: string | null
-          created_at?: string | null
-          decided_at?: string | null
-          decided_by?: string | null
-          decision_status?: string | null
-          dismiss_reason?: string | null
-          entity_id?: string | null
-          entity_label?: string | null
-          entity_type?: string | null
-          id?: string | null
-          impact_amount?: number | null
-          impact_currency?: string | null
-          outcome_notes?: string | null
-          outcome_value?: number | null
-          snoozed_until?: string | null
-          tenant_id?: string | null
-        }
-        Update: {
-          action_label?: string | null
-          action_type?: string | null
-          card_identifier?: never
-          card_source?: never
-          card_type?: string | null
-          comment?: string | null
-          created_at?: string | null
-          decided_at?: string | null
-          decided_by?: string | null
-          decision_status?: string | null
-          dismiss_reason?: string | null
-          entity_id?: string | null
-          entity_label?: string | null
-          entity_type?: string | null
-          id?: string | null
-          impact_amount?: number | null
-          impact_currency?: string | null
-          outcome_notes?: string | null
-          outcome_value?: number | null
-          snoozed_until?: string | null
-          tenant_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "decision_audit_log_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "decision_audit_log_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "decision_audit_log_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
       v_active_alerts_hierarchy: {
         Row: {
           acceleration: number | null
@@ -24058,152 +23413,6 @@ export type Database = {
           },
         ]
       }
-      v_audit_auto_reconcile_evidence: {
-        Row: {
-          action: string | null
-          actor_service_id: string | null
-          actor_type: string | null
-          after_state: Json | null
-          before_state: Json | null
-          created_at: string | null
-          entity_id: string | null
-          entity_type: string | null
-          tenant_id: string | null
-        }
-        Insert: {
-          action?: string | null
-          actor_service_id?: string | null
-          actor_type?: string | null
-          after_state?: Json | null
-          before_state?: Json | null
-          created_at?: string | null
-          entity_id?: string | null
-          entity_type?: string | null
-          tenant_id?: string | null
-        }
-        Update: {
-          action?: string | null
-          actor_service_id?: string | null
-          actor_type?: string | null
-          after_state?: Json | null
-          before_state?: Json | null
-          created_at?: string | null
-          entity_id?: string | null
-          entity_type?: string | null
-          tenant_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "audit_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "audit_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      v_audit_risk_breaches: {
-        Row: {
-          action_taken: string | null
-          detected_at: string | null
-          is_resolved: boolean | null
-          metric_code: string | null
-          metric_value: number | null
-          severity: string | null
-          tenant_id: string | null
-          threshold: number | null
-        }
-        Insert: {
-          action_taken?: string | null
-          detected_at?: string | null
-          is_resolved?: boolean | null
-          metric_code?: string | null
-          metric_value?: number | null
-          severity?: string | null
-          tenant_id?: string | null
-          threshold?: number | null
-        }
-        Update: {
-          action_taken?: string | null
-          detected_at?: string | null
-          is_resolved?: boolean | null
-          metric_code?: string | null
-          metric_value?: number | null
-          severity?: string | null
-          tenant_id?: string | null
-          threshold?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "risk_breach_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "risk_breach_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "risk_breach_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      v_audit_summary: {
-        Row: {
-          action: string | null
-          actor_type: string | null
-          audit_date: string | null
-          event_count: number | null
-          resource_type: string | null
-          tenant_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "audit_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "audit_events_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
       v_bank_txn_match_state: {
         Row: {
           bank_amount: number | null
@@ -24235,6 +23444,42 @@ export type Database = {
           },
           {
             foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_base_order_metrics: {
+        Row: {
+          avg_order_value: number | null
+          gross_profit: number | null
+          gross_revenue: number | null
+          net_revenue: number | null
+          tenant_id: string | null
+          total_cogs: number | null
+          total_discounts: number | null
+          total_orders: number | null
+          unique_customers: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -24458,47 +23703,6 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      v_cdp_data_quality_latest: {
-        Row: {
-          as_of_date: string | null
-          created_at: string | null
-          data_lag_days: number | null
-          duplicate_items: number | null
-          duplicate_orders: number | null
-          flags: Json | null
-          latest_order_date: string | null
-          order_items_total: number | null
-          order_items_unmapped_category: number | null
-          order_items_unmapped_sku: number | null
-          orders_missing_customer: number | null
-          orders_total: number | null
-          quality_score: number | null
-          tenant_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_data_quality_daily_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -25622,41 +24826,6 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_customer_equity_computed_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      v_cdp_overview_stats: {
-        Row: {
-          active_30d: number | null
-          at_risk_count: number | null
-          avg_ltv: number | null
-          customers_with_orders: number | null
-          dormant_count: number | null
-          tenant_id: string | null
-          total_customers: number | null
-          total_revenue: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cdp_customers_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_customers_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "cdp_customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -27080,13 +26249,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "adjustment_notes_gl_account_id_fkey"
-            columns: ["gl_account_id"]
-            isOneToOne: false
-            referencedRelation: "trial_balance"
-            referencedColumns: ["account_id"]
           },
           {
             foreignKeyName: "adjustment_notes_original_bill_id_fkey"

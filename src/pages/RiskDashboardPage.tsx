@@ -50,7 +50,7 @@ import {
   Legend,
 } from 'recharts';
 import { StressTestingPanel } from '@/components/risk/StressTestingPanel';
-import { useRiskScores } from '@/hooks/useRiskScores';
+// useRiskScores removed - SSOT cleanup
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
