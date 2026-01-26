@@ -107,7 +107,7 @@ const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
 
 // Strategy & Decision pages
 const ExecutiveSummaryPage = lazy(() => import("./pages/ExecutiveSummaryPage"));
-const CapitalAllocationPage = lazy(() => import("./pages/CapitalAllocationPage"));
+// CapitalAllocationPage removed - SSOT cleanup
 const DecisionSupportPage = lazy(() => import("./pages/DecisionSupportPage"));
 const RiskDashboardPage = lazy(() => import("./pages/RiskDashboardPage"));
 const DecisionCenterPage = lazy(() => import("./pages/DecisionCenterPage"));

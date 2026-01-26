@@ -127,30 +127,7 @@ export function useChannelPerformance() {
         })) as ChannelPerformance[];
       }
 
-      // Fallback: Try legacy channel_performance_summary view
-      const { data: legacyData, error: legacyError } = await supabase
-        .from('channel_performance_summary')
-        .select('*')
-        .eq('tenant_id', tenantId);
-
-      if (!legacyError && legacyData && legacyData.length > 0) {
-        return legacyData.map(item => ({
-          connector_name: item.connector_name || 'Unknown',
-          connector_type: item.connector_type || 'unknown',
-          shop_name: item.shop_name,
-          integration_id: '',
-          total_orders: Number(item.total_orders) || 0,
-          gross_revenue: Number(item.gross_revenue) || 0,
-          net_revenue: Number(item.net_revenue) || 0,
-          total_fees: Number(item.total_fees) || 0,
-          total_cogs: Number(item.total_cogs) || 0,
-          gross_profit: Number(item.gross_profit) || 0,
-          avg_order_value: Number(item.avg_order_value) || 0,
-          cancelled_orders: Number(item.cancelled_orders) || 0,
-          returned_orders: Number(item.returned_orders) || 0,
-          source: 'ecommerce' as const,
-        })) as ChannelPerformance[];
-      }
+      // Skip legacy view - use direct calculation below
 
       // Fallback: Calculate from raw data
       const [integrationsRes, ordersRes, feesRes] = await Promise.all([
@@ -242,34 +219,13 @@ export function useDailyChannelRevenue(days: number = 90) {
       startDate.setDate(startDate.getDate() - days);
       const startDateStr = startDate.toISOString().split('T')[0];
 
-      // First try the view
-      const { data: viewData, error: viewError } = await supabase
-        .from('daily_channel_revenue')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .order('order_date', { ascending: true });
-
-      if (!viewError && viewData && viewData.length > 0) {
-        return viewData.map(item => ({
-          order_date: item.order_date || '',
-          channel: item.channel || 'Unknown',
-          order_count: Number(item.order_count) || 0,
-          gross_revenue: Number(item.gross_revenue) || 0,
-          net_revenue: Number(item.net_revenue) || 0,
-          platform_fees: Number(item.platform_fees) || 0,
-          profit: Number(item.profit) || 0,
-          source: 'ecommerce' as const,
-        })) as DailyRevenue[];
-      }
-
-      // Fallback: Calculate from external_orders
+      // Use cdp_orders (SSOT) instead of deprecated views
       const { data: orders, error } = await supabase
-        .from('external_orders')
-        .select('order_date, channel, total_amount, seller_income, platform_fee, commission_fee, payment_fee, gross_profit')
+        .from('cdp_orders')
+        .select('order_at, channel, gross_revenue, net_revenue, gross_margin')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .order('order_date', { ascending: true });
+        .gte('order_at', startDateStr)
+        .order('order_at', { ascending: true });
 
       if (error) throw error;
 
@@ -277,7 +233,7 @@ export function useDailyChannelRevenue(days: number = 90) {
       const dailyMap = new Map<string, DailyRevenue>();
 
       (orders || []).forEach(order => {
-        const dateStr = order.order_date?.split('T')[0] || '';
+        const dateStr = order.order_at?.split('T')[0] || '';
         const channel = order.channel || 'Unknown';
         const key = `${dateStr}_${channel}`;
 
@@ -293,10 +249,10 @@ export function useDailyChannelRevenue(days: number = 90) {
         };
 
         existing.order_count++;
-        existing.gross_revenue += order.total_amount || 0;
-        existing.net_revenue += order.seller_income || 0;
-        existing.platform_fees += (order.platform_fee || 0) + (order.commission_fee || 0) + (order.payment_fee || 0);
-        existing.profit += order.gross_profit || 0;
+        existing.gross_revenue += Number(order.gross_revenue) || 0;
+        existing.net_revenue += Number(order.net_revenue) || 0;
+        existing.platform_fees += 0; // Platform fees not in cdp_orders
+        existing.profit += Number(order.gross_margin) || 0;
 
         dailyMap.set(key, existing);
       });

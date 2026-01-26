@@ -172,19 +172,19 @@ export function useAudienceData() {
     enabled: !!tenantId,
   });
 
-  // Fetch channel revenue for cost data
+  // Fetch channel revenue for cost data - use cdp_orders (SSOT)
   const channelRevenueQuery = useQuery({
     queryKey: ['audience-channel-revenue', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
       const { data, error } = await supabase
-        .from('daily_channel_revenue')
-        .select('*')
+        .from('cdp_orders')
+        .select('channel, net_revenue, order_at')
         .eq('tenant_id', tenantId)
-        .gte('order_date', startDateStr)
-        .lte('order_date', endDateStr);
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr);
       if (error) throw error;
-      return data || [];
+      return (data || []).map(d => ({ ...d, net_revenue: Number(d.net_revenue) || 0 }));
     },
     enabled: !!tenantId,
   });

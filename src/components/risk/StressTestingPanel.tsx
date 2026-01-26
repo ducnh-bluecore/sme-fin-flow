@@ -25,7 +25,7 @@ import {
   ScenarioConfig, 
   runMonteCarloSimulation 
 } from '@/hooks/useMonteCarloSimulation';
-import { useDashboardKPICache } from '@/hooks/useDashboardCache';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useCashRunway } from '@/hooks/useCashRunway';
 import { useSaveMonteCarloResult } from '@/hooks/useMonteCarloData';
 import { useAuth } from '@/hooks/useAuth';
@@ -103,7 +103,7 @@ export function StressTestingPanel() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const { isRunning, output, runSimulation, reset } = useMonteCarloSimulation();
-  const { data: kpiData } = useDashboardKPICache();
+  const { data: snapshot } = useFinanceTruthSnapshot();
   const { data: cashRunway } = useCashRunway();
   const saveResult = useSaveMonteCarloResult();
   const { user } = useAuth();
@@ -111,10 +111,10 @@ export function StressTestingPanel() {
   // Get base value from real data
   const baseValue = useMemo(() => {
     // Use EBITDA or cash as base, or fallback
-    if (kpiData?.ebitda) return kpiData.ebitda;
+    if (snapshot?.ebitda) return snapshot.ebitda;
     if (cashRunway?.currentCash) return cashRunway.currentCash;
     return 50000000000; // 50 tỷ default
-  }, [kpiData, cashRunway]);
+  }, [snapshot, cashRunway]);
 
   const handleToggleScenario = (id: string) => {
     setScenarios(prev => prev.map(s => 

@@ -39,9 +39,9 @@ import {
   severityLabels,
 } from '@/hooks/useIntelligentAlertRules';
 import { useSeedAlertRules } from '@/hooks/useMultiChannelAlertRules';
-import CreateRuleDialog from '@/components/alerts/CreateRuleDialog';
-import EditRuleParamsDialog from '@/components/alerts/EditRuleParamsDialog';
-import { RuleRecipientsDialog } from '@/components/alerts/RuleRecipientsDialog';
+// CreateRuleDialog and RuleRecipientsDialog removed - SSOT cleanup
+// import CreateRuleDialog from '@/components/alerts/CreateRuleDialog';
+// import { RuleRecipientsDialog } from '@/components/alerts/RuleRecipientsDialog';
 // Icons mapping
 const categoryIcons: Record<AlertCategory, typeof Package> = {
   product: Package,
