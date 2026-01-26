@@ -44,9 +44,10 @@ export default tseslint.config(
         }]
       }],
       // ⛔ SSOT GUARDRAILS - Prevent direct queries to external_orders (staging table)
+      // EXCEPTION: useEcommerceReconciliation.ts is allowed (reconciliation workflow)
       "no-restricted-syntax": ["error", {
         "selector": "CallExpression[callee.property.name='from'][arguments.0.value='external_orders']",
-        "message": "⛔ SSOT VIOLATION: Query cdp_orders instead of external_orders. external_orders is staging-only (auto-synced via trigger)."
+        "message": "⛔ SSOT VIOLATION: Query cdp_orders instead of external_orders. external_orders is staging-only (auto-synced via trigger). Only useEcommerceReconciliation.ts is exempt."
       }],
     },
   },

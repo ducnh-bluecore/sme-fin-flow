@@ -1,5 +1,7 @@
 /**
- * Channel Analytics Hooks - Refactored to use SSOT
+ * Channel Analytics Hooks - SSOT Compliant
+ * 
+ * ✅ SSOT: Queries cdp_orders (Layer 1) instead of external_orders (staging)
  * 
  * Note: This hook primarily handles channel-specific data aggregation.
  * Core financial metrics (total revenue, margins) should be sourced from
@@ -11,7 +13,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { Database } from '@/integrations/supabase/types';
 
-type ExternalOrder = Database['public']['Tables']['external_orders']['Row'];
+// ✅ SSOT: Use cdp_orders type instead of external_orders
+type CdpOrder = Database['public']['Tables']['cdp_orders']['Row'];
 type ChannelSettlement = Database['public']['Tables']['channel_settlements']['Row'];
 
 // ==================== INTERFACES ====================
@@ -434,7 +437,7 @@ export function useExternalOrders(options?: {
         platform_fee: 0,
         commission_fee: 0,
         payment_fee: 0,
-      })) as unknown as ExternalOrder[];
+      })) as unknown as CdpOrder[];
     },
     enabled: !!tenantId,
   });

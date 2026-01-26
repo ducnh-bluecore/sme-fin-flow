@@ -1,3 +1,20 @@
+/**
+ * ============================================
+ * ECOMMERCE RECONCILIATION HOOK
+ * ============================================
+ * 
+ * ⚠️ SSOT EXCEPTION: This hook intentionally queries external_orders (staging)
+ * 
+ * REASON: Reconciliation requires comparing staging data with bank/wallet 
+ * settlements BEFORE data is finalized into cdp_orders. This is the only
+ * legitimate use case for direct staging table access.
+ * 
+ * This hook is EXCLUDED from ESLint SSOT guardrails.
+ * 
+ * Flow: external_orders (staging) → reconcile → mark paid → trigger sync → cdp_orders
+ */
+
+/* eslint-disable no-restricted-syntax */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';

@@ -114,17 +114,24 @@ export function useForecastInputs() {
     staleTime: 60000,
   });
 
+  // ✅ SSOT: Query cdp_orders instead of external_orders (staging)
+  // cdp_orders contains validated, delivered orders - no status filter needed
   const { data: orders, isLoading: orderLoading } = useQuery({
     queryKey: ['forecast-orders', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       const { data } = await supabase
-        .from('external_orders')
-        .select('id, seller_income, status, delivered_at')
+        .from('cdp_orders')
+        .select('id, net_revenue, order_at')
         .eq('tenant_id', tenantId)
-        .eq('status', 'delivered')
         .limit(50000);
-      return data || [];
+      // Map to expected format: seller_income -> net_revenue, delivered_at -> order_at
+      return (data || []).map(o => ({
+        id: o.id,
+        seller_income: o.net_revenue,
+        status: 'delivered', // cdp_orders = validated orders
+        delivered_at: o.order_at
+      }));
     },
     enabled: !!tenantId,
     staleTime: 60000,
