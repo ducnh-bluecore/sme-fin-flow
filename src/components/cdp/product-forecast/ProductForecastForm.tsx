@@ -47,7 +47,7 @@ export function ProductForecastForm({ onClose }: ProductForecastFormProps) {
   const [selectedBenchmarks, setSelectedBenchmarks] = useState<string[]>([]);
   
   // Data hooks
-  const { data: categories } = useAvailableCategories();
+  const { data: categories, isLoading: categoriesLoading } = useAvailableCategories();
   const { data: benchmarks, isLoading: benchmarksLoading } = useProductBenchmarks({
     category: selectedCategory,
     priceTier: selectedPriceTier,
@@ -175,22 +175,27 @@ export function ProductForecastForm({ onClose }: ProductForecastFormProps) {
 
             <div className="space-y-2">
               <Label>Danh mục sản phẩm</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={categoriesLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn danh mục" />
+                  <SelectValue placeholder={categoriesLoading ? "Đang tải..." : "Chọn danh mục"} />
                 </SelectTrigger>
-                <SelectContent>
-                  {categories?.map(cat => (
-                    <SelectItem key={cat.category} value={cat.category}>
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span>{cat.category}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {cat.buyers.toLocaleString()} khách
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))
-                  }
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {categoriesLoading ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">Đang tải danh mục...</div>
+                  ) : categories && categories.length > 0 ? (
+                    categories.map(cat => (
+                      <SelectItem key={cat.category} value={cat.category}>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span>{cat.category}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {cat.buyers.toLocaleString()} khách
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-sm text-muted-foreground">Không có danh mục</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
