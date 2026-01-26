@@ -125,7 +125,7 @@ export const DataConfidenceSummary = forwardRef<HTMLDivElement, DataConfidenceSu
             <p className="text-xs text-muted-foreground mb-2">Độ mới</p>
             <div className="flex items-center gap-1">
               <span className={`font-medium ${dataFreshnessDays <= 1 ? 'text-success' : dataFreshnessDays <= 3 ? 'text-warning-foreground' : 'text-destructive'}`}>
-                {dataFreshnessDays === 0 ? 'Hôm nay' : `${dataFreshnessDays} ngày`}
+                {dataFreshnessDays <= 0 ? 'Hôm nay' : `${dataFreshnessDays} ngày`}
               </span>
             </div>
           </div>
