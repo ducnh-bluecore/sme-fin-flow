@@ -4185,6 +4185,73 @@ export type Database = {
           },
         ]
       }
+      cdp_customer_cohort_cac: {
+        Row: {
+          acquisition_channel: string | null
+          cac_per_customer: number | null
+          campaign_id: string | null
+          cohort_month: string
+          confidence_level: string | null
+          created_at: string | null
+          id: string
+          new_customers: number | null
+          source_module: string | null
+          tenant_id: string
+          total_spend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          acquisition_channel?: string | null
+          cac_per_customer?: number | null
+          campaign_id?: string | null
+          cohort_month: string
+          confidence_level?: string | null
+          created_at?: string | null
+          id?: string
+          new_customers?: number | null
+          source_module?: string | null
+          tenant_id: string
+          total_spend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          acquisition_channel?: string | null
+          cac_per_customer?: number | null
+          campaign_id?: string | null
+          cohort_month?: string
+          confidence_level?: string | null
+          created_at?: string | null
+          id?: string
+          new_customers?: number | null
+          source_module?: string | null
+          tenant_id?: string
+          total_spend?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_cohort_cac_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_cohort_cac_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_cohort_cac_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_customer_equity_computed: {
         Row: {
           aov_90d: number | null
@@ -8243,6 +8310,161 @@ export type Database = {
           },
         ]
       }
+      cross_domain_variance_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          actual_value: number | null
+          alert_type: string
+          assigned_to: string | null
+          created_at: string | null
+          evidence_snapshot: Json | null
+          expected_value: number | null
+          id: string
+          metric_code: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          severity: string | null
+          source_module: string
+          status: string | null
+          target_module: string
+          tenant_id: string
+          updated_at: string | null
+          variance_amount: number | null
+          variance_percent: number | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          actual_value?: number | null
+          alert_type: string
+          assigned_to?: string | null
+          created_at?: string | null
+          evidence_snapshot?: Json | null
+          expected_value?: number | null
+          id?: string
+          metric_code: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          source_module: string
+          status?: string | null
+          target_module: string
+          tenant_id: string
+          updated_at?: string | null
+          variance_amount?: number | null
+          variance_percent?: number | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          actual_value?: number | null
+          alert_type?: string
+          assigned_to?: string | null
+          created_at?: string | null
+          evidence_snapshot?: Json | null
+          expected_value?: number | null
+          id?: string
+          metric_code?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          source_module?: string
+          status?: string | null
+          target_module?: string
+          tenant_id?: string
+          updated_at?: string | null
+          variance_amount?: number | null
+          variance_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cross_domain_variance_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cross_domain_variance_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cross_domain_variance_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      cross_module_revenue_forecast: {
+        Row: {
+          confidence_level: string | null
+          created_at: string | null
+          id: string
+          month: number
+          projected_aov: number | null
+          projected_orders: number | null
+          projected_revenue: number | null
+          source_module: string | null
+          source_scenario_id: string | null
+          tenant_id: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          confidence_level?: string | null
+          created_at?: string | null
+          id?: string
+          month: number
+          projected_aov?: number | null
+          projected_orders?: number | null
+          projected_revenue?: number | null
+          source_module?: string | null
+          source_scenario_id?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          confidence_level?: string | null
+          created_at?: string | null
+          id?: string
+          month?: number
+          projected_aov?: number | null
+          projected_orders?: number | null
+          projected_revenue?: number | null
+          source_module?: string | null
+          source_scenario_id?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cross_module_revenue_forecast_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cross_module_revenue_forecast_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cross_module_revenue_forecast_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       currencies: {
         Row: {
           code: string
@@ -11557,6 +11779,85 @@ export type Database = {
           },
           {
             foreignKeyName: "external_products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      fdp_locked_costs: {
+        Row: {
+          avg_cac: number | null
+          avg_cogs_percent: number | null
+          avg_fee_percent: number | null
+          created_at: string | null
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          month: number
+          notes: string | null
+          tenant_id: string
+          total_cogs: number | null
+          total_marketing_spend: number | null
+          total_platform_fees: number | null
+          total_revenue: number | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          avg_cac?: number | null
+          avg_cogs_percent?: number | null
+          avg_fee_percent?: number | null
+          created_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          month: number
+          notes?: string | null
+          tenant_id: string
+          total_cogs?: number | null
+          total_marketing_spend?: number | null
+          total_platform_fees?: number | null
+          total_revenue?: number | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          avg_cac?: number | null
+          avg_cogs_percent?: number | null
+          avg_fee_percent?: number | null
+          created_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          month?: number
+          notes?: string | null
+          tenant_id?: string
+          total_cogs?: number | null
+          total_marketing_spend?: number | null
+          total_platform_fees?: number | null
+          total_revenue?: number | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fdp_locked_costs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fdp_locked_costs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "fdp_locked_costs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -17117,6 +17418,73 @@ export type Database = {
           },
           {
             foreignKeyName: "recurring_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      revenue_allocation_bridge: {
+        Row: {
+          cdp_scenario_id: string | null
+          cdp_scenario_name: string | null
+          created_at: string | null
+          fdp_scenario_id: string | null
+          id: string
+          monthly_allocation: Json | null
+          quarterly_weights: Json | null
+          status: string | null
+          synced_at: string | null
+          tenant_id: string
+          total_equity_12m: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          cdp_scenario_id?: string | null
+          cdp_scenario_name?: string | null
+          created_at?: string | null
+          fdp_scenario_id?: string | null
+          id?: string
+          monthly_allocation?: Json | null
+          quarterly_weights?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          tenant_id: string
+          total_equity_12m?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          cdp_scenario_id?: string | null
+          cdp_scenario_name?: string | null
+          created_at?: string | null
+          fdp_scenario_id?: string | null
+          id?: string
+          monthly_allocation?: Json | null
+          quarterly_weights?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          tenant_id?: string
+          total_equity_12m?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_allocation_bridge_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_allocation_bridge_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "revenue_allocation_bridge_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26427,6 +26795,15 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: undefined
       }
+      cdp_push_revenue_to_fdp: {
+        Args: {
+          p_equity_12m: number
+          p_fdp_scenario_id?: string
+          p_quarterly_weights?: Json
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       cdp_refresh_demand_insights: { Args: never; Returns: undefined }
       cdp_refresh_mvs: { Args: never; Returns: undefined }
       cdp_run_daily: {
@@ -26550,6 +26927,10 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: string
+      }
+      detect_cross_domain_variance: {
+        Args: { p_tenant_id: string }
+        Returns: number
       }
       detect_real_alerts: { Args: { p_tenant_id: string }; Returns: number }
       execute_readonly_query: {
@@ -26848,6 +27229,16 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: string
+      }
+      mdp_get_costs_for_roas: {
+        Args: { p_month?: number; p_tenant_id: string; p_year?: number }
+        Returns: {
+          cogs_percent: number
+          confidence_level: string
+          data_source: string
+          fee_percent: number
+          is_cross_module: boolean
+        }[]
       }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
       recalculate_product_metrics:
