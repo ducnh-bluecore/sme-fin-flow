@@ -189,10 +189,9 @@ export function SSOTComplianceDashboard() {
               .select('net_revenue, gross_revenue')
               .eq('tenant_id', tenantId)
               .maybeSingle(),
-            supabase.from('external_orders')
+            supabase.from('cdp_orders')
               .select('id')
               .eq('tenant_id', tenantId)
-              .eq('status', 'delivered')
               .limit(1)
           ]);
 
