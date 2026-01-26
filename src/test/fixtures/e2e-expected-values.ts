@@ -13,6 +13,9 @@ export const E2E_TENANT = {
   plan: 'pro',
 } as const;
 
+// Convenience export for tenant ID
+export const E2E_TEST_TENANT_ID = E2E_TENANT.id;
+
 export const E2E_PERIOD = {
   start: '2026-01-01',
   end: '2027-01-26',
