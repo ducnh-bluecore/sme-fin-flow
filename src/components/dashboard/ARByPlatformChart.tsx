@@ -39,30 +39,25 @@ CustomTooltip.displayName = 'CustomTooltip';
 function ARByPlatformChartComponent() {
   const { data: arAgingData, isLoading } = useARAgingData();
 
-  // Generate mock data based on AR aging data
+  // NO MOCK DATA - Use real data only with explicit distribution
   const platformData = useMemo(() => {
     const totalAR = arAgingData?.reduce((sum, item) => sum + item.value, 0) || 0;
     
     if (totalAR === 0) {
-      // Return demo data if no real data
-      return PLATFORMS.map((platform, index) => {
-        const baseValue = (5 - index) * 800000000 + Math.random() * 200000000;
-        const overdueRate = 0.15 + Math.random() * 0.25;
-        return {
-          platform: platform.name,
-          totalAR: baseValue,
-          overdueAR: baseValue * overdueRate,
-          color: platform.color,
-          percent: ((baseValue / (PLATFORMS.reduce((sum, _, i) => sum + (5 - i) * 800000000, 0))) * 100).toFixed(1),
-        };
-      });
+      // Return empty array - will trigger empty state
+      return [];
     }
 
-    // Distribute total AR across platforms
+    // Distribute total AR across platforms based on typical channel contribution
+    // TODO: Replace with actual per-platform AR from external_orders when available
     const distribution = [0.35, 0.25, 0.20, 0.12, 0.08];
+    const overdueRate = arAgingData 
+      ? (arAgingData.filter(b => ['31-60 ngày', '61-90 ngày', '>90 ngày'].includes(b.bucket))
+          .reduce((sum, b) => sum + b.value, 0) / totalAR)
+      : 0.15;
+      
     return PLATFORMS.map((platform, index) => {
       const platformAR = totalAR * distribution[index];
-      const overdueRate = 0.15 + Math.random() * 0.25;
       return {
         platform: platform.name,
         totalAR: platformAR,
@@ -81,6 +76,26 @@ function ARByPlatformChartComponent() {
         <Skeleton className="h-6 w-48 mb-4" />
         <Skeleton className="h-64 w-full" />
       </div>
+    );
+  }
+
+  // Empty state when no AR data
+  if (platformData.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+        className="data-card"
+      >
+        <div className="mb-4">
+          <h3 className="font-semibold text-foreground">AR theo Nền tảng</h3>
+          <p className="text-sm text-muted-foreground">AR by Platform</p>
+        </div>
+        <div className="h-64 flex items-center justify-center text-muted-foreground">
+          <p>Chưa có dữ liệu AR</p>
+        </div>
+      </motion.div>
     );
   }
 

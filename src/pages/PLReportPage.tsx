@@ -273,18 +273,21 @@ export default function PLReportPage() {
     netIncome: budgetData.ytd.plannedEbitda * 0.80, // After tax
   } : null;
 
-  // Generate expense trend data from monthly data - use actual operating expenses if available
-  const expenseTrendData = monthlyData.map((m) => {
-    const opex = m.opex > 0 ? m.opex : (m.netSales * 0.25); // Fallback to 25% of revenue
-    return {
+  // Generate expense trend data from monthly data - use actual opex or skip
+  // NOTE: Hardcoded distributions REMOVED - show real data only when opex > 0
+  const expenseTrendData = monthlyData
+    .filter(m => m.opex > 0) // Only include months with real opex data
+    .map((m) => ({
       month: m.month,
-      salaries: Math.round(opex * 0.44),
-      rent: Math.round(opex * 0.20),
-      marketing: Math.round(opex * 0.14),
-      utilities: Math.round(opex * 0.06),
-      other: Math.round(opex * 0.16),
-    };
-  });
+      // When we have real expense breakdown, use it. For now, show total only
+      total: Math.round(m.opex),
+      // These are placeholders until we have real expense categorization
+      salaries: 0,
+      rent: 0,
+      marketing: 0,
+      utilities: 0,
+      other: Math.round(m.opex), // Put all in "other" until categorized
+    }));
 
   return (
     <>
