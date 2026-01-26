@@ -26431,21 +26431,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_decay_alerts"
             referencedColumns: ["tenant_id"]
           },
           {
-            foreignKeyName: "external_orders_tenant_id_fkey"
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
