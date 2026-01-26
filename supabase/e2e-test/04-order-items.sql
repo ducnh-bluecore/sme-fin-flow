@@ -11,6 +11,9 @@
 --   - Phụ kiện: 15%
 --   - Giày dép: 7%
 --
+-- IMPORTANT: product_id references products.id (UUID), NOT SKU string
+-- This enables proper JOIN for FDP profitability calculations
+--
 -- EXPECTED VALUES:
 --   - Total Items: ~12,000
 --   - Total Line Revenue: matches cdp_orders.net_revenue
@@ -21,7 +24,7 @@
 DELETE FROM cdp_order_items 
 WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
--- Generate order items (2-3 items per order)
+-- Generate order items with proper product UUID references
 INSERT INTO cdp_order_items (
   id, tenant_id, order_id, product_id, category, qty, unit_price, 
   line_revenue, line_cogs, line_margin
@@ -48,7 +51,24 @@ items_per_order AS (
     CASE WHEN order_seq % 5 < 3 THEN 2 ELSE 3 END as total_items
   FROM order_base
 ),
-items_with_products AS (
+-- Pre-load products with their actual UUIDs
+product_lookup AS (
+  SELECT 
+    id as product_uuid,
+    sku,
+    category,
+    CASE 
+      WHEN category = 'Áo' THEN 0.55
+      WHEN category = 'Quần' THEN 0.50
+      WHEN category = 'Váy' THEN 0.48
+      WHEN category = 'Phụ kiện' THEN 0.62
+      WHEN category = 'Giày dép' THEN 0.52
+      ELSE 0.55
+    END as cogs_pct
+  FROM products
+  WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+),
+items_with_sku AS (
   SELECT
     order_id,
     order_seq,
@@ -57,45 +77,35 @@ items_with_products AS (
     net_revenue,
     cogs,
     gross_margin,
-    -- Product assignment based on category distribution
+    -- Generate SKU based on category distribution
     CASE 
       -- 35% Áo
       WHEN (order_seq + item_num) % 100 < 35 THEN 
-        jsonb_build_object(
-          'sku', 'SKU-AO-' || LPAD((((order_seq + item_num) % 30) + 1)::text, 3, '0'),
-          'category', 'Áo',
-          'cogs_pct', 0.55
-        )
+        'SKU-AO-' || LPAD((((order_seq + item_num) % 30) + 1)::text, 3, '0')
       -- 25% Quần
       WHEN (order_seq + item_num) % 100 < 60 THEN 
-        jsonb_build_object(
-          'sku', 'SKU-QU-' || LPAD((((order_seq + item_num) % 25) + 1)::text, 3, '0'),
-          'category', 'Quần',
-          'cogs_pct', 0.50
-        )
+        'SKU-QU-' || LPAD((((order_seq + item_num) % 25) + 1)::text, 3, '0')
       -- 18% Váy
       WHEN (order_seq + item_num) % 100 < 78 THEN 
-        jsonb_build_object(
-          'sku', 'SKU-VA-' || LPAD((((order_seq + item_num) % 20) + 1)::text, 3, '0'),
-          'category', 'Váy',
-          'cogs_pct', 0.48
-        )
+        'SKU-VA-' || LPAD((((order_seq + item_num) % 20) + 1)::text, 3, '0')
       -- 15% Phụ kiện
       WHEN (order_seq + item_num) % 100 < 93 THEN 
-        jsonb_build_object(
-          'sku', 'SKU-PK-' || LPAD((((order_seq + item_num) % 15) + 1)::text, 3, '0'),
-          'category', 'Phụ kiện',
-          'cogs_pct', 0.62
-        )
+        'SKU-PK-' || LPAD((((order_seq + item_num) % 15) + 1)::text, 3, '0')
       -- 7% Giày dép
       ELSE 
-        jsonb_build_object(
-          'sku', 'SKU-GD-' || LPAD((((order_seq + item_num) % 10) + 1)::text, 3, '0'),
-          'category', 'Giày dép',
-          'cogs_pct', 0.52
-        )
-    END as product_info
+        'SKU-GD-' || LPAD((((order_seq + item_num) % 10) + 1)::text, 3, '0')
+    END as generated_sku
   FROM items_per_order
+),
+-- Join with product_lookup to get actual UUID
+items_with_products AS (
+  SELECT
+    i.*,
+    p.product_uuid,
+    p.category,
+    p.cogs_pct
+  FROM items_with_sku i
+  LEFT JOIN product_lookup p ON p.sku = i.generated_sku
 )
 SELECT
   ('44444444-' || LPAD((order_seq / 10000)::text, 4, '0') || '-' || 
@@ -104,8 +114,9 @@ SELECT
    LPAD((order_seq % 10000)::text, 12, '0'))::uuid as id,
   'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'::uuid as tenant_id,
   order_id,
-  product_info->>'sku' as product_id,
-  product_info->>'category' as category,
+  -- Use actual product UUID, fallback to generated_sku if product not found
+  COALESCE(product_uuid::text, generated_sku) as product_id,
+  category,
   -- Quantity: 1-2 items (80% get qty=1, 20% get qty=2)
   CASE WHEN order_seq % 5 = 0 THEN 2 ELSE 1 END as qty,
   -- Unit price: proportional to order net revenue / total items
@@ -127,6 +138,9 @@ SELECT
   SUM(line_revenue) as total_line_revenue,
   SUM(line_cogs) as total_line_cogs,
   SUM(line_margin) as total_line_margin,
+  -- Count how many items have valid product UUID vs SKU fallback
+  COUNT(*) FILTER (WHERE product_id ~ '^[0-9a-f]{8}-') as items_with_uuid,
+  COUNT(*) FILTER (WHERE product_id LIKE 'SKU-%') as items_with_sku_fallback,
   jsonb_build_object(
     'Áo', COUNT(*) FILTER (WHERE category = 'Áo'),
     'Quần', COUNT(*) FILTER (WHERE category = 'Quần'),
