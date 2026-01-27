@@ -50,6 +50,7 @@ import {
   Legend,
 } from 'recharts';
 import { StressTestingPanel } from '@/components/risk/StressTestingPanel';
+import { RetailConcentrationRisk } from '@/components/risk/RetailConcentrationRisk';
 import { useRiskRadarData, type RiskScoreItem } from '@/hooks/useRiskRadarData';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -126,104 +127,8 @@ function RiskScoreCard({
   );
 }
 
-// Concentration Risk Component
-function ConcentrationRisk() {
-  const customerConcentration = [
-    { name: 'Khách hàng A', value: 25, revenue: 12500000000 },
-    { name: 'Khách hàng B', value: 15, revenue: 7500000000 },
-    { name: 'Khách hàng C', value: 10, revenue: 5000000000 },
-    { name: 'Khác', value: 50, revenue: 25000000000 },
-  ];
-
-  const vendorConcentration = [
-    { name: 'Supplier A', value: 35, spend: 8750000000 },
-    { name: 'Supplier B', value: 20, spend: 5000000000 },
-    { name: 'Supplier C', value: 15, spend: 3750000000 },
-    { name: 'Khác', value: 30, spend: 7500000000 },
-  ];
-
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#94a3b8'];
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-blue-500" />
-            Rủi ro tập trung khách hàng
-          </CardTitle>
-          <CardDescription>Top 3 khách hàng chiếm 50% doanh thu</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={customerConcentration}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {customerConcentration.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v, name, props) => [formatVNDCompact(props.payload.revenue), 'Doanh thu']} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm font-medium">Cảnh báo: Nên đa dạng hóa khách hàng</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-green-500" />
-            Rủi ro tập trung nhà cung cấp
-          </CardTitle>
-          <CardDescription>Top 3 supplier chiếm 70% chi phí mua hàng</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={vendorConcentration}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {vendorConcentration.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v, name, props) => [formatVNDCompact(props.payload.spend), 'Chi phí']} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <span className="text-sm font-medium">Cao: Supplier A chiếm 35% - cần backup plan</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+// Concentration Risk Component - Now uses RetailConcentrationRisk from separate file
+// Imported at top of file and used directly in main component
 
 // Stress Test Component
 function StressTestPanel() {
@@ -756,7 +661,7 @@ export default function RiskDashboardPage() {
           </TabsContent>
 
           <TabsContent value="concentration" className="mt-4">
-            <ConcentrationRisk />
+            <RetailConcentrationRisk />
           </TabsContent>
 
           <TabsContent value="stress" className="mt-4">
