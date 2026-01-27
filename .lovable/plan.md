@@ -1,335 +1,229 @@
 
-# KẾ HOẠCH TỐI ƯU HÓA TRANG BÁO CÁO P&L - PHIÊN BẢN NÂNG CAO
 
-## 1. TÓM TẮT VẤN ĐỀ HIỆN TẠI
+# KẾ HOẠCH: SỬA LỖI P&L KHÔNG LOAD THEO DATE RANGE
 
-| Vấn đề | Vị trí | Mức độ |
-|--------|--------|--------|
-| Revenue Breakdown = 0đ | `usePLData.ts:187-193` | 🔴 Critical |
-| Expense breakdown không chi tiết | `usePLData.ts:118-129` | 🔴 Critical |
-| COGS % hiển thị sai (0.6% thay vì 57%) | `PLReportPage.tsx:974` | 🟡 Medium |
-| Expense Trend Chart trống | `PLReportPage.tsx:278-290` | 🟡 Medium |
-| Category P&L không có dữ liệu | `usePLData.ts:152` | 🟠 Low |
-| `usePLData` đã DEPRECATED nhưng vẫn dùng | Hook architecture | 🟠 Low |
+## VẤN ĐỀ HIỆN TẠI
+
+| Component | Vấn đề | Mức độ |
+|-----------|--------|--------|
+| `usePLData` hook | Hardcoded `currentYear = new Date().getFullYear()` - bỏ qua DateRangeContext | 🔴 Critical |
+| Query logic | Chỉ query `period_year = 2026`, không filter theo tháng được chọn | 🔴 Critical |
+| UI | `QuickDateSelector` + `DateRangeIndicator` hiển thị nhưng không có effect | 🔴 Critical |
+
+### Luồng hiện tại (BROKEN)
+
+```text
+User chọn "Tháng này" (DateRangeContext)
+        │
+        ╳ (Không được sử dụng)
+        │
+        ▼
+usePLData chỉ dùng currentYear = 2026
+        │
+        ▼
+Query: period_year = 2026, period_month IS NULL (yearly aggregate)
+        │
+        ▼
+Hiển thị dữ liệu cả năm, không phải tháng được chọn
+```
+
+## DỮ LIỆU HIỆN CÓ
+
+- **Bảng `pl_report_cache`**: Có dữ liệu theo `period_year` + `period_month`
+  - Yearly aggregates: `period_month IS NULL`
+  - Monthly data: `period_month = 1, 2, 3, ...`
+  - E2E Test Company: Có dữ liệu từ 2025-2026
+
+- **Không có cột `period_date`**: Cần tính toán từ `period_year` + `period_month`
 
 ---
 
-## 2. GIẢI PHÁP TỐI ƯU
+## GIẢI PHÁP
 
-### Phương án A: Sử dụng bảng cache có sẵn (ĐỀ XUẤT)
-
-Hệ thống đã có bảng **`pl_report_cache`** với đầy đủ các trường:
-- `invoice_revenue`, `contract_revenue`, `integrated_revenue`
-- `opex_salaries`, `opex_rent`, `opex_utilities`, `opex_marketing`, `opex_depreciation`
-
-**Ưu điểm:** Không cần tạo thêm view, tái sử dụng logic đã có.
-
-### Phương án B: Tạo views mới (như plan cũ)
-
-Tạo `v_pl_expense_breakdown` và `v_pl_revenue_by_source`.
-
-**Nhược điểm:** Duplicate logic với `pl_report_cache`.
-
----
-
-## 3. KẾ HOẠCH THỰC HIỆN CHI TIẾT
-
-### Bước 1: Cập nhật RPC `refresh_pl_cache` để lấy dữ liệu từ `cdp_orders`
-
-Hàm hiện tại dùng `external_orders` (đã deprecated). Cần migrate sang `cdp_orders`:
-
-```sql
--- Trong refresh_pl_cache, thay đổi:
--- FROM external_orders → FROM cdp_orders
--- AND order_date → AND order_at
-
--- Integrated Revenue = Doanh thu từ các kênh e-commerce
-SELECT COALESCE(SUM(net_revenue), 0)
-INTO v_integrated_revenue
-FROM cdp_orders
-WHERE tenant_id = p_tenant_id
-  AND channel IN ('Shopee', 'Lazada', 'TikTok Shop', 'TikTok', 'Website')
-  AND order_at >= v_start_date
-  AND order_at <= v_end_date;
-```
-
-### Bước 2: Cập nhật `refresh_pl_cache` để lấy expense từ `finance_expenses_daily`
-
-```sql
--- Lấy expense breakdown từ bảng đã aggregate
-SELECT 
-  COALESCE(SUM(salary_amount), 0),
-  COALESCE(SUM(rent_amount), 0),
-  COALESCE(SUM(utilities_amount), 0),
-  COALESCE(SUM(marketing_amount), 0),
-  COALESCE(SUM(logistics_amount), 0),
-  COALESCE(SUM(depreciation_amount), 0),
-  COALESCE(SUM(other_amount), 0)
-INTO 
-  v_opex_salaries, v_opex_rent, v_opex_utilities,
-  v_opex_marketing, v_opex_logistics, v_opex_depreciation, v_opex_other
-FROM finance_expenses_daily
-WHERE tenant_id = p_tenant_id
-  AND day >= v_start_date
-  AND day <= v_end_date;
-```
-
-### Bước 3: Tạo hook mới `usePLReportData` (thay thế deprecated `usePLData`)
+### Bước 1: Cập nhật `usePLData` hook để integrate DateRangeContext
 
 ```typescript
-// src/hooks/usePLReportData.ts
-export function usePLReportData() {
-  const { data: tenantId } = useActiveTenantId();
+import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
+
+export function usePLData() {
+  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { startDateStr, endDateStr, dateRange } = useDateRangeForQuery();
   
+  // Parse dates để xác định year/month cần query
+  const startDate = new Date(startDateStr);
+  const endDate = new Date(endDateStr);
+  
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth() + 1;
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth() + 1;
+
   return useQuery({
-    queryKey: ['pl-report-data', tenantId],
+    // Include date range trong queryKey để trigger refetch
+    queryKey: ['pl-data', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
-      // 1. Fetch từ pl_report_cache
-      const { data: cache } = await supabase
-        .from('pl_report_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('period_year', { ascending: false })
-        .limit(12);
-      
-      // 2. Aggregate và map dữ liệu
-      return {
-        plData: mapCacheToPlData(cache),
-        revenueBreakdown: {
-          invoiceRevenue: sum(cache, 'invoice_revenue'),
-          contractRevenue: sum(cache, 'contract_revenue'),
-          integratedRevenue: sum(cache, 'integrated_revenue'),
-          totalRevenue: sum(cache, 'net_sales'),
-        },
-        operatingExpenses: {
-          salaries: sum(cache, 'opex_salaries'),
-          rent: sum(cache, 'opex_rent'),
-          utilities: sum(cache, 'opex_utilities'),
-          marketing: sum(cache, 'opex_marketing'),
-          logistics: sum(cache, 'opex_logistics'),
-          // ...
-        },
-        monthlyTrend: cache?.map(c => ({
-          month: `T${c.period_month}`,
-          salaries: c.opex_salaries,
-          rent: c.opex_rent,
-          marketing: c.opex_marketing,
-          // ...
-        })),
-      };
+      // ...query logic mới
     },
   });
 }
 ```
 
-### Bước 4: Sửa lỗi hiển thị % trong PLReportPage
+### Bước 2: Thay đổi query logic theo date range
 
 ```typescript
-// Line 974: Sửa formatPercent
-// Trước:
-<span>{formatPercent(plData.cogs / plData.netSales)}</span>
+// Nếu filter là 1 tháng cụ thể
+if (startYear === endYear && startMonth === endMonth) {
+  // Query monthly data cho tháng đó
+  const { data: monthlyCache } = await supabase
+    .from('pl_report_cache')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('period_year', startYear)
+    .eq('period_month', startMonth)
+    .maybeSingle();
+  
+  // Map monthlyCache → PLData
+}
 
-// Sau:
-<span>
-  {plData.netSales > 0 
-    ? `${((plData.cogs / plData.netSales) * 100).toFixed(1)}%` 
-    : '0%'}
-</span>
-
-// Hoặc tốt hơn - sửa formatPercent để nhận giá trị 0-1:
-<span>{formatPercent(plData.cogs / plData.netSales, 1)}</span>
+// Nếu filter là nhiều tháng (YTD, custom range, etc.)
+else {
+  // Query monthly data trong range và aggregate
+  const { data: monthlyCache } = await supabase
+    .from('pl_report_cache')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .or(`period_year.eq.${startYear},period_year.eq.${endYear}`)
+    .not('period_month', 'is', null)
+    .order('period_year')
+    .order('period_month');
+  
+  // Filter và aggregate các tháng trong range
+  const filteredMonths = monthlyCache?.filter(m => {
+    const monthDate = new Date(m.period_year, m.period_month - 1, 1);
+    return monthDate >= startDate && monthDate <= endDate;
+  });
+  
+  // Sum tất cả các tháng
+  const aggregated = filteredMonths?.reduce((acc, m) => ({
+    net_sales: acc.net_sales + m.net_sales,
+    gross_profit: acc.gross_profit + m.gross_profit,
+    // ...other fields
+  }), { net_sales: 0, gross_profit: 0, ... });
+}
 ```
 
-### Bước 5: Thêm Logistics vào UI
+### Bước 3: Xử lý comparison data (so sánh với cùng kỳ)
 
 ```typescript
-// PLReportPage.tsx - Tab "Chi tiết"
-<PLLineItem label="Lương nhân viên" amount={plData.operatingExpenses.salaries} icon={Users} />
-<PLLineItem label="Thuê mặt bằng" amount={plData.operatingExpenses.rent} icon={Building} />
-<PLLineItem label="Marketing & Quảng cáo" amount={plData.operatingExpenses.marketing} icon={Megaphone} />
-<PLLineItem label="Vận chuyển & Logistics" amount={plData.operatingExpenses.logistics} icon={Truck} /> // NEW
-<PLLineItem label="Điện, nước, internet" amount={plData.operatingExpenses.utilities} icon={Zap} />
+// Previous period = cùng kỳ năm trước
+const prevStartYear = startYear - 1;
+const prevEndYear = endYear - 1;
+
+const { data: prevMonthlyCache } = await supabase
+  .from('pl_report_cache')
+  .select('*')
+  .eq('tenant_id', tenantId)
+  .or(`period_year.eq.${prevStartYear},period_year.eq.${prevEndYear}`)
+  .not('period_month', 'is', null);
+
+// Filter và aggregate cho previous period
 ```
 
-### Bước 6: Cập nhật interface PLData
+---
+
+## FILES CẦN SỬA ĐỔI
+
+| File | Thay đổi |
+|------|----------|
+| `src/hooks/usePLData.ts` | Integrate DateRangeContext, update query logic |
+
+---
+
+## LOGIC CHI TIẾT
+
+### Xử lý các loại date filter:
+
+| Filter | Logic |
+|--------|-------|
+| "Tháng này" | Query `period_year = 2026, period_month = 1` |
+| "Tháng trước" | Query `period_year = 2025, period_month = 12` |
+| "7 ngày" | Query theo tháng hiện tại (không có daily data) |
+| "30 ngày" | Query theo tháng hiện tại |
+| "90 ngày" | Query 3 tháng gần nhất, aggregate |
+| "Năm nay" | Query tất cả tháng của 2026, aggregate |
+| "All time" | Query tất cả dữ liệu, aggregate |
+| "Custom" | Query theo range, aggregate |
+
+### Helper function để tính toán months trong range:
 
 ```typescript
-// Thêm logistics vào interface
-export interface PLData {
-  // ... existing fields
-  operatingExpenses: {
-    salaries: number;
-    rent: number;
-    utilities: number;
-    marketing: number;
-    logistics: number;  // NEW
-    depreciation: number;
-    // ...
-  };
+function getMonthsInRange(startDateStr: string, endDateStr: string): Array<{year: number, month: number}> {
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  const months = [];
+  
+  const current = new Date(start.getFullYear(), start.getMonth(), 1);
+  while (current <= end) {
+    months.push({
+      year: current.getFullYear(),
+      month: current.getMonth() + 1
+    });
+    current.setMonth(current.getMonth() + 1);
+  }
+  
+  return months;
 }
 ```
 
 ---
 
-## 4. CẢI TIẾN BỔ SUNG (BONUS)
-
-### 4.1 Category P&L từ `fdp_channel_summary`
-
-Thêm dữ liệu thực cho tab "Phân tích" bằng cách query từ `fdp_channel_summary`:
-
-```typescript
-const categoryData: CategoryPLData[] = channelData.channels.map(ch => ({
-  category: ch.channel,
-  sales: ch.totalRevenue / 1000000,
-  cogs: ch.totalCogs / 1000000,
-  margin: ch.grossMargin,
-  contribution: ch.revenueShare,
-}));
-```
-
-### 4.2 Thêm Date Range vào query
-
-Hiện tại `usePLData` không respect DateRangeContext. Cần integrate:
-
-```typescript
-const { startDateStr, endDateStr } = useDateRangeForQuery();
-
-// Query với date range
-.gte('period_date', startDateStr)
-.lte('period_date', endDateStr)
-```
-
-### 4.3 Thêm "Doanh thu theo kênh" vào Revenue Breakdown
-
-Thay vì chỉ hiển thị "Từ tích hợp" chung, có thể chi tiết hơn:
+## THỨ TỰ THỰC HIỆN
 
 ```text
-┌──────────────────────────────────────────────────┐
-│ Chi tiết Doanh thu theo nguồn                    │
-├─────────────┬─────────────┬─────────────┬────────┤
-│ Từ hóa đơn  │ Từ hợp đồng │ Từ tích hợp │ TỔNG   │
-│ 0đ          │ 0đ          │ 340M        │ 340M   │
-├─────────────┴─────────────┴─────────────┴────────┤
-│ Chi tiết kênh tích hợp:                          │
-│ • Shopee: 35% (119M)                             │
-│ • Lazada: 25% (85M)                              │
-│ • TikTok: 20% (68M)                              │
-│ • Website: 20% (68M)                             │
-└──────────────────────────────────────────────────┘
-```
-
-### 4.4 Thêm Waterfall Chart cho P&L
-
-Thay vì chỉ có bar chart, thêm waterfall chart để trực quan hóa dòng chảy từ Doanh thu → Lợi nhuận:
-
-```text
-Revenue (340M) → -COGS (194M) → Gross Profit (146M) → -OPEX (398M) → Net Income (-252M)
-```
-
-### 4.5 Thêm Export PDF/Excel cải tiến
-
-Hiện tại nút "Xuất báo cáo" chưa có logic. Có thể thêm:
-
-```typescript
-const handleExport = async (format: 'pdf' | 'excel') => {
-  const reportData = {
-    period: { start: startDate, end: endDate },
-    plData,
-    revenueBreakdown,
-    monthlyData,
-  };
-  
-  if (format === 'excel') {
-    // Sử dụng xlsx library đã có
-    const wb = XLSX.utils.book_new();
-    // ...
-  }
-};
+Bước 1: Import useDateRangeForQuery vào usePLData
+        │
+        ▼
+Bước 2: Thêm date parsing logic
+        │
+        ▼
+Bước 3: Update queryKey để include date range
+        │
+        ▼
+Bước 4: Update queryFn để filter theo months
+        │
+        ▼
+Bước 5: Update comparison logic cho previous period
+        │
+        ▼
+Bước 6: Test với các date filter khác nhau
 ```
 
 ---
 
-## 5. FILES CẦN SỬA ĐỔI
+## KẾT QUẢ MONG ĐỢI
 
-| File | Thay đổi | Ưu tiên |
-|------|----------|---------|
-| `supabase/migrations/[timestamp]_update_pl_cache.sql` | Update RPC refresh_pl_cache | 🔴 High |
-| `src/hooks/usePLData.ts` | Query pl_report_cache, map expense/revenue breakdown | 🔴 High |
-| `src/pages/PLReportPage.tsx` | Fix formatPercent, add Logistics row, channel detail | 🔴 High |
-| `src/hooks/usePLReportData.ts` | (Optional) New hook thay thế deprecated usePLData | 🟡 Medium |
-| `src/lib/formatters.ts` | Fix formatPercent để handle 0-1 range | 🟡 Medium |
-
----
-
-## 6. THỨ TỰ THỰC HIỆN
-
-```text
-Phase 1: Database ─────────────────────────────────
-│
-│  Step 1: Update refresh_pl_cache RPC
-│          ├─ Migrate external_orders → cdp_orders
-│          ├─ Add integrated_revenue từ cdp_orders
-│          └─ Add expense breakdown từ finance_expenses_daily
-│
-│  Step 2: Trigger refresh để populate data
-│          └─ SELECT refresh_pl_cache(tenant_id, 2025, NULL);
-│
-Phase 2: Hook ─────────────────────────────────────
-│
-│  Step 3: Update usePLData
-│          ├─ Query pl_report_cache
-│          ├─ Map revenueBreakdown từ cache
-│          └─ Map operatingExpenses từ cache
-│
-Phase 3: UI ───────────────────────────────────────
-│
-│  Step 4: Fix PLReportPage
-│          ├─ Fix COGS % calculation
-│          ├─ Add Logistics row
-│          └─ Update expense trend data mapping
-│
-│  Step 5: (Optional) Add Channel detail to revenue breakdown
-│
-└──────────────────────────────────────────────────
-```
-
----
-
-## 7. KẾT QUẢ MONG ĐỢI
-
-### Trước vs Sau
-
-| Metric | Trước | Sau |
+| Filter | Trước | Sau |
 |--------|-------|-----|
-| Revenue Breakdown | 0đ / 0đ / 0đ | 0đ / 0đ / 340M |
-| Expense Breakdown | Only Marketing + Other | Salary, Rent, Marketing, Logistics, Utilities, Other |
-| COGS % | 0.6% (sai) | 57.1% (đúng) |
-| Expense Trend Chart | Trống | Stacked area chart với categories |
-| Category P&L | Trống | Dữ liệu từ channels |
+| "Tháng này" (T1/2026) | 89.5M (cả năm) | 89.5M (chỉ T1) |
+| "Năm nay" | 89.5M | 89.5M (T1/2026) |
+| "90 ngày" | 89.5M | ~270M (T11+T12/2025 + T1/2026) |
+| "Năm ngoái" | 0đ (no data 2025) | 1.2 tỷ (2025 data) |
 
-### Data Flow sau tối ưu
+### Luồng sau khi sửa:
 
 ```text
-┌─────────────────┐     ┌─────────────────┐     ┌────────────────┐
-│   cdp_orders    │────▶│  pl_report_cache│────▶│  usePLData     │
-│ (SSOT Orders)   │     │  (Precomputed)  │     │  (Hook)        │
-└─────────────────┘     └─────────────────┘     └────────────────┘
-                               ▲                        │
-┌─────────────────┐            │                        ▼
-│ finance_expenses│────────────┘               ┌────────────────┐
-│ _daily          │                            │ PLReportPage   │
-└─────────────────┘                            │ (UI)           │
-                                               └────────────────┘
+User chọn "Tháng này" (DateRangeContext)
+        │
+        ▼
+useDateRangeForQuery() → startDateStr: "2026-01-01", endDateStr: "2026-01-31"
+        │
+        ▼
+usePLData parses → startYear: 2026, startMonth: 1
+        │
+        ▼
+Query: period_year = 2026, period_month = 1
+        │
+        ▼
+Hiển thị dữ liệu chỉ T1/2026 ✓
 ```
 
----
-
-## 8. VERIFICATION CHECKLIST
-
-- [ ] `pl_report_cache` có dữ liệu với `invoice_revenue`, `integrated_revenue`
-- [ ] `pl_report_cache` có `opex_salaries`, `opex_rent`, `opex_logistics`
-- [ ] Tab "Tổng quan" hiển thị Revenue Breakdown != 0
-- [ ] Tab "Chi tiết" hiển thị expense breakdown đầy đủ
-- [ ] COGS % hiển thị đúng (~57%)
-- [ ] Expense Trend Chart có dữ liệu theo categories
-- [ ] Tab "Phân tích" hiển thị Category P&L từ channels
