@@ -117,6 +117,7 @@ const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
 const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
+const CashPositionPage = lazy(() => import("./pages/CashPositionPage"));
 
 // Sales Kit pages
 const DataWarehouseSalesKit = lazy(() => import("./pages/sales-kit/DataWarehouseSalesKit"));
@@ -510,6 +511,7 @@ const AppRoutes = () => {
         <Route path="/data-guide" element={<DataGuidePage />} />
         <Route path="/etl-rules" element={<ETLRulesPage />} />
         <Route path="/cash-forecast" element={<CashForecastPage />} />
+        <Route path="/cash-position" element={<CashPositionPage />} />
         <Route path="/channel-analytics" element={<ChannelAnalyticsPage />} />
         <Route path="/channel/:channelId" element={<ChannelPLPage />} />
         <Route path="/channel/:channelId/whatif" element={<ChannelWhatIfPage />} />
