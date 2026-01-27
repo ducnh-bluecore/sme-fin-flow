@@ -13,7 +13,9 @@ import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 import { useWorkingCapitalDaily } from './useWorkingCapitalDaily';
 import { 
   calculateTurnoverFromDays,
-  INDUSTRY_BENCHMARKS 
+  INDUSTRY_BENCHMARKS,
+  getMetricStatus,
+  type MetricStatus,
 } from '@/lib/financial-constants';
 
 /**
@@ -30,6 +32,13 @@ export interface CashConversionCycleData {
   dio: number;  
   dpo: number;
   ccc: number;
+
+  // ✅ PRE-COMPUTED STATUS - No FE calculation needed
+  cccStatus: 'good' | 'warning' | 'critical' | 'danger';
+  cccImprovement: number; // ccc - benchmark (negative = better)
+  dsoStatus: MetricStatus;
+  dioStatus: MetricStatus;
+  dpoStatus: MetricStatus;
 
   // Turnover Ratios (simple formula from days: 365/days)
   arTurnover: number;
@@ -145,11 +154,23 @@ export function useCashConversionCycle() {
     const benchmarkDailyWC = dailySales * INDUSTRY_BENCHMARKS.ccc;
     const potentialSavings = Math.max(0, currentDailyWC - benchmarkDailyWC);
 
+    // ✅ PRE-COMPUTE STATUS - using centralized thresholds
+    const cccStatus = getMetricStatus('ccc', ccc);
+    const dsoStatus = getMetricStatus('dso', dso);
+    const dioStatus = getMetricStatus('dio', dio);
+    const dpoStatus = getMetricStatus('dpo', dpo, true); // inverse - higher DPO is better
+    const cccImprovement = ccc - INDUSTRY_BENCHMARKS.ccc;
+
     return {
       dso,
       dio,
       dpo,
       ccc,
+      cccStatus: cccStatus === 'critical' ? 'danger' : cccStatus, // Map 'critical' to 'danger' for legacy UI
+      cccImprovement,
+      dsoStatus,
+      dioStatus,
+      dpoStatus,
       arTurnover,
       inventoryTurnover,
       apTurnover,
@@ -185,6 +206,11 @@ function getEmptyData(): CashConversionCycleData {
     dio: 0,
     dpo: 0,
     ccc: 0,
+    cccStatus: 'good',
+    cccImprovement: 0,
+    dsoStatus: 'good',
+    dioStatus: 'good',
+    dpoStatus: 'good',
     arTurnover: 0,
     inventoryTurnover: 0,
     apTurnover: 0,
