@@ -34,8 +34,9 @@ import {
 
 export default function RollingForecastPage() {
   const { t } = useLanguage();
-  const { data: forecasts, isLoading } = useRollingForecasts();
-  const { data: summary } = useRollingForecastSummary();
+  const { data: forecasts, isLoading: forecastsLoading } = useRollingForecasts();
+  const { data: summary, isLoading: summaryLoading } = useRollingForecastSummary();
+  const isLoading = forecastsLoading || summaryLoading;
   const generateForecast = useGenerateRollingForecast();
   const [activeView, setActiveView] = useState<'chart' | 'table'>('chart');
 
@@ -174,56 +175,6 @@ export default function RollingForecastPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {t('forecast.varianceBudget')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-32" />
-              ) : (
-                <>
-                  <div className={`text-2xl font-bold flex items-center gap-2 ${
-                    (summary?.totalVariance || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {(summary?.totalVariance || 0) >= 0 ? (
-                      <ArrowUpRight className="h-5 w-5" />
-                    ) : (
-                      <ArrowDownRight className="h-5 w-5" />
-                    )}
-                    {formatCurrency(Math.abs(summary?.totalVariance || 0))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('forecast.vsInitialPlan')}
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {t('forecast.accuracy')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-8 w-32" />
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">
-                    {formatPercent(summary?.forecastAccuracy || 0)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('forecast.basedOnActual')}
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Main Content */}
