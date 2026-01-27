@@ -1,147 +1,85 @@
 
-Mục tiêu: `/unit-economics` vẫn không load data ở tất cả tab. Qua log + code hiện tại, có 2 “blocker” độc lập đang chặn dữ liệu:
+Mục tiêu: Tab “SKU Profitability” đang fail và toàn bộ tab trong `/unit-economics` không lên dữ liệu. Hiện tại mình đã xác định được “lỗi thật” còn lại của SKU Profitability: RPC `get_sku_profitability_by_date_range` vẫn đang JOIN sai kiểu dữ liệu (`text = uuid`), nên hook `useCachedSKUProfitability()` luôn throw error ⇒ UI hiện “Không thể tải dữ liệu SKU”.
 
-1) KPI/Cost per order = 0 vì hook SSOT đọc sai contract của RPC `get_fdp_period_summary`
-2) Tab SKU vẫn fail vì backend còn tồn tại 2 overload của `get_sku_profitability_by_date_range` ⇒ Supabase RPC bị mơ hồ (PGRST203)
+Bằng chứng (console log hiện tại):
+- `SKU profitability RPC error: operator does not exist: text = uuid`
 
-Dưới đây là kế hoạch sửa dứt điểm theo SSOT/DB-first.
-
----
-
-## A. Chẩn đoán (nguyên nhân thật)
-
-### A1) KPI và các tab (Order/Customer/Channel/Trends) đều rỗng/0
-- `UnitEconomicsPage` dùng `useUnitEconomics()`
-- `useUnitEconomics()` đang gọi `useFDPAggregatedMetrics()` (wrapper)
-- Wrapper này gọi `useFDPAggregatedMetricsSSOT()`
-- Nhưng `useFDPAggregatedMetricsSSOT.ts` đang parse RPC sai:
-  - Đang expect **snake_case** (`total_orders`, `total_revenue`, …) và truy cập `summaryRes.data?.[0]`
-  - Trong khi `get_fdp_period_summary` thực tế trả về **JSON camelCase** (đã có hook `useFDPPeriodSummary` parse đúng kiểu này)
-
-=> Kết quả: totalOrders/totalRevenue/... bị fallback về 0 ⇒ toàn bộ UI hiển thị 0.
-
-### A2) SKU tab không load vì lỗi PGRST203 (overload)
-Console log hiện tại:
-- `PGRST203 Could not choose the best candidate function ... (3 args) vs (4 args)`
-
-DB test xác nhận đang có 2 function:
-- `(p_tenant_id uuid, p_start_date date, p_end_date date)`
-- `(p_tenant_id uuid, p_start_date date, p_end_date date, p_limit integer)`
-
-Frontend `useSKUProfitabilityCache.ts` hiện gọi **3 tham số** (không truyền p_limit) ⇒ luôn bị mơ hồ ⇒ tab SKU không có dữ liệu.
+Nguồn gốc trong migration đang active:
+- File `supabase/migrations/20260127091338_...sql` đang tạo function 4-args với dòng:
+  - `LEFT JOIN products p ON coi.product_id = p.id AND coi.tenant_id = p.tenant_id`
+  - Trong khi `coi.product_id` là `text`, còn `p.id` là `uuid` ⇒ crash.
+- Việc drop overload 3-args đã xong, nhưng function 4-args vẫn lỗi JOIN nên SKU vẫn fail.
 
 ---
 
-## B. Thiết kế giải pháp (đúng SSOT, ít rủi ro)
-
-### B1) Fix KPI: sửa `useFDPAggregatedMetricsSSOT.ts` để parse đúng JSON camelCase
-Có 2 phương án, mình chọn phương án an toàn/ít thay đổi:
-
-**Phương án đề xuất (nhanh và chắc):**
-- Trong `useFDPAggregatedMetricsSSOT.ts`, sửa phần “Parse RPC response”:
-  - Không dùng `data?.[0]`
-  - Không dùng snake_case keys
-  - Parse trực tiếp `summaryRes.data` như object camelCase, fallback hợp lý
-- Đồng thời log error nếu RPC trả lỗi để không “im lặng” (Truth > Flexibility)
-
-Lưu ý: file `src/hooks/useFDPPeriodSummary.ts` đã là “mẫu đúng” cho contract này. Mình sẽ align theo đó để không lệch.
+## Phần 1 — Chuẩn đoán chính xác trong DB (để chắc không còn overload/khác signature)
+1) Chạy query đọc metadata để confirm chỉ còn đúng function signature đang được gọi:
+   - Liệt kê tất cả overload của `get_sku_profitability_by_date_range` trong `pg_proc` + argument types.
+2) Confirm cột `cdp_order_items.product_id` đang là `text` (hoặc `varchar`) và `products.id` là `uuid`.
 
 Kết quả mong đợi:
-- `useFDPAggregatedMetricsSSOT()` trả về totalRevenue/totalOrders/etc đúng ⇒ `useUnitEconomics()` tự có AOV/COGS/Fees/Shipping/CM đầy đủ ⇒ các tab Order/Customer/Channel/Trends có data.
-
-### B2) Fix SKU: bỏ overload 3-args ở backend + ép frontend luôn truyền p_limit
-**Backend migration:**
-- Drop function signature 3-args:
-  - `DROP FUNCTION IF EXISTS public.get_sku_profitability_by_date_range(uuid, date, date);`
-- Giữ lại 1 function duy nhất có `p_limit integer DEFAULT 500` (hoặc 100/500 tuỳ muốn):
-  - Như vậy dù frontend có truyền hay không, RPC vẫn resolve được (nhưng mình vẫn sẽ truyền explicit ở frontend để “hardening”).
-
-**Frontend:**
-- Trong `useSKUProfitabilityCache.ts`, sửa call:
-  - truyền `p_limit: 500`
-- (Giữ mapping theo output hiện tại: `order_count, total_quantity, total_revenue, total_cogs, gross_profit, margin_percent`)
-
-Kết quả mong đợi:
-- Hết PGRST203
-- Tab SKU Profitability load danh sách SKU theo date range
+- Chỉ còn 1 signature “note-worthy” đang dùng cho frontend:
+  - `(uuid, date, date, integer default …)`.
 
 ---
 
-## C. Kế hoạch triển khai (theo thứ tự để tránh “vẫn 0”)
+## Phần 2 — Fix dứt điểm RPC (DB-first, SSOT)
+Tạo 1 migration mới để **CREATE OR REPLACE** function `get_sku_profitability_by_date_range(uuid, date, date, integer)` với JOIN đúng kiểu.
 
-### Step 1 — Sửa frontend hook SSOT để KPI/Cost tabs có data
-Files:
-- `src/hooks/useFDPAggregatedMetricsSSOT.ts`
+### Option A (đề xuất, an toàn nhất): JOIN có “regex guard” để không bao giờ crash vì cast
+Thay dòng JOIN bằng:
 
-Việc làm:
-1) Đổi interface “Types from RPC response” sang camelCase hoặc dùng type loosen (Json)
-2) Thay logic parse:
-   - `const summary = (summaryRes.data ?? {}) as any;`
-   - `totalOrders = Number(summary.totalOrders ?? 0)`
-   - `totalRevenue = Number(summary.totalRevenue ?? 0)`
-   - `totalCogs = Number(summary.totalCogs ?? 0)`
-   - `totalPlatformFees = Number(summary.totalPlatformFees ?? 0)` (nếu RPC đã gộp)
-   - `totalShippingFees = Number(summary.totalShippingFees ?? 0)`
-   - `contributionMargin = Number(summary.contributionMargin ?? 0)`
-   - `uniqueCustomers = Number(summary.uniqueCustomers ?? 0)`
-   - `period.start/end` lấy từ `summary.periodStart/periodEnd` hoặc fallback (tuỳ RPC trả gì)
-3) Nếu RPC error: throw error để React Query báo lỗi rõ ràng (đỡ “0 im lặng”)
+- `LEFT JOIN products p ON p.tenant_id = coi.tenant_id
+   AND p.id = CASE
+     WHEN coi.product_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+     THEN coi.product_id::uuid
+     ELSE NULL
+   END`
 
-### Step 2 — Backend migration: remove overload 3-args cho SKU RPC
-Files:
-- `supabase/migrations/...sql` (tạo migration mới)
+Ưu điểm:
+- Không phụ thuộc 100% việc `product_id` luôn là UUID string.
+- Không gây “white screen” khi gặp record xấu.
 
-Việc làm:
-1) `DROP FUNCTION IF EXISTS public.get_sku_profitability_by_date_range(uuid, date, date);`
-2) (Optional hardening) đảm bảo function còn lại có default:
-   - `CREATE OR REPLACE FUNCTION ... (p_limit integer DEFAULT 500)` hoặc giữ nguyên nếu đã có.
-3) Re-check signature chỉ còn 1.
+### Option B (nhanh hơn nhưng rủi ro): JOIN bằng `p.id::text = coi.product_id`
+- `LEFT JOIN products p ON p.id::text = coi.product_id AND p.tenant_id = coi.tenant_id`
+Ưu điểm: không cast `product_id` sang uuid.
+Nhược: join sẽ tốn hơn (khó dùng index tốt), và vẫn phụ thuộc format.
 
-### Step 3 — Frontend hardening: luôn truyền p_limit khi gọi SKU RPC
-Files:
-- `src/hooks/useSKUProfitabilityCache.ts`
+Mình sẽ chọn **Option A** để đảm bảo “Truth > Flexibility” + “no silent failure”.
 
-Việc làm:
-- sửa RPC call thành:
-  - `{ p_tenant_id: tenantId, p_start_date: startDateStr, p_end_date: endDateStr, p_limit: 500 }`
+### Đồng thời: giữ return types đúng
+- Giữ toàn bộ `::TEXT` cho `sku`, `product_name`, `channel` như migration hiện tại để tránh mismatch kiểu.
+- Giữ `order_count`, `total_quantity`, `total_revenue`, `total_cogs`, `gross_profit`, `margin_percent` đúng như hook đang map.
 
-### Step 4 — Dọn “unsafe change” đã lỡ làm trước đó
-Quan sát lịch sử cho thấy đã có lần “edited src/integrations/supabase/types.ts” (file này không nên sửa tay).
-Việc làm:
-- Revert mọi thay đổi thủ công trong `src/integrations/supabase/types.ts` về trạng thái auto-generated (để tránh drift type & merge conflicts).
-- Các view/RPC thiếu typing thì dùng `as any` tại nơi query (đúng pattern hiện có trong codebase).
+### Quyền thực thi
+- Đảm bảo `GRANT EXECUTE` cho `authenticated` và `anon` giống file hiện tại.
 
 ---
 
-## D. Checklist xác nhận sau khi sửa
-
-1) Reload `/unit-economics`
-   - KPI cards (AOV/CM-Order/ROAS/LTV:CAC) không còn 0
-   - Tab “Chi phí/Đơn” có số COGS/Phí sàn/Vận chuyển
-2) Mở tab “SKU Profitability”
-   - Không còn log PGRST203
-   - Có danh sách SKU (>= vài chục dòng)
-3) Quick sanity:
-   - AOV ≈ totalRevenue/totalOrders (chỉ lệch do rounding)
-4) Nếu vẫn rỗng:
-   - Kiểm tra date range đang chọn có nằm trong khoảng dữ liệu
-   - Verify tenantId đang active đúng company
+## Phần 3 — Xác nhận flow end-to-end (không sửa UI trước khi backend đúng)
+Sau migration:
+1) Test gọi RPC trực tiếp từ client (tab SKU) sẽ không còn lỗi `text = uuid`.
+2) `useCachedSKUProfitability()` sẽ nhận array rows ⇒ `SKUProfitabilityAnalysis` hết error state.
+3) Trường hợp vẫn “không có data”:
+   - Khi đó UI sẽ rơi vào empty-state “Chưa có dữ liệu SKU …” (khác với error).
+   - Bấm “Tính toán SKU Profitability” sẽ chạy `useRecalculateSKUProfitability()` (dựa vào view `fdp_sku_summary` vốn đang trả 200 OK trong network log) để populate cache.
 
 ---
 
-## E. Rủi ro & cách xử lý
-
-- Nếu RPC `get_fdp_period_summary` thay đổi key (camelCase khác): sẽ bọc layer mapping + fallback, đồng thời log warning để nhìn thấy ngay.
-- Nếu vẫn có overload do migration trước chưa chạy đúng môi trường: sẽ chạy lại migration và xác minh bằng query pg_proc (mình sẽ tự kiểm tra).
-- Nếu SKU RPC trả schema khác với hook: chỉnh mapping theo “return columns” thực tế của function.
+## Phần 4 — Dọn kỹ thuật (để tránh tái phát)
+1) Tuyệt đối không chỉnh `src/integrations/supabase/types.ts` thủ công nữa (file này auto-generated). Nếu đang bị drift thì sẽ revert về trạng thái auto.
+2) Giữ frontend hook như hiện tại (đã pass `p_limit` và mapping output), vì lỗi hiện tại hoàn toàn ở RPC JOIN.
 
 ---
 
-## Phạm vi thay đổi (tóm tắt)
-- Frontend:
-  - Sửa `useFDPAggregatedMetricsSSOT.ts` parse đúng JSON camelCase
-  - Sửa `useSKUProfitabilityCache.ts` truyền `p_limit`
-  - Revert sửa tay `src/integrations/supabase/types.ts` (nếu đang bị drift)
-- Backend:
-  - Migration drop overload 3-args cho `get_sku_profitability_by_date_range`
+## Checklist “done”
+- Console không còn: `operator does not exist: text = uuid`
+- Tab “SKU Profitability” hiển thị summary + list SKU
+- Nếu date range không có orders: hiển thị empty state + nút recalc (không phải error)
+
+---
+
+## Phạm vi thay đổi dự kiến khi vào Default mode
+- Backend: thêm 1 migration mới “Fix join text(uuid) in get_sku_profitability_by_date_range (4 args)”
+- Frontend: không cần thay đổi thêm cho SKU tab (trừ khi muốn hiển thị error message chi tiết hơn)
 
