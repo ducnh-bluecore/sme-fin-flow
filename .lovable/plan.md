@@ -1,418 +1,442 @@
 
-# KẾ HOẠCH NÂNG CẤP TRANG DECISION SUPPORT THÀNH "WOW"
+# KẾ HOẠCH TỐI ƯU 4 TAB: ROI, NPV/IRR, PAYBACK, SENSITIVITY
 
-## MỤC TIÊU
+## TỔNG QUAN
 
-Biến trang từ "Financial Calculator" thành "CFO Decision Command Center" với:
-- Visual impact mạnh mẽ
-- AI-first design
-- Actionable decision workflow
-- Industry benchmarks
-
----
-
-## PHẦN 1: CẤU TRÚC MỚI
-
-```text
-BEFORE:                                    AFTER:
-┌─────────────────────┬──────┐            ┌──────────────────────────────────────┐
-│ Tabs (6 loại)       │ AI   │            │  HERO DECISION CARD (Full width)     │
-│ ─────────────────── │ Chat │            │  Visual comparison + Recommendation  │
-│ Make vs Buy         │      │            ├──────────────────────────────────────┤
-│ • 2 input cards     │      │            │  SCENARIO SANDBOX (Global toggles)   │
-│ • 1 line chart      │      │            │  [Lạm phát] [Thiếu cung] [Nhu cầu↑]  │
-│                     │      │            ├───────────────────┬──────────────────┤
-│                     │      │            │ ANALYSIS TABS     │ AI ADVISOR       │
-│                     │──────│            │ (Upgraded UI)     │ (Contextual)     │
-│                     │Saved │            │                   │                  │
-│                     │List  │            │                   │                  │
-└─────────────────────┴──────┘            └───────────────────┴──────────────────┘
-```
+Nâng cấp 4 tab từ "Financial Calculator" thành "Decision-Ready Analysis" với:
+- Visual KPIs thay vì flat cards
+- Industry benchmarks để so sánh
+- Scenario integration (ScenarioSandbox)
+- AI insights contextual
+- Actionable workflow
 
 ---
 
-## PHẦN 2: CÁC COMPONENT MỚI
+## PHẦN 1: ROI ANALYSIS TAB
 
-### 2.1 Hero Decision Card (Make vs Buy)
-
-**File:** `src/components/decision/HeroDecisionCard.tsx`
-
-Thay thế 2 card input riêng lẻ bằng:
+### Trước vs Sau
 
 ```text
-┌───────────────────────────────────────────────────────────────┐
-│  QUYẾT ĐỊNH SẢN XUẤT HAY THUÊ NGOÀI                          │
-├─────────────────────┬─────────────────────────────────────────┤
-│                     │                                         │
-│   ┌─────────────┐   │   ┌─────────────┐                      │
-│   │    MAKE     │   │   │     BUY     │                      │
-│   │  ┌──────┐   │   │   │  ┌──────┐   │                      │
-│   │  │ 950M │   │ VS│   │  │ 650M │   │    ✓ KHUYẾN NGHỊ    │
-│   │  └──────┘   │   │   │  └──────┘   │      THUÊ NGOÀI     │
-│   │             │   │   │      ★      │      Tiết kiệm 300M  │
-│   └─────────────┘   │   └─────────────┘                      │
-│                     │                                         │
-│   [GAUGE: Cost      │   [ANIMATED ARROW showing winner]      │
-│    Efficiency 68%]  │                                         │
-│                     │                                         │
-├─────────────────────┴─────────────────────────────────────────┤
-│  Điểm hòa vốn: 25,000 đơn vị | Confidence: HIGH 🟢           │
-│  ──────●────────────────────────────────────────────          │
-│        ↑ Current Volume: 10,000                               │
-└───────────────────────────────────────────────────────────────┘
+BEFORE:                              AFTER:
+┌─────────┬─────────┬─────────┐     ┌─────────────────────────────────────┐
+│ ROI 75% │ CAGR 12%│ Net 750M│     │ SCENARIO SANDBOX (Global toggles)   │
+└─────────┴─────────┴─────────┘     ├─────────────────────────────────────┤
+┌─────────────┐ ┌────────────┐      │ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐    │
+│ Input Form  │ │ Bar Chart  │      │ │ ROI │ │CAGR │ │ NP  │ │MULT │    │
+│ ...         │ │            │      │ │75%  │ │12%  │ │750M │ │1.75x│    │
+│             │ │            │      │ │⬤⬤⬤⬤│ │⬤⬤⬤ │ │⬤⬤⬤⬤│ │⬤⬤⬤ │    │
+│             │ │            │      │ │Bench│ │Bench│ │     │ │     │    │
+└─────────────┘ └────────────┘      │ └─────┘ └─────┘ └─────┘ └─────┘    │
+┌───────────────────────────┐       ├─────────────────┬───────────────────┤
+│ Text recommendation       │       │ Year-by-Year    │ Cumulative Chart  │
+└───────────────────────────┘       │ Stacked Bar     │ with ROI Timeline │
+                                    ├─────────────────┴───────────────────┤
+                                    │ DECISION WORKFLOW CARD              │
+                                    │ [Approve] [Request Data] [Compare]  │
+                                    └─────────────────────────────────────┘
 ```
 
-**Features:**
-- Gauge chart cho Cost Efficiency Score
-- Animated winner indicator (checkmark với glow effect)
-- Break-even slider với marker cho current volume
-- Confidence badge dựa trên data quality
+### Changes for ROIAnalysis.tsx
 
-### 2.2 Animated KPI Rings
+1. **Replace flat cards with `KPIRingGrid`**:
+   - ROI Total → Ring with 20% benchmark line
+   - CAGR → Ring with 10% industry benchmark
+   - Net Profit → Ring format currency
+   - Multiple (Total/Investment) → Ring với 1.5x threshold
 
-**File:** `src/components/decision/AnimatedKPIRing.tsx`
+2. **Add ScenarioSandbox** at top for what-if:
+   - Revenue growth scenarios
+   - Cost increase scenarios
 
-Thay thế KPI cards nhạt bằng circular progress rings:
+3. **Enhanced Bar Chart**:
+   - Add cumulative line overlay
+   - Add break-even reference line
+   - Show industry average dotted line
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐        │
-│  │  ╭──╮  │   │  ╭──╮  │   │  ╭──╮  │   │  ╭──╮  │        │
-│  │ ╭╯75%╰╮│   │ ╭╯14%╰╮│   │ ╭╯750M╰│   │ ╭╯1.75B│        │
-│  │  ╰──╯  │   │  ╰──╯  │   │  ╰──╯  │   │  ╰──╯  │        │
-│  │  ROI   │   │  CAGR  │   │ Net P  │   │ Returns│        │
-│  │ ▲ +15% │   │ ▲ +2%  │   │ ▲ +50M │   │        │        │
-│  └────────┘   └────────┘   └────────┘   └────────┘        │
-└─────────────────────────────────────────────────────────────┘
-```
+4. **Replace text recommendation with `DecisionWorkflowCard`**:
+   - Approve & Notify buttons
+   - Confidence score from calculation variance
 
-**Features:**
-- SVG circular progress với animation
-- Color coding (green/yellow/red) theo threshold
-- Trend indicator (▲/▼) so với previous period
-- Industry benchmark line (dashed)
-
-### 2.3 Scenario Sandbox Bar
-
-**File:** `src/components/decision/ScenarioSandbox.tsx`
-
-Global scenario toggles ảnh hưởng tất cả calculations:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ KỊCH BẢN KINH TẾ                                            │
-│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│ │ Lạm phát │ │ Thiếu    │ │ Nhu cầu  │ │ ⚙️ Tùy chỉnh    │ │
-│ │   +15%   │ │   cung   │ │   tăng   │ │                  │ │
-│ │    ☐     │ │    ☐     │ │    ☑     │ │ Revenue +20%    │ │
-│ └──────────┘ └──────────┘ └──────────┘ │ COGS +10%       │ │
-│                                         └──────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Presets:**
-- Lạm phát cao: COGS +15%, OPEX +10%
-- Thiếu hụt cung: COGS +25%, Lead time +50%
-- Nhu cầu tăng: Revenue +20%, Volume +30%
-
-### 2.4 Inline AI Advisor
-
-**File:** `src/components/decision/InlineAIAdvisor.tsx`
-
-AI không chỉ ở sidebar - xuất hiện inline trên charts:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  BIỂU ĐỒ SO SÁNH CHI PHÍ                                    │
-│                                                              │
-│      1.4 tỷ ─────────────────────────────●────────────────  │
-│                                         ╱                    │
-│                                       ╱                      │
-│      1.1 tỷ ─────────────────────●──────────────────────────│
-│                                ╱                             │
-│                         ┌────▼─────────────────────┐         │
-│      700 tr ───────────│ 💡 AI: Điểm hòa vốn nhạy │         │
-│                        │ cảm với chi phí NVL.     │         │
-│                        │ [Chạy mô phỏng] [Bỏ qua] │         │
-│                        └───────────────────────────┘         │
-│                                                              │
-│            5K    10K    15K    20K    25K                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Features:**
-- Tooltip xuất hiện tại điểm quan trọng (breakeven, crossover)
-- Action buttons để drill down
-- Dismiss option
-
-### 2.5 Decision Workflow Card
-
-**File:** `src/components/decision/DecisionWorkflowCard.tsx`
-
-Thay "Khuyến nghị: BUY" text bằng actionable workflow:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  📋 QUYẾT ĐỊNH                                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│   KHUYẾN NGHỊ: THUÊ NGOÀI (BUY)                             │
-│   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                           │
-│   Tiết kiệm: 300M | Điểm hòa vốn: 25,000 đơn vị             │
-│   Confidence: 87% (High)                                     │
-│                                                              │
-│   ┌────────────────┐ ┌────────────────┐ ┌────────────────┐  │
-│   │ ✓ Duyệt &      │ │ 🔄 Yêu cầu     │ │ 📊 So sánh     │  │
-│   │   Thông báo    │ │   Thêm Data    │ │   Lịch sử      │  │
-│   └────────────────┘ └────────────────┘ └────────────────┘  │
-│                                                              │
-│   Assigned to: CFO | Due: 3 ngày                            │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 2.6 Sensitivity Heatmap
-
-**File:** `src/components/decision/SensitivityHeatmap.tsx`
-
-Thay scatter chart bằng 2D heatmap:
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  HEATMAP ĐỘ NHẠY LỢI NHUẬN                                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│   COGS ▲                                                    │
-│   +20% │ ██ ██ ██ ██ ██                                     │
-│   +10% │ ▓▓ ██ ██ ██ ██                                     │
-│     0% │ ░░ ▓▓ ██ ██ ██                                     │
-│   -10% │ ░░ ░░ ▓▓ ██ ██                                     │
-│   -20% │ ░░ ░░ ░░ ▓▓ ██                                     │
-│        └─────────────────                                    │
-│          -20% -10%  0% +10% +20% ► Doanh thu                │
-│                                                              │
-│   ░░ Lỗ nặng  ▓▓ Hòa vốn  ██ Lãi cao                        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 2.7 Industry Benchmark Overlay
-
-Thêm vào các chart hiện có:
-
-```text
-ROI Chart với Benchmark:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                                           ┌─────────┐
-Your ROI: 75% ●──────────────────────────►│ TRÊN TB │
-                                          │  +15%   │
-Industry Average: 60% - - - - - - - - - -  └─────────┘
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+5. **Add `InlineAIAdvisor`**:
+   - Insight: "ROI vượt ngưỡng 20%, nhưng Year 4-5 giảm. Kiểm tra sustainability."
+   - Insight: "CAGR 12% cao hơn industry 10%"
 
 ---
 
-## PHẦN 3: ENHANCED MAKE VS BUY
+## PHẦN 2: NPV/IRR ANALYSIS TAB
 
-### Upgrade từ "Calculator" → "Decision Hub"
-
-**Current:** 2 separate input cards + 1 line chart
-**New:** Visual comparison card + Interactive breakeven slider + AI insights
+### Trước vs Sau
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ PHÂN TÍCH QUYẾT ĐỊNH: SẢN XUẤT HAY THUÊ NGOÀI                       │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ╭─────────────────────╮         ╭─────────────────────╮            │
-│  │                     │         │                     │            │
-│  │   🏭 TỰ SẢN XUẤT   │   VS    │   🤝 THUÊ NGOÀI     │  ✓ CHỌN   │
-│  │                     │         │                     │            │
-│  │   Chi phí cố định   │         │   Giá mua/đơn vị   │            │
-│  │   ┌─────────────┐   │         │   ┌─────────────┐   │            │
-│  │   │   500 tr    │   │         │   │    65,000   │   │            │
-│  │   └─────────────┘   │         │   └─────────────┘   │            │
-│  │                     │         │                     │            │
-│  │   Chi phí biến đổi  │         │   Sản lượng dự kiến │            │
-│  │   ┌─────────────┐   │         │   ┌─────────────┐   │            │
-│  │   │   45,000    │   │         │   │   10,000    │   │            │
-│  │   └─────────────┘   │         │   └─────────────┘   │            │
-│  │                     │         │                     │            │
-│  │   ╔═══════════════╗ │         │   ╔═══════════════╗ │            │
-│  │   ║  TỔNG: 950M   ║ │         │   ║  TỔNG: 650M   ║ │            │
-│  │   ╚═══════════════╝ │         │   ╚═══════════════╝ │            │
-│  │                     │         │                     │            │
-│  ╰─────────────────────╯         ╰─────────────────────╯            │
-│                                                                      │
-│  ═══════════════════════════════════════════════════════════════    │
-│  ĐIỂM HÒA VỐN: 25,000 đơn vị                                        │
-│  ├────────●───────────────────────────────────────────────────┤     │
-│  0        ↑10K                                           50K        │
-│        Hiện tại                                                     │
-│                                                                      │
-│  💡 Với sản lượng 10,000 đơn vị, THUÊ NGOÀI tiết kiệm 300M (31.6%) │
-│     Cần sản xuất >25,000 đơn vị để tự sản xuất có lợi hơn.         │
-│                                                                      │
-├─────────────────────────────────────────────────────────────────────┤
-│  [📊 So sánh chi tiết] [🧪 Chạy mô phỏng] [💾 Lưu phân tích]       │
-└─────────────────────────────────────────────────────────────────────┘
+BEFORE:                              AFTER:
+┌─────────┬─────────┬─────────┐     ┌─────────────────────────────────────┐
+│ NPV 82M │ IRR 10% │ PI 1.04 │     │ SCENARIO SANDBOX (Discount rates)   │
+└─────────┴─────────┴─────────┘     │ [Base 12%] [Pessimistic 15%] [Opt]  │
+┌─────────────┐ ┌────────────┐      ├─────────────────────────────────────┤
+│ Input Form  │ │ NPV Profile│      │ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐    │
+│ Dynamic     │ │ (Line)     │      │ │NPV  │ │IRR  │ │ PI  │ │Cash │    │
+│ Cash flows  │ │            │      │ │82tr │ │10%  │ │1.04x│ │3.0tỷ│    │
+│             │ │            │      │ │⬤⬤⬤ │ │⬤⬤  │ │⬤⬤⬤ │ │⬤⬤⬤⬤│    │
+└─────────────┘ └────────────┘      │ └─────┘ └─────┘ └─────┘ └─────┘    │
+┌───────────────────────────┐       ├───────────────────┬─────────────────┤
+│ Text recommendation       │       │ NPV PROFILE CHART │ IRR GAUGE DIAL  │
+└───────────────────────────┘       │ + Multi-scenario  │ vs WACC         │
+                                    │ overlay           │                 │
+                                    ├───────────────────┴─────────────────┤
+                                    │ SENSITIVITY MINI-HEATMAP            │
+                                    │ (Discount Rate vs Cash Flow)        │
+                                    ├─────────────────────────────────────┤
+                                    │ DECISION WORKFLOW CARD              │
+                                    └─────────────────────────────────────┘
 ```
+
+### Changes for NPVIRRAnalysis.tsx
+
+1. **Replace flat cards with `KPIRingGrid`**:
+   - NPV → Ring with 0 threshold (green if positive)
+   - IRR → Ring with discount rate as benchmark line
+   - Profitability Index → Ring with 1.0 threshold
+   - Total Cash Flow → Ring format currency
+
+2. **Add ScenarioSandbox** specifically for discount rates:
+   - Presets: Conservative (15%), Base (12%), Optimistic (8%)
+   - Show NPV at each discount rate
+
+3. **Enhanced NPV Profile Chart**:
+   - Multi-scenario overlay (3 lines for 3 discount rates)
+   - IRR marker with animated pulse
+   - WACC reference band (shaded area)
+
+4. **NEW: IRR Gauge Dial**:
+   - Semi-circular gauge showing IRR vs WACC
+   - Green zone (IRR > WACC), Red zone (IRR < WACC)
+   - Animated needle pointing to current IRR
+
+5. **Add mini SensitivityHeatmap**:
+   - X-axis: Discount rate (8-16%)
+   - Y-axis: Cash flow variance (-20% to +20%)
+   - Color = NPV value
+
+6. **Replace text with `DecisionWorkflowCard`**
 
 ---
 
-## PHẦN 4: FILES TO CREATE/MODIFY
+## PHẦN 3: PAYBACK ANALYSIS TAB
 
-### New Components (6 files)
+### Trước vs Sau
 
-| File | Purpose |
-|------|---------|
-| `src/components/decision/HeroDecisionCard.tsx` | Visual Make vs Buy comparison |
-| `src/components/decision/AnimatedKPIRing.tsx` | Circular progress KPI rings |
-| `src/components/decision/ScenarioSandbox.tsx` | Global scenario toggles |
-| `src/components/decision/InlineAIAdvisor.tsx` | Contextual AI tooltips on charts |
-| `src/components/decision/DecisionWorkflowCard.tsx` | Actionable decision card |
-| `src/components/decision/SensitivityHeatmap.tsx` | 2D heatmap for sensitivity |
+```text
+BEFORE:                              AFTER:
+┌─────────┬─────────┬─────────┐     ┌─────────────────────────────────────┐
+│Simple 3.8│Disc 4.5│Target 4 │     │ VISUAL TIMELINE                     │
+└─────────┴─────────┴─────────┘     │ ├─────●─────●─────●─────●─────●──── │
+┌─────────────┐ ┌────────────┐      │ Y1   Y2   Y3   Y4   Y5   Y6        │
+│ Input Form  │ │ Area Chart │      │           ▲           ▲            │
+│ + Sliders   │ │            │      │        Simple     Discounted       │
+│             │ │            │      │        Payback    Payback          │
+│             │ │            │      ├─────────────────────────────────────┤
+└─────────────┘ └────────────┘      │ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐    │
+┌───────────────────────────┐       │ │Simp │ │Disc │ │Target│ │Risk │   │
+│ Text recommendation       │       │ │3.8y │ │4.5y │ │ 4y  │ │Score│    │
+└───────────────────────────┘       │ │⬤⬤⬤⬤│ │⬤⬤⬤ │ │ ✓  │ │ 72 │    │
+                                    │ └─────┘ └─────┘ └─────┘ └─────┘    │
+                                    ├─────────────────┬───────────────────┤
+                                    │ Cash Flow Chart │ WHAT-IF PANEL     │
+                                    │ with Zones      │ "If delay 6mo..."│
+                                    ├─────────────────┴───────────────────┤
+                                    │ DECISION WORKFLOW CARD              │
+                                    └─────────────────────────────────────┘
+```
 
-### Modified Files (4 files)
+### Changes for PaybackAnalysis.tsx
+
+1. **NEW: Visual Timeline Component**:
+   - Horizontal timeline showing Year 1 → Year 10
+   - Simple Payback marker (vertical line + label)
+   - Discounted Payback marker
+   - Target Payback marker
+   - Color zones: Green (before target), Yellow (near), Red (after)
+
+2. **Replace flat cards with `KPIRingGrid`**:
+   - Simple Payback → Ring with target as maxValue
+   - Discounted Payback → Ring
+   - Target Achievement → Pass/Fail indicator
+   - Risk Score → Calculated from variance
+
+3. **Enhanced Area Chart**:
+   - Zone coloring: Green (positive cash flow), Red (negative)
+   - Break-even line with animated marker
+   - Confidence band (if growth varies ±5%)
+
+4. **NEW: What-If Mini Panel**:
+   - "If cash flow delays 6 months" → new payback
+   - "If growth is 0%" → new payback
+   - Quick scenario buttons
+
+5. **Replace text with `DecisionWorkflowCard`**:
+   - Risk level based on margin to target
+
+---
+
+## PHẦN 4: SENSITIVITY ANALYSIS TAB (Critical)
+
+### Trước vs Sau
+
+```text
+BEFORE:                              AFTER:
+┌─────────┬─────────┬─────────┐     ┌─────────────────────────────────────┐
+│Base 1.5B│Rev 67%  │COGS 43% │     │ HERO CARD: Most Sensitive Variable  │
+└─────────┴─────────┴─────────┘     │ "DOANH THU - Rủi ro cao nhất"       │
+┌─────────────┐ ┌────────────┐      │ ±10% Revenue → ±67% Profit          │
+│ Sliders     │ │ Scatter    │      ├─────────────────────────────────────┤
+│ (confusing) │ │ (messy)    │      │ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐    │
+│             │ │            │      │ │Base │ │Rev  │ │COGS │ │OPEX │    │
+│             │ │            │      │ │1.5B │ │67%  │ │43%  │ │13%  │    │
+│             │ │            │      │ │     │ │⬤⬤⬤⬤⬤│ │⬤⬤⬤ │ │⬤⬤  │    │
+└─────────────┘ └────────────┘      │ └─────┘ └─────┘ └─────┘ └─────┘    │
+┌───────────────────────────┐       ├─────────────────┬───────────────────┤
+│ Conclusion boxes          │       │ TORNADO CHART   │ 2D HEATMAP        │
+└───────────────────────────┘       │ (Horizontal Bar)│ (Rev vs COGS)     │
+                                    ├─────────────────┴───────────────────┤
+                                    │ BREAK-EVEN SCENARIOS                │
+                                    │ "Revenue drops 15% → Break-even"    │
+                                    │ "COGS rises 23% → Break-even"       │
+                                    ├─────────────────────────────────────┤
+                                    │ DECISION WORKFLOW CARD              │
+                                    └─────────────────────────────────────┘
+```
+
+### Changes for SensitivityAnalysis.tsx
+
+1. **NEW: Hero Card for Most Sensitive Variable**:
+   - Large display showing the #1 risk factor
+   - Visual impact indicator
+   - Recommended action
+
+2. **Replace Scatter Chart with TORNADO CHART**:
+   - Horizontal bars showing impact range
+   - Sorted by impact (highest at top)
+   - Red/Blue coloring (negative/positive impact)
+   - Clear labels on both ends
+
+3. **Add 2D HEATMAP** (use existing `SensitivityHeatmap`):
+   - X-axis: Revenue change (-20% to +20%)
+   - Y-axis: COGS change (-15% to +15%)
+   - Color: Profit level (red → yellow → green)
+   - Current position marker
+   - Break-even contour line
+
+4. **NEW: Break-even Scenarios Panel**:
+   - Calculate: "How much can X change before profit = 0?"
+   - Display as warning cards
+   - e.g., "Doanh thu giảm 15% → Hòa vốn"
+
+5. **Replace flat cards with `KPIRingGrid`**
+
+6. **Add `InlineAIAdvisor`**:
+   - "Revenue là biến nhạy nhất. Cần theo dõi chặt."
+   - "COGS impact 43% - Negotiate với supplier."
+
+---
+
+## PHẦN 5: FILES TO MODIFY
 
 | File | Changes |
 |------|---------|
-| `src/pages/DecisionSupportPage.tsx` | New layout, integrate new components |
-| `src/components/decision/ROIAnalysis.tsx` | Add AnimatedKPIRing, benchmark lines |
-| `src/components/decision/SensitivityAnalysis.tsx` | Add heatmap option |
-| `src/components/decision/DecisionAdvisorChat.tsx` | Context-aware suggestions |
+| `src/components/decision/ROIAnalysis.tsx` | Replace cards with KPIRingGrid, add ScenarioSandbox, DecisionWorkflowCard, InlineAIAdvisor |
+| `src/components/decision/NPVIRRAnalysis.tsx` | Same + add IRR Gauge, mini heatmap |
+| `src/components/decision/PaybackAnalysis.tsx` | Same + add Visual Timeline, What-If Panel |
+| `src/components/decision/SensitivityAnalysis.tsx` | Replace scatter with Tornado, add Hero Card, break-even scenarios |
+
+### NEW Components to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/decision/TornadoChart.tsx` | Horizontal bar sensitivity chart |
+| `src/components/decision/PaybackTimeline.tsx` | Visual timeline for payback |
+| `src/components/decision/IRRGauge.tsx` | Semi-circular gauge for IRR vs WACC |
+| `src/components/decision/BreakEvenScenarios.tsx` | Warning cards for break-even points |
 
 ---
 
-## PHẦN 5: VISUAL ENHANCEMENTS
+## PHẦN 6: SHARED ENHANCEMENTS
 
-### Color Palette (CFO-grade)
+### Add to all 4 tabs:
 
-```css
-/* Primary Decision Colors */
---decision-positive: #10b981;  /* Green - Profitable */
---decision-negative: #ef4444;  /* Red - Loss */
---decision-neutral: #6b7280;   /* Gray - Breakeven */
---decision-highlight: #3b82f6; /* Blue - Selected option */
+1. **ScenarioSandbox integration** (already created):
+   - Apply multipliers to base calculations
+   - Show "Scenario applied" badge
 
-/* Gradient Backgrounds */
---hero-gradient: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
---winner-glow: 0 0 20px rgba(16, 185, 129, 0.4);
-```
+2. **DecisionWorkflowCard** at bottom:
+   - Approve & Notify
+   - Request More Data
+   - Compare with History
 
-### Animation Tokens
+3. **InlineAIAdvisor** contextual:
+   - 2-3 insights per tab based on results
 
-```css
-/* KPI Ring Animation */
-@keyframes ring-fill {
-  from { stroke-dashoffset: 283; }
-  to { stroke-dashoffset: var(--progress); }
-}
-
-/* Winner Pulse */
-@keyframes winner-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  50% { box-shadow: 0 0 20px 10px rgba(16, 185, 129, 0); }
-}
-```
-
----
-
-## PHẦN 6: EXPECTED RESULTS
-
-### Before vs After
-
-| Aspect | Before | After |
-|--------|--------|-------|
-| Visual Impact | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Interactivity | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| AI Integration | ⭐⭐ | ⭐⭐⭐⭐ |
-| Decision Workflow | ⭐ | ⭐⭐⭐⭐⭐ |
-| Benchmarking | ⭐ | ⭐⭐⭐⭐ |
-| "Wow Factor" | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-
-### User Journey
-
-```text
-BEFORE: 
-User → Input numbers → See chart → Read recommendation text → Done
-
-AFTER:
-User → See Hero Visual Comparison → Adjust scenario → 
-AI highlights key insights → View heatmap risks → 
-Click "Approve Decision" → Workflow starts → Notify team
-```
+4. **Industry Benchmarks**:
+   - ROI: 15-20% typical
+   - IRR: Compare to WACC (10-12%)
+   - Payback: 3-5 years industry standard
+   - Sensitivity: Flag variables > 50% impact
 
 ---
 
 ## PHẦN 7: EXECUTION ORDER
 
 ```text
-PHASE 1: Core Visual Components ─────────────────────
+Phase 1: New Components ───────────────────────────────
 │
-│  Step 1: Create AnimatedKPIRing component
-│          └─ SVG progress ring with animation
+│  Step 1: Create TornadoChart.tsx (replaces scatter)
 │
-│  Step 2: Create HeroDecisionCard component
-│          └─ Visual Make vs Buy comparison
+│  Step 2: Create PaybackTimeline.tsx (visual timeline)
 │
-PHASE 2: Interactive Features ───────────────────────
+│  Step 3: Create IRRGauge.tsx (semi-circular gauge)
 │
-│  Step 3: Create ScenarioSandbox component
-│          └─ Global scenario toggles
+│  Step 4: Create BreakEvenScenarios.tsx (warning cards)
 │
-│  Step 4: Create SensitivityHeatmap component
-│          └─ 2D interactive heatmap
+Phase 2: Update Analysis Components ───────────────────
 │
-PHASE 3: AI & Workflow Integration ──────────────────
+│  Step 5: Update SensitivityAnalysis.tsx (highest impact)
+│          └─ Add TornadoChart, Hero Card, Heatmap
 │
-│  Step 5: Create InlineAIAdvisor component
-│          └─ Contextual tooltips on charts
+│  Step 6: Update ROIAnalysis.tsx
+│          └─ Add KPIRingGrid, ScenarioSandbox, Workflow
 │
-│  Step 6: Create DecisionWorkflowCard component
-│          └─ Actionable approve/reject workflow
+│  Step 7: Update NPVIRRAnalysis.tsx
+│          └─ Add IRRGauge, mini heatmap
 │
-PHASE 4: Page Integration ───────────────────────────
+│  Step 8: Update PaybackAnalysis.tsx
+│          └─ Add Timeline, What-If Panel
 │
-│  Step 7: Update DecisionSupportPage layout
-│          └─ New structure with hero card
-│
-│  Step 8: Update existing analysis components
-│          └─ Add benchmark lines, new KPIs
-│
-└────────────────────────────────────────────────────
+└──────────────────────────────────────────────────────
 ```
 
 ---
 
-## PHẦN 8: TECHNICAL NOTES
+## PHẦN 8: EXPECTED VISUAL IMPACT
 
-### Libraries to Consider
-
-| Need | Option |
-|------|--------|
-| Animated SVG rings | Custom SVG + CSS animations |
-| Heatmap | Recharts HeatMapGrid or custom Canvas |
-| Gauge charts | react-circular-progressbar hoặc custom |
-| Smooth transitions | Framer Motion (already installed) |
-
-### Performance Considerations
-
-- Lazy load heavy components (Heatmap, AI Advisor)
-- Memoize calculation results
-- Debounce scenario changes (300ms)
-- Use WebWorker for Monte Carlo simulations
+| Metric | Before | After |
+|--------|--------|-------|
+| KPI Visibility | Flat cards | Animated rings with benchmarks |
+| Chart Clarity | Basic charts | Multi-layer with insights |
+| Decision Ready | Text only | Actionable workflow |
+| What-If Capability | None | ScenarioSandbox |
+| AI Integration | Sidebar only | Inline contextual |
+| "Wow Factor" | ⭐⭐ | ⭐⭐⭐⭐⭐ |
 
 ---
 
-## TỔNG KẾT
+## PHẦN 9: SAMPLE CODE STRUCTURE
 
-Kế hoạch này sẽ biến trang Decision Support từ một "Financial Calculator" thành một "CFO Decision Command Center" với:
+### TornadoChart.tsx (Sensitivity replacement)
 
-1. **Hero Decision Card** - Visual comparison thay vì form nhập liệu
-2. **Animated KPI Rings** - Engaging metrics thay vì số đơn thuần
-3. **Scenario Sandbox** - Global what-if toggles
-4. **Sensitivity Heatmap** - 2D visualization thay vì scatter
-5. **Inline AI Advisor** - Contextual insights trên charts
-6. **Decision Workflow** - Actionable approve/reject buttons
-7. **Industry Benchmarks** - Context cho mọi metric
+```tsx
+interface TornadoChartProps {
+  data: Array<{
+    variable: string;
+    minImpact: number; // % profit change at -X%
+    maxImpact: number; // % profit change at +X%
+    baseValue: number;
+  }>;
+  title?: string;
+}
 
-Tất cả tạo nên trải nghiệm "wow" xứng đáng với platform FDP CEO-grade.
+export function TornadoChart({ data, title }: TornadoChartProps) {
+  // Sort by total impact range (most sensitive first)
+  const sortedData = [...data].sort((a, b) => 
+    (Math.abs(b.maxImpact) + Math.abs(b.minImpact)) - 
+    (Math.abs(a.maxImpact) + Math.abs(a.minImpact))
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title || 'Tornado Chart - Độ nhạy'}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={sortedData} layout="vertical">
+            <XAxis type="number" domain={['auto', 'auto']} />
+            <YAxis type="category" dataKey="variable" width={80} />
+            <ReferenceLine x={0} stroke="#888" />
+            <Bar dataKey="minImpact" fill="#ef4444" name="Giảm" />
+            <Bar dataKey="maxImpact" fill="#10b981" name="Tăng" />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+### PaybackTimeline.tsx
+
+```tsx
+interface PaybackTimelineProps {
+  simplePayback: number;
+  discountedPayback: number;
+  targetPayback: number;
+  maxYears?: number;
+}
+
+export function PaybackTimeline({ 
+  simplePayback, 
+  discountedPayback, 
+  targetPayback,
+  maxYears = 10 
+}: PaybackTimelineProps) {
+  // Visual timeline with markers
+  return (
+    <Card className="bg-gradient-to-r from-green-50 to-yellow-50">
+      <CardContent className="py-6">
+        <div className="relative h-16">
+          {/* Timeline bar */}
+          <div className="absolute inset-x-0 top-1/2 h-2 bg-gradient-to-r from-green-400 via-yellow-400 to-red-400 rounded-full" />
+          
+          {/* Year markers */}
+          {Array.from({ length: maxYears + 1 }).map((_, i) => (
+            <div 
+              key={i} 
+              className="absolute top-1/2 w-px h-4 bg-gray-400"
+              style={{ left: `${(i / maxYears) * 100}%` }}
+            />
+          ))}
+          
+          {/* Simple Payback marker */}
+          <motion.div
+            className="absolute top-0 -translate-x-1/2"
+            style={{ left: `${(simplePayback / maxYears) * 100}%` }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="w-4 h-4 bg-blue-500 rounded-full" />
+            <span className="text-xs font-medium">Simple: {simplePayback.toFixed(1)}y</span>
+          </motion.div>
+          
+          {/* Similar for discounted and target */}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+---
+
+## TÓM TẮT
+
+Kế hoạch này sẽ biến 4 tab từ "Financial Calculator" thành "Decision-Ready Analysis" với:
+
+1. **Animated KPI Rings** thay vì flat cards
+2. **Tornado Chart** thay vì confusing scatter
+3. **2D Heatmaps** cho sensitivity visualization
+4. **Visual Timelines** cho payback
+5. **IRR Gauge** cho NPV/IRR
+6. **ScenarioSandbox** integration cho what-if
+7. **DecisionWorkflowCard** cho actionable decisions
+8. **InlineAIAdvisor** cho contextual insights
+9. **Industry Benchmarks** cho context
+
+**Ưu tiên cao nhất**: Sensitivity tab vì scatter chart hiện tại rất khó đọc.
