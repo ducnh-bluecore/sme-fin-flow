@@ -67,8 +67,9 @@ export default function CashConversionCyclePage() {
     );
   }
 
-  const cccStatus = data.ccc <= data.industryBenchmark.ccc ? 'good' : data.ccc <= data.industryBenchmark.ccc * 1.5 ? 'warning' : 'danger';
-  const cccImprovement = data.ccc - data.industryBenchmark.ccc;
+  // ✅ SSOT COMPLIANT: Use pre-computed status from hook (no FE calculation)
+  const cccStatus = data.cccStatus;
+  const cccImprovement = data.cccImprovement;
 
   return (
     <>

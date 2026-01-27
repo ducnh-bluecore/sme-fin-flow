@@ -2,32 +2,19 @@ import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, 
-  TrendingDown, 
   AlertTriangle, 
   CheckCircle2, 
   Clock, 
   DollarSign,
-  Target,
   Zap,
-  Shield,
-  ArrowUpRight,
-  ArrowDownRight,
   Activity,
-  PieChart,
   BarChart3,
-  Wallet,
-  Users,
-  Package,
   CreditCard,
-  TrendingUp as Growth,
   Calculator,
   HelpCircle,
-  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -38,8 +25,8 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useCashRunway } from '@/hooks/useCashRunway';
-// useQuickWins removed - SSOT cleanup
 import { useRiskAlerts } from '@/hooks/useRiskAlerts';
+import { useExecutiveHealthScores, HealthDimension } from '@/hooks/useExecutiveHealthScores';
 import { formatVNDCompact } from '@/lib/formatters';
 import { PendingDecisionsPanel } from '@/components/executive/PendingDecisionsPanel';
 import {
@@ -50,10 +37,9 @@ import {
   Radar,
   ResponsiveContainer,
   Tooltip,
-  Legend,
 } from 'recharts';
 
-// Health Score Formula Definitions
+// Health Score Formula Definitions - DISPLAY ONLY (logic is in DB)
 const HEALTH_FORMULAS: Record<string, {
   formula: string;
   title: string;
@@ -90,11 +76,11 @@ const HEALTH_FORMULAS: Record<string, {
     thresholds: { good: '≥70 (CCC ≤30)', warning: '50-69 (CCC 31-50)', critical: '<50 (CCC >50)' },
   },
   growth: {
-    formula: 'Score = Tốc độ tăng trưởng doanh thu YoY',
+    formula: 'Score = 50 + (YoY % × 1.75)',
     title: 'Điểm Tăng trưởng',
     explanation: 'Đánh giá tốc độ tăng trưởng doanh thu so với cùng kỳ năm trước.',
-    example: 'VD: Revenue YoY +15% → ~75 điểm',
-    thresholds: { good: '≥70 (YoY ≥15%)', warning: '50-69 (YoY 5-14%)', critical: '<50 (YoY <5%)' },
+    example: 'VD: Revenue YoY +15% → 50 + 26 = 76 điểm',
+    thresholds: { good: '≥70 (YoY ≥11%)', warning: '50-69 (YoY 0-11%)', critical: '<50 (YoY <0%)' },
   },
   stability: {
     formula: 'Score = min(100, EBITDA Margin (%) × 4)',
@@ -170,116 +156,24 @@ function HealthFormulaTooltip({
   );
 }
 
-interface HealthDimension {
-  dimension: string;
-  score: number;
-  fullMark: number;
-  status: 'good' | 'warning' | 'critical';
-  description: string;
-  formulaKey: string;
-}
-
-// Financial Health Radar Component
-function FinancialHealthRadar({ metrics, runwayData, t }: { metrics: any; runwayData: any; t: (key: string) => string }) {
-  // Calculate individual health dimensions
-  const calculateDimensions = (): HealthDimension[] => {
-    // Liquidity Score (based on cash runway and current ratio)
-    const runwayMonths = runwayData?.runwayMonths ?? 4;
-    const liquidityScore = Math.min(100, runwayMonths * 15); // 6+ months = 90+
-    
-    // Receivables Health (based on DSO)
-    // Use ?? (nullish coalescing) to properly handle 0 as a valid value
-    // DSO = 0 would incorrectly fallback to 45 with || operator
-    const dso = (metrics?.dso !== undefined && metrics?.dso !== null && metrics.dso > 0) 
-      ? metrics.dso 
-      : 45; // Default DSO when no data
-    const receivablesScore = Math.min(100, Math.max(0, 100 - (dso - 30) * 2)); // DSO 30 = 100, DSO 65 = 30
-    
-    // Profitability (based on gross margin)
-    const grossMargin = (metrics?.grossMargin !== undefined && metrics?.grossMargin !== null && metrics.grossMargin > 0)
-      ? metrics.grossMargin
-      : 28; // Default margin when no data
-    const profitabilityScore = Math.min(100, grossMargin * 2.5); // 40% margin = 100
-    
-    // Efficiency (based on CCC)
-    // CCC can be negative (good - means getting paid before paying suppliers)
-    // CCC = 0 is a valid value
-    const ccc = (metrics?.ccc !== undefined && metrics?.ccc !== null && (metrics.ccc !== 0 || metrics.dso > 0))
-      ? metrics.ccc
-      : 45; // Default CCC when no data
-    const efficiencyScore = Math.min(100, Math.max(0, 100 - ccc)); // CCC 0 = 100, CCC 100 = 0
-    
-    // Growth (simulated - would come from revenue trends)
-    const growthScore = 72; // Sample data
-    
-    // Stability (based on EBITDA margin)
-    const ebitdaMargin = (metrics?.ebitdaMargin !== undefined && metrics?.ebitdaMargin !== null && metrics.ebitdaMargin > 0)
-      ? metrics.ebitdaMargin
-      : 15; // Default EBITDA margin when no data
-    const stabilityScore = Math.min(100, ebitdaMargin * 4); // 25% EBITDA = 100
-
-    return [
-      { 
-        dimension: t('exec.dimLiquidity'), 
-        score: Math.round(liquidityScore), 
-        fullMark: 100,
-        status: liquidityScore >= 70 ? 'good' : liquidityScore >= 50 ? 'warning' : 'critical',
-        description: `Cash runway: ${runwayMonths.toFixed(1)} ${t('exec.months')}`,
-        formulaKey: 'liquidity',
-      },
-      { 
-        dimension: t('exec.dimReceivables'), 
-        score: Math.round(receivablesScore), 
-        fullMark: 100,
-        status: receivablesScore >= 70 ? 'good' : receivablesScore >= 50 ? 'warning' : 'critical',
-        description: `DSO: ${dso} days`,
-        formulaKey: 'receivables',
-      },
-      { 
-        dimension: t('exec.dimProfitability'), 
-        score: Math.round(profitabilityScore), 
-        fullMark: 100,
-        status: profitabilityScore >= 70 ? 'good' : profitabilityScore >= 50 ? 'warning' : 'critical',
-        description: `Gross Margin: ${grossMargin}%`,
-        formulaKey: 'profitability',
-      },
-      { 
-        dimension: t('exec.dimEfficiency'), 
-        score: Math.round(efficiencyScore), 
-        fullMark: 100,
-        status: efficiencyScore >= 70 ? 'good' : efficiencyScore >= 50 ? 'warning' : 'critical',
-        description: `CCC: ${ccc} days`,
-        formulaKey: 'efficiency',
-      },
-      { 
-        dimension: t('exec.dimGrowth'), 
-        score: growthScore, 
-        fullMark: 100,
-        status: growthScore >= 70 ? 'good' : growthScore >= 50 ? 'warning' : 'critical',
-        description: 'Revenue YoY: +12%',
-        formulaKey: 'growth',
-      },
-      { 
-        dimension: t('exec.dimStability'), 
-        score: Math.round(stabilityScore), 
-        fullMark: 100,
-        status: stabilityScore >= 70 ? 'good' : stabilityScore >= 50 ? 'warning' : 'critical',
-        description: `EBITDA Margin: ${ebitdaMargin?.toFixed(1)}%`,
-        formulaKey: 'stability',
-      },
-    ];
-  };
-
-  const dimensions = calculateDimensions();
-  const overallScore = Math.round(dimensions.reduce((sum, d) => sum + d.score, 0) / dimensions.length);
+// ✅ REFACTORED: Now uses useExecutiveHealthScores hook - NO client-side calculations
+function FinancialHealthRadar({ t }: { t: (key: string) => string }) {
+  const { data: healthData, isLoading } = useExecutiveHealthScores();
   
-  const getOverallStatus = () => {
-    if (overallScore >= 75) return { label: t('exec.statusGood'), color: 'text-green-500', bg: 'bg-green-500/10' };
-    if (overallScore >= 55) return { label: t('exec.statusWarning'), color: 'text-yellow-500', bg: 'bg-yellow-500/10' };
+  const dimensions = healthData?.dimensions || [];
+  const overallScore = healthData?.overallScore || 0;
+  const overallStatus = healthData?.overallStatus || 'critical';
+  const goodCount = healthData?.goodCount || 0;
+  const warningCount = healthData?.warningCount || 0;
+  const criticalCount = healthData?.criticalCount || 0;
+  
+  const getStatusConfig = () => {
+    if (overallStatus === 'good') return { label: t('exec.statusGood'), color: 'text-green-500', bg: 'bg-green-500/10' };
+    if (overallStatus === 'warning') return { label: t('exec.statusWarning'), color: 'text-yellow-500', bg: 'bg-yellow-500/10' };
     return { label: t('exec.statusCritical'), color: 'text-red-500', bg: 'bg-red-500/10' };
   };
 
-  const status = getOverallStatus();
+  const status = getStatusConfig();
   
   const statusColors = {
     good: 'text-green-500',
@@ -292,6 +186,24 @@ function FinancialHealthRadar({ metrics, runwayData, t }: { metrics: any; runway
     warning: 'bg-yellow-500/10',
     critical: 'bg-red-500/10',
   };
+
+  if (isLoading) {
+    return (
+      <Card className="lg:col-span-2 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary" />
+            {t('exec.healthScore')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[280px] flex items-center justify-center">
+            <div className="animate-pulse text-muted-foreground">Đang tải...</div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="lg:col-span-2 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
@@ -384,23 +296,23 @@ function FinancialHealthRadar({ metrics, runwayData, t }: { metrics: any; runway
           </div>
         </div>
 
-        {/* Quick Insights */}
+        {/* Quick Insights - Now using pre-computed counts from DB */}
         <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-green-500">
-              {dimensions.filter(d => d.status === 'good').length}
+              {goodCount}
             </div>
             <p className="text-xs text-muted-foreground">{t('exec.goodMetrics')}</p>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-500">
-              {dimensions.filter(d => d.status === 'warning').length}
+              {warningCount}
             </div>
             <p className="text-xs text-muted-foreground">{t('exec.needsMonitoring')}</p>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-red-500">
-              {dimensions.filter(d => d.status === 'critical').length}
+              {criticalCount}
             </div>
             <p className="text-xs text-muted-foreground">{t('exec.needsImprovement')}</p>
           </div>
@@ -448,73 +360,90 @@ function QuickWinCard({
 
   const categoryIcons = {
     ar: <CreditCard className="h-5 w-5 text-primary" />,
-    inventory: <Package className="h-5 w-5 text-primary" />,
+    inventory: <BarChart3 className="h-5 w-5 text-primary" />,
     fees: <DollarSign className="h-5 w-5 text-primary" />,
-    cost: <TrendingDown className="h-5 w-5 text-primary" />,
-    revenue: <Users className="h-5 w-5 text-primary" />,
+    cost: <TrendingUp className="h-5 w-5 text-primary" />,
+    revenue: <Zap className="h-5 w-5 text-primary" />,
   };
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-          {categoryIcons[category]}
-        </div>
+    <div className="p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+      <div className="flex items-start gap-3">
+        {categoryIcons[category]}
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm">{title}</h4>
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-medium truncate">{title}</h4>
+            {statusIcons[status]}
+          </div>
           {description && (
-            <p className="text-xs text-muted-foreground truncate">{description}</p>
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{description}</p>
           )}
-          <p className={`text-xs ${effortColors[effort]}`}>
-            {effortLabels[effort]}
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            <span className="text-sm font-semibold text-green-500">
+              +{formatVNDCompact(savings)}
+            </span>
+            <span className={`text-xs ${effortColors[effort]}`}>
+              {t('exec.effort')}: {effortLabels[effort]}
+            </span>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {savings > 0 ? (
-          <span className="font-semibold text-green-500">+{formatVNDCompact(savings)}</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">{t('exec.reduceRisk')}</span>
-        )}
-        {statusIcons[status]}
       </div>
     </div>
   );
 }
 
-// Risk Alert Card
+// Risk Alert Card - Supports both legacy and new severity types
 function RiskAlertCard({ 
-  title, 
   severity, 
+  title, 
   description, 
-  metric 
+  metric,
+  threshold,
 }: { 
-  title: string; 
-  severity: 'critical' | 'warning' | 'info';
+  id: string;
+  severity: 'high' | 'medium' | 'low' | 'critical' | 'warning' | 'info';
+  title: string;
   description: string;
   metric?: string;
+  threshold?: string;
+  category?: string;
 }) {
-  const severityStyles = {
-    critical: 'border-red-500/30 bg-red-500/5',
-    warning: 'border-yellow-500/30 bg-yellow-500/5',
-    info: 'border-blue-500/30 bg-blue-500/5',
+  // Map new severity types to display config
+  const getSeverityConfig = () => {
+    switch (severity) {
+      case 'high':
+      case 'critical':
+        return { bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <AlertTriangle className="h-5 w-5 text-red-500" /> };
+      case 'medium':
+      case 'warning':
+        return { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', icon: <AlertTriangle className="h-5 w-5 text-yellow-500" /> };
+      case 'low':
+      case 'info':
+      default:
+        return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', icon: <Activity className="h-5 w-5 text-blue-500" /> };
+    }
   };
 
-  const severityIcons = {
-    critical: <AlertTriangle className="h-5 w-5 text-red-500" />,
-    warning: <AlertTriangle className="h-5 w-5 text-yellow-500" />,
-    info: <Shield className="h-5 w-5 text-blue-500" />,
-  };
+  const config = getSeverityConfig();
 
   return (
-    <div className={`p-4 rounded-lg border ${severityStyles[severity]}`}>
+    <div className={`p-4 rounded-lg border ${config.bg} ${config.border}`}>
       <div className="flex items-start gap-3">
-        {severityIcons[severity]}
+        {config.icon}
         <div className="flex-1">
-          <h4 className="font-medium">{title}</h4>
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          <h4 className="text-sm font-medium">{title}</h4>
+          <p className="text-xs text-muted-foreground mt-1">{description}</p>
           {metric && (
-            <p className="text-sm font-medium mt-2">{metric}</p>
+            <div className="mt-2 text-xs">
+              <span className="text-muted-foreground">Hiện tại: </span>
+              <span className="font-medium">{metric}</span>
+              {threshold && (
+                <>
+                  <span className="text-muted-foreground"> / Ngưỡng: </span>
+                  <span className="font-medium">{threshold}</span>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -522,11 +451,13 @@ function RiskAlertCard({
   );
 }
 
+// Main Component
 export default function ExecutiveSummaryPage() {
   const { t } = useLanguage();
-  const { data: snapshot, isLoading } = useFinanceTruthSnapshot();
+  const { data: snapshot } = useFinanceTruthSnapshot();
   const { data: runwayData } = useCashRunway();
-  // Quick wins data from FinanceTruthSnapshot (SSOT compliant)
+  
+  // Static placeholders - to be replaced with real data
   const quickWins: Array<{ id: string; title: string; description: string; savings: number; effort: 'low' | 'medium' | 'high'; status: 'pending' | 'in-progress' | 'done'; category: 'ar' | 'cost' | 'fees' | 'inventory' | 'revenue' }> = [];
   const totalPotentialSavings = 0;
   const quickWinsLoading = false;
@@ -540,18 +471,6 @@ export default function ExecutiveSummaryPage() {
     totalRevenue: snapshot.netRevenue,
     daysInPeriod: 90,
   } : undefined;
-
-  // Calculate health score based on central metrics
-  const calculateHealthScore = () => {
-    if (!snapshot) return 72;
-    let score = 70;
-    if (snapshot.dso && snapshot.dso < 45) score += 10;
-    if (snapshot.grossMarginPercent && snapshot.grossMarginPercent > 30) score += 10;
-    if (runwayData?.runwayMonths && runwayData.runwayMonths > 6) score += 10;
-    return Math.min(score, 100);
-  };
-
-  const healthScore = calculateHealthScore();
 
   return (
     <>
@@ -567,7 +486,8 @@ export default function ExecutiveSummaryPage() {
 
         {/* Top Row - Health Score Radar & Key Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <FinancialHealthRadar metrics={metrics} runwayData={runwayData} t={t} />
+          {/* ✅ REFACTORED: No longer passes metrics/runwayData props */}
+          <FinancialHealthRadar t={t} />
           
           <Card>
             <CardHeader className="pb-2">
