@@ -1,123 +1,123 @@
 
+# Kế hoạch: Fill chi phí vào Unit Economics
 
-# Kế hoạch: Fix trùng lặp Real Cash Breakdown + Nâng cấp Unit Economics
+## 1. Phân tích vấn đề
 
-## Phần A: Fix Real Cash Breakdown Duplication
+### A. Dữ liệu có sẵn trong Database
 
-### 1. Vấn đề hiện tại
+| Metric | Giá trị thực |
+|--------|-------------|
+| Total Orders | 5,280 (trong date range) |
+| Total Revenue | 1.95 tỷ VND |
+| Total COGS | 1.03 tỷ VND |
+| Total Platform Fees | 125.7 triệu VND |
+| Total Shipping Fees | 43.1 triệu VND |
+| Unique Customers | 300 |
+| **AOV** | **369,074 VND** |
+| **CM** | **666 triệu VND** |
 
-| Component | Vị trí | Chức năng | Trùng lặp |
-|-----------|--------|-----------|-----------|
-| `RealCashBreakdown.tsx` | Line 248-290 | Chi tiết 4 loại locked cash | ✅ Trùng với LockedCashDrilldown |
-| `LockedCashDrilldown.tsx` | Standalone | Chi tiết 4 loại locked cash | Component chính |
+### B. RPC đã fix - Hoạt động đúng
 
-### 2. Sửa đổi
-
-**File: `src/components/fdp/RealCashBreakdown.tsx`**
-
-```text
-TRƯỚC:
-├── Summary Section (Cash đã có, sẽ về, bị khóa, thực sự có thể dùng)
-├── AR Timeline
-├── Chi tiết Cash bị khóa (4 columns) ← TRÙNG LẶP
-└── Cash Quality Indicator
-
-SAU:
-├── Summary Section (Cash đã có, sẽ về, bị khóa, thực sự có thể dùng)
-├── AR Timeline
-├── [XÓA] ← Dùng LockedCashDrilldown riêng khi cần drill-down
-└── Cash Quality Indicator
+Kiểm tra RPC `get_fdp_period_summary`:
+```
+✅ totalRevenue: 1,948,709,568 VND
+✅ totalCogs: 1,032,816,071 VND
+✅ totalPlatformFees: 125,690,250 VND (ĐÃ FIX!)
+✅ totalShippingFees: 43,111,945 VND (ĐÃ FIX!)
+✅ avgOrderValue: 369,074 VND
+✅ contributionMargin: 666,221,372 VND
 ```
 
-### 3. Fix Calculation Logic
+### C. Vấn đề còn lại: SKU RPC lỗi Type Mismatch
 
-```typescript
-// TRƯỚC (Line 96) - Thiếu 2 loại
-const lockedCash = metrics?.lockedCashTotal || (inventoryValue + adsFloat);
-
-// SAU - Đầy đủ 4 loại
-const lockedCash = metrics?.lockedCashTotal || 
-  (inventoryValue + adsFloat + opsFloat + platformHold);
 ```
+Error: "Returned type character varying does not match expected type text in column 1"
+```
+
+RPC `get_sku_profitability_by_date_range` có return type không khớp:
+- `COALESCE(p.sku, coi.product_id)` trả về `varchar`
+- Function declaration yêu cầu `text`
 
 ---
 
-## Phần B: Nâng cấp Unit Economics Page
+## 2. Giải pháp
 
-### 1. Fix Data Pipeline (Database)
-
-Sửa RPC `get_fdp_period_summary` để đọc fees từ `cdp_orders`:
+### Bước 1: Fix RPC SKU Profitability Type Mismatch
 
 ```sql
--- Thay đổi từ hardcoded 0 sang đọc thực tế
-'totalPlatformFees', COALESCE(SUM(o.platform_fee + o.other_fees), 0),
-'totalShippingFees', COALESCE(SUM(o.shipping_fee), 0),
+-- Cast all varchar columns to TEXT explicitly
+CREATE OR REPLACE FUNCTION get_sku_profitability_by_date_range(...)
+RETURNS TABLE (
+  sku TEXT,
+  product_name TEXT,
+  channel TEXT,
+  ...
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COALESCE(p.sku, coi.product_id)::TEXT as sku,
+    COALESCE(p.name, 'Product ' || coi.product_id)::TEXT as product_name,
+    co.channel::TEXT,
+    ...
+  FROM cdp_order_items coi
+  ...
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### 2. Fix Channel Query
+### Bước 2: Verify Data Flow
 
-**File: `src/hooks/useFDPAggregatedMetricsSSOT.ts`**
+Sau khi fix, Unit Economics page sẽ hiển thị:
 
-```typescript
-// TRƯỚC - Query view không tồn tại
-.from('fdp_channel_summary')
-
-// SAU - Dùng view có sẵn
-.from('v_channel_performance')
-```
-
-### 3. Thêm Decision Cards
-
-**File mới: `src/components/unit-economics/UnitEconomicsDecisionCards.tsx`**
-
-```text
-Decision Cards hiển thị:
-├── ⚠️ LTV:CAC < 3x → Cảnh báo CAC quá cao
-├── 📉 CM% < 30% → Cảnh báo margin thấp
-└── 🎯 Opportunity → SKU có thể tăng giá
-```
-
-### 4. Thêm What-If Calculator
-
-**File mới: `src/components/unit-economics/UnitEconomicsCalculator.tsx`**
-
-```text
-Interactive sliders:
-├── COGS: -10% to +10% → Impact on CM/Order
-├── AOV: -10% to +10% → Impact on ROAS
-└── Marketing: -20% to +20% → Impact on LTV:CAC
-```
+| KPI | Giá trị |
+|-----|---------|
+| AOV | 369,074₫ |
+| CM/Order | ~126,100₫ |
+| CM% | ~34.2% |
+| LTV:CAC | ~2.1x |
+| ROAS | ~1.8x |
 
 ---
 
-## Chi tiết tệp tin cần thay đổi
+## 3. Chi tiết tệp tin thay đổi
 
 | File | Thay đổi | Mục đích |
 |------|----------|----------|
-| **Database Migration** | Fix RPC `get_fdp_period_summary` | Đọc fees từ cdp_orders |
-| `src/components/fdp/RealCashBreakdown.tsx` | Xóa section trùng lặp + fix calculation | Loại bỏ duplication |
-| `src/hooks/useFDPAggregatedMetricsSSOT.ts` | Sửa channel query | Fix channel breakdown |
-| `src/components/unit-economics/UnitEconomicsDecisionCards.tsx` | Component mới | Decision insights |
-| `src/components/unit-economics/UnitEconomicsCalculator.tsx` | Component mới | What-if calculator |
-| `src/pages/UnitEconomicsPage.tsx` | Tích hợp decision cards + calculator | Enhanced UX |
-| `src/contexts/LanguageContext.tsx` | Thêm translation keys | i18n support |
+| **Database Migration** | Fix RPC `get_sku_profitability_by_date_range` - cast VARCHAR to TEXT | Fix type mismatch error |
 
 ---
 
-## Kết quả mong đợi
+## 4. Kết quả mong đợi
 
-### Real Cash Breakdown:
-- Không còn section trùng lặp
-- Calculation đầy đủ 4 loại locked cash
-- UI gọn gàng hơn
+### Trước (Hiện tại):
+```
+AOV: 0
+CM/Order: 0
+Doanh thu/đơn: 0 đ
+(-) COGS: -0 đ
+(-) Phí sàn: -0 đ
+(-) Vận chuyển: -0 đ
+= Contribution Margin: 0 đ (0.0%)
+Pie chart: Trống
+```
 
-### Unit Economics:
-| Metric | Trước | Sau |
-|--------|-------|-----|
-| AOV | 0 | ~403,420₫ |
-| CM/Order | 0 | ~142,857₫ |
-| LTV:CAC | 0.0x | ~2.1x |
-| Channel data | Trống | 4 kênh đầy đủ |
-| Decision Cards | Không có | 3 insights |
-| Calculator | Không có | What-if tool |
+### Sau khi fix:
+```
+AOV: 369,074₫
+CM/Order: 126,100₫
+Doanh thu/đơn: 369,074₫
+(-) COGS: -195,606₫ (53.0%)
+(-) Phí sàn: -23,806₫ (6.4%)
+(-) Vận chuyển: -8,165₫ (2.2%)
+= Contribution Margin: 126,100₫ (34.2%)
+Pie chart: 4 segments với đầy đủ data
+```
 
+---
+
+## 5. Tuân thủ FDP Manifesto
+
+- ✅ **SINGLE SOURCE OF TRUTH**: Data từ `cdp_orders` qua RPC
+- ✅ **REVENUE ↔ COST**: Hiển thị đầy đủ COGS + Fees + Shipping
+- ✅ **UNIT ECONOMICS → ACTION**: Metrics per-order để đánh giá
