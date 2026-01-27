@@ -23887,6 +23887,74 @@ export type Database = {
           },
         ]
       }
+      working_capital_targets: {
+        Row: {
+          ccc_benchmark: number
+          ccc_good_multiplier: number
+          ccc_warning_multiplier: number
+          created_at: string
+          dio_target: number
+          dpo_target: number
+          dso_target: number
+          id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ccc_benchmark?: number
+          ccc_good_multiplier?: number
+          ccc_warning_multiplier?: number
+          created_at?: string
+          dio_target?: number
+          dpo_target?: number
+          dso_target?: number
+          id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ccc_benchmark?: number
+          ccc_good_multiplier?: number
+          ccc_warning_multiplier?: number
+          created_at?: string
+          dio_target?: number
+          dpo_target?: number
+          dso_target?: number
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "working_capital_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "working_capital_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "working_capital_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "working_capital_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
     }
     Views: {
       ap_aging: {
@@ -25843,6 +25911,58 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_ccc_with_targets: {
+        Row: {
+          ccc: number | null
+          ccc_benchmark: number | null
+          ccc_improvement: number | null
+          ccc_status: string | null
+          dio: number | null
+          dio_status: string | null
+          dio_target: number | null
+          dpo: number | null
+          dpo_status: string | null
+          dpo_target: number | null
+          dso: number | null
+          dso_status: string | null
+          dso_target: number | null
+          overdue_ar: number | null
+          overdue_ar_percent: number | null
+          snapshot_at: string | null
+          tenant_id: string | null
+          total_ar: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -29481,6 +29601,116 @@ export type Database = {
           },
           {
             foreignKeyName: "risk_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_variance_with_status: {
+        Row: {
+          action_taken: string | null
+          actual_amount: number | null
+          analysis_period: string | null
+          budget_amount: number | null
+          category: string | null
+          channel: string | null
+          created_at: string | null
+          id: string | null
+          is_favorable: boolean | null
+          is_significant: boolean | null
+          period_type: string | null
+          prior_period_amount: number | null
+          prior_year_amount: number | null
+          requires_action: boolean | null
+          subcategory: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          variance_drivers: Json | null
+          variance_pct: number | null
+          variance_pct_budget: number | null
+          variance_to_budget: number | null
+          variance_to_prior: number | null
+          yoy_variance: number | null
+          yoy_variance_pct: number | null
+        }
+        Insert: {
+          action_taken?: string | null
+          actual_amount?: number | null
+          analysis_period?: string | null
+          budget_amount?: number | null
+          category?: string | null
+          channel?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_favorable?: never
+          is_significant?: boolean | null
+          period_type?: string | null
+          prior_period_amount?: number | null
+          prior_year_amount?: number | null
+          requires_action?: boolean | null
+          subcategory?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          variance_drivers?: Json | null
+          variance_pct?: never
+          variance_pct_budget?: number | null
+          variance_to_budget?: number | null
+          variance_to_prior?: number | null
+          yoy_variance?: number | null
+          yoy_variance_pct?: number | null
+        }
+        Update: {
+          action_taken?: string | null
+          actual_amount?: number | null
+          analysis_period?: string | null
+          budget_amount?: number | null
+          category?: string | null
+          channel?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_favorable?: never
+          is_significant?: boolean | null
+          period_type?: string | null
+          prior_period_amount?: number | null
+          prior_year_amount?: number | null
+          requires_action?: boolean | null
+          subcategory?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          variance_drivers?: Json | null
+          variance_pct?: never
+          variance_pct_budget?: number | null
+          variance_to_budget?: number | null
+          variance_to_prior?: number | null
+          yoy_variance?: number | null
+          yoy_variance_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variance_analysis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variance_analysis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "variance_analysis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "variance_analysis_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"

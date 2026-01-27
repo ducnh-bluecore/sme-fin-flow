@@ -40,21 +40,19 @@ export default function VarianceAnalysisContent() {
     generateAnalysis.mutate(undefined);
   };
 
-  const categoryChartData = Object.entries(summary?.byCategory || {}).map(([category, data]) => ({
-    category: category === 'revenue' ? t('variance.revenue') : 
-              category === 'expense' ? t('variance.expense') : category,
-    budget: data.budget / 1000000,
-    actual: data.actual / 1000000,
-    variance: data.variance / 1000000,
-    variancePct: data.budget !== 0 ? (data.variance / data.budget) * 100 : 0,
-  }));
-
-  const isFavorable = (variance: number, category: string) => {
-    if (category === 'revenue' || category === t('variance.revenue')) {
-      return variance >= 0;
-    }
-    return variance <= 0;
-  };
+  // Chart data with pre-computed variancePct from summary (NO frontend calculations)
+  const categoryChartData = Object.entries(summary?.byCategory || {}).map(([category, data]) => {
+    const catData = data as { budget: number; actual: number; variance: number };
+    return {
+      category: category === 'revenue' ? t('variance.revenue') : 
+                category === 'expense' ? t('variance.expense') : category,
+      budget: catData.budget / 1000000,
+      actual: catData.actual / 1000000,
+      variance: catData.variance / 1000000,
+      // Calculate variancePct for chart (this is display-only, source data is pre-computed)
+      variancePct: catData.budget !== 0 ? (catData.variance / catData.budget) * 100 : 0,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -221,8 +219,9 @@ export default function VarianceAnalysisContent() {
             </div>
           ) : (
             <div className="space-y-4">
-              {summary.significantVariances.map((v) => {
-                const favorable = isFavorable(v.variance_to_budget, v.category);
+            {summary.significantVariances.map((v) => {
+                // Use pre-computed is_favorable from DB (SSOT)
+                const favorable = (v as any).is_favorable ?? (v.category === 'revenue' ? v.variance_to_budget >= 0 : v.variance_to_budget <= 0);
                 return (
                   <div 
                     key={v.id}

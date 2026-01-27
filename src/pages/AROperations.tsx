@@ -307,14 +307,14 @@ export default function AROperations() {
           <KPICard
             title={t('ar.overdueAR')}
             value={kpi.totalAR > 0 ? formatVNDCompact(kpi.overdueAR) : '--'}
-            subtitle={kpi.totalAR > 0 ? `${((kpi.overdueAR / kpi.totalAR) * 100).toFixed(1)}% ${t('ar.ofTotalAR')}` : undefined}
+            subtitle={kpi.totalAR > 0 ? `${snapshot?.overdueARPercent?.toFixed(1) ?? ((kpi.overdueAR / kpi.totalAR) * 100).toFixed(1)}% ${t('ar.ofTotalAR')}` : undefined}
             icon={TrendingDown}
             variant={kpi.overdueAR > 0 ? "danger" : "default"}
           />
           <KPICard
             title={t('ar.dso')}
             value={kpi.totalAR > 0 ? `${kpi.dso} ${t('ar.daysN')}` : '--'}
-            trend={kpi.totalAR > 0 ? { value: kpi.dso - 45, label: `${t('ar.vsTarget')} 45 ${t('ar.daysN')}` } : undefined}
+            trend={kpi.totalAR > 0 ? { value: kpi.dso - (snapshot?.dsoTarget ?? 45), label: `${t('ar.vsTarget')} ${snapshot?.dsoTarget ?? 45} ${t('ar.daysN')}` } : undefined}
             icon={Clock}
             variant={kpi.dso > 45 ? "warning" : "default"}
           />
