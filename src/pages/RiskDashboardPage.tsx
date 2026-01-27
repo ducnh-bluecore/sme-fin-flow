@@ -50,7 +50,7 @@ import {
   Legend,
 } from 'recharts';
 import { StressTestingPanel } from '@/components/risk/StressTestingPanel';
-// useRiskScores removed - SSOT cleanup
+import { useRiskRadarData, type RiskScoreItem } from '@/hooks/useRiskRadarData';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -337,18 +337,8 @@ function StressTestPanel() {
 
 // Risk Radar Component
 function RiskRadar() {
-  // Mock risk scores (SSOT: use v_risk_summary view or RPC in future)
-  const riskScores = [
-    { category: 'Liquidity', score: 65, maxScore: 100, severity: 'medium' as const },
-    { category: 'Credit', score: 45, maxScore: 100, severity: 'low' as const },
-    { category: 'Market', score: 70, maxScore: 100, severity: 'medium' as const },
-    { category: 'Operational', score: 55, maxScore: 100, severity: 'medium' as const },
-  ];
-  const lowCount = 1;
-  const mediumCount = 3;
-  const highCount = 0;
-  const criticalCount = 0;
-  const isLoading = false;
+  // SSOT: Fetch from v_risk_radar_summary view
+  const { riskScores, lowCount, mediumCount, highCount, criticalCount, isLoading } = useRiskRadarData();
 
   if (isLoading) {
     return (
@@ -363,6 +353,26 @@ function RiskRadar() {
         <CardContent>
           <div className="h-[350px] flex items-center justify-center">
             <p className="text-muted-foreground">Đang tải dữ liệu...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If no data, show empty state
+  if (riskScores.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            Risk Profile
+          </CardTitle>
+          <CardDescription>Đánh giá tổng thể các loại rủi ro</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[350px] flex items-center justify-center">
+            <p className="text-muted-foreground">Chưa có dữ liệu risk scores</p>
           </div>
         </CardContent>
       </Card>
@@ -408,15 +418,15 @@ function RiskRadar() {
             <p className="font-medium text-green-500">{lowCount} chỉ số</p>
           </div>
           <div className="p-2 rounded bg-yellow-500/10 text-center">
-            <p className="text-xs text-muted-foreground">Trung bình (40-60)</p>
+            <p className="text-xs text-muted-foreground">Trung bình (40-70)</p>
             <p className="font-medium text-yellow-500">{mediumCount} chỉ số</p>
           </div>
           <div className="p-2 rounded bg-orange-500/10 text-center">
-            <p className="text-xs text-muted-foreground">Cao (60-80)</p>
+            <p className="text-xs text-muted-foreground">Cao (70+)</p>
             <p className="font-medium text-orange-500">{highCount} chỉ số</p>
           </div>
           <div className="p-2 rounded bg-red-500/10 text-center">
-            <p className="text-xs text-muted-foreground">Nghiêm trọng (80+)</p>
+            <p className="text-xs text-muted-foreground">Nghiêm trọng</p>
             <p className="font-medium text-red-500">{criticalCount} chỉ số</p>
           </div>
         </div>
@@ -629,44 +639,48 @@ export default function RiskDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showReportDialog, setShowReportDialog] = useState(false);
 
-  const riskScores = [
+  // SSOT: Fetch risk scores from database
+  const { riskScores: radarScores, overallScore, isLoading: riskLoading } = useRiskRadarData();
+
+  // Map radar scores to risk card format
+  const riskScores = radarScores.length > 0 ? [
     {
       title: 'Rủi ro thanh khoản',
-      score: 65,
+      score: radarScores.find(r => r.category === 'Liquidity')?.score || 0,
       maxScore: 100,
-      trend: 'up' as const,
+      trend: 'stable' as const,
       icon: DollarSign,
-      description: 'Cash runway giảm, cần theo dõi sát',
-      severity: 'medium' as const,
+      description: 'Cash runway và dòng tiền hoạt động',
+      severity: (radarScores.find(r => r.category === 'Liquidity')?.severity || 'low') as 'low' | 'medium' | 'high',
     },
     {
       title: 'Rủi ro tín dụng',
-      score: 45,
+      score: radarScores.find(r => r.category === 'Credit')?.score || 0,
       maxScore: 100,
       trend: 'stable' as const,
       icon: Users,
-      description: 'AR quá hạn trong tầm kiểm soát',
-      severity: 'low' as const,
+      description: 'AR quá hạn và nợ xấu',
+      severity: (radarScores.find(r => r.category === 'Credit')?.severity || 'low') as 'low' | 'medium' | 'high',
     },
     {
-      title: 'Rủi ro tập trung',
-      score: 72,
+      title: 'Rủi ro thị trường',
+      score: radarScores.find(r => r.category === 'Market')?.score || 0,
       maxScore: 100,
-      trend: 'up' as const,
+      trend: 'stable' as const,
       icon: Building2,
-      description: 'Phụ thuộc nhiều vào top khách hàng',
-      severity: 'high' as const,
+      description: 'Biến động thị trường và tỷ giá',
+      severity: (radarScores.find(r => r.category === 'Market')?.severity || 'low') as 'low' | 'medium' | 'high',
     },
     {
-      title: 'Rủi ro lãi suất',
-      score: 55,
+      title: 'Rủi ro vận hành',
+      score: radarScores.find(r => r.category === 'Operational')?.score || 0,
       maxScore: 100,
-      trend: 'down' as const,
+      trend: 'stable' as const,
       icon: Percent,
-      description: 'Đã hedge 60% khoản vay',
-      severity: 'medium' as const,
+      description: 'Quy trình và hệ thống nội bộ',
+      severity: (radarScores.find(r => r.category === 'Operational')?.severity || 'low') as 'low' | 'medium' | 'high',
     },
-  ];
+  ] : [];
 
   return (
     <>
@@ -698,11 +712,24 @@ export default function RiskDashboardPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="text-5xl font-bold text-yellow-500">59</div>
-                  <p className="text-sm text-muted-foreground">/ 100 (Trung bình)</p>
+                  <div className={`text-5xl font-bold ${
+                    overallScore < 40 ? 'text-green-500' :
+                    overallScore < 70 ? 'text-yellow-500' : 'text-red-500'
+                  }`}>
+                    {riskLoading ? '...' : overallScore}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    / 100 ({overallScore < 40 ? 'Thấp' : overallScore < 70 ? 'Trung bình' : 'Cao'})
+                  </p>
                 </div>
-                <div className="w-24 h-24 rounded-full border-4 border-yellow-500 flex items-center justify-center">
-                  <Shield className="h-10 w-10 text-yellow-500" />
+                <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center ${
+                  overallScore < 40 ? 'border-green-500' :
+                  overallScore < 70 ? 'border-yellow-500' : 'border-red-500'
+                }`}>
+                  <Shield className={`h-10 w-10 ${
+                    overallScore < 40 ? 'text-green-500' :
+                    overallScore < 70 ? 'text-yellow-500' : 'text-red-500'
+                  }`} />
                 </div>
               </div>
             </div>
