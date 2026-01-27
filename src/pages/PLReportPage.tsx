@@ -219,7 +219,7 @@ export default function PLReportPage() {
   
   const { data, isLoading, error } = usePLData();
   const { data: budgetData, isLoading: budgetLoading } = useScenarioBudgetData({});
-  const { data: channelsPLData, isLoading: channelsLoading } = useAllChannelsPL(12);
+  const { data: channelsPLData, isLoading: channelsLoading } = useAllChannelsPL();
 
   const isDataLoading = isLoading || budgetLoading || channelsLoading;
 

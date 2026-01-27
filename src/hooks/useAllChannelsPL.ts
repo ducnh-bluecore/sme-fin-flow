@@ -12,6 +12,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
+import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface ChannelPLSummaryItem {
   channel: string;
@@ -44,36 +45,38 @@ export interface AllChannelsPLData {
   mostProfitableChannel: string | null;
 }
 
-export function useAllChannelsPL(months: number = 12) {
+export function useAllChannelsPL() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
-    queryKey: ['all-channels-pl', tenantId, months],
+    queryKey: ['all-channels-pl', tenantId, startDateStr, endDateStr],
     queryFn: async (): Promise<AllChannelsPLData | null> => {
       if (!tenantId) return null;
 
-      // Use pre-aggregated channel summary view (cast to any since views not in types)
+      // Use pre-aggregated channel summary view with date filtering
       const { data: rawData, error } = await supabase
         .from('v_channel_pl_summary' as any)
         .select('*')
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .gte('period', startDateStr)
+        .lte('period', endDateStr);
 
       if (error) {
         console.error('Error fetching channel summary:', error);
         return null;
       }
 
+      // Match actual v_channel_pl_summary columns
       interface ChannelViewRow {
         channel: string | null;
+        period: string;
         order_count: number;
-        total_revenue: number;
-        total_cogs: number;
-        total_platform_fee: number;
-        total_commission_fee: number;
-        total_payment_fee: number;
-        total_shipping_fee: number;
+        gross_revenue: number;
+        net_revenue: number;
+        cogs: number;
         contribution_margin: number;
-        avg_order_value: number;
+        cm_percent: number;
       }
       const channelSummary = (rawData as unknown as ChannelViewRow[]) || [];
 
@@ -101,7 +104,6 @@ export function useAllChannelsPL(months: number = 12) {
         totalRevenue: number;
         totalCogs: number;
         totalFees: number;
-        shippingFees: number;
         orderCount: number;
         contributionMargin: number;
       }>();
@@ -117,15 +119,18 @@ export function useAllChannelsPL(months: number = 12) {
           totalRevenue: 0,
           totalCogs: 0,
           totalFees: 0,
-          shippingFees: 0,
           orderCount: 0,
           contributionMargin: 0,
         };
 
-        existing.totalRevenue += ch.total_revenue || 0;
-        existing.totalCogs += ch.total_cogs || 0;
-        existing.totalFees += (ch.total_platform_fee || 0) + (ch.total_commission_fee || 0) + (ch.total_payment_fee || 0);
-        existing.shippingFees += ch.total_shipping_fee || 0;
+        // Use actual column names from v_channel_pl_summary
+        existing.totalRevenue += ch.gross_revenue || 0;
+        existing.totalCogs += ch.cogs || 0;
+        
+        // Fees = gross_revenue - net_revenue (platform fees, commissions, etc.)
+        const periodFees = (ch.gross_revenue || 0) - (ch.net_revenue || 0);
+        existing.totalFees += periodFees;
+        
         existing.orderCount += ch.order_count || 0;
         existing.contributionMargin += ch.contribution_margin || 0;
 
@@ -142,7 +147,7 @@ export function useAllChannelsPL(months: number = 12) {
       const channelData: ChannelPLSummaryItem[] = Array.from(channelMap.entries()).map(([channelName, ch]) => {
         const totalRevenue = ch.totalRevenue;
         const totalCogs = ch.totalCogs;
-        const totalFees = ch.totalFees + ch.shippingFees;
+        const totalFees = ch.totalFees;
         const orderCount = ch.orderCount;
 
         // Gross Profit = Revenue - COGS
