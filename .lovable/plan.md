@@ -1,85 +1,99 @@
 
-Mục tiêu: Tab “SKU Profitability” đang fail và toàn bộ tab trong `/unit-economics` không lên dữ liệu. Hiện tại mình đã xác định được “lỗi thật” còn lại của SKU Profitability: RPC `get_sku_profitability_by_date_range` vẫn đang JOIN sai kiểu dữ liệu (`text = uuid`), nên hook `useCachedSKUProfitability()` luôn throw error ⇒ UI hiện “Không thể tải dữ liệu SKU”.
+## Tình trạng hiện tại (vì sao vẫn lỗi)
+Tab **SKU Profitability** vẫn không có data vì RPC `get_sku_profitability_by_date_range` đang **crash ở DB** do tham chiếu sai schema bảng `cdp_order_items`.
 
-Bằng chứng (console log hiện tại):
-- `SKU profitability RPC error: operator does not exist: text = uuid`
+Bằng chứng từ network request hiện tại:
+- RPC trả **400** với lỗi:
+  - `column coi.sku does not exist` (code `42703`)
 
-Nguồn gốc trong migration đang active:
-- File `supabase/migrations/20260127091338_...sql` đang tạo function 4-args với dòng:
-  - `LEFT JOIN products p ON coi.product_id = p.id AND coi.tenant_id = p.tenant_id`
-  - Trong khi `coi.product_id` là `text`, còn `p.id` là `uuid` ⇒ crash.
-- Việc drop overload 3-args đã xong, nhưng function 4-args vẫn lỗi JOIN nên SKU vẫn fail.
+Nguyên nhân:
+- Migration gần nhất đã “fix join text=uuid”, nhưng function mới lại dùng các cột **không tồn tại** trong `cdp_order_items` và `cdp_orders`:
+  - `coi.sku` (không có)
+  - `coi.quantity` (đúng phải là `coi.qty`)
+  - `coi.line_total` (đúng phải là `coi.line_revenue`)
+  - `coi.cogs_amount` (đúng phải là `coi.line_cogs`)
+  - `co.order_date` (đúng là `co.order_at`)
+  - `co.status` (cdp_orders không có cột này trong schema hiện tại)
 
----
+Schema thật (đã xác nhận trong migration tạo bảng):
+- `cdp_order_items`: `product_id (text)`, `qty`, `unit_price`, `line_revenue`, `line_cogs`, `line_margin`
+- `cdp_orders`: `order_at`, `channel`, `net_revenue`, `cogs`, `gross_margin`… (không có status)
 
-## Phần 1 — Chuẩn đoán chính xác trong DB (để chắc không còn overload/khác signature)
-1) Chạy query đọc metadata để confirm chỉ còn đúng function signature đang được gọi:
-   - Liệt kê tất cả overload của `get_sku_profitability_by_date_range` trong `pg_proc` + argument types.
-2) Confirm cột `cdp_order_items.product_id` đang là `text` (hoặc `varchar`) và `products.id` là `uuid`.
-
-Kết quả mong đợi:
-- Chỉ còn 1 signature “note-worthy” đang dùng cho frontend:
-  - `(uuid, date, date, integer default …)`.
-
----
-
-## Phần 2 — Fix dứt điểm RPC (DB-first, SSOT)
-Tạo 1 migration mới để **CREATE OR REPLACE** function `get_sku_profitability_by_date_range(uuid, date, date, integer)` với JOIN đúng kiểu.
-
-### Option A (đề xuất, an toàn nhất): JOIN có “regex guard” để không bao giờ crash vì cast
-Thay dòng JOIN bằng:
-
-- `LEFT JOIN products p ON p.tenant_id = coi.tenant_id
-   AND p.id = CASE
-     WHEN coi.product_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-     THEN coi.product_id::uuid
-     ELSE NULL
-   END`
-
-Ưu điểm:
-- Không phụ thuộc 100% việc `product_id` luôn là UUID string.
-- Không gây “white screen” khi gặp record xấu.
-
-### Option B (nhanh hơn nhưng rủi ro): JOIN bằng `p.id::text = coi.product_id`
-- `LEFT JOIN products p ON p.id::text = coi.product_id AND p.tenant_id = coi.tenant_id`
-Ưu điểm: không cast `product_id` sang uuid.
-Nhược: join sẽ tốn hơn (khó dùng index tốt), và vẫn phụ thuộc format.
-
-Mình sẽ chọn **Option A** để đảm bảo “Truth > Flexibility” + “no silent failure”.
-
-### Đồng thời: giữ return types đúng
-- Giữ toàn bộ `::TEXT` cho `sku`, `product_name`, `channel` như migration hiện tại để tránh mismatch kiểu.
-- Giữ `order_count`, `total_quantity`, `total_revenue`, `total_cogs`, `gross_profit`, `margin_percent` đúng như hook đang map.
-
-### Quyền thực thi
-- Đảm bảo `GRANT EXECUTE` cho `authenticated` và `anon` giống file hiện tại.
+=> Vì vậy function hiện tại **không thể chạy** nên UI chỉ hiện “Không thể tải dữ liệu SKU”.
 
 ---
 
-## Phần 3 — Xác nhận flow end-to-end (không sửa UI trước khi backend đúng)
-Sau migration:
-1) Test gọi RPC trực tiếp từ client (tab SKU) sẽ không còn lỗi `text = uuid`.
-2) `useCachedSKUProfitability()` sẽ nhận array rows ⇒ `SKUProfitabilityAnalysis` hết error state.
-3) Trường hợp vẫn “không có data”:
-   - Khi đó UI sẽ rơi vào empty-state “Chưa có dữ liệu SKU …” (khác với error).
-   - Bấm “Tính toán SKU Profitability” sẽ chạy `useRecalculateSKUProfitability()` (dựa vào view `fdp_sku_summary` vốn đang trả 200 OK trong network log) để populate cache.
+## Mục tiêu fix
+1) RPC `get_sku_profitability_by_date_range(uuid, date, date, integer)` chạy OK với schema thật
+2) Frontend hook `useCachedSKUProfitability()` không còn throw error
+3) SKU Profitability tab hiển thị được list + summary theo date range (đúng DB-first / SSOT)
 
 ---
 
-## Phần 4 — Dọn kỹ thuật (để tránh tái phát)
-1) Tuyệt đối không chỉnh `src/integrations/supabase/types.ts` thủ công nữa (file này auto-generated). Nếu đang bị drift thì sẽ revert về trạng thái auto.
-2) Giữ frontend hook như hiện tại (đã pass `p_limit` và mapping output), vì lỗi hiện tại hoàn toàn ở RPC JOIN.
+## Thiết kế giải pháp (DB-first, an toàn, không “làm đẹp số”)
+### 1) Sửa lại RPC bằng migration mới (CREATE OR REPLACE / DROP + CREATE)
+Tạo migration mới để **DROP và tạo lại** function `public.get_sku_profitability_by_date_range(uuid, date, date, integer)` với các thay đổi:
+
+**a) Dùng đúng cột thực tế**
+- Quantity: `SUM(coi.qty)`
+- Revenue: `SUM(coi.line_revenue)`
+- COGS: `SUM(coi.line_cogs)` (không tự “ước lượng” nếu null; nếu có null thì trả đúng null/0 tùy dữ liệu hiện có, tránh magic number)
+- Order count: `COUNT(DISTINCT coi.order_id)` hoặc `COUNT(DISTINCT co.id)` (tương đương)
+
+**b) Filter theo thời gian đúng**
+- `co.order_at::date BETWEEN p_start_date AND p_end_date`
+
+**c) SKU / product_name**
+Vì `products` table không có cột `sku`, chỉ có `code`:
+- `sku` output sẽ dùng: `COALESCE(p.code, coi.product_id, 'Unknown')::text`
+- `product_name`: `COALESCE(p.name, 'Unknown')::text`
+
+**d) Channel**
+- `channel`: `COALESCE(co.channel, 'Unknown')::text`
+
+**e) Fix join text -> uuid vẫn giữ “regex guard”**
+Giữ join an toàn để không crash:
+- `p.id = CASE WHEN coi.product_id matches UUID THEN coi.product_id::uuid ELSE NULL END`
+- `p.tenant_id = coi.tenant_id`
+
+**f) Bỏ điều kiện status**
+Vì `cdp_orders` không có `status`, sẽ bỏ:
+- `AND co.status NOT IN (...)`
+
+**g) Return types khớp frontend**
+Giữ đúng các cột frontend đang map:
+- `sku, product_name, channel, order_count, total_quantity, total_revenue, total_cogs, gross_profit, margin_percent`
+(Chỉ chỉnh dữ liệu nguồn cho đúng schema)
+
+**h) Quyền thực thi**
+- `GRANT EXECUTE` cho `authenticated` và `anon` như hiện tại.
 
 ---
 
-## Checklist “done”
-- Console không còn: `operator does not exist: text = uuid`
-- Tab “SKU Profitability” hiển thị summary + list SKU
-- Nếu date range không có orders: hiển thị empty state + nút recalc (không phải error)
+## 2) Xác minh end-to-end sau khi migration chạy
+1) Trên client, request RPC `/rpc/get_sku_profitability_by_date_range` phải trả 200 và array rows
+2) UI SKU tab:
+   - Không còn “Không thể tải dữ liệu SKU”
+   - Nếu không có orders trong range: UI vào empty-state “Chưa có dữ liệu…” (khác error)
 
 ---
 
-## Phạm vi thay đổi dự kiến khi vào Default mode
-- Backend: thêm 1 migration mới “Fix join text(uuid) in get_sku_profitability_by_date_range (4 args)”
-- Frontend: không cần thay đổi thêm cho SKU tab (trừ khi muốn hiển thị error message chi tiết hơn)
+## 3) Dọn kỹ thuật (để không tái phát)
+- Không chỉnh `src/integrations/supabase/types.ts` thủ công nữa (đang bị chạm nhiều lần). Khi implement ở default mode, sẽ revert nó về trạng thái auto-generated / remove các sửa tay nếu còn.
+
+---
+
+## Phạm vi thay đổi khi chuyển sang Default mode (implementation)
+- Backend:
+  - Thêm 1 migration mới thay thế function `get_sku_profitability_by_date_range` (sửa đúng tên cột + order_at)
+- Frontend:
+  - Không cần đổi hook `useSKUProfitabilityCache.ts` (vì hook đã gọi đúng params + mapping đúng output)
+  - (Optional) nếu muốn thông báo lỗi chi tiết hơn trong UI, có thể render `error.message`, nhưng không bắt buộc để fix data.
+
+---
+
+## Tiêu chí “DONE”
+- Network không còn 400 `column ... does not exist`
+- SKU Profitability hiển thị list (Top 500) theo date range
+- Không có “magic numbers” che lỗi dữ liệu; thiếu data thì empty-state, không fake
 
