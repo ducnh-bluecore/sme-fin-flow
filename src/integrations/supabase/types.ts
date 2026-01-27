@@ -28475,7 +28475,6 @@ export type Database = {
           efficiency_score: number | null
           efficiency_status: string | null
           good_count: number | null
-          good_threshold: number | null
           gross_margin: number | null
           growth_score: number | null
           growth_status: string | null
@@ -28494,7 +28493,6 @@ export type Database = {
           stability_status: string | null
           tenant_id: string | null
           warning_count: number | null
-          warning_threshold: number | null
         }
         Relationships: [
           {
