@@ -1,24 +1,34 @@
-import { useState, useEffect } from 'react';
-import { TrendingUp, Calculator, Save, HelpCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, Calculator, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { formatVNDCompact, formatVND, formatDate, formatPercent } from '@/lib/formatters';
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { motion } from 'framer-motion';
+import { formatVNDCompact, formatDate, formatPercent } from '@/lib/formatters';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
+import { AnimatedKPIRing } from './AnimatedKPIRing';
+import { DecisionWorkflowCard } from './DecisionWorkflowCard';
+import { InlineAIAdvisor } from './InlineAIAdvisor';
 import {
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Legend,
 } from 'recharts';
 
 type AdvisorContext = Record<string, any>;
+
+const INDUSTRY_BENCHMARK = {
+  roi: 20, // 20% ROI threshold
+  cagr: 10, // 10% CAGR industry average
+};
 
 export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
@@ -36,6 +46,61 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
   const netProfit = totalReturns - params.initialInvestment;
   const roi = (netProfit / params.initialInvestment) * 100;
   const annualizedROI = Math.pow(1 + roi / 100, 1 / 5) - 1;
+  const investmentMultiple = totalReturns / params.initialInvestment;
+
+  // Chart data with cumulative returns
+  const chartData = useMemo(() => {
+    let cumulative = -params.initialInvestment;
+    const years = [
+      { year: 'Năm 0', return: -params.initialInvestment, cumulative: -params.initialInvestment },
+    ];
+    
+    [params.year1Return, params.year2Return, params.year3Return, params.year4Return, params.year5Return].forEach((ret, i) => {
+      cumulative += ret;
+      years.push({
+        year: `Năm ${i + 1}`,
+        return: ret,
+        cumulative,
+      });
+    });
+    
+    return years;
+  }, [params]);
+
+  // Trend analysis
+  const yearlyReturns = [params.year1Return, params.year2Return, params.year3Return, params.year4Return, params.year5Return];
+  const peakYear = yearlyReturns.indexOf(Math.max(...yearlyReturns)) + 1;
+  const isDecreasing = yearlyReturns[3] < yearlyReturns[2] || yearlyReturns[4] < yearlyReturns[3];
+
+  // AI Insights
+  const aiInsights = useMemo(() => {
+    const insights = [];
+    
+    if (roi > INDUSTRY_BENCHMARK.roi) {
+      insights.push({
+        type: 'success' as const,
+        message: `ROI ${roi.toFixed(1)}% vượt ngưỡng industry ${INDUSTRY_BENCHMARK.roi}%`,
+        action: 'Xem chi tiết phân tích',
+      });
+    }
+
+    if (isDecreasing) {
+      insights.push({
+        type: 'warning' as const,
+        message: `Lợi nhuận năm 4-5 có xu hướng giảm. Kiểm tra sustainability.`,
+        action: 'Phân tích chi tiết',
+      });
+    }
+
+    if (annualizedROI * 100 > INDUSTRY_BENCHMARK.cagr) {
+      insights.push({
+        type: 'info' as const,
+        message: `CAGR ${(annualizedROI * 100).toFixed(1)}% cao hơn industry average ${INDUSTRY_BENCHMARK.cagr}%`,
+      });
+    }
+
+    return insights;
+  }, [roi, annualizedROI, isDecreasing]);
 
   useEffect(() => {
     onContextChange?.({
@@ -46,18 +111,11 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
         netProfit,
         roi,
         annualizedROI: annualizedROI * 100,
+        investmentMultiple,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, totalReturns, netProfit, roi, annualizedROI]);
-
-  const chartData = [
-    { year: 'Năm 1', return: params.year1Return, cumulative: params.year1Return - params.initialInvestment },
-    { year: 'Năm 2', return: params.year2Return, cumulative: params.year1Return + params.year2Return - params.initialInvestment },
-    { year: 'Năm 3', return: params.year3Return, cumulative: params.year1Return + params.year2Return + params.year3Return - params.initialInvestment },
-    { year: 'Năm 4', return: params.year4Return, cumulative: params.year1Return + params.year2Return + params.year3Return + params.year4Return - params.initialInvestment },
-    { year: 'Năm 5', return: params.year5Return, cumulative: totalReturns - params.initialInvestment },
-  ];
+  }, [params, totalReturns, netProfit, roi, annualizedROI, investmentMultiple]);
 
   const handleSave = () => {
     saveAnalysis.mutate({
@@ -70,6 +128,7 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
         netProfit,
         roi,
         annualizedROI: annualizedROI * 100,
+        investmentMultiple,
       },
       recommendation: roi > 20 ? 'Khuyến nghị đầu tư' : roi > 10 ? 'Cân nhắc đầu tư' : 'Không khuyến nghị',
       ai_insights: null,
@@ -79,71 +138,68 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
     });
   };
 
+  const getConfidenceLevel = () => {
+    if (roi > 30 && !isDecreasing) return 90;
+    if (roi > 20) return 75;
+    if (roi > 10) return 50;
+    return 30;
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              ROI Tổng
-              <HoverCard>
-                <HoverCardTrigger><HelpCircle className="h-3 w-3" /></HoverCardTrigger>
-                <HoverCardContent className="w-80">
-                  <p className="font-mono text-sm">ROI = (Lợi nhuận ròng / Đầu tư) × 100%</p>
-                </HoverCardContent>
-              </HoverCard>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${roi > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {formatPercent(roi)}
-            </div>
-            <p className="text-sm text-muted-foreground">sau 5 năm</p>
-          </CardContent>
-        </Card>
+      {/* AI Insights */}
+      <InlineAIAdvisor 
+        insights={aiInsights}
+      />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">ROI Hàng năm</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${annualizedROI > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {formatPercent(annualizedROI, true)}
-            </div>
-            <p className="text-sm text-muted-foreground">CAGR</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Lợi nhuận ròng</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${netProfit > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {formatVNDCompact(netProfit)}
-            </div>
-            <p className="text-sm text-muted-foreground">tổng 5 năm</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng thu hồi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatVNDCompact(totalReturns)}</div>
-            <p className="text-sm text-muted-foreground">so với {formatVNDCompact(params.initialInvestment)} đầu tư</p>
-          </CardContent>
-        </Card>
+      {/* KPI Rings */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnimatedKPIRing
+          label="ROI Tổng"
+          value={roi}
+          maxValue={100}
+          formatValue={(v) => `${v.toFixed(1)}%`}
+          color={roi > 20 ? 'hsl(142 76% 36%)' : roi > 10 ? 'hsl(45 93% 47%)' : 'hsl(var(--destructive))'}
+          benchmark={{ value: INDUSTRY_BENCHMARK.roi, label: 'Benchmark' }}
+          subtitle="sau 5 năm"
+        />
+        <AnimatedKPIRing
+          label="CAGR"
+          value={annualizedROI * 100}
+          maxValue={30}
+          formatValue={(v) => `${v.toFixed(1)}%`}
+          color={annualizedROI * 100 > INDUSTRY_BENCHMARK.cagr ? 'hsl(142 76% 36%)' : 'hsl(45 93% 47%)'}
+          benchmark={{ value: INDUSTRY_BENCHMARK.cagr, label: 'Industry' }}
+          subtitle="hàng năm"
+        />
+        <AnimatedKPIRing
+          label="Lợi nhuận ròng"
+          value={netProfit}
+          maxValue={params.initialInvestment * 2}
+          formatValue={(v) => formatVNDCompact(v)}
+          color={netProfit > 0 ? 'hsl(142 76% 36%)' : 'hsl(var(--destructive))'}
+          subtitle="tổng 5 năm"
+        />
+        <AnimatedKPIRing
+          label="Investment Multiple"
+          value={investmentMultiple}
+          maxValue={3}
+          formatValue={(v) => `${v.toFixed(2)}x`}
+          color={investmentMultiple > 1.5 ? 'hsl(142 76% 36%)' : 'hsl(45 93% 47%)'}
+          benchmark={{ value: 1.5, label: 'Target' }}
+          subtitle="Tổng thu hồi / Đầu tư"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Input Form */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-primary" />
               Tham số đầu vào
             </CardTitle>
+            <CardDescription>Nhập dữ liệu đầu tư và dự kiến lợi nhuận</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -203,52 +259,72 @@ export function ROIAnalysis({ onContextChange }: { onContextChange?: (ctx: Advis
           </CardContent>
         </Card>
 
+        {/* Enhanced Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Biểu đồ lợi nhuận theo năm</CardTitle>
+            <CardTitle>Biểu đồ lợi nhuận & Lũy kế</CardTitle>
+            <CardDescription>
+              Đỉnh lợi nhuận: Năm {peakYear} | {isDecreasing ? '⚠️ Xu hướng giảm cuối kỳ' : '✓ Ổn định'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
+                <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="year" />
-                  <YAxis tickFormatter={(v) => formatVNDCompact(v)} />
-                  <Tooltip formatter={(v) => formatVNDCompact(v as number)} />
-                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
-                  <Bar dataKey="return" name="Lợi nhuận" fill="hsl(var(--primary))" />
-                </BarChart>
+                  <YAxis yAxisId="left" tickFormatter={(v) => formatVNDCompact(v)} />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => formatVNDCompact(v)} />
+                  <Tooltip 
+                    formatter={(v: number) => formatVNDCompact(v)} 
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
+                  />
+                  <Legend />
+                  <ReferenceLine y={0} yAxisId="left" stroke="hsl(var(--border))" strokeWidth={2} />
+                  <Bar 
+                    yAxisId="left" 
+                    dataKey="return" 
+                    name="Lợi nhuận năm" 
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line 
+                    yAxisId="right" 
+                    type="monotone" 
+                    dataKey="cumulative" 
+                    name="Lũy kế" 
+                    stroke="hsl(142 76% 36%)" 
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(142 76% 36%)', strokeWidth: 2 }}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className={roi > 20 ? 'border-green-500/50' : roi > 10 ? 'border-yellow-500/50' : 'border-red-500/50'}>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              roi > 20 ? 'bg-green-500/20' : roi > 10 ? 'bg-yellow-500/20' : 'bg-red-500/20'
-            }`}>
-              <TrendingUp className={`h-6 w-6 ${
-                roi > 20 ? 'text-green-500' : roi > 10 ? 'text-yellow-500' : 'text-red-500'
-              }`} />
-            </div>
-            <div>
-              <h3 className="font-semibold">
-                {roi > 20 ? 'Khuyến nghị ĐẦU TƯ' : roi > 10 ? 'CÂN NHẮC đầu tư' : 'KHÔNG khuyến nghị'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {roi > 20
-                  ? `ROI ${roi.toFixed(1)}% vượt ngưỡng 20%, dự án hấp dẫn`
-                  : roi > 10
-                  ? `ROI ${roi.toFixed(1)}% ở mức trung bình, cần xem xét thêm rủi ro`
-                  : `ROI ${roi.toFixed(1)}% thấp hơn kỳ vọng 10%, cân nhắc kỹ`}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Decision Workflow */}
+      <DecisionWorkflowCard
+        recommendation={
+          roi > 20 ? 'Khuyến nghị ĐẦU TƯ' : 
+          roi > 10 ? 'CÂN NHẮC đầu tư' : 
+          'KHÔNG khuyến nghị'
+        }
+        confidence={getConfidenceLevel()}
+        metrics={[
+          { label: 'ROI', value: formatPercent(roi) },
+          { label: 'CAGR', value: formatPercent(annualizedROI, true) },
+          { label: 'Net Profit', value: formatVNDCompact(netProfit) },
+          { label: 'Multiple', value: `${investmentMultiple.toFixed(2)}x` },
+        ]}
+        onApprove={handleSave}
+        onRequestData={() => {}}
+        status="pending"
+        icon={<TrendingUp className="h-6 w-6" />}
+        variant={roi > 20 ? 'success' : roi > 10 ? 'warning' : 'danger'}
+      />
     </div>
   );
 }

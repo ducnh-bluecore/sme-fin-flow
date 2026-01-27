@@ -1,27 +1,23 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, X, PlayCircle, ChevronRight, Sparkles } from 'lucide-react';
+import { Lightbulb, X, PlayCircle, ChevronRight, Sparkles, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-interface AIInsight {
-  id: string;
-  type: 'tip' | 'warning' | 'opportunity';
-  title: string;
+export interface AIInsight {
+  id?: string;
+  type: 'tip' | 'warning' | 'opportunity' | 'success' | 'critical' | 'info';
+  title?: string;
   message: string;
-  action?: {
+  action?: string | {
     label: string;
     onClick: () => void;
   };
-  position?: {
-    x: number;
-    y: number;
-  };
 }
 
-interface InlineAIAdvisorProps {
+export interface InlineAIAdvisorProps {
   insights: AIInsight[];
-  onDismiss: (id: string) => void;
+  onDismiss?: (id: string) => void;
   className?: string;
 }
 
@@ -30,10 +26,17 @@ export function InlineAIAdvisor({ insights, onDismiss, className }: InlineAIAdvi
 
   const handleDismiss = (id: string) => {
     setDismissedIds((prev) => new Set([...prev, id]));
-    onDismiss(id);
+    onDismiss?.(id);
   };
 
-  const visibleInsights = insights.filter((i) => !dismissedIds.has(i.id));
+  // Add IDs to insights if missing
+  const insightsWithIds = insights.map((insight, i) => ({
+    ...insight,
+    id: insight.id || `insight-${i}`,
+    title: insight.title || getDefaultTitle(insight.type),
+  }));
+
+  const visibleInsights = insightsWithIds.filter((i) => !dismissedIds.has(i.id));
 
   if (visibleInsights.length === 0) return null;
 
@@ -57,8 +60,20 @@ export function InlineAIAdvisor({ insights, onDismiss, className }: InlineAIAdvi
   );
 }
 
+function getDefaultTitle(type: AIInsight['type']): string {
+  switch (type) {
+    case 'tip': return 'Gợi ý';
+    case 'warning': return 'Cảnh báo';
+    case 'critical': return 'Cảnh báo nghiêm trọng';
+    case 'success': return 'Tín hiệu tích cực';
+    case 'opportunity': return 'Cơ hội';
+    case 'info': return 'Thông tin';
+    default: return 'AI Insight';
+  }
+}
+
 interface AIInsightCardProps {
-  insight: AIInsight;
+  insight: AIInsight & { id: string; title: string };
   onDismiss: () => void;
 }
 
@@ -70,22 +85,44 @@ function AIInsightCard({ insight, onDismiss }: AIInsightCardProps) {
       iconBg: 'bg-primary/10',
       iconColor: 'text-primary',
     },
+    info: {
+      icon: Info,
+      bg: 'bg-blue-500/5 border-blue-500/20',
+      iconBg: 'bg-blue-500/10',
+      iconColor: 'text-blue-500',
+    },
     warning: {
-      icon: Sparkles,
-      bg: 'bg-warning/5 border-warning/20',
-      iconBg: 'bg-warning/10',
-      iconColor: 'text-warning',
+      icon: AlertTriangle,
+      bg: 'bg-yellow-500/5 border-yellow-500/20',
+      iconBg: 'bg-yellow-500/10',
+      iconColor: 'text-yellow-500',
+    },
+    critical: {
+      icon: AlertTriangle,
+      bg: 'bg-red-500/5 border-red-500/20',
+      iconBg: 'bg-red-500/10',
+      iconColor: 'text-red-500',
+    },
+    success: {
+      icon: CheckCircle,
+      bg: 'bg-green-500/5 border-green-500/20',
+      iconBg: 'bg-green-500/10',
+      iconColor: 'text-green-500',
     },
     opportunity: {
       icon: Sparkles,
-      bg: 'bg-success/5 border-success/20',
-      iconBg: 'bg-success/10',
-      iconColor: 'text-success',
+      bg: 'bg-green-500/5 border-green-500/20',
+      iconBg: 'bg-green-500/10',
+      iconColor: 'text-green-500',
     },
   };
 
-  const config = typeConfig[insight.type];
+  const config = typeConfig[insight.type] || typeConfig.tip;
   const Icon = config.icon;
+
+  const actionConfig = typeof insight.action === 'string' 
+    ? { label: insight.action, onClick: () => {} }
+    : insight.action;
 
   return (
     <div className={cn('relative rounded-xl border p-4', config.bg)}>
@@ -109,15 +146,15 @@ function AIInsightCard({ insight, onDismiss }: AIInsightCardProps) {
           <h4 className="font-semibold text-sm">{insight.title}</h4>
           <p className="text-sm text-muted-foreground mt-1">{insight.message}</p>
 
-          {insight.action && (
+          {actionConfig && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={insight.action.onClick}
+              onClick={actionConfig.onClick}
               className="mt-2 -ml-2 text-xs h-7"
             >
               <PlayCircle className="h-3 w-3 mr-1" />
-              {insight.action.label}
+              {actionConfig.label}
               <ChevronRight className="h-3 w-3 ml-1" />
             </Button>
           )}
@@ -129,12 +166,16 @@ function AIInsightCard({ insight, onDismiss }: AIInsightCardProps) {
 
 // Floating insight tooltip for chart annotations
 interface FloatingInsightProps {
-  insight: AIInsight;
+  insight: AIInsight & { position?: { x: number; y: number } };
   onDismiss: () => void;
 }
 
 export function FloatingInsight({ insight, onDismiss }: FloatingInsightProps) {
   const position = insight.position || { x: 50, y: 50 };
+  const title = insight.title || getDefaultTitle(insight.type);
+  const actionConfig = typeof insight.action === 'string' 
+    ? { label: insight.action, onClick: () => {} }
+    : insight.action;
 
   return (
     <motion.div
@@ -163,13 +204,13 @@ export function FloatingInsight({ insight, onDismiss }: FloatingInsightProps) {
           <div className="flex items-start gap-2">
             <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium">{insight.title}</p>
+              <p className="text-sm font-medium">{title}</p>
               <p className="text-xs text-muted-foreground mt-1">{insight.message}</p>
               
-              {insight.action && (
+              {actionConfig && (
                 <div className="flex gap-2 mt-3">
-                  <Button size="sm" className="text-xs h-7" onClick={insight.action.onClick}>
-                    {insight.action.label}
+                  <Button size="sm" className="text-xs h-7" onClick={actionConfig.onClick}>
+                    {actionConfig.label}
                   </Button>
                   <Button size="sm" variant="ghost" className="text-xs h-7" onClick={onDismiss}>
                     Bỏ qua
@@ -230,7 +271,7 @@ export function useDecisionInsights(analysisType: string, context: Record<string
       }
     }
 
-    return insights.filter((i) => !dismissedIds.has(i.id));
+    return insights.filter((i) => !dismissedIds.has(i.id || ''));
   };
 
   const dismiss = (id: string) => {

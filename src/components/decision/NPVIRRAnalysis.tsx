@@ -1,21 +1,27 @@
-import { useState, useEffect } from 'react';
-import { Calculator, TrendingUp, Save, HelpCircle, Plus, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useMemo } from 'react';
+import { Calculator, TrendingUp, Save, Plus, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { formatVNDCompact, formatDate } from '@/lib/formatters';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
+import { AnimatedKPIRing } from './AnimatedKPIRing';
+import { IRRGauge } from './IRRGauge';
+import { DecisionWorkflowCard } from './DecisionWorkflowCard';
+import { InlineAIAdvisor } from './InlineAIAdvisor';
+import { SensitivityHeatmap } from './SensitivityHeatmap';
 import {
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Legend,
 } from 'recharts';
 
 type AdvisorContext = Record<string, any>;
@@ -59,6 +65,67 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
   const totalCashFlows = cashFlows.reduce((a, b) => a + b, 0);
   const profitabilityIndex = (npv + initialInvestment) / initialInvestment;
 
+  // Generate NPV profile data with multiple scenarios
+  const npvProfileData = useMemo(() => {
+    return Array.from({ length: 25 }, (_, i) => {
+      const rate = i * 2;
+      return {
+        rate: `${rate}%`,
+        rateNum: rate,
+        npvBase: calculateNPV(rate),
+        npvOptimistic: calculateNPV(rate) * 1.2,
+        npvPessimistic: calculateNPV(rate) * 0.8,
+      };
+    });
+  }, [initialInvestment, cashFlows]);
+
+  // Mini heatmap data: Discount rate vs Cash flow variance
+  const heatmapData = useMemo(() => {
+    const data: { x: number; y: number; value: number }[] = [];
+    for (let cfChange = -20; cfChange <= 20; cfChange += 5) {
+      for (let drChange = -4; drChange <= 4; drChange += 1) {
+        const adjustedCashFlows = cashFlows.map(cf => cf * (1 + cfChange / 100));
+        const adjustedRate = discountRate + drChange;
+        let adjNpv = -initialInvestment;
+        adjustedCashFlows.forEach((cf, i) => {
+          adjNpv += cf / Math.pow(1 + adjustedRate / 100, i + 1);
+        });
+        data.push({ x: drChange, y: cfChange, value: adjNpv / 1000000000 }); // In billions
+      }
+    }
+    return data;
+  }, [cashFlows, discountRate, initialInvestment]);
+
+  // AI Insights
+  const aiInsights = useMemo(() => {
+    const insights = [];
+    
+    if (npv > 0 && irr > discountRate) {
+      insights.push({
+        type: 'success' as const,
+        message: `NPV dương và IRR ${irr.toFixed(1)}% > WACC ${discountRate}%. Dự án tạo giá trị.`,
+        action: 'Xem chi tiết',
+      });
+    } else if (npv < 0) {
+      insights.push({
+        type: 'critical' as const,
+        message: `NPV âm ${formatVNDCompact(npv)}. Dự án phá hủy giá trị tại discount rate hiện tại.`,
+        action: 'Xem xét lại assumptions',
+      });
+    }
+
+    const spread = irr - discountRate;
+    if (spread < 3 && spread > 0) {
+      insights.push({
+        type: 'warning' as const,
+        message: `IRR chỉ cao hơn WACC ${spread.toFixed(1)}%. Biên an toàn thấp.`,
+        action: 'Phân tích rủi ro',
+      });
+    }
+
+    return insights;
+  }, [npv, irr, discountRate]);
+
   useEffect(() => {
     onContextChange?.({
       analysisType: 'npv-irr',
@@ -67,15 +134,6 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialInvestment, discountRate, cashFlows, npv, irr, totalCashFlows, profitabilityIndex]);
-
-  // Generate NPV profile data
-  const npvProfileData = Array.from({ length: 25 }, (_, i) => {
-    const rate = i * 2;
-    return {
-      rate: `${rate}%`,
-      npv: calculateNPV(rate),
-    };
-  });
 
   const addYear = () => {
     setCashFlows([...cashFlows, 500000000]);
@@ -108,79 +166,59 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
     });
   };
 
+  const getConfidenceLevel = () => {
+    if (npv > 0 && irr > discountRate + 5) return 85;
+    if (npv > 0 && irr > discountRate) return 65;
+    return 30;
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              NPV
-              <HoverCard>
-                <HoverCardTrigger><HelpCircle className="h-3 w-3" /></HoverCardTrigger>
-                <HoverCardContent className="w-80">
-                  <p className="font-mono text-sm">NPV = Σ(CFt / (1+r)^t) - I₀</p>
-                  <p className="text-xs mt-1">CFt: Dòng tiền năm t, r: Tỷ lệ chiết khấu, I₀: Đầu tư ban đầu</p>
-                </HoverCardContent>
-              </HoverCard>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${npv > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {formatVNDCompact(npv)}
-            </div>
-            <p className="text-sm text-muted-foreground">tại {discountRate}% chiết khấu</p>
-          </CardContent>
-        </Card>
+      {/* AI Insights */}
+      <InlineAIAdvisor 
+        insights={aiInsights}
+      />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              IRR
-              <HoverCard>
-                <HoverCardTrigger><HelpCircle className="h-3 w-3" /></HoverCardTrigger>
-                <HoverCardContent className="w-80">
-                  <p className="font-mono text-sm">IRR: Tỷ lệ chiết khấu khi NPV = 0</p>
-                  <p className="text-xs mt-1">Nên đầu tư khi IRR {'>'} Cost of Capital</p>
-                </HoverCardContent>
-              </HoverCard>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${irr > discountRate ? 'text-green-500' : 'text-red-500'}`}>
-              {irr.toFixed(1)}%
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {irr > discountRate ? `> ${discountRate}% ✓` : `< ${discountRate}% ✗`}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Profitability Index</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${profitabilityIndex > 1 ? 'text-green-500' : 'text-red-500'}`}>
-              {profitabilityIndex.toFixed(2)}x
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {profitabilityIndex > 1 ? 'Đáng đầu tư' : 'Không đáng'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng dòng tiền</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatVNDCompact(totalCashFlows)}</div>
-            <p className="text-sm text-muted-foreground">{cashFlows.length} năm</p>
-          </CardContent>
-        </Card>
+      {/* KPI Rings */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnimatedKPIRing
+          label="NPV"
+          value={npv}
+          maxValue={initialInvestment}
+          formatValue={(v) => formatVNDCompact(v)}
+          color={npv > 0 ? 'hsl(142 76% 36%)' : 'hsl(var(--destructive))'}
+          subtitle={`tại ${discountRate}% chiết khấu`}
+        />
+        <AnimatedKPIRing
+          label="IRR"
+          value={irr}
+          maxValue={30}
+          formatValue={(v) => `${v.toFixed(1)}%`}
+          color={irr > discountRate ? 'hsl(142 76% 36%)' : 'hsl(var(--destructive))'}
+          benchmark={{ value: discountRate, label: 'WACC' }}
+          subtitle="Internal Rate of Return"
+        />
+        <AnimatedKPIRing
+          label="Profitability Index"
+          value={profitabilityIndex}
+          maxValue={2}
+          formatValue={(v) => `${v.toFixed(2)}x`}
+          color={profitabilityIndex > 1 ? 'hsl(142 76% 36%)' : 'hsl(var(--destructive))'}
+          benchmark={{ value: 1, label: 'Threshold' }}
+          subtitle={profitabilityIndex > 1 ? 'Đáng đầu tư' : 'Không đáng'}
+        />
+        <AnimatedKPIRing
+          label="Tổng dòng tiền"
+          value={totalCashFlows}
+          maxValue={initialInvestment * 2}
+          formatValue={(v) => formatVNDCompact(v)}
+          color="hsl(var(--primary))"
+          subtitle={`${cashFlows.length} năm`}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Input Form */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -243,50 +281,85 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
           </CardContent>
         </Card>
 
+        {/* NPV Profile Chart */}
         <Card>
-          <CardHeader>
-            <CardTitle>NPV Profile (NPV theo tỷ lệ chiết khấu)</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle>NPV Profile (Multi-scenario)</CardTitle>
+            <CardDescription>NPV theo tỷ lệ chiết khấu</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={npvProfileData}>
+                <ComposedChart data={npvProfileData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="rate" />
                   <YAxis tickFormatter={(v) => formatVNDCompact(v)} />
-                  <Tooltip formatter={(v) => formatVNDCompact(v as number)} />
-                  <ReferenceLine y={0} stroke="red" strokeDasharray="3 3" />
-                  <ReferenceLine x={`${Math.round(irr)}%`} stroke="green" strokeDasharray="3 3" label="IRR" />
-                  <Line type="monotone" dataKey="npv" name="NPV" stroke="hsl(var(--primary))" strokeWidth={2} />
-                </LineChart>
+                  <Tooltip 
+                    formatter={(v: number) => formatVNDCompact(v)}
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
+                  />
+                  <Legend />
+                  <ReferenceLine y={0} stroke="hsl(var(--destructive))" strokeWidth={2} strokeDasharray="3 3" />
+                  <ReferenceLine x={`${Math.round(irr)}%`} stroke="hsl(142 76% 36%)" strokeDasharray="3 3" label="IRR" />
+                  <Area 
+                    type="monotone" 
+                    dataKey="npvOptimistic" 
+                    name="Lạc quan (+20%)" 
+                    fill="hsl(142 76% 36% / 0.1)" 
+                    stroke="hsl(142 76% 36% / 0.3)"
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="npvPessimistic" 
+                    name="Bi quan (-20%)" 
+                    fill="hsl(var(--destructive) / 0.1)" 
+                    stroke="hsl(var(--destructive) / 0.3)"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="npvBase" 
+                    name="Base case" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(var(--primary))' }}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
+
+        {/* IRR Gauge */}
+        <IRRGauge irr={irr} wacc={discountRate} />
       </div>
 
-      <Card className={npv > 0 && irr > discountRate ? 'border-green-500/50' : 'border-red-500/50'}>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              npv > 0 && irr > discountRate ? 'bg-green-500/20' : 'bg-red-500/20'
-            }`}>
-              <TrendingUp className={`h-6 w-6 ${
-                npv > 0 && irr > discountRate ? 'text-green-500' : 'text-red-500'
-              }`} />
-            </div>
-            <div>
-              <h3 className="font-semibold">
-                {npv > 0 && irr > discountRate ? 'Khuyến nghị ĐẦU TƯ' : 'KHÔNG khuyến nghị đầu tư'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                NPV = {formatVNDCompact(npv)} {npv > 0 ? '> 0 ✓' : '< 0 ✗'} | 
-                IRR = {irr.toFixed(1)}% {irr > discountRate ? `> ${discountRate}% ✓` : `< ${discountRate}% ✗`}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Sensitivity Heatmap */}
+      <SensitivityHeatmap
+        data={heatmapData}
+        xLabel="Discount Rate Δ (%)"
+        yLabel="Cash Flow Δ (%)"
+        title="NPV Sensitivity: Discount Rate vs Cash Flow"
+        valueLabel="NPV (tỷ VND)"
+      />
+
+      {/* Decision Workflow */}
+      <DecisionWorkflowCard
+        recommendation={
+          npv > 0 && irr > discountRate ? 'Khuyến nghị ĐẦU TƯ' : 'KHÔNG khuyến nghị đầu tư'
+        }
+        confidence={getConfidenceLevel()}
+        metrics={[
+          { label: 'NPV', value: formatVNDCompact(npv) },
+          { label: 'IRR', value: `${irr.toFixed(1)}%` },
+          { label: 'PI', value: `${profitabilityIndex.toFixed(2)}x` },
+          { label: 'Spread', value: `${(irr - discountRate).toFixed(1)}%` },
+        ]}
+        onApprove={handleSave}
+        onRequestData={() => {}}
+        status="pending"
+        icon={<TrendingUp className="h-6 w-6" />}
+        variant={npv > 0 && irr > discountRate ? 'success' : 'danger'}
+      />
     </div>
   );
 }

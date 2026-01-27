@@ -215,7 +215,7 @@ function EnhancedMakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx
           recommendation={recommendation as 'make' | 'buy'}
           savings={savings}
           breakEvenVolume={breakEvenVolume}
-          confidenceScore={confidenceScore}
+          confidence={confidenceScore}
           analysisType="Make vs Buy"
           onApprove={handleSave}
         />
@@ -408,7 +408,7 @@ function EnhancedBreakEvenAnalysis({ onContextChange }: { onContextChange?: (ctx
         <DecisionWorkflowCard
           recommendation={marginOfSafety > 0 ? 'invest' : 'hold'}
           savings={currentProfit}
-          confidenceScore={Math.min(95, Math.max(50, marginOfSafety + 50))}
+          confidence={Math.min(95, Math.max(50, marginOfSafety + 50))}
           analysisType="Break-even Analysis"
           onApprove={handleSave}
         />

@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Clock, Calculator, Save, HelpCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useMemo } from 'react';
+import { Clock, Calculator, Save, Zap } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { Badge } from '@/components/ui/badge';
 import { formatVNDCompact, formatDate } from '@/lib/formatters';
 import { useSaveDecisionAnalysis } from '@/hooks/useDecisionAnalyses';
+import { AnimatedKPIRing } from './AnimatedKPIRing';
+import { PaybackTimeline } from './PaybackTimeline';
+import { DecisionWorkflowCard } from './DecisionWorkflowCard';
+import { InlineAIAdvisor } from './InlineAIAdvisor';
 import {
   AreaChart,
   Area,
@@ -20,6 +24,10 @@ import {
 } from 'recharts';
 
 type AdvisorContext = Record<string, any>;
+
+const INDUSTRY_BENCHMARK = {
+  payback: 4, // 4 years is typical
+};
 
 export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: AdvisorContext) => void }) {
   const saveAnalysis = useSaveDecisionAnalysis();
@@ -47,26 +55,86 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
       break;
     }
   }
+  if (discountedPayback === 0 && cumulativePV < params.initialInvestment) {
+    discountedPayback = 20; // Max out if never recovered
+  }
+
+  // Risk score based on payback vs target
+  const riskScore = useMemo(() => {
+    const margin = params.targetPayback - simplePayback;
+    if (margin > 1) return 90;
+    if (margin > 0) return 70;
+    if (margin > -0.5) return 50;
+    return 30;
+  }, [simplePayback, params.targetPayback]);
 
   // Generate chart data
-  const chartData = Array.from({ length: 10 }, (_, i) => {
-    const year = i;
-    let cumulative = 0;
-    let cumulativeDiscounted = 0;
-    for (let y = 1; y <= year; y++) {
-      const cf = params.annualCashFlow * Math.pow(1 + params.growthRate / 100, y - 1);
-      cumulative += cf;
-      cumulativeDiscounted += cf / Math.pow(1 + discountRate, y);
-    }
-    return {
-      year: `Năm ${year}`,
-      cumulative: cumulative - params.initialInvestment,
-      discounted: cumulativeDiscounted - params.initialInvestment,
-      breakeven: 0,
-    };
-  });
+  const chartData = useMemo(() => {
+    return Array.from({ length: 11 }, (_, i) => {
+      const year = i;
+      let cumulative = 0;
+      let cumulativeDiscounted = 0;
+      for (let y = 1; y <= year; y++) {
+        const cf = params.annualCashFlow * Math.pow(1 + params.growthRate / 100, y - 1);
+        cumulative += cf;
+        cumulativeDiscounted += cf / Math.pow(1 + discountRate, y);
+      }
+      return {
+        year: `Năm ${year}`,
+        cumulative: cumulative - params.initialInvestment,
+        discounted: cumulativeDiscounted - params.initialInvestment,
+        breakeven: 0,
+      };
+    });
+  }, [params]);
+
+  // What-if scenarios
+  const scenarios = useMemo(() => {
+    // Scenario 1: Cash flow delayed 6 months
+    const delayedPayback = (params.initialInvestment / params.annualCashFlow) + 0.5;
+    
+    // Scenario 2: Zero growth
+    const zeroGrowthPayback = params.initialInvestment / params.annualCashFlow;
+    
+    // Scenario 3: 10% lower cash flow
+    const reducedCFPayback = params.initialInvestment / (params.annualCashFlow * 0.9);
+
+    return [
+      { name: 'Trì hoãn 6 tháng', payback: delayedPayback, impact: delayedPayback - simplePayback },
+      { name: 'Growth = 0%', payback: zeroGrowthPayback, impact: zeroGrowthPayback - simplePayback },
+      { name: 'Cash flow -10%', payback: reducedCFPayback, impact: reducedCFPayback - simplePayback },
+    ];
+  }, [params, simplePayback]);
 
   const isWithinTarget = simplePayback <= params.targetPayback;
+
+  // AI Insights
+  const aiInsights = useMemo(() => {
+    const insights = [];
+    
+    if (isWithinTarget) {
+      insights.push({
+        type: 'success' as const,
+        message: `Payback ${simplePayback.toFixed(1)} năm đạt mục tiêu ${params.targetPayback} năm`,
+        action: 'Xem chi tiết',
+      });
+    } else {
+      insights.push({
+        type: 'warning' as const,
+        message: `Payback ${simplePayback.toFixed(1)} năm vượt mục tiêu ${params.targetPayback} năm`,
+        action: 'Xem xét tăng cash flow',
+      });
+    }
+
+    if (discountedPayback > simplePayback * 1.3) {
+      insights.push({
+        type: 'info' as const,
+        message: `Discounted payback dài hơn 30% so với simple. Discount rate ảnh hưởng đáng kể.`,
+      });
+    }
+
+    return insights;
+  }, [simplePayback, discountedPayback, params.targetPayback, isWithinTarget]);
 
   useEffect(() => {
     onContextChange?.({
@@ -77,10 +145,11 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
         discountedPayback,
         discountRate: discountRate * 100,
         isWithinTarget,
+        riskScore,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, simplePayback, discountedPayback, isWithinTarget]);
+  }, [params, simplePayback, discountedPayback, isWithinTarget, riskScore]);
 
   const handleSave = () => {
     saveAnalysis.mutate({
@@ -88,7 +157,7 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
       title: `Phân tích Payback - ${formatDate(new Date())}`,
       description: `Đầu tư ${formatVNDCompact(params.initialInvestment)}`,
       parameters: params,
-      results: { simplePayback, discountedPayback },
+      results: { simplePayback, discountedPayback, riskScore },
       recommendation: isWithinTarget ? 'Khuyến nghị đầu tư' : 'Cân nhắc thêm',
       ai_insights: null,
       status: 'completed',
@@ -99,71 +168,57 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              Simple Payback
-              <HoverCard>
-                <HoverCardTrigger><HelpCircle className="h-3 w-3" /></HoverCardTrigger>
-                <HoverCardContent className="w-80">
-                  <p className="font-mono text-sm">Payback = Đầu tư / Dòng tiền hàng năm</p>
-                </HoverCardContent>
-              </HoverCard>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${simplePayback <= params.targetPayback ? 'text-green-500' : 'text-red-500'}`}>
-              {simplePayback.toFixed(1)} năm
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {simplePayback <= params.targetPayback ? `≤ ${params.targetPayback} năm ✓` : `> ${params.targetPayback} năm ✗`}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Visual Timeline */}
+      <PaybackTimeline
+        simplePayback={simplePayback}
+        discountedPayback={discountedPayback}
+        targetPayback={params.targetPayback}
+        maxYears={10}
+      />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-              Discounted Payback
-              <HoverCard>
-                <HoverCardTrigger><HelpCircle className="h-3 w-3" /></HoverCardTrigger>
-                <HoverCardContent className="w-80">
-                  <p className="font-mono text-sm">Thời gian thu hồi vốn có chiết khấu (10%)</p>
-                </HoverCardContent>
-              </HoverCard>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold ${discountedPayback <= params.targetPayback + 1 ? 'text-green-500' : 'text-yellow-500'}`}>
-              {discountedPayback > 0 ? `${discountedPayback.toFixed(1)} năm` : 'N/A'}
-            </div>
-            <p className="text-sm text-muted-foreground">chiết khấu 10%</p>
-          </CardContent>
-        </Card>
+      {/* AI Insights */}
+      <InlineAIAdvisor 
+        insights={aiInsights}
+      />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Dòng tiền năm đầu</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{formatVNDCompact(params.annualCashFlow)}</div>
-            <p className="text-sm text-muted-foreground">tăng {params.growthRate}%/năm</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Mục tiêu</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{params.targetPayback} năm</div>
-            <p className="text-sm text-muted-foreground">thời gian thu hồi tối đa</p>
-          </CardContent>
-        </Card>
+      {/* KPI Rings */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnimatedKPIRing
+          label="Simple Payback"
+          value={simplePayback}
+          maxValue={params.targetPayback * 1.5}
+          formatValue={(v) => `${v.toFixed(1)} năm`}
+          color={simplePayback <= params.targetPayback ? 'hsl(142 76% 36%)' : 'hsl(var(--destructive))'}
+          benchmark={{ value: params.targetPayback, label: 'Target' }}
+        />
+        <AnimatedKPIRing
+          label="Discounted Payback"
+          value={discountedPayback}
+          maxValue={params.targetPayback * 2}
+          formatValue={(v) => `${v.toFixed(1)} năm`}
+          color={discountedPayback <= params.targetPayback + 1 ? 'hsl(142 76% 36%)' : 'hsl(45 93% 47%)'}
+          subtitle="chiết khấu 10%"
+        />
+        <AnimatedKPIRing
+          label="Target Achievement"
+          value={isWithinTarget ? 100 : Math.max(0, (1 - (simplePayback - params.targetPayback) / params.targetPayback) * 100)}
+          maxValue={100}
+          formatValue={(v) => isWithinTarget ? '✓ Đạt' : `${v.toFixed(0)}%`}
+          color={isWithinTarget ? 'hsl(142 76% 36%)' : 'hsl(var(--destructive))'}
+          subtitle={`Mục tiêu: ${params.targetPayback} năm`}
+        />
+        <AnimatedKPIRing
+          label="Risk Score"
+          value={riskScore}
+          maxValue={100}
+          formatValue={(v) => `${v.toFixed(0)}`}
+          color={riskScore > 70 ? 'hsl(142 76% 36%)' : riskScore > 50 ? 'hsl(45 93% 47%)' : 'hsl(var(--destructive))'}
+          subtitle={riskScore > 70 ? 'Thấp' : riskScore > 50 ? 'Trung bình' : 'Cao'}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Input Form */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -189,7 +244,10 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
               />
             </div>
             <div>
-              <Label>Tỷ lệ tăng trưởng: {params.growthRate}%/năm</Label>
+              <Label className="flex items-center justify-between">
+                <span>Tỷ lệ tăng trưởng</span>
+                <span className="text-sm font-normal text-muted-foreground">{params.growthRate}%/năm</span>
+              </Label>
               <Slider
                 value={[params.growthRate]}
                 onValueChange={([v]) => setParams({ ...params, growthRate: v })}
@@ -200,7 +258,10 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
               />
             </div>
             <div>
-              <Label>Mục tiêu thu hồi vốn: {params.targetPayback} năm</Label>
+              <Label className="flex items-center justify-between">
+                <span>Mục tiêu thu hồi vốn</span>
+                <span className="text-sm font-normal text-muted-foreground">{params.targetPayback} năm</span>
+              </Label>
               <Slider
                 value={[params.targetPayback]}
                 onValueChange={([v]) => setParams({ ...params, targetPayback: v })}
@@ -217,19 +278,24 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
           </CardContent>
         </Card>
 
+        {/* Cash Flow Chart */}
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle>Biểu đồ thu hồi vốn</CardTitle>
+            <CardDescription>Dòng tiền lũy kế theo năm</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="year" />
                   <YAxis tickFormatter={(v) => formatVNDCompact(v)} />
-                  <Tooltip formatter={(v) => formatVNDCompact(v as number)} />
-                  <ReferenceLine y={0} stroke="red" strokeDasharray="3 3" label="Hòa vốn" />
+                  <Tooltip 
+                    formatter={(v: number) => formatVNDCompact(v)}
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
+                  />
+                  <ReferenceLine y={0} stroke="hsl(var(--destructive))" strokeDasharray="3 3" label="Hòa vốn" />
                   <Area
                     type="monotone"
                     dataKey="cumulative"
@@ -251,27 +317,76 @@ export function PaybackAnalysis({ onContextChange }: { onContextChange?: (ctx: A
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      <Card className={isWithinTarget ? 'border-green-500/50' : 'border-yellow-500/50'}>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-              isWithinTarget ? 'bg-green-500/20' : 'bg-yellow-500/20'
-            }`}>
-              <Clock className={`h-6 w-6 ${isWithinTarget ? 'text-green-500' : 'text-yellow-500'}`} />
-            </div>
-            <div>
-              <h3 className="font-semibold">
-                {isWithinTarget ? 'Thời gian thu hồi vốn CHẤP NHẬN ĐƯỢC' : 'Thời gian thu hồi vốn CẦN CÂN NHẮC'}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Simple: {simplePayback.toFixed(1)} năm | Discounted: {discountedPayback.toFixed(1)} năm | Mục tiêu: {params.targetPayback} năm
+        {/* What-If Panel */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              Kịch bản What-If
+            </CardTitle>
+            <CardDescription>Tác động đến thời gian thu hồi vốn</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {scenarios.map((scenario, i) => (
+              <div 
+                key={i}
+                className={`p-3 rounded-lg border ${
+                  scenario.impact > 1 
+                    ? 'bg-red-500/5 border-red-500/20' 
+                    : scenario.impact > 0.5 
+                    ? 'bg-yellow-500/5 border-yellow-500/20'
+                    : 'bg-muted border-transparent'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{scenario.name}</span>
+                  <Badge 
+                    variant={scenario.impact > 1 ? 'destructive' : scenario.impact > 0.5 ? 'secondary' : 'outline'}
+                  >
+                    +{scenario.impact.toFixed(1)} năm
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-muted-foreground">Payback mới:</span>
+                  <span className={`text-sm font-bold ${
+                    scenario.payback > params.targetPayback ? 'text-red-500' : 'text-green-500'
+                  }`}>
+                    {scenario.payback.toFixed(1)} năm
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            <div className="pt-2 border-t mt-4">
+              <p className="text-xs text-muted-foreground">
+                * Kịch bản cho thấy mức độ nhạy cảm của thời gian thu hồi vốn với các thay đổi
               </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Decision Workflow */}
+      <DecisionWorkflowCard
+        recommendation={
+          isWithinTarget 
+            ? 'Thời gian thu hồi vốn CHẤP NHẬN ĐƯỢC' 
+            : 'Thời gian thu hồi vốn CẦN CÂN NHẮC'
+        }
+        confidence={riskScore}
+        metrics={[
+          { label: 'Simple', value: `${simplePayback.toFixed(1)} năm` },
+          { label: 'Discounted', value: `${discountedPayback.toFixed(1)} năm` },
+          { label: 'Target', value: `${params.targetPayback} năm` },
+          { label: 'Risk', value: riskScore > 70 ? 'Thấp' : riskScore > 50 ? 'TB' : 'Cao' },
+        ]}
+        onApprove={handleSave}
+        onRequestData={() => {}}
+        status="pending"
+        icon={<Clock className="h-6 w-6" />}
+        variant={isWithinTarget ? 'success' : 'warning'}
+      />
     </div>
   );
 }
