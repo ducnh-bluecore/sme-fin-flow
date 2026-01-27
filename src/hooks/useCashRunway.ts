@@ -24,6 +24,9 @@ interface CashRunwayData {
     expenses: number;
     total: number;
   };
+  // Methodology transparency (Phase 2B)
+  burnCalculationMethod: 'historical_6m_average' | 'snapshot_precomputed';
+  burnDescription: string;
 }
 
 /**
@@ -46,7 +49,9 @@ export function useCashRunway() {
         runwayDays: null,
         hasEnoughData: false,
         dataMonths: 0,
-        burnBreakdown: { bills: 0, expenses: 0, total: 0 }
+        burnBreakdown: { bills: 0, expenses: 0, total: 0 },
+        burnCalculationMethod: 'historical_6m_average',
+        burnDescription: 'Không có dữ liệu để tính toán',
       };
     }
 
@@ -101,7 +106,9 @@ export function useCashRunway() {
         bills: totalCogs / Math.max(dataMonths, 1),
         expenses: totalOpex / Math.max(dataMonths, 1),
         total: avgMonthlyBurn
-      }
+      },
+      burnCalculationMethod: snapshot.cashRunwayMonths > 0 ? 'snapshot_precomputed' : 'historical_6m_average',
+      burnDescription: `Trung bình chi phí hàng tháng (COGS + Chi phí hoạt động) trong ${dataMonths} tháng gần nhất. Không bao gồm marketing và chi phí một lần.`,
     };
   }, [snapshot, monthlySummary]);
 
