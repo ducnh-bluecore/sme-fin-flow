@@ -30741,22 +30741,46 @@ export type Database = {
         Args: { p_sku: string; p_tenant_id: string }
         Returns: number
       }
-      get_sku_profitability_by_date_range: {
-        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
-        Returns: {
-          aov: number
-          channel: string
-          gross_profit: number
-          margin_percent: number
-          product_name: string
-          sku: string
-          status: string
-          total_cogs: number
-          total_fees: number
-          total_quantity: number
-          total_revenue: number
-        }[]
-      }
+      get_sku_profitability_by_date_range:
+        | {
+            Args: {
+              p_end_date: string
+              p_start_date: string
+              p_tenant_id: string
+            }
+            Returns: {
+              aov: number
+              channel: string
+              gross_profit: number
+              margin_percent: number
+              product_name: string
+              sku: string
+              status: string
+              total_cogs: number
+              total_fees: number
+              total_quantity: number
+              total_revenue: number
+            }[]
+          }
+        | {
+            Args: {
+              p_end_date: string
+              p_limit?: number
+              p_start_date: string
+              p_tenant_id: string
+            }
+            Returns: {
+              channel: string
+              gross_profit: number
+              margin_percent: number
+              order_count: number
+              product_name: string
+              sku: string
+              total_cogs: number
+              total_quantity: number
+              total_revenue: number
+            }[]
+          }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
       get_working_capital_daily: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
