@@ -1691,6 +1691,10 @@ const vi: Record<string, string> = {
   'budgetVsActual.aiRecommendations': 'AI đề xuất hành động',
   'budgetVsActual.noPlanAIWarning': 'Chưa có dữ liệu kế hoạch (Budget) nên AI chưa thể đề xuất hành động chiến lược. Hãy nhập kế hoạch theo tháng để AI phân tích Budget vs Actual.',
   'budgetVsActual.aiTitle': '🎯 AI Đề xuất Hành động Chiến lược',
+
+  // Performance Analysis Hub
+  'performance.hubTitle': 'Phân tích Hiệu suất',
+  'performance.hubSubtitle': 'So sánh kế hoạch vs thực tế và phân tích biến động',
 };
 
 // English translations
@@ -3369,6 +3373,10 @@ const en: Record<string, string> = {
   'budgetVsActual.aiRecommendations': 'AI Strategic Recommendations',
   'budgetVsActual.noPlanAIWarning': 'No budget data available. AI cannot provide strategic recommendations. Please enter monthly plans for AI to analyze Budget vs Actual.',
   'budgetVsActual.aiTitle': '🎯 AI Strategic Recommendations',
+
+  // Performance Analysis Hub
+  'performance.hubTitle': 'Performance Analysis',
+  'performance.hubSubtitle': 'Compare budget vs actual and analyze variances',
 };
 
 const translations: Record<Language, Record<string, string>> = { vi, en };
