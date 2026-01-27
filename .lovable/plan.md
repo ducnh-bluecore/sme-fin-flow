@@ -1,138 +1,210 @@
 
-# Kế hoạch: Thêm cột phí sàn vào cdp_orders (SSOT Layer 1)
+# Kế hoạch: Fix & Nâng cấp trang Phân tích Tuổi tồn kho (v2)
 
-## Tóm tắt vấn đề
+## 1. Phân tích hiện trạng
 
-Dữ liệu phí sàn **đã có sẵn** trong `external_orders` từ data warehouse:
-- `platform_fee` - Phí nền tảng (Shopee, Lazada, TikTok...)
-- `commission_fee` - Phí hoa hồng
-- `payment_fee` - Phí thanh toán
-- `shipping_fee` - Phí vận chuyển
-- `total_fees` - Tổng phí
+### Dữ liệu bảng Products (E2E Tenant)
+| Category | Số lượng SP | Ví dụ |
+|----------|-------------|-------|
+| Áo | 30 | Áo Thun Basic, Áo Polo Premium |
+| Quần | 25 | Quần Jean, Quần Kaki |
+| Váy | 20 | Váy Đầm, Váy Công sở |
+| Phụ kiện | 15 | Túi xách, Thắt lưng |
+| Giày dép | 10 | Giày sneaker, Sandal |
+| **Tổng** | **100** | |
 
-**NHƯNG** bảng `cdp_orders` (SSOT Layer 1) **thiếu các cột này**, dẫn đến:
-1. Phí sàn không được sync sang SSOT
-2. View `v_channel_performance` không có data phí
-3. Trang Phân tích Đa kênh hiển thị 0₫
-
-## Giải pháp
-
-### Bước 1: Thêm cột phí sàn vào cdp_orders
-
-Thêm 3 cột mới vào bảng `cdp_orders`:
-
-```text
-cdp_orders
-├── ... (existing columns)
-├── platform_fee NUMERIC DEFAULT 0    ← Phí sàn (Shopee/Lazada/TikTok fee)
-├── shipping_fee NUMERIC DEFAULT 0    ← Phí vận chuyển
-└── other_fees NUMERIC DEFAULT 0      ← Phí khác (commission + payment)
-```
-
-### Bước 2: Cập nhật view v_channel_performance
-
-Thêm aggregation phí sàn:
-
-```text
-v_channel_performance (updated)
-├── channel
-├── order_count  
-├── gross_revenue
-├── net_revenue
-├── total_fees = SUM(platform_fee + shipping_fee + other_fees)  ← MỚI
-├── cogs
-└── gross_margin
-```
-
-### Bước 3: Backfill dữ liệu từ external_orders
-
-Sync phí sàn từ `external_orders` sang `cdp_orders` cho dữ liệu đã tồn tại:
-
-```text
-UPDATE cdp_orders SET
-  platform_fee = external_orders.platform_fee,
-  shipping_fee = external_orders.shipping_fee,
-  other_fees = external_orders.commission_fee + external_orders.payment_fee
-FROM external_orders
-WHERE cdp_orders.order_key = external_orders.external_order_id
-  AND cdp_orders.tenant_id = external_orders.tenant_id;
-```
-
-### Bước 4: Cập nhật hook useChannelPerformance
-
-Sửa mapping để lấy `total_fees` từ view thay vì hardcode 0.
+### Vấn đề
+- `inventory_items` table: **0 records** cho E2E tenant
+- **THIẾU LIÊN KẾT**: Không có `product_id` FK để connect inventory với products
 
 ---
 
-## Chi tiết kỹ thuật
+## 2. Giải pháp đề xuất
+
+### Bước 1: Thêm cột `product_id` vào `inventory_items`
+
+Tạo FK liên kết inventory với bảng products (SSOT):
+
+```text
+inventory_items (updated)
+├── id
+├── tenant_id
+├── product_id UUID REFERENCES products(id)  ← MỚI
+├── sku (lấy từ products.sku)
+├── product_name (lấy từ products.name)
+├── category (lấy từ products.category)
+├── quantity
+├── unit_cost (lấy từ products.cost_price)
+├── total_value (calculated)
+├── received_date
+├── warehouse_location
+├── ...
+```
+
+### Bước 2: Seed Inventory từ bảng Products thực tế
+
+Tạo inventory items cho **tất cả 100 sản phẩm** trong bảng `products`:
+
+```text
+Phân bổ tuổi tồn kho (realistic e-commerce):
+├── 40 items: 0-30 ngày   (hàng mới nhập, bán chạy)
+├── 25 items: 31-60 ngày  (hàng trung bình)
+├── 15 items: 61-90 ngày  (hàng chậm)
+├── 12 items: 91-180 ngày (hàng tồn lâu)
+└── 8 items:  >180 ngày   (hàng chết - cần thanh lý)
+```
+
+### Bước 3: Fix Import Handler
+
+Cập nhật `useDataImport.ts` để link với products:
+
+```text
+Import Flow:
+1. User upload file với SKU
+2. System lookup products.id từ SKU
+3. Insert inventory_items với product_id FK
+4. Auto-fill name, category, cost từ products table
+```
+
+### Bước 4: Thêm Value-Add Insights
+
+Nâng cấp UI với các insights theo FDP Manifesto:
+
+```text
+Decision Cards:
+├── Cảnh báo thanh lý: SKU >180 ngày + tổng value bị khóa
+├── ABC Analysis: Phân loại A/B/C theo Pareto 80/20
+├── DIO Metrics: Days Inventory Outstanding theo category
+└── Control Tower Alert: Push notification khi slow-moving > 25%
+```
+
+---
+
+## 3. Chi tiết kỹ thuật
 
 ### Migration SQL
 
 ```sql
--- 1. Thêm cột phí vào cdp_orders
-ALTER TABLE cdp_orders 
-ADD COLUMN IF NOT EXISTS platform_fee NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS other_fees NUMERIC DEFAULT 0;
+-- 1. Thêm cột product_id vào inventory_items
+ALTER TABLE inventory_items 
+ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES products(id);
 
--- 2. Backfill từ external_orders
-UPDATE cdp_orders co
-SET 
-  platform_fee = COALESCE(eo.platform_fee, 0),
-  shipping_fee = COALESCE(eo.shipping_fee, 0),
-  other_fees = COALESCE(eo.commission_fee, 0) + COALESCE(eo.payment_fee, 0)
-FROM external_orders eo
-WHERE co.tenant_id = eo.tenant_id
-  AND co.order_key = COALESCE(eo.external_order_id, eo.order_number, eo.id::text);
-
--- 3. Cập nhật view v_channel_performance
-CREATE OR REPLACE VIEW v_channel_performance 
-WITH (security_invoker = on) AS
+-- 2. Seed inventory từ bảng products thực tế
+INSERT INTO inventory_items (
+  tenant_id, product_id, sku, product_name, category, 
+  quantity, unit_cost, received_date, warehouse_location, status
+)
 SELECT 
-  tenant_id,
-  channel,
-  COUNT(*)::INTEGER as order_count,
-  COALESCE(SUM(gross_revenue), 0) as gross_revenue,
-  COALESCE(SUM(net_revenue), 0) as net_revenue,
-  COALESCE(SUM(platform_fee + shipping_fee + other_fees), 0) as total_fees,
-  COALESCE(SUM(cogs), 0) as cogs,
-  COALESCE(SUM(gross_margin), 0) as gross_margin
-FROM cdp_orders
-GROUP BY tenant_id, channel;
+  p.tenant_id,
+  p.id as product_id,
+  p.sku,
+  p.name as product_name,
+  p.category,
+  (20 + (ROW_NUMBER() OVER (ORDER BY p.id) % 150))::int as quantity,
+  p.cost_price as unit_cost,
+  -- Phân bổ tuổi tồn kho theo thứ tự sản phẩm
+  CASE 
+    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 40 
+      THEN CURRENT_DATE - (RANDOM() * 25)::int
+    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 65 
+      THEN CURRENT_DATE - 30 - (RANDOM() * 30)::int
+    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 80 
+      THEN CURRENT_DATE - 60 - (RANDOM() * 30)::int
+    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 92 
+      THEN CURRENT_DATE - 90 - (RANDOM() * 90)::int
+    ELSE CURRENT_DATE - 180 - (RANDOM() * 120)::int
+  END as received_date,
+  'WH-' || (1 + (ROW_NUMBER() OVER (ORDER BY p.id) % 3)) as warehouse_location,
+  CASE 
+    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 80 THEN 'active'
+    ELSE 'slow_moving' 
+  END as status
+FROM products p
+WHERE p.tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 ```
 
-### Hook Update (useChannelAnalytics.ts)
+### Hook Update (useDataImport.ts)
 
 ```typescript
-// Sửa mapping total_fees
-total_fees: Number(item.total_fees) || 0,  // Từ view thay vì hardcode 0
+const importInventoryItems = useMutation({
+  mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+    const result: ImportResult = { success: 0, failed: 0, errors: [] };
+    
+    for (const row of rows) {
+      // Lookup product by SKU
+      const { data: product } = await supabase
+        .from('products')
+        .select('id, name, category, cost_price')
+        .eq('tenant_id', tenantId)
+        .eq('sku', row.sku)
+        .maybeSingle();
+      
+      const { error } = await supabase.from('inventory_items').insert({
+        tenant_id: tenantId,
+        product_id: product?.id || null,  // Link với products
+        sku: row.sku,
+        product_name: product?.name || row.product_name,
+        category: product?.category || row.category,
+        quantity: parseInt(row.quantity_on_hand || row.quantity || '0'),
+        unit_cost: product?.cost_price || parseFloat(row.unit_cost || '0'),
+        received_date: row.last_received_date || row.received_date,
+        warehouse_location: row.warehouse_location,
+        status: 'active',
+      });
+      
+      if (error) result.failed++;
+      else result.success++;
+    }
+    return result;
+  }
+});
 ```
 
 ---
 
-## Kết quả mong đợi
+## 4. Tệp tin cần thay đổi
 
-Sau khi implement, trang Phân tích Đa kênh sẽ hiển thị phí sàn thực từ data warehouse:
-
-| Kênh | Đơn hàng | Doanh thu | Phí sàn | COGS | Lợi nhuận |
-|------|----------|-----------|---------|------|-----------|
-| Shopee | 2,200 | 821.7M | ~70M | 398.4M | 353.3M |
-| Lazada | 1,375 | 577.5M | ~52M | 278.6M | 247.0M |
-| TikTok | 1,100 | 356.0M | ~34M | 170.7M | 151.5M |
-| Website | 825 | 463.7M | ~32M | 228.5M | 202.7M |
+| File | Thay đổi | Mục đích |
+|------|----------|----------|
+| **Database Migration** | Thêm `product_id` FK + Seed từ products | Link inventory với SSOT products |
+| `src/hooks/useDataImport.ts` | Thêm `importInventoryItems` với product lookup | Enable file import |
+| `src/components/import/FileImportDialog.tsx` | Thêm case `inventory_items` | Connect UI to handler |
+| `src/pages/InventoryAgingPage.tsx` | Thêm Import button + Decision cards | UX improvement |
 
 ---
 
-## Tệp tin cần thay đổi
+## 5. Kết quả mong đợi
 
-1. **Database Migration** - Thêm cột `platform_fee`, `shipping_fee`, `other_fees` vào `cdp_orders`
-2. **Database Migration** - Backfill data từ `external_orders`
-3. **Database Migration** - Cập nhật view `v_channel_performance`
-4. **`src/hooks/useChannelAnalytics.ts`** - Sửa mapping `total_fees`
+### Sau khi implement:
 
-## Tuân thủ SSOT Architecture
+| KPI | Trước | Sau |
+|-----|-------|-----|
+| Tổng SKU | 0 | 100 (từ products) |
+| Tổng giá trị | 0₫ | ~8-10 tỷ VND |
+| Tuổi TB | 0 ngày | ~55 ngày |
+| Tồn chậm >90 ngày | 0% | ~20% (~1.5 tỷ) |
 
-- ✅ Phí sàn lưu ở Layer 1 (`cdp_orders`) - nguồn sự thật duy nhất
-- ✅ Trigger sync đã có sẵn mapping - chỉ cần thêm cột
-- ✅ View tính aggregation - không tính ở frontend
-- ✅ Data warehouse → external_orders → cdp_orders → views → hooks
+### Data Integrity:
+- Mỗi inventory item được link với `product_id` FK
+- SKU, name, category lấy từ products table (SSOT)
+- Cost price đồng bộ với products.cost_price
+
+---
+
+## 6. Tuân thủ SSOT Architecture
+
+```text
+Layer 0: products (master data)
+            ↓
+Layer 1: inventory_items (product_id FK) ← Seed từ products
+            ↓
+Layer 3: Views (v_inventory_aging nếu cần)
+            ↓
+Layer 4: Hooks (useInventoryAging)
+            ↓
+Layer 5: Pages (InventoryAgingPage)
+```
+
+- Products là nguồn sự thật cho SKU, name, category, cost
+- Inventory items chỉ lưu quantity, received_date, location
+- Import tự động lookup product_id từ SKU
