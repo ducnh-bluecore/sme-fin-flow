@@ -120,7 +120,7 @@ export function useChannelPerformance() {
           total_orders: Number(item.order_count) || 0,
           gross_revenue: Number(item.gross_revenue) || 0,
           net_revenue: Number(item.net_revenue) || 0,
-          total_fees: 0, // Not in simplified view
+          total_fees: Number(item.total_fees) || 0, // From view: platform_fee + shipping_fee + other_fees
           total_cogs: Number(item.cogs) || 0,
           gross_profit: Number(item.gross_margin) || 0,
           avg_order_value: Number(item.order_count) > 0 ? Number(item.net_revenue) / Number(item.order_count) : 0,
