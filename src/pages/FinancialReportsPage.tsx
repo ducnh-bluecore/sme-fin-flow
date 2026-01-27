@@ -1,11 +1,12 @@
 /**
- * FinancialReportsPage - REFACTORED to use precomputed data
+ * FinancialReportsPage - 100% SSOT COMPLIANT
  * 
- * ⚠️ NOW USES CANONICAL HOOKS ONLY - NO RAW TABLE QUERIES
+ * ⚠️ ALL calculations moved to database views:
+ * - v_financial_report_kpis: Pre-computed KPIs, margins, costs
+ * - v_financial_insights: Pre-generated insights with status/descriptions
+ * - v_financial_ratios_with_targets: Ratios with pre-calculated progress
  * 
- * Uses:
- * - useFinanceTruthSnapshot for core metrics
- * - useFinanceMonthlySummary for trend data
+ * This component is DISPLAY ONLY - no calculations allowed.
  */
 
 import { Helmet } from 'react-helmet-async';
@@ -18,7 +19,6 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { useDateRange } from '@/contexts/DateRangeContext';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { formatCurrency } from '@/lib/formatters';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,8 +30,8 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
-// CANONICAL HOOKS ONLY - NO deprecated hooks
-import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
+// CANONICAL HOOKS ONLY
+import { useFinancialReportData } from '@/hooks/useFinancialReportData';
 import { useFinanceMonthlySummary } from '@/hooks/useFinanceMonthlySummary';
 
 // =============================================================
@@ -50,29 +50,36 @@ function LoadingSkeleton() {
 }
 
 // =============================================================
+// FORMAT HELPER (display only - no calculations)
+// =============================================================
+
+const formatBillion = (value: number) => {
+  const billion = value / 1000000000;
+  if (billion >= 1) return `${billion.toFixed(1)} tỷ`;
+  const million = value / 1000000;
+  if (million >= 1) return `${million.toFixed(0)} triệu`;
+  return formatCurrency(value);
+};
+
+// =============================================================
 // COMPONENT
 // =============================================================
 
 export default function FinancialReportsPage() {
   const [activeTab, setActiveTab] = useState('analytics');
-  const { dateRange } = useDateRange();
   
-  // CANONICAL HOOKS ONLY
-  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
+  // CANONICAL HOOKS - ALL data pre-computed in DB
+  const { data: reportData, isLoading: reportLoading } = useFinancialReportData();
   const { data: monthlySummary, isLoading: monthlyLoading } = useFinanceMonthlySummary({ months: 12 });
 
-  const isLoading = snapshotLoading || monthlyLoading;
+  const isLoading = reportLoading || monthlyLoading;
 
-  // Format helpers
-  const formatBillion = (value: number) => {
-    const billion = value / 1000000000;
-    if (billion >= 1) return `${billion.toFixed(1)} tỷ`;
-    const million = value / 1000000;
-    if (million >= 1) return `${million.toFixed(0)} triệu`;
-    return formatCurrency(value);
-  };
+  // Extract pre-computed data - NO calculations
+  const kpis = reportData?.kpis;
+  const insights = reportData?.insights || [];
+  const ratios = reportData?.ratios || [];
 
-  // Prepare monthly chart data from precomputed summary
+  // Chart data mapping only (no calculations)
   const monthlyChartData = useMemo(() => {
     if (!monthlySummary || monthlySummary.length === 0) return [];
     return monthlySummary.map(m => ({
@@ -84,109 +91,6 @@ export default function FinancialReportsPage() {
       opex: m.operatingExpenses,
     }));
   }, [monthlySummary]);
-
-  // Compute display values - minimal calculations for UI only
-  // Note: Core financial metrics come from snapshot (SSOT), these are derived display values
-  const totalCost = snapshot 
-    ? (monthlySummary?.[0]?.cogs || 0) + (monthlySummary?.[0]?.operatingExpenses || 0) 
-    : 0;
-  const netMarginPercent = snapshot && snapshot.netRevenue > 0 
-    ? ((snapshot.grossProfit - (monthlySummary?.[0]?.operatingExpenses || 0)) / snapshot.netRevenue) * 100 
-    : 0;
-  const overdueARPercent = snapshot && snapshot.totalAR > 0 
-    ? (snapshot.overdueAR / snapshot.totalAR) * 100 
-    : 0;
-
-  // Financial ratios from snapshot
-  const financialRatios = useMemo(() => {
-    if (!snapshot) return [];
-    return [
-      {
-        name: 'Biên lợi nhuận gộp',
-        value: snapshot.grossMarginPercent,
-        target: 30,
-        unit: '%',
-      },
-      {
-        name: 'Biên lợi nhuận ròng',
-        value: netMarginPercent,
-        target: 10,
-        unit: '%',
-      },
-      {
-        name: 'EBITDA Margin',
-        value: snapshot.ebitdaMarginPercent,
-        target: 15,
-        unit: '%',
-      },
-      {
-        name: 'DSO',
-        value: snapshot.dso,
-        target: 30,
-        unit: ' ngày',
-      },
-      {
-        name: 'Contribution Margin',
-        value: snapshot.contributionMarginPercent,
-        target: 40,
-        unit: '%',
-      },
-    ];
-  }, [snapshot, netMarginPercent]);
-
-  // Key insights based on snapshot data
-  const keyInsights = useMemo(() => {
-    if (!snapshot) return [];
-    const insights = [];
-    
-    if (snapshot.grossMarginPercent >= 30) {
-      insights.push({
-        type: 'success',
-        title: 'Biên lợi nhuận gộp tốt',
-        description: `Đạt ${snapshot.grossMarginPercent.toFixed(1)}%, cao hơn mức tiêu chuẩn 30%`,
-      });
-    } else if (snapshot.grossMarginPercent < 20) {
-      insights.push({
-        type: 'danger',
-        title: 'Biên lợi nhuận gộp thấp',
-        description: `Chỉ đạt ${snapshot.grossMarginPercent.toFixed(1)}%, cần xem xét COGS`,
-      });
-    }
-    
-    if (snapshot.dso > 45) {
-      insights.push({
-        type: 'warning',
-        title: 'DSO cao',
-        description: `DSO ${snapshot.dso.toFixed(0)} ngày, tiền bị kẹt trong công nợ`,
-      });
-    }
-    
-    if (netMarginPercent < 0) {
-      insights.push({
-        type: 'danger',
-        title: 'Lỗ ròng',
-        description: `Biên lợi nhuận ròng ${netMarginPercent.toFixed(1)}%`,
-      });
-    }
-    
-    if (overdueARPercent > 20) {
-      insights.push({
-        type: 'warning',
-        title: 'Công nợ quá hạn cao',
-        description: `${overdueARPercent.toFixed(1)}% AR đang quá hạn`,
-      });
-    }
-    
-    if (snapshot.cashToday > snapshot.netRevenue * 0.5) {
-      insights.push({
-        type: 'success',
-        title: 'Tình hình tiền mặt khỏe',
-        description: `Cash buffer dồi dào: ${formatBillion(snapshot.cashToday)}`,
-      });
-    }
-    
-    return insights;
-  }, [snapshot, netMarginPercent, overdueARPercent]);
 
   return (
     <>
@@ -237,28 +141,29 @@ export default function FinancialReportsPage() {
           <TabsContent value="analytics" className="mt-6 space-y-6">
             {isLoading ? <LoadingSkeleton /> : (
               <>
-                {/* Hero KPIs from snapshot */}
+                {/* Hero KPIs - ALL values from pre-computed DB views */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="p-6 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/20 shadow-lg">
                     <p className="text-sm text-muted-foreground">Tổng doanh thu</p>
                     <p className="text-3xl font-bold text-primary mt-2">
-                      {formatBillion(snapshot?.netRevenue || 0)}
+                      {formatBillion(kpis?.netRevenue || 0)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">Kỳ đã chọn</p>
                   </Card>
                   <Card className="p-6 bg-gradient-to-br from-success/10 via-success/5 to-transparent border-success/20 shadow-lg">
                     <p className="text-sm text-muted-foreground">Lợi nhuận gộp</p>
-                    <p className={cn("text-3xl font-bold mt-2", (snapshot?.grossProfit || 0) >= 0 ? "text-success" : "text-destructive")}>
-                      {formatBillion(snapshot?.grossProfit || 0)}
+                    <p className={cn("text-3xl font-bold mt-2", (kpis?.grossProfit || 0) >= 0 ? "text-success" : "text-destructive")}>
+                      {formatBillion(kpis?.grossProfit || 0)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Biên lợi nhuận: {(snapshot?.grossMarginPercent || 0).toFixed(1)}%
+                      Biên lợi nhuận: {(kpis?.grossMarginPercent || 0).toFixed(1)}%
                     </p>
                   </Card>
                   <Card className="p-6 bg-gradient-to-br from-warning/10 via-warning/5 to-transparent border-warning/20 shadow-lg">
                     <p className="text-sm text-muted-foreground">Tổng chi phí</p>
                     <p className="text-3xl font-bold text-warning mt-2">
-                      {formatBillion(totalCost)}
+                      {/* Pre-computed totalCost from v_financial_report_kpis */}
+                      {formatBillion(kpis?.totalCost || 0)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       COGS + OPEX
@@ -298,18 +203,17 @@ export default function FinancialReportsPage() {
               <>
                 <ContextualAIPanel context="financial_analysis" />
                 
-                {/* Key Insights */}
-                {keyInsights.length > 0 && (
+                {/* Key Insights - PRE-GENERATED from v_financial_insights */}
+                {insights.length > 0 && (
                   <Card className="p-5">
                     <h3 className="font-semibold text-lg mb-4">Nhận định chính</h3>
                     <div className="space-y-3">
-                      {keyInsights.slice(0, 5).map((insight, idx) => (
+                      {insights.slice(0, 5).map((insight, idx) => (
                         <div key={idx} className={cn(
                           "p-3 rounded-lg border",
                           insight.type === 'success' && "bg-success/10 border-success/20",
                           insight.type === 'warning' && "bg-warning/10 border-warning/20",
-                          insight.type === 'danger' && "bg-destructive/10 border-destructive/20",
-                          insight.type === 'info' && "bg-info/10 border-info/20"
+                          insight.type === 'danger' && "bg-destructive/10 border-destructive/20"
                         )}>
                           <p className="font-medium">{insight.title}</p>
                           <p className="text-sm text-muted-foreground">{insight.description}</p>
@@ -319,19 +223,21 @@ export default function FinancialReportsPage() {
                   </Card>
                 )}
 
-                {/* Financial Ratios */}
-                {financialRatios.length > 0 && (
+                {/* Financial Ratios - PRE-COMPUTED from v_financial_ratios_with_targets */}
+                {ratios.length > 0 && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {financialRatios.map((ratio) => (
-                      <Card key={ratio.name} className="p-4">
+                    {ratios.map((ratio) => (
+                      <Card key={ratio.ratioCode} className="p-4">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-medium">{ratio.name}</p>
-                          <Badge variant={ratio.value >= ratio.target ? 'default' : 'secondary'}>
-                            {ratio.value >= ratio.target ? 'Đạt' : 'Chưa đạt'}
+                          {/* isOnTarget comes pre-computed from DB */}
+                          <Badge variant={ratio.isOnTarget ? 'default' : 'secondary'}>
+                            {ratio.isOnTarget ? 'Đạt' : 'Chưa đạt'}
                           </Badge>
                         </div>
                         <p className="text-2xl font-bold">{ratio.value?.toFixed(1)}{ratio.unit}</p>
-                        <Progress value={Math.min((ratio.value / ratio.target) * 100, 100)} className="h-1.5 mt-2" />
+                        {/* progress comes pre-computed and capped at 100 from DB */}
+                        <Progress value={ratio.progress} className="h-1.5 mt-2" />
                         <p className="text-xs text-muted-foreground mt-1">Mục tiêu: {ratio.target}{ratio.unit}</p>
                       </Card>
                     ))}
@@ -347,24 +253,24 @@ export default function FinancialReportsPage() {
               <>
                 <ContextualAIPanel context="profitability" />
 
-                {/* P&L KPIs from snapshot */}
+                {/* P&L KPIs - ALL from pre-computed DB views */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card className="p-5">
                     <p className="text-sm text-muted-foreground">Doanh thu thuần</p>
-                    <p className="text-2xl font-bold text-primary">{formatBillion(snapshot?.netRevenue || 0)}</p>
+                    <p className="text-2xl font-bold text-primary">{formatBillion(kpis?.netRevenue || 0)}</p>
                   </Card>
                   <Card className="p-5">
                     <p className="text-sm text-muted-foreground">Lợi nhuận gộp</p>
-                    <p className="text-2xl font-bold text-success">{formatBillion(snapshot?.grossProfit || 0)}</p>
+                    <p className="text-2xl font-bold text-success">{formatBillion(kpis?.grossProfit || 0)}</p>
                   </Card>
                   <Card className="p-5">
                     <p className="text-sm text-muted-foreground">Biên lợi nhuận gộp</p>
-                    <p className="text-2xl font-bold">{(snapshot?.grossMarginPercent || 0).toFixed(1)}%</p>
+                    <p className="text-2xl font-bold">{(kpis?.grossMarginPercent || 0).toFixed(1)}%</p>
                   </Card>
                   <Card className="p-5">
                     <p className="text-sm text-muted-foreground">EBITDA Margin</p>
-                    <p className={cn("text-2xl font-bold", (snapshot?.ebitdaMarginPercent || 0) >= 0 ? "text-success" : "text-destructive")}>
-                      {(snapshot?.ebitdaMarginPercent || 0).toFixed(1)}%
+                    <p className={cn("text-2xl font-bold", (kpis?.ebitdaMarginPercent || 0) >= 0 ? "text-success" : "text-destructive")}>
+                      {(kpis?.ebitdaMarginPercent || 0).toFixed(1)}%
                     </p>
                   </Card>
                 </div>
