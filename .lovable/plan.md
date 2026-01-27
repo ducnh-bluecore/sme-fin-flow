@@ -1,163 +1,200 @@
 
-# Kế hoạch: Fix & Nâng cấp trang Phân tích Tuổi tồn kho (v2)
+# Kế hoạch: Fix & Nâng cấp trang ROI Khuyến mãi
 
-## 1. Phân tích hiện trạng
+## 1. Phân tích vấn đề
 
-### Dữ liệu bảng Products (E2E Tenant)
-| Category | Số lượng SP | Ví dụ |
-|----------|-------------|-------|
-| Áo | 30 | Áo Thun Basic, Áo Polo Premium |
-| Quần | 25 | Quần Jean, Quần Kaki |
-| Váy | 20 | Váy Đầm, Váy Công sở |
-| Phụ kiện | 15 | Túi xách, Thắt lưng |
-| Giày dép | 10 | Giày sneaker, Sandal |
-| **Tổng** | **100** | |
+### Root Cause: HOOK QUERY SAI BẢNG
 
-### Vấn đề
-- `inventory_items` table: **0 records** cho E2E tenant
-- **THIẾU LIÊN KẾT**: Không có `product_id` FK để connect inventory với products
+| Bảng | Records (E2E) | Được sử dụng bởi |
+|------|--------------|------------------|
+| `promotions` | **0 rows** | ❌ `usePromotions.ts` (TRỐNG!) |
+| `promotion_campaigns` | **10 rows** | ✅ `useMDPDataSSOT`, `useMDPData` |
+
+### Dữ liệu thực tế trong `promotion_campaigns`:
+
+| Campaign | Channel | Chi phí | Doanh thu | ROAS | Status |
+|----------|---------|---------|-----------|------|--------|
+| New Year Sale - Google | Google Ads | 12M | 72M | 6.00x | Active |
+| Christmas 2024 - Facebook | Facebook Ads | 11.5M | 52M | 4.52x | Completed |
+| Tet 2025 - Facebook | Facebook Ads | 8.5M | 48M | 5.65x | Active |
+| Black Friday - Google | Google Ads | 7.8M | 42M | 5.38x | Completed |
+| ... (6 campaigns nữa) | | | | | |
+| **Tổng** | | **~61.5M** | **~316M** | **~5.14x** | |
+
+**Kết luận**: Trang `/promotion-roi` cần được refactor để sử dụng `promotion_campaigns` thay vì `promotions`.
 
 ---
 
 ## 2. Giải pháp đề xuất
 
-### Bước 1: Thêm cột `product_id` vào `inventory_items`
+### Bước 1: Refactor hook `usePromotions.ts`
 
-Tạo FK liên kết inventory với bảng products (SSOT):
-
-```text
-inventory_items (updated)
-├── id
-├── tenant_id
-├── product_id UUID REFERENCES products(id)  ← MỚI
-├── sku (lấy từ products.sku)
-├── product_name (lấy từ products.name)
-├── category (lấy từ products.category)
-├── quantity
-├── unit_cost (lấy từ products.cost_price)
-├── total_value (calculated)
-├── received_date
-├── warehouse_location
-├── ...
-```
-
-### Bước 2: Seed Inventory từ bảng Products thực tế
-
-Tạo inventory items cho **tất cả 100 sản phẩm** trong bảng `products`:
+Thay đổi bảng nguồn từ `promotions` → `promotion_campaigns` và mapping fields tương ứng:
 
 ```text
-Phân bổ tuổi tồn kho (realistic e-commerce):
-├── 40 items: 0-30 ngày   (hàng mới nhập, bán chạy)
-├── 25 items: 31-60 ngày  (hàng trung bình)
-├── 15 items: 61-90 ngày  (hàng chậm)
-├── 12 items: 91-180 ngày (hàng tồn lâu)
-└── 8 items:  >180 ngày   (hàng chết - cần thanh lý)
+Field Mapping:
+├── promotion_name → campaign_name
+├── actual_spend → actual_cost
+├── actual_revenue → total_revenue
+├── actual_orders → total_orders
+└── (thêm) impressions, clicks, ctr, roas có sẵn trong bảng
 ```
 
-### Bước 3: Fix Import Handler
+### Bước 2: Cập nhật `PromotionROIPage.tsx`
 
-Cập nhật `useDataImport.ts` để link với products:
+Tận dụng data phong phú hơn từ `promotion_campaigns`:
+- Hiển thị **impressions, clicks, CTR** - metrics marketing quan trọng
+- Sử dụng **ROAS đã tính sẵn** trong DB thay vì tính client-side
+- Thêm **Decision Cards** theo FDP Manifesto
 
-```text
-Import Flow:
-1. User upload file với SKU
-2. System lookup products.id từ SKU
-3. Insert inventory_items với product_id FK
-4. Auto-fill name, category, cost từ products table
-```
+### Bước 3: Thêm Value-Add Insights
 
-### Bước 4: Thêm Value-Add Insights
-
-Nâng cấp UI với các insights theo FDP Manifesto:
+Nâng cấp UI với các insights theo Bluecore Control Tower Manifesto:
 
 ```text
 Decision Cards:
-├── Cảnh báo thanh lý: SKU >180 ngày + tổng value bị khóa
-├── ABC Analysis: Phân loại A/B/C theo Pareto 80/20
-├── DIO Metrics: Days Inventory Outstanding theo category
-└── Control Tower Alert: Push notification khi slow-moving > 25%
+├── Campaign cần KILL: ROAS < 2x → đang đốt tiền
+├── Campaign cần SCALE: ROAS > 6x + margin tốt
+├── Budget Efficiency: Tổng ngân sách vs thực chi
+└── Channel Performance: So sánh Facebook vs Google vs TikTok
 ```
 
 ---
 
 ## 3. Chi tiết kỹ thuật
 
-### Migration SQL
-
-```sql
--- 1. Thêm cột product_id vào inventory_items
-ALTER TABLE inventory_items 
-ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES products(id);
-
--- 2. Seed inventory từ bảng products thực tế
-INSERT INTO inventory_items (
-  tenant_id, product_id, sku, product_name, category, 
-  quantity, unit_cost, received_date, warehouse_location, status
-)
-SELECT 
-  p.tenant_id,
-  p.id as product_id,
-  p.sku,
-  p.name as product_name,
-  p.category,
-  (20 + (ROW_NUMBER() OVER (ORDER BY p.id) % 150))::int as quantity,
-  p.cost_price as unit_cost,
-  -- Phân bổ tuổi tồn kho theo thứ tự sản phẩm
-  CASE 
-    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 40 
-      THEN CURRENT_DATE - (RANDOM() * 25)::int
-    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 65 
-      THEN CURRENT_DATE - 30 - (RANDOM() * 30)::int
-    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 80 
-      THEN CURRENT_DATE - 60 - (RANDOM() * 30)::int
-    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 92 
-      THEN CURRENT_DATE - 90 - (RANDOM() * 90)::int
-    ELSE CURRENT_DATE - 180 - (RANDOM() * 120)::int
-  END as received_date,
-  'WH-' || (1 + (ROW_NUMBER() OVER (ORDER BY p.id) % 3)) as warehouse_location,
-  CASE 
-    WHEN ROW_NUMBER() OVER (ORDER BY p.id) <= 80 THEN 'active'
-    ELSE 'slow_moving' 
-  END as status
-FROM products p
-WHERE p.tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-```
-
-### Hook Update (useDataImport.ts)
+### usePromotions.ts - Refactor
 
 ```typescript
-const importInventoryItems = useMutation({
-  mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
-    const result: ImportResult = { success: 0, failed: 0, errors: [] };
-    
-    for (const row of rows) {
-      // Lookup product by SKU
-      const { data: product } = await supabase
-        .from('products')
-        .select('id, name, category, cost_price')
+// Thay đổi interface để match promotion_campaigns
+export interface Promotion {
+  id: string;
+  tenant_id: string;
+  campaign_name: string;      // Đổi từ promotion_name
+  campaign_type: string | null;
+  channel: string | null;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  actual_cost: number;        // Đổi từ actual_spend
+  total_orders: number;
+  total_revenue: number;
+  total_discount_given: number;
+  status: string;
+  // Marketing metrics có sẵn
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  roas: number;
+  acos: number;
+  platform_icon: string | null;
+}
+
+export const usePromotions = () => {
+  const { data: tenantId } = useActiveTenantId();
+
+  return useQuery({
+    queryKey: ['promotion-campaigns', tenantId],  // Đổi queryKey
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('promotion_campaigns')  // Đổi table
+        .select('*')
         .eq('tenant_id', tenantId)
-        .eq('sku', row.sku)
-        .maybeSingle();
-      
-      const { error } = await supabase.from('inventory_items').insert({
-        tenant_id: tenantId,
-        product_id: product?.id || null,  // Link với products
-        sku: row.sku,
-        product_name: product?.name || row.product_name,
-        category: product?.category || row.category,
-        quantity: parseInt(row.quantity_on_hand || row.quantity || '0'),
-        unit_cost: product?.cost_price || parseFloat(row.unit_cost || '0'),
-        received_date: row.last_received_date || row.received_date,
-        warehouse_location: row.warehouse_location,
-        status: 'active',
-      });
-      
-      if (error) result.failed++;
-      else result.success++;
-    }
-    return result;
-  }
-});
+        .order('start_date', { ascending: false });
+
+      if (error) throw error;
+      return data as Promotion[];
+    },
+    enabled: !!tenantId,
+  });
+};
+
+// Cập nhật usePromotionROI để tính toán từ data mới
+export const usePromotionROI = () => {
+  const { data: campaigns = [], isLoading } = usePromotions();
+
+  const roiData = campaigns.map(camp => ({
+    promotion: camp,
+    totalRevenue: camp.total_revenue,
+    totalDiscount: camp.total_discount_given || 0,
+    totalOrders: camp.total_orders,
+    roi: camp.actual_cost > 0 
+      ? ((camp.total_revenue - camp.actual_cost) / camp.actual_cost) * 100 
+      : 0,
+    roas: camp.roas || (camp.actual_cost > 0 ? camp.total_revenue / camp.actual_cost : 0),
+    costPerOrder: camp.total_orders > 0 ? camp.actual_cost / camp.total_orders : 0,
+    // Marketing metrics
+    impressions: camp.impressions || 0,
+    clicks: camp.clicks || 0,
+    ctr: camp.ctr || 0,
+    acos: camp.acos || 0,
+  }));
+
+  // Tính summary
+  const summary = {
+    totalCampaigns: campaigns.length,
+    activeCampaigns: campaigns.filter(c => c.status === 'active').length,
+    totalSpend: campaigns.reduce((sum, c) => sum + (c.actual_cost || 0), 0),
+    totalRevenue: campaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0),
+    totalOrders: campaigns.reduce((sum, c) => sum + (c.total_orders || 0), 0),
+    avgROAS: roiData.length > 0 
+      ? roiData.reduce((sum, r) => sum + r.roas, 0) / roiData.length 
+      : 0,
+    topPerformer: [...roiData].sort((a, b) => b.roas - a.roas)[0],
+    worstPerformer: [...roiData].sort((a, b) => a.roas - b.roas)[0],
+  };
+
+  return { campaigns, roiData, summary, isLoading };
+};
+```
+
+### PromotionROIPage.tsx - Nâng cấp UI
+
+```text
+Cấu trúc mới:
+├── Hero KPI Strip (4 cards)
+│   ├── Tổng chiến dịch: 10 (5 active)
+│   ├── Tổng chi phí: 61.5M VND
+│   ├── Tổng doanh thu: 316M VND
+│   └── ROAS trung bình: 5.14x
+│
+├── Decision Cards (NEW!)
+│   ├── 🔴 Campaign cần dừng: Low Performer (ROAS 2.5x)
+│   ├── 🟢 Campaign nên scale: Email Nurture (ROAS 8.0x)
+│   └── 📊 Budget utilization: 82% đã sử dụng
+│
+├── Channel Performance (Bar Chart)
+│   ├── Facebook: 3 campaigns, 166M revenue
+│   ├── Google: 3 campaigns, 122M revenue
+│   ├── TikTok: 2 campaigns, 40M revenue
+│   └── Email: 2 campaigns, 16M revenue
+│
+├── Marketing Funnel Metrics (NEW!)
+│   ├── Impressions: 3.24M
+│   ├── Clicks: 48K (CTR: 1.48%)
+│   └── Orders: 872 (CVR: 1.8%)
+│
+└── Campaign Detail Table
+    ├── Columns: Name, Channel, Status, Spend, Revenue, ROAS, CTR, Orders
+    └── Action: Filter by status, sort by ROAS
+```
+
+### Component mới: PromotionDecisionCards.tsx
+
+```text
+Hiển thị 3 insights hành động:
+1. CAMPAIGN CẦN DỪNG (ROAS < 3x)
+   - Campaign name + ROAS + Tổng lỗ tiềm ẩn
+   - Button: "Xem chi tiết" | "Tạm dừng"
+
+2. CAMPAIGN NÊN SCALE (ROAS > 6x)
+   - Campaign name + ROAS + Tiềm năng tăng trưởng
+   - Button: "Tăng ngân sách"
+
+3. BUDGET EFFICIENCY
+   - Tổng ngân sách: XXM | Đã chi: YYM
+   - % sử dụng với progress bar
+   - Cảnh báo nếu > 90% hoặc < 50%
 ```
 
 ---
@@ -166,45 +203,52 @@ const importInventoryItems = useMutation({
 
 | File | Thay đổi | Mục đích |
 |------|----------|----------|
-| **Database Migration** | Thêm `product_id` FK + Seed từ products | Link inventory với SSOT products |
-| `src/hooks/useDataImport.ts` | Thêm `importInventoryItems` với product lookup | Enable file import |
-| `src/components/import/FileImportDialog.tsx` | Thêm case `inventory_items` | Connect UI to handler |
-| `src/pages/InventoryAgingPage.tsx` | Thêm Import button + Decision cards | UX improvement |
+| `src/hooks/usePromotions.ts` | Refactor query `promotion_campaigns` + cập nhật interface | Fix empty state |
+| `src/pages/PromotionROIPage.tsx` | Cập nhật để dùng data mới + thêm marketing metrics | Show real data |
+| `src/components/promotion/PromotionDecisionCards.tsx` | Component mới - Decision insights | Value-add |
+| `src/contexts/LanguageContext.tsx` | Thêm translation keys mới | i18n support |
 
 ---
 
 ## 5. Kết quả mong đợi
 
-### Sau khi implement:
+### Trước:
+- Tổng chương trình: 0
+- Tổng chi phí: 0₫
+- Tổng doanh thu: 0₫
+- ROAS: 0.00x
 
-| KPI | Trước | Sau |
-|-----|-------|-----|
-| Tổng SKU | 0 | 100 (từ products) |
-| Tổng giá trị | 0₫ | ~8-10 tỷ VND |
-| Tuổi TB | 0 ngày | ~55 ngày |
-| Tồn chậm >90 ngày | 0% | ~20% (~1.5 tỷ) |
+### Sau:
+| KPI | Giá trị |
+|-----|---------|
+| Tổng chiến dịch | 10 (5 active) |
+| Tổng chi phí | ~61.5M VND |
+| Tổng doanh thu | ~316M VND |
+| ROAS trung bình | ~5.14x |
+| Impressions | ~3.24M |
+| Clicks | ~48K |
+| CTR trung bình | ~1.48% |
 
-### Data Integrity:
-- Mỗi inventory item được link với `product_id` FK
-- SKU, name, category lấy từ products table (SSOT)
-- Cost price đồng bộ với products.cost_price
+### Decision Cards hiển thị:
+- 🔴 **Cần dừng**: "Low Performer - Google" (ROAS 2.5x)
+- 🟢 **Nên scale**: "Email Nurture Q1" (ROAS 8.0x)
+- 📊 **Budget**: 82% đã sử dụng (~61.5M / 75M)
 
 ---
 
-## 6. Tuân thủ SSOT Architecture
+## 6. Tuân thủ Bluecore Manifesto
 
-```text
-Layer 0: products (master data)
-            ↓
-Layer 1: inventory_items (product_id FK) ← Seed từ products
-            ↓
-Layer 3: Views (v_inventory_aging nếu cần)
-            ↓
-Layer 4: Hooks (useInventoryAging)
-            ↓
-Layer 5: Pages (InventoryAgingPage)
-```
+### FDP Manifesto:
+- ✅ **SINGLE SOURCE OF TRUTH**: Dùng `promotion_campaigns` - nguồn SSOT của MDP
+- ✅ **REVENUE ↔ COST**: Mỗi campaign hiển thị cả chi phí và doanh thu
+- ✅ **SURFACE PROBLEMS**: Flag campaign ROAS < 3x màu đỏ
 
-- Products là nguồn sự thật cho SKU, name, category, cost
-- Inventory items chỉ lưu quantity, received_date, location
-- Import tự động lookup product_id từ SKU
+### Control Tower Manifesto:
+- ✅ **ĐIỀU GÌ SAI**: Decision cards chỉ rõ campaign cần xử lý
+- ✅ **MẤT BAO NHIÊU TIỀN**: Hiển thị tổn thất tiềm ẩn nếu tiếp tục chạy
+- ✅ **ÉP HÀNH ĐỘNG**: Nút "Tạm dừng" / "Tăng ngân sách" ngay trên card
+
+### MDP Manifesto:
+- ✅ **PROFIT BEFORE PERFORMANCE**: Hiển thị ROI/Contribution trước CTR/Impressions
+- ✅ **CASH BEFORE CLICKS**: Tính chi phí thực (actual_cost) không phải budget
+- ✅ **ĐƠN GIẢN HOÁ ATTRIBUTION**: ROAS đã tính sẵn trong DB, không magic AI
