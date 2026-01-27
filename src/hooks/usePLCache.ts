@@ -140,6 +140,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
       supplies: query.data.opex_supplies || 0,
       maintenance: query.data.opex_maintenance || 0,
       professional: query.data.opex_professional || 0,
+      logistics: 0, // Added logistics field
       other: query.data.opex_other || 0,
     },
     totalOperatingExpenses: query.data.total_opex || 0,

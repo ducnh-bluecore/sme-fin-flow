@@ -1,17 +1,15 @@
 /**
  * ============================================
- * DEPRECATED: Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead
+ * P&L Data Hook - Fetches from pl_report_cache
  * ============================================
  * 
- * This hook is DEPRECATED and exists only for backwards compatibility.
- * It now fetches from precomputed tables ONLY - NO BUSINESS CALCULATIONS.
- * 
- * @deprecated Use useFinanceTruthSnapshot + useFinanceMonthlySummary
+ * This hook fetches pre-computed P&L data from the `pl_report_cache` table.
+ * All business calculations are done in the database (refresh_pl_cache RPC).
+ * This hook is a thin wrapper - NO CLIENT-SIDE CALCULATIONS.
  */
 import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
-import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
-import { useFinanceMonthlySummary } from './useFinanceMonthlySummary';
 
 export interface PLData {
   grossSales: number;
@@ -31,6 +29,7 @@ export interface PLData {
     supplies: number;
     maintenance: number;
     professional: number;
+    logistics: number; // Added logistics
     other: number;
   };
   totalOperatingExpenses: number;
@@ -75,23 +74,50 @@ export interface RevenueBreakdown {
   totalRevenue: number;
 }
 
+interface PLCacheRow {
+  period_year: number;
+  period_month: number | null;
+  gross_sales: number;
+  sales_returns: number;
+  sales_discounts: number;
+  net_sales: number;
+  invoice_revenue: number;
+  contract_revenue: number;
+  integrated_revenue: number;
+  cogs: number;
+  gross_profit: number;
+  gross_margin: number;
+  opex_salaries: number;
+  opex_rent: number;
+  opex_utilities: number;
+  opex_marketing: number;
+  opex_depreciation: number;
+  opex_insurance: number | null;
+  opex_supplies: number | null;
+  opex_maintenance: number | null;
+  opex_professional: number | null;
+  opex_other: number;
+  total_opex: number;
+  operating_income: number;
+  operating_margin: number;
+  other_income: number | null;
+  interest_expense: number;
+  income_before_tax: number;
+  income_tax: number;
+  net_income: number;
+  net_margin: number;
+}
+
 /**
- * @deprecated Use useFinanceTruthSnapshot + useFinanceMonthlySummary instead
- * 
- * This hook now ONLY maps precomputed data from DB.
- * NO BUSINESS CALCULATIONS - only direct field mapping.
+ * Fetches P&L data from pl_report_cache table
+ * All calculations are pre-computed by refresh_pl_cache RPC
  */
 export function usePLData() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
-  
-  // Use canonical hooks (SSOT)
-  const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
-  const { data: monthlyData, isLoading: monthlyLoading } = useFinanceMonthlySummary({ months: 12 });
-
-  const isLoading = tenantLoading || snapshotLoading || monthlyLoading;
+  const currentYear = new Date().getFullYear();
 
   return useQuery({
-    queryKey: ['pl-data-legacy', tenantId, snapshot?.snapshotAt],
+    queryKey: ['pl-data', tenantId, currentYear],
     queryFn: async (): Promise<{
       plData: PLData;
       monthlyData: MonthlyPLData[];
@@ -99,109 +125,143 @@ export function usePLData() {
       comparisonData: ComparisonData;
       revenueBreakdown: RevenueBreakdown;
     }> => {
-      // Derive values using algebra only (COGS = Revenue - Gross Profit)
-      const netRevenue = snapshot?.netRevenue || 0;
-      const grossProfit = snapshot?.grossProfit || 0;
-      const cogs = netRevenue - grossProfit;
-      const ebitda = snapshot?.ebitda || 0;
-      const opex = grossProfit - ebitda;
-      
-      // Map snapshot to PLData format - DIRECT MAPPING, no business formulas
-      const plData: PLData = snapshot ? {
-        grossSales: netRevenue, // Use net as gross (returns not in snapshot)
-        salesReturns: 0,
-        salesDiscounts: 0,
-        netSales: netRevenue,
-        cogs: cogs,
-        grossProfit: grossProfit,
-        grossMargin: snapshot.grossMarginPercent / 100,
+      if (!tenantId) {
+        return getEmptyPLDataStruct();
+      }
+
+      // Fetch yearly aggregate (period_month IS NULL) for current year
+      const { data: yearlyCache, error: yearlyError } = await supabase
+        .from('pl_report_cache')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('period_year', currentYear)
+        .is('period_month', null)
+        .maybeSingle();
+
+      if (yearlyError) {
+        console.error('Error fetching yearly P&L cache:', yearlyError);
+      }
+
+      // Fetch monthly data for the year
+      const { data: monthlyCache, error: monthlyError } = await supabase
+        .from('pl_report_cache')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('period_year', currentYear)
+        .not('period_month', 'is', null)
+        .order('period_month', { ascending: true });
+
+      if (monthlyError) {
+        console.error('Error fetching monthly P&L cache:', monthlyError);
+      }
+
+      // Fetch previous year for comparison
+      const { data: prevYearCache } = await supabase
+        .from('pl_report_cache')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('period_year', currentYear - 1)
+        .is('period_month', null)
+        .maybeSingle();
+
+      // Map cache to PLData - DIRECT MAPPING from database
+      const cache = yearlyCache as PLCacheRow | null;
+      const prevCache = prevYearCache as PLCacheRow | null;
+
+      const plData: PLData = cache ? {
+        grossSales: cache.gross_sales || 0,
+        salesReturns: cache.sales_returns || 0,
+        salesDiscounts: cache.sales_discounts || 0,
+        netSales: cache.net_sales || 0,
+        cogs: cache.cogs || 0,
+        grossProfit: cache.gross_profit || 0,
+        grossMargin: cache.gross_margin || 0,
         operatingExpenses: {
-          salaries: 0, // Not broken down in snapshot
-          rent: 0,
-          utilities: 0,
-          marketing: snapshot.totalMarketingSpend,
-          depreciation: 0,
-          insurance: 0,
-          supplies: 0,
-          maintenance: 0,
-          professional: 0,
-          other: opex - snapshot.totalMarketingSpend,
+          salaries: cache.opex_salaries || 0,
+          rent: cache.opex_rent || 0,
+          utilities: cache.opex_utilities || 0,
+          marketing: cache.opex_marketing || 0,
+          depreciation: cache.opex_depreciation || 0,
+          insurance: cache.opex_insurance || 0,
+          supplies: cache.opex_supplies || 0,
+          maintenance: cache.opex_maintenance || 0,
+          professional: cache.opex_professional || 0,
+          logistics: 0, // Will be added when we have logistics column
+          other: cache.opex_other || 0,
         },
-        totalOperatingExpenses: opex,
-        operatingIncome: ebitda,
-        operatingMargin: snapshot.ebitdaMarginPercent / 100,
-        otherIncome: 0,
-        interestExpense: 0,
-        incomeBeforeTax: ebitda,
-        incomeTax: 0,
-        netIncome: ebitda, // Use EBITDA as proxy (net_income not in snapshot)
-        netMargin: snapshot.ebitdaMarginPercent / 100,
+        totalOperatingExpenses: cache.total_opex || 0,
+        operatingIncome: cache.operating_income || 0,
+        operatingMargin: cache.operating_margin || 0,
+        otherIncome: cache.other_income || 0,
+        interestExpense: cache.interest_expense || 0,
+        incomeBeforeTax: cache.income_before_tax || 0,
+        incomeTax: cache.income_tax || 0,
+        netIncome: cache.net_income || 0,
+        netMargin: cache.net_margin || 0,
       } : getEmptyPLDataStruct().plData;
 
-      // Map monthly summary to MonthlyPLData - DIRECT MAPPING
-      const monthlyPL: MonthlyPLData[] = (monthlyData || []).map(m => ({
-        month: `T${new Date(m.yearMonth + '-01').getMonth() + 1}`,
-        netSales: Math.round(m.netRevenue / 1000000),
-        cogs: Math.round(m.cogs / 1000000),
-        grossProfit: Math.round(m.grossProfit / 1000000),
-        opex: Math.round(m.operatingExpenses / 1000000),
-        netIncome: Math.round(m.ebitda / 1000000), // Use EBITDA
+      // Map monthly cache to MonthlyPLData
+      const monthlyRows = (monthlyCache || []) as PLCacheRow[];
+      const monthlyData: MonthlyPLData[] = monthlyRows.map(m => ({
+        month: `T${m.period_month}`,
+        netSales: Math.round((m.net_sales || 0) / 1000000),
+        cogs: Math.round((m.cogs || 0) / 1000000),
+        grossProfit: Math.round((m.gross_profit || 0) / 1000000),
+        opex: Math.round((m.total_opex || 0) / 1000000),
+        netIncome: Math.round((m.net_income || 0) / 1000000),
       }));
 
-      // Category data would come from central_metric_facts
-      const categoryData: CategoryPLData[] = [];
+      // Calculate comparison data (YoY change)
+      const calcChange = (current: number, previous: number): number => {
+        if (!previous || previous === 0) return 0;
+        return Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));
+      };
 
-      // Comparison data from monthly summary - use precomputed MoM change
-      const current = monthlyData?.[monthlyData.length - 1];
-      const previous = monthlyData?.[monthlyData.length - 2];
-      
       const comparisonData: ComparisonData = {
         netSales: {
-          current: current?.netRevenue || 0,
-          previous: previous?.netRevenue || 0,
-          change: current?.revenueMomChange || 0,
+          current: cache?.net_sales || 0,
+          previous: prevCache?.net_sales || 0,
+          change: calcChange(cache?.net_sales || 0, prevCache?.net_sales || 0),
         },
         grossProfit: {
-          current: current?.grossProfit || 0,
-          previous: previous?.grossProfit || 0,
-          change: previous?.grossProfit && previous.grossProfit > 0 
-            ? ((current?.grossProfit || 0) - previous.grossProfit) / previous.grossProfit * 100 
-            : 0,
+          current: cache?.gross_profit || 0,
+          previous: prevCache?.gross_profit || 0,
+          change: calcChange(cache?.gross_profit || 0, prevCache?.gross_profit || 0),
         },
         operatingIncome: {
-          current: current?.ebitda || 0,
-          previous: previous?.ebitda || 0,
-          change: previous?.ebitda && previous.ebitda > 0 
-            ? ((current?.ebitda || 0) - previous.ebitda) / previous.ebitda * 100 
-            : 0,
+          current: cache?.operating_income || 0,
+          previous: prevCache?.operating_income || 0,
+          change: calcChange(cache?.operating_income || 0, prevCache?.operating_income || 0),
         },
         netIncome: {
-          current: current?.ebitda || 0,
-          previous: previous?.ebitda || 0,
-          change: previous?.ebitda && previous.ebitda > 0 
-            ? ((current?.ebitda || 0) - previous.ebitda) / previous.ebitda * 100 
-            : 0,
+          current: cache?.net_income || 0,
+          previous: prevCache?.net_income || 0,
+          change: calcChange(cache?.net_income || 0, prevCache?.net_income || 0),
         },
       };
 
-      // Revenue breakdown - not available, return zeros
+      // Revenue breakdown from cache
       const revenueBreakdown: RevenueBreakdown = {
-        invoiceRevenue: 0,
-        contractRevenue: 0,
-        integratedRevenue: 0,
-        totalRevenue: snapshot?.netRevenue || 0,
+        invoiceRevenue: cache?.invoice_revenue || 0,
+        contractRevenue: cache?.contract_revenue || 0,
+        integratedRevenue: cache?.integrated_revenue || 0,
+        totalRevenue: cache?.net_sales || 0,
       };
+
+      // Category data - would need separate query if needed
+      const categoryData: CategoryPLData[] = [];
 
       return {
         plData,
-        monthlyData: monthlyPL,
+        monthlyData,
         categoryData,
         comparisonData,
         revenueBreakdown,
       };
     },
-    enabled: !tenantLoading && !!snapshot,
-    staleTime: 5 * 60 * 1000,
+    enabled: !tenantLoading && !!tenantId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
 
@@ -225,6 +285,7 @@ function getEmptyPLDataStruct() {
         supplies: 0,
         maintenance: 0,
         professional: 0,
+        logistics: 0,
         other: 0,
       },
       totalOperatingExpenses: 0,

@@ -332,9 +332,9 @@ export default function PLReportPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Doanh thu thuần', value: plData.netSales, change: comparisonData.netSales.change, icon: ShoppingCart },
-            { label: 'Lãi gộp', value: plData.grossProfit, change: comparisonData.grossProfit.change, icon: TrendingUp, extra: `Biên: ${formatPercent(plData.grossMargin)}` },
-            { label: 'Lợi nhuận hoạt động', value: plData.operatingIncome, change: comparisonData.operatingIncome.change, icon: Store, extra: `Biên: ${formatPercent(plData.operatingMargin)}` },
-            { label: 'Lợi nhuận ròng', value: plData.netIncome, change: comparisonData.netIncome.change, icon: DollarSign, extra: `Biên: ${formatPercent(plData.netMargin)}` },
+            { label: 'Lãi gộp', value: plData.grossProfit, change: comparisonData.grossProfit.change, icon: TrendingUp, extra: `Biên: ${plData.netSales > 0 ? ((plData.grossProfit / plData.netSales) * 100).toFixed(1) : '0'}%` },
+            { label: 'Lợi nhuận hoạt động', value: plData.operatingIncome, change: comparisonData.operatingIncome.change, icon: Store, extra: `Biên: ${plData.netSales > 0 ? ((plData.operatingIncome / plData.netSales) * 100).toFixed(1) : '0'}%` },
+            { label: 'Lợi nhuận ròng', value: plData.netIncome, change: comparisonData.netIncome.change, icon: DollarSign, extra: `Biên: ${plData.netSales > 0 ? ((plData.netIncome / plData.netSales) * 100).toFixed(1) : '0'}%` },
           ].map((metric, index) => (
             <motion.div
               key={metric.label}
@@ -936,6 +936,7 @@ export default function PLReportPage() {
                   <PLLineItem label="Lương nhân viên" amount={plData.operatingExpenses.salaries} icon={Users} />
                   <PLLineItem label="Thuê mặt bằng" amount={plData.operatingExpenses.rent} icon={Building} />
                   <PLLineItem label="Marketing & Quảng cáo" amount={plData.operatingExpenses.marketing} icon={Megaphone} />
+                  <PLLineItem label="Vận chuyển & Logistics" amount={plData.operatingExpenses.logistics} icon={Truck} />
                   <PLLineItem label="Điện, nước, internet" amount={plData.operatingExpenses.utilities} icon={Zap} />
                   <PLLineItem label="Khấu hao tài sản" amount={plData.operatingExpenses.depreciation} />
                   <PLLineItem label="Bảo hiểm" amount={plData.operatingExpenses.insurance} />
