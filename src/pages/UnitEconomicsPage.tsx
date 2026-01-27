@@ -52,6 +52,8 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCachedSKUProfitability } from '@/hooks/useSKUProfitabilityCache';
+import UnitEconomicsDecisionCards from '@/components/unit-economics/UnitEconomicsDecisionCards';
+import UnitEconomicsCalculator from '@/components/unit-economics/UnitEconomicsCalculator';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -169,6 +171,16 @@ export default function UnitEconomicsPage() {
             }}
           />
         )}
+
+        {/* Decision Cards + What-If Calculator Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <UnitEconomicsDecisionCards 
+            data={data}
+            onDismiss={(cardId) => console.log('Dismissed:', cardId)}
+            onAction={(cardId, action) => console.log('Action:', cardId, action)}
+          />
+          <UnitEconomicsCalculator data={data} />
+        </div>
 
         {/* FDP Principle #4: Real Cash Breakdown */}
         <RealCashBreakdown />
