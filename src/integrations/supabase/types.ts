@@ -29682,6 +29682,10 @@ export type Database = {
         }
         Returns: string
       }
+      compute_finance_expenses_daily: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       control_tower_aggregate_signals: {
         Args: { p_tenant_id: string }
         Returns: number
