@@ -41,6 +41,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
+import { FixedCostDefinitionPanel } from '@/components/expenses/FixedCostDefinitionPanel';
+import { VariableCostEstimatePanel } from '@/components/expenses/VariableCostEstimatePanel';
+import { BudgetVsActualSummary } from '@/components/expenses/BudgetVsActualSummary';
 import {
   AreaChart,
   Area,
@@ -328,6 +331,7 @@ export default function ExpensesPage() {
           <TabsList>
             <TabsTrigger value="overview">Tổng quan</TabsTrigger>
             <TabsTrigger value="trend">Xu hướng</TabsTrigger>
+            <TabsTrigger value="definitions">Định nghĩa chi phí</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -455,6 +459,14 @@ export default function ExpensesPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="definitions" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <FixedCostDefinitionPanel />
+              <VariableCostEstimatePanel />
+            </div>
+            <BudgetVsActualSummary />
           </TabsContent>
         </Tabs>
       </div>

@@ -12905,6 +12905,11 @@ export type Database = {
           cash_burn_rate_warning: number | null
           cash_reserve_percentage: number | null
           channel_commission_rates: Json | null
+          collection_rate_30d: number | null
+          collection_rate_60d: number | null
+          collection_rate_90d: number | null
+          collection_rate_current: number | null
+          collection_rate_over90: number | null
           corporate_tax_rate: number | null
           created_at: string
           custom_parameters: Json | null
@@ -12953,6 +12958,11 @@ export type Database = {
           cash_burn_rate_warning?: number | null
           cash_reserve_percentage?: number | null
           channel_commission_rates?: Json | null
+          collection_rate_30d?: number | null
+          collection_rate_60d?: number | null
+          collection_rate_90d?: number | null
+          collection_rate_current?: number | null
+          collection_rate_over90?: number | null
           corporate_tax_rate?: number | null
           created_at?: string
           custom_parameters?: Json | null
@@ -13001,6 +13011,11 @@ export type Database = {
           cash_burn_rate_warning?: number | null
           cash_reserve_percentage?: number | null
           channel_commission_rates?: Json | null
+          collection_rate_30d?: number | null
+          collection_rate_60d?: number | null
+          collection_rate_90d?: number | null
+          collection_rate_current?: number | null
+          collection_rate_over90?: number | null
           corporate_tax_rate?: number | null
           created_at?: string
           custom_parameters?: Json | null
