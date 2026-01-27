@@ -29606,6 +29606,54 @@ export type Database = {
           },
         ]
       }
+      v_rolling_forecast_summary: {
+        Row: {
+          average_confidence: number | null
+          by_month_data: Json | null
+          expense_actual: number | null
+          expense_budget: number | null
+          expense_forecast: number | null
+          forecast_accuracy: number | null
+          revenue_actual: number | null
+          revenue_budget: number | null
+          revenue_forecast: number | null
+          tenant_id: string | null
+          total_actual: number | null
+          total_budget: number | null
+          total_forecast: number | null
+          total_variance: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rolling_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rolling_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "rolling_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "rolling_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_variance_with_status: {
         Row: {
           action_taken: string | null

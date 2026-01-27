@@ -42,9 +42,12 @@ export function useRollingForecasts() {
   return useQuery({
     queryKey: ['rolling-forecasts', tenantId],
     queryFn: async () => {
+      if (!tenantId) return [];
+      
       const { data, error } = await supabase
         .from('rolling_forecasts')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('forecast_month', { ascending: true });
       
       if (error) throw error;
@@ -55,77 +58,48 @@ export function useRollingForecasts() {
 }
 
 export function useRollingForecastSummary() {
-  const { data: forecasts, isLoading } = useRollingForecasts();
+  const { data: tenantId } = useActiveTenantId();
   
-  const summary: RollingForecastSummary = {
-    totalBudget: 0,
-    totalForecast: 0,
-    totalActual: 0,
-    totalVariance: 0,
-    averageConfidence: 0,
-    byType: {},
-    byMonth: [],
-    forecastAccuracy: 0,
-  };
-  
-  if (!forecasts || forecasts.length === 0) {
-    return { data: summary, isLoading };
-  }
-  
-  // Calculate totals
-  const confidenceMap = { low: 1, medium: 2, high: 3 };
-  let totalConfidence = 0;
-  
-  forecasts.forEach(f => {
-    summary.totalBudget += f.original_budget;
-    summary.totalForecast += f.current_forecast;
-    summary.totalActual += f.actual_amount || 0;
-    summary.totalVariance += f.variance_amount;
-    totalConfidence += confidenceMap[f.confidence_level];
-    
-    // By type
-    if (!summary.byType[f.forecast_type]) {
-      summary.byType[f.forecast_type] = { budget: 0, forecast: 0, actual: 0 };
-    }
-    summary.byType[f.forecast_type].budget += f.original_budget;
-    summary.byType[f.forecast_type].forecast += f.current_forecast;
-    summary.byType[f.forecast_type].actual += f.actual_amount || 0;
+  return useQuery({
+    queryKey: ['rolling-forecast-summary', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      
+      const { data, error } = await supabase
+        .from('v_rolling_forecast_summary')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      // Thin wrapper - NO client-side calculations
+      const summary: RollingForecastSummary = {
+        totalBudget: Number(data?.total_budget) || 0,
+        totalForecast: Number(data?.total_forecast) || 0,
+        totalActual: Number(data?.total_actual) || 0,
+        totalVariance: Number(data?.total_variance) || 0,
+        averageConfidence: Number(data?.average_confidence) || 0,
+        byType: {
+          revenue: { 
+            budget: Number(data?.revenue_budget) || 0, 
+            forecast: Number(data?.revenue_forecast) || 0, 
+            actual: Number(data?.revenue_actual) || 0 
+          },
+          expense: { 
+            budget: Number(data?.expense_budget) || 0, 
+            forecast: Number(data?.expense_forecast) || 0, 
+            actual: Number(data?.expense_actual) || 0 
+          },
+        },
+        byMonth: (data?.by_month_data as { month: string; revenue: number; expense: number; netCash: number }[]) || [],
+        forecastAccuracy: Number(data?.forecast_accuracy) || 0,
+      };
+      
+      return summary;
+    },
+    enabled: !!tenantId,
   });
-  
-  summary.averageConfidence = totalConfidence / forecasts.length;
-  
-  // Calculate accuracy for items with actuals
-  const withActuals = forecasts.filter(f => f.actual_amount && f.actual_amount > 0);
-  if (withActuals.length > 0) {
-    const accuracies = withActuals.map(f => {
-      const error = Math.abs(f.current_forecast - f.actual_amount) / f.actual_amount;
-      return Math.max(0, 1 - error) * 100;
-    });
-    summary.forecastAccuracy = accuracies.reduce((a, b) => a + b, 0) / accuracies.length;
-  }
-  
-  // Group by month
-  const monthMap = new Map<string, { revenue: number; expense: number }>();
-  forecasts.forEach(f => {
-    const existing = monthMap.get(f.forecast_month) || { revenue: 0, expense: 0 };
-    if (f.forecast_type === 'revenue' || f.forecast_type === 'cash_inflow') {
-      existing.revenue += f.current_forecast;
-    } else {
-      existing.expense += f.current_forecast;
-    }
-    monthMap.set(f.forecast_month, existing);
-  });
-  
-  summary.byMonth = Array.from(monthMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, data]) => ({
-      month,
-      revenue: data.revenue,
-      expense: data.expense,
-      netCash: data.revenue - data.expense,
-    }));
-  
-  return { data: summary, isLoading };
 }
 
 export function useSaveRollingForecast() {
