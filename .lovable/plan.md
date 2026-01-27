@@ -1,430 +1,503 @@
 
-# KẾ HOẠCH FIX TOÀN DIỆN 7 TRANG FDP
+# KẾ HOẠCH CẬP NHẬT TAB "RỦI RO TẬP TRUNG" CHO BÁN LẺ
 
-## TÓM TẮT VẤN ĐỀ
+## TÓM TẮT
 
-### Root Cause Chính (CRITICAL)
+Cập nhật trang Risk Dashboard tab "Rủi ro tập trung" từ mock data sang real data với 5 loại rủi ro đặc thù cho bán lẻ e-commerce.
 
-Cron job `refresh-finance-snapshot-daily` đang truyền **sai tham số**:
+## PHÂN TÍCH DỮ LIỆU HIỆN TẠI
 
-```sql
--- HIỆN TẠI (BUG)
-PERFORM compute_central_metrics_snapshot(t_id, current_date);
+Từ database E2E tenant, tôi đã xác minh có đủ dữ liệu:
 
--- ĐÚNG
-PERFORM compute_central_metrics_snapshot(t_id);
-```
+| Loại rủi ro | Dữ liệu hiện có | Top 3 Concentration |
+|-------------|-----------------|---------------------|
+| **Kênh bán** | ✅ cdp_orders.channel | Shopee 37% + Lazada 26% + Website 21% = 84% |
+| **Danh mục** | ✅ cdp_order_items.category | Áo 35% + Quần 24% + Váy 19% = 78% |
+| **Khách hàng** | ✅ cdp_orders.customer_id | Top 10 KH chỉ chiếm 11.5% → phân tán tốt |
+| **SKU** | ✅ cdp_order_items + products | Top 5 SKU chiếm 8.5% margin → phân tán |
+| **Mùa vụ** | ✅ cdp_orders.order_at | Q4 (Oct-Dec) chiếm 34% → rủi ro mùa vụ |
 
-**Hậu quả:** `current_date` được map vào `p_start_date`, khiến:
-- `period_start = period_end = 2026-01-27` (cùng ngày)
-- Net Revenue = 0, DSO/DIO/DPO/CCC = 0
-- Tất cả dashboard phụ thuộc snapshot đều hiển thị 0
+## THIẾT KẾ MỚI: 5 RỦI RO TẬP TRUNG BÁN LẺ
 
-### Bảng tổng hợp Issues theo trang
+### 1. Rủi ro tập trung Kênh bán (CRITICAL cho e-commerce)
+- **Metric**: % doanh thu từ top 3 kênh
+- **Ngưỡng cảnh báo**: > 70% từ 1 kênh hoặc > 90% từ 2 kênh
+- **Rủi ro**: Platform fee tăng, tài khoản bị khóa, thay đổi chính sách
 
-| # | Trang | Issues | Mức độ |
-|---|-------|--------|--------|
-| 1 | Cash Position | Translation missing + UI thiếu Ops/Platform | P0 + P1 |
-| 2 | Cash Flow Direct | Chart negative values + Activity badges tiếng Anh | P2 |
-| 3 | Working Capital Hub | Translation missing + Trend chart empty | P0 + P1 |
-| 4 | Executive Summary | Doanh thu = 0 do snapshot bug | P0 |
-| 5 | Risk Dashboard (Concentration) | Data hardcoded mock | P2 |
-| 6 | Risk Dashboard (Stress Testing) | Frontend-only simulation | P2 |
-| 7 | Decision Support | ✅ Hoạt động tốt - chỉ cần verify edge function | OK |
+### 2. Rủi ro tập trung Danh mục sản phẩm  
+- **Metric**: % doanh thu từ top 3 danh mục
+- **Ngưỡng cảnh báo**: > 60% từ 1 danh mục
+- **Rủi ro**: Trend thay đổi, nguồn cung gián đoạn
 
----
+### 3. Rủi ro tập trung Khách hàng
+- **Metric**: HHI Index (Herfindahl-Hirschman Index) hoặc % từ top 10 KH
+- **Ngưỡng cảnh báo**: Top 10 KH > 30% doanh thu
+- **Rủi ro**: Mất khách lớn ảnh hưởng doanh thu
 
-## PHẦN 1: DATABASE FIXES
+### 4. Rủi ro tập trung SKU Hero
+- **Metric**: % lợi nhuận từ top 5 SKU
+- **Ngưỡng cảnh báo**: > 30% margin từ 1 SKU
+- **Rủi ro**: Hết hàng, cạnh tranh giá
 
-### 1.1 Fix Cron Job Command (CRITICAL - P0)
-
-**File:** New migration `supabase/migrations/[timestamp]_fix_cron_job_params.sql`
-
-```sql
--- Unschedule existing broken cron
-SELECT cron.unschedule('refresh-finance-snapshot-daily');
-
--- Reschedule with correct syntax (no date params)
-SELECT cron.schedule(
-  'refresh-finance-snapshot-daily',
-  '0 3 * * *',
-  $$
-  DO $inner$
-  DECLARE
-    t_id UUID;
-  BEGIN
-    FOR t_id IN SELECT id FROM tenants WHERE is_active = true
-    LOOP
-      -- Call WITHOUT date params to use 90-day default logic
-      PERFORM compute_central_metrics_snapshot(t_id);
-    END LOOP;
-  END $inner$;
-  $$
-);
-```
-
-### 1.2 Trigger Immediate Snapshot Refresh
-
-```sql
--- Refresh E2E tenant immediately after migration
-SELECT compute_central_metrics_snapshot('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
-```
-
-### 1.3 Update RPC to Compute Locked Cash (Phase 4 Completion)
-
-Hiện tại `locked_cash_*` columns đều = 0. Cần update function body:
-
-```sql
--- Add to compute_central_metrics_snapshot function body:
-
--- Locked Cash: Inventory (already calculated as v_inventory_value)
-v_locked_inventory := v_inventory_value;
-
--- Locked Cash: Ads (14-day marketing spend)
-SELECT COALESCE(SUM(amount), 0)
-INTO v_locked_ads
-FROM marketing_expenses
-WHERE tenant_id = p_tenant_id
-  AND expense_date > CURRENT_DATE - INTERVAL '14 days';
-
--- Locked Cash: Ops (pending logistics/shipping bills)
-SELECT COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0)
-INTO v_locked_ops
-FROM bills
-WHERE tenant_id = p_tenant_id
-  AND status IN ('pending', 'partial')
-  AND (category ILIKE '%shipping%' OR category ILIKE '%logistics%' OR category ILIKE '%fulfillment%');
-
--- Locked Cash: Platform Hold (eCommerce T+14 settlement)
-SELECT COALESCE(SUM(net_revenue), 0) * 0.85
-INTO v_locked_platform
-FROM cdp_orders
-WHERE tenant_id = p_tenant_id
-  AND order_at > CURRENT_DATE - INTERVAL '14 days'
-  AND LOWER(channel) IN ('shopee', 'lazada', 'tiktok shop', 'tiktok');
-
-v_locked_total := v_locked_inventory + v_locked_ads + v_locked_ops + v_locked_platform;
-```
-
-### 1.4 Create Working Capital Daily Cron Job
-
-Để trend chart hiển thị data:
-
-```sql
--- Create RPC to copy snapshot to working_capital_daily
-CREATE OR REPLACE FUNCTION compute_working_capital_daily(p_tenant_id UUID)
-RETURNS void
-LANGUAGE plpgsql AS $$
-DECLARE
-  v_snapshot RECORD;
-BEGIN
-  SELECT * INTO v_snapshot
-  FROM central_metrics_snapshots
-  WHERE tenant_id = p_tenant_id
-  ORDER BY created_at DESC
-  LIMIT 1;
-  
-  IF v_snapshot IS NULL THEN RETURN; END IF;
-  
-  INSERT INTO working_capital_daily (
-    tenant_id, day, dso, dio, dpo, ccc,
-    ar_balance, inventory_value, ap_balance
-  ) VALUES (
-    p_tenant_id,
-    CURRENT_DATE,
-    v_snapshot.dso,
-    v_snapshot.dio,
-    v_snapshot.dpo,
-    v_snapshot.ccc,
-    v_snapshot.total_ar,
-    v_snapshot.total_inventory_value,
-    v_snapshot.total_ap
-  )
-  ON CONFLICT (tenant_id, day) DO UPDATE SET
-    dso = EXCLUDED.dso,
-    dio = EXCLUDED.dio,
-    dpo = EXCLUDED.dpo,
-    ccc = EXCLUDED.ccc;
-END;
-$$;
-
--- Schedule daily (after snapshot refresh)
-SELECT cron.schedule(
-  'refresh-working-capital-daily',
-  '5 3 * * *',
-  $$SELECT compute_working_capital_daily(id) FROM tenants WHERE is_active = true;$$
-);
-```
+### 5. Rủi ro mùa vụ (Seasonal Concentration)
+- **Metric**: Seasonality Index (Peak month / Average month)
+- **Ngưỡng cảnh báo**: SI > 1.5 (peak gấp 1.5 lần trung bình)
+- **Rủi ro**: Cash lock trong hàng tồn trước peak, revenue cliff sau peak
 
 ---
 
-## PHẦN 2: FRONTEND FIXES
-
-### 2.1 Translation Keys (P0)
-
-**File:** `src/contexts/LanguageContext.tsx`
-
-Thêm keys sau vào **Vietnamese section** (sau line ~59):
-```typescript
-'nav.cashPosition': 'Vị thế tiền mặt',
-```
-
-Thêm vào **Vietnamese section** (sau line ~270):
-```typescript
-'workingCapital.hubTitle': 'Vốn lưu động & CCC',
-'workingCapital.hubSubtitle': 'Quản lý vốn lưu động và chu kỳ chuyển đổi tiền mặt',
-```
-
-Thêm vào **English section** (tương ứng):
-```typescript
-'nav.cashPosition': 'Cash Position',
-'workingCapital.hubTitle': 'Working Capital & CCC',
-'workingCapital.hubSubtitle': 'Working capital and cash conversion cycle management',
-```
-
-### 2.2 RealCashBreakdown UI Update (P1)
-
-**File:** `src/components/dashboard/RealCashBreakdown.tsx`
-
-Thêm Ops Float + Platform Hold vào grid "Chi tiết Cash bị khóa":
-
-```tsx
-// Update grid từ 2 columns thành 4 columns
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-  {/* Tồn kho - existing */}
-  <div className="p-3 rounded-lg bg-muted/50">
-    <div className="flex items-center gap-2 mb-1">
-      <Package className="h-4 w-4 text-amber-500" />
-      <span className="text-xs text-muted-foreground">Tồn kho</span>
-    </div>
-    <p className="font-semibold">{formatVNDCompact(inventoryValue)}</p>
-  </div>
-  
-  {/* Ads Float - existing */}
-  <div className="p-3 rounded-lg bg-muted/50">
-    <div className="flex items-center gap-2 mb-1">
-      <Megaphone className="h-4 w-4 text-blue-500" />
-      <span className="text-xs text-muted-foreground">Ads Float</span>
-    </div>
-    <p className="font-semibold">{formatVNDCompact(adsFloat)}</p>
-  </div>
-  
-  {/* NEW: Ops Float */}
-  <div className="p-3 rounded-lg bg-muted/50">
-    <div className="flex items-center gap-2 mb-1">
-      <Truck className="h-4 w-4 text-purple-500" />
-      <span className="text-xs text-muted-foreground">Ops Float</span>
-    </div>
-    <p className="font-semibold">{formatVNDCompact(opsFloat)}</p>
-  </div>
-  
-  {/* NEW: Platform Hold */}
-  <div className="p-3 rounded-lg bg-muted/50">
-    <div className="flex items-center gap-2 mb-1">
-      <Store className="h-4 w-4 text-green-500" />
-      <span className="text-xs text-muted-foreground">Platform Hold</span>
-    </div>
-    <p className="font-semibold">{formatVNDCompact(platformHold)}</p>
-  </div>
-</div>
-```
-
-Thêm imports: `Truck, Store` từ lucide-react.
-
-### 2.3 CashPositionPage Locked Cash Card Fix (P1)
-
-**File:** `src/pages/CashPositionPage.tsx` (line 219)
-
-Thay thế magic number:
-```tsx
-// TRƯỚC (magic number)
-{formatVNDCompact(snapshot.totalInventoryValue + snapshot.totalMarketingSpend * 0.2)}
-
-// SAU (DB-computed)
-{formatVNDCompact(snapshot.lockedCashTotal || snapshot.totalInventoryValue)}
-```
-
-### 2.4 Cash Flow Direct Chart Fix (P2)
-
-**File:** `src/pages/CashFlowDirectPage.tsx`
-
-Stacked bar chart hiện không hiển thị negative đúng. Cần thêm logic:
-
-```tsx
-// Line 22-28: Update waterfallData để handle negative correctly
-const waterfallData = periodData.slice(0, 12).reverse().map(p => ({
-  period: format(new Date(p.periodStart), 'MM/yyyy'),
-  operating: p.operating / 1000000,
-  investing: p.investing / 1000000, // Already negative in DB
-  financing: p.financing / 1000000,
-  net: p.netChange / 1000000,
-  balance: p.closingBalance / 1000000,
-}));
-```
-
-Thêm Vietnamese labels cho badges:
-```tsx
-// Line 123-126: Replace English badges
-<Badge variant={summary.operatingCashFlow >= 0 ? 'default' : 'destructive'}>
-  Hoạt động KD
-</Badge>
-// Similar for Investing → "Đầu tư", Financing → "Tài chính"
-```
-
-### 2.5 Risk Dashboard - Concentration Risk (P2 - Future)
-
-**File:** `src/pages/RiskDashboardPage.tsx`
-
-Lines 131-143 hiện hardcoded:
-```typescript
-const customerConcentration = [
-  { name: 'Khách hàng A', value: 25, revenue: 12500000000 },
-  // ...
-];
-```
-
-**Giải pháp tương lai:** Tạo view `v_customer_concentration_risk` từ `cdp_orders`:
-```sql
-CREATE VIEW v_customer_concentration_risk AS
-SELECT 
-  tenant_id,
-  customer_id,
-  c.name as customer_name,
-  SUM(net_revenue) as total_revenue,
-  100.0 * SUM(net_revenue) / SUM(SUM(net_revenue)) OVER (PARTITION BY o.tenant_id) as revenue_pct
-FROM cdp_orders o
-LEFT JOIN cdp_customers c ON o.customer_id = c.id
-WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
-GROUP BY tenant_id, customer_id, c.name
-ORDER BY total_revenue DESC;
-```
-
----
-
-## PHẦN 3: FILES SUMMARY
-
-### New Migrations (2 files)
-
-| File | Purpose |
-|------|---------|
-| `[timestamp]_fix_cron_and_locked_cash.sql` | Fix cron job + update RPC locked cash logic |
-| `[timestamp]_add_working_capital_daily_cron.sql` | Add WC daily compute + cron job |
-
-### Modified Files (4 files)
-
-| File | Changes |
-|------|---------|
-| `src/contexts/LanguageContext.tsx` | Add 3 translation keys |
-| `src/components/dashboard/RealCashBreakdown.tsx` | Add Ops Float + Platform Hold grid |
-| `src/pages/CashPositionPage.tsx` | Use lockedCashTotal instead of magic number |
-| `src/pages/CashFlowDirectPage.tsx` | Vietnamese badges + chart fix |
-
----
-
-## PHẦN 4: VERIFICATION CHECKLIST
-
-### Database
-- [ ] Cron job command không còn `current_date` param
-- [ ] Latest snapshot có `period_start` = 90 ngày trước
-- [ ] `net_revenue` > 0 (expected ~340M)
-- [ ] `locked_cash_inventory` > 0 (expected ~2.87B)
-- [ ] `locked_cash_ads` > 0 (expected ~131M)
-- [ ] `dso` ~ 49 ngày, `dio` ~ 365 ngày (capped)
-
-### Trang 1: Cash Position
-- [ ] Translation "Vị thế tiền mặt" hiển thị trên sidebar
-- [ ] 4 loại locked cash (Inventory, Ads, Ops, Platform) hiển thị
-- [ ] "Cash bị khóa" dùng DB value, không magic number
-
-### Trang 2: Cash Flow Direct
-- [ ] KPIs hiển thị đúng (Total Inflow: 3.77B)
-- [ ] Badge tiếng Việt (Hoạt động KD, Đầu tư, Tài chính)
-- [ ] Stacked chart hiển thị investing (negative) đúng màu
-
-### Trang 3: Working Capital Hub
-- [ ] "Vốn lưu động & CCC" thay vì raw key
-- [ ] DSO/DIO/DPO/CCC có giá trị > 0
-- [ ] Trend chart có data (sau khi run WC daily)
-
-### Trang 4: Executive Summary
-- [ ] Radar chart hiển thị health scores
-- [ ] Monthly revenue > 0
-- [ ] Không còn fallback "Doanh thu tháng: 0"
-
-### Trang 5 & 6: Risk Dashboard
-- [ ] Risk Profile radar hoạt động (từ v_risk_radar_summary)
-- [ ] Stress Testing Monte Carlo chạy
-- [ ] (Future) Concentration risk từ DB thay vì mock
-
-### Trang 7: Decision Support
-- [ ] ✅ Tất cả analysis tabs hoạt động
-- [ ] AI Chat có kết nối edge function
-- [ ] Saved analyses lưu được vào DB
-
----
-
-## PHẦN 5: EXECUTION TIMELINE
+## KIẾN TRÚC KỸ THUẬT
 
 ```text
-PHASE A: Critical Fixes (Khôi phục data) ─────────────────
-│
-│  Step 1: Fix cron job params
-│          └─ Migration 1
-│
-│  Step 2: Trigger immediate snapshot refresh  
-│          └─ SQL INSERT
-│
-│  Step 3: Add translation keys
-│          └─ LanguageContext.tsx
-│
-PHASE B: UI Enhancements ─────────────────────────────────
-│
-│  Step 4: Update RealCashBreakdown grid (4 columns)
-│          └─ RealCashBreakdown.tsx
-│
-│  Step 5: Fix CashPositionPage locked cash display
-│          └─ CashPositionPage.tsx
-│
-│  Step 6: Vietnamese badges for Cash Flow Direct
-│          └─ CashFlowDirectPage.tsx
-│
-PHASE C: Trend Data (Optional) ───────────────────────────
-│
-│  Step 7: Add working capital daily cron
-│          └─ Migration 2
-│
-│  Step 8: Populate historical WC data
-│          └─ SQL INSERT with generate_series
-│
-└─────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────┐
+│  DATABASE LAYER                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  v_retail_concentration_risk (NEW VIEW)                         │
+│    ├─ channel_concentration (from cdp_orders)                   │
+│    ├─ category_concentration (from cdp_order_items)             │
+│    ├─ customer_concentration (from cdp_orders)                  │
+│    ├─ sku_concentration (from cdp_order_items + products)       │
+│    └─ seasonal_concentration (from cdp_orders by month)         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  HOOK LAYER                                                      │
+├─────────────────────────────────────────────────────────────────┤
+│  useRetailConcentrationRisk() (NEW HOOK)                        │
+│    ├─ channelData: { name, revenue, percent }[]                 │
+│    ├─ categoryData: { name, revenue, percent }[]                │
+│    ├─ customerData: { id, revenue, percent, orderCount }[]      │
+│    ├─ skuData: { sku, name, margin, percent }[]                 │
+│    ├─ seasonalData: { month, revenue, index }[]                 │
+│    └─ alerts: { type, severity, message }[]                     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  UI LAYER - ConcentrationRisk Component (UPDATED)               │
+├─────────────────────────────────────────────────────────────────┤
+│  Layout: Grid 2x2 + 1 full-width                                │
+│    ┌────────────────┬────────────────┐                          │
+│    │ Kênh bán       │ Danh mục       │                          │
+│    │ (PieChart)     │ (PieChart)     │                          │
+│    ├────────────────┼────────────────┤                          │
+│    │ Khách hàng     │ Hero SKU       │                          │
+│    │ (BarChart)     │ (BarChart)     │                          │
+│    ├────────────────┴────────────────┤                          │
+│    │ Mùa vụ (AreaChart - 12 tháng)   │                          │
+│    └─────────────────────────────────┘                          │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## PHẦN 6: EXPECTED RESULTS
+## PHẦN 1: DATABASE MIGRATION
 
-| Metric/Screen | Before | After |
-|---------------|--------|-------|
-| `net_revenue` in snapshot | 0 | ~340M |
-| DSO | 0 ngày | ~49 ngày |
-| DIO | 0 ngày | 365 ngày (capped) |
-| DPO | 0 ngày | ~263 ngày |
-| CCC | 0 ngày | ~151 ngày (capped) |
-| Locked Cash Inventory | 0 | ~2.87B |
-| Locked Cash Ads | 0 | ~131M |
-| nav.cashPosition | Raw key | "Vị thế tiền mặt" |
-| workingCapital.hubTitle | Raw key | "Vốn lưu động & CCC" |
-| Cash Position grid | 2 items | 4 items |
-| Working Capital trends | Empty | 90+ data points |
+### 1.1 Tạo View `v_retail_concentration_risk`
+
+```sql
+CREATE OR REPLACE VIEW v_retail_concentration_risk AS
+WITH channel_stats AS (
+  SELECT 
+    tenant_id,
+    channel,
+    SUM(net_revenue) as revenue,
+    100.0 * SUM(net_revenue) / NULLIF(SUM(SUM(net_revenue)) OVER (PARTITION BY tenant_id), 0) as pct
+  FROM cdp_orders
+  WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
+  GROUP BY tenant_id, channel
+),
+category_stats AS (
+  SELECT 
+    o.tenant_id,
+    oi.category,
+    SUM(oi.line_revenue) as revenue,
+    100.0 * SUM(oi.line_revenue) / NULLIF(SUM(SUM(oi.line_revenue)) OVER (PARTITION BY o.tenant_id), 0) as pct
+  FROM cdp_order_items oi
+  JOIN cdp_orders o ON oi.order_id = o.id
+  WHERE o.order_at > CURRENT_DATE - INTERVAL '365 days'
+  GROUP BY o.tenant_id, oi.category
+),
+customer_stats AS (
+  SELECT 
+    tenant_id,
+    customer_id,
+    SUM(net_revenue) as revenue,
+    COUNT(*) as order_count,
+    100.0 * SUM(net_revenue) / NULLIF(SUM(SUM(net_revenue)) OVER (PARTITION BY tenant_id), 0) as pct
+  FROM cdp_orders
+  WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
+  GROUP BY tenant_id, customer_id
+),
+sku_stats AS (
+  SELECT 
+    o.tenant_id,
+    oi.product_id,
+    p.name as product_name,
+    p.category,
+    SUM(oi.line_margin) as margin,
+    100.0 * SUM(oi.line_margin) / NULLIF(SUM(SUM(oi.line_margin)) OVER (PARTITION BY o.tenant_id), 0) as pct
+  FROM cdp_order_items oi
+  JOIN cdp_orders o ON oi.order_id = o.id
+  LEFT JOIN products p ON oi.product_id::uuid = p.id
+  WHERE o.order_at > CURRENT_DATE - INTERVAL '365 days'
+  GROUP BY o.tenant_id, oi.product_id, p.name, p.category
+),
+monthly_stats AS (
+  SELECT 
+    tenant_id,
+    DATE_TRUNC('month', order_at)::date as month,
+    SUM(net_revenue) as revenue
+  FROM cdp_orders
+  WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
+  GROUP BY tenant_id, DATE_TRUNC('month', order_at)
+),
+seasonal_index AS (
+  SELECT 
+    tenant_id,
+    month,
+    revenue,
+    revenue / NULLIF(AVG(revenue) OVER (PARTITION BY tenant_id), 0) as seasonality_index
+  FROM monthly_stats
+)
+SELECT 
+  t.id as tenant_id,
+  -- Channel concentration (top 3)
+  (SELECT jsonb_agg(jsonb_build_object('name', channel, 'revenue', revenue, 'pct', pct) ORDER BY revenue DESC)
+   FROM (SELECT * FROM channel_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 5) x) as channel_concentration,
+  
+  -- Category concentration (top 5)
+  (SELECT jsonb_agg(jsonb_build_object('name', category, 'revenue', revenue, 'pct', pct) ORDER BY revenue DESC)
+   FROM (SELECT * FROM category_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 5) x) as category_concentration,
+   
+  -- Customer concentration (top 10)
+  (SELECT jsonb_agg(jsonb_build_object('id', customer_id, 'revenue', revenue, 'pct', pct, 'orders', order_count) ORDER BY revenue DESC)
+   FROM (SELECT * FROM customer_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 10) x) as customer_concentration,
+   
+  -- SKU concentration (top 5 by margin)
+  (SELECT jsonb_agg(jsonb_build_object('id', product_id, 'name', product_name, 'category', category, 'margin', margin, 'pct', pct) ORDER BY margin DESC)
+   FROM (SELECT * FROM sku_stats WHERE tenant_id = t.id ORDER BY margin DESC LIMIT 5) x) as sku_concentration,
+   
+  -- Seasonal pattern (12 months)
+  (SELECT jsonb_agg(jsonb_build_object('month', month, 'revenue', revenue, 'index', seasonality_index) ORDER BY month)
+   FROM seasonal_index WHERE tenant_id = t.id) as seasonal_pattern,
+   
+  -- Summary metrics
+  (SELECT SUM(pct) FROM (SELECT pct FROM channel_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 1) x) as top1_channel_pct,
+  (SELECT SUM(pct) FROM (SELECT pct FROM category_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 1) x) as top1_category_pct,
+  (SELECT SUM(pct) FROM (SELECT pct FROM customer_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 10) x) as top10_customer_pct,
+  (SELECT SUM(pct) FROM (SELECT pct FROM sku_stats WHERE tenant_id = t.id ORDER BY margin DESC LIMIT 5) x) as top5_sku_margin_pct,
+  (SELECT MAX(seasonality_index) FROM seasonal_index WHERE tenant_id = t.id) as max_seasonality_index
+  
+FROM tenants t
+WHERE t.is_active = true;
+```
 
 ---
 
-## PHẦN 7: RISK ASSESSMENT
+## PHẦN 2: NEW HOOK
 
-| Change | Risk | Mitigation |
-|--------|------|------------|
-| Fix cron job | Low | Using default params, tested syntax |
-| Update RPC locked cash | Medium | COALESCE handles NULL, tested formulas |
-| Add translations | Very Low | Additive only, no breaking change |
-| Update UI grid | Low | CSS only, no logic change |
-| Add WC daily cron | Low | ON CONFLICT handles duplicates |
+### 2.1 File: `src/hooks/useRetailConcentrationRisk.ts`
+
+```typescript
+/**
+ * useRetailConcentrationRisk - SSOT Hook for Retail Concentration Risks
+ * 
+ * Fetches from v_retail_concentration_risk view.
+ * NO client-side calculations.
+ */
+
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveTenantId } from './useActiveTenantId';
+
+interface ChannelConcentration {
+  name: string;
+  revenue: number;
+  pct: number;
+}
+
+interface CategoryConcentration {
+  name: string;
+  revenue: number;
+  pct: number;
+}
+
+interface CustomerConcentration {
+  id: string;
+  revenue: number;
+  pct: number;
+  orders: number;
+}
+
+interface SKUConcentration {
+  id: string;
+  name: string;
+  category: string;
+  margin: number;
+  pct: number;
+}
+
+interface SeasonalPattern {
+  month: string;
+  revenue: number;
+  index: number;
+}
+
+interface ConcentrationAlert {
+  type: 'channel' | 'category' | 'customer' | 'sku' | 'seasonal';
+  severity: 'low' | 'medium' | 'high';
+  message: string;
+}
+
+export interface RetailConcentrationData {
+  channelData: ChannelConcentration[];
+  categoryData: CategoryConcentration[];
+  customerData: CustomerConcentration[];
+  skuData: SKUConcentration[];
+  seasonalData: SeasonalPattern[];
+  alerts: ConcentrationAlert[];
+  // Summary metrics
+  top1ChannelPct: number;
+  top1CategoryPct: number;
+  top10CustomerPct: number;
+  top5SKUMarginPct: number;
+  maxSeasonalityIndex: number;
+}
+
+function generateAlerts(data: any): ConcentrationAlert[] {
+  const alerts: ConcentrationAlert[] = [];
+  
+  // Channel concentration alert
+  if (data.top1_channel_pct > 50) {
+    alerts.push({
+      type: 'channel',
+      severity: data.top1_channel_pct > 70 ? 'high' : 'medium',
+      message: `Kênh ${data.channel_concentration?.[0]?.name} chiếm ${data.top1_channel_pct?.toFixed(0)}% doanh thu - rủi ro phụ thuộc platform`
+    });
+  }
+  
+  // Category concentration alert
+  if (data.top1_category_pct > 40) {
+    alerts.push({
+      type: 'category',
+      severity: data.top1_category_pct > 60 ? 'high' : 'medium',
+      message: `Danh mục ${data.category_concentration?.[0]?.name} chiếm ${data.top1_category_pct?.toFixed(0)}% - cần đa dạng hóa sản phẩm`
+    });
+  }
+  
+  // Customer concentration alert
+  if (data.top10_customer_pct > 30) {
+    alerts.push({
+      type: 'customer',
+      severity: data.top10_customer_pct > 50 ? 'high' : 'medium',
+      message: `Top 10 khách hàng chiếm ${data.top10_customer_pct?.toFixed(0)}% - rủi ro mất khách lớn`
+    });
+  }
+  
+  // SKU concentration alert
+  if (data.top5_sku_margin_pct > 30) {
+    alerts.push({
+      type: 'sku',
+      severity: data.top5_sku_margin_pct > 50 ? 'high' : 'medium',
+      message: `Top 5 SKU đóng góp ${data.top5_sku_margin_pct?.toFixed(0)}% lợi nhuận - Hero product risk`
+    });
+  }
+  
+  // Seasonal concentration alert
+  if (data.max_seasonality_index > 1.5) {
+    alerts.push({
+      type: 'seasonal',
+      severity: data.max_seasonality_index > 2 ? 'high' : 'medium',
+      message: `Seasonality Index = ${data.max_seasonality_index?.toFixed(1)} - cash lock risk trước peak season`
+    });
+  }
+  
+  return alerts;
+}
+
+export function useRetailConcentrationRisk() {
+  const { data: tenantId } = useActiveTenantId();
+
+  return useQuery<RetailConcentrationData>({
+    queryKey: ['retail-concentration-risk', tenantId],
+    queryFn: async () => {
+      if (!tenantId) throw new Error('No tenant');
+      
+      const { data, error } = await supabase
+        .from('v_retail_concentration_risk')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+        
+      if (error) throw error;
+      if (!data) throw new Error('No data');
+      
+      return {
+        channelData: (data.channel_concentration as ChannelConcentration[]) || [],
+        categoryData: (data.category_concentration as CategoryConcentration[]) || [],
+        customerData: (data.customer_concentration as CustomerConcentration[]) || [],
+        skuData: (data.sku_concentration as SKUConcentration[]) || [],
+        seasonalData: (data.seasonal_pattern as SeasonalPattern[]) || [],
+        alerts: generateAlerts(data),
+        top1ChannelPct: Number(data.top1_channel_pct) || 0,
+        top1CategoryPct: Number(data.top1_category_pct) || 0,
+        top10CustomerPct: Number(data.top10_customer_pct) || 0,
+        top5SKUMarginPct: Number(data.top5_sku_margin_pct) || 0,
+        maxSeasonalityIndex: Number(data.max_seasonality_index) || 0,
+      };
+    },
+    enabled: !!tenantId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+```
+
+---
+
+## PHẦN 3: UPDATE UI COMPONENT
+
+### 3.1 File: `src/pages/RiskDashboardPage.tsx`
+
+Cập nhật component `ConcentrationRisk` (lines 130-226):
+
+#### Layout mới:
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ 5 Rủi ro tập trung cho Bán lẻ                                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐       │
+│  │ 1. Tập trung Kênh bán   │  │ 2. Tập trung Danh mục  │       │
+│  │    [PieChart]           │  │    [PieChart]          │       │
+│  │    Shopee 37%, Lazada..│  │    Áo 35%, Quần 24%... │       │
+│  │    ⚠️ Alert nếu > 50%  │  │    ⚠️ Alert nếu > 40%  │       │
+│  └─────────────────────────┘  └─────────────────────────┘       │
+│                                                                  │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐       │
+│  │ 3. Tập trung Khách hàng │  │ 4. Tập trung SKU Hero  │       │
+│  │    [BarChart Horizontal]│  │    [BarChart Horizontal]│       │
+│  │    Top 10 KH: 11.5%    │  │    Top 5 SKU: 8.5%     │       │
+│  │    ✅ Phân tán tốt     │  │    ✅ Phân tán tốt     │       │
+│  └─────────────────────────┘  └─────────────────────────┘       │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ 5. Rủi ro Mùa vụ (Seasonal Risk)                        │   │
+│  │    [AreaChart - 12 tháng]                                │   │
+│  │    Peak: Oct-Dec (34%), Index = 1.6                      │   │
+│  │    ⚠️ Cash lock risk trước peak season                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ Tổng hợp Cảnh báo                                        │   │
+│  │    • Shopee chiếm 37% - theo dõi chính sách platform    │   │
+│  │    • Q4 chiếm 34% - chuẩn bị vốn lưu động trước peak   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## PHẦN 4: FILES SUMMARY
+
+### New Files (2)
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/[timestamp]_create_retail_concentration_view.sql` | DB view cho 5 loại rủi ro tập trung |
+| `src/hooks/useRetailConcentrationRisk.ts` | SSOT hook fetch từ view |
+
+### Modified Files (1)
+| File | Changes |
+|------|---------|
+| `src/pages/RiskDashboardPage.tsx` | Update `ConcentrationRisk` component (lines 130-226) |
+
+---
+
+## PHẦN 5: EXPECTED UI AFTER UPDATE
+
+### Card 1: Kênh bán (PieChart)
+- Shopee: 37% (xanh dương)
+- Lazada: 26% (xanh lá)
+- Website: 21% (cam)  
+- TikTok: 16% (tím)
+- **Alert**: "Shopee chiếm 37% - rủi ro platform"
+
+### Card 2: Danh mục (PieChart)
+- Áo: 35%
+- Quần: 24%
+- Váy: 19%
+- Phụ kiện: 15%
+- Giày dép: 7%
+- **Alert**: "Áo chiếm 35% - nên đa dạng hóa"
+
+### Card 3: Khách hàng (Horizontal Bar)
+- Top 10 KH chỉ chiếm 11.5%
+- **Status**: ✅ Phân tán tốt (không có single customer risk)
+
+### Card 4: Hero SKU (Horizontal Bar)
+- Top 5 SKU chiếm 8.5% margin
+- **Status**: ✅ Phân tán tốt (không phụ thuộc 1 SKU)
+
+### Card 5: Mùa vụ (Area Chart)
+- X-axis: 12 tháng gần nhất
+- Y-axis: Doanh thu + Seasonality Index line
+- Peak: Oct-Nov-Dec (34% total)
+- **Alert**: "SI = 1.6 - Cash lock risk trước Q4"
+
+### Summary Alerts Section
+- Tổng hợp tất cả alerts từ 5 loại rủi ro
+- Severity color coding (green/yellow/red)
+
+---
+
+## PHẦN 6: THRESHOLDS & BUSINESS LOGIC
+
+| Metric | Xanh (Tốt) | Vàng (Theo dõi) | Đỏ (Cảnh báo) |
+|--------|------------|-----------------|---------------|
+| Top 1 Channel % | < 30% | 30-50% | > 50% |
+| Top 1 Category % | < 30% | 30-40% | > 40% |
+| Top 10 Customer % | < 20% | 20-30% | > 30% |
+| Top 5 SKU Margin % | < 20% | 20-30% | > 30% |
+| Seasonality Index | < 1.3 | 1.3-1.5 | > 1.5 |
+
+---
+
+## PHẦN 7: EXECUTION ORDER
+
+```text
+Step 1: Create database view
+        └─ v_retail_concentration_risk
+                ↓
+Step 2: Create hook
+        └─ useRetailConcentrationRisk.ts
+                ↓
+Step 3: Update UI component
+        └─ ConcentrationRisk in RiskDashboardPage.tsx
+                ↓
+Step 4: Verify data display
+        └─ All 5 charts render with real data
+        └─ Alerts show correct thresholds
+```
+
+---
+
+## PHẦN 8: VERIFICATION CHECKLIST
+
+### Database
+- [ ] View `v_retail_concentration_risk` created
+- [ ] Returns 5 concentration arrays (channel, category, customer, sku, seasonal)
+- [ ] Summary metrics calculated (top1_channel_pct, etc.)
+
+### Hook
+- [ ] `useRetailConcentrationRisk` fetches from view
+- [ ] Generates alerts based on thresholds
+- [ ] Returns typed data for UI
+
+### UI
+- [ ] Grid layout 2x2 + 1 full-width
+- [ ] PieCharts for Channel + Category
+- [ ] BarCharts for Customer + SKU
+- [ ] AreaChart for Seasonal pattern
+- [ ] Alert badges with correct severity colors
+- [ ] Vietnamese labels throughout
