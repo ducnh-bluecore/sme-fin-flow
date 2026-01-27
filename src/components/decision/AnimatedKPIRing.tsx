@@ -4,19 +4,22 @@ import { formatVNDCompact, formatPercent } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-interface AnimatedKPIRingProps {
+export interface AnimatedKPIRingProps {
   value: number;
   maxValue?: number;
   label: string;
-  format?: 'percent' | 'currency' | 'number';
+  format?: 'percent' | 'currency' | 'number' | 'custom';
+  formatValue?: (value: number) => string;
+  color?: string;
   trend?: number;
-  benchmark?: number;
+  benchmark?: number | { value: number; label: string };
   benchmarkLabel?: string;
   thresholds?: {
     good: number;
     warning: number;
   };
   size?: 'sm' | 'md' | 'lg';
+  subtitle?: string;
   className?: string;
 }
 
@@ -25,26 +28,34 @@ export function AnimatedKPIRing({
   maxValue = 100,
   label,
   format = 'percent',
+  formatValue: customFormatValue,
+  color,
   trend,
   benchmark,
   benchmarkLabel = 'Industry Avg',
   thresholds = { good: 20, warning: 10 },
   size = 'md',
+  subtitle,
   className,
 }: AnimatedKPIRingProps) {
-  const percentage = Math.min((value / maxValue) * 100, 100);
+  const percentage = Math.min(Math.max((value / maxValue) * 100, 0), 100);
   
-  // Determine color based on value and thresholds
+  // Get benchmark value and label
+  const benchmarkValue = typeof benchmark === 'object' ? benchmark.value : benchmark;
+  const actualBenchmarkLabel = typeof benchmark === 'object' ? benchmark.label : benchmarkLabel;
+
+  // Determine color based on value and thresholds or use custom color
   const getColor = () => {
+    if (color) return color;
     if (format === 'percent') {
-      if (value >= thresholds.good) return 'hsl(var(--success))';
-      if (value >= thresholds.warning) return 'hsl(var(--warning))';
+      if (value >= thresholds.good) return 'hsl(142 76% 36%)';
+      if (value >= thresholds.warning) return 'hsl(45 93% 47%)';
       return 'hsl(var(--destructive))';
     }
     return 'hsl(var(--primary))';
   };
 
-  const color = getColor();
+  const ringColor = getColor();
   
   const sizeConfig = {
     sm: { width: 80, stroke: 6, fontSize: 'text-sm', labelSize: 'text-[10px]' },
@@ -58,12 +69,13 @@ export function AnimatedKPIRing({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   // Benchmark position on the ring
-  const benchmarkPercentage = benchmark ? Math.min((benchmark / maxValue) * 100, 100) : 0;
+  const benchmarkPercentage = benchmarkValue ? Math.min((benchmarkValue / maxValue) * 100, 100) : 0;
   const benchmarkAngle = (benchmarkPercentage / 100) * 360 - 90;
   const benchmarkX = config.width / 2 + radius * Math.cos((benchmarkAngle * Math.PI) / 180);
   const benchmarkY = config.width / 2 + radius * Math.sin((benchmarkAngle * Math.PI) / 180);
 
-  const formatValue = () => {
+  const formatDisplayValue = () => {
+    if (customFormatValue) return customFormatValue(value);
     if (format === 'percent') return formatPercent(value);
     if (format === 'currency') return formatVNDCompact(value);
     return value.toLocaleString();
@@ -71,8 +83,8 @@ export function AnimatedKPIRing({
 
   const getTrendIcon = () => {
     if (!trend) return null;
-    if (trend > 0) return <TrendingUp className="h-3 w-3 text-success" />;
-    if (trend < 0) return <TrendingDown className="h-3 w-3 text-destructive" />;
+    if (trend > 0) return <TrendingUp className="h-3 w-3 text-green-500" />;
+    if (trend < 0) return <TrendingDown className="h-3 w-3 text-red-500" />;
     return <Minus className="h-3 w-3 text-muted-foreground" />;
   };
 
@@ -80,7 +92,7 @@ export function AnimatedKPIRing({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={cn('flex flex-col items-center gap-1', className)}>
+          <div className={cn('flex flex-col items-center gap-1 p-3 rounded-lg bg-card border', className)}>
             <div className="relative" style={{ width: config.width, height: config.width }}>
               <svg
                 width={config.width}
@@ -104,7 +116,7 @@ export function AnimatedKPIRing({
                   cy={config.width / 2}
                   r={radius}
                   fill="none"
-                  stroke={color}
+                  stroke={ringColor}
                   strokeWidth={config.stroke}
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -114,7 +126,7 @@ export function AnimatedKPIRing({
                 />
 
                 {/* Benchmark marker */}
-                {benchmark && benchmark > 0 && (
+                {benchmarkValue && benchmarkValue > 0 && (
                   <motion.circle
                     cx={benchmarkX}
                     cy={benchmarkY}
@@ -140,7 +152,7 @@ export function AnimatedKPIRing({
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.5, type: 'spring' }}
                 >
-                  {formatValue()}
+                  {formatDisplayValue()}
                 </motion.span>
               </div>
             </div>
@@ -150,13 +162,18 @@ export function AnimatedKPIRing({
               {label}
             </span>
 
+            {/* Subtitle */}
+            {subtitle && (
+              <span className="text-[10px] text-muted-foreground/70">{subtitle}</span>
+            )}
+
             {/* Trend indicator */}
             {trend !== undefined && (
               <div className="flex items-center gap-1">
                 {getTrendIcon()}
                 <span className={cn(
                   'text-xs font-medium',
-                  trend > 0 ? 'text-success' : trend < 0 ? 'text-destructive' : 'text-muted-foreground'
+                  trend > 0 ? 'text-green-500' : trend < 0 ? 'text-red-500' : 'text-muted-foreground'
                 )}>
                   {trend > 0 ? '+' : ''}{formatPercent(trend)}
                 </span>
@@ -166,14 +183,14 @@ export function AnimatedKPIRing({
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <div className="space-y-1 text-xs">
-            <p><strong>{label}:</strong> {formatValue()}</p>
-            {benchmark && (
+            <p><strong>{label}:</strong> {formatDisplayValue()}</p>
+            {benchmarkValue && (
               <p className="text-muted-foreground">
-                {benchmarkLabel}: {format === 'percent' ? formatPercent(benchmark) : formatVNDCompact(benchmark)}
+                {actualBenchmarkLabel}: {format === 'percent' ? formatPercent(benchmarkValue) : formatVNDCompact(benchmarkValue)}
               </p>
             )}
             {trend !== undefined && (
-              <p className={trend > 0 ? 'text-success' : trend < 0 ? 'text-destructive' : ''}>
+              <p className={trend > 0 ? 'text-green-500' : trend < 0 ? 'text-red-500' : ''}>
                 Trend: {trend > 0 ? '+' : ''}{formatPercent(trend)} so với kỳ trước
               </p>
             )}

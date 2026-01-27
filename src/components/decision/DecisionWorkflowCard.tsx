@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { 
   CheckCircle2, 
@@ -8,8 +8,10 @@ import {
   Clock, 
   User,
   MessageSquare,
-  ChevronRight,
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,55 +26,82 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { formatVNDCompact, formatDate } from '@/lib/formatters';
+import { formatVNDCompact } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+interface MetricItem {
+  label: string;
+  value: string;
+}
+
 interface DecisionWorkflowCardProps {
-  recommendation: 'make' | 'buy' | 'invest' | 'reject' | 'hold';
-  savings: number;
+  recommendation: string;
+  confidence: number;
+  metrics?: MetricItem[];
+  savings?: number;
   breakEvenVolume?: number;
-  confidenceScore: number;
-  analysisType: string;
+  analysisType?: string;
   onApprove?: () => void;
-  onRequestMore?: () => void;
+  onRequestData?: () => void;
   onViewHistory?: () => void;
+  status?: 'pending' | 'approved' | 'rejected';
+  icon?: ReactNode;
+  variant?: 'success' | 'warning' | 'danger' | 'neutral';
   className?: string;
 }
 
-const recommendationLabels = {
-  make: { label: 'Tự sản xuất', color: 'text-primary', bg: 'bg-primary/10' },
-  buy: { label: 'Thuê ngoài', color: 'text-success', bg: 'bg-success/10' },
-  invest: { label: 'Nên đầu tư', color: 'text-success', bg: 'bg-success/10' },
-  reject: { label: 'Không đầu tư', color: 'text-destructive', bg: 'bg-destructive/10' },
-  hold: { label: 'Chờ thêm dữ liệu', color: 'text-warning', bg: 'bg-warning/10' },
-};
-
 export function DecisionWorkflowCard({
   recommendation,
+  confidence,
+  metrics = [],
   savings,
   breakEvenVolume,
-  confidenceScore,
-  analysisType,
+  analysisType = 'Decision Analysis',
   onApprove,
-  onRequestMore,
+  onRequestData,
   onViewHistory,
+  status = 'pending',
+  icon,
+  variant = 'neutral',
   className,
 }: DecisionWorkflowCardProps) {
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalNote, setApprovalNote] = useState('');
   const [isApproving, setIsApproving] = useState(false);
 
-  const recConfig = recommendationLabels[recommendation];
-  const confidenceLevel = confidenceScore >= 80 ? 'high' : confidenceScore >= 65 ? 'medium' : 'low';
+  const variantConfig = {
+    success: {
+      color: 'text-green-500',
+      bg: 'bg-green-500/10',
+      border: 'border-green-500/20',
+    },
+    warning: {
+      color: 'text-yellow-500',
+      bg: 'bg-yellow-500/10',
+      border: 'border-yellow-500/20',
+    },
+    danger: {
+      color: 'text-red-500',
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/20',
+    },
+    neutral: {
+      color: 'text-primary',
+      bg: 'bg-primary/10',
+      border: 'border-primary/20',
+    },
+  };
+
+  const config = variantConfig[variant];
+  const confidenceLevel = confidence >= 80 ? 'high' : confidence >= 50 ? 'medium' : 'low';
 
   const handleApprove = async () => {
     setIsApproving(true);
     try {
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
       onApprove?.();
-      toast.success('Quyết định đã được phê duyệt và thông báo đến team!');
+      toast.success('Quyết định đã được phê duyệt và lưu lại!');
       setApprovalOpen(false);
     } catch (error) {
       toast.error('Có lỗi xảy ra khi phê duyệt');
@@ -82,16 +111,16 @@ export function DecisionWorkflowCard({
   };
 
   return (
-    <Card className={cn('overflow-hidden', className)}>
-      <CardHeader className={cn('pb-4', recConfig.bg)}>
+    <Card className={cn('overflow-hidden', config.border, className)}>
+      <CardHeader className={cn('pb-4', config.bg)}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <motion.div 
-              className={cn('h-12 w-12 rounded-xl flex items-center justify-center', recConfig.bg)}
+              className={cn('h-12 w-12 rounded-xl flex items-center justify-center', config.bg)}
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
             >
-              <Sparkles className={cn('h-6 w-6', recConfig.color)} />
+              {icon || <Sparkles className={cn('h-6 w-6', config.color)} />}
             </motion.div>
             <div>
               <CardTitle className="text-base">Khuyến nghị quyết định</CardTitle>
@@ -102,12 +131,12 @@ export function DecisionWorkflowCard({
             variant="outline" 
             className={cn(
               'px-3 py-1',
-              confidenceLevel === 'high' && 'border-success text-success',
-              confidenceLevel === 'medium' && 'border-warning text-warning',
+              confidenceLevel === 'high' && 'border-green-500 text-green-500',
+              confidenceLevel === 'medium' && 'border-yellow-500 text-yellow-500',
               confidenceLevel === 'low' && 'border-muted-foreground text-muted-foreground'
             )}
           >
-            {confidenceScore.toFixed(0)}% tin cậy
+            {confidence.toFixed(0)}% tin cậy
           </Badge>
         </div>
       </CardHeader>
@@ -115,25 +144,39 @@ export function DecisionWorkflowCard({
       <CardContent className="pt-6 space-y-6">
         {/* Main recommendation */}
         <div className="text-center">
-          <h2 className={cn('text-2xl font-bold', recConfig.color)}>
-            {recConfig.label.toUpperCase()}
+          <h2 className={cn('text-2xl font-bold', config.color)}>
+            {recommendation}
           </h2>
-          <div className="mt-2 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-            {savings > 0 && (
-              <span>
-                Tiết kiệm: <strong className="text-foreground">{formatVNDCompact(savings)}</strong>
-              </span>
-            )}
-            {breakEvenVolume && (
-              <>
-                <span className="text-border">|</span>
+          {(savings !== undefined || breakEvenVolume !== undefined) && (
+            <div className="mt-2 flex items-center justify-center gap-3 text-sm text-muted-foreground">
+              {savings !== undefined && savings > 0 && (
                 <span>
-                  Hòa vốn: <strong className="text-foreground">{breakEvenVolume.toLocaleString()} đơn vị</strong>
+                  Tiết kiệm: <strong className="text-foreground">{formatVNDCompact(savings)}</strong>
                 </span>
-              </>
-            )}
-          </div>
+              )}
+              {breakEvenVolume !== undefined && (
+                <>
+                  {savings !== undefined && <span className="text-border">|</span>}
+                  <span>
+                    Hòa vốn: <strong className="text-foreground">{breakEvenVolume.toLocaleString()} đơn vị</strong>
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Metrics grid */}
+        {metrics.length > 0 && (
+          <div className={cn('grid gap-3', metrics.length <= 2 ? 'grid-cols-2' : 'grid-cols-4')}>
+            {metrics.map((metric, i) => (
+              <div key={i} className="text-center p-3 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">{metric.label}</p>
+                <p className="text-sm font-bold mt-1">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Confidence bar */}
         <div className="space-y-2">
@@ -141,8 +184,8 @@ export function DecisionWorkflowCard({
             <span className="text-muted-foreground">Độ tin cậy</span>
             <span className={cn(
               'font-medium',
-              confidenceLevel === 'high' && 'text-success',
-              confidenceLevel === 'medium' && 'text-warning',
+              confidenceLevel === 'high' && 'text-green-500',
+              confidenceLevel === 'medium' && 'text-yellow-500',
               confidenceLevel === 'low' && 'text-muted-foreground'
             )}>
               {confidenceLevel === 'high' ? 'Cao' : confidenceLevel === 'medium' ? 'Trung bình' : 'Thấp'}
@@ -152,12 +195,12 @@ export function DecisionWorkflowCard({
             <motion.div
               className={cn(
                 'h-full rounded-full',
-                confidenceLevel === 'high' && 'bg-success',
-                confidenceLevel === 'medium' && 'bg-warning',
+                confidenceLevel === 'high' && 'bg-green-500',
+                confidenceLevel === 'medium' && 'bg-yellow-500',
                 confidenceLevel === 'low' && 'bg-muted-foreground'
               )}
               initial={{ width: 0 }}
-              animate={{ width: `${confidenceScore}%` }}
+              animate={{ width: `${confidence}%` }}
               transition={{ duration: 1, ease: 'easeOut' }}
             />
           </div>
@@ -169,26 +212,26 @@ export function DecisionWorkflowCard({
             <DialogTrigger asChild>
               <Button className="flex-col h-auto py-4 gap-2" variant="default">
                 <CheckCircle2 className="h-5 w-5" />
-                <span className="text-xs">Duyệt & Thông báo</span>
+                <span className="text-xs">Duyệt & Lưu</span>
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Phê duyệt quyết định</DialogTitle>
                 <DialogDescription>
-                  Xác nhận phê duyệt khuyến nghị "{recConfig.label}" và thông báo đến team.
+                  Xác nhận phê duyệt khuyến nghị và lưu vào lịch sử.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="p-4 rounded-lg bg-muted/50">
+                <div className={cn('p-4 rounded-lg', config.bg)}>
                   <div className="flex items-center gap-3">
-                    <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center', recConfig.bg)}>
-                      <Sparkles className={cn('h-5 w-5', recConfig.color)} />
+                    <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center', config.bg)}>
+                      {icon || <Sparkles className={cn('h-5 w-5', config.color)} />}
                     </div>
                     <div>
-                      <p className="font-semibold">{recConfig.label}</p>
+                      <p className="font-semibold">{recommendation}</p>
                       <p className="text-sm text-muted-foreground">
-                        Tiết kiệm {formatVNDCompact(savings)}
+                        Confidence: {confidence.toFixed(0)}%
                       </p>
                     </div>
                   </div>
@@ -232,7 +275,7 @@ export function DecisionWorkflowCard({
           <Button 
             variant="outline" 
             className="flex-col h-auto py-4 gap-2"
-            onClick={onRequestMore}
+            onClick={onRequestData}
           >
             <MessageSquare className="h-5 w-5" />
             <span className="text-xs">Yêu cầu thêm</span>
