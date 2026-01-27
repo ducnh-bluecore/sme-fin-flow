@@ -148,12 +148,24 @@ function EnhancedMakeVsBuyAnalysis({ onContextChange }: { onContextChange?: (ctx
         onModifiersChange={setScenarioModifiers}
       />
 
-      {/* Hero Decision Card */}
+      {/* Hero Decision Card - uses adjusted data with scenario modifiers */}
       <HeroDecisionCard
-        makeData={makeData}
-        buyData={buyData}
-        onMakeChange={setMakeData}
-        onBuyChange={setBuyData}
+        makeData={adjustedMakeData}
+        buyData={adjustedBuyData}
+        onMakeChange={(newData) => {
+          // Reverse the modifiers to store base values
+          setMakeData({
+            fixedCost: newData.fixedCost / scenarioModifiers.opexMultiplier,
+            variableCostPerUnit: newData.variableCostPerUnit / scenarioModifiers.cogsMultiplier,
+            volume: Math.round(newData.volume / scenarioModifiers.volumeMultiplier),
+          });
+        }}
+        onBuyChange={(newData) => {
+          setBuyData({
+            pricePerUnit: newData.pricePerUnit / scenarioModifiers.cogsMultiplier,
+            volume: Math.round(newData.volume / scenarioModifiers.volumeMultiplier),
+          });
+        }}
       />
 
       {/* AI Insights */}
