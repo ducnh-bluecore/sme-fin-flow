@@ -6731,7 +6731,10 @@ export type Database = {
           net_revenue: number
           order_at: string
           order_key: string
+          other_fees: number | null
           payment_method: string | null
+          platform_fee: number | null
+          shipping_fee: number | null
           tenant_id: string
         }
         Insert: {
@@ -6749,7 +6752,10 @@ export type Database = {
           net_revenue?: number
           order_at: string
           order_key: string
+          other_fees?: number | null
           payment_method?: string | null
+          platform_fee?: number | null
+          shipping_fee?: number | null
           tenant_id: string
         }
         Update: {
@@ -6767,7 +6773,10 @@ export type Database = {
           net_revenue?: number
           order_at?: string
           order_key?: string
+          other_fees?: number | null
           payment_method?: string | null
+          platform_fee?: number | null
+          shipping_fee?: number | null
           tenant_id?: string
         }
         Relationships: [
@@ -28203,12 +28212,10 @@ export type Database = {
           cogs: number | null
           gross_margin: number | null
           gross_revenue: number | null
-          margin_percent: number | null
-          month: string | null
           net_revenue: number | null
           order_count: number | null
           tenant_id: string | null
-          unique_customers: number | null
+          total_fees: number | null
         }
         Relationships: [
           {
