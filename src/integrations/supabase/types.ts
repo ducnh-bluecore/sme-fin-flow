@@ -4738,29 +4738,44 @@ export type Database = {
       }
       cdp_customers: {
         Row: {
+          age_range: string | null
           canonical_key: string
+          city: string | null
           created_at: string
           first_order_at: string | null
+          gender: string | null
           id: string
           last_order_at: string | null
+          primary_device: string | null
+          province: string | null
           status: string | null
           tenant_id: string
         }
         Insert: {
+          age_range?: string | null
           canonical_key: string
+          city?: string | null
           created_at?: string
           first_order_at?: string | null
+          gender?: string | null
           id?: string
           last_order_at?: string | null
+          primary_device?: string | null
+          province?: string | null
           status?: string | null
           tenant_id: string
         }
         Update: {
+          age_range?: string | null
           canonical_key?: string
+          city?: string | null
           created_at?: string
           first_order_at?: string | null
+          gender?: string | null
           id?: string
           last_order_at?: string | null
+          primary_device?: string | null
+          province?: string | null
           status?: string | null
           tenant_id?: string
         }
@@ -16120,6 +16135,127 @@ export type Database = {
           },
         ]
       }
+      platform_ads_daily: {
+        Row: {
+          acos: number | null
+          add_to_cart: number | null
+          atc_rate: number | null
+          budget_month: number | null
+          budget_utilization: number | null
+          checkout_rate: number | null
+          checkouts: number | null
+          clicks: number | null
+          cpa: number | null
+          cpa_trend: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string | null
+          ctr: number | null
+          cvr: number | null
+          id: string
+          impressions: number | null
+          orders: number | null
+          platform: string
+          quality_score: number | null
+          reach: number | null
+          relevance_score: number | null
+          report_date: string
+          revenue: number | null
+          roas: number | null
+          roas_trend: number | null
+          spend_mtd: number | null
+          spend_today: number | null
+          spend_trend: number | null
+          tenant_id: string
+        }
+        Insert: {
+          acos?: number | null
+          add_to_cart?: number | null
+          atc_rate?: number | null
+          budget_month?: number | null
+          budget_utilization?: number | null
+          checkout_rate?: number | null
+          checkouts?: number | null
+          clicks?: number | null
+          cpa?: number | null
+          cpa_trend?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          cvr?: number | null
+          id?: string
+          impressions?: number | null
+          orders?: number | null
+          platform: string
+          quality_score?: number | null
+          reach?: number | null
+          relevance_score?: number | null
+          report_date?: string
+          revenue?: number | null
+          roas?: number | null
+          roas_trend?: number | null
+          spend_mtd?: number | null
+          spend_today?: number | null
+          spend_trend?: number | null
+          tenant_id: string
+        }
+        Update: {
+          acos?: number | null
+          add_to_cart?: number | null
+          atc_rate?: number | null
+          budget_month?: number | null
+          budget_utilization?: number | null
+          checkout_rate?: number | null
+          checkouts?: number | null
+          clicks?: number | null
+          cpa?: number | null
+          cpa_trend?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          cvr?: number | null
+          id?: string
+          impressions?: number | null
+          orders?: number | null
+          platform?: string
+          quality_score?: number | null
+          reach?: number | null
+          relevance_score?: number | null
+          report_date?: string
+          revenue?: number | null
+          roas?: number | null
+          roas_trend?: number | null
+          spend_mtd?: number | null
+          spend_today?: number | null
+          spend_trend?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_ads_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_ads_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "platform_ads_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       platform_violations: {
         Row: {
           action_required: string | null
@@ -16800,14 +16936,28 @@ export type Database = {
       }
       promotion_campaigns: {
         Row: {
+          acos: number | null
           actual_cost: number | null
+          add_to_cart: number | null
+          atc_rate: number | null
           budget: number | null
           campaign_name: string
           campaign_type: string | null
           channel: string | null
+          clicks: number | null
+          cpa: number | null
+          cpc: number | null
+          cpm: number | null
           created_at: string | null
+          ctr: number | null
+          cvr: number | null
           end_date: string | null
           id: string
+          impressions: number | null
+          platform_icon: string | null
+          quality_score: number | null
+          relevance_score: number | null
+          roas: number | null
           start_date: string | null
           status: string | null
           tenant_id: string
@@ -16817,14 +16967,28 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          acos?: number | null
           actual_cost?: number | null
+          add_to_cart?: number | null
+          atc_rate?: number | null
           budget?: number | null
           campaign_name: string
           campaign_type?: string | null
           channel?: string | null
+          clicks?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
           created_at?: string | null
+          ctr?: number | null
+          cvr?: number | null
           end_date?: string | null
           id?: string
+          impressions?: number | null
+          platform_icon?: string | null
+          quality_score?: number | null
+          relevance_score?: number | null
+          roas?: number | null
           start_date?: string | null
           status?: string | null
           tenant_id: string
@@ -16834,14 +16998,28 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          acos?: number | null
           actual_cost?: number | null
+          add_to_cart?: number | null
+          atc_rate?: number | null
           budget?: number | null
           campaign_name?: string
           campaign_type?: string | null
           channel?: string | null
+          clicks?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
           created_at?: string | null
+          ctr?: number | null
+          cvr?: number | null
           end_date?: string | null
           id?: string
+          impressions?: number | null
+          platform_icon?: string | null
+          quality_score?: number | null
+          relevance_score?: number | null
+          roas?: number | null
           start_date?: string | null
           status?: string | null
           tenant_id?: string
@@ -18411,6 +18589,67 @@ export type Database = {
           },
           {
             foreignKeyName: "risk_breach_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      risk_scores: {
+        Row: {
+          calculation_details: Json | null
+          created_at: string | null
+          credit_score: number | null
+          id: string
+          liquidity_score: number | null
+          market_score: number | null
+          operational_score: number | null
+          overall_score: number | null
+          score_date: string
+          tenant_id: string
+        }
+        Insert: {
+          calculation_details?: Json | null
+          created_at?: string | null
+          credit_score?: number | null
+          id?: string
+          liquidity_score?: number | null
+          market_score?: number | null
+          operational_score?: number | null
+          overall_score?: number | null
+          score_date?: string
+          tenant_id: string
+        }
+        Update: {
+          calculation_details?: Json | null
+          created_at?: string | null
+          credit_score?: number | null
+          id?: string
+          liquidity_score?: number | null
+          market_score?: number | null
+          operational_score?: number | null
+          overall_score?: number | null
+          score_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "risk_scores_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -24066,6 +24305,38 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cdp_demographics_summary: {
+        Row: {
+          age_distribution: Json | null
+          device_distribution: Json | null
+          gender_distribution: Json | null
+          geographic_distribution: Json | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_cdp_equity_distribution: {
         Row: {
           bucket: string | null
@@ -26018,6 +26289,43 @@ export type Database = {
           },
         ]
       }
+      v_mdp_marketing_funnel: {
+        Row: {
+          atc_rate: number | null
+          checkout_rate: number | null
+          ctr: number | null
+          cvr: number | null
+          estimated_add_to_cart: number | null
+          report_date: string | null
+          tenant_id: string | null
+          total_clicks: number | null
+          total_impressions: number | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "marketing_expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_mdp_mode_summary: {
         Row: {
           active_campaigns: number | null
@@ -26049,6 +26357,127 @@ export type Database = {
           },
           {
             foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_mdp_platform_ads_summary: {
+        Row: {
+          acos: number | null
+          add_to_cart: number | null
+          atc_rate: number | null
+          budget_month: number | null
+          budget_utilization: number | null
+          checkout_rate: number | null
+          checkouts: number | null
+          clicks: number | null
+          cpa: number | null
+          cpa_trend: number | null
+          cpc: number | null
+          cpm: number | null
+          ctr: number | null
+          cvr: number | null
+          impressions: number | null
+          is_active: boolean | null
+          orders: number | null
+          platform: string | null
+          platform_icon: string | null
+          quality_score: number | null
+          reach: number | null
+          relevance_score: number | null
+          report_date: string | null
+          revenue: number | null
+          roas: number | null
+          roas_trend: number | null
+          spend_month: number | null
+          spend_today: number | null
+          spend_trend: number | null
+          tenant_id: string | null
+        }
+        Insert: {
+          acos?: number | null
+          add_to_cart?: number | null
+          atc_rate?: number | null
+          budget_month?: number | null
+          budget_utilization?: number | null
+          checkout_rate?: number | null
+          checkouts?: number | null
+          clicks?: number | null
+          cpa?: number | null
+          cpa_trend?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          cvr?: number | null
+          impressions?: number | null
+          is_active?: never
+          orders?: number | null
+          platform?: string | null
+          platform_icon?: string | null
+          quality_score?: number | null
+          reach?: number | null
+          relevance_score?: number | null
+          report_date?: string | null
+          revenue?: number | null
+          roas?: number | null
+          roas_trend?: number | null
+          spend_month?: number | null
+          spend_today?: number | null
+          spend_trend?: number | null
+          tenant_id?: string | null
+        }
+        Update: {
+          acos?: number | null
+          add_to_cart?: number | null
+          atc_rate?: number | null
+          budget_month?: number | null
+          budget_utilization?: number | null
+          checkout_rate?: number | null
+          checkouts?: number | null
+          clicks?: number | null
+          cpa?: number | null
+          cpa_trend?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          cvr?: number | null
+          impressions?: number | null
+          is_active?: never
+          orders?: number | null
+          platform?: string | null
+          platform_icon?: string | null
+          quality_score?: number | null
+          reach?: number | null
+          relevance_score?: number | null
+          report_date?: string | null
+          revenue?: number | null
+          roas?: number | null
+          roas_trend?: number | null
+          spend_month?: number | null
+          spend_today?: number | null
+          spend_trend?: number | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_ads_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_ads_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "platform_ads_daily_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
@@ -26120,6 +26549,73 @@ export type Database = {
           },
           {
             foreignKeyName: "approval_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_risk_radar_summary: {
+        Row: {
+          calculation_details: Json | null
+          credit_score: number | null
+          credit_severity: string | null
+          liquidity_score: number | null
+          liquidity_severity: string | null
+          market_score: number | null
+          market_severity: string | null
+          operational_score: number | null
+          operational_severity: string | null
+          overall_score: number | null
+          score_date: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          calculation_details?: Json | null
+          credit_score?: number | null
+          credit_severity?: never
+          liquidity_score?: number | null
+          liquidity_severity?: never
+          market_score?: number | null
+          market_severity?: never
+          operational_score?: number | null
+          operational_severity?: never
+          overall_score?: number | null
+          score_date?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          calculation_details?: Json | null
+          credit_score?: number | null
+          credit_severity?: never
+          liquidity_score?: number | null
+          liquidity_severity?: never
+          market_score?: number | null
+          market_severity?: never
+          operational_score?: number | null
+          operational_severity?: never
+          overall_score?: number | null
+          score_date?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "risk_scores_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_ltv_rules"
