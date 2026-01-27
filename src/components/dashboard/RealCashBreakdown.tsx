@@ -93,7 +93,8 @@ export default function RealCashBreakdown() {
   const adsFloat = metrics?.lockedCashAds || 0;
   const opsFloat = metrics?.lockedCashOps || 0;
   const platformHold = metrics?.lockedCashPlatform || 0;
-  const lockedCash = metrics?.lockedCashTotal || (inventoryValue + adsFloat);
+  // FIX: Calculate lockedCash with all 4 components (not just 2)
+  const lockedCash = metrics?.lockedCashTotal || (inventoryValue + adsFloat + opsFloat + platformHold);
 
   // Calculate risk levels
   const totalCashPosition = bankBalance + currentAR;
@@ -245,43 +246,8 @@ export default function RealCashBreakdown() {
             </TooltipProvider>
           ))}
 
-          {/* Locked Cash Breakdown - 4 columns */}
-          <div className="pt-4 border-t border-border">
-            <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              Chi tiết Cash bị khóa
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Package className="h-4 w-4 text-amber-500" />
-                  <span className="text-xs text-muted-foreground">Tồn kho</span>
-                </div>
-                <p className="font-semibold">{formatVNDCompact(inventoryValue)}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Megaphone className="h-4 w-4 text-blue-500" />
-                  <span className="text-xs text-muted-foreground">Ads Float</span>
-                </div>
-                <p className="font-semibold">{formatVNDCompact(adsFloat)}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Truck className="h-4 w-4 text-purple-500" />
-                  <span className="text-xs text-muted-foreground">Ops Float</span>
-                </div>
-                <p className="font-semibold">{formatVNDCompact(opsFloat)}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Store className="h-4 w-4 text-green-500" />
-                  <span className="text-xs text-muted-foreground">Platform Hold</span>
-                </div>
-                <p className="font-semibold">{formatVNDCompact(platformHold)}</p>
-              </div>
-            </div>
-          </div>
+          {/* NOTE: Detailed Locked Cash Breakdown moved to LockedCashDrilldown.tsx 
+               to avoid duplication - use that component for drill-down analysis */}
 
           {/* Key Insight */}
           {overallStatus !== 'safe' && (

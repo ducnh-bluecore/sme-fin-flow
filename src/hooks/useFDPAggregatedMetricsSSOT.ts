@@ -139,10 +139,10 @@ export function useFDPAggregatedMetricsSSOT() {
           p_end_date: endDateStr,
         }),
         
-        // Channel breakdown
+        // Channel breakdown - using v_channel_performance view (fdp_channel_summary does not exist)
         supabase
-          .from('fdp_channel_summary' as any)
-          .select('*')
+          .from('v_channel_performance')
+          .select('channel, order_count, gross_revenue, net_revenue, total_fees, cogs, gross_margin')
           .eq('tenant_id', tenantId),
         
         // SKU breakdown (top 100)
@@ -186,7 +186,30 @@ export function useFDPAggregatedMetricsSSOT() {
         last_date: null,
       };
 
-      const channelSummary = (channelRes.data as unknown as ChannelSummary[]) || [];
+      // Map v_channel_performance response to ChannelSummary format
+      interface ChannelPerformanceRow {
+        channel?: string;
+        order_count?: number;
+        gross_revenue?: number;
+        net_revenue?: number;
+        total_fees?: number;
+        cogs?: number;
+        gross_margin?: number;
+      }
+      const channelRows = (channelRes.data as unknown as ChannelPerformanceRow[]) || [];
+      const channelSummary: ChannelSummary[] = channelRows.map(ch => ({
+        channel: ch.channel || 'OTHER',
+        order_count: ch.order_count || 0,
+        unique_customers: 0, // Not available in v_channel_performance
+        total_revenue: ch.net_revenue || 0,
+        total_cogs: ch.cogs || 0,
+        total_platform_fee: ch.total_fees || 0,
+        total_commission_fee: 0,
+        total_payment_fee: 0,
+        total_shipping_fee: 0,
+        contribution_margin: ch.gross_margin || 0,
+        avg_order_value: (ch.order_count || 0) > 0 ? (ch.net_revenue || 0) / (ch.order_count || 1) : 0,
+      }));
       const skuSummary = (skuRes.data as unknown as SKUSummary[]) || [];
       const marketingExpenses = marketingRes.data || [];
       const invoiceSummary = invoiceRes.data || [];
