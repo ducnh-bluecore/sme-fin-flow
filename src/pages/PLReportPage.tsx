@@ -412,13 +412,13 @@ export default function PLReportPage() {
                     showBudget={hasBudgetData}
                   />
                   {revenueBreakdown.invoiceRevenue > 0 && (
-                    <PLLineItem label="Từ hóa đơn" amount={revenueBreakdown.invoiceRevenue} indent={1} showBudget={hasBudgetData} />
+                    <PLLineItem label="Từ đơn hàng B2B" amount={revenueBreakdown.invoiceRevenue} indent={1} showBudget={hasBudgetData} />
                   )}
                   {revenueBreakdown.contractRevenue > 0 && (
                     <PLLineItem label="Từ hợp đồng" amount={revenueBreakdown.contractRevenue} indent={1} showBudget={hasBudgetData} />
                   )}
                   {revenueBreakdown.integratedRevenue > 0 && (
-                    <PLLineItem label="Từ tích hợp" amount={revenueBreakdown.integratedRevenue} indent={1} showBudget={hasBudgetData} />
+                    <PLLineItem label="Từ sàn TMĐT" amount={revenueBreakdown.integratedRevenue} indent={1} showBudget={hasBudgetData} />
                   )}
                   <PLLineItem label="Trả hàng" amount={-plData.salesReturns} isNegative indent={1} showBudget={hasBudgetData} />
                   <PLLineItem label="Chiết khấu" amount={-plData.salesDiscounts} isNegative indent={1} showBudget={hasBudgetData} />
@@ -896,7 +896,7 @@ export default function PLReportPage() {
               <h3 className="font-semibold text-lg mb-4">Chi tiết Doanh thu theo nguồn</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="p-4 rounded-lg bg-primary/10">
-                  <p className="text-sm text-muted-foreground mb-1">Từ hóa đơn</p>
+                  <p className="text-sm text-muted-foreground mb-1">Từ đơn hàng B2B</p>
                   <p className="text-xl font-bold text-primary">{formatCurrency(revenueBreakdown.invoiceRevenue)}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {plData.grossSales > 0 ? Math.round(revenueBreakdown.invoiceRevenue / plData.grossSales * 100) : 0}% tổng
@@ -910,7 +910,7 @@ export default function PLReportPage() {
                   </p>
                 </div>
                 <div className="p-4 rounded-lg bg-success/10">
-                  <p className="text-sm text-muted-foreground mb-1">Từ tích hợp</p>
+                  <p className="text-sm text-muted-foreground mb-1">Từ sàn TMĐT</p>
                   <p className="text-xl font-bold text-success">{formatCurrency(revenueBreakdown.integratedRevenue)}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {plData.grossSales > 0 ? Math.round(revenueBreakdown.integratedRevenue / plData.grossSales * 100) : 0}% tổng
