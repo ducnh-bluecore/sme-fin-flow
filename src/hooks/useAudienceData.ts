@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
+import { useDemographicsData } from './useDemographicsData';
 import { useMemo } from 'react';
 
 export interface AudienceSegment {
@@ -626,26 +627,37 @@ export function useAudienceData() {
     ];
   }, [customerMetrics, ordersQuery.data]);
 
-  // Demographics (mock data - would need real customer data in production)
-  const demographics = useMemo<DemographicData>(() => ({
-    ageDistribution: [
-      { range: '18-24', value: 15, color: '#8b5cf6' },
-      { range: '25-34', value: 35, color: '#a855f7' },
-      { range: '35-44', value: 28, color: '#c084fc' },
-      { range: '45-54', value: 15, color: '#d8b4fe' },
-      { range: '55+', value: 7, color: '#e9d5ff' },
-    ],
-    genderDistribution: [
-      { name: 'Nữ', value: 62, color: '#ec4899' },
-      { name: 'Nam', value: 35, color: '#3b82f6' },
-      { name: 'Khác', value: 3, color: '#9ca3af' },
-    ],
-    deviceData: [
-      { device: 'Mobile', sessions: 68, conversions: 4.2, revenue: 65 },
-      { device: 'Desktop', sessions: 28, conversions: 5.8, revenue: 32 },
-      { device: 'Tablet', sessions: 4, conversions: 3.5, revenue: 3 },
-    ],
-  }), []);
+  // Demographics - SSOT from v_cdp_demographics_summary
+  const { data: dbDemographics } = useDemographicsData();
+  
+  const demographics = useMemo<DemographicData>(() => {
+    if (dbDemographics) {
+      return {
+        ageDistribution: dbDemographics.age_distribution.map(d => ({
+          range: d.range,
+          value: d.value,
+          color: d.color,
+        })),
+        genderDistribution: dbDemographics.gender_distribution.map(d => ({
+          name: d.name,
+          value: d.value,
+          color: d.color,
+        })),
+        deviceData: dbDemographics.device_distribution.map(d => ({
+          device: d.device,
+          sessions: d.sessions,
+          conversions: d.conversions,
+          revenue: d.revenue,
+        })),
+      };
+    }
+    // Empty state - no mock data (SSOT compliance)
+    return {
+      ageDistribution: [],
+      genderDistribution: [],
+      deviceData: [],
+    };
+  }, [dbDemographics]);
 
   // Geographic data from orders (enhanced with province_name)
   const geographicData = useMemo<GeographicData[]>(() => {
