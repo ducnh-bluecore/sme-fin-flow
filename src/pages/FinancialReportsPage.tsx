@@ -85,9 +85,11 @@ export default function FinancialReportsPage() {
     }));
   }, [monthlySummary]);
 
-  // Compute net profit from snapshot fields
-  const netProfit = snapshot ? snapshot.grossProfit - snapshot.ebitda : 0;
-  const totalCost = snapshot ? (monthlySummary?.[0]?.cogs || 0) + (monthlySummary?.[0]?.operatingExpenses || 0) : 0;
+  // Compute display values - minimal calculations for UI only
+  // Note: Core financial metrics come from snapshot (SSOT), these are derived display values
+  const totalCost = snapshot 
+    ? (monthlySummary?.[0]?.cogs || 0) + (monthlySummary?.[0]?.operatingExpenses || 0) 
+    : 0;
   const netMarginPercent = snapshot && snapshot.netRevenue > 0 
     ? ((snapshot.grossProfit - (monthlySummary?.[0]?.operatingExpenses || 0)) / snapshot.netRevenue) * 100 
     : 0;
