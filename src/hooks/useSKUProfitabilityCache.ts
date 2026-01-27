@@ -135,12 +135,14 @@ export function useCachedSKUProfitability() {
       if (!tenantId) return null;
 
       // Use RPC to get SKU profitability filtered by date range
+      // Always pass p_limit explicitly to avoid function overload ambiguity
       const { data: rpcData, error: rpcError } = await supabase.rpc(
         'get_sku_profitability_by_date_range',
         {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
-          p_end_date: endDateStr
+          p_end_date: endDateStr,
+          p_limit: 500
         }
       );
 
