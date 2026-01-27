@@ -1,564 +1,431 @@
 
-# TRIỂN KHAI PHASE 2: FINANCIAL REPORTS PAGE - 100% SSOT COMPLIANT
+# KE HOACH TONG THE: FIX TAT CA VI PHAM SSOT/DB-FIRST
 
-## TÌNH TRẠNG HIỆN TẠI
+## TONG QUAN VI PHAM HIEN TAI
 
-### Vi phạm còn tồn tại trong `FinancialReportsPage.tsx`:
-
-| Line | Vi phạm | Loại |
-|------|---------|------|
-| 90-92 | `totalCost = cogs + operatingExpenses` | Client-side calculation |
-| 93-95 | `netMarginPercent = ((grossProfit - opex) / netRevenue) * 100` | Client-side calculation |
-| 96-98 | `overdueARPercent = (overdueAR / totalAR) * 100` | Client-side calculation |
-| 103-135 | Hardcoded targets (30, 10, 15, 30, 40) | Magic numbers |
-| 138-189 | `keyInsights` logic với thresholds (>=30, <20, >45, <0, >20) | Business logic trong FE |
-| 329-330 | `ratio.value >= ratio.target` | Threshold comparison trong UI |
-| 334 | `Math.min((ratio.value / ratio.target) * 100, 100)` | Progress calculation trong UI |
-
-### Cần tạo mới trong Database:
-
-| Object | Mục đích |
-|--------|----------|
-| `financial_ratio_targets` table | Configurable targets thay magic numbers |
-| `v_financial_report_kpis` view | Pre-compute total_cost, net_margin, overdue_ar_pct |
-| `v_financial_insights` view | Pre-generate insights với status và descriptions |
-| `v_financial_ratios_with_targets` view | Join actual values với targets, pre-calculate is_on_target và progress |
+| Trang | Muc do | Vi pham chinh |
+|-------|--------|---------------|
+| ExecutiveSummaryPage | 🔴 CRITICAL | 6 health scores tinh trong FE voi magic numbers (×15, ×2.5, ×4) |
+| VarianceAnalysisContent | 🟠 MEDIUM | `variancePct` va `isFavorable()` logic trong FE |
+| CashConversionCyclePage | 🟠 MEDIUM | `cccStatus` voi multiplier `* 1.5` trong FE |
+| AROperations | 🟡 MINOR | Inline `overdueARPercent` calculation |
+| WorkingCapitalPage | 🟡 MINOR | Hardcoded targets (30, 45) trong component |
+| ExpensesPage | 🟡 MINOR | `expenseChange` percentage calculation |
 
 ---
 
-## PHASE 2.1: DATABASE MIGRATIONS
+## PHASE 3: EXECUTIVE SUMMARY PAGE (CRITICAL)
 
-### 2.1.1 Table: `financial_ratio_targets`
+### 3.1 Database Migration
+
+**Table: `health_score_formulas`**
+Luu tru cong thuc tinh health scores, thay the HEALTH_FORMULAS object trong FE.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.financial_ratio_targets (
+CREATE TABLE health_score_formulas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
   
-  ratio_code TEXT NOT NULL,  -- 'GROSS_MARGIN', 'NET_MARGIN', 'EBITDA_MARGIN', 'DSO', 'CM'
-  ratio_name TEXT NOT NULL,  -- 'Bien loi nhuan gop', etc.
-  target_value NUMERIC NOT NULL,
-  unit TEXT DEFAULT '%',
+  dimension_code TEXT NOT NULL,  -- 'liquidity', 'receivables', etc.
+  dimension_name TEXT NOT NULL,  -- 'Thanh khoan', 'Cong no phai thu'
   
-  -- Thresholds for insight generation
-  good_threshold NUMERIC,
-  warning_threshold NUMERIC,
-  critical_threshold NUMERIC,
-  comparison_type TEXT DEFAULT 'gte', -- 'gte' (greater is better) or 'lte' (lower is better)
+  -- Formula parameters
+  multiplier NUMERIC NOT NULL,          -- 15, 2.5, 4, etc.
+  base_metric TEXT NOT NULL,            -- 'cash_runway_months', 'dso', 'gross_margin'
+  formula_type TEXT NOT NULL,           -- 'multiply', 'subtract', 'direct'
+  offset_value NUMERIC DEFAULT 0,       -- For DSO: 100 - (dso - 30) * 2
   
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Thresholds
+  good_threshold NUMERIC NOT NULL,      -- >= 70
+  warning_threshold NUMERIC NOT NULL,   -- >= 50
   
-  UNIQUE(tenant_id, ratio_code)
+  -- Display
+  description_template TEXT,            -- 'Cash runway: {value} thang'
+  
+  UNIQUE(tenant_id, dimension_code)
 );
-
--- Seed default targets from financial-constants.ts
-INSERT INTO financial_ratio_targets (tenant_id, ratio_code, ratio_name, target_value, unit, good_threshold, warning_threshold, critical_threshold, comparison_type)
-SELECT 
-  t.id,
-  v.ratio_code,
-  v.ratio_name,
-  v.target_value,
-  v.unit,
-  v.good_threshold,
-  v.warning_threshold,
-  v.critical_threshold,
-  v.comparison_type
-FROM tenants t
-CROSS JOIN (VALUES
-  ('GROSS_MARGIN', 'Bien loi nhuan gop', 30, '%', 35, 25, 15, 'gte'),
-  ('NET_MARGIN', 'Bien loi nhuan rong', 10, '%', 10, 5, 0, 'gte'),
-  ('EBITDA_MARGIN', 'EBITDA Margin', 15, '%', 15, 10, 5, 'gte'),
-  ('DSO', 'DSO', 30, ' ngay', 30, 45, 60, 'lte'),
-  ('CM', 'Contribution Margin', 40, '%', 40, 30, 20, 'gte')
-) AS v(ratio_code, ratio_name, target_value, unit, good_threshold, warning_threshold, critical_threshold, comparison_type)
-ON CONFLICT (tenant_id, ratio_code) DO NOTHING;
 ```
 
-### 2.1.2 View: `v_financial_report_kpis`
+**View: `v_executive_health_scores`**
+Pre-compute tat ca 6 health scores tu DB.
 
 ```sql
-CREATE OR REPLACE VIEW v_financial_report_kpis AS
-SELECT 
-  s.tenant_id,
-  
-  -- From snapshot (already SSOT)
-  s.net_revenue,
-  s.gross_profit,
-  s.gross_margin_percent,
-  s.ebitda,
-  s.ebitda_margin_percent,
-  s.contribution_margin,
-  s.contribution_margin_percent,
-  s.cash_today,
-  s.cash_runway_months,
-  s.total_ar,
-  s.overdue_ar,
-  s.dso,
-  
-  -- PRE-COMPUTED (replacing FE calculations)
-  COALESCE(m.cogs, 0) + COALESCE(m.operating_expenses, 0) AS total_cost,
-  
-  CASE WHEN s.net_revenue > 0 
-    THEN ROUND(((s.gross_profit - COALESCE(m.operating_expenses, 0)) / s.net_revenue * 100)::NUMERIC, 1)
-    ELSE 0 
-  END AS net_margin_percent,
-  
-  CASE WHEN s.total_ar > 0 
-    THEN ROUND((s.overdue_ar / s.total_ar * 100)::NUMERIC, 1)
-    ELSE 0 
-  END AS overdue_ar_percent,
-  
-  -- Growth (from monthly summary MoM)
-  m.revenue_mom_change,
-  m.revenue_yoy_change,
-  
-  -- Pre-formatted for display
-  ROUND(s.net_revenue / 1000000, 1) AS net_revenue_m,
-  ROUND(s.gross_profit / 1000000, 1) AS gross_profit_m,
-  ROUND((COALESCE(m.cogs, 0) + COALESCE(m.operating_expenses, 0)) / 1000000, 1) AS total_cost_m,
-  ROUND(s.cash_today / 1000000, 1) AS cash_today_m,
-  
-  s.snapshot_at
-  
-FROM central_metrics_snapshots s
-LEFT JOIN LATERAL (
+CREATE VIEW v_executive_health_scores AS
+WITH metrics AS (
   SELECT 
-    cogs, 
-    operating_expenses,
-    revenue_mom_change,
-    revenue_yoy_change
-  FROM finance_monthly_summary 
-  WHERE tenant_id = s.tenant_id 
-  ORDER BY year_month DESC 
-  LIMIT 1
-) m ON true
-WHERE s.snapshot_at = (
-  SELECT MAX(snapshot_at) 
-  FROM central_metrics_snapshots 
-  WHERE tenant_id = s.tenant_id
-);
-```
-
-### 2.1.3 View: `v_financial_insights`
-
-```sql
-CREATE OR REPLACE VIEW v_financial_insights AS
-WITH kpis AS (
-  SELECT * FROM v_financial_report_kpis
-),
-targets AS (
-  SELECT * FROM financial_ratio_targets
+    s.tenant_id,
+    s.cash_runway_months,
+    s.dso,
+    s.gross_margin_percent,
+    s.ccc,
+    s.ebitda_margin_percent,
+    -- Growth: from monthly summary YoY
+    COALESCE(m.revenue_yoy_change, 0) as revenue_yoy
+  FROM central_metrics_snapshots s
+  LEFT JOIN finance_monthly_summary m ON s.tenant_id = m.tenant_id
+  WHERE s.snapshot_at = (SELECT MAX(snapshot_at) FROM central_metrics_snapshots WHERE tenant_id = s.tenant_id)
 )
 SELECT 
-  k.tenant_id,
+  m.tenant_id,
   
-  -- Insight 1: Gross Margin
-  CASE 
-    WHEN k.gross_margin_percent >= t_gm.good_threshold THEN 'success'
-    WHEN k.gross_margin_percent >= t_gm.warning_threshold THEN 'warning'
-    ELSE 'danger'
-  END AS gross_margin_status,
-  CASE 
-    WHEN k.gross_margin_percent >= t_gm.good_threshold THEN 'Bien loi nhuan gop tot'
-    WHEN k.gross_margin_percent >= t_gm.warning_threshold THEN 'Bien loi nhuan gop can cai thien'
-    ELSE 'Bien loi nhuan gop thap'
-  END AS gross_margin_title,
-  FORMAT('Dat %s%%, %s muc tieu chuẩn %s%%', 
-    k.gross_margin_percent::TEXT,
-    CASE WHEN k.gross_margin_percent >= t_gm.target_value THEN 'cao hon' ELSE 'thap hon' END,
-    t_gm.target_value::TEXT
-  ) AS gross_margin_description,
-  k.gross_margin_percent >= t_gm.good_threshold AS gross_margin_show,
+  -- Liquidity: min(100, runway * 15)
+  LEAST(100, m.cash_runway_months * 15) as liquidity_score,
+  CASE WHEN LEAST(100, m.cash_runway_months * 15) >= 70 THEN 'good'
+       WHEN LEAST(100, m.cash_runway_months * 15) >= 50 THEN 'warning'
+       ELSE 'critical' END as liquidity_status,
+  FORMAT('Cash runway: %s thang', m.cash_runway_months) as liquidity_description,
   
-  -- Insight 2: DSO
-  CASE 
-    WHEN k.dso <= t_dso.good_threshold THEN 'success'
-    WHEN k.dso <= t_dso.warning_threshold THEN 'warning'
-    ELSE 'danger'
-  END AS dso_status,
-  CASE 
-    WHEN k.dso > t_dso.warning_threshold THEN 'DSO cao'
-    ELSE NULL
-  END AS dso_title,
-  CASE 
-    WHEN k.dso > t_dso.warning_threshold 
-    THEN FORMAT('DSO %s ngay, tien bi ket trong cong no', k.dso::INTEGER::TEXT)
-    ELSE NULL
-  END AS dso_description,
-  k.dso > t_dso.warning_threshold AS dso_show,
+  -- Receivables: max(0, 100 - (dso - 30) * 2)
+  GREATEST(0, 100 - (m.dso - 30) * 2) as receivables_score,
+  CASE WHEN GREATEST(0, 100 - (m.dso - 30) * 2) >= 70 THEN 'good'
+       WHEN GREATEST(0, 100 - (m.dso - 30) * 2) >= 50 THEN 'warning'
+       ELSE 'critical' END as receivables_status,
+  FORMAT('DSO: %s ngay', m.dso) as receivables_description,
   
-  -- Insight 3: Net Margin
-  CASE 
-    WHEN k.net_margin_percent < 0 THEN 'danger'
-    WHEN k.net_margin_percent < t_nm.warning_threshold THEN 'warning'
-    ELSE 'success'
-  END AS net_margin_status,
-  CASE 
-    WHEN k.net_margin_percent < 0 THEN 'Lo rong'
-    ELSE NULL
-  END AS net_margin_title,
-  CASE 
-    WHEN k.net_margin_percent < 0 
-    THEN FORMAT('Bien loi nhuan rong %s%%', k.net_margin_percent::TEXT)
-    ELSE NULL
-  END AS net_margin_description,
-  k.net_margin_percent < 0 AS net_margin_show,
+  -- Profitability: min(100, gross_margin * 2.5)
+  LEAST(100, m.gross_margin_percent * 2.5) as profitability_score,
+  ...
   
-  -- Insight 4: Overdue AR
-  CASE 
-    WHEN k.overdue_ar_percent > 20 THEN 'warning'
-    ELSE 'success'
-  END AS ar_status,
-  CASE 
-    WHEN k.overdue_ar_percent > 20 THEN 'Cong no qua han cao'
-    ELSE NULL
-  END AS ar_title,
-  CASE 
-    WHEN k.overdue_ar_percent > 20 
-    THEN FORMAT('%s%% AR dang qua han', k.overdue_ar_percent::TEXT)
-    ELSE NULL
-  END AS ar_description,
-  k.overdue_ar_percent > 20 AS ar_show,
+  -- Efficiency: max(0, 100 - ccc)
+  GREATEST(0, 100 - m.ccc) as efficiency_score,
+  ...
   
-  -- Insight 5: Cash Health
-  CASE 
-    WHEN k.cash_today > k.net_revenue * 0.5 THEN 'success'
-    ELSE NULL
-  END AS cash_status,
-  CASE 
-    WHEN k.cash_today > k.net_revenue * 0.5 THEN 'Tinh hinh tien mat khoe'
-    ELSE NULL
-  END AS cash_title,
-  CASE 
-    WHEN k.cash_today > k.net_revenue * 0.5 
-    THEN FORMAT('Cash buffer doi dao: %s trieu', k.cash_today_m::TEXT)
-    ELSE NULL
-  END AS cash_description,
-  k.cash_today > k.net_revenue * 0.5 AS cash_show
+  -- Growth: based on YoY
+  LEAST(100, GREATEST(0, m.revenue_yoy + 50)) as growth_score,
+  ...
   
-FROM kpis k
-LEFT JOIN targets t_gm ON k.tenant_id = t_gm.tenant_id AND t_gm.ratio_code = 'GROSS_MARGIN'
-LEFT JOIN targets t_dso ON k.tenant_id = t_dso.tenant_id AND t_dso.ratio_code = 'DSO'
-LEFT JOIN targets t_nm ON k.tenant_id = t_nm.tenant_id AND t_nm.ratio_code = 'NET_MARGIN';
+  -- Stability: min(100, ebitda_margin * 4)
+  LEAST(100, m.ebitda_margin_percent * 4) as stability_score,
+  ...
+  
+  -- Overall score (pre-computed average)
+  ROUND((liquidity_score + receivables_score + profitability_score + 
+         efficiency_score + growth_score + stability_score) / 6) as overall_score,
+  
+  -- Counts
+  (SELECT COUNT(*) FROM ... WHERE status = 'good') as good_count,
+  (SELECT COUNT(*) FROM ... WHERE status = 'warning') as warning_count,
+  (SELECT COUNT(*) FROM ... WHERE status = 'critical') as critical_count
+
+FROM metrics m;
 ```
 
-### 2.1.4 View: `v_financial_ratios_with_targets`
+### 3.2 Hook Layer
 
-```sql
-CREATE OR REPLACE VIEW v_financial_ratios_with_targets AS
-SELECT 
-  k.tenant_id,
-  t.ratio_code,
-  t.ratio_name,
-  t.target_value,
-  t.unit,
-  t.comparison_type,
-  
-  -- Actual value from KPIs
-  CASE t.ratio_code
-    WHEN 'GROSS_MARGIN' THEN k.gross_margin_percent
-    WHEN 'NET_MARGIN' THEN k.net_margin_percent
-    WHEN 'EBITDA_MARGIN' THEN k.ebitda_margin_percent
-    WHEN 'DSO' THEN k.dso
-    WHEN 'CM' THEN k.contribution_margin_percent
-  END AS actual_value,
-  
-  -- PRE-COMPUTED: is_on_target
-  CASE 
-    WHEN t.comparison_type = 'gte' AND (
-      CASE t.ratio_code
-        WHEN 'GROSS_MARGIN' THEN k.gross_margin_percent
-        WHEN 'NET_MARGIN' THEN k.net_margin_percent
-        WHEN 'EBITDA_MARGIN' THEN k.ebitda_margin_percent
-        WHEN 'CM' THEN k.contribution_margin_percent
-        ELSE 0
-      END
-    ) >= t.target_value THEN true
-    WHEN t.comparison_type = 'lte' AND k.dso <= t.target_value THEN true
-    ELSE false
-  END AS is_on_target,
-  
-  -- PRE-COMPUTED: progress (capped at 100)
-  LEAST(
-    ROUND(
-      CASE t.comparison_type
-        WHEN 'gte' THEN (
-          CASE t.ratio_code
-            WHEN 'GROSS_MARGIN' THEN k.gross_margin_percent
-            WHEN 'NET_MARGIN' THEN k.net_margin_percent
-            WHEN 'EBITDA_MARGIN' THEN k.ebitda_margin_percent
-            WHEN 'CM' THEN k.contribution_margin_percent
-            ELSE 0
-          END / NULLIF(t.target_value, 0) * 100
-        )
-        WHEN 'lte' THEN (
-          t.target_value / NULLIF(k.dso, 0) * 100
-        )
-        ELSE 0
-      END::NUMERIC, 0
-    ),
-    100
-  ) AS progress_percent
-  
-FROM v_financial_report_kpis k
-JOIN financial_ratio_targets t ON k.tenant_id = t.tenant_id;
-```
-
----
-
-## PHASE 2.2: HOOK LAYER (THIN WRAPPER)
-
-### 2.2.1 Tạo `src/hooks/useFinancialReportData.ts`
+**File: `src/hooks/useExecutiveHealthScores.ts`**
 
 ```typescript
-/**
- * useFinancialReportData - SSOT-Compliant Financial Report Hook
- * 
- * ZERO calculations - fetch precomputed data only
- */
-
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
-
-export interface FinancialKPIs {
-  netRevenue: number;
-  netRevenueM: number;
-  grossProfit: number;
-  grossProfitM: number;
-  grossMarginPercent: number;
-  totalCost: number;
-  totalCostM: number;
-  netMarginPercent: number;
-  ebitdaMarginPercent: number;
-  contributionMarginPercent: number;
-  cashToday: number;
-  cashTodayM: number;
-  cashRunwayMonths: number;
-  dso: number;
-  totalAR: number;
-  overdueAR: number;
-  overdueARPercent: number;
-  revenueMomChange: number | null;
-  revenueYoyChange: number | null;
-  snapshotAt: string;
-}
-
-export interface FinancialInsight {
-  type: 'success' | 'warning' | 'danger';
-  title: string;
-  description: string;
-}
-
-export interface FinancialRatio {
-  ratioCode: string;
-  name: string;
-  value: number;
-  target: number;
-  unit: string;
-  isOnTarget: boolean;
-  progress: number;
-}
-
-export function useFinancialReportData() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
-
+// ZERO calculations - fetch precomputed only
+export function useExecutiveHealthScores() {
+  const { data: tenantId } = useActiveTenantId();
+  
   return useQuery({
-    queryKey: ['financial-report-ssot', tenantId],
+    queryKey: ['executive-health-scores', tenantId],
     queryFn: async () => {
-      if (!tenantId) return null;
-
-      const [kpisRes, insightsRes, ratiosRes] = await Promise.all([
-        // 1. KPIs with precomputed values
-        supabase
-          .from('v_financial_report_kpis')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        
-        // 2. Pre-generated insights
-        supabase
-          .from('v_financial_insights')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        
-        // 3. Ratios with targets (pre-computed progress)
-        supabase
-          .from('v_financial_ratios_with_targets')
-          .select('*')
-          .eq('tenant_id', tenantId),
-      ]);
-
-      // Map KPIs - DIRECT mapping, NO calculations
-      const kpis: FinancialKPIs | null = kpisRes.data ? {
-        netRevenue: Number(kpisRes.data.net_revenue) || 0,
-        netRevenueM: Number(kpisRes.data.net_revenue_m) || 0,
-        grossProfit: Number(kpisRes.data.gross_profit) || 0,
-        grossProfitM: Number(kpisRes.data.gross_profit_m) || 0,
-        grossMarginPercent: Number(kpisRes.data.gross_margin_percent) || 0,
-        totalCost: Number(kpisRes.data.total_cost) || 0,
-        totalCostM: Number(kpisRes.data.total_cost_m) || 0,
-        netMarginPercent: Number(kpisRes.data.net_margin_percent) || 0,
-        ebitdaMarginPercent: Number(kpisRes.data.ebitda_margin_percent) || 0,
-        contributionMarginPercent: Number(kpisRes.data.contribution_margin_percent) || 0,
-        cashToday: Number(kpisRes.data.cash_today) || 0,
-        cashTodayM: Number(kpisRes.data.cash_today_m) || 0,
-        cashRunwayMonths: Number(kpisRes.data.cash_runway_months) || 0,
-        dso: Number(kpisRes.data.dso) || 0,
-        totalAR: Number(kpisRes.data.total_ar) || 0,
-        overdueAR: Number(kpisRes.data.overdue_ar) || 0,
-        overdueARPercent: Number(kpisRes.data.overdue_ar_percent) || 0,
-        revenueMomChange: kpisRes.data.revenue_mom_change,
-        revenueYoyChange: kpisRes.data.revenue_yoy_change,
-        snapshotAt: kpisRes.data.snapshot_at,
-      } : null;
-
-      // Map Insights - filter only those with show=true
-      const insights: FinancialInsight[] = [];
-      if (insightsRes.data) {
-        const i = insightsRes.data;
-        if (i.gross_margin_show && i.gross_margin_title) {
-          insights.push({ type: i.gross_margin_status, title: i.gross_margin_title, description: i.gross_margin_description });
-        }
-        if (i.dso_show && i.dso_title) {
-          insights.push({ type: i.dso_status, title: i.dso_title, description: i.dso_description });
-        }
-        if (i.net_margin_show && i.net_margin_title) {
-          insights.push({ type: i.net_margin_status, title: i.net_margin_title, description: i.net_margin_description });
-        }
-        if (i.ar_show && i.ar_title) {
-          insights.push({ type: i.ar_status, title: i.ar_title, description: i.ar_description });
-        }
-        if (i.cash_show && i.cash_title) {
-          insights.push({ type: i.cash_status, title: i.cash_title, description: i.cash_description });
-        }
-      }
-
-      // Map Ratios - DIRECT mapping
-      const ratios: FinancialRatio[] = (ratiosRes.data || []).map(r => ({
-        ratioCode: r.ratio_code,
-        name: r.ratio_name,
-        value: Number(r.actual_value) || 0,
-        target: Number(r.target_value) || 0,
-        unit: r.unit || '%',
-        isOnTarget: Boolean(r.is_on_target),
-        progress: Number(r.progress_percent) || 0,
-      }));
-
-      return { kpis, insights, ratios };
+      const { data } = await supabase
+        .from('v_executive_health_scores')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      
+      // Direct mapping - NO calculations
+      return {
+        dimensions: [
+          { dimension: 'Thanh khoan', score: data.liquidity_score, status: data.liquidity_status, description: data.liquidity_description },
+          { dimension: 'Cong no', score: data.receivables_score, status: data.receivables_status, description: data.receivables_description },
+          // ... 4 more dimensions
+        ],
+        overallScore: data.overall_score,
+        goodCount: data.good_count,
+        warningCount: data.warning_count,
+        criticalCount: data.critical_count,
+      };
     },
-    enabled: !!tenantId && !tenantLoading,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
   });
 }
 ```
 
----
+### 3.3 UI Refactoring
 
-## PHASE 2.3: UI LAYER (DISPLAY ONLY)
+**File: `ExecutiveSummaryPage.tsx`**
 
-### Refactor `FinancialReportsPage.tsx`
+Xoa:
+- Lines 56-106: `HEALTH_FORMULAS` object
+- Lines 183-271: `calculateDimensions()` function voi magic numbers
+- Lines 273-279: `getOverallStatus()` function
 
-**Xóa hoàn toàn:**
-- Lines 90-98: `totalCost`, `netMarginPercent`, `overdueARPercent` calculations
-- Lines 101-135: `financialRatios` useMemo với hardcoded targets
-- Lines 138-189: `keyInsights` useMemo với threshold logic
-
-**Thay thế bằng:**
+Thay bang:
 ```typescript
-import { useFinancialReportData } from '@/hooks/useFinancialReportData';
+const { data: healthData } = useExecutiveHealthScores();
 
-export default function FinancialReportsPage() {
-  const [activeTab, setActiveTab] = useState('analytics');
-  const { data, isLoading } = useFinancialReportData();
-  const { data: monthlySummary } = useFinanceMonthlySummary({ months: 12 });
-
-  // NO calculations - all values from hook
-  const kpis = data?.kpis;
-  const insights = data?.insights || [];
-  const ratios = data?.ratios || [];
-
-  // Chart data mapping only
-  const monthlyChartData = useMemo(() => {
-    if (!monthlySummary || monthlySummary.length === 0) return [];
-    return monthlySummary.map(m => ({
-      month: m.yearMonth,
-      revenue: m.netRevenue,
-      profit: m.grossProfit,
-      cogs: m.cogs,
-    }));
-  }, [monthlySummary]);
-
-  return (
-    <>
-      {/* Hero KPIs - direct from kpis object */}
-      <Card>
-        <p>{kpis?.netRevenueM} trieu</p>
-        {kpis?.revenueMomChange && (
-          <p className="text-success">+{kpis.revenueMomChange.toFixed(1)}% MoM</p>
-        )}
-      </Card>
-
-      <Card>
-        <p>{kpis?.totalCostM} trieu</p>  {/* Pre-computed in DB */}
-      </Card>
-
-      {/* Insights - pre-generated from DB */}
-      {insights.map((insight, idx) => (
-        <InsightCard key={idx}
-          type={insight.type}  // 'success'|'warning'|'danger' from DB
-          title={insight.title}
-          description={insight.description}
-        />
-      ))}
-
-      {/* Ratios - all pre-computed */}
-      {ratios.map((ratio) => (
-        <Card key={ratio.ratioCode}>
-          <Badge variant={ratio.isOnTarget ? 'default' : 'secondary'}>
-            {ratio.isOnTarget ? 'Dat' : 'Chua dat'}  {/* Boolean from DB */}
-          </Badge>
-          <Progress value={ratio.progress} />  {/* Pre-calculated, capped at 100 */}
-        </Card>
-      ))}
-    </>
-  );
-}
+// Direct render - NO calculations
+<RadarChart data={healthData?.dimensions} />
+<span>{healthData?.overallScore} diem</span>
+<div>{healthData?.goodCount} chi so tot</div>
 ```
 
 ---
 
-## CHECKLIST TUÂN THỦ SAU KHI HOÀN THÀNH
+## PHASE 4: VARIANCE ANALYSIS (MEDIUM)
 
-| Yêu cầu | Trước | Sau |
-|---------|-------|-----|
-| Client-side calculations | 3 (lines 90-98) | 0 |
-| Magic numbers | 5 (30, 10, 15, 30, 40) | 0 (from DB table) |
-| Business logic trong FE | keyInsights useMemo | 0 (in v_financial_insights) |
-| Progress calculations | Math.min(...) | 0 (pre-computed) |
-| Threshold comparisons | >= checks | 0 (is_on_target from DB) |
+### 4.1 Database Changes
+
+**Update View: `v_variance_summary`**
+Pre-compute `variancePct` va `isFavorable` trong SQL.
+
+```sql
+CREATE VIEW v_variance_with_status AS
+SELECT 
+  *,
+  -- Pre-compute variance percentage
+  CASE WHEN budget_amount != 0 
+    THEN ROUND((variance_to_budget / budget_amount * 100)::NUMERIC, 1)
+    ELSE 0 
+  END as variance_pct,
+  
+  -- Pre-compute favorable status
+  CASE 
+    WHEN category = 'revenue' AND variance_to_budget >= 0 THEN true
+    WHEN category != 'revenue' AND variance_to_budget <= 0 THEN true
+    ELSE false
+  END as is_favorable
+
+FROM variance_analysis;
+```
+
+### 4.2 Hook Update
+
+**File: `useVarianceAnalysis.ts`**
+
+Xoa:
+- Lines 49: `variancePct` calculation trong `categoryChartData`
+- Lines 52-57: `isFavorable()` function
+
+Thay bang:
+```typescript
+// Data already contains is_favorable and variance_pct from view
+const chartData = data.map(v => ({
+  ...v,
+  variancePct: v.variance_pct,      // From DB
+  isFavorable: v.is_favorable,       // From DB
+}));
+```
+
+### 4.3 UI Update
+
+**File: `VarianceAnalysisContent.tsx`**
+
+Xoa:
+- Lines 52-57: `isFavorable()` function
+
+Thay bang:
+```typescript
+// Use pre-computed is_favorable from data
+const favorable = v.is_favorable;  // Boolean from DB
+```
 
 ---
 
-## FILES THAY ĐỔI
+## PHASE 5: CASH CONVERSION CYCLE (MEDIUM)
 
-| File | Action |
-|------|--------|
-| `supabase/migrations/xxx.sql` | Create table + 3 views |
-| `src/hooks/useFinancialReportData.ts` | Create (thin wrapper) |
-| `src/pages/FinancialReportsPage.tsx` | Refactor (remove all calculations) |
-| `src/integrations/supabase/types.ts` | Auto-updated |
+### 5.1 Database Changes
+
+**Update View hoac Table: `working_capital_targets`**
+Luu CCC thresholds co the cau hinh.
+
+```sql
+CREATE TABLE working_capital_targets (
+  tenant_id UUID PRIMARY KEY REFERENCES tenants(id),
+  dso_target NUMERIC DEFAULT 30,
+  dpo_target NUMERIC DEFAULT 45,
+  dio_target NUMERIC DEFAULT 45,
+  ccc_good_multiplier NUMERIC DEFAULT 1.0,      -- <= benchmark
+  ccc_warning_multiplier NUMERIC DEFAULT 1.5,   -- <= benchmark * 1.5
+  -- > warning = danger
+);
+```
+
+**Update View: Add CCC status**
+
+```sql
+CREATE VIEW v_ccc_with_status AS
+SELECT 
+  wc.*,
+  t.ccc_good_multiplier,
+  t.ccc_warning_multiplier,
+  
+  -- Pre-compute CCC status
+  CASE 
+    WHEN wc.ccc_days <= t.ccc_benchmark THEN 'good'
+    WHEN wc.ccc_days <= t.ccc_benchmark * t.ccc_warning_multiplier THEN 'warning'
+    ELSE 'danger'
+  END as ccc_status,
+  
+  -- Pre-compute improvement delta
+  wc.ccc_days - t.ccc_benchmark as ccc_improvement
+
+FROM working_capital_metrics wc
+JOIN working_capital_targets t ON wc.tenant_id = t.tenant_id;
+```
+
+### 5.2 UI Update
+
+**File: `CashConversionCyclePage.tsx`**
+
+Xoa:
+- Line 70: `cccStatus = data.ccc <= data.industryBenchmark.ccc ? 'good' : data.ccc <= data.industryBenchmark.ccc * 1.5 ? 'warning' : 'danger'`
+- Line 71: `cccImprovement = data.ccc - data.industryBenchmark.ccc`
+
+Thay bang:
+```typescript
+// Use pre-computed values from hook
+const cccStatus = data.cccStatus;        // 'good' | 'warning' | 'danger' from DB
+const cccImprovement = data.cccImprovement;  // Number from DB
+```
 
 ---
 
-## THỜI GIAN ƯỚC TÍNH
+## PHASE 6: AR OPERATIONS (MINOR)
 
-| Phase | Tasks | Effort |
-|-------|-------|--------|
-| 2.1 | Database migrations | ~15 phút |
-| 2.2 | Hook implementation | ~10 phút |
-| 2.3 | UI refactoring | ~15 phút |
-| **Total** | | **~40 phút** |
+### 6.1 Update Snapshot View
+
+**Add to `central_metrics_snapshots` hoac view:**
+
+```sql
+-- In compute_central_metrics_snapshot RPC
+overdue_ar_percent := CASE WHEN total_ar > 0 
+  THEN ROUND((overdue_ar / total_ar * 100)::NUMERIC, 1)
+  ELSE 0 END;
+```
+
+### 6.2 UI Update
+
+**File: `AROperations.tsx`**
+
+Xoa:
+- Line 310: `${((kpi.overdueAR / kpi.totalAR) * 100).toFixed(1)}%`
+- Line 317-319: DSO comparison with hardcoded 45
+
+Thay bang:
+```typescript
+// Use pre-computed from snapshot
+subtitle={kpi.totalAR > 0 ? `${snapshot.overdueARPercent}% ${t('ar.ofTotalAR')}` : undefined}
+
+// Use target from DB
+trend={kpi.totalAR > 0 ? { value: kpi.dso - snapshot.dsoTarget, label: `vs target ${snapshot.dsoTarget}d` } : undefined}
+```
+
+---
+
+## PHASE 7: WORKING CAPITAL PAGE (MINOR)
+
+### 7.1 Database: Targets Table
+
+Da co trong Phase 5 (`working_capital_targets`). Them seed data:
+
+```sql
+INSERT INTO working_capital_targets (tenant_id, dso_target, dpo_target, dio_target)
+SELECT id, 30, 45, 45 FROM tenants
+ON CONFLICT (tenant_id) DO NOTHING;
+```
+
+### 7.2 UI Update
+
+**File: `WorkingCapitalPage.tsx`**
+
+Xoa:
+- Lines 48-51: Hardcoded targets `target: current?.target_dso || 30`
+- Lines 57-71: `cccChartData` voi hardcoded targets
+
+Thay bang:
+```typescript
+// Use targets from summary (pre-fetched from DB)
+const cccData = [
+  { name: 'DSO', days: current?.dso_days, target: summary?.targets?.dso },
+  { name: 'DIO', days: current?.dio_days, target: summary?.targets?.dio },
+  { name: 'DPO', days: current?.dpo_days, target: summary?.targets?.dpo },
+];
+```
+
+---
+
+## PHASE 8: EXPENSES PAGE (MINOR)
+
+### 8.1 Update Hook
+
+**File: `useExpensesSummary`** - Them `expenseChange` pre-computed.
+
+```sql
+-- In v_expenses_summary view
+expense_change_percent := CASE WHEN prior_period > 0 
+  THEN ROUND(((current_period - prior_period) / prior_period * 100)::NUMERIC, 1)
+  ELSE 0 END;
+```
+
+### 8.2 UI Update
+
+**File: `ExpensesPage.tsx`**
+
+Xoa:
+- Lines 120-128: `prevPeriodExpenses` va `expenseChange` calculation
+
+Thay bang:
+```typescript
+// Use pre-computed from summary
+const expenseChange = expensesSummary?.expenseChangePercent || 0;
+```
+
+---
+
+## FILES THAY DOI TONG KET
+
+| Phase | File | Action |
+|-------|------|--------|
+| 3 | `supabase/migrations/xxx.sql` | Create `health_score_formulas` + `v_executive_health_scores` |
+| 3 | `src/hooks/useExecutiveHealthScores.ts` | Create (thin wrapper) |
+| 3 | `src/pages/ExecutiveSummaryPage.tsx` | Refactor (remove 200+ lines) |
+| 4 | `supabase/migrations/xxx.sql` | Update variance views |
+| 4 | `src/hooks/useVarianceAnalysis.ts` | Remove `isFavorable()` |
+| 4 | `src/components/performance/VarianceAnalysisContent.tsx` | Use `is_favorable` from DB |
+| 5 | `supabase/migrations/xxx.sql` | Create `working_capital_targets` + view |
+| 5 | `src/pages/CashConversionCyclePage.tsx` | Use `cccStatus` from DB |
+| 6 | `supabase/migrations/xxx.sql` | Add `overdue_ar_percent` to snapshot |
+| 6 | `src/pages/AROperations.tsx` | Use pre-computed percentage |
+| 7 | `src/pages/WorkingCapitalPage.tsx` | Use targets from DB |
+| 8 | `src/pages/ExpensesPage.tsx` | Use `expenseChangePercent` from DB |
+
+---
+
+## CHECKLIST TUAN THU SAU HOAN THANH
+
+| Metric | Truoc | Sau |
+|--------|-------|-----|
+| Client-side calculations | 15+ | 0 |
+| Magic numbers | 20+ (×15, ×2.5, 30, 45, 1.5) | 0 (all in DB) |
+| Threshold comparisons trong FE | 10+ | 0 |
+| `isFavorable()` trong FE | 2 | 0 |
+| Hardcoded targets | 8+ | 0 (from `*_targets` tables) |
+
+---
+
+## THOI GIAN UOC TINH
+
+| Phase | Effort |
+|-------|--------|
+| Phase 3: Executive Summary | ~45 phut |
+| Phase 4: Variance Analysis | ~20 phut |
+| Phase 5: CCC Page | ~25 phut |
+| Phase 6: AR Operations | ~10 phut |
+| Phase 7: Working Capital | ~10 phut |
+| Phase 8: Expenses | ~10 phut |
+| **Tong** | **~2 gio** |
+
+---
+
+## THU TU THUC HIEN
+
+1. **Phase 3** (Critical) - Executive Summary: Uu tien cao nhat vi co nhieu magic numbers va business logic
+2. **Phase 5** (Medium) - CCC: Tao `working_capital_targets` table dung chung
+3. **Phase 4** (Medium) - Variance: Nhanh vi chi can update view
+4. **Phases 6-8** (Minor) - Chay song song vi doc lap
+
