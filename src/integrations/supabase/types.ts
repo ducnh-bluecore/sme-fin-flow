@@ -7217,6 +7217,11 @@ export type Database = {
           gross_profit: number
           id: string
           input_hash: string | null
+          locked_cash_ads: number | null
+          locked_cash_inventory: number | null
+          locked_cash_ops: number | null
+          locked_cash_platform: number | null
+          locked_cash_total: number | null
           ltv: number
           ltv_cac_ratio: number
           marketing_roas: number
@@ -7263,6 +7268,11 @@ export type Database = {
           gross_profit?: number
           id?: string
           input_hash?: string | null
+          locked_cash_ads?: number | null
+          locked_cash_inventory?: number | null
+          locked_cash_ops?: number | null
+          locked_cash_platform?: number | null
+          locked_cash_total?: number | null
           ltv?: number
           ltv_cac_ratio?: number
           marketing_roas?: number
@@ -7309,6 +7319,11 @@ export type Database = {
           gross_profit?: number
           id?: string
           input_hash?: string | null
+          locked_cash_ads?: number | null
+          locked_cash_inventory?: number | null
+          locked_cash_ops?: number | null
+          locked_cash_platform?: number | null
+          locked_cash_total?: number | null
           ltv?: number
           ltv_cac_ratio?: number
           marketing_roas?: number
@@ -26275,6 +26290,19 @@ export type Database = {
           },
         ]
       }
+      v_locked_cash_detail: {
+        Row: {
+          lock_type: string | null
+          locked_amount: number | null
+          product_name: string | null
+          quantity: number | null
+          reference_date: string | null
+          sku: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       v_mdp_campaign_attribution: {
         Row: {
           attributed_customers: number | null
@@ -27660,6 +27688,11 @@ export type Database = {
           gross_profit: number
           id: string
           input_hash: string | null
+          locked_cash_ads: number | null
+          locked_cash_inventory: number | null
+          locked_cash_ops: number | null
+          locked_cash_platform: number | null
+          locked_cash_total: number | null
           ltv: number
           ltv_cac_ratio: number
           marketing_roas: number

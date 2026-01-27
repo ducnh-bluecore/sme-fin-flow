@@ -82,6 +82,13 @@ export interface FinanceTruthSnapshot {
   total_customers: number;
   repeat_customer_rate: number;
   
+  // Locked Cash (Phase 4)
+  locked_cash_inventory: number;
+  locked_cash_ads: number;
+  locked_cash_ops: number;
+  locked_cash_platform: number;
+  locked_cash_total: number;
+  
   // Period context
   period_start: string;
   period_end: string;
@@ -142,6 +149,13 @@ export interface FormattedFinanceSnapshot {
   avgOrderValue: number;
   totalCustomers: number;
   repeatCustomerRate: number;
+  
+  // Locked Cash (Phase 4)
+  lockedCashInventory: number;
+  lockedCashAds: number;
+  lockedCashOps: number;
+  lockedCashPlatform: number;
+  lockedCashTotal: number;
   
   // Period
   periodStart: string;
@@ -301,6 +315,13 @@ function mapToFormatted(
     avgOrderValue: Number(raw.avg_order_value) || 0,
     totalCustomers: Number(raw.total_customers) || 0,
     repeatCustomerRate: Number(raw.repeat_customer_rate) || 0,
+    
+    // Locked Cash (Phase 4 - DB-First, no magic numbers)
+    lockedCashInventory: Number(raw.locked_cash_inventory) || 0,
+    lockedCashAds: Number(raw.locked_cash_ads) || 0,
+    lockedCashOps: Number(raw.locked_cash_ops) || 0,
+    lockedCashPlatform: Number(raw.locked_cash_platform) || 0,
+    lockedCashTotal: Number(raw.locked_cash_total) || 0,
     
     // Period
     periodStart: raw.period_start,

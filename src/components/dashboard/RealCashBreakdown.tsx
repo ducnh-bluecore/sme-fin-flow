@@ -48,7 +48,7 @@ export default function RealCashBreakdown() {
 
   const isLoading = snapshotLoading || runwayLoading;
 
-  // Map snapshot to metrics shape for backward compatibility
+  // Map snapshot to metrics shape - now using DB-computed locked cash (Phase 4)
   const metrics = snapshot ? {
     cashToday: snapshot.cashToday,
     totalAR: snapshot.totalAR,
@@ -56,7 +56,13 @@ export default function RealCashBreakdown() {
     totalInventoryValue: snapshot.totalInventoryValue,
     totalMarketingSpend: snapshot.totalMarketingSpend,
     arAgingCurrent: snapshot.arAgingCurrent,
-    arAging90d: snapshot.arAging90d + (snapshot.arAging60d ?? 0), // Combine 60+ days as at-risk
+    arAging90d: snapshot.arAging90d + (snapshot.arAging60d ?? 0),
+    // Phase 4: Use DB-computed locked cash instead of magic numbers
+    lockedCashInventory: snapshot.lockedCashInventory,
+    lockedCashAds: snapshot.lockedCashAds,
+    lockedCashOps: snapshot.lockedCashOps,
+    lockedCashPlatform: snapshot.lockedCashPlatform,
+    lockedCashTotal: snapshot.lockedCashTotal,
   } : null;
 
   if (isLoading) {
@@ -80,11 +86,12 @@ export default function RealCashBreakdown() {
   const overdueAR = metrics?.overdueAR || 0;
   const currentAR = totalAR - overdueAR;
   
-  // Estimate locked cash (inventory + estimated ads float)
-  const inventoryValue = metrics?.totalInventoryValue || 0;
-  // Estimate ads float based on marketing spend
-  const estimatedAdsFloat = (metrics?.totalMarketingSpend || 0) * 0.2; // 20% of marketing as float
-  const lockedCash = inventoryValue + estimatedAdsFloat;
+  // Phase 4: Use DB-computed locked cash (no magic numbers)
+  const inventoryValue = metrics?.lockedCashInventory || metrics?.totalInventoryValue || 0;
+  const adsFloat = metrics?.lockedCashAds || 0;
+  const opsFloat = metrics?.lockedCashOps || 0;
+  const platformHold = metrics?.lockedCashPlatform || 0;
+  const lockedCash = metrics?.lockedCashTotal || (inventoryValue + adsFloat);
 
   // Calculate risk levels
   const totalCashPosition = bankBalance + currentAR;
@@ -253,9 +260,9 @@ export default function RealCashBreakdown() {
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2 mb-1">
                   <Megaphone className="h-4 w-4 text-amber-500" />
-                  <span className="text-xs text-muted-foreground">Ads Float (ước tính)</span>
+                  <span className="text-xs text-muted-foreground">Ads Float</span>
                 </div>
-                <p className="font-semibold">{formatVNDCompact(estimatedAdsFloat)}</p>
+                <p className="font-semibold">{formatVNDCompact(adsFloat)}</p>
               </div>
             </div>
           </div>

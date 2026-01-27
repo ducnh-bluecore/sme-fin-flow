@@ -60,6 +60,7 @@ const navItems: NavItem[] = [
     icon: LayoutDashboard,
     children: [
       { labelKey: 'nav.dashboard', href: '/dashboard' },
+      { labelKey: 'nav.cashPosition', href: '/cash-position' },
       { labelKey: 'nav.cashForecast', href: '/cash-forecast' },
       { labelKey: 'nav.cashFlowDirect', href: '/cash-flow-direct' },
       { labelKey: 'nav.workingCapitalHub', href: '/working-capital-hub' },
