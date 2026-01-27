@@ -1,21 +1,30 @@
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Package, AlertTriangle, TrendingDown, Clock } from 'lucide-react';
+import { Package, AlertTriangle, TrendingDown, Clock, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { useInventoryAging } from '@/hooks/useInventoryAging';
 import { formatCurrency } from '@/lib/formatters';
 import { LoadingState, EmptyState } from '@/components/shared';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { InventoryDecisionCards } from '@/components/inventory/InventoryDecisionCards';
+import { InventoryImportButton } from '@/components/inventory/InventoryImportButton';
+import { useQueryClient } from '@tanstack/react-query';
 
 const COLORS = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
 
 export default function InventoryAgingPage() {
   const { items, agingBuckets, summary, isLoading, error } = useInventoryAging();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+  };
 
   if (isLoading) return <LoadingState variant="page" />;
 
@@ -41,14 +50,23 @@ export default function InventoryAgingPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3"
+          className="flex items-center justify-between"
         >
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Package className="w-6 h-6 text-primary" />
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Package className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold">{t('inventory.title')}</h1>
+              <p className="text-muted-foreground">{t('inventory.subtitle')}</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">{t('inventory.title')}</h1>
-            <p className="text-muted-foreground">{t('inventory.subtitle')}</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Làm mới
+            </Button>
+            <InventoryImportButton onImportComplete={handleRefresh} />
           </div>
         </motion.div>
 
@@ -112,6 +130,8 @@ export default function InventoryAgingPage() {
           />
         ) : (
           <>
+            {/* Decision Cards - Value-Add Insights */}
+            <InventoryDecisionCards agingBuckets={agingBuckets} summary={summary} />
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>

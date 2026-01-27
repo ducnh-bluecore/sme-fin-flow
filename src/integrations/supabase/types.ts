@@ -14638,6 +14638,7 @@ export type Database = {
           id: string
           last_sold_date: string | null
           notes: string | null
+          product_id: string | null
           product_name: string
           quantity: number
           received_date: string
@@ -14657,6 +14658,7 @@ export type Database = {
           id?: string
           last_sold_date?: string | null
           notes?: string | null
+          product_id?: string | null
           product_name: string
           quantity?: number
           received_date: string
@@ -14676,6 +14678,7 @@ export type Database = {
           id?: string
           last_sold_date?: string | null
           notes?: string | null
+          product_id?: string | null
           product_name?: string
           quantity?: number
           received_date?: string
@@ -14690,6 +14693,13 @@ export type Database = {
           warehouse_location?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_items_supplier_id_fkey"
             columns: ["supplier_id"]

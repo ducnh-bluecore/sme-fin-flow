@@ -585,6 +585,9 @@ export function FileImportDialog({ open, onOpenChange, onImportComplete }: FileI
           case 'debit_notes':
             result = await dataImport.importDebitNotes.mutateAsync(rows);
             break;
+          case 'inventory_items':
+            result = await dataImport.importInventoryItems.mutateAsync(rows);
+            break;
           default:
             result = { success: 0, failed: rows.length, errors: [`Không hỗ trợ loại dữ liệu: ${templateId}`] };
         }

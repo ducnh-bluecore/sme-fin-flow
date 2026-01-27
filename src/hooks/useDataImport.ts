@@ -875,6 +875,64 @@ export function useDataImport() {
     }
   });
 
+  // Import inventory items with product lookup from SSOT
+  const importInventoryItems = useMutation({
+    mutationFn: async (rows: Record<string, string>[]): Promise<ImportResult> => {
+      if (!tenantId) throw new Error('Chưa chọn tenant');
+      
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      
+      for (const row of rows) {
+        try {
+          // Lookup product by SKU to get product_id and auto-fill metadata
+          const sku = row.sku || row.SKU || row.code || row.Code;
+          let product: { id: string; name: string; category: string | null; cost_price: number | null } | null = null;
+          
+          if (sku) {
+            const { data } = await supabase
+              .from('products')
+              .select('id, name, category, cost_price')
+              .eq('tenant_id', tenantId)
+              .eq('sku', sku)
+              .maybeSingle();
+            product = data;
+          }
+          
+          const { error } = await supabase.from('inventory_items').insert({
+            tenant_id: tenantId,
+            product_id: product?.id || null,  // Link to products SSOT
+            sku: sku || `SKU-${Date.now()}`,
+            product_name: product?.name || row.product_name || row.ProductName || row.name || '',
+            category: product?.category || row.category || row.Category || null,
+            quantity: parseInt(row.quantity_on_hand || row.quantity || row.Quantity || '0') || 0,
+            unit_cost: product?.cost_price || parseFloat(row.unit_cost || row.UnitCost || '0') || 0,
+            received_date: row.last_received_date || row.received_date || row.ReceivedDate || new Date().toISOString().split('T')[0],
+            last_sold_date: row.last_sold_date || row.LastSoldDate || null,
+            warehouse_location: row.warehouse_location || row.WarehouseLocation || null,
+            reorder_point: parseInt(row.reorder_point || row.ReorderPoint || '0') || null,
+            status: 'active',
+            notes: row.notes || row.Notes || null,
+          });
+          
+          if (error) {
+            result.failed++;
+            result.errors.push(`${sku}: ${error.message}`);
+          } else {
+            result.success++;
+          }
+        } catch (e) {
+          result.failed++;
+          result.errors.push(`${row.sku}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      }
+      
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-items'] });
+    }
+  });
+
   return {
     importCustomers,
     importVendors,
@@ -896,6 +954,7 @@ export function useDataImport() {
     importJournalEntries,
     importCreditNotes,
     importDebitNotes,
+    importInventoryItems,
     isReady: !!tenantId,
   };
 }
