@@ -1,503 +1,418 @@
 
-# KẾ HOẠCH CẬP NHẬT TAB "RỦI RO TẬP TRUNG" CHO BÁN LẺ
+# KẾ HOẠCH NÂNG CẤP TRANG DECISION SUPPORT THÀNH "WOW"
 
-## TÓM TẮT
+## MỤC TIÊU
 
-Cập nhật trang Risk Dashboard tab "Rủi ro tập trung" từ mock data sang real data với 5 loại rủi ro đặc thù cho bán lẻ e-commerce.
-
-## PHÂN TÍCH DỮ LIỆU HIỆN TẠI
-
-Từ database E2E tenant, tôi đã xác minh có đủ dữ liệu:
-
-| Loại rủi ro | Dữ liệu hiện có | Top 3 Concentration |
-|-------------|-----------------|---------------------|
-| **Kênh bán** | ✅ cdp_orders.channel | Shopee 37% + Lazada 26% + Website 21% = 84% |
-| **Danh mục** | ✅ cdp_order_items.category | Áo 35% + Quần 24% + Váy 19% = 78% |
-| **Khách hàng** | ✅ cdp_orders.customer_id | Top 10 KH chỉ chiếm 11.5% → phân tán tốt |
-| **SKU** | ✅ cdp_order_items + products | Top 5 SKU chiếm 8.5% margin → phân tán |
-| **Mùa vụ** | ✅ cdp_orders.order_at | Q4 (Oct-Dec) chiếm 34% → rủi ro mùa vụ |
-
-## THIẾT KẾ MỚI: 5 RỦI RO TẬP TRUNG BÁN LẺ
-
-### 1. Rủi ro tập trung Kênh bán (CRITICAL cho e-commerce)
-- **Metric**: % doanh thu từ top 3 kênh
-- **Ngưỡng cảnh báo**: > 70% từ 1 kênh hoặc > 90% từ 2 kênh
-- **Rủi ro**: Platform fee tăng, tài khoản bị khóa, thay đổi chính sách
-
-### 2. Rủi ro tập trung Danh mục sản phẩm  
-- **Metric**: % doanh thu từ top 3 danh mục
-- **Ngưỡng cảnh báo**: > 60% từ 1 danh mục
-- **Rủi ro**: Trend thay đổi, nguồn cung gián đoạn
-
-### 3. Rủi ro tập trung Khách hàng
-- **Metric**: HHI Index (Herfindahl-Hirschman Index) hoặc % từ top 10 KH
-- **Ngưỡng cảnh báo**: Top 10 KH > 30% doanh thu
-- **Rủi ro**: Mất khách lớn ảnh hưởng doanh thu
-
-### 4. Rủi ro tập trung SKU Hero
-- **Metric**: % lợi nhuận từ top 5 SKU
-- **Ngưỡng cảnh báo**: > 30% margin từ 1 SKU
-- **Rủi ro**: Hết hàng, cạnh tranh giá
-
-### 5. Rủi ro mùa vụ (Seasonal Concentration)
-- **Metric**: Seasonality Index (Peak month / Average month)
-- **Ngưỡng cảnh báo**: SI > 1.5 (peak gấp 1.5 lần trung bình)
-- **Rủi ro**: Cash lock trong hàng tồn trước peak, revenue cliff sau peak
+Biến trang từ "Financial Calculator" thành "CFO Decision Command Center" với:
+- Visual impact mạnh mẽ
+- AI-first design
+- Actionable decision workflow
+- Industry benchmarks
 
 ---
 
-## KIẾN TRÚC KỸ THUẬT
+## PHẦN 1: CẤU TRÚC MỚI
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  DATABASE LAYER                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│  v_retail_concentration_risk (NEW VIEW)                         │
-│    ├─ channel_concentration (from cdp_orders)                   │
-│    ├─ category_concentration (from cdp_order_items)             │
-│    ├─ customer_concentration (from cdp_orders)                  │
-│    ├─ sku_concentration (from cdp_order_items + products)       │
-│    └─ seasonal_concentration (from cdp_orders by month)         │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  HOOK LAYER                                                      │
-├─────────────────────────────────────────────────────────────────┤
-│  useRetailConcentrationRisk() (NEW HOOK)                        │
-│    ├─ channelData: { name, revenue, percent }[]                 │
-│    ├─ categoryData: { name, revenue, percent }[]                │
-│    ├─ customerData: { id, revenue, percent, orderCount }[]      │
-│    ├─ skuData: { sku, name, margin, percent }[]                 │
-│    ├─ seasonalData: { month, revenue, index }[]                 │
-│    └─ alerts: { type, severity, message }[]                     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  UI LAYER - ConcentrationRisk Component (UPDATED)               │
-├─────────────────────────────────────────────────────────────────┤
-│  Layout: Grid 2x2 + 1 full-width                                │
-│    ┌────────────────┬────────────────┐                          │
-│    │ Kênh bán       │ Danh mục       │                          │
-│    │ (PieChart)     │ (PieChart)     │                          │
-│    ├────────────────┼────────────────┤                          │
-│    │ Khách hàng     │ Hero SKU       │                          │
-│    │ (BarChart)     │ (BarChart)     │                          │
-│    ├────────────────┴────────────────┤                          │
-│    │ Mùa vụ (AreaChart - 12 tháng)   │                          │
-│    └─────────────────────────────────┘                          │
-└─────────────────────────────────────────────────────────────────┘
+BEFORE:                                    AFTER:
+┌─────────────────────┬──────┐            ┌──────────────────────────────────────┐
+│ Tabs (6 loại)       │ AI   │            │  HERO DECISION CARD (Full width)     │
+│ ─────────────────── │ Chat │            │  Visual comparison + Recommendation  │
+│ Make vs Buy         │      │            ├──────────────────────────────────────┤
+│ • 2 input cards     │      │            │  SCENARIO SANDBOX (Global toggles)   │
+│ • 1 line chart      │      │            │  [Lạm phát] [Thiếu cung] [Nhu cầu↑]  │
+│                     │      │            ├───────────────────┬──────────────────┤
+│                     │      │            │ ANALYSIS TABS     │ AI ADVISOR       │
+│                     │──────│            │ (Upgraded UI)     │ (Contextual)     │
+│                     │Saved │            │                   │                  │
+│                     │List  │            │                   │                  │
+└─────────────────────┴──────┘            └───────────────────┴──────────────────┘
 ```
 
 ---
 
-## PHẦN 1: DATABASE MIGRATION
+## PHẦN 2: CÁC COMPONENT MỚI
 
-### 1.1 Tạo View `v_retail_concentration_risk`
+### 2.1 Hero Decision Card (Make vs Buy)
 
-```sql
-CREATE OR REPLACE VIEW v_retail_concentration_risk AS
-WITH channel_stats AS (
-  SELECT 
-    tenant_id,
-    channel,
-    SUM(net_revenue) as revenue,
-    100.0 * SUM(net_revenue) / NULLIF(SUM(SUM(net_revenue)) OVER (PARTITION BY tenant_id), 0) as pct
-  FROM cdp_orders
-  WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
-  GROUP BY tenant_id, channel
-),
-category_stats AS (
-  SELECT 
-    o.tenant_id,
-    oi.category,
-    SUM(oi.line_revenue) as revenue,
-    100.0 * SUM(oi.line_revenue) / NULLIF(SUM(SUM(oi.line_revenue)) OVER (PARTITION BY o.tenant_id), 0) as pct
-  FROM cdp_order_items oi
-  JOIN cdp_orders o ON oi.order_id = o.id
-  WHERE o.order_at > CURRENT_DATE - INTERVAL '365 days'
-  GROUP BY o.tenant_id, oi.category
-),
-customer_stats AS (
-  SELECT 
-    tenant_id,
-    customer_id,
-    SUM(net_revenue) as revenue,
-    COUNT(*) as order_count,
-    100.0 * SUM(net_revenue) / NULLIF(SUM(SUM(net_revenue)) OVER (PARTITION BY tenant_id), 0) as pct
-  FROM cdp_orders
-  WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
-  GROUP BY tenant_id, customer_id
-),
-sku_stats AS (
-  SELECT 
-    o.tenant_id,
-    oi.product_id,
-    p.name as product_name,
-    p.category,
-    SUM(oi.line_margin) as margin,
-    100.0 * SUM(oi.line_margin) / NULLIF(SUM(SUM(oi.line_margin)) OVER (PARTITION BY o.tenant_id), 0) as pct
-  FROM cdp_order_items oi
-  JOIN cdp_orders o ON oi.order_id = o.id
-  LEFT JOIN products p ON oi.product_id::uuid = p.id
-  WHERE o.order_at > CURRENT_DATE - INTERVAL '365 days'
-  GROUP BY o.tenant_id, oi.product_id, p.name, p.category
-),
-monthly_stats AS (
-  SELECT 
-    tenant_id,
-    DATE_TRUNC('month', order_at)::date as month,
-    SUM(net_revenue) as revenue
-  FROM cdp_orders
-  WHERE order_at > CURRENT_DATE - INTERVAL '365 days'
-  GROUP BY tenant_id, DATE_TRUNC('month', order_at)
-),
-seasonal_index AS (
-  SELECT 
-    tenant_id,
-    month,
-    revenue,
-    revenue / NULLIF(AVG(revenue) OVER (PARTITION BY tenant_id), 0) as seasonality_index
-  FROM monthly_stats
-)
-SELECT 
-  t.id as tenant_id,
-  -- Channel concentration (top 3)
-  (SELECT jsonb_agg(jsonb_build_object('name', channel, 'revenue', revenue, 'pct', pct) ORDER BY revenue DESC)
-   FROM (SELECT * FROM channel_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 5) x) as channel_concentration,
-  
-  -- Category concentration (top 5)
-  (SELECT jsonb_agg(jsonb_build_object('name', category, 'revenue', revenue, 'pct', pct) ORDER BY revenue DESC)
-   FROM (SELECT * FROM category_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 5) x) as category_concentration,
-   
-  -- Customer concentration (top 10)
-  (SELECT jsonb_agg(jsonb_build_object('id', customer_id, 'revenue', revenue, 'pct', pct, 'orders', order_count) ORDER BY revenue DESC)
-   FROM (SELECT * FROM customer_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 10) x) as customer_concentration,
-   
-  -- SKU concentration (top 5 by margin)
-  (SELECT jsonb_agg(jsonb_build_object('id', product_id, 'name', product_name, 'category', category, 'margin', margin, 'pct', pct) ORDER BY margin DESC)
-   FROM (SELECT * FROM sku_stats WHERE tenant_id = t.id ORDER BY margin DESC LIMIT 5) x) as sku_concentration,
-   
-  -- Seasonal pattern (12 months)
-  (SELECT jsonb_agg(jsonb_build_object('month', month, 'revenue', revenue, 'index', seasonality_index) ORDER BY month)
-   FROM seasonal_index WHERE tenant_id = t.id) as seasonal_pattern,
-   
-  -- Summary metrics
-  (SELECT SUM(pct) FROM (SELECT pct FROM channel_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 1) x) as top1_channel_pct,
-  (SELECT SUM(pct) FROM (SELECT pct FROM category_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 1) x) as top1_category_pct,
-  (SELECT SUM(pct) FROM (SELECT pct FROM customer_stats WHERE tenant_id = t.id ORDER BY revenue DESC LIMIT 10) x) as top10_customer_pct,
-  (SELECT SUM(pct) FROM (SELECT pct FROM sku_stats WHERE tenant_id = t.id ORDER BY margin DESC LIMIT 5) x) as top5_sku_margin_pct,
-  (SELECT MAX(seasonality_index) FROM seasonal_index WHERE tenant_id = t.id) as max_seasonality_index
-  
-FROM tenants t
-WHERE t.is_active = true;
-```
+**File:** `src/components/decision/HeroDecisionCard.tsx`
 
----
+Thay thế 2 card input riêng lẻ bằng:
 
-## PHẦN 2: NEW HOOK
-
-### 2.1 File: `src/hooks/useRetailConcentrationRisk.ts`
-
-```typescript
-/**
- * useRetailConcentrationRisk - SSOT Hook for Retail Concentration Risks
- * 
- * Fetches from v_retail_concentration_risk view.
- * NO client-side calculations.
- */
-
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
-
-interface ChannelConcentration {
-  name: string;
-  revenue: number;
-  pct: number;
-}
-
-interface CategoryConcentration {
-  name: string;
-  revenue: number;
-  pct: number;
-}
-
-interface CustomerConcentration {
-  id: string;
-  revenue: number;
-  pct: number;
-  orders: number;
-}
-
-interface SKUConcentration {
-  id: string;
-  name: string;
-  category: string;
-  margin: number;
-  pct: number;
-}
-
-interface SeasonalPattern {
-  month: string;
-  revenue: number;
-  index: number;
-}
-
-interface ConcentrationAlert {
-  type: 'channel' | 'category' | 'customer' | 'sku' | 'seasonal';
-  severity: 'low' | 'medium' | 'high';
-  message: string;
-}
-
-export interface RetailConcentrationData {
-  channelData: ChannelConcentration[];
-  categoryData: CategoryConcentration[];
-  customerData: CustomerConcentration[];
-  skuData: SKUConcentration[];
-  seasonalData: SeasonalPattern[];
-  alerts: ConcentrationAlert[];
-  // Summary metrics
-  top1ChannelPct: number;
-  top1CategoryPct: number;
-  top10CustomerPct: number;
-  top5SKUMarginPct: number;
-  maxSeasonalityIndex: number;
-}
-
-function generateAlerts(data: any): ConcentrationAlert[] {
-  const alerts: ConcentrationAlert[] = [];
-  
-  // Channel concentration alert
-  if (data.top1_channel_pct > 50) {
-    alerts.push({
-      type: 'channel',
-      severity: data.top1_channel_pct > 70 ? 'high' : 'medium',
-      message: `Kênh ${data.channel_concentration?.[0]?.name} chiếm ${data.top1_channel_pct?.toFixed(0)}% doanh thu - rủi ro phụ thuộc platform`
-    });
-  }
-  
-  // Category concentration alert
-  if (data.top1_category_pct > 40) {
-    alerts.push({
-      type: 'category',
-      severity: data.top1_category_pct > 60 ? 'high' : 'medium',
-      message: `Danh mục ${data.category_concentration?.[0]?.name} chiếm ${data.top1_category_pct?.toFixed(0)}% - cần đa dạng hóa sản phẩm`
-    });
-  }
-  
-  // Customer concentration alert
-  if (data.top10_customer_pct > 30) {
-    alerts.push({
-      type: 'customer',
-      severity: data.top10_customer_pct > 50 ? 'high' : 'medium',
-      message: `Top 10 khách hàng chiếm ${data.top10_customer_pct?.toFixed(0)}% - rủi ro mất khách lớn`
-    });
-  }
-  
-  // SKU concentration alert
-  if (data.top5_sku_margin_pct > 30) {
-    alerts.push({
-      type: 'sku',
-      severity: data.top5_sku_margin_pct > 50 ? 'high' : 'medium',
-      message: `Top 5 SKU đóng góp ${data.top5_sku_margin_pct?.toFixed(0)}% lợi nhuận - Hero product risk`
-    });
-  }
-  
-  // Seasonal concentration alert
-  if (data.max_seasonality_index > 1.5) {
-    alerts.push({
-      type: 'seasonal',
-      severity: data.max_seasonality_index > 2 ? 'high' : 'medium',
-      message: `Seasonality Index = ${data.max_seasonality_index?.toFixed(1)} - cash lock risk trước peak season`
-    });
-  }
-  
-  return alerts;
-}
-
-export function useRetailConcentrationRisk() {
-  const { data: tenantId } = useActiveTenantId();
-
-  return useQuery<RetailConcentrationData>({
-    queryKey: ['retail-concentration-risk', tenantId],
-    queryFn: async () => {
-      if (!tenantId) throw new Error('No tenant');
-      
-      const { data, error } = await supabase
-        .from('v_retail_concentration_risk')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-        
-      if (error) throw error;
-      if (!data) throw new Error('No data');
-      
-      return {
-        channelData: (data.channel_concentration as ChannelConcentration[]) || [],
-        categoryData: (data.category_concentration as CategoryConcentration[]) || [],
-        customerData: (data.customer_concentration as CustomerConcentration[]) || [],
-        skuData: (data.sku_concentration as SKUConcentration[]) || [],
-        seasonalData: (data.seasonal_pattern as SeasonalPattern[]) || [],
-        alerts: generateAlerts(data),
-        top1ChannelPct: Number(data.top1_channel_pct) || 0,
-        top1CategoryPct: Number(data.top1_category_pct) || 0,
-        top10CustomerPct: Number(data.top10_customer_pct) || 0,
-        top5SKUMarginPct: Number(data.top5_sku_margin_pct) || 0,
-        maxSeasonalityIndex: Number(data.max_seasonality_index) || 0,
-      };
-    },
-    enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
-```
-
----
-
-## PHẦN 3: UPDATE UI COMPONENT
-
-### 3.1 File: `src/pages/RiskDashboardPage.tsx`
-
-Cập nhật component `ConcentrationRisk` (lines 130-226):
-
-#### Layout mới:
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 5 Rủi ro tập trung cho Bán lẻ                                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌─────────────────────────┐  ┌─────────────────────────┐       │
-│  │ 1. Tập trung Kênh bán   │  │ 2. Tập trung Danh mục  │       │
-│  │    [PieChart]           │  │    [PieChart]          │       │
-│  │    Shopee 37%, Lazada..│  │    Áo 35%, Quần 24%... │       │
-│  │    ⚠️ Alert nếu > 50%  │  │    ⚠️ Alert nếu > 40%  │       │
-│  └─────────────────────────┘  └─────────────────────────┘       │
-│                                                                  │
-│  ┌─────────────────────────┐  ┌─────────────────────────┐       │
-│  │ 3. Tập trung Khách hàng │  │ 4. Tập trung SKU Hero  │       │
-│  │    [BarChart Horizontal]│  │    [BarChart Horizontal]│       │
-│  │    Top 10 KH: 11.5%    │  │    Top 5 SKU: 8.5%     │       │
-│  │    ✅ Phân tán tốt     │  │    ✅ Phân tán tốt     │       │
-│  └─────────────────────────┘  └─────────────────────────┘       │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ 5. Rủi ro Mùa vụ (Seasonal Risk)                        │   │
-│  │    [AreaChart - 12 tháng]                                │   │
-│  │    Peak: Oct-Dec (34%), Index = 1.6                      │   │
-│  │    ⚠️ Cash lock risk trước peak season                  │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ Tổng hợp Cảnh báo                                        │   │
-│  │    • Shopee chiếm 37% - theo dõi chính sách platform    │   │
-│  │    • Q4 chiếm 34% - chuẩn bị vốn lưu động trước peak   │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│  QUYẾT ĐỊNH SẢN XUẤT HAY THUÊ NGOÀI                          │
+├─────────────────────┬─────────────────────────────────────────┤
+│                     │                                         │
+│   ┌─────────────┐   │   ┌─────────────┐                      │
+│   │    MAKE     │   │   │     BUY     │                      │
+│   │  ┌──────┐   │   │   │  ┌──────┐   │                      │
+│   │  │ 950M │   │ VS│   │  │ 650M │   │    ✓ KHUYẾN NGHỊ    │
+│   │  └──────┘   │   │   │  └──────┘   │      THUÊ NGOÀI     │
+│   │             │   │   │      ★      │      Tiết kiệm 300M  │
+│   └─────────────┘   │   └─────────────┘                      │
+│                     │                                         │
+│   [GAUGE: Cost      │   [ANIMATED ARROW showing winner]      │
+│    Efficiency 68%]  │                                         │
+│                     │                                         │
+├─────────────────────┴─────────────────────────────────────────┤
+│  Điểm hòa vốn: 25,000 đơn vị | Confidence: HIGH 🟢           │
+│  ──────●────────────────────────────────────────────          │
+│        ↑ Current Volume: 10,000                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- Gauge chart cho Cost Efficiency Score
+- Animated winner indicator (checkmark với glow effect)
+- Break-even slider với marker cho current volume
+- Confidence badge dựa trên data quality
+
+### 2.2 Animated KPI Rings
+
+**File:** `src/components/decision/AnimatedKPIRing.tsx`
+
+Thay thế KPI cards nhạt bằng circular progress rings:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐        │
+│  │  ╭──╮  │   │  ╭──╮  │   │  ╭──╮  │   │  ╭──╮  │        │
+│  │ ╭╯75%╰╮│   │ ╭╯14%╰╮│   │ ╭╯750M╰│   │ ╭╯1.75B│        │
+│  │  ╰──╯  │   │  ╰──╯  │   │  ╰──╯  │   │  ╰──╯  │        │
+│  │  ROI   │   │  CAGR  │   │ Net P  │   │ Returns│        │
+│  │ ▲ +15% │   │ ▲ +2%  │   │ ▲ +50M │   │        │        │
+│  └────────┘   └────────┘   └────────┘   └────────┘        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- SVG circular progress với animation
+- Color coding (green/yellow/red) theo threshold
+- Trend indicator (▲/▼) so với previous period
+- Industry benchmark line (dashed)
+
+### 2.3 Scenario Sandbox Bar
+
+**File:** `src/components/decision/ScenarioSandbox.tsx`
+
+Global scenario toggles ảnh hưởng tất cả calculations:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ KỊCH BẢN KINH TẾ                                            │
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
+│ │ Lạm phát │ │ Thiếu    │ │ Nhu cầu  │ │ ⚙️ Tùy chỉnh    │ │
+│ │   +15%   │ │   cung   │ │   tăng   │ │                  │ │
+│ │    ☐     │ │    ☐     │ │    ☑     │ │ Revenue +20%    │ │
+│ └──────────┘ └──────────┘ └──────────┘ │ COGS +10%       │ │
+│                                         └──────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Presets:**
+- Lạm phát cao: COGS +15%, OPEX +10%
+- Thiếu hụt cung: COGS +25%, Lead time +50%
+- Nhu cầu tăng: Revenue +20%, Volume +30%
+
+### 2.4 Inline AI Advisor
+
+**File:** `src/components/decision/InlineAIAdvisor.tsx`
+
+AI không chỉ ở sidebar - xuất hiện inline trên charts:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  BIỂU ĐỒ SO SÁNH CHI PHÍ                                    │
+│                                                              │
+│      1.4 tỷ ─────────────────────────────●────────────────  │
+│                                         ╱                    │
+│                                       ╱                      │
+│      1.1 tỷ ─────────────────────●──────────────────────────│
+│                                ╱                             │
+│                         ┌────▼─────────────────────┐         │
+│      700 tr ───────────│ 💡 AI: Điểm hòa vốn nhạy │         │
+│                        │ cảm với chi phí NVL.     │         │
+│                        │ [Chạy mô phỏng] [Bỏ qua] │         │
+│                        └───────────────────────────┘         │
+│                                                              │
+│            5K    10K    15K    20K    25K                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- Tooltip xuất hiện tại điểm quan trọng (breakeven, crossover)
+- Action buttons để drill down
+- Dismiss option
+
+### 2.5 Decision Workflow Card
+
+**File:** `src/components/decision/DecisionWorkflowCard.tsx`
+
+Thay "Khuyến nghị: BUY" text bằng actionable workflow:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  📋 QUYẾT ĐỊNH                                              │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   KHUYẾN NGHỊ: THUÊ NGOÀI (BUY)                             │
+│   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                           │
+│   Tiết kiệm: 300M | Điểm hòa vốn: 25,000 đơn vị             │
+│   Confidence: 87% (High)                                     │
+│                                                              │
+│   ┌────────────────┐ ┌────────────────┐ ┌────────────────┐  │
+│   │ ✓ Duyệt &      │ │ 🔄 Yêu cầu     │ │ 📊 So sánh     │  │
+│   │   Thông báo    │ │   Thêm Data    │ │   Lịch sử      │  │
+│   └────────────────┘ └────────────────┘ └────────────────┘  │
+│                                                              │
+│   Assigned to: CFO | Due: 3 ngày                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.6 Sensitivity Heatmap
+
+**File:** `src/components/decision/SensitivityHeatmap.tsx`
+
+Thay scatter chart bằng 2D heatmap:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  HEATMAP ĐỘ NHẠY LỢI NHUẬN                                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   COGS ▲                                                    │
+│   +20% │ ██ ██ ██ ██ ██                                     │
+│   +10% │ ▓▓ ██ ██ ██ ██                                     │
+│     0% │ ░░ ▓▓ ██ ██ ██                                     │
+│   -10% │ ░░ ░░ ▓▓ ██ ██                                     │
+│   -20% │ ░░ ░░ ░░ ▓▓ ██                                     │
+│        └─────────────────                                    │
+│          -20% -10%  0% +10% +20% ► Doanh thu                │
+│                                                              │
+│   ░░ Lỗ nặng  ▓▓ Hòa vốn  ██ Lãi cao                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.7 Industry Benchmark Overlay
+
+Thêm vào các chart hiện có:
+
+```text
+ROI Chart với Benchmark:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                                           ┌─────────┐
+Your ROI: 75% ●──────────────────────────►│ TRÊN TB │
+                                          │  +15%   │
+Industry Average: 60% - - - - - - - - - -  └─────────┘
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## PHẦN 4: FILES SUMMARY
+## PHẦN 3: ENHANCED MAKE VS BUY
 
-### New Files (2)
+### Upgrade từ "Calculator" → "Decision Hub"
+
+**Current:** 2 separate input cards + 1 line chart
+**New:** Visual comparison card + Interactive breakeven slider + AI insights
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ PHÂN TÍCH QUYẾT ĐỊNH: SẢN XUẤT HAY THUÊ NGOÀI                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ╭─────────────────────╮         ╭─────────────────────╮            │
+│  │                     │         │                     │            │
+│  │   🏭 TỰ SẢN XUẤT   │   VS    │   🤝 THUÊ NGOÀI     │  ✓ CHỌN   │
+│  │                     │         │                     │            │
+│  │   Chi phí cố định   │         │   Giá mua/đơn vị   │            │
+│  │   ┌─────────────┐   │         │   ┌─────────────┐   │            │
+│  │   │   500 tr    │   │         │   │    65,000   │   │            │
+│  │   └─────────────┘   │         │   └─────────────┘   │            │
+│  │                     │         │                     │            │
+│  │   Chi phí biến đổi  │         │   Sản lượng dự kiến │            │
+│  │   ┌─────────────┐   │         │   ┌─────────────┐   │            │
+│  │   │   45,000    │   │         │   │   10,000    │   │            │
+│  │   └─────────────┘   │         │   └─────────────┘   │            │
+│  │                     │         │                     │            │
+│  │   ╔═══════════════╗ │         │   ╔═══════════════╗ │            │
+│  │   ║  TỔNG: 950M   ║ │         │   ║  TỔNG: 650M   ║ │            │
+│  │   ╚═══════════════╝ │         │   ╚═══════════════╝ │            │
+│  │                     │         │                     │            │
+│  ╰─────────────────────╯         ╰─────────────────────╯            │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│  ĐIỂM HÒA VỐN: 25,000 đơn vị                                        │
+│  ├────────●───────────────────────────────────────────────────┤     │
+│  0        ↑10K                                           50K        │
+│        Hiện tại                                                     │
+│                                                                      │
+│  💡 Với sản lượng 10,000 đơn vị, THUÊ NGOÀI tiết kiệm 300M (31.6%) │
+│     Cần sản xuất >25,000 đơn vị để tự sản xuất có lợi hơn.         │
+│                                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│  [📊 So sánh chi tiết] [🧪 Chạy mô phỏng] [💾 Lưu phân tích]       │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## PHẦN 4: FILES TO CREATE/MODIFY
+
+### New Components (6 files)
+
 | File | Purpose |
 |------|---------|
-| `supabase/migrations/[timestamp]_create_retail_concentration_view.sql` | DB view cho 5 loại rủi ro tập trung |
-| `src/hooks/useRetailConcentrationRisk.ts` | SSOT hook fetch từ view |
+| `src/components/decision/HeroDecisionCard.tsx` | Visual Make vs Buy comparison |
+| `src/components/decision/AnimatedKPIRing.tsx` | Circular progress KPI rings |
+| `src/components/decision/ScenarioSandbox.tsx` | Global scenario toggles |
+| `src/components/decision/InlineAIAdvisor.tsx` | Contextual AI tooltips on charts |
+| `src/components/decision/DecisionWorkflowCard.tsx` | Actionable decision card |
+| `src/components/decision/SensitivityHeatmap.tsx` | 2D heatmap for sensitivity |
 
-### Modified Files (1)
+### Modified Files (4 files)
+
 | File | Changes |
 |------|---------|
-| `src/pages/RiskDashboardPage.tsx` | Update `ConcentrationRisk` component (lines 130-226) |
+| `src/pages/DecisionSupportPage.tsx` | New layout, integrate new components |
+| `src/components/decision/ROIAnalysis.tsx` | Add AnimatedKPIRing, benchmark lines |
+| `src/components/decision/SensitivityAnalysis.tsx` | Add heatmap option |
+| `src/components/decision/DecisionAdvisorChat.tsx` | Context-aware suggestions |
 
 ---
 
-## PHẦN 5: EXPECTED UI AFTER UPDATE
+## PHẦN 5: VISUAL ENHANCEMENTS
 
-### Card 1: Kênh bán (PieChart)
-- Shopee: 37% (xanh dương)
-- Lazada: 26% (xanh lá)
-- Website: 21% (cam)  
-- TikTok: 16% (tím)
-- **Alert**: "Shopee chiếm 37% - rủi ro platform"
+### Color Palette (CFO-grade)
 
-### Card 2: Danh mục (PieChart)
-- Áo: 35%
-- Quần: 24%
-- Váy: 19%
-- Phụ kiện: 15%
-- Giày dép: 7%
-- **Alert**: "Áo chiếm 35% - nên đa dạng hóa"
+```css
+/* Primary Decision Colors */
+--decision-positive: #10b981;  /* Green - Profitable */
+--decision-negative: #ef4444;  /* Red - Loss */
+--decision-neutral: #6b7280;   /* Gray - Breakeven */
+--decision-highlight: #3b82f6; /* Blue - Selected option */
 
-### Card 3: Khách hàng (Horizontal Bar)
-- Top 10 KH chỉ chiếm 11.5%
-- **Status**: ✅ Phân tán tốt (không có single customer risk)
+/* Gradient Backgrounds */
+--hero-gradient: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+--winner-glow: 0 0 20px rgba(16, 185, 129, 0.4);
+```
 
-### Card 4: Hero SKU (Horizontal Bar)
-- Top 5 SKU chiếm 8.5% margin
-- **Status**: ✅ Phân tán tốt (không phụ thuộc 1 SKU)
+### Animation Tokens
 
-### Card 5: Mùa vụ (Area Chart)
-- X-axis: 12 tháng gần nhất
-- Y-axis: Doanh thu + Seasonality Index line
-- Peak: Oct-Nov-Dec (34% total)
-- **Alert**: "SI = 1.6 - Cash lock risk trước Q4"
+```css
+/* KPI Ring Animation */
+@keyframes ring-fill {
+  from { stroke-dashoffset: 283; }
+  to { stroke-dashoffset: var(--progress); }
+}
 
-### Summary Alerts Section
-- Tổng hợp tất cả alerts từ 5 loại rủi ro
-- Severity color coding (green/yellow/red)
+/* Winner Pulse */
+@keyframes winner-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 20px 10px rgba(16, 185, 129, 0); }
+}
+```
 
 ---
 
-## PHẦN 6: THRESHOLDS & BUSINESS LOGIC
+## PHẦN 6: EXPECTED RESULTS
 
-| Metric | Xanh (Tốt) | Vàng (Theo dõi) | Đỏ (Cảnh báo) |
-|--------|------------|-----------------|---------------|
-| Top 1 Channel % | < 30% | 30-50% | > 50% |
-| Top 1 Category % | < 30% | 30-40% | > 40% |
-| Top 10 Customer % | < 20% | 20-30% | > 30% |
-| Top 5 SKU Margin % | < 20% | 20-30% | > 30% |
-| Seasonality Index | < 1.3 | 1.3-1.5 | > 1.5 |
+### Before vs After
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Visual Impact | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Interactivity | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| AI Integration | ⭐⭐ | ⭐⭐⭐⭐ |
+| Decision Workflow | ⭐ | ⭐⭐⭐⭐⭐ |
+| Benchmarking | ⭐ | ⭐⭐⭐⭐ |
+| "Wow Factor" | ⭐⭐ | ⭐⭐⭐⭐⭐ |
+
+### User Journey
+
+```text
+BEFORE: 
+User → Input numbers → See chart → Read recommendation text → Done
+
+AFTER:
+User → See Hero Visual Comparison → Adjust scenario → 
+AI highlights key insights → View heatmap risks → 
+Click "Approve Decision" → Workflow starts → Notify team
+```
 
 ---
 
 ## PHẦN 7: EXECUTION ORDER
 
 ```text
-Step 1: Create database view
-        └─ v_retail_concentration_risk
-                ↓
-Step 2: Create hook
-        └─ useRetailConcentrationRisk.ts
-                ↓
-Step 3: Update UI component
-        └─ ConcentrationRisk in RiskDashboardPage.tsx
-                ↓
-Step 4: Verify data display
-        └─ All 5 charts render with real data
-        └─ Alerts show correct thresholds
+PHASE 1: Core Visual Components ─────────────────────
+│
+│  Step 1: Create AnimatedKPIRing component
+│          └─ SVG progress ring with animation
+│
+│  Step 2: Create HeroDecisionCard component
+│          └─ Visual Make vs Buy comparison
+│
+PHASE 2: Interactive Features ───────────────────────
+│
+│  Step 3: Create ScenarioSandbox component
+│          └─ Global scenario toggles
+│
+│  Step 4: Create SensitivityHeatmap component
+│          └─ 2D interactive heatmap
+│
+PHASE 3: AI & Workflow Integration ──────────────────
+│
+│  Step 5: Create InlineAIAdvisor component
+│          └─ Contextual tooltips on charts
+│
+│  Step 6: Create DecisionWorkflowCard component
+│          └─ Actionable approve/reject workflow
+│
+PHASE 4: Page Integration ───────────────────────────
+│
+│  Step 7: Update DecisionSupportPage layout
+│          └─ New structure with hero card
+│
+│  Step 8: Update existing analysis components
+│          └─ Add benchmark lines, new KPIs
+│
+└────────────────────────────────────────────────────
 ```
 
 ---
 
-## PHẦN 8: VERIFICATION CHECKLIST
+## PHẦN 8: TECHNICAL NOTES
 
-### Database
-- [ ] View `v_retail_concentration_risk` created
-- [ ] Returns 5 concentration arrays (channel, category, customer, sku, seasonal)
-- [ ] Summary metrics calculated (top1_channel_pct, etc.)
+### Libraries to Consider
 
-### Hook
-- [ ] `useRetailConcentrationRisk` fetches from view
-- [ ] Generates alerts based on thresholds
-- [ ] Returns typed data for UI
+| Need | Option |
+|------|--------|
+| Animated SVG rings | Custom SVG + CSS animations |
+| Heatmap | Recharts HeatMapGrid or custom Canvas |
+| Gauge charts | react-circular-progressbar hoặc custom |
+| Smooth transitions | Framer Motion (already installed) |
 
-### UI
-- [ ] Grid layout 2x2 + 1 full-width
-- [ ] PieCharts for Channel + Category
-- [ ] BarCharts for Customer + SKU
-- [ ] AreaChart for Seasonal pattern
-- [ ] Alert badges with correct severity colors
-- [ ] Vietnamese labels throughout
+### Performance Considerations
+
+- Lazy load heavy components (Heatmap, AI Advisor)
+- Memoize calculation results
+- Debounce scenario changes (300ms)
+- Use WebWorker for Monte Carlo simulations
+
+---
+
+## TỔNG KẾT
+
+Kế hoạch này sẽ biến trang Decision Support từ một "Financial Calculator" thành một "CFO Decision Command Center" với:
+
+1. **Hero Decision Card** - Visual comparison thay vì form nhập liệu
+2. **Animated KPI Rings** - Engaging metrics thay vì số đơn thuần
+3. **Scenario Sandbox** - Global what-if toggles
+4. **Sensitivity Heatmap** - 2D visualization thay vì scatter
+5. **Inline AI Advisor** - Contextual insights trên charts
+6. **Decision Workflow** - Actionable approve/reject buttons
+7. **Industry Benchmarks** - Context cho mọi metric
+
+Tất cả tạo nên trải nghiệm "wow" xứng đáng với platform FDP CEO-grade.
