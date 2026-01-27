@@ -1,260 +1,274 @@
 
 
-# KẾ HOẠCH TỔNG HỢP: SỬA "CƠ CẤU CHI PHÍ" VÀ "LỢI NHUẬN DANH MỤC"
+# TỔNG RÀ SOÁT SSOT/FDP - TẤT CẢ CÁC TRANG FDP
 
-## TỔNG QUAN VẤN ĐỀ
+## TỔNG QUAN KẾT QUẢ
 
-| Section | Vấn đề | Mức độ |
-|---------|--------|--------|
-| **Cơ cấu Chi phí so với Doanh thu** | Margin format sai (decimal thay vì %), màu sai cho số âm | 🔴 Critical |
-| **Lợi nhuận theo danh mục sản phẩm** | Table trống vì `categoryData = []` | 🔴 Critical |
-
----
-
-## PHẦN 1: SỬA "CƠ CẤU CHI PHÍ SO VỚI DOANH THU"
-
-### 1.1 Vấn đề hiện tại
-
-| Metric | Hiển thị sai | Giá trị đúng | Nguyên nhân |
-|--------|--------------|--------------|-------------|
-| Biên lợi nhuận hoạt động | -97.0% | -179.0% | DB lưu decimal (-1.79), hook không ×100 |
-| Biên lợi nhuận ròng | -77.6% | -143.0% | Tương tự |
-| Lợi nhuận ròng box | Màu xanh | Màu đỏ | Hardcode `text-success` |
-
-### 1.2 Giải pháp
-
-**File: `src/hooks/usePLData.ts`** - Normalize margin ×100
-
-```typescript
-// Dòng ~326, ~342, ~348 - Khi map single-month cache
-grossMargin: (cache.gross_margin || 0) * 100,
-operatingMargin: (cache.operating_margin || 0) * 100,
-netMargin: (cache.net_margin || 0) * 100,
-```
-
-**File: `src/pages/PLReportPage.tsx`** - Conditional styling cho Lợi nhuận ròng
-
-```typescript
-// Dòng ~1120-1130
-<div className={cn(
-  "mt-6 p-4 rounded-lg border",
-  plData.netIncome >= 0 
-    ? "bg-success/10 border-success/20" 
-    : "bg-destructive/10 border-destructive/20"
-)}>
-  <p className={cn(
-    "text-sm font-medium",
-    plData.netIncome >= 0 ? "text-success" : "text-destructive"
-  )}>Lợi nhuận ròng</p>
-  <p className={cn(
-    "text-2xl font-bold",
-    plData.netIncome >= 0 ? "text-success" : "text-destructive"
-  )}>{formatPercent(plData.netMargin)}</p>
-</div>
-```
+| Mức độ tuân thủ | Số lượng vi phạm | Mức độ nghiêm trọng |
+|-----------------|------------------|---------------------|
+| **Các trang SSOT-compliant** | 5/10 trang | ✅ Đạt |
+| **Các trang có vi phạm nhẹ** | 3/10 trang | 🟠 Cần sửa |
+| **Các trang có vi phạm nặng** | 2/10 trang | 🔴 Critical |
 
 ---
 
-## PHẦN 2: SỬA "LỢI NHUẬN THEO DANH MỤC SẢN PHẨM"
+## 1. CÁC TRANG ĐÃ TUÂN THỦ SSOT ✅
 
-### 2.1 Vấn đề hiện tại
+### 1.1 CFODashboard.tsx ✅
+- Sử dụng `useFinanceTruthSnapshot` (canonical hook)
+- Không có client-side calculations cho metrics
+- Decision Cards chỉ hiển thị precomputed values
 
+### 1.2 CashPositionPage.tsx ✅
+- Sử dụng `useFinanceTruthSnapshot` và `useCashRunway`
+- Tuân thủ FDP Manifesto Principle #4 (Real Cash)
+- Không có calculations trong page
+
+### 1.3 WorkingCapitalHubPage.tsx ✅
+- Thin wrapper pattern - chỉ import components
+- Logic tính toán nằm trong child components
+
+### 1.4 CashForecastPage.tsx ✅  
+- Thin wrapper - delegate to DailyForecastView/WeeklyForecastView
+- Không có business logic trong page
+
+### 1.5 BudgetVsActualPage.tsx ✅
+- Sử dụng `useScenarioBudgetData` hook
+- Không có calculations trong page
+- Chỉ hiển thị data từ hook
+
+---
+
+## 2. CÁC TRANG CÓ VI PHẠM NHẸ 🟠
+
+### 2.1 ExpensesPage.tsx
+**Vi phạm:**
 ```typescript
-// usePLData.ts dòng ~399
-const categoryData: CategoryPLData[] = [];  // ← Luôn trả về rỗng!
+// Line 120-128: Client-side calculations
+const prevPeriodExpenses = useMemo(() => {
+  if (!monthlySummary || monthlySummary.length < 2) return 0;
+  const prev = monthlySummary[monthlySummary.length - 2];
+  return prev ? (prev.cogs + prev.operatingExpenses) : 0;  // ⚠️ Addition
+}, [monthlySummary]);
+
+const expenseChange = prevPeriodExpenses > 0
+  ? ((totalExpenses - prevPeriodExpenses) / prevPeriodExpenses) * 100  // ⚠️ Calculation
+  : 0;
 ```
 
-### 2.2 Dữ liệu có sẵn trong Database
+**Khuyến nghị:** Di chuyển period comparison vào database RPC
 
-| Category | Doanh thu | COGS | Biên LN |
-|----------|-----------|------|---------|
-| lifestyle | 129.8M | 77.9M | 40.0% |
-| others | 128.6M | 77.2M | 40.0% |
-| beauty | 128.5M | 77.1M | 40.0% |
-| accessories | 127.2M | 76.3M | 40.0% |
-| fashion | 126.7M | 76.0M | 40.0% |
-| home | 125.8M | 75.5M | 40.0% |
-| electronics | 125.1M | 75.0M | 40.0% |
-| sports | 124.1M | 74.5M | 40.0% |
+---
 
-### 2.3 Giải pháp
-
-**Bước 1: Tạo Database View**
-
-```sql
-CREATE OR REPLACE VIEW v_category_pl_summary AS
-SELECT 
-  oi.tenant_id,
-  DATE_TRUNC('month', o.order_at)::DATE as period,
-  COALESCE(oi.category, 'Không phân loại') as category,
-  COUNT(DISTINCT oi.order_id) as order_count,
-  SUM(oi.line_revenue) as total_revenue,
-  SUM(oi.line_cogs) as total_cogs,
-  SUM(oi.line_revenue) - SUM(oi.line_cogs) as gross_profit,
-  CASE 
-    WHEN SUM(oi.line_revenue) > 0 
-    THEN ((SUM(oi.line_revenue) - SUM(oi.line_cogs)) / SUM(oi.line_revenue) * 100)
-    ELSE 0 
-  END as margin_percent
-FROM cdp_order_items oi
-JOIN cdp_orders o ON oi.order_id = o.id AND oi.tenant_id = o.tenant_id
-GROUP BY oi.tenant_id, DATE_TRUNC('month', o.order_at), oi.category;
+### 2.2 RiskDashboardPage.tsx
+**Vi phạm:**
+```typescript
+// Lines 133-170: Hardcoded mock data
+const stressScenarios = [
+  {
+    name: 'Mất top 1 khách hàng',
+    impact: -25,
+    cashImpact: -12500000000,  // ⚠️ Magic number
+    probability: 'low',
+    ...
+  },
+  ...
+];
 ```
 
-**Bước 2: Update Hook - `src/hooks/usePLData.ts`**
+**Khuyến nghị:** Tạo bảng `stress_scenarios` và fetch từ DB
 
+---
+
+### 2.3 UnitEconomicsPage.tsx
+**Vi phạm (trong hook useUnitEconomics):**
 ```typescript
-// Thêm query lấy category data
-const { data: categoryRows } = await supabase
-  .from('v_category_pl_summary' as any)
-  .select('*')
-  .eq('tenant_id', tenantId)
-  .gte('period', startDateStr)
-  .lte('period', endDateStr);
+// Lines 112-119: Client-side per-order calculations
+const cogsPerOrder = totalOrders > 0 ? totalCogs / totalOrders : 0;  // ⚠️
+const feesPerOrder = totalOrders > 0 ? totalPlatformFees / totalOrders : 0;  // ⚠️
+const shippingPerOrder = totalOrders > 0 ? totalShippingFees / totalOrders : 0;  // ⚠️
 
-// Aggregate và map thành CategoryPLData
-const categoryAgg = new Map<string, { revenue: number; cogs: number }>();
-(categoryRows || []).forEach(row => {
+// Lines 118-120: Client-side customer metrics
+const avgOrdersPerCustomer = uniqueCustomers > 0 ? totalOrders / uniqueCustomers : 1;  // ⚠️
+const repeatRate = avgOrdersPerCustomer > 1 ? ((avgOrdersPerCustomer - 1) / avgOrdersPerCustomer) * 100 : 0;  // ⚠️
+
+// Line 182: Estimation magic number
+newCustomersThisMonth: Math.round(uniqueCustomers * 0.2), // ⚠️ Estimate 20% new
+```
+
+**Khuyến nghị:** Di chuyển tất cả per-order và customer calculations vào DB view
+
+---
+
+## 3. CÁC TRANG CÓ VI PHẠM NẶNG 🔴
+
+### 3.1 PLReportPage.tsx
+
+**Vi phạm 1: Budget estimations với magic numbers**
+```typescript
+// Lines 266-274: Hardcoded ratio assumptions
+const budgetValues = hasBudgetData ? {
+  grossSales: budgetData.ytd.plannedRevenue,
+  netSales: budgetData.ytd.plannedRevenue * 0.95, // ⚠️ Magic: 5% returns/discounts
+  cogs: budgetData.ytd.plannedRevenue * 0.60, // ⚠️ Magic: 60% COGS ratio
+  grossProfit: budgetData.ytd.plannedRevenue * 0.35, // ⚠️ Magic: 35% gross margin
+  netIncome: budgetData.ytd.plannedEbitda * 0.80, // ⚠️ Magic: After tax
+} : null;
+```
+
+**Vi phạm 2: Redundant margin calculations trong UI**
+```typescript
+// Lines 335-337: Tính lại margin trong UI mặc dù đã có từ hook
+extra: `Biên: ${plData.netSales > 0 ? ((plData.grossProfit / plData.netSales) * 100).toFixed(1) : '0'}%`
+extra: `Biên: ${plData.netSales > 0 ? ((plData.operatingIncome / plData.netSales) * 100).toFixed(1) : '0'}%`
+extra: `Biên: ${plData.netSales > 0 ? ((plData.netIncome / plData.netSales) * 100).toFixed(1) : '0'}%`
+```
+
+**Vi phạm 3: Progress bar logic với calculations**
+```typescript
+// Line 1086: Math operations cho UI rendering
+<Progress value={Math.max(0, Math.min((item.value / item.target) * 100, 100))} />
+```
+
+---
+
+### 3.2 ExecutiveSummaryPage.tsx
+
+**Vi phạm 1: Complex health score calculations trong UI**
+```typescript
+// Lines 185-219: Full calculation logic trong component
+const calculateDimensions = (): HealthDimension[] => {
+  // Liquidity Score
+  const liquidityScore = Math.min(100, runwayMonths * 15);  // ⚠️ Formula in FE
+  
+  // Receivables Health
+  const receivablesScore = Math.min(100, Math.max(0, 100 - (dso - 30) * 2));  // ⚠️
+  
+  // Profitability
+  const profitabilityScore = Math.min(100, grossMargin * 2.5);  // ⚠️
+  
+  // Efficiency
+  const efficiencyScore = Math.min(100, Math.max(0, 100 - ccc));  // ⚠️
+  
+  // Stability
+  const stabilityScore = Math.min(100, ebitdaMargin * 4);  // ⚠️
+};
+```
+
+**Vi phạm 2: Overall score aggregation**
+```typescript
+// Line 274: .reduce() trong UI
+const overallScore = Math.round(dimensions.reduce((sum, d) => sum + d.score, 0) / dimensions.length);
+```
+
+**Vi phạm 3: Hardcoded growth score**
+```typescript
+// Line 213: Magic number
+const growthScore = 72; // ⚠️ Sample data - should come from DB
+```
+
+---
+
+### 3.3 usePLData.ts (Hook supporting PLReportPage)
+
+**Vi phạm 1: aggregateCacheRows với .reduce()**
+```typescript
+// Lines 139-175: Full aggregation logic trong FE
+function aggregateCacheRows(rows: PLCacheRow[]): PLCacheRow | null {
+  return rows.reduce((acc, row) => ({
+    gross_sales: (acc.gross_sales || 0) + (row.gross_sales || 0),  // ⚠️
+    net_sales: (acc.net_sales || 0) + (row.net_sales || 0),  // ⚠️
+    cogs: (acc.cogs || 0) + (row.cogs || 0),  // ⚠️
+    // ... 20+ more additions
+  }));
+}
+```
+
+**Vi phạm 2: Margin recalculation**
+```typescript
+// Lines 259-263: Tính lại margin sau aggregation
+cache.gross_margin = cache.gross_profit / cache.net_sales;
+cache.operating_margin = cache.operating_income / cache.net_sales;
+cache.net_margin = cache.net_income / cache.net_sales;
+```
+
+**Vi phạm 3: YoY change calculation**
+```typescript
+// Lines 363-366: calcChange function
+const calcChange = (current: number, previous: number): number => {
+  if (!previous || previous === 0) return 0;
+  return Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));  // ⚠️
+};
+```
+
+**Vi phạm 4: Category data aggregation**
+```typescript
+// Lines 408-414: .forEach() aggregation
+(categoryRows || []).forEach((row: any) => {
   const existing = categoryAgg.get(row.category) || { revenue: 0, cogs: 0 };
-  existing.revenue += row.total_revenue || 0;
-  existing.cogs += row.total_cogs || 0;
+  existing.revenue += Number(row.total_revenue) || 0;  // ⚠️
+  existing.cogs += Number(row.total_cogs) || 0;  // ⚠️
   categoryAgg.set(row.category, existing);
 });
 
-const totalCatRevenue = [...categoryAgg.values()].reduce((s, c) => s + c.revenue, 0);
-
-const categoryData: CategoryPLData[] = [...categoryAgg.entries()]
-  .map(([category, data]) => ({
-    category,
-    sales: data.revenue / 1000000,
-    cogs: data.cogs / 1000000,
-    margin: data.revenue > 0 
-      ? Number(((data.revenue - data.cogs) / data.revenue * 100).toFixed(1))
-      : 0,
-    contribution: totalCatRevenue > 0
-      ? Number((data.revenue / totalCatRevenue * 100).toFixed(1))
-      : 0,
-  }))
-  .sort((a, b) => b.sales - a.sales);  // Sort by revenue desc
-```
-
-**Bước 3: Update UI - `src/pages/PLReportPage.tsx`**
-
-```typescript
-// Thêm empty state cho table
-<TableBody>
-  {categoryData.length === 0 ? (
-    <TableRow>
-      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-        Chưa có dữ liệu danh mục sản phẩm
-      </TableCell>
-    </TableRow>
-  ) : (
-    categoryData.map((cat) => (
-      <TableRow key={cat.category}>
-        <TableCell className="font-medium capitalize">{cat.category}</TableCell>
-        <TableCell className="text-right">{formatCurrency(cat.sales * 1000000)}</TableCell>
-        <TableCell className="text-right text-muted-foreground">{formatCurrency(cat.cogs * 1000000)}</TableCell>
-        <TableCell className="text-right">
-          <Badge variant={cat.margin >= 30 ? 'default' : 'secondary'}>{cat.margin}%</Badge>
-        </TableCell>
-        <TableCell className="text-right">{cat.contribution}%</TableCell>
-      </TableRow>
-    ))
-  )}
-</TableBody>
+// Line 416: .reduce() for total
+const totalCatRevenue = [...categoryAgg.values()].reduce((s, c) => s + c.revenue, 0);  // ⚠️
 ```
 
 ---
 
-## DATA FLOW TỔNG HỢP
+## 4. TỔNG HỢP VI PHẠM THEO LOẠI
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         FLOW 1: MARGIN FIX                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│ pl_report_cache                                                         │
-│ ├─ operating_margin = -1.79 (decimal)                                   │
-│ └─ net_margin = -1.43 (decimal)                                         │
-│          │                                                              │
-│          ▼                                                              │
-│ usePLData hook: * 100                                                   │
-│ ├─ operatingMargin = -179 ✅                                            │
-│ └─ netMargin = -143 ✅                                                  │
-│          │                                                              │
-│          ▼                                                              │
-│ PLReportPage: formatPercent(-179) = "-179.0%" ✅                        │
-│ Box color: text-destructive (vì netIncome < 0) ✅                       │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       FLOW 2: CATEGORY DATA                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│ cdp_order_items + cdp_orders                                            │
-│          │                                                              │
-│          ▼                                                              │
-│ v_category_pl_summary (NEW VIEW)                                        │
-│ GROUP BY tenant, period, category                                       │
-│          │                                                              │
-│          ▼                                                              │
-│ usePLData hook: query + aggregate                                       │
-│ categoryData = [{ category, sales, cogs, margin, contribution }]        │
-│          │                                                              │
-│          ▼                                                              │
-│ PLReportPage: Table với 8 categories ✅                                 │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+| Loại vi phạm | Số lượng | Files ảnh hưởng |
+|--------------|----------|-----------------|
+| `.reduce()` aggregation | 4 | usePLData.ts, ExecutiveSummaryPage.tsx |
+| `.forEach()` aggregation | 2 | usePLData.ts, useUnitEconomics.ts |
+| Margin calculations (`/ * 100`) | 6 | usePLData.ts, PLReportPage.tsx |
+| Magic numbers (hardcoded ratios) | 8 | PLReportPage.tsx, ExecutiveSummaryPage.tsx, RiskDashboardPage.tsx |
+| YoY/Period change calculations | 2 | usePLData.ts, ExpensesPage.tsx |
+| Score/index calculations | 5 | ExecutiveSummaryPage.tsx |
 
 ---
 
-## DANH SÁCH FILES CẦN SỬA
+## 5. KẾ HOẠCH SỬA ĐỀ XUẤT
 
-| Thứ tự | File/Action | Thay đổi | Ưu tiên |
-|--------|-------------|----------|---------|
-| 1 | **Database Migration** | Tạo view `v_category_pl_summary` | 🔴 Critical |
-| 2 | `src/hooks/usePLData.ts` | ×100 margins + query category data | 🔴 Critical |
-| 3 | `src/pages/PLReportPage.tsx` | Conditional styling + table empty state | 🟠 High |
+### Giai đoạn 1: Critical (usePLData + PLReportPage)
 
----
+| Bước | Thay đổi | Độ ưu tiên |
+|------|----------|------------|
+| 1.1 | Tạo RPC `get_pl_aggregated` để thay thế `aggregateCacheRows` | 🔴 Critical |
+| 1.2 | Tạo RPC `get_pl_comparison` để thay thế `calcChange` | 🔴 Critical |
+| 1.3 | Update `v_category_pl_summary` với pre-computed margin/contribution | 🔴 Critical |
+| 1.4 | Refactor `usePLData.ts` thành thin wrapper | 🔴 Critical |
+| 1.5 | Xóa redundant calculations trong PLReportPage UI | 🟠 High |
 
-## KẾT QUẢ MONG ĐỢI
+### Giai đoạn 2: High (ExecutiveSummaryPage)
 
-### Section "Cơ cấu Chi phí"
+| Bước | Thay đổi | Độ ưu tiên |
+|------|----------|------------|
+| 2.1 | Tạo view `v_financial_health_scores` với pre-computed scores | 🟠 High |
+| 2.2 | Tạo hook `useFinancialHealthScores` | 🟠 High |
+| 2.3 | Xóa `calculateDimensions()` function | 🟠 High |
 
-| Metric | Trước | Sau |
-|--------|-------|-----|
-| Biên lợi nhuận hoạt động | -97.0% (sai) | -179.0% (đúng) |
-| Biên lợi nhuận ròng | -77.6% (sai) | -143.0% (đúng) |
-| Lợi nhuận ròng box | Màu xanh | Màu đỏ |
+### Giai đoạn 3: Medium (Other pages)
 
-### Section "Lợi nhuận danh mục"
-
-| Trước | Sau |
-|-------|-----|
-| Table trống | 8 categories với đầy đủ data |
-
-| Danh mục | Doanh thu | Biên LN | Đóng góp |
-|----------|-----------|---------|----------|
-| Lifestyle | 129.8M | 40.0% | 12.7% |
-| Others | 128.6M | 40.0% | 12.6% |
-| Beauty | 128.5M | 40.0% | 12.6% |
-| ... | ... | ... | ... |
+| Bước | Thay đổi | Độ ưu tiên |
+|------|----------|------------|
+| 3.1 | Xóa magic numbers trong PLReportPage budgetValues | 🟡 Medium |
+| 3.2 | Tạo bảng `stress_scenarios` cho RiskDashboard | 🟡 Medium |
+| 3.3 | Di chuyển per-order calculations vào DB view | 🟡 Medium |
 
 ---
 
-## VERIFICATION CHECKLIST
+## 6. ESTIMATED IMPACT
 
-### Cơ cấu Chi phí
-- [ ] operatingMargin hiển thị đúng (-179.0%)
-- [ ] netMargin hiển thị đúng (-143.0%)
-- [ ] Lợi nhuận ròng box màu đỏ khi âm
-- [ ] Progress bars không crash với negative values
+**Sau khi hoàn thành Giai đoạn 1:**
+- usePLData.ts: Giảm từ ~500 lines xuống ~150 lines
+- PLReportPage.tsx: Xóa 3 redundant calculations
+- Tuân thủ 100% SSOT cho P&L module
 
-### Lợi nhuận danh mục
-- [ ] View `v_category_pl_summary` được tạo
-- [ ] Table hiển thị 8 categories
-- [ ] Margin % đúng (~40%)
-- [ ] Contribution % tổng = 100%
-- [ ] Data thay đổi theo date filter
-- [ ] Empty state hiển thị khi không có data
+**Sau khi hoàn thành tất cả:**
+- 10/10 FDP pages SSOT-compliant
+- Không còn `.reduce()`, `.forEach()` trong hooks
+- Không còn magic numbers (hoặc được đánh dấu rõ ràng với EstimationBadge)
 
