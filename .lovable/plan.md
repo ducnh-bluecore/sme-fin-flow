@@ -1,244 +1,138 @@
 
-# KE HOACH FIX: Rolling Forecast Page
+# Kế hoạch: Thêm cột phí sàn vào cdp_orders (SSOT Layer 1)
 
-## VAN DE PHAT HIEN
+## Tóm tắt vấn đề
 
-### 1. ❌ DUPLICATE KPI CARDS (UI BUG)
-Trang hien tai hien thi **6 KPI cards** thay vi 4:
-- Lines 126-153: Card "Chênh lệch vs Ngân sách" + "Độ chính xác dự báo"
-- Lines 176-226: **DUPLICATE** cua 2 cards nay (copy-paste)
+Dữ liệu phí sàn **đã có sẵn** trong `external_orders` từ data warehouse:
+- `platform_fee` - Phí nền tảng (Shopee, Lazada, TikTok...)
+- `commission_fee` - Phí hoa hồng
+- `payment_fee` - Phí thanh toán
+- `shipping_fee` - Phí vận chuyển
+- `total_fees` - Tổng phí
 
-**Screenshot:** Cho thay dung 6 cards: Revenue, Expense, Variance (x2), Accuracy (x2)
+**NHƯNG** bảng `cdp_orders` (SSOT Layer 1) **thiếu các cột này**, dẫn đến:
+1. Phí sàn không được sync sang SSOT
+2. View `v_channel_performance` không có data phí
+3. Trang Phân tích Đa kênh hiển thị 0₫
 
-### 2. ⚠️ DUPLICATE DATA IN DATABASE
-Query cho thay **36 rows** per forecast_type cho Demo Company (nen la 18):
-- 18 months × 2 duplicates = 36 rows
-- Nguyen nhan: Constraint `tenant_id,forecast_month,forecast_type,category,channel` cho phep duplicates khi `category` va `channel` la NULL (so sanh NULL = NULL luon tra ve false)
+## Giải pháp
 
-### 3. ⚠️ CLIENT-SIDE AGGREGATION (SSOT VIOLATION)
-`useRollingForecastSummary()` thuc hien **10+ calculations** trong frontend:
-- Lines 79-93: forEach loop tinh totals
-- Lines 97-105: Accuracy calculation voi `.reduce()` va `.filter()`
-- Lines 107-127: Group by month voi `Map()`
+### Bước 1: Thêm cột phí sàn vào cdp_orders
 
-**Vi pham DB-First:** Tat ca aggregations nen o database view.
+Thêm 3 cột mới vào bảng `cdp_orders`:
 
-### 4. ⚠️ MAGIC NUMBERS TRONG FORECAST GENERATION
-`useGenerateRollingForecast()` su dung hardcoded values:
-- Line 188: `100000000` (Default 100M VND/month)
-- Line 194: `80000000` (Default 80M VND/month)
-- Line 199: `0.02` (2% monthly growth)
-- Line 214: `0.015` (1.5% expense growth)
+```text
+cdp_orders
+├── ... (existing columns)
+├── platform_fee NUMERIC DEFAULT 0    ← Phí sàn (Shopee/Lazada/TikTok fee)
+├── shipping_fee NUMERIC DEFAULT 0    ← Phí vận chuyển
+└── other_fees NUMERIC DEFAULT 0      ← Phí khác (commission + payment)
+```
 
-### 5. ⚠️ MISSING TENANT_ID FILTER
-Query trong `useRollingForecasts()` thieu `.eq('tenant_id', tenantId)` filter.
+### Bước 2: Cập nhật view v_channel_performance
+
+Thêm aggregation phí sàn:
+
+```text
+v_channel_performance (updated)
+├── channel
+├── order_count  
+├── gross_revenue
+├── net_revenue
+├── total_fees = SUM(platform_fee + shipping_fee + other_fees)  ← MỚI
+├── cogs
+└── gross_margin
+```
+
+### Bước 3: Backfill dữ liệu từ external_orders
+
+Sync phí sàn từ `external_orders` sang `cdp_orders` cho dữ liệu đã tồn tại:
+
+```text
+UPDATE cdp_orders SET
+  platform_fee = external_orders.platform_fee,
+  shipping_fee = external_orders.shipping_fee,
+  other_fees = external_orders.commission_fee + external_orders.payment_fee
+FROM external_orders
+WHERE cdp_orders.order_key = external_orders.external_order_id
+  AND cdp_orders.tenant_id = external_orders.tenant_id;
+```
+
+### Bước 4: Cập nhật hook useChannelPerformance
+
+Sửa mapping để lấy `total_fees` từ view thay vì hardcode 0.
 
 ---
 
-## FIX PLAN
+## Chi tiết kỹ thuật
 
-### Phase 1: FIX UI (DUPLICATE CARDS) - ~5 phut
-
-**File:** `src/pages/RollingForecastPage.tsx`
-
-**Xoa duplicate cards (lines 176-226):**
-```tsx
-// XOA: Lines 176-226 (duplicate of lines 126-175)
-```
-
-**Grid layout sau fix:**
-```tsx
-<div className="grid gap-4 md:grid-cols-4">
-  {/* Card 1: Total Revenue */}
-  {/* Card 2: Total Expense */}
-  {/* Card 3: Variance */}
-  {/* Card 4: Accuracy */}
-</div>
-```
-
-### Phase 2: FIX DATABASE CONSTRAINT - ~10 phut
-
-**Problem:** NULL columns trong unique constraint khong ngan duplicate.
-
-**Migration:**
+### Migration SQL
 
 ```sql
--- Fix unique constraint to handle NULLs
-DROP INDEX IF EXISTS rolling_forecasts_unique_idx;
+-- 1. Thêm cột phí vào cdp_orders
+ALTER TABLE cdp_orders 
+ADD COLUMN IF NOT EXISTS platform_fee NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS shipping_fee NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS other_fees NUMERIC DEFAULT 0;
 
-CREATE UNIQUE INDEX rolling_forecasts_unique_idx 
-ON rolling_forecasts (
-  tenant_id, 
-  forecast_month, 
-  forecast_type, 
-  COALESCE(category, ''), 
-  COALESCE(channel, '')
-);
+-- 2. Backfill từ external_orders
+UPDATE cdp_orders co
+SET 
+  platform_fee = COALESCE(eo.platform_fee, 0),
+  shipping_fee = COALESCE(eo.shipping_fee, 0),
+  other_fees = COALESCE(eo.commission_fee, 0) + COALESCE(eo.payment_fee, 0)
+FROM external_orders eo
+WHERE co.tenant_id = eo.tenant_id
+  AND co.order_key = COALESCE(eo.external_order_id, eo.order_number, eo.id::text);
 
--- Clean up existing duplicates
-DELETE FROM rolling_forecasts a
-USING rolling_forecasts b
-WHERE a.ctid < b.ctid
-  AND a.tenant_id = b.tenant_id
-  AND a.forecast_month = b.forecast_month
-  AND a.forecast_type = b.forecast_type
-  AND COALESCE(a.category, '') = COALESCE(b.category, '')
-  AND COALESCE(a.channel, '') = COALESCE(b.channel, '');
-```
-
-### Phase 3: FIX TENANT_ID FILTER - ~5 phut
-
-**File:** `src/hooks/useRollingForecast.ts`
-
-**Update `useRollingForecasts()`:**
-```typescript
-// Line 45-48: Them tenant_id filter
-const { data, error } = await supabase
-  .from('rolling_forecasts')
-  .select('*')
-  .eq('tenant_id', tenantId)  // <-- ADD THIS
-  .order('forecast_month', { ascending: true });
-```
-
-### Phase 4: DB-FIRST AGGREGATION (Defer) - ~30 phut
-
-**Tao view:** `v_rolling_forecast_summary`
-
-```sql
-CREATE VIEW v_rolling_forecast_summary AS
-WITH aggregates AS (
-  SELECT 
-    tenant_id,
-    forecast_type,
-    SUM(original_budget) as total_budget,
-    SUM(current_forecast) as total_forecast,
-    SUM(actual_amount) as total_actual,
-    SUM(variance_amount) as total_variance
-  FROM rolling_forecasts
-  GROUP BY tenant_id, forecast_type
-),
-by_month AS (
-  SELECT 
-    tenant_id,
-    forecast_month,
-    SUM(CASE WHEN forecast_type IN ('revenue', 'cash_inflow') 
-        THEN current_forecast ELSE 0 END) as revenue,
-    SUM(CASE WHEN forecast_type IN ('expense', 'cash_outflow') 
-        THEN current_forecast ELSE 0 END) as expense
-  FROM rolling_forecasts
-  GROUP BY tenant_id, forecast_month
-),
-accuracy AS (
-  SELECT 
-    tenant_id,
-    CASE 
-      WHEN COUNT(*) FILTER (WHERE actual_amount > 0) > 0 THEN
-        AVG(
-          GREATEST(0, 1 - ABS(current_forecast - actual_amount) / NULLIF(actual_amount, 0)) * 100
-        ) FILTER (WHERE actual_amount > 0)
-      ELSE 0 
-    END as forecast_accuracy
-  FROM rolling_forecasts
-  GROUP BY tenant_id
-)
+-- 3. Cập nhật view v_channel_performance
+CREATE OR REPLACE VIEW v_channel_performance 
+WITH (security_invoker = on) AS
 SELECT 
-  a.tenant_id,
-  MAX(CASE WHEN a.forecast_type = 'revenue' THEN a.total_forecast END) as total_revenue_forecast,
-  MAX(CASE WHEN a.forecast_type = 'expense' THEN a.total_forecast END) as total_expense_forecast,
-  SUM(a.total_variance) as total_variance,
-  acc.forecast_accuracy,
-  JSON_AGG(
-    JSON_BUILD_OBJECT(
-      'month', m.forecast_month,
-      'revenue', m.revenue,
-      'expense', m.expense,
-      'netCash', m.revenue - m.expense
-    ) ORDER BY m.forecast_month
-  ) as by_month_data
-FROM aggregates a
-JOIN accuracy acc ON a.tenant_id = acc.tenant_id
-LEFT JOIN by_month m ON a.tenant_id = m.tenant_id
-GROUP BY a.tenant_id, acc.forecast_accuracy;
+  tenant_id,
+  channel,
+  COUNT(*)::INTEGER as order_count,
+  COALESCE(SUM(gross_revenue), 0) as gross_revenue,
+  COALESCE(SUM(net_revenue), 0) as net_revenue,
+  COALESCE(SUM(platform_fee + shipping_fee + other_fees), 0) as total_fees,
+  COALESCE(SUM(cogs), 0) as cogs,
+  COALESCE(SUM(gross_margin), 0) as gross_margin
+FROM cdp_orders
+GROUP BY tenant_id, channel;
 ```
 
-**Update hook to thin wrapper:**
+### Hook Update (useChannelAnalytics.ts)
+
 ```typescript
-export function useRollingForecastSummary() {
-  const { data: tenantId } = useActiveTenantId();
-  
-  return useQuery({
-    queryKey: ['rolling-forecast-summary', tenantId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('v_rolling_forecast_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      
-      // Direct mapping - NO calculations
-      return {
-        totalBudget: data?.total_revenue_forecast || 0,
-        totalForecast: data?.total_revenue_forecast || 0,
-        totalVariance: data?.total_variance || 0,
-        forecastAccuracy: data?.forecast_accuracy || 0,
-        byType: {
-          revenue: { forecast: data?.total_revenue_forecast || 0 },
-          expense: { forecast: data?.total_expense_forecast || 0 },
-        },
-        byMonth: data?.by_month_data || [],
-      };
-    },
-    enabled: !!tenantId,
-  });
-}
-```
-
-### Phase 5: MOVE MAGIC NUMBERS TO CONFIG (Optional) - ~15 phut
-
-**Tao table:** `forecast_config`
-
-```sql
-CREATE TABLE forecast_config (
-  tenant_id UUID PRIMARY KEY REFERENCES tenants(id),
-  default_monthly_revenue NUMERIC DEFAULT 100000000,
-  default_monthly_expense NUMERIC DEFAULT 80000000,
-  revenue_growth_rate NUMERIC DEFAULT 0.02,
-  expense_growth_rate NUMERIC DEFAULT 0.015,
-  high_confidence_months INT DEFAULT 3,
-  medium_confidence_months INT DEFAULT 9
-);
+// Sửa mapping total_fees
+total_fees: Number(item.total_fees) || 0,  // Từ view thay vì hardcode 0
 ```
 
 ---
 
-## THU TU UU TIEN
+## Kết quả mong đợi
 
-| Phase | Priority | Effort | Van de |
-|-------|----------|--------|--------|
-| 1 | 🔴 HIGH | 5 min | UI bug - duplicate cards |
-| 3 | 🔴 HIGH | 5 min | Wrong tenant data |
-| 2 | 🟠 MEDIUM | 10 min | Database duplicates |
-| 4 | 🟡 LOW | 30 min | SSOT compliance |
-| 5 | 🟢 OPTIONAL | 15 min | Config table |
+Sau khi implement, trang Phân tích Đa kênh sẽ hiển thị phí sàn thực từ data warehouse:
 
----
-
-## FILES THAY DOI
-
-| File | Action |
-|------|--------|
-| `src/pages/RollingForecastPage.tsx` | Xoa duplicate cards (lines 176-226) |
-| `src/hooks/useRollingForecast.ts` | Them tenant_id filter |
-| `supabase/migrations/xxx.sql` | Fix unique constraint + cleanup duplicates |
-| `supabase/migrations/xxx.sql` | Create `v_rolling_forecast_summary` view (Phase 4) |
+| Kênh | Đơn hàng | Doanh thu | Phí sàn | COGS | Lợi nhuận |
+|------|----------|-----------|---------|------|-----------|
+| Shopee | 2,200 | 821.7M | ~70M | 398.4M | 353.3M |
+| Lazada | 1,375 | 577.5M | ~52M | 278.6M | 247.0M |
+| TikTok | 1,100 | 356.0M | ~34M | 170.7M | 151.5M |
+| Website | 825 | 463.7M | ~32M | 228.5M | 202.7M |
 
 ---
 
-## TAC DONG SAU FIX
+## Tệp tin cần thay đổi
 
-| Metric | Truoc | Sau |
-|--------|-------|-----|
-| KPI Cards | 6 (duplicate) | 4 (correct) |
-| Data accuracy | Wrong tenant mixed | Correct tenant only |
-| DB duplicates | 36 rows/type | 18 rows/type |
-| Client calculations | 10+ | 0 (DB-First) |
+1. **Database Migration** - Thêm cột `platform_fee`, `shipping_fee`, `other_fees` vào `cdp_orders`
+2. **Database Migration** - Backfill data từ `external_orders`
+3. **Database Migration** - Cập nhật view `v_channel_performance`
+4. **`src/hooks/useChannelAnalytics.ts`** - Sửa mapping `total_fees`
+
+## Tuân thủ SSOT Architecture
+
+- ✅ Phí sàn lưu ở Layer 1 (`cdp_orders`) - nguồn sự thật duy nhất
+- ✅ Trigger sync đã có sẵn mapping - chỉ cần thêm cột
+- ✅ View tính aggregation - không tính ở frontend
+- ✅ Data warehouse → external_orders → cdp_orders → views → hooks
