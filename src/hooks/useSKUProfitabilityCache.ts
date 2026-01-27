@@ -149,37 +149,54 @@ export function useCachedSKUProfitability() {
         throw rpcError;
       }
 
+      // RPC returns these fields - match the actual RPC definition
       interface SKURpcRow {
         sku: string;
         product_name: string | null;
         channel: string;
+        order_count: number;
         total_quantity: number;
         total_revenue: number;
         total_cogs: number;
-        total_fees: number;
         gross_profit: number;
         margin_percent: number;
-        aov: number;
-        status: string;
       }
 
-      const skuData = (rpcData as SKURpcRow[]) || [];
+      const skuData = (rpcData as unknown as SKURpcRow[]) || [];
 
-      const skuMetrics: CachedSKUMetrics[] = skuData.map((row, idx) => ({
-        id: `sku-${idx}`,
-        sku: row.sku,
-        product_name: row.product_name,
-        channel: row.channel,
-        quantity: Number(row.total_quantity || 0),
-        revenue: Number(row.total_revenue || 0),
-        cogs: Number(row.total_cogs || 0),
-        fees: Number(row.total_fees || 0),
-        profit: Number(row.gross_profit || 0),
-        margin_percent: Number(row.margin_percent || 0),
-        aov: Number(row.aov || 0),
-        status: row.status || 'unknown',
-        calculated_at: new Date().toISOString(),
-      }));
+      // Derive fees, aov, status from available data
+      const skuMetrics: CachedSKUMetrics[] = skuData.map((row, idx) => {
+        const revenue = Number(row.total_revenue || 0);
+        const quantity = Number(row.total_quantity || 0);
+        const margin = Number(row.margin_percent || 0);
+        const profit = Number(row.gross_profit || 0);
+        const orderCount = Number(row.order_count || 1);
+        
+        // Derive AOV from revenue / order_count
+        const aov = orderCount > 0 ? revenue / orderCount : 0;
+        
+        // Determine status based on margin percent
+        let status = 'unknown';
+        if (margin >= 30) status = 'profitable';
+        else if (margin >= 15) status = 'marginal';
+        else if (margin < 15) status = 'loss';
+
+        return {
+          id: `sku-${idx}`,
+          sku: row.sku,
+          product_name: row.product_name,
+          channel: row.channel,
+          quantity,
+          revenue,
+          cogs: Number(row.total_cogs || 0),
+          fees: 0, // Fees not available in current RPC - set to 0
+          profit,
+          margin_percent: margin,
+          aov,
+          status,
+          calculated_at: new Date().toISOString(),
+        };
+      });
 
       const profitableSKUs = skuMetrics.filter(m => m.status === 'profitable');
       const marginalSKUs = skuMetrics.filter(m => m.status === 'marginal');
