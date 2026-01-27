@@ -190,11 +190,11 @@ export function useARAgingData() {
   const { data: snapshot, isLoading } = useFinanceTruthSnapshot();
 
   const data: ARAgingBucket[] = snapshot ? [
-    { bucket: 'Hiện hành', value: snapshot.arAgingCurrent, color: 'hsl(var(--chart-2))' },
-    { bucket: '1-30 ngày', value: snapshot.arAging30d, color: 'hsl(var(--chart-3))' },
-    { bucket: '31-60 ngày', value: snapshot.arAging60d, color: 'hsl(var(--warning))' },
-    { bucket: '61-90 ngày', value: snapshot.arAging90d, color: 'hsl(var(--chart-4))' },
-    { bucket: '>90 ngày', value: Math.max(0, snapshot.overdueAR - snapshot.arAging30d - snapshot.arAging60d - snapshot.arAging90d), color: 'hsl(var(--destructive))' },
+    { bucket: 'Chưa đến hạn', value: snapshot.arAgingCurrent, color: 'hsl(var(--chart-2))' },
+    { bucket: 'Quá hạn 1-30 ngày', value: snapshot.arAging30d, color: 'hsl(var(--chart-3))' },
+    { bucket: 'Quá hạn 31-60 ngày', value: snapshot.arAging60d, color: 'hsl(var(--warning))' },
+    { bucket: 'Quá hạn 61-90 ngày', value: snapshot.arAging90d, color: 'hsl(var(--chart-4))' },
+    { bucket: 'Nợ xấu (>90 ngày)', value: Math.max(0, snapshot.overdueAR - snapshot.arAging30d - snapshot.arAging60d - snapshot.arAging90d), color: 'hsl(var(--destructive))' },
   ] : [];
 
   return {

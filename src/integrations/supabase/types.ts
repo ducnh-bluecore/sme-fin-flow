@@ -11199,6 +11199,143 @@ export type Database = {
           },
         ]
       }
+      expense_baselines: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          monthly_amount: number
+          name: string
+          notes: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          monthly_amount: number
+          name: string
+          notes?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          monthly_amount?: number
+          name?: string
+          notes?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      expense_estimates: {
+        Row: {
+          actual_amount: number | null
+          category: string
+          channel: string | null
+          created_at: string | null
+          estimated_amount: number
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          month: number
+          notes: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          actual_amount?: number | null
+          category: string
+          channel?: string | null
+          created_at?: string | null
+          estimated_amount: number
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          month: number
+          notes?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          actual_amount?: number | null
+          category?: string
+          channel?: string | null
+          created_at?: string | null
+          estimated_amount?: number
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          month?: number
+          notes?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_estimates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_estimates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expense_estimates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number
@@ -25920,6 +26057,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_expense_plan_summary: {
+        Row: {
+          data_completeness_percent: number | null
+          fixed_baseline: number | null
+          fixed_cost_items: number | null
+          month: number | null
+          tenant_id: string | null
+          total_actual: number | null
+          total_planned: number | null
+          variable_actual: number | null
+          variable_actual_items: number | null
+          variable_estimate_items: number | null
+          variable_estimated: number | null
+          variance: number | null
+          year: number | null
+        }
+        Relationships: []
       }
       v_fdp_finance_summary: {
         Row: {

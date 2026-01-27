@@ -269,7 +269,7 @@ function FormulaPanel({ method }: { method: ForecastMethod }) {
           Công thức tính
         </CardTitle>
         <CardDescription>
-          {method === 'ai' ? 'Phương pháp AI/Xác suất' : 'Phương pháp Đơn giản (15%/tuần)'}
+          {method === 'rule-based' ? 'Phương pháp Theo quy tắc' : 'Phương pháp Đơn giản (15%/tuần)'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -288,9 +288,9 @@ function FormulaPanel({ method }: { method: ForecastMethod }) {
           <AccordionItem value="inflows">
             <AccordionTrigger className="text-sm">Dự báo dòng tiền vào</AccordionTrigger>
             <AccordionContent className="space-y-3">
-              {method === 'ai' ? (
+              {method === 'rule-based' ? (
                 <div className="bg-emerald-500/10 rounded-lg p-3 text-xs">
-                  <p className="font-semibold text-emerald-700 mb-2">Thu hồi công nợ (AI)</p>
+                  <p className="font-semibold text-emerald-700 mb-2">Thu hồi công nợ (Theo quy tắc)</p>
                   <div className="font-mono bg-background/50 p-2 rounded">
                     AR_Collection = Σ(invoices.balance) × P(collection)
                   </div>
@@ -312,7 +312,7 @@ function FormulaPanel({ method }: { method: ForecastMethod }) {
             </AccordionContent>
           </AccordionItem>
 
-          {method === 'ai' && (
+          {method === 'rule-based' && (
             <AccordionItem value="confidence">
               <AccordionTrigger className="text-sm">Khoảng tin cậy</AccordionTrigger>
               <AccordionContent>
@@ -349,7 +349,7 @@ function FormulaPanel({ method }: { method: ForecastMethod }) {
 
 export function DailyForecastView() {
   const [forecastPeriod, setForecastPeriod] = useState('30');
-  const [forecastMethod, setForecastMethod] = useState<ForecastMethod>('ai');
+  const [forecastMethod, setForecastMethod] = useState<ForecastMethod>('rule-based');
   const { inputs, isLoading } = useForecastInputs();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
   

@@ -5,7 +5,7 @@ import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useCashRunway } from './useCashRunway';
 import { format, addWeeks, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
 
-export type WeeklyForecastMethod = 'ai' | 'simple';
+export type WeeklyForecastMethod = 'rule-based' | 'simple';
 
 export interface WeeklyCashForecastData {
   currentCash: number;
@@ -71,7 +71,7 @@ export interface ScenarioComparison {
   pessimistic: { endingCash: number; minCash: number };
 }
 
-export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'ai') {
+export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based') {
   const { data: tenantId } = useActiveTenantId();
   const { startDateStr, endDateStr, startDate, endDate } = useDateRangeForQuery();
   // SSOT: Use useCashRunway for current cash position
@@ -332,6 +332,6 @@ function getEmptyData(): WeeklyCashForecastData {
       historicalOrders: 0,
       historicalExpenses: 0
     },
-    method: 'ai'
+    method: 'rule-based'
   };
 }

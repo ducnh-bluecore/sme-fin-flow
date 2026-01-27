@@ -300,16 +300,16 @@ export function useForecastInputs() {
   return { inputs, isLoading };
 }
 
-export type ForecastMethod = 'ai' | 'simple';
+export type ForecastMethod = 'rule-based' | 'simple';
 
 // Generate forecast data from inputs
-export function generateForecast(inputs: ForecastInputs, days: number = 90, method: ForecastMethod = 'ai') {
+export function generateForecast(inputs: ForecastInputs, days: number = 90, method: ForecastMethod = 'rule-based') {
   const forecast = [];
   const today = new Date();
   
   let balance = inputs.bankBalance;
   
-  // AI method: Collection probability curve (decreases as days past due increase)
+  // Rule-based method: Collection probability curve (decreases as days past due increase)
   const getCollectionProbability = (daysFromDue: number) => {
     if (daysFromDue <= 0) return 0.85; // Before due: 85%
     if (daysFromDue <= 30) return 0.70; // 1-30 days overdue: 70%
@@ -345,7 +345,7 @@ export function generateForecast(inputs: ForecastInputs, days: number = 90, meth
         inflow += inputs.pendingSettlements / 14;
       }
     } else {
-      // AI method: AR collections based on probability
+      // Rule-based method: AR collections based on probability
       if (i < 30) {
         inflow += (inputs.arDueWithin30 / 30) * getCollectionProbability(i);
       } else if (i < 60) {
