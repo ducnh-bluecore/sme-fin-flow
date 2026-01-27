@@ -3,7 +3,7 @@
  * ALL CHANNELS P&L - OPTIMIZED WITH AGGREGATED VIEWS
  * ============================================
  * 
- * SSOT: Uses fdp_channel_summary view for pre-aggregated channel metrics
+ * SSOT: Uses v_channel_pl_summary view for pre-aggregated channel metrics
  * instead of fetching 50,000+ raw orders.
  * 
  * Performance: ~99% reduction in data transfer
@@ -54,7 +54,7 @@ export function useAllChannelsPL(months: number = 12) {
 
       // Use pre-aggregated channel summary view (cast to any since views not in types)
       const { data: rawData, error } = await supabase
-        .from('fdp_channel_summary' as any)
+        .from('v_channel_pl_summary' as any)
         .select('*')
         .eq('tenant_id', tenantId);
 
