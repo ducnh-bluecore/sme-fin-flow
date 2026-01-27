@@ -38,7 +38,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { useForecastInputs, generateForecast, ForecastInputs, ForecastMethod } from '@/hooks/useForecastInputs';
 import { useCashRunway } from '@/hooks/useCashRunway';
+import { useSalesProjection } from '@/hooks/useSalesProjection';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SalesProjectionPanel } from './SalesProjectionPanel';
 import { Progress } from '@/components/ui/progress';
 import {
   Accordion,
@@ -352,11 +354,13 @@ export function DailyForecastView() {
   const [forecastMethod, setForecastMethod] = useState<ForecastMethod>('rule-based');
   const { inputs, isLoading } = useForecastInputs();
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
+  const { projection: salesProjection, isLoading: isSalesLoading, hasData: hasSalesData } = useSalesProjection();
   
   const forecastData = useMemo(() => {
     if (!inputs) return [];
-    return generateForecast(inputs, 90, forecastMethod);
-  }, [inputs, forecastMethod]);
+    // Pass sales projection to forecast generator
+    return generateForecast(inputs, 90, forecastMethod, hasSalesData ? salesProjection : undefined);
+  }, [inputs, forecastMethod, salesProjection, hasSalesData]);
 
   const displayData = useMemo(() => {
     const days = parseInt(forecastPeriod);
@@ -449,8 +453,9 @@ export function DailyForecastView() {
 
       {/* Data Status & Input Summary */}
       {inputs && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
           <DataStatusPanel inputs={inputs} />
+          <SalesProjectionPanel />
           <InputSummaryPanel inputs={inputs} />
           <FormulaPanel method={forecastMethod} />
         </div>

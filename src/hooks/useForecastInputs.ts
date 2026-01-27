@@ -1,7 +1,22 @@
+/**
+ * useForecastInputs - Hook for gathering cash flow forecast input data
+ * 
+ * This hook collects all necessary data for generating cash flow forecasts:
+ * - Bank balances (current cash position)
+ * - Accounts Receivable (expected inflows)
+ * - Accounts Payable (expected outflows)
+ * - Recurring expenses (predictable outflows)
+ * - eCommerce pending settlements
+ * - Historical transaction patterns
+ * 
+ * Architecture: DB-First approach - fetches precomputed data where available
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useMemo } from 'react';
+import { SalesProjection, calculateSalesInflowForDay } from './useSalesProjection';
 
 export interface ForecastInputs {
   // Current state
@@ -303,7 +318,12 @@ export function useForecastInputs() {
 export type ForecastMethod = 'rule-based' | 'simple';
 
 // Generate forecast data from inputs
-export function generateForecast(inputs: ForecastInputs, days: number = 90, method: ForecastMethod = 'rule-based') {
+export function generateForecast(
+  inputs: ForecastInputs, 
+  days: number = 90, 
+  method: ForecastMethod = 'rule-based',
+  salesProjection?: SalesProjection
+) {
   const forecast = [];
   const today = new Date();
   
@@ -361,6 +381,11 @@ export function generateForecast(inputs: ForecastInputs, days: number = 90, meth
       if (i >= 7 && i <= 21) {
         inflow += inputs.pendingSettlements / 14;
       }
+    }
+    
+    // Add projected sales revenue with settlement delay (T+14)
+    if (salesProjection) {
+      inflow += calculateSalesInflowForDay(salesProjection, i);
     }
     
     // Add historical average if we don't have specific AR data

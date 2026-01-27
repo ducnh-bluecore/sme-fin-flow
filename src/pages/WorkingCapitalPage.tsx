@@ -14,6 +14,7 @@ import {
   CheckCircle, MinusCircle, Info, ChevronDown
 } from 'lucide-react';
 import { useWorkingCapitalSummary } from '@/hooks/useWorkingCapital';
+import { useWorkingCapitalMode } from '@/hooks/useWorkingCapitalMode';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -34,10 +35,12 @@ import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
+import { WorkingCapitalModeToggle } from '@/components/workingcapital/WorkingCapitalModeToggle';
 
 export default function WorkingCapitalPage() {
   const { data: summary, isLoading } = useWorkingCapitalSummary();
   const [showFormulas, setShowFormulas] = useState(false);
+  const { mode, setMode, period, modes } = useWorkingCapitalMode();
   const { t } = useLanguage();
   
   const current = summary?.current;
@@ -106,7 +109,12 @@ export default function WorkingCapitalPage() {
             subtitle={t('workingCapital.subtitle')}
           />
           <div className="flex flex-col items-end gap-2">
-            <QuickDateSelector />
+            <WorkingCapitalModeToggle 
+              mode={mode}
+              period={period}
+              modes={modes}
+              onModeChange={setMode}
+            />
             <DateRangeIndicator variant="badge" />
           </div>
         </div>
