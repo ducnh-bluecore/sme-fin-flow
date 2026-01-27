@@ -152,6 +152,14 @@ export function useGenerateRollingForecast() {
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
       
+      // Delete existing forecasts for this tenant first to avoid duplicates
+      const { error: deleteError } = await supabase
+        .from('rolling_forecasts')
+        .delete()
+        .eq('tenant_id', tenantId);
+      
+      if (deleteError) throw deleteError;
+      
       // Generate 18 months of forecasts based on SSOT data
       const startDate = startOfMonth(new Date());
       const forecasts: Partial<RollingForecastItem>[] = [];
@@ -178,6 +186,11 @@ export function useGenerateRollingForecast() {
           forecast_type: 'revenue',
           original_budget: Math.round(avgRevenue * growthFactor),
           current_forecast: Math.round(avgRevenue * growthFactor),
+          actual_amount: 0,
+          variance_amount: 0,
+          variance_percent: 0,
+          category: null,
+          channel: null,
           confidence_level: i < 3 ? 'high' : i < 9 ? 'medium' : 'low',
         });
         
@@ -187,11 +200,16 @@ export function useGenerateRollingForecast() {
           forecast_type: 'expense',
           original_budget: Math.round(avgExpense * (1 + i * 0.015)), // 1.5% expense growth
           current_forecast: Math.round(avgExpense * (1 + i * 0.015)),
+          actual_amount: 0,
+          variance_amount: 0,
+          variance_percent: 0,
+          category: null,
+          channel: null,
           confidence_level: i < 3 ? 'high' : i < 9 ? 'medium' : 'low',
         });
       }
       
-      // Bulk insert - cast to required type
+      // Bulk insert
       const insertData = forecasts.map(f => ({ 
         ...f, 
         tenant_id: tenantId as string,
@@ -201,13 +219,14 @@ export function useGenerateRollingForecast() {
       
       const { error } = await supabase
         .from('rolling_forecasts')
-        .upsert(insertData, { onConflict: 'tenant_id,forecast_month,forecast_type,category,channel' });
+        .insert(insertData);
       
       if (error) throw error;
       return forecasts.length;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['rolling-forecasts'] });
+      queryClient.invalidateQueries({ queryKey: ['rolling-forecast-summary'] });
       toast.success(`Đã tạo ${count} dòng dự báo cho 18 tháng tới`);
     },
     onError: (error) => {
