@@ -50,7 +50,7 @@ function WeeklyFormulaPanel({ method }: { method: WeeklyForecastMethod }) {
           Công thức tính
         </CardTitle>
         <CardDescription>
-          {method === 'ai' ? 'Phương pháp AI/Xác suất' : 'Phương pháp Đơn giản (15%/tuần)'}
+          {method === 'rule-based' ? 'Phương pháp Theo quy tắc' : 'Phương pháp Đơn giản (15%/tuần)'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -58,9 +58,9 @@ function WeeklyFormulaPanel({ method }: { method: WeeklyForecastMethod }) {
           <AccordionItem value="collection">
             <AccordionTrigger className="text-sm">Thu hồi công nợ</AccordionTrigger>
             <AccordionContent className="space-y-3">
-              {method === 'ai' ? (
+              {method === 'rule-based' ? (
                 <div className="bg-emerald-500/10 rounded-lg p-3 text-xs">
-                  <p className="font-semibold text-emerald-700 mb-2">AI/Xác suất</p>
+                  <p className="font-semibold text-emerald-700 mb-2">Theo quy tắc</p>
                   <div className="font-mono bg-background/50 p-2 rounded space-y-1">
                     <p>Collection = AR_Remaining × 15% × P(week)</p>
                     <p className="text-muted-foreground">P(week): Tuần 1-4: 90% | 5-8: 75% | 9-13: 60%</p>
@@ -81,7 +81,7 @@ function WeeklyFormulaPanel({ method }: { method: WeeklyForecastMethod }) {
           <AccordionItem value="sales">
             <AccordionTrigger className="text-sm">Doanh số dự kiến</AccordionTrigger>
             <AccordionContent>
-              {method === 'ai' ? (
+              {method === 'rule-based' ? (
                 <div className="bg-emerald-500/10 rounded-lg p-3 text-xs">
                   <div className="font-mono bg-background/50 p-2 rounded">
                     <p>Sales[week] = AvgWeeklySales × (1 + 2%)^(week-1)</p>
@@ -102,7 +102,7 @@ function WeeklyFormulaPanel({ method }: { method: WeeklyForecastMethod }) {
           <AccordionItem value="confidence">
             <AccordionTrigger className="text-sm">Độ tin cậy</AccordionTrigger>
             <AccordionContent>
-              {method === 'ai' ? (
+              {method === 'rule-based' ? (
                 <div className="bg-muted/50 rounded-lg p-3 text-xs">
                   <p>Tuần 1-4: <Badge variant="outline" className="bg-green-500/10 text-green-500">Cao</Badge></p>
                   <p>Tuần 5-8: <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">Trung bình</Badge></p>
@@ -124,7 +124,7 @@ function WeeklyFormulaPanel({ method }: { method: WeeklyForecastMethod }) {
 }
 
 export function WeeklyForecastView() {
-  const [forecastMethod, setForecastMethod] = useState<ForecastMethod>('ai');
+  const [forecastMethod, setForecastMethod] = useState<ForecastMethod>('rule-based');
   const { data, isLoading, error } = useWeeklyCashForecast(forecastMethod);
   const [showDetails, setShowDetails] = useState(false);
 

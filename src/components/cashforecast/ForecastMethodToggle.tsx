@@ -2,7 +2,7 @@ import { Brain, Calculator } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-export type ForecastMethod = 'ai' | 'simple';
+export type ForecastMethod = 'rule-based' | 'simple';
 
 interface ForecastMethodToggleProps {
   value: ForecastMethod;
@@ -23,16 +23,16 @@ export function ForecastMethodToggle({ value, onChange }: ForecastMethodTogglePr
           <Tooltip>
             <TooltipTrigger asChild>
               <ToggleGroupItem 
-                value="ai" 
-                aria-label="AI/Xác suất"
+                value="rule-based" 
+                aria-label="Theo quy tắc"
                 className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground px-3 py-1.5 text-xs gap-1.5"
               >
                 <Brain className="w-3.5 h-3.5" />
-                AI/Xác suất
+                Theo quy tắc
               </ToggleGroupItem>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
-              <p className="font-semibold mb-1">Phương pháp AI/Xác suất</p>
+              <p className="font-semibold mb-1">Phương pháp dự báo theo quy tắc</p>
               <ul className="text-xs space-y-1">
                 <li>• Thu hồi AR theo xác suất (85% chưa hạn → 10% quá 90 ngày)</li>
                 <li>• Confidence bands tăng 1.2%/ngày (tối đa 60%)</li>

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-export type ForecastMethod = 'ai' | 'simple';
+export type ForecastMethod = 'rule-based' | 'simple';
 
 interface ForecastMethodContextType {
   method: ForecastMethod;
@@ -10,7 +10,7 @@ interface ForecastMethodContextType {
 const ForecastMethodContext = createContext<ForecastMethodContextType | undefined>(undefined);
 
 export function ForecastMethodProvider({ children }: { children: ReactNode }) {
-  const [method, setMethod] = useState<ForecastMethod>('ai');
+  const [method, setMethod] = useState<ForecastMethod>('rule-based');
 
   return (
     <ForecastMethodContext.Provider value={{ method, setMethod }}>
