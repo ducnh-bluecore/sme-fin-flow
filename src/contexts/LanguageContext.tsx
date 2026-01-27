@@ -55,7 +55,8 @@ const vi: Record<string, string> = {
   'nav.cfoOverview': 'Tổng quan CFO',
   'nav.dashboard': 'Dashboard',
   'nav.cashForecast': 'Cash Flow Forecast',
-  'nav.cashFlowDirect': 'Dòng tiền trực tiếp',
+'nav.cashFlowDirect': 'Dòng tiền trực tiếp',
+  'nav.cashPosition': 'Vị thế tiền mặt',
   'nav.workingCapital': 'Tối ưu vốn lưu động',
   'nav.workingCapitalHub': 'Vốn lưu động & CCC',
   'nav.cashConversion': 'Cash Conversion Cycle',
@@ -265,9 +266,11 @@ const vi: Record<string, string> = {
   'cashDirect.months': 'tháng',
   'cashDirect.million': 'triệu',
 
-  // Working Capital
+// Working Capital
   'workingCapital.title': 'Tối ưu vốn lưu động',
   'workingCapital.subtitle': 'Phân tích và tối ưu chu kỳ tiền mặt (Cash Conversion Cycle)',
+  'workingCapital.hubTitle': 'Vốn lưu động & CCC',
+  'workingCapital.hubSubtitle': 'Quản lý vốn lưu động và chu kỳ chuyển đổi tiền mặt',
   'workingCapital.formulas': 'Công thức tính',
   'workingCapital.dso': 'DSO',
   'workingCapital.dsoFull': 'DSO (Days Sales Outstanding)',
@@ -1735,8 +1738,9 @@ const en: Record<string, string> = {
   'nav.cfoOverview': 'CFO Overview',
   'nav.dashboard': 'Dashboard',
   'nav.cashForecast': 'Cash Flow Forecast',
-  'nav.workingCapital': 'Working Capital Optimization',
+'nav.workingCapital': 'Working Capital Optimization',
   'nav.workingCapitalHub': 'Working Capital & CCC',
+  'nav.cashPosition': 'Cash Position',
   'nav.cashConversion': 'Cash Conversion Cycle',
 
   'nav.decisionCenter': 'Decision Center',
@@ -1939,9 +1943,11 @@ const en: Record<string, string> = {
   'cashDirect.months': 'months',
   'cashDirect.million': 'M',
 
-  // Working Capital
+// Working Capital
   'workingCapital.title': 'Working Capital Optimization',
   'workingCapital.subtitle': 'Analysis and optimization of Cash Conversion Cycle',
+  'workingCapital.hubTitle': 'Working Capital & CCC',
+  'workingCapital.hubSubtitle': 'Working capital and cash conversion cycle management',
   'workingCapital.formulas': 'Formulas',
   'workingCapital.dso': 'DSO',
   'workingCapital.dsoFull': 'DSO (Days Sales Outstanding)',

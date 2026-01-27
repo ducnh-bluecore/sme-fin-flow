@@ -19,7 +19,9 @@ import {
   TrendingUp,
   Package,
   Megaphone,
-  Info
+  Info,
+  Truck,
+  Store
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -243,13 +245,13 @@ export default function RealCashBreakdown() {
             </TooltipProvider>
           ))}
 
-          {/* Locked Cash Breakdown */}
+          {/* Locked Cash Breakdown - 4 columns */}
           <div className="pt-4 border-t border-border">
             <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
               <Lock className="h-4 w-4" />
               Chi tiết Cash bị khóa
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2 mb-1">
                   <Package className="h-4 w-4 text-amber-500" />
@@ -259,10 +261,24 @@ export default function RealCashBreakdown() {
               </div>
               <div className="p-3 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2 mb-1">
-                  <Megaphone className="h-4 w-4 text-amber-500" />
+                  <Megaphone className="h-4 w-4 text-blue-500" />
                   <span className="text-xs text-muted-foreground">Ads Float</span>
                 </div>
                 <p className="font-semibold">{formatVNDCompact(adsFloat)}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Truck className="h-4 w-4 text-purple-500" />
+                  <span className="text-xs text-muted-foreground">Ops Float</span>
+                </div>
+                <p className="font-semibold">{formatVNDCompact(opsFloat)}</p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Store className="h-4 w-4 text-green-500" />
+                  <span className="text-xs text-muted-foreground">Platform Hold</span>
+                </div>
+                <p className="font-semibold">{formatVNDCompact(platformHold)}</p>
               </div>
             </div>
           </div>
