@@ -24,19 +24,23 @@ import {
   FDP_THRESHOLDS
 } from '@/lib/fdp-formulas';
 
-// Types from RPC response
-interface FDPPeriodSummary {
-  total_orders: number;
-  total_revenue: number;
-  total_cogs: number;
-  total_platform_fee: number;
-  total_commission_fee: number;
-  total_payment_fee: number;
-  total_shipping_fee: number;
-  contribution_margin: number;
-  unique_customers: number;
-  first_date: string | null;
-  last_date: string | null;
+// Types from RPC response - matches camelCase JSONB from get_fdp_period_summary
+interface FDPPeriodSummaryResponse {
+  totalOrders: number;
+  totalRevenue: number;
+  totalCogs: number;
+  totalPlatformFees: number;
+  totalShippingFees: number;
+  grossProfit: number;
+  contributionMargin: number;
+  uniqueCustomers: number;
+  avgOrderValue: number;
+  dataQuality: {
+    hasRealData: boolean;
+    hasCogs: boolean;
+    hasFees: boolean;
+    orderCount: number;
+  };
 }
 
 interface ChannelSummary {
@@ -171,20 +175,14 @@ export function useFDPAggregatedMetricsSSOT() {
           .lte('invoice_month', endDateStr),
       ]);
 
-      // Parse RPC response
-      const summary: FDPPeriodSummary = summaryRes.data?.[0] || {
-        total_orders: 0,
-        total_revenue: 0,
-        total_cogs: 0,
-        total_platform_fee: 0,
-        total_commission_fee: 0,
-        total_payment_fee: 0,
-        total_shipping_fee: 0,
-        contribution_margin: 0,
-        unique_customers: 0,
-        first_date: null,
-        last_date: null,
-      };
+      // Check for RPC error first
+      if (summaryRes.error) {
+        console.error('FDP Period Summary RPC error:', summaryRes.error);
+        throw summaryRes.error;
+      }
+
+      // Parse RPC response - it returns JSONB object directly (camelCase)
+      const summary = (summaryRes.data ?? {}) as unknown as FDPPeriodSummaryResponse;
 
       // Map v_channel_performance response to ChannelSummary format
       interface ChannelPerformanceRow {
@@ -214,18 +212,14 @@ export function useFDPAggregatedMetricsSSOT() {
       const marketingExpenses = marketingRes.data || [];
       const invoiceSummary = invoiceRes.data || [];
 
-      // Extract values from RPC (already aggregated in DB)
-      const totalOrders = Number(summary.total_orders) || 0;
-      const totalRevenue = Number(summary.total_revenue) || 0;
-      const totalCogs = Number(summary.total_cogs) || 0;
-      const totalPlatformFees = (
-        Number(summary.total_platform_fee || 0) +
-        Number(summary.total_commission_fee || 0) +
-        Number(summary.total_payment_fee || 0)
-      );
-      const totalShippingFees = Number(summary.total_shipping_fee) || 0;
-      const contributionMargin = Number(summary.contribution_margin) || 0;
-      const uniqueCustomers = Number(summary.unique_customers) || 0;
+      // Extract values from RPC (already aggregated in DB, camelCase keys)
+      const totalOrders = Number(summary.totalOrders ?? 0);
+      const totalRevenue = Number(summary.totalRevenue ?? 0);
+      const totalCogs = Number(summary.totalCogs ?? 0);
+      const totalPlatformFees = Number(summary.totalPlatformFees ?? 0);
+      const totalShippingFees = Number(summary.totalShippingFees ?? 0);
+      const contributionMargin = Number(summary.contributionMargin ?? 0);
+      const uniqueCustomers = Number(summary.uniqueCustomers ?? 0);
 
       // Derived metrics (simple division, not aggregation)
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -304,8 +298,8 @@ export function useFDPAggregatedMetricsSSOT() {
         skuBreakdown: skuSummary,
         health,
         period: {
-          start: summary.first_date,
-          end: summary.last_date,
+          start: startDateStr,
+          end: endDateStr,
         },
       };
     },
