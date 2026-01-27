@@ -216,7 +216,7 @@ export default function CashPositionPage() {
             <CardContent className="pt-4">
               <p className="text-sm text-muted-foreground">Cash bị khóa</p>
               <p className="text-2xl font-bold text-amber-500">
-                {formatVNDCompact(snapshot.totalInventoryValue + snapshot.totalMarketingSpend * 0.2)}
+                {formatVNDCompact(snapshot.lockedCashTotal || snapshot.totalInventoryValue)}
               </p>
             </CardContent>
           </Card>

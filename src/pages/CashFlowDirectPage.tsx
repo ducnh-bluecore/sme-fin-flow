@@ -121,7 +121,7 @@ export default function CashFlowDirectPage() {
                   </p>
                 </div>
                 <Badge variant={summary.operatingCashFlow >= 0 ? 'default' : 'destructive'}>
-                  Operating
+                  Hoạt động KD
                 </Badge>
               </div>
             </CardContent>
@@ -136,7 +136,7 @@ export default function CashFlowDirectPage() {
                     {formatCurrency(summary.investingCashFlow)}
                   </p>
                 </div>
-                <Badge variant="secondary">Investing</Badge>
+                <Badge variant="secondary">Đầu tư</Badge>
               </div>
             </CardContent>
           </Card>
@@ -150,7 +150,7 @@ export default function CashFlowDirectPage() {
                     {formatCurrency(summary.financingCashFlow)}
                   </p>
                 </div>
-                <Badge variant="outline">Financing</Badge>
+                <Badge variant="outline">Tài chính</Badge>
               </div>
             </CardContent>
           </Card>
