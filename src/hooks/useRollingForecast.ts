@@ -180,17 +180,13 @@ export function useGenerateRollingForecast() {
         const month = format(addMonths(startDate, i), 'yyyy-MM-01');
         const growthFactor = 1 + (i * 0.02); // 2% monthly growth
         
-        // Revenue forecast
+        // Revenue forecast - do NOT include variance_amount/variance_percent (generated columns)
         forecasts.push({
           forecast_month: month,
           forecast_type: 'revenue',
           original_budget: Math.round(avgRevenue * growthFactor),
           current_forecast: Math.round(avgRevenue * growthFactor),
           actual_amount: 0,
-          variance_amount: 0,
-          variance_percent: 0,
-          category: null,
-          channel: null,
           confidence_level: i < 3 ? 'high' : i < 9 ? 'medium' : 'low',
         });
         
@@ -201,10 +197,6 @@ export function useGenerateRollingForecast() {
           original_budget: Math.round(avgExpense * (1 + i * 0.015)), // 1.5% expense growth
           current_forecast: Math.round(avgExpense * (1 + i * 0.015)),
           actual_amount: 0,
-          variance_amount: 0,
-          variance_percent: 0,
-          category: null,
-          channel: null,
           confidence_level: i < 3 ? 'high' : i < 9 ? 'medium' : 'low',
         });
       }
