@@ -116,16 +116,21 @@ export default function ExpensesPage() {
   const totalExpenses = expensesSummary?.totalAmount || 0;
   const totalCount = expensesSummary?.totalCount || 0;
 
-  // Previous period comparison from monthly summary (precomputed)
-  const prevPeriodExpenses = useMemo(() => {
+  // Previous period comparison - use pre-computed change from summary if available
+  // Fallback to monthly summary calculation for backwards compatibility
+  const expenseChange = useMemo(() => {
+    // If summary provides pre-computed change, use it (SSOT)
+    if ((expensesSummary as any)?.expenseChangePercent !== undefined) {
+      return (expensesSummary as any).expenseChangePercent;
+    }
+    // Fallback: calculate from monthly summary (will be deprecated)
     if (!monthlySummary || monthlySummary.length < 2) return 0;
     const prev = monthlySummary[monthlySummary.length - 2];
-    return prev ? (prev.cogs + prev.operatingExpenses) : 0;
-  }, [monthlySummary]);
-
-  const expenseChange = prevPeriodExpenses > 0
-    ? ((totalExpenses - prevPeriodExpenses) / prevPeriodExpenses) * 100
-    : 0;
+    const prevPeriodExpenses = prev ? (prev.cogs + prev.operatingExpenses) : 0;
+    return prevPeriodExpenses > 0
+      ? ((totalExpenses - prevPeriodExpenses) / prevPeriodExpenses) * 100
+      : 0;
+  }, [expensesSummary, monthlySummary, totalExpenses]);
 
   // Pie chart data from precomputed categories
   const pieChartData = useMemo(() => {

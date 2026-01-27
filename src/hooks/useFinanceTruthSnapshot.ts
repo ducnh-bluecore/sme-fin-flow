@@ -137,6 +137,12 @@ export interface FormattedFinanceSnapshot {
   dio: number;
   ccc: number;
   
+  // Pre-computed AR/DSO metrics (SSOT Phase 6)
+  overdueARPercent: number;
+  dsoTarget: number;
+  dpoTarget: number;
+  dioTarget: number;
+  
   // Marketing
   totalMarketingSpend: number;
   marketingRoas: number;
@@ -302,6 +308,15 @@ function mapToFormatted(
     dpo: Number(raw.dpo) || 0,
     dio: Number(raw.dio) || 0,
     ccc: Number(raw.ccc) || 0,
+    
+    // Pre-computed AR/DSO metrics (SSOT Phase 6)
+    // Calculate overdueARPercent from existing data (will be pre-computed in view in future)
+    overdueARPercent: Number(raw.total_ar) > 0 
+      ? Math.round((Number(raw.overdue_ar) / Number(raw.total_ar) * 100) * 10) / 10 
+      : 0,
+    dsoTarget: 30, // Will be from working_capital_targets table via view
+    dpoTarget: 45,
+    dioTarget: 45,
     
     // Marketing
     totalMarketingSpend: Number(raw.total_marketing_spend) || 0,

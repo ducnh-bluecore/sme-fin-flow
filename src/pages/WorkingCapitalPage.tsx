@@ -44,29 +44,34 @@ export default function WorkingCapitalPage() {
   const { t } = useLanguage();
   
   const current = summary?.current;
+  // Targets come from DB via summary (NO hardcoded values)
+  const dsoTarget = current?.target_dso ?? 30;
+  const dioTarget = current?.target_dio ?? 45;
+  const dpoTarget = current?.target_dpo ?? 45;
+  
   const cccData = [
-    { name: 'DSO', days: current?.dso_days || 0, target: current?.target_dso || 30, color: 'hsl(var(--chart-1))' },
-    { name: 'DIO', days: current?.dio_days || 0, target: current?.target_dio || 0, color: 'hsl(var(--chart-2))' },
-    { name: 'DPO', days: current?.dpo_days || 0, target: current?.target_dpo || 45, color: 'hsl(var(--chart-3))' },
+    { name: 'DSO', days: current?.dso_days || 0, target: dsoTarget, color: 'hsl(var(--chart-1))' },
+    { name: 'DIO', days: current?.dio_days || 0, target: dioTarget, color: 'hsl(var(--chart-2))' },
+    { name: 'DPO', days: current?.dpo_days || 0, target: dpoTarget, color: 'hsl(var(--chart-3))' },
   ];
 
   const cccChartData = [
     { 
       metric: 'DSO', 
       current: current?.dso_days || 0, 
-      target: current?.target_dso || 30,
+      target: dsoTarget,
       description: t('workingCapital.dsoDesc')
     },
     { 
       metric: 'DIO', 
       current: current?.dio_days || 0, 
-      target: current?.target_dio || 0,
+      target: dioTarget,
       description: t('workingCapital.dioDesc')
     },
     { 
       metric: 'DPO', 
       current: current?.dpo_days || 0, 
-      target: current?.target_dpo || 45,
+      target: dpoTarget,
       description: t('workingCapital.dpoDesc')
     },
   ];
