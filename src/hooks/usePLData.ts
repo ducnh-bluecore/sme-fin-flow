@@ -255,11 +255,11 @@ export function usePLData() {
         monthlyRows = filteredMonths;
         cache = aggregateCacheRows(filteredMonths);
         
-        // Recalculate margins for aggregated data
+        // Recalculate margins for aggregated data (keep as decimal like DB stores)
         if (cache && cache.net_sales > 0) {
-          cache.gross_margin = (cache.gross_profit / cache.net_sales) * 100;
-          cache.operating_margin = (cache.operating_income / cache.net_sales) * 100;
-          cache.net_margin = (cache.net_income / cache.net_sales) * 100;
+          cache.gross_margin = cache.gross_profit / cache.net_sales;
+          cache.operating_margin = cache.operating_income / cache.net_sales;
+          cache.net_margin = cache.net_income / cache.net_sales;
         }
       }
 
