@@ -316,6 +316,7 @@ export function usePLData() {
       }
 
       // Map cache to PLData - DIRECT MAPPING from database
+      // Note: DB stores margins as decimals (0.51 = 51%, -1.79 = -179%), so multiply by 100
       const plData: PLData = cache ? {
         grossSales: cache.gross_sales || 0,
         salesReturns: cache.sales_returns || 0,
@@ -323,7 +324,7 @@ export function usePLData() {
         netSales: cache.net_sales || 0,
         cogs: cache.cogs || 0,
         grossProfit: cache.gross_profit || 0,
-        grossMargin: cache.gross_margin || 0,
+        grossMargin: (cache.gross_margin || 0) * 100,
         operatingExpenses: {
           salaries: cache.opex_salaries || 0,
           rent: cache.opex_rent || 0,
@@ -339,13 +340,13 @@ export function usePLData() {
         },
         totalOperatingExpenses: cache.total_opex || 0,
         operatingIncome: cache.operating_income || 0,
-        operatingMargin: cache.operating_margin || 0,
+        operatingMargin: (cache.operating_margin || 0) * 100,
         otherIncome: cache.other_income || 0,
         interestExpense: cache.interest_expense || 0,
         incomeBeforeTax: cache.income_before_tax || 0,
         incomeTax: cache.income_tax || 0,
         netIncome: cache.net_income || 0,
-        netMargin: cache.net_margin || 0,
+        netMargin: (cache.net_margin || 0) * 100,
       } : getEmptyPLDataStruct().plData;
 
       // Map monthly cache to MonthlyPLData for trend chart
@@ -395,8 +396,38 @@ export function usePLData() {
         totalRevenue: cache?.net_sales || 0,
       };
 
-      // Category data - would need separate query if needed
-      const categoryData: CategoryPLData[] = [];
+      // Fetch category data from v_category_pl_summary view
+      const { data: categoryRows } = await supabase
+        .from('v_category_pl_summary' as any)
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .gte('period', startDateStr)
+        .lte('period', endDateStr);
+
+      // Aggregate category data across months
+      const categoryAgg = new Map<string, { revenue: number; cogs: number }>();
+      (categoryRows || []).forEach((row: any) => {
+        const existing = categoryAgg.get(row.category) || { revenue: 0, cogs: 0 };
+        existing.revenue += Number(row.total_revenue) || 0;
+        existing.cogs += Number(row.total_cogs) || 0;
+        categoryAgg.set(row.category, existing);
+      });
+
+      const totalCatRevenue = [...categoryAgg.values()].reduce((s, c) => s + c.revenue, 0);
+
+      const categoryData: CategoryPLData[] = [...categoryAgg.entries()]
+        .map(([category, data]) => ({
+          category,
+          sales: data.revenue / 1000000, // Convert to millions
+          cogs: data.cogs / 1000000,
+          margin: data.revenue > 0 
+            ? Number(((data.revenue - data.cogs) / data.revenue * 100).toFixed(1))
+            : 0,
+          contribution: totalCatRevenue > 0
+            ? Number((data.revenue / totalCatRevenue * 100).toFixed(1))
+            : 0,
+        }))
+        .sort((a, b) => b.sales - a.sales); // Sort by revenue desc
 
       return {
         plData,

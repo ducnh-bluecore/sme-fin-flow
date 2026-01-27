@@ -1037,17 +1037,25 @@ export default function PLReportPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categoryData.map((cat) => (
-                      <TableRow key={cat.category}>
-                        <TableCell className="font-medium">{cat.category}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(cat.sales * 1000000)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{formatCurrency(cat.cogs * 1000000)}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant={cat.margin >= 30 ? 'default' : 'secondary'}>{cat.margin}%</Badge>
+                    {categoryData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          Chưa có dữ liệu danh mục sản phẩm
                         </TableCell>
-                        <TableCell className="text-right">{cat.contribution}%</TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      categoryData.map((cat) => (
+                        <TableRow key={cat.category}>
+                          <TableCell className="font-medium capitalize">{cat.category}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(cat.sales * 1000000)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{formatCurrency(cat.cogs * 1000000)}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant={cat.margin >= 30 ? 'default' : 'secondary'}>{cat.margin.toFixed(1)}%</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{cat.contribution.toFixed(1)}%</TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </motion.div>
@@ -1075,7 +1083,7 @@ export default function PLReportPage() {
                         </div>
                       </div>
                       <div className="relative">
-                        <Progress value={Math.min((item.value / item.target) * 100, 100)} className="h-3" />
+                        <Progress value={Math.max(0, Math.min((item.value / item.target) * 100, 100))} className="h-3" />
                         <div 
                           className="absolute top-0 h-3 w-0.5 bg-foreground/50"
                           style={{ left: '100%' }}
@@ -1117,14 +1125,25 @@ export default function PLReportPage() {
                 ))}
               </div>
               
-              <div className="mt-6 p-4 rounded-lg bg-success/10 border border-success/20">
+              <div className={cn(
+                "mt-6 p-4 rounded-lg border",
+                plData.netIncome >= 0 
+                  ? "bg-success/10 border-success/20" 
+                  : "bg-destructive/10 border-destructive/20"
+              )}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-success">Lợi nhuận ròng</p>
+                    <p className={cn(
+                      "text-sm font-medium",
+                      plData.netIncome >= 0 ? "text-success" : "text-destructive"
+                    )}>Lợi nhuận ròng</p>
                     <p className="text-xs text-muted-foreground">Còn lại sau tất cả chi phí</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-success">{formatPercent(plData.netMargin)}</p>
+                    <p className={cn(
+                      "text-2xl font-bold",
+                      plData.netIncome >= 0 ? "text-success" : "text-destructive"
+                    )}>{formatPercent(plData.netMargin)}</p>
                     <p className="text-sm text-muted-foreground">{formatCurrency(plData.netIncome)}</p>
                   </div>
                 </div>
