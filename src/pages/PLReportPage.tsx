@@ -261,16 +261,17 @@ export default function PLReportPage() {
   // Check if we have budget data from primary scenario
   const hasBudgetData = budgetData && budgetData.scenarioId && budgetData.ytd.plannedRevenue > 0;
   
-  // Calculate budget values for P&L items based on YTD data
-  // We'll estimate the breakdown based on typical ratios
+  // Budget values from scenario data
+  // NOTE: Only available fields used. Budget breakdown (COGS, NetIncome) requires
+  // budget_line_items integration - currently unavailable so we show what we have
   const budgetValues = hasBudgetData ? {
     grossSales: budgetData.ytd.plannedRevenue,
-    netSales: budgetData.ytd.plannedRevenue * 0.95, // Assume 5% returns/discounts
-    cogs: budgetData.ytd.plannedRevenue * 0.60, // Assume 60% COGS ratio
-    grossProfit: budgetData.ytd.plannedRevenue * 0.35, // 35% gross margin
+    netSales: budgetData.ytd.plannedRevenue, // Full planned revenue
+    cogs: undefined as number | undefined, // Not in budget schema yet
+    grossProfit: undefined as number | undefined, // Not in budget schema yet
     totalOpex: budgetData.ytd.plannedOpex,
     operatingIncome: budgetData.ytd.plannedEbitda,
-    netIncome: budgetData.ytd.plannedEbitda * 0.80, // After tax
+    netIncome: undefined as number | undefined, // Not in budget schema yet
   } : null;
 
   // Generate expense trend data from monthly data - use actual opex or skip
@@ -332,9 +333,9 @@ export default function PLReportPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Doanh thu thuần', value: plData.netSales, change: comparisonData.netSales.change, icon: ShoppingCart },
-            { label: 'Lãi gộp', value: plData.grossProfit, change: comparisonData.grossProfit.change, icon: TrendingUp, extra: `Biên: ${plData.netSales > 0 ? ((plData.grossProfit / plData.netSales) * 100).toFixed(1) : '0'}%` },
-            { label: 'Lợi nhuận hoạt động', value: plData.operatingIncome, change: comparisonData.operatingIncome.change, icon: Store, extra: `Biên: ${plData.netSales > 0 ? ((plData.operatingIncome / plData.netSales) * 100).toFixed(1) : '0'}%` },
-            { label: 'Lợi nhuận ròng', value: plData.netIncome, change: comparisonData.netIncome.change, icon: DollarSign, extra: `Biên: ${plData.netSales > 0 ? ((plData.netIncome / plData.netSales) * 100).toFixed(1) : '0'}%` },
+            { label: 'Lãi gộp', value: plData.grossProfit, change: comparisonData.grossProfit.change, icon: TrendingUp, extra: `Biên: ${plData.grossMargin.toFixed(1)}%` },
+            { label: 'Lợi nhuận hoạt động', value: plData.operatingIncome, change: comparisonData.operatingIncome.change, icon: Store, extra: `Biên: ${plData.operatingMargin.toFixed(1)}%` },
+            { label: 'Lợi nhuận ròng', value: plData.netIncome, change: comparisonData.netIncome.change, icon: DollarSign, extra: `Biên: ${plData.netMargin.toFixed(1)}%` },
           ].map((metric, index) => (
             <motion.div
               key={metric.label}

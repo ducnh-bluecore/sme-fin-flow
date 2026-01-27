@@ -29015,6 +29015,101 @@ export type Database = {
           },
         ]
       }
+      v_pl_monthly_summary: {
+        Row: {
+          cogs: number | null
+          cogs_m: number | null
+          gross_margin_pct: number | null
+          gross_profit: number | null
+          gross_profit_m: number | null
+          gross_sales: number | null
+          net_income: number | null
+          net_income_m: number | null
+          net_margin_pct: number | null
+          net_sales: number | null
+          net_sales_m: number | null
+          operating_income: number | null
+          operating_margin_pct: number | null
+          opex_m: number | null
+          period_month: number | null
+          period_year: number | null
+          tenant_id: string | null
+          total_opex: number | null
+          year_month: string | null
+        }
+        Insert: {
+          cogs?: never
+          cogs_m?: never
+          gross_margin_pct?: never
+          gross_profit?: never
+          gross_profit_m?: never
+          gross_sales?: never
+          net_income?: never
+          net_income_m?: never
+          net_margin_pct?: never
+          net_sales?: never
+          net_sales_m?: never
+          operating_income?: never
+          operating_margin_pct?: never
+          opex_m?: never
+          period_month?: number | null
+          period_year?: number | null
+          tenant_id?: string | null
+          total_opex?: never
+          year_month?: never
+        }
+        Update: {
+          cogs?: never
+          cogs_m?: never
+          gross_margin_pct?: never
+          gross_profit?: never
+          gross_profit_m?: never
+          gross_sales?: never
+          net_income?: never
+          net_income_m?: never
+          net_margin_pct?: never
+          net_sales?: never
+          net_sales_m?: never
+          operating_income?: never
+          operating_margin_pct?: never
+          opex_m?: never
+          period_month?: number | null
+          period_year?: number | null
+          tenant_id?: string | null
+          total_opex?: never
+          year_month?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pl_report_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pl_report_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "pl_report_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "pl_report_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_retail_concentration_risk: {
         Row: {
           category_concentration: Json | null
@@ -29863,6 +29958,20 @@ export type Database = {
           unique_users: number
         }[]
       }
+      get_category_pl_aggregated: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          category: string
+          cogs_m: number
+          contribution_pct: number
+          gross_profit: number
+          margin_pct: number
+          profit_m: number
+          revenue_m: number
+          total_cogs: number
+          total_revenue: number
+        }[]
+      }
       get_control_tower_summary: {
         Args: {
           p_end_date?: string
@@ -30017,6 +30126,35 @@ export type Database = {
       get_metric_value: {
         Args: { p_date?: string; p_metric_code: string; p_tenant_id: string }
         Returns: number
+      }
+      get_pl_aggregated: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          cogs: number
+          cogs_m: number
+          gross_margin_pct: number
+          gross_profit: number
+          gross_profit_m: number
+          gross_sales: number
+          net_income: number
+          net_income_m: number
+          net_margin_pct: number
+          net_sales: number
+          net_sales_m: number
+          operating_income: number
+          operating_margin_pct: number
+          opex_m: number
+          total_opex: number
+        }[]
+      }
+      get_pl_comparison: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          change_pct: number
+          current_value: number
+          metric: string
+          previous_value: number
+        }[]
       }
       get_sku_master_unit_cost: {
         Args: { p_sku: string; p_tenant_id: string }

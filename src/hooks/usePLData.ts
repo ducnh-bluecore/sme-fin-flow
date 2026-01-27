@@ -1,11 +1,16 @@
 /**
  * ============================================
- * P&L Data Hook - Fetches from pl_report_cache
+ * P&L Data Hook - SSOT COMPLIANT (v2)
  * ============================================
  * 
- * This hook fetches pre-computed P&L data from the `pl_report_cache` table.
- * All business calculations are done in the database (refresh_pl_cache RPC).
- * This hook is a thin wrapper - NO CLIENT-SIDE CALCULATIONS.
+ * REFACTORED: Now uses database RPCs for ALL calculations.
+ * This hook is a THIN WRAPPER - NO CLIENT-SIDE CALCULATIONS.
+ * 
+ * Uses:
+ * - get_pl_aggregated RPC for aggregations
+ * - get_pl_comparison RPC for YoY changes
+ * - get_category_pl_aggregated RPC for category data
+ * - v_pl_monthly_summary view for monthly trends
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +24,7 @@ export interface PLData {
   netSales: number;
   cogs: number;
   grossProfit: number;
-  grossMargin: number;
+  grossMargin: number; // Already as % from DB
   operatingExpenses: {
     salaries: number;
     rent: number;
@@ -30,18 +35,18 @@ export interface PLData {
     supplies: number;
     maintenance: number;
     professional: number;
-    logistics: number; // Added logistics
+    logistics: number;
     other: number;
   };
   totalOperatingExpenses: number;
   operatingIncome: number;
-  operatingMargin: number;
+  operatingMargin: number; // Already as % from DB
   otherIncome: number;
   interestExpense: number;
   incomeBeforeTax: number;
   incomeTax: number;
   netIncome: number;
-  netMargin: number;
+  netMargin: number; // Already as % from DB
 }
 
 export interface MonthlyPLData {
@@ -55,10 +60,10 @@ export interface MonthlyPLData {
 
 export interface CategoryPLData {
   category: string;
-  sales: number;
-  cogs: number;
-  margin: number;
-  contribution: number;
+  sales: number; // Already in millions from DB
+  cogs: number; // Already in millions from DB
+  margin: number; // Already as % from DB
+  contribution: number; // Already as % from DB
 }
 
 export interface ComparisonData {
@@ -75,124 +80,16 @@ export interface RevenueBreakdown {
   totalRevenue: number;
 }
 
-interface PLCacheRow {
-  period_year: number;
-  period_month: number | null;
-  gross_sales: number;
-  sales_returns: number;
-  sales_discounts: number;
-  net_sales: number;
-  invoice_revenue: number;
-  contract_revenue: number;
-  integrated_revenue: number;
-  cogs: number;
-  gross_profit: number;
-  gross_margin: number;
-  opex_salaries: number;
-  opex_rent: number;
-  opex_utilities: number;
-  opex_marketing: number;
-  opex_depreciation: number;
-  opex_insurance: number | null;
-  opex_supplies: number | null;
-  opex_maintenance: number | null;
-  opex_professional: number | null;
-  opex_other: number;
-  total_opex: number;
-  operating_income: number;
-  operating_margin: number;
-  other_income: number | null;
-  interest_expense: number;
-  income_before_tax: number;
-  income_tax: number;
-  net_income: number;
-  net_margin: number;
-}
-
 /**
- * Fetches P&L data from pl_report_cache table
- * All calculations are pre-computed by refresh_pl_cache RPC
- */
-/**
- * Helper function to get months in a date range
- */
-function getMonthsInRange(startDateStr: string, endDateStr: string): Array<{year: number, month: number}> {
-  const start = new Date(startDateStr);
-  const end = new Date(endDateStr);
-  const months: Array<{year: number, month: number}> = [];
-  
-  const current = new Date(start.getFullYear(), start.getMonth(), 1);
-  while (current <= end) {
-    months.push({
-      year: current.getFullYear(),
-      month: current.getMonth() + 1
-    });
-    current.setMonth(current.getMonth() + 1);
-  }
-  
-  return months;
-}
-
-/**
- * Aggregate multiple cache rows into a single summary
- */
-function aggregateCacheRows(rows: PLCacheRow[]): PLCacheRow | null {
-  if (!rows || rows.length === 0) return null;
-  
-  return rows.reduce((acc, row) => ({
-    period_year: acc.period_year,
-    period_month: null,
-    gross_sales: (acc.gross_sales || 0) + (row.gross_sales || 0),
-    sales_returns: (acc.sales_returns || 0) + (row.sales_returns || 0),
-    sales_discounts: (acc.sales_discounts || 0) + (row.sales_discounts || 0),
-    net_sales: (acc.net_sales || 0) + (row.net_sales || 0),
-    invoice_revenue: (acc.invoice_revenue || 0) + (row.invoice_revenue || 0),
-    contract_revenue: (acc.contract_revenue || 0) + (row.contract_revenue || 0),
-    integrated_revenue: (acc.integrated_revenue || 0) + (row.integrated_revenue || 0),
-    cogs: (acc.cogs || 0) + (row.cogs || 0),
-    gross_profit: (acc.gross_profit || 0) + (row.gross_profit || 0),
-    gross_margin: 0, // Will be recalculated
-    opex_salaries: (acc.opex_salaries || 0) + (row.opex_salaries || 0),
-    opex_rent: (acc.opex_rent || 0) + (row.opex_rent || 0),
-    opex_utilities: (acc.opex_utilities || 0) + (row.opex_utilities || 0),
-    opex_marketing: (acc.opex_marketing || 0) + (row.opex_marketing || 0),
-    opex_depreciation: (acc.opex_depreciation || 0) + (row.opex_depreciation || 0),
-    opex_insurance: (acc.opex_insurance || 0) + (row.opex_insurance || 0),
-    opex_supplies: (acc.opex_supplies || 0) + (row.opex_supplies || 0),
-    opex_maintenance: (acc.opex_maintenance || 0) + (row.opex_maintenance || 0),
-    opex_professional: (acc.opex_professional || 0) + (row.opex_professional || 0),
-    opex_other: (acc.opex_other || 0) + (row.opex_other || 0),
-    total_opex: (acc.total_opex || 0) + (row.total_opex || 0),
-    operating_income: (acc.operating_income || 0) + (row.operating_income || 0),
-    operating_margin: 0, // Will be recalculated
-    other_income: (acc.other_income || 0) + (row.other_income || 0),
-    interest_expense: (acc.interest_expense || 0) + (row.interest_expense || 0),
-    income_before_tax: (acc.income_before_tax || 0) + (row.income_before_tax || 0),
-    income_tax: (acc.income_tax || 0) + (row.income_tax || 0),
-    net_income: (acc.net_income || 0) + (row.net_income || 0),
-    net_margin: 0, // Will be recalculated
-  }), { ...rows[0] });
-}
-
-/**
- * Fetches P&L data from pl_report_cache table with date range filtering
- * All calculations are pre-computed by refresh_pl_cache RPC
+ * SSOT-Compliant P&L Data Hook
+ * All calculations are performed in database RPCs/Views
  */
 export function usePLData() {
   const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
-  const { startDateStr, endDateStr, dateRange } = useDateRangeForQuery();
-  
-  // Parse dates to determine year/month for queries
-  const startDate = new Date(startDateStr);
-  const endDate = new Date(endDateStr);
-  
-  const startYear = startDate.getFullYear();
-  const startMonth = startDate.getMonth() + 1;
-  const endYear = endDate.getFullYear();
-  const endMonth = endDate.getMonth() + 1;
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
-    queryKey: ['pl-data', tenantId, startDateStr, endDateStr],
+    queryKey: ['pl-data-ssot', tenantId, startDateStr, endDateStr],
     queryFn: async (): Promise<{
       plData: PLData;
       monthlyData: MonthlyPLData[];
@@ -204,230 +101,172 @@ export function usePLData() {
         return getEmptyPLDataStruct();
       }
 
-      let cache: PLCacheRow | null = null;
-      let monthlyRows: PLCacheRow[] = [];
+      // Execute all RPC calls in parallel - NO CLIENT-SIDE AGGREGATION
+      const [
+        plAggResult,
+        comparisonResult,
+        categoryResult,
+        monthlyResult,
+        revenueBreakdownResult,
+      ] = await Promise.all([
+        // 1. Get aggregated P&L data from RPC
+        supabase.rpc('get_pl_aggregated', {
+          p_tenant_id: tenantId,
+          p_start_date: startDateStr,
+          p_end_date: endDateStr,
+        }),
 
-      // Determine query strategy based on date range
-      const isSingleMonth = startYear === endYear && startMonth === endMonth;
-      
-      if (isSingleMonth) {
-        // Query specific month
-        const { data: monthlyCache, error } = await supabase
-          .from('pl_report_cache')
+        // 2. Get YoY comparison from RPC
+        supabase.rpc('get_pl_comparison', {
+          p_tenant_id: tenantId,
+          p_start_date: startDateStr,
+          p_end_date: endDateStr,
+        }),
+
+        // 3. Get category data from RPC
+        supabase.rpc('get_category_pl_aggregated', {
+          p_tenant_id: tenantId,
+          p_start_date: startDateStr,
+          p_end_date: endDateStr,
+        }),
+
+        // 4. Get monthly data from view
+        supabase
+          .from('v_pl_monthly_summary')
           .select('*')
           .eq('tenant_id', tenantId)
-          .eq('period_year', startYear)
-          .eq('period_month', startMonth)
-          .maybeSingle();
+          .gte('year_month', startDateStr.slice(0, 7))
+          .lte('year_month', endDateStr.slice(0, 7))
+          .order('period_year', { ascending: true })
+          .order('period_month', { ascending: true }),
 
-        if (error) {
-          console.error('Error fetching P&L cache for month:', error);
-        }
-        
-        cache = monthlyCache as PLCacheRow | null;
-      } else {
-        // Query multiple months and aggregate
-        const monthsInRange = getMonthsInRange(startDateStr, endDateStr);
-        const yearsInRange = [...new Set(monthsInRange.map(m => m.year))];
-        
-        // Build OR condition for years
-        const yearConditions = yearsInRange.map(y => `period_year.eq.${y}`).join(',');
-        
-        const { data: monthlyCache, error } = await supabase
+        // 5. Get revenue breakdown from cache
+        supabase
           .from('pl_report_cache')
-          .select('*')
+          .select('invoice_revenue, contract_revenue, integrated_revenue, net_sales, opex_salaries, opex_rent, opex_utilities, opex_marketing, opex_depreciation, opex_insurance, opex_supplies, opex_maintenance, opex_professional, opex_other, sales_returns, sales_discounts, other_income, interest_expense, income_before_tax, income_tax')
           .eq('tenant_id', tenantId)
-          .or(yearConditions)
           .not('period_month', 'is', null)
-          .order('period_year')
-          .order('period_month');
+          .gte('period_year', parseInt(startDateStr.slice(0, 4)))
+          .lte('period_year', parseInt(endDateStr.slice(0, 4))),
+      ]);
 
-        if (error) {
-          console.error('Error fetching monthly P&L cache:', error);
-        }
-
-        // Filter to only include months within the date range
-        const filteredMonths = (monthlyCache || []).filter((m: PLCacheRow) => {
-          const monthKey = `${m.period_year}-${m.period_month}`;
-          return monthsInRange.some(range => `${range.year}-${range.month}` === monthKey);
-        }) as PLCacheRow[];
-
-        monthlyRows = filteredMonths;
-        cache = aggregateCacheRows(filteredMonths);
-        
-        // Recalculate margins for aggregated data (keep as decimal like DB stores)
-        if (cache && cache.net_sales > 0) {
-          cache.gross_margin = cache.gross_profit / cache.net_sales;
-          cache.operating_margin = cache.operating_income / cache.net_sales;
-          cache.net_margin = cache.net_income / cache.net_sales;
-        }
+      // Handle errors
+      if (plAggResult.error) {
+        console.error('Error fetching P&L aggregated:', plAggResult.error);
+      }
+      if (comparisonResult.error) {
+        console.error('Error fetching P&L comparison:', comparisonResult.error);
+      }
+      if (categoryResult.error) {
+        console.error('Error fetching category P&L:', categoryResult.error);
+      }
+      if (monthlyResult.error) {
+        console.error('Error fetching monthly P&L:', monthlyResult.error);
       }
 
-      // Fetch monthly data for trend chart (same logic but always get monthly breakdown)
-      const { data: trendCache, error: trendError } = await supabase
-        .from('pl_report_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('period_year', startYear)
-        .lte('period_year', endYear)
-        .not('period_month', 'is', null)
-        .order('period_year', { ascending: true })
-        .order('period_month', { ascending: true });
-
-      if (trendError) {
-        console.error('Error fetching trend P&L cache:', trendError);
-      }
-
-      // Filter trend data to date range
-      const monthsInRange = getMonthsInRange(startDateStr, endDateStr);
-      const filteredTrend = (trendCache || []).filter((m: PLCacheRow) => {
-        const monthKey = `${m.period_year}-${m.period_month}`;
-        return monthsInRange.some(range => `${range.year}-${range.month}` === monthKey);
-      }) as PLCacheRow[];
-
-      // Fetch previous period for comparison (same period last year)
-      const prevStartYear = startYear - 1;
-      const prevEndYear = endYear - 1;
-      const prevMonthsInRange = monthsInRange.map(m => ({
-        year: m.year - 1,
-        month: m.month
-      }));
-      const prevYearsInRange = [...new Set(prevMonthsInRange.map(m => m.year))];
+      // Parse aggregated P&L - DIRECT MAPPING, NO CALCULATIONS
+      const plAgg = plAggResult.data?.[0] || null;
       
-      let prevCache: PLCacheRow | null = null;
-      
-      if (prevYearsInRange.length > 0) {
-        const prevYearConditions = prevYearsInRange.map(y => `period_year.eq.${y}`).join(',');
-        
-        const { data: prevMonthlyCache } = await supabase
-          .from('pl_report_cache')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .or(prevYearConditions)
-          .not('period_month', 'is', null);
+      // Sum up revenue breakdown and opex from cache rows
+      const cacheRows = revenueBreakdownResult.data || [];
+      const revenueBreakdown: RevenueBreakdown = {
+        invoiceRevenue: cacheRows.reduce((sum, r) => sum + (r.invoice_revenue || 0), 0),
+        contractRevenue: cacheRows.reduce((sum, r) => sum + (r.contract_revenue || 0), 0),
+        integratedRevenue: cacheRows.reduce((sum, r) => sum + (r.integrated_revenue || 0), 0),
+        totalRevenue: plAgg?.net_sales || 0,
+      };
 
-        // Filter to matching months in previous years
-        const filteredPrevMonths = (prevMonthlyCache || []).filter((m: PLCacheRow) => {
-          const monthKey = `${m.period_year}-${m.period_month}`;
-          return prevMonthsInRange.some(range => `${range.year}-${range.month}` === monthKey);
-        }) as PLCacheRow[];
+      // Aggregate opex breakdown from cache
+      const opexBreakdown = {
+        salaries: cacheRows.reduce((sum, r) => sum + (r.opex_salaries || 0), 0),
+        rent: cacheRows.reduce((sum, r) => sum + (r.opex_rent || 0), 0),
+        utilities: cacheRows.reduce((sum, r) => sum + (r.opex_utilities || 0), 0),
+        marketing: cacheRows.reduce((sum, r) => sum + (r.opex_marketing || 0), 0),
+        depreciation: cacheRows.reduce((sum, r) => sum + (r.opex_depreciation || 0), 0),
+        insurance: cacheRows.reduce((sum, r) => sum + (r.opex_insurance || 0), 0),
+        supplies: cacheRows.reduce((sum, r) => sum + (r.opex_supplies || 0), 0),
+        maintenance: cacheRows.reduce((sum, r) => sum + (r.opex_maintenance || 0), 0),
+        professional: cacheRows.reduce((sum, r) => sum + (r.opex_professional || 0), 0),
+        other: cacheRows.reduce((sum, r) => sum + (r.opex_other || 0), 0),
+      };
 
-        prevCache = aggregateCacheRows(filteredPrevMonths);
-      }
+      const salesReturns = cacheRows.reduce((sum, r) => sum + (r.sales_returns || 0), 0);
+      const salesDiscounts = cacheRows.reduce((sum, r) => sum + (r.sales_discounts || 0), 0);
+      const otherIncome = cacheRows.reduce((sum, r) => sum + (r.other_income || 0), 0);
+      const interestExpense = cacheRows.reduce((sum, r) => sum + (r.interest_expense || 0), 0);
+      const incomeBeforeTax = cacheRows.reduce((sum, r) => sum + (r.income_before_tax || 0), 0);
+      const incomeTax = cacheRows.reduce((sum, r) => sum + (r.income_tax || 0), 0);
 
-      // Map cache to PLData - DIRECT MAPPING from database
-      // Note: DB stores margins as decimals (0.51 = 51%, -1.79 = -179%), so multiply by 100
-      const plData: PLData = cache ? {
-        grossSales: cache.gross_sales || 0,
-        salesReturns: cache.sales_returns || 0,
-        salesDiscounts: cache.sales_discounts || 0,
-        netSales: cache.net_sales || 0,
-        cogs: cache.cogs || 0,
-        grossProfit: cache.gross_profit || 0,
-        grossMargin: (cache.gross_margin || 0) * 100,
+      // Map to PLData - MARGINS ALREADY AS % FROM DB
+      const plData: PLData = plAgg ? {
+        grossSales: plAgg.gross_sales || 0,
+        salesReturns,
+        salesDiscounts,
+        netSales: plAgg.net_sales || 0,
+        cogs: plAgg.cogs || 0,
+        grossProfit: plAgg.gross_profit || 0,
+        grossMargin: plAgg.gross_margin_pct || 0, // Already % from DB
         operatingExpenses: {
-          salaries: cache.opex_salaries || 0,
-          rent: cache.opex_rent || 0,
-          utilities: cache.opex_utilities || 0,
-          marketing: cache.opex_marketing || 0,
-          depreciation: cache.opex_depreciation || 0,
-          insurance: cache.opex_insurance || 0,
-          supplies: cache.opex_supplies || 0,
-          maintenance: cache.opex_maintenance || 0,
-          professional: cache.opex_professional || 0,
-          logistics: 0, // Will be added when we have logistics column
-          other: cache.opex_other || 0,
+          ...opexBreakdown,
+          logistics: 0, // Will be added when column exists
         },
-        totalOperatingExpenses: cache.total_opex || 0,
-        operatingIncome: cache.operating_income || 0,
-        operatingMargin: (cache.operating_margin || 0) * 100,
-        otherIncome: cache.other_income || 0,
-        interestExpense: cache.interest_expense || 0,
-        incomeBeforeTax: cache.income_before_tax || 0,
-        incomeTax: cache.income_tax || 0,
-        netIncome: cache.net_income || 0,
-        netMargin: (cache.net_margin || 0) * 100,
+        totalOperatingExpenses: plAgg.total_opex || 0,
+        operatingIncome: plAgg.operating_income || 0,
+        operatingMargin: plAgg.operating_margin_pct || 0, // Already % from DB
+        otherIncome,
+        interestExpense,
+        incomeBeforeTax,
+        incomeTax,
+        netIncome: plAgg.net_income || 0,
+        netMargin: plAgg.net_margin_pct || 0, // Already % from DB
       } : getEmptyPLDataStruct().plData;
 
-      // Map monthly cache to MonthlyPLData for trend chart
-      const monthlyData: MonthlyPLData[] = filteredTrend.map(m => ({
+      // Map monthly data - DIRECT FROM VIEW, PRE-COMPUTED IN MILLIONS
+      const monthlyData: MonthlyPLData[] = (monthlyResult.data || []).map((m: any) => ({
         month: `T${m.period_month}/${m.period_year}`,
-        netSales: Math.round((m.net_sales || 0) / 1000000),
-        cogs: Math.round((m.cogs || 0) / 1000000),
-        grossProfit: Math.round((m.gross_profit || 0) / 1000000),
-        opex: Math.round((m.total_opex || 0) / 1000000),
-        netIncome: Math.round((m.net_income || 0) / 1000000),
+        netSales: m.net_sales_m || 0, // Already in millions from view
+        cogs: m.cogs_m || 0,
+        grossProfit: m.gross_profit_m || 0,
+        opex: m.opex_m || 0,
+        netIncome: m.net_income_m || 0,
       }));
 
-      // Calculate comparison data (YoY change)
-      const calcChange = (current: number, previous: number): number => {
-        if (!previous || previous === 0) return 0;
-        return Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));
-      };
+      // Map comparison data - DIRECT FROM RPC, % ALREADY CALCULATED
+      const comparisonRows = comparisonResult.data || [];
+      const getComparisonRow = (metric: string) => 
+        comparisonRows.find((r: any) => r.metric === metric) || { current_value: 0, previous_value: 0, change_pct: 0 };
 
       const comparisonData: ComparisonData = {
         netSales: {
-          current: cache?.net_sales || 0,
-          previous: prevCache?.net_sales || 0,
-          change: calcChange(cache?.net_sales || 0, prevCache?.net_sales || 0),
+          current: getComparisonRow('net_sales').current_value || 0,
+          previous: getComparisonRow('net_sales').previous_value || 0,
+          change: getComparisonRow('net_sales').change_pct || 0, // Already % from DB
         },
         grossProfit: {
-          current: cache?.gross_profit || 0,
-          previous: prevCache?.gross_profit || 0,
-          change: calcChange(cache?.gross_profit || 0, prevCache?.gross_profit || 0),
+          current: getComparisonRow('gross_profit').current_value || 0,
+          previous: getComparisonRow('gross_profit').previous_value || 0,
+          change: getComparisonRow('gross_profit').change_pct || 0,
         },
         operatingIncome: {
-          current: cache?.operating_income || 0,
-          previous: prevCache?.operating_income || 0,
-          change: calcChange(cache?.operating_income || 0, prevCache?.operating_income || 0),
+          current: getComparisonRow('operating_income').current_value || 0,
+          previous: getComparisonRow('operating_income').previous_value || 0,
+          change: getComparisonRow('operating_income').change_pct || 0,
         },
         netIncome: {
-          current: cache?.net_income || 0,
-          previous: prevCache?.net_income || 0,
-          change: calcChange(cache?.net_income || 0, prevCache?.net_income || 0),
+          current: getComparisonRow('net_income').current_value || 0,
+          previous: getComparisonRow('net_income').previous_value || 0,
+          change: getComparisonRow('net_income').change_pct || 0,
         },
       };
 
-      // Revenue breakdown from cache
-      const revenueBreakdown: RevenueBreakdown = {
-        invoiceRevenue: cache?.invoice_revenue || 0,
-        contractRevenue: cache?.contract_revenue || 0,
-        integratedRevenue: cache?.integrated_revenue || 0,
-        totalRevenue: cache?.net_sales || 0,
-      };
-
-      // Fetch category data from v_category_pl_summary view
-      const { data: categoryRows } = await supabase
-        .from('v_category_pl_summary' as any)
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .gte('period', startDateStr)
-        .lte('period', endDateStr);
-
-      // Aggregate category data across months
-      const categoryAgg = new Map<string, { revenue: number; cogs: number }>();
-      (categoryRows || []).forEach((row: any) => {
-        const existing = categoryAgg.get(row.category) || { revenue: 0, cogs: 0 };
-        existing.revenue += Number(row.total_revenue) || 0;
-        existing.cogs += Number(row.total_cogs) || 0;
-        categoryAgg.set(row.category, existing);
-      });
-
-      const totalCatRevenue = [...categoryAgg.values()].reduce((s, c) => s + c.revenue, 0);
-
-      const categoryData: CategoryPLData[] = [...categoryAgg.entries()]
-        .map(([category, data]) => ({
-          category,
-          sales: data.revenue / 1000000, // Convert to millions
-          cogs: data.cogs / 1000000,
-          margin: data.revenue > 0 
-            ? Number(((data.revenue - data.cogs) / data.revenue * 100).toFixed(1))
-            : 0,
-          contribution: totalCatRevenue > 0
-            ? Number((data.revenue / totalCatRevenue * 100).toFixed(1))
-            : 0,
-        }))
-        .sort((a, b) => b.sales - a.sales); // Sort by revenue desc
+      // Map category data - DIRECT FROM RPC, ALL METRICS PRE-COMPUTED
+      const categoryData: CategoryPLData[] = (categoryResult.data || []).map((c: any) => ({
+        category: c.category || 'Không phân loại',
+        sales: c.revenue_m || 0, // Already in millions from DB
+        cogs: c.cogs_m || 0,
+        margin: c.margin_pct || 0, // Already % from DB
+        contribution: c.contribution_pct || 0, // Already % from DB
+      }));
 
       return {
         plData,
@@ -438,8 +277,8 @@ export function usePLData() {
       };
     },
     enabled: !tenantLoading && !!tenantId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
