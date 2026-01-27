@@ -836,7 +836,7 @@ export default function PLReportPage() {
                             <TableCell className="text-right font-mono text-success">{formatCurrency(ch.grossProfit)}</TableCell>
                             <TableCell className="text-right">
                               <Badge variant={ch.grossMargin >= 20 ? 'default' : ch.grossMargin >= 10 ? 'secondary' : 'destructive'}>
-                                {formatPercent(ch.grossMargin)}%
+                                {formatPercent(ch.grossMargin)}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">{formatCount(ch.orderCount)}</TableCell>
@@ -961,10 +961,11 @@ export default function PLReportPage() {
                   <PLLineItem label="Giá vốn hàng bán (COGS)" amount={plData.cogs} icon={Package} />
                   <div className="p-4 mt-4 rounded-lg bg-muted/30">
                     <p className="text-sm text-muted-foreground mb-2">
-                      COGS được ước tính dựa trên tỷ lệ 65% doanh thu thuần - phù hợp với ngành bán lẻ.
+                      COGS được tính từ dữ liệu đơn hàng thực tế. 
+                      Tỷ lệ hiện tại: <span className="font-medium">{formatPercent(plData.cogs / plData.netSales, true)}</span> doanh thu thuần.
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Để có số liệu chính xác hơn, cần tích hợp hệ thống quản lý kho hàng.
+                      Để chi tiết hơn theo SKU, cần tích hợp hệ thống quản lý kho hàng.
                     </p>
                   </div>
                 </div>
@@ -972,7 +973,7 @@ export default function PLReportPage() {
                 <div className="mt-6 p-4 rounded-lg bg-muted/30">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Tỷ lệ COGS/Doanh thu</span>
-                    <span className="font-semibold">{formatPercent(plData.cogs / plData.netSales)}</span>
+                    <span className="font-semibold">{formatPercent(plData.cogs / plData.netSales, true)}</span>
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-sm text-muted-foreground">Biên lãi gộp</span>
@@ -1061,9 +1062,9 @@ export default function PLReportPage() {
                 <h3 className="font-semibold text-lg mb-4">Phân tích Biên lợi nhuận</h3>
                 <div className="space-y-6">
                   {[
-                    { label: 'Biên lãi gộp', value: plData.grossMargin, target: 0.40, color: 'primary' },
-                    { label: 'Biên lợi nhuận hoạt động', value: plData.operatingMargin, target: 0.12, color: 'info' },
-                    { label: 'Biên lợi nhuận ròng', value: plData.netMargin, target: 0.08, color: 'success' },
+                    { label: 'Biên lãi gộp', value: plData.grossMargin, target: 40, color: 'primary' },
+                    { label: 'Biên lợi nhuận hoạt động', value: plData.operatingMargin, target: 12, color: 'info' },
+                    { label: 'Biên lợi nhuận ròng', value: plData.netMargin, target: 8, color: 'success' },
                   ].map((item) => (
                     <div key={item.label} className="space-y-2">
                       <div className="flex justify-between items-center">
