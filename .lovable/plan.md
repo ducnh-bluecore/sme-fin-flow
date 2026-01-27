@@ -1,123 +1,91 @@
 
-# Kế hoạch: Fill chi phí vào Unit Economics
+# Kế hoạch: Fix Unit Economics Data - 2 lỗi chính
 
-## 1. Phân tích vấn đề
+## Vấn đề đã xác định
 
-### A. Dữ liệu có sẵn trong Database
+### Lỗi 1: RPC SKU dùng sai tên cột
 
-| Metric | Giá trị thực |
-|--------|-------------|
-| Total Orders | 5,280 (trong date range) |
-| Total Revenue | 1.95 tỷ VND |
-| Total COGS | 1.03 tỷ VND |
-| Total Platform Fees | 125.7 triệu VND |
-| Total Shipping Fees | 43.1 triệu VND |
-| Unique Customers | 300 |
-| **AOV** | **369,074 VND** |
-| **CM** | **666 triệu VND** |
+RPC `get_sku_profitability_by_date_range` tham chiếu cột không tồn tại:
 
-### B. RPC đã fix - Hoạt động đúng
+| RPC dùng | Cột thực tế (cdp_order_items) |
+|----------|-------------------------------|
+| `coi.quantity` | `coi.qty` |
+| `coi.total_amount` | `coi.line_revenue` |
+| `coi.cogs_amount` | `coi.line_cogs` |
 
-Kiểm tra RPC `get_fdp_period_summary`:
-```
-✅ totalRevenue: 1,948,709,568 VND
-✅ totalCogs: 1,032,816,071 VND
-✅ totalPlatformFees: 125,690,250 VND (ĐÃ FIX!)
-✅ totalShippingFees: 43,111,945 VND (ĐÃ FIX!)
-✅ avgOrderValue: 369,074 VND
-✅ contributionMargin: 666,221,372 VND
-```
+Console error: `"column coi.quantity does not exist"`
 
-### C. Vấn đề còn lại: SKU RPC lỗi Type Mismatch
+### Lỗi 2: Hook mapping sai format
 
-```
-Error: "Returned type character varying does not match expected type text in column 1"
-```
+Hook `useFDPAggregatedMetricsSSOT` expect interface theo format không khớp với RPC response:
+- RPC trả về: `total_platform_fee`, `total_shipping_fee` (snake_case)  
+- Interface định nghĩa: `totalPlatformFees`, `totalShippingFees` (camelCase)
 
-RPC `get_sku_profitability_by_date_range` có return type không khớp:
-- `COALESCE(p.sku, coi.product_id)` trả về `varchar`
-- Function declaration yêu cầu `text`
+Nhưng RPC `get_fdp_period_summary` đã trả về camelCase đúng - vấn đề là hook không dùng đúng RPC response.
 
 ---
 
-## 2. Giải pháp
+## Giải pháp
 
-### Bước 1: Fix RPC SKU Profitability Type Mismatch
+### Bước 1: Database Migration - Fix RPC SKU Column Names
 
 ```sql
--- Cast all varchar columns to TEXT explicitly
-CREATE OR REPLACE FUNCTION get_sku_profitability_by_date_range(...)
-RETURNS TABLE (
-  sku TEXT,
-  product_name TEXT,
-  channel TEXT,
+DROP FUNCTION IF EXISTS get_sku_profitability_by_date_range(...);
+
+CREATE FUNCTION get_sku_profitability_by_date_range(...)
   ...
-) AS $$
-BEGIN
-  RETURN QUERY
   SELECT 
-    COALESCE(p.sku, coi.product_id)::TEXT as sku,
-    COALESCE(p.name, 'Product ' || coi.product_id)::TEXT as product_name,
-    co.channel::TEXT,
+    -- FIX: qty thay vì quantity
+    SUM(coi.qty)::BIGINT as total_quantity,
+    -- FIX: line_revenue thay vì total_amount
+    SUM(coi.line_revenue)::NUMERIC as total_revenue,
+    -- FIX: line_cogs thay vì cogs_amount  
+    SUM(COALESCE(coi.line_cogs, coi.line_revenue * 0.55))::NUMERIC as total_cogs,
     ...
   FROM cdp_order_items coi
   ...
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### Bước 2: Verify Data Flow
+### Bước 2: Fix Hook mapping (nếu cần)
 
-Sau khi fix, Unit Economics page sẽ hiển thị:
-
-| KPI | Giá trị |
-|-----|---------|
-| AOV | 369,074₫ |
-| CM/Order | ~126,100₫ |
-| CM% | ~34.2% |
-| LTV:CAC | ~2.1x |
-| ROAS | ~1.8x |
+Kiểm tra và đảm bảo `useFDPAggregatedMetricsSSOT` mapping đúng RPC response fields.
 
 ---
 
-## 3. Chi tiết tệp tin thay đổi
+## Tệp tin thay đổi
 
 | File | Thay đổi | Mục đích |
 |------|----------|----------|
-| **Database Migration** | Fix RPC `get_sku_profitability_by_date_range` - cast VARCHAR to TEXT | Fix type mismatch error |
+| **Database Migration** | Fix RPC `get_sku_profitability_by_date_range` - đổi column names | Fix lỗi "column does not exist" |
 
 ---
 
-## 4. Kết quả mong đợi
+## Kết quả mong đợi
 
-### Trước (Hiện tại):
-```
-AOV: 0
-CM/Order: 0
-Doanh thu/đơn: 0 đ
-(-) COGS: -0 đ
-(-) Phí sàn: -0 đ
-(-) Vận chuyển: -0 đ
-= Contribution Margin: 0 đ (0.0%)
-Pie chart: Trống
-```
+### Trước (Hiện tại)
+- AOV: 0
+- CM/Order: 0  
+- COGS: -0 đ
+- Tab SKU Profitability: Lỗi
 
-### Sau khi fix:
-```
-AOV: 369,074₫
-CM/Order: 126,100₫
-Doanh thu/đơn: 369,074₫
-(-) COGS: -195,606₫ (53.0%)
-(-) Phí sàn: -23,806₫ (6.4%)
-(-) Vận chuyển: -8,165₫ (2.2%)
-= Contribution Margin: 126,100₫ (34.2%)
-Pie chart: 4 segments với đầy đủ data
-```
+### Sau khi fix
+- AOV: ~369,000đ
+- CM/Order: ~126,000đ
+- COGS: -195,606đ (53%)
+- Tab SKU Profitability: Hiển thị đầy đủ 500 SKU
 
 ---
 
-## 5. Tuân thủ FDP Manifesto
+## Chi tiết kỹ thuật
 
-- ✅ **SINGLE SOURCE OF TRUTH**: Data từ `cdp_orders` qua RPC
-- ✅ **REVENUE ↔ COST**: Hiển thị đầy đủ COGS + Fees + Shipping
-- ✅ **UNIT ECONOMICS → ACTION**: Metrics per-order để đánh giá
+Schema thực tế của `cdp_order_items`:
+- `id` (uuid)
+- `tenant_id` (uuid)
+- `order_id` (uuid)
+- `product_id` (text)
+- `category` (text)
+- `qty` (integer) ← **Đúng**
+- `unit_price` (numeric)
+- `line_revenue` (numeric) ← **Đúng**
+- `line_cogs` (numeric) ← **Đúng**
+- `line_margin` (numeric)
