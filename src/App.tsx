@@ -168,6 +168,7 @@ import CTDecisionsPage from "./pages/control-tower/DecisionsPage";
 import CTBoardViewPage from "./pages/control-tower/BoardViewPage";
 import CTCEOPage from "./pages/control-tower/CEOControlTowerPage";
 import CTCOOPage from "./pages/control-tower/COOControlTowerPage";
+import CTCommandCenterPage from "./pages/control-tower/CommandCenterPage";
 
 
 // Mobile App pages
@@ -415,7 +416,8 @@ const AppRoutes = () => {
         }
       >
         {/* Control Tower: CEO = Strategic | COO = Execution */}
-        <Route path="/control-tower" element={<Navigate to="/control-tower/ceo" replace />} />
+        <Route path="/control-tower" element={<Navigate to="/control-tower/command" replace />} />
+        <Route path="/control-tower/command" element={<CTCommandCenterPage />} />
         <Route path="/control-tower/ceo" element={<CTCEOPage />} />
         <Route path="/control-tower/coo" element={<CTCOOPage />} />
         <Route path="/control-tower/situation" element={<CTSituationRoomPage />} />
