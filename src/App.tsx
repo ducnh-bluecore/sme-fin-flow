@@ -169,13 +169,6 @@ import CTBoardViewPage from "./pages/control-tower/BoardViewPage";
 import CTCEOPage from "./pages/control-tower/CEOControlTowerPage";
 import CTCOOPage from "./pages/control-tower/COOControlTowerPage";
 
-// Decision OS pages - Executive Decision Operating System
-const DecisionBoardPage = lazy(() => import("./pages/decision-os/DecisionBoardPage"));
-const DecisionReviewPage = lazy(() => import("./pages/decision-os/DecisionReviewPage"));
-const ExecutionQueuePage = lazy(() => import("./pages/decision-os/ExecutionQueuePage"));
-const DecisionHistoryPage = lazy(() => import("./pages/decision-os/DecisionHistoryPage"));
-const OutcomesPage = lazy(() => import("./pages/decision-os/OutcomesPage"));
-import { DecisionOSLayout } from "@/components/layout/DecisionOSLayout";
 
 // Mobile App pages
 const MobileLayout = lazy(() => import("./pages/mobile/MobileLayout"));
@@ -411,22 +404,6 @@ const AppRoutes = () => {
         <Route path="/mobile" element={<MobileHomePage />} />
         <Route path="/mobile/alerts" element={<MobileAlertsPage />} />
         <Route path="/mobile/settings" element={<MobileSettingsPage />} />
-      </Route>
-
-      {/* Decision OS Routes - Executive Decision Operating System */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <DecisionOSLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/decision-os" element={<Navigate to="/decision-os/board" replace />} />
-        <Route path="/decision-os/board" element={<DecisionBoardPage />} />
-        <Route path="/decision-os/queue" element={<ExecutionQueuePage />} />
-        <Route path="/decision-os/history" element={<DecisionHistoryPage />} />
-        <Route path="/decision-os/outcomes" element={<OutcomesPage />} />
-        <Route path="/decision-os/review/:id" element={<DecisionReviewPage />} />
       </Route>
 
       {/* Control Tower Routes */}

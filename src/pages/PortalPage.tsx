@@ -12,7 +12,6 @@ import {
   Settings,
   ChevronRight,
   Loader2,
-  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -363,13 +362,6 @@ export default function PortalPage() {
 
   // Cross-App Workspaces
   const workspaces: Workspace[] = [
-    {
-      id: 'decision-os',
-      name: 'Decision OS',
-      description: 'Decision > Metric > Data',
-      icon: Zap,
-      path: '/decision-os',
-    },
     {
       id: 'review-hub',
       name: 'Review Hub',
