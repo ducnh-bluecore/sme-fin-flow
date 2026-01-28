@@ -31239,6 +31239,16 @@ export type Database = {
         Returns: string
       }
       generate_bill_number: { Args: { p_tenant_id: string }; Returns: string }
+      generate_cash_forecast: {
+        Args: { p_days?: number; p_method?: string; p_tenant_id: string }
+        Returns: Database["public"]["CompositeTypes"]["forecast_row"][]
+        SetofOptions: {
+          from: "*"
+          to: "forecast_row"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       generate_credit_note_number: {
         Args: { p_tenant_id: string }
         Returns: string
@@ -31412,6 +31422,10 @@ export type Database = {
           total_debit: number
           unique_days: number
         }[]
+      }
+      get_forecast_inputs_summary: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       get_latest_central_metrics: {
         Args: { p_max_age_minutes?: number; p_tenant_id: string }
@@ -31839,7 +31853,17 @@ export type Database = {
       tenant_role: "owner" | "admin" | "member" | "viewer"
     }
     CompositeTypes: {
-      [_ in never]: never
+      forecast_row: {
+        forecast_date: string | null
+        display_date: string | null
+        balance: number | null
+        inflow: number | null
+        outflow: number | null
+        net_flow: number | null
+        upper_bound: number | null
+        lower_bound: number | null
+        is_actual: boolean | null
+      }
     }
   }
 }

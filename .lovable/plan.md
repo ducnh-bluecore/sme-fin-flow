@@ -244,10 +244,22 @@ Tạo `cross_module_config` table với:
 - Created `trigger_auto_seed_tenant_config` to auto-seed on tenant creation
 - Created `get_cross_module_config` and `set_cross_module_config` RPCs
 
+### Phase 5.1 ✅ DONE (28/01/2026)
+- Created `forecast_row` type for structured output
+- Created `generate_cash_forecast` RPC with full logic:
+  - AR collection probability curve (85% → 10% based on days overdue)
+  - T+14 eCommerce settlement delay
+  - AP payment spread by due dates
+  - Recurring expense normalization (weekly/yearly → monthly)
+  - Confidence interval bands (1.2%/day, max 60%)
+  - Support for 'rule-based' and 'simple' methods
+- Created `get_forecast_inputs_summary` RPC for data quality status
+- Created `src/hooks/useCashForecastSSOT.ts` as thin wrapper
+
 ---
 
 ## NEXT ACTIONS
 
-1. **Phase 5.1:** Migrate Cash Forecast logic to RPC
-2. **Phase 6.1:** Insight Dismiss/Snooze UI (CDP)
-3. **Phase 6.2:** Resolution Workflow UI (Control Tower)
+1. **Phase 6.1:** Insight Dismiss/Snooze UI (CDP)
+2. **Phase 6.2:** Resolution Workflow UI (Control Tower)
+3. **Phase 6.3:** Governance Dashboard Enhancement
