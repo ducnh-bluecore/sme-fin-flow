@@ -512,6 +512,111 @@ export type Database = {
           },
         ]
       }
+      ai_predictions: {
+        Row: {
+          alert_id: string | null
+          confidence_score: number | null
+          created_at: string | null
+          decision_card_id: string | null
+          expires_at: string | null
+          id: string
+          input_context: Json
+          model_used: string | null
+          prediction_result: Json
+          prediction_type: string
+          processing_time_ms: number | null
+          tenant_id: string
+          tokens_used: number | null
+        }
+        Insert: {
+          alert_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_card_id?: string | null
+          expires_at?: string | null
+          id?: string
+          input_context?: Json
+          model_used?: string | null
+          prediction_result?: Json
+          prediction_type: string
+          processing_time_ms?: number | null
+          tenant_id: string
+          tokens_used?: number | null
+        }
+        Update: {
+          alert_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_card_id?: string | null
+          expires_at?: string | null
+          id?: string
+          input_context?: Json
+          model_used?: string | null
+          prediction_result?: Json
+          prediction_type?: string
+          processing_time_ms?: number | null
+          tenant_id?: string
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_predictions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ai_predictions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       ai_usage_logs: {
         Row: {
           completion_tokens: number
@@ -11154,6 +11259,126 @@ export type Database = {
           },
         ]
       }
+      decision_impact_projections: {
+        Row: {
+          alert_id: string | null
+          baseline_value: number | null
+          computation_method: string | null
+          confidence_score: number | null
+          created_at: string | null
+          decision_card_id: string | null
+          delay_multiplier: number | null
+          id: string
+          impact_amount: number | null
+          impact_metric: string
+          impact_percent: number | null
+          impact_type: string
+          metadata: Json | null
+          projected_value: number | null
+          target_module: string
+          tenant_id: string
+          time_horizon_days: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          alert_id?: string | null
+          baseline_value?: number | null
+          computation_method?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_card_id?: string | null
+          delay_multiplier?: number | null
+          id?: string
+          impact_amount?: number | null
+          impact_metric: string
+          impact_percent?: number | null
+          impact_type: string
+          metadata?: Json | null
+          projected_value?: number | null
+          target_module: string
+          tenant_id: string
+          time_horizon_days?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          alert_id?: string | null
+          baseline_value?: number | null
+          computation_method?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          decision_card_id?: string | null
+          delay_multiplier?: number | null
+          id?: string
+          impact_amount?: number | null
+          impact_metric?: string
+          impact_percent?: number | null
+          impact_type?: string
+          metadata?: Json | null
+          projected_value?: number | null
+          target_module?: string
+          tenant_id?: string
+          time_horizon_days?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_impact_projections_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_impact_projections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       decision_insight_queue: {
         Row: {
           confidence_score: number
@@ -12288,6 +12513,133 @@ export type Database = {
           },
         ]
       }
+      escalation_history: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          alert_id: string | null
+          created_at: string | null
+          decision_card_id: string | null
+          escalation_level: number | null
+          escalation_rule_id: string | null
+          from_owner_id: string | null
+          from_owner_role: string | null
+          id: string
+          metadata: Json | null
+          notification_channels: string[] | null
+          notification_sent: boolean | null
+          reason: string
+          tenant_id: string
+          time_overdue_hours: number | null
+          to_owner_id: string | null
+          to_owner_role: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_id?: string | null
+          created_at?: string | null
+          decision_card_id?: string | null
+          escalation_level?: number | null
+          escalation_rule_id?: string | null
+          from_owner_id?: string | null
+          from_owner_role?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_channels?: string[] | null
+          notification_sent?: boolean | null
+          reason: string
+          tenant_id: string
+          time_overdue_hours?: number | null
+          to_owner_id?: string | null
+          to_owner_role?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          alert_id?: string | null
+          created_at?: string | null
+          decision_card_id?: string | null
+          escalation_level?: number | null
+          escalation_rule_id?: string | null
+          from_owner_id?: string | null
+          from_owner_role?: string | null
+          id?: string
+          metadata?: Json | null
+          notification_channels?: string[] | null
+          notification_sent?: boolean | null
+          reason?: string
+          tenant_id?: string
+          time_overdue_hours?: number | null
+          to_owner_id?: string | null
+          to_owner_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_history_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_history_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_history_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_history_decision_card_id_fkey"
+            columns: ["decision_card_id"]
+            isOneToOne: false
+            referencedRelation: "decision_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_history_escalation_rule_id_fkey"
+            columns: ["escalation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "escalation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "escalation_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "escalation_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       escalation_policies: {
         Row: {
           applies_to_hierarchy_levels: number[] | null
@@ -12355,6 +12707,107 @@ export type Database = {
           },
           {
             foreignKeyName: "escalation_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      escalation_rules: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          escalate_to_role: string | null
+          escalation_threshold_hours: number | null
+          final_escalate_to_role: string | null
+          final_escalation_hours: number | null
+          id: string
+          initial_owner_role: string | null
+          is_active: boolean | null
+          metadata: Json | null
+          name: string
+          notification_channels: string[] | null
+          notify_on_escalation: boolean | null
+          notify_on_warning: boolean | null
+          priority: number | null
+          tenant_id: string
+          trigger_card_types: string[] | null
+          trigger_categories: string[] | null
+          trigger_severity: string[] | null
+          updated_at: string | null
+          warning_threshold_hours: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          escalate_to_role?: string | null
+          escalation_threshold_hours?: number | null
+          final_escalate_to_role?: string | null
+          final_escalation_hours?: number | null
+          id?: string
+          initial_owner_role?: string | null
+          is_active?: boolean | null
+          metadata?: Json | null
+          name: string
+          notification_channels?: string[] | null
+          notify_on_escalation?: boolean | null
+          notify_on_warning?: boolean | null
+          priority?: number | null
+          tenant_id: string
+          trigger_card_types?: string[] | null
+          trigger_categories?: string[] | null
+          trigger_severity?: string[] | null
+          updated_at?: string | null
+          warning_threshold_hours?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          escalate_to_role?: string | null
+          escalation_threshold_hours?: number | null
+          final_escalate_to_role?: string | null
+          final_escalation_hours?: number | null
+          id?: string
+          initial_owner_role?: string | null
+          is_active?: boolean | null
+          metadata?: Json | null
+          name?: string
+          notification_channels?: string[] | null
+          notify_on_escalation?: boolean | null
+          notify_on_warning?: boolean | null
+          priority?: number | null
+          tenant_id?: string
+          trigger_card_types?: string[] | null
+          trigger_categories?: string[] | null
+          trigger_severity?: string[] | null
+          updated_at?: string | null
+          warning_threshold_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "escalation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "escalation_rules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -17247,6 +17700,83 @@ export type Database = {
           },
         ]
       }
+      module_health_status: {
+        Row: {
+          active_alerts_count: number | null
+          created_at: string | null
+          error_message: string | null
+          health_score: number | null
+          id: string
+          last_error_at: string | null
+          last_sync_at: string | null
+          metadata: Json | null
+          module_code: string
+          pending_decisions_count: number | null
+          status: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          active_alerts_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          health_score?: number | null
+          id?: string
+          last_error_at?: string | null
+          last_sync_at?: string | null
+          metadata?: Json | null
+          module_code: string
+          pending_decisions_count?: number | null
+          status?: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          active_alerts_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          health_score?: number | null
+          id?: string
+          last_error_at?: string | null
+          last_sync_at?: string | null
+          metadata?: Json | null
+          module_code?: string
+          pending_decisions_count?: number | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_health_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_health_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "module_health_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "module_health_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       monte_carlo_results: {
         Row: {
           created_at: string
@@ -18629,6 +19159,81 @@ export type Database = {
           },
           {
             foreignKeyName: "pos_terminals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      prediction_accuracy_log: {
+        Row: {
+          accuracy_percent: number | null
+          actual_value: number | null
+          created_at: string | null
+          evaluation_date: string
+          id: string
+          metadata: Json | null
+          predicted_value: number | null
+          prediction_id: string
+          tenant_id: string
+          variance: number | null
+        }
+        Insert: {
+          accuracy_percent?: number | null
+          actual_value?: number | null
+          created_at?: string | null
+          evaluation_date: string
+          id?: string
+          metadata?: Json | null
+          predicted_value?: number | null
+          prediction_id: string
+          tenant_id: string
+          variance?: number | null
+        }
+        Update: {
+          accuracy_percent?: number | null
+          actual_value?: number | null
+          created_at?: string | null
+          evaluation_date?: string
+          id?: string
+          metadata?: Json | null
+          predicted_value?: number | null
+          prediction_id?: string
+          tenant_id?: string
+          variance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prediction_accuracy_log_prediction_id_fkey"
+            columns: ["prediction_id"]
+            isOneToOne: false
+            referencedRelation: "ai_predictions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prediction_accuracy_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prediction_accuracy_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "prediction_accuracy_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "prediction_accuracy_log_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
