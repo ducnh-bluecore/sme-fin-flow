@@ -23,6 +23,7 @@ import {
   Target,
   Layers,
   ExternalLink,
+  Info,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { usePLData } from '@/hooks/usePLData';
+import { usePLData, OpexDataSource } from '@/hooks/usePLData';
 import { useScenarioBudgetData } from '@/hooks/useScenarioBudgetData';
 import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -67,6 +68,9 @@ import { ContextualAIPanel } from '@/components/dashboard/ContextualAIPanel';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { DateRangeIndicator } from '@/components/shared/DateRangeIndicator';
 import { Link } from 'react-router-dom';
+import { ProvisionalExpensesSummary } from '@/components/pl/ProvisionalExpensesSummary';
+import { DataSourceBadge } from '@/components/pl/DataSourceBadge';
+import { ExpenseVarianceAlerts } from '@/components/expenses/ExpenseVarianceAlerts';
 
 type PLLineItemProps = {
   label: string;
@@ -79,6 +83,7 @@ type PLLineItemProps = {
   icon?: React.ElementType;
   change?: number;
   showBudget?: boolean;
+  dataSource?: 'actual' | 'estimate';
 };
 
 const PLLineItem = React.forwardRef<HTMLDivElement, PLLineItemProps>(
@@ -94,6 +99,7 @@ const PLLineItem = React.forwardRef<HTMLDivElement, PLLineItemProps>(
       icon,
       change,
       showBudget = false,
+      dataSource,
     },
     ref,
   ) => {
@@ -122,6 +128,7 @@ const PLLineItem = React.forwardRef<HTMLDivElement, PLLineItemProps>(
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
           <span className={cn(isNegative && 'text-muted-foreground')}>{label}</span>
+          <DataSourceBadge source={dataSource} />
         </div>
         
         {/* Actual Amount */}
@@ -672,6 +679,12 @@ export default function PLReportPage() {
                   </div>
                 )}
               </motion.div>
+
+              {/* Provisional Expenses Summary & Variance Alerts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:col-span-2">
+                <ProvisionalExpensesSummary />
+                <ExpenseVarianceAlerts />
+              </div>
 
               {/* Monthly Trend Chart */}
               <motion.div

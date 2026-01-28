@@ -17463,8 +17463,10 @@ export type Database = {
           net_sales: number | null
           operating_income: number | null
           operating_margin: number | null
+          opex_data_source: Json | null
           opex_depreciation: number | null
           opex_insurance: number | null
+          opex_logistics: number | null
           opex_maintenance: number | null
           opex_marketing: number | null
           opex_other: number | null
@@ -17482,6 +17484,8 @@ export type Database = {
           sales_returns: number | null
           tenant_id: string
           total_opex: number | null
+          total_opex_actual: number | null
+          total_opex_estimated: number | null
           updated_at: string | null
         }
         Insert: {
@@ -17505,8 +17509,10 @@ export type Database = {
           net_sales?: number | null
           operating_income?: number | null
           operating_margin?: number | null
+          opex_data_source?: Json | null
           opex_depreciation?: number | null
           opex_insurance?: number | null
+          opex_logistics?: number | null
           opex_maintenance?: number | null
           opex_marketing?: number | null
           opex_other?: number | null
@@ -17524,6 +17530,8 @@ export type Database = {
           sales_returns?: number | null
           tenant_id: string
           total_opex?: number | null
+          total_opex_actual?: number | null
+          total_opex_estimated?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -17547,8 +17555,10 @@ export type Database = {
           net_sales?: number | null
           operating_income?: number | null
           operating_margin?: number | null
+          opex_data_source?: Json | null
           opex_depreciation?: number | null
           opex_insurance?: number | null
+          opex_logistics?: number | null
           opex_maintenance?: number | null
           opex_marketing?: number | null
           opex_other?: number | null
@@ -17566,6 +17576,8 @@ export type Database = {
           sales_returns?: number | null
           tenant_id?: string
           total_opex?: number | null
+          total_opex_actual?: number | null
+          total_opex_estimated?: number | null
           updated_at?: string | null
         }
         Relationships: [
@@ -28560,6 +28572,49 @@ export type Database = {
         }
         Relationships: []
       }
+      v_expense_variance_alerts: {
+        Row: {
+          actual: number | null
+          alert_month: string | null
+          alert_status: string | null
+          category: string | null
+          estimated: number | null
+          name: string | null
+          tenant_id: string | null
+          variance: number | null
+          variance_percent: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_fdp_finance_summary: {
         Row: {
           avg_order_value: number | null
@@ -30954,7 +31009,7 @@ export type Database = {
             Returns: undefined
           }
       refresh_pl_cache: {
-        Args: { p_month?: number; p_tenant_id: string; p_year?: number }
+        Args: { p_month?: number; p_tenant_id: string; p_year: number }
         Returns: undefined
       }
       refresh_whatif_metrics_cache: {

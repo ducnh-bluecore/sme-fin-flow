@@ -36,7 +36,13 @@ export interface PLReportCache {
   opex_maintenance: number;
   opex_professional: number;
   opex_other: number;
+  opex_logistics: number;
   total_opex: number;
+  
+  // Provisional data tracking
+  opex_data_source: Record<string, 'actual' | 'estimate'>;
+  total_opex_estimated: number;
+  total_opex_actual: number;
   
   // Operating income
   operating_income: number;
@@ -122,6 +128,9 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
   });
 
   // Convert cache to PLData format
+  const opexDataSource = (query.data?.opex_data_source || {}) as Record<string, 'actual' | 'estimate'>;
+  const hasProvisionalData = Object.values(opexDataSource).includes('estimate');
+  
   const plData: PLData | null = query.data ? {
     grossSales: query.data.gross_sales || 0,
     salesReturns: query.data.sales_returns || 0,
@@ -140,7 +149,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
       supplies: query.data.opex_supplies || 0,
       maintenance: query.data.opex_maintenance || 0,
       professional: query.data.opex_professional || 0,
-      logistics: 0, // Added logistics field
+      logistics: query.data.opex_logistics || 0,
       other: query.data.opex_other || 0,
     },
     totalOperatingExpenses: query.data.total_opex || 0,
@@ -152,6 +161,11 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
     incomeTax: query.data.income_tax || 0,
     netIncome: query.data.net_income || 0,
     netMargin: query.data.net_margin || 0,
+    // Provisional data
+    opexDataSource,
+    totalOpexEstimated: query.data.total_opex_estimated || 0,
+    totalOpexActual: query.data.total_opex_actual || 0,
+    hasProvisionalData,
   } : null;
 
   const revenueBreakdown: RevenueBreakdown | null = query.data ? {
