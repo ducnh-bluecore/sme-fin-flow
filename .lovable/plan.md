@@ -197,10 +197,30 @@ Tạo `cross_module_config` table với:
 - Created `check_alert_escalation` trigger
 - Created `src/hooks/useAlertEscalationSSOT.ts` as thin wrapper
 
+### Phase 2.1 ✅ DONE (28/01/2026)
+- Created `cdp_customer_credit_risk` table
+- Created `fdp_push_ar_to_cdp` RPC with fixed join logic via `external_id`, `name`, or `email`
+- Credit score calculation: 100 - penalties (overdue %, days overdue)
+- Risk levels: low, medium, high, critical
+- Equity risk multiplier for customer valuation adjustment
+
+### Phase 2.2 ✅ DONE (28/01/2026)
+- Created `mdp_seasonal_patterns` table (monthly, weekly, event, campaign types)
+- Created `mdp_push_seasonal_to_fdp` RPC for MDP → FDP sync
+- Created `fdp_get_seasonal_adjustments` RPC for FDP consumption
+- Confidence levels: LOCKED (≥80% + 12 samples), OBSERVED (≥50% + 3 samples), ESTIMATED
+
+### Phase 2.3 ✅ DONE (28/01/2026)
+- Created `mdp_channel_roi` table with ROAS and CAC computed columns
+- Created `mdp_push_channel_roi_to_fdp` RPC with auto-recommendation logic
+- Created `v_budget_reallocation_suggestions` view
+- Created `fdp_get_budget_recommendations` RPC
+- Action types: KILL, REDUCE, SCALE, MAINTAIN based on Profit ROAS & CM%
+
 ---
 
 ## NEXT ACTIONS
 
-1. **Phase 2.1:** Fix AR → Credit Risk Flow (fdp_push_ar_to_cdp)
-2. **Phase 2.2:** Implement Seasonal Pattern Sync
-3. **Phase 2.3:** Create v_budget_reallocation_suggestions
+1. **Phase 3.1:** Schedule `cross_module_run_daily_sync` via pg_cron
+2. **Phase 3.2:** Alert Clustering Implementation
+3. **Phase 3.3:** Variance Auto-Dispatch trigger
