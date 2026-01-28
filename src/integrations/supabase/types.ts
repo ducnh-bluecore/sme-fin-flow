@@ -11579,19 +11579,23 @@ export type Database = {
         Row: {
           action_speed: string | null
           action_taken: string | null
+          actual_impact_amount: number | null
           alert_id: string | null
           context_snapshot: Json | null
           created_at: string | null
+          decided_at: string | null
           decided_by_role: string
           decided_by_user_id: string | null
           decision_date: string
           decision_id: string | null
+          decision_title: string | null
           decision_type: string
           dimension_key: string | null
           exposure_before: number | null
           financial_delta_14d: number | null
           financial_delta_30d: number | null
           financial_delta_7d: number | null
+          followup_due_date: string | null
           id: string
           metric_after_14d: number | null
           metric_after_30d: number | null
@@ -11600,7 +11604,9 @@ export type Database = {
           metric_code: string
           outcome_confidence: number | null
           outcome_measured_at: string | null
+          outcome_notes: string | null
           outcome_verdict: string | null
+          predicted_impact_amount: number | null
           side_effects_detected: Json | null
           tenant_id: string
           unintended_impact_score: number | null
@@ -11609,19 +11615,23 @@ export type Database = {
         Insert: {
           action_speed?: string | null
           action_taken?: string | null
+          actual_impact_amount?: number | null
           alert_id?: string | null
           context_snapshot?: Json | null
           created_at?: string | null
+          decided_at?: string | null
           decided_by_role: string
           decided_by_user_id?: string | null
           decision_date: string
           decision_id?: string | null
+          decision_title?: string | null
           decision_type: string
           dimension_key?: string | null
           exposure_before?: number | null
           financial_delta_14d?: number | null
           financial_delta_30d?: number | null
           financial_delta_7d?: number | null
+          followup_due_date?: string | null
           id?: string
           metric_after_14d?: number | null
           metric_after_30d?: number | null
@@ -11630,7 +11640,9 @@ export type Database = {
           metric_code: string
           outcome_confidence?: number | null
           outcome_measured_at?: string | null
+          outcome_notes?: string | null
           outcome_verdict?: string | null
+          predicted_impact_amount?: number | null
           side_effects_detected?: Json | null
           tenant_id: string
           unintended_impact_score?: number | null
@@ -11639,19 +11651,23 @@ export type Database = {
         Update: {
           action_speed?: string | null
           action_taken?: string | null
+          actual_impact_amount?: number | null
           alert_id?: string | null
           context_snapshot?: Json | null
           created_at?: string | null
+          decided_at?: string | null
           decided_by_role?: string
           decided_by_user_id?: string | null
           decision_date?: string
           decision_id?: string | null
+          decision_title?: string | null
           decision_type?: string
           dimension_key?: string | null
           exposure_before?: number | null
           financial_delta_14d?: number | null
           financial_delta_30d?: number | null
           financial_delta_7d?: number | null
+          followup_due_date?: string | null
           id?: string
           metric_after_14d?: number | null
           metric_after_30d?: number | null
@@ -11660,7 +11676,9 @@ export type Database = {
           metric_code?: string
           outcome_confidence?: number | null
           outcome_measured_at?: string | null
+          outcome_notes?: string | null
           outcome_verdict?: string | null
+          predicted_impact_amount?: number | null
           side_effects_detected?: Json | null
           tenant_id?: string
           unintended_impact_score?: number | null
@@ -30245,6 +30263,50 @@ export type Database = {
           },
         ]
       }
+      v_decision_effectiveness: {
+        Row: {
+          avg_accuracy: number | null
+          decision_type: string | null
+          failed_count: number | null
+          pending_count: number | null
+          success_rate: number | null
+          successful_count: number | null
+          tenant_id: string | null
+          total_actual_value: number | null
+          total_decisions: number | null
+          total_predicted_value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_decision_latest: {
         Row: {
           as_of: string | null
@@ -30280,6 +30342,77 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_decision_latest"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_decision_pending_followup: {
+        Row: {
+          days_until_due: number | null
+          decided_at: string | null
+          decision_id: string | null
+          decision_title: string | null
+          decision_type: string | null
+          followup_due_date: string | null
+          id: string | null
+          outcome_verdict: string | null
+          predicted_impact_amount: number | null
+          tenant_id: string | null
+          urgency_status: string | null
+        }
+        Insert: {
+          days_until_due?: never
+          decided_at?: string | null
+          decision_id?: string | null
+          decision_title?: string | null
+          decision_type?: string | null
+          followup_due_date?: string | null
+          id?: string | null
+          outcome_verdict?: string | null
+          predicted_impact_amount?: number | null
+          tenant_id?: string | null
+          urgency_status?: never
+        }
+        Update: {
+          days_until_due?: never
+          decided_at?: string | null
+          decision_id?: string | null
+          decision_title?: string | null
+          decision_type?: string | null
+          followup_due_date?: string | null
+          id?: string | null
+          outcome_verdict?: string | null
+          predicted_impact_amount?: number | null
+          tenant_id?: string | null
+          urgency_status?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "decision_outcome_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
           },
         ]
       }
