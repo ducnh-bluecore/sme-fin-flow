@@ -174,8 +174,33 @@ Tạo `cross_module_config` table với:
 
 ---
 
+## COMPLETED ACTIONS
+
+### Phase 1.1 ✅ DONE (28/01/2026)
+- Fixed `src/lib/command-center/metric-registry.ts`
+- Changed 4 metrics from `external_orders` → `cdp_orders`:
+  - net_revenue
+  - contribution_margin
+  - contribution_margin_percent
+  - return_rate
+
+### Phase 1.2 ✅ DONE (28/01/2026)
+- Created `mdp_config` table for configurable thresholds
+- Created `seed_mdp_config_defaults` function
+- Created `v_mdp_decision_signals` view with decision logic in SQL
+- Created `src/hooks/useMDPDecisionSignals.ts` as thin wrapper
+
+### Phase 1.3 ✅ DONE (28/01/2026)
+- Created `alert_escalations` table
+- Created `v_alerts_pending_escalation` view
+- Created `auto_escalate_alerts` function
+- Created `check_alert_escalation` trigger
+- Created `src/hooks/useAlertEscalationSSOT.ts` as thin wrapper
+
+---
+
 ## NEXT ACTIONS
 
-1. **Bắt đầu Phase 1.1:** Fix metric-registry.ts
-2. **Review files:** `useMarketingDecisionEngine.ts`, `useAlertEscalation.ts`
-3. **Prepare migrations:** v_mdp_decision_signals, mdp_config, escalations
+1. **Phase 2.1:** Fix AR → Credit Risk Flow (fdp_push_ar_to_cdp)
+2. **Phase 2.2:** Implement Seasonal Pattern Sync
+3. **Phase 2.3:** Create v_budget_reallocation_suggestions
