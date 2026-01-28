@@ -44,6 +44,7 @@ interface NavItemWithBadge extends NavItemConfig {
 // Control Tower with role-based views
 // CEO = Strategic Command | COO = Execution Control
 const navItemsConfig: NavItemConfig[] = [
+  { id: 'command', label: 'Command Center', icon: LayoutDashboard, path: '/control-tower/command', badgeKey: 'alerts' },
   { id: 'ceo', label: 'CEO View', icon: Target, path: '/control-tower/ceo' },
   { id: 'coo', label: 'COO View', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'tasks' },
   { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
