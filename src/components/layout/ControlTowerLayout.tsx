@@ -2,61 +2,54 @@ import { useState, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  LayoutDashboard, 
-  Bell, 
-  CheckSquare, 
-  Users, 
+  Activity, 
+  Layers, 
+  GitCompare, 
+  ListTodo, 
+  Target, 
   Settings, 
   ChevronLeft,
   ChevronRight,
   Home,
-  AlertTriangle,
-  Target,
-  FileText,
-  MonitorCheck
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 import { useActiveAlertsCount } from '@/hooks/useNotificationCenter';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
-interface NavItemConfig {
+/**
+ * CONTROL TOWER LAYOUT - Rebuilt
+ * 
+ * 6 Navigation Items:
+ * 1. Command (Default) - Real-time pulse
+ * 2. Signals - Module-specific drill-down
+ * 3. Variance - Cross-module monitoring
+ * 4. Queue - Execution tracking
+ * 5. Outcomes - Retrospective
+ * 6. Settings - Configuration
+ */
+
+interface NavItem {
   id: string;
   label: string;
   icon: React.ElementType;
   path: string;
-  badgeKey?: string;
-}
-
-interface NavItemWithBadge extends NavItemConfig {
   badge?: number;
 }
 
-// Control Tower with role-based views
-// CEO = Strategic Command | COO = Execution Control
-const navItemsConfig: NavItemConfig[] = [
-  { id: 'command', label: 'Command Center', icon: LayoutDashboard, path: '/control-tower/command', badgeKey: 'alerts' },
-  { id: 'ceo', label: 'CEO View', icon: Target, path: '/control-tower/ceo' },
-  { id: 'coo', label: 'COO View', icon: CheckSquare, path: '/control-tower/coo', badgeKey: 'tasks' },
-  { id: 'situation', label: 'Situation Room', icon: AlertTriangle, path: '/control-tower/situation', badgeKey: 'alerts' },
-  { id: 'board', label: 'Board View', icon: MonitorCheck, path: '/control-tower/board' },
-  { id: 'decisions', label: 'Decisions', icon: FileText, path: '/control-tower/decisions' },
-  { id: 'alerts', label: 'All Alerts', icon: Bell, path: '/control-tower/alerts' },
-  { id: 'tasks', label: 'Tasks', icon: CheckSquare, path: '/control-tower/tasks', badgeKey: 'tasks' },
-  { id: 'kpi-rules', label: 'Rule Configuration', icon: Target, path: '/control-tower/kpi-rules' },
-  { id: 'team', label: 'Team', icon: Users, path: '/control-tower/team' },
-];
-
-const bottomNavItemsConfig: NavItemConfig[] = [
+const navItems: NavItem[] = [
+  { id: 'command', label: 'Command', icon: Activity, path: '/control-tower/command' },
+  { id: 'signals', label: 'Signals', icon: Layers, path: '/control-tower/signals' },
+  { id: 'variance', label: 'Variance', icon: GitCompare, path: '/control-tower/variance' },
+  { id: 'queue', label: 'Queue', icon: ListTodo, path: '/control-tower/queue' },
+  { id: 'outcomes', label: 'Outcomes', icon: Target, path: '/control-tower/outcomes' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/control-tower/settings' },
 ];
 
@@ -65,47 +58,25 @@ export function ControlTowerLayout() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { t } = useLanguage();
   const { activeTenant } = useTenantContext();
 
-  // Fetch real counts from database
+  // Fetch alert count for badge
   const { data: alertsData } = useActiveAlertsCount();
   const activeAlertsCount = alertsData?.total ?? 0;
-  
-  const { data: pendingTasksCount = 0 } = useQuery({
-    queryKey: ['pending-tasks-count', activeTenant?.id],
-    queryFn: async () => {
-      if (!activeTenant?.id) return 0;
-      const { count } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', activeTenant.id)
-        .in('status', ['todo', 'pending', 'in_progress']);
-      return count || 0;
-    },
-    enabled: !!activeTenant?.id,
-  });
 
-  // Build navItems with real badge counts
-  const navItems = useMemo((): NavItemWithBadge[] => {
-    const badgeCounts: Record<string, number> = {
-      alerts: activeAlertsCount,
-      tasks: pendingTasksCount,
-    };
-    
-    return navItemsConfig.map(item => ({
+  // Add badge to Command nav item
+  const navItemsWithBadge = useMemo(() => {
+    return navItems.map(item => ({
       ...item,
-      badge: item.badgeKey ? badgeCounts[item.badgeKey] : undefined,
+      badge: item.id === 'command' ? activeAlertsCount : undefined,
     }));
-  }, [activeAlertsCount, pendingTasksCount]);
-
-  const bottomNavItems: NavItemWithBadge[] = bottomNavItemsConfig.map(item => ({ ...item }));
+  }, [activeAlertsCount]);
 
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  const NavLink = ({ item }: { item: NavItemWithBadge }) => (
+  const NavLink = ({ item }: { item: NavItem }) => (
     <motion.button
       whileHover={{ x: 2 }}
       whileTap={{ scale: 0.98 }}
@@ -125,13 +96,13 @@ export function ControlTowerLayout() {
       {!collapsed && (
         <>
           <span className="flex-1 text-left truncate">{item.label}</span>
-          {item.badge && item.badge > 0 && (
+          {item.badge !== undefined && item.badge > 0 && (
             <Badge 
               className={cn(
                 'h-5 min-w-5 flex items-center justify-center text-xs font-semibold',
                 isActive(item.path)
                   ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted-foreground/20 text-muted-foreground'
+                  : 'bg-destructive text-destructive-foreground'
               )}
             >
               {item.badge}
@@ -147,7 +118,7 @@ export function ControlTowerLayout() {
       {/* Logo */}
       <div className="p-4 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <LayoutDashboard className="h-5 w-5 text-primary" />
+          <Activity className="h-5 w-5 text-primary" />
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
@@ -162,7 +133,7 @@ export function ControlTowerLayout() {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
         <nav className="space-y-1">
-          {navItems.map((item) => (
+          {navItemsWithBadge.map((item) => (
             <NavLink key={item.id} item={item} />
           ))}
         </nav>
@@ -170,11 +141,8 @@ export function ControlTowerLayout() {
 
       <Separator />
 
-      {/* Bottom Navigation */}
-      <div className="p-3 space-y-1">
-        {bottomNavItems.map((item) => (
-          <NavLink key={item.id} item={item} />
-        ))}
+      {/* Back to Portal */}
+      <div className="p-3">
         <motion.button
           whileHover={{ x: 2 }}
           whileTap={{ scale: 0.98 }}
@@ -190,13 +158,13 @@ export function ControlTowerLayout() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Mobile Header - Only on mobile */}
+      {/* Mobile Header */}
       <div className="lg:hidden">
         <MobileHeader
           showSearch
           showNotifications
           notificationCount={activeAlertsCount}
-          onNotificationClick={() => navigate('/control-tower/alerts')}
+          onNotificationClick={() => navigate('/control-tower/command')}
           onSearchClick={() => {}}
           onProfileClick={() => setMobileDrawerOpen(true)}
         />
@@ -246,7 +214,12 @@ export function ControlTowerLayout() {
 
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/control-tower/alerts')}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative" 
+              onClick={() => navigate('/control-tower/command')}
+            >
               <Bell className="h-5 w-5" />
               {activeAlertsCount > 0 && (
                 <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />

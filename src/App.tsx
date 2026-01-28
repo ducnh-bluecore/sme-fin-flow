@@ -157,18 +157,13 @@ import MDPV2CEOPage from "./pages/mdp/MDPV2CEOPage";
 // MDP Sales Deck - CEO Presentation
 import MDPSalesDeckPage from "./pages/mdp/MDPSalesDeckPage";
 
-// Control Tower pages - CEO = Strategic | COO = Execution
-import CTTasksPage from "./pages/control-tower/TasksPage";
-import CTAlertsPage from "./pages/control-tower/AlertsPage";
-import CTKPIRulesPage from "./pages/control-tower/KPINotificationRulesPage";
-import CTTeamPage from "./pages/control-tower/TeamPage";
+// Control Tower pages - Rebuilt with 6 focused views
+import CTCommandPage from "./pages/control-tower/CommandPage";
+import CTSignalsPage from "./pages/control-tower/SignalsPage";
+import CTVariancePage from "./pages/control-tower/VariancePage";
+import CTQueuePage from "./pages/control-tower/QueuePage";
+import CTOutcomesPage from "./pages/control-tower/OutcomesPage";
 import CTSettingsPage from "./pages/control-tower/SettingsPage";
-import CTSituationRoomPage from "./pages/control-tower/SituationRoomPage";
-import CTDecisionsPage from "./pages/control-tower/DecisionsPage";
-import CTBoardViewPage from "./pages/control-tower/BoardViewPage";
-import CTCEOPage from "./pages/control-tower/CEOControlTowerPage";
-import CTCOOPage from "./pages/control-tower/COOControlTowerPage";
-import CTCommandCenterPage from "./pages/control-tower/CommandCenterPage";
 
 
 // Mobile App pages
@@ -415,19 +410,19 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        {/* Control Tower: CEO = Strategic | COO = Execution */}
+        {/* Control Tower: 6 Focused Views */}
         <Route path="/control-tower" element={<Navigate to="/control-tower/command" replace />} />
-        <Route path="/control-tower/command" element={<CTCommandCenterPage />} />
-        <Route path="/control-tower/ceo" element={<CTCEOPage />} />
-        <Route path="/control-tower/coo" element={<CTCOOPage />} />
-        <Route path="/control-tower/situation" element={<CTSituationRoomPage />} />
-        <Route path="/control-tower/board" element={<CTBoardViewPage />} />
-        <Route path="/control-tower/decisions" element={<CTDecisionsPage />} />
-        <Route path="/control-tower/alerts" element={<CTAlertsPage />} />
-        <Route path="/control-tower/tasks" element={<CTTasksPage />} />
-        <Route path="/control-tower/kpi-rules" element={<CTKPIRulesPage />} />
-        <Route path="/control-tower/team" element={<CTTeamPage />} />
+        <Route path="/control-tower/command" element={<CTCommandPage />} />
+        <Route path="/control-tower/signals" element={<CTSignalsPage />} />
+        <Route path="/control-tower/variance" element={<CTVariancePage />} />
+        <Route path="/control-tower/queue" element={<CTQueuePage />} />
+        <Route path="/control-tower/outcomes" element={<CTOutcomesPage />} />
         <Route path="/control-tower/settings" element={<CTSettingsPage />} />
+        {/* Legacy routes redirect to new structure */}
+        <Route path="/control-tower/ceo" element={<Navigate to="/control-tower/command" replace />} />
+        <Route path="/control-tower/coo" element={<Navigate to="/control-tower/queue" replace />} />
+        <Route path="/control-tower/alerts" element={<Navigate to="/control-tower/signals" replace />} />
+        <Route path="/control-tower/decisions" element={<Navigate to="/control-tower/command" replace />} />
         
       </Route>
 

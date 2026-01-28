@@ -1,11 +1,7 @@
-export { default as TasksPage } from './TasksPage';
-export { default as AlertsPage } from './AlertsPage';
-export { default as KPINotificationRulesPage } from './KPINotificationRulesPage';
-export { default as TeamPage } from './TeamPage';
+// Control Tower Pages - Rebuilt with 6 focused views
+export { default as CommandPage } from './CommandPage';
+export { default as SignalsPage } from './SignalsPage';
+export { default as VariancePage } from './VariancePage';
+export { default as QueuePage } from './QueuePage';
+export { default as OutcomesPage } from './OutcomesPage';
 export { default as SettingsPage } from './SettingsPage';
-export { default as SituationRoomPage } from './SituationRoomPage';
-export { default as DecisionsPage } from './DecisionsPage';
-export { default as BoardViewPage } from './BoardViewPage';
-export { default as CEOControlTowerPage } from './CEOControlTowerPage';
-export { default as COOControlTowerPage } from './COOControlTowerPage';
-export { default as CommandCenterPage } from './CommandCenterPage';
