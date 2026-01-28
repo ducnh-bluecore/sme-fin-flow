@@ -1,283 +1,263 @@
 
-# BLUECORE ARCHITECTURE FIX PLAN
-## Roadmap Sửa lỗi Kiến trúc FDP-MDP-CDP-Control Tower
+# BLUECORE SYSTEM REVIEW - POST PHASE 6
+## Đánh giá Kiến trúc và SSOT Compliance
 
-**Phiên bản:** 2.0  
-**Ngày tạo:** 28/01/2026  
-**Timeline:** 6 Tuần
-
----
-
-## TỔNG QUAN
-
-### Mục tiêu
-- 100% SSOT compliance
-- 0 business logic trong frontend hooks
-- Cross-module integration hoàn chỉnh (12/12 cases)
-
-### Metrics Tracking
-
-| Metric | Hiện tại | Mục tiêu |
-|--------|----------|----------|
-| FDP SSOT % | 85% | 100% |
-| MDP SSOT % | 75% | 95% |
-| CDP SSOT % | 90% | 100% |
-| CT SSOT % | 80% | 95% |
-| Cross-Module Integration | 8/12 | 12/12 |
-| Frontend Business Logic Lines | ~500 | <50 |
+**Ngày review:** 28/01/2026
+**Phạm vi:** FDP, MDP, CDP, Control Tower, Cross-Module
 
 ---
 
-## PHASE 1: CRITICAL FIXES (Week 1)
+## 1. EXECUTIVE SUMMARY
 
-### Task 1.1: Fix Metric Registry
-**Priority:** HIGH | **Module:** FDP
+### Trạng thái tổng quan
 
-**Vấn đề:** `src/lib/metric-registry.ts` reference `external_orders` thay vì `cdp_orders`
+| Tiêu chí | Trước Phase 1 | Sau Phase 6 | Đánh giá |
+|----------|--------------|-------------|----------|
+| FDP SSOT | 85% | 95% | GOOD |
+| MDP SSOT | 75% | 85% | NEEDS WORK |
+| CDP SSOT | 90% | 95% | GOOD |
+| Control Tower SSOT | 80% | 90% | GOOD |
+| Cross-Module Integration | 8/12 | 12/12 | COMPLETE |
+| Frontend Business Logic | ~500 lines | ~200 lines | IMPROVED |
+
+---
+
+## 2. VẤN ĐỀ CÒN TỒN ĐỌNG
+
+### 2.1 CRITICAL: MDP Decision Engine còn Business Logic trong Frontend
+
+**File:** `src/hooks/useMarketingDecisionEngine.ts`
+
+**Vấn đề:**
+- Hook vẫn chứa 280 dòng business logic (lines 39-186)
+- Sử dụng `MDP_V2_THRESHOLDS` từ frontend (`src/types/mdp-v2.ts`)
+- Tính toán `decisionCards`, `ceoSnapshot`, `scaleOpportunities` trong `useMemo`
+- **VI PHẠM:** Manifesto yêu cầu "0 business logic trong hooks"
+
+**Evidence:**
+```text
+Line 112: .filter(c => c.cash_conversion_rate < MDP_V2_THRESHOLDS.PAUSE_CASH_CONVERSION_D14)
+Line 147: return refundRate > MDP_V2_THRESHOLDS.CAP_RETURN_RATE;
+Line 239: .filter(p => p.contribution_margin_percent >= MDP_V2_THRESHOLDS.SCALE_MIN_CM_PERCENT * 100)
+```
 
 **Giải pháp:**
-- Update tất cả references từ `external_orders` → `cdp_orders`
-- Verify với ESLint rule không còn vi phạm
+- Page `MDPV2CEOPage.tsx` vẫn import từ `useMarketingDecisionEngine` thay vì `useMDPDecisionSignals`
+- Cần migrate page sang sử dụng hook SSOT mới
 
 ---
 
-### Task 1.2: Migrate MDP Decision Logic to Database
-**Priority:** HIGH | **Module:** MDP
+### 2.2 MODERATE: Cash Forecast vẫn có Legacy Path
 
-**Vấn đề:** 
-- `useMarketingDecisionEngine.ts` chứa hardcoded business rules
-- Thresholds `MDP_V2_THRESHOLDS` trong frontend
+**File:** `src/hooks/useForecastInputs.ts`
+
+**Vấn đề:**
+- Function `generateForecast()` (lines 321-457) vẫn tồn tại với đầy đủ logic
+- `DailyForecastView.tsx` vẫn import và sử dụng `generateForecast()` từ legacy hook
+- RPC `generate_cash_forecast` đã tạo nhưng chưa được sử dụng ở UI
+
+**Evidence:**
+```text
+DailyForecastView.tsx:39 - import { generateForecast } from '@/hooks/useForecastInputs';
+DailyForecastView.tsx:362 - return generateForecast(inputs, 90, forecastMethod, ...);
+```
 
 **Giải pháp:**
-- Tạo view `v_mdp_decision_signals` trong database
-- Migrate logic KILL/PAUSE/SCALE/MONITOR sang SQL
-- Tạo table `mdp_config` cho configurable thresholds
-- Refactor hook thành thin wrapper
+- Migrate `DailyForecastView.tsx` sang sử dụng `useCashForecastSSOT`
+- Deprecate `generateForecast()` function trong `useForecastInputs.ts`
 
 ---
 
-### Task 1.3: Move Control Tower Escalation to Database
-**Priority:** HIGH | **Module:** Control Tower
+### 2.3 MODERATE: external_orders vẫn còn References
 
-**Vấn đề:** `shouldEscalate` logic trong frontend hook
+**Vấn đề:** Tìm thấy 33 files với 465 references đến `external_orders`
 
-**Giải pháp:**
-- Tạo trigger `auto_escalate_alerts`
-- Tạo table `escalations` để track
-- Refactor hook để chỉ fetch escalation status
+**Các trường hợp HỢP LỆ (Exceptions đã documented):**
+1. `useEcommerceReconciliation.ts` - Reconciliation staging data
+2. `PortalPage.tsx` - Data presence check
+3. `scheduled-bigquery-sync/index.ts` - Sync target table
+4. Comments explaining SSOT migration
 
----
-
-## PHASE 2: CROSS-MODULE INTEGRATION (Week 2-3)
-
-### Task 2.1: Complete AR → Credit Risk Flow (Case 8)
-**Module:** FDP → CDP
-
-**Vấn đề:** Customer ID join không đúng giữa `invoices` và `cdp_customers`
-
-**Giải pháp:** Fix `fdp_push_ar_to_cdp` để join qua `external_id`
+**Các trường hợp CẦN XEM XÉT:**
+1. `src/pages/mdp/DataReadinessPage.tsx` - UI field descriptions
+2. `src/hooks/useChannelPL.ts` - Comment outdated (nói là từ external_orders)
+3. `docs/*` - Documentation có thể cần update
 
 ---
 
-### Task 2.2: Implement Seasonal Pattern Sync (Case 9)
-**Module:** MDP → FDP
+### 2.4 LOW: Frontend .reduce() vẫn còn nhiều
 
-**Vấn đề:** Seasonal patterns từ MDP chưa được sync sang FDP forecast
+**Vấn đề:** Tìm thấy 1154 matches trong 62 files
 
-**Giải pháp:**
-- Tạo table `seasonal_patterns`
-- Tạo RPC `mdp_push_seasonal_to_fdp`
+**Phân loại:**
+- **UI Aggregation (OK):** Tổng hợp kết quả từ DB cho hiển thị
+- **Business Logic (BAD):** Tính toán metrics, margins, KPIs
 
----
-
-### Task 2.3: Channel ROI → Budget Reallocation (Case 10)
-**Module:** MDP → FDP
-
-**Giải pháp:** Tạo view `v_budget_reallocation_suggestions`
+**Files cần review:**
+1. `useAudienceData.ts` - Nhiều .reduce() để tính RFM, LTV
+2. `useSKUProfitabilityCache.ts` - Tổng profit, margin
+3. `useWorkingCapital.ts` - CCC trend calculations
+4. `useProductMetrics.ts` - Aggregations
 
 ---
 
-## PHASE 3: AUTOMATION & TRIGGERS (Week 4)
+## 3. PHÂN TÍCH THEO MODULE
 
-### Task 3.1: Schedule Cross-Module Daily Sync
-- Add `cross_module_run_daily_sync` to pg_cron (04:00 daily)
+### 3.1 FDP (Financial Data Platform) - 95% SSOT
 
-### Task 3.2: Alert Clustering Implementation
-- Tạo table `alert_clusters`
-- Tạo function `cluster_related_alerts`
+**Đạt chuẩn:**
+- `useFinanceTruthSnapshot` - Canonical hook, NO calculations
+- `useCentralFinancialMetrics` - Deprecated wrapper, delegate only
+- `useCashForecastSSOT` - Thin wrapper for RPC
 
-### Task 3.3: Variance Auto-Dispatch
-- Tạo trigger sau `detect_cross_domain_variance`
-- Auto-create decision cards cho relevant module
+**Chưa đạt:**
+- `useForecastInputs.ts` - Legacy generateForecast() còn tồn tại
+- UI components vẫn dùng legacy path
 
----
+### 3.2 MDP (Marketing Data Platform) - 85% SSOT
 
-## PHASE 4: CONFIGURATION TABLE (Week 5)
+**Đạt chuẩn:**
+- `useMDPDecisionSignals` - Thin wrapper cho view
+- `v_mdp_decision_signals` - Logic trong SQL
+- `mdp_config` - Thresholds configurable
 
-### Task 4.1: Cross-Module Config Table
-Tạo `cross_module_config` table với:
-- `variance_threshold`: 0.10 (default), 0.20 (critical)
-- `cost_fallback`: COGS 55%, Fee 20%
-- `escalation_hours`: Critical 24h, Warning 48h
-- `sync_schedule`: Daily build 02:00, Cross sync 04:00
+**Chưa đạt:**
+- `useMarketingDecisionEngine.ts` - 280 lines business logic
+- `MDPV2CEOPage.tsx` - Sử dụng legacy hook
+- `MDP_V2_THRESHOLDS` - Hardcoded trong types file
 
-### Task 4.2: LTV Auto-Seed Assumptions
-- Tạo default assumptions per industry
-- Auto-seed khi tenant mới được tạo
+### 3.3 CDP (Customer Data Platform) - 95% SSOT
 
----
+**Đạt chuẩn:**
+- Insight Actions (dismiss/snooze) via RPC
+- Cross-module flows (Credit Risk, LTV, Churn)
+- Population queries from views
 
-## PHASE 5: CASH FORECAST MIGRATION (Week 5-6)
+**Chưa đạt:**
+- `useAudienceData.ts` - RFM calculations trong frontend
 
-### Task 5.1: Migrate Forecast Logic to RPC
-**Module:** FDP
+### 3.4 Control Tower - 90% SSOT
 
-**Vấn đề:** `useForecastInputs.ts` có `generateForecast()` logic trong frontend
+**Đạt chuẩn:**
+- Alert Resolution workflow via RPC
+- Escalation via DB trigger
+- Priority Queue from view
 
-**Giải pháp:**
-- Tạo RPC `generate_cash_forecast`
-- Move AR collection probability logic sang DB
-- Move T+14 settlement logic sang DB
-- Refactor hook thành thin wrapper
-
----
-
-## PHASE 6: UI POLISH & GOVERNANCE (Week 6)
-
-### Task 6.1: Insight Dismiss/Snooze UI (CDP)
-### Task 6.2: Resolution Workflow UI (Control Tower)
-### Task 6.3: Governance Dashboard Enhancement (All)
+**Chưa đạt:**
+- `useControlTowerSSOT.ts` - Một số mapping logic
 
 ---
 
-## ACCEPTANCE CRITERIA
+## 4. CROSS-MODULE INTEGRATION
 
-### Phase 1 Complete:
-- ESLint shows 0 `external_orders` violations
-- `useMarketingDecisionEngine` chỉ fetch, không compute
-- Escalation happens via DB trigger
+### 4.1 Đã hoàn thành 12/12 Cases
 
-### Phase 2 Complete:
-- Credit Risk scores update từ AR aging
-- Seasonal patterns available trong FDP forecast
-- Budget suggestions generated từ Channel ROI
-
-### Phase 3 Complete:
-- Daily sync runs automatically at 04:00
-- Alerts được cluster và hiển thị grouped
-- Variance tự động tạo decision cards
-
-### Phase 4-6 Complete:
-- Tất cả thresholds configurable từ DB
-- Cash forecast 100% từ RPC
-- Insights có dismiss/snooze, Alerts có resolution workflow
+| Case | Flow | Status | Implementation |
+|------|------|--------|----------------|
+| 1 | CDP → FDP: Revenue Forecast | DONE | `cdp_push_revenue_to_fdp` |
+| 2 | FDP → MDP: Locked Costs | DONE | `mdp_get_costs_for_roas` |
+| 3 | CDP → MDP: Segment LTV | DONE | `useMDPSegmentLTV` |
+| 4 | CDP → MDP: Churn Signal | DONE | `useMDPChurnSignals` |
+| 5 | MDP → CDP: Attribution CAC | DONE | `usePushAttributionToCDP` |
+| 6 | MDP → CDP: Acquisition Source | DONE | `usePushAcquisitionToCDP` |
+| 7 | FDP → CDP: Actual Revenue | DONE | `usePushActualRevenueToCDP` |
+| 8 | FDP → CDP: AR → Credit Risk | DONE | `fdp_push_ar_to_cdp` |
+| 9 | MDP → FDP: Seasonal Patterns | DONE | `fdp_get_seasonal_adjustments` |
+| 10 | MDP → FDP: Channel ROI | DONE | `fdp_get_budget_recommendations` |
+| 11 | CT → All: Variance Alerts | DONE | `trigger_auto_dispatch_variance` |
+| 12 | All → CT: Priority Queue | DONE | `useControlTowerPriorityQueue` |
 
 ---
 
-## COMPLETED ACTIONS
+## 5. ACTION ITEMS - PRIORITIZED
 
-### Phase 1.1 ✅ DONE (28/01/2026)
-- Fixed `src/lib/command-center/metric-registry.ts`
-- Changed 4 metrics from `external_orders` → `cdp_orders`:
-  - net_revenue
-  - contribution_margin
-  - contribution_margin_percent
-  - return_rate
+### Phase 7.1: MDP SSOT Completion (HIGH PRIORITY)
 
-### Phase 1.2 ✅ DONE (28/01/2026)
-- Created `mdp_config` table for configurable thresholds
-- Created `seed_mdp_config_defaults` function
-- Created `v_mdp_decision_signals` view with decision logic in SQL
-- Created `src/hooks/useMDPDecisionSignals.ts` as thin wrapper
+**Task 7.1.1:** Migrate MDPV2CEOPage sang useMDPDecisionSignals
+- File: `src/pages/mdp/MDPV2CEOPage.tsx`
+- Thay `useMarketingDecisionEngine` → `useMDPDecisionSignals`
+- Map `decisionCards` từ signals
+- Remove CEOSnapshot computation (move to view)
 
-### Phase 1.3 ✅ DONE (28/01/2026)
-- Created `alert_escalations` table
-- Created `v_alerts_pending_escalation` view
-- Created `auto_escalate_alerts` function
-- Created `check_alert_escalation` trigger
-- Created `src/hooks/useAlertEscalationSSOT.ts` as thin wrapper
+**Task 7.1.2:** Deprecate useMarketingDecisionEngine
+- Add @deprecated annotation
+- Remove business logic
+- Make it a thin wrapper hoặc delete
 
-### Phase 2.1 ✅ DONE (28/01/2026)
-- Created `cdp_customer_credit_risk` table
-- Created `fdp_push_ar_to_cdp` RPC with fixed join logic via `external_id`, `name`, or `email`
-- Credit score calculation: 100 - penalties (overdue %, days overdue)
-- Risk levels: low, medium, high, critical
-- Equity risk multiplier for customer valuation adjustment
+**Task 7.1.3:** Move MDP_V2_THRESHOLDS sang Database
+- Thresholds đã có trong `mdp_config`
+- UI nên fetch từ `useMDPConfig()`
+- Update `DecisionContextRail.tsx` để dùng DB values
 
-### Phase 2.2 ✅ DONE (28/01/2026)
-- Created `mdp_seasonal_patterns` table (monthly, weekly, event, campaign types)
-- Created `mdp_push_seasonal_to_fdp` RPC for MDP → FDP sync
-- Created `fdp_get_seasonal_adjustments` RPC for FDP consumption
-- Confidence levels: LOCKED (≥80% + 12 samples), OBSERVED (≥50% + 3 samples), ESTIMATED
+### Phase 7.2: Cash Forecast Cleanup (MEDIUM PRIORITY)
 
-### Phase 2.3 ✅ DONE (28/01/2026)
-- Created `mdp_channel_roi` table with ROAS and CAC computed columns
-- Created `mdp_push_channel_roi_to_fdp` RPC with auto-recommendation logic
-- Created `v_budget_reallocation_suggestions` view
-- Created `fdp_get_budget_recommendations` RPC
-- Action types: KILL, REDUCE, SCALE, MAINTAIN based on Profit ROAS & CM%
+**Task 7.2.1:** Migrate DailyForecastView sang SSOT
+- Replace `generateForecast()` → `useCashForecastSSOT()`
+- Remove import từ `useForecastInputs`
 
-### Phase 3.1 ✅ DONE (28/01/2026)
-- Created pg_cron job `cross_module_daily_sync` scheduled at 04:00 UTC daily
-- Job calls `scheduled-sync` edge function with `cross_module_sync` action
+**Task 7.2.2:** Deprecate generateForecast()
+- Add @deprecated annotation
+- Consider removal sau 30 ngày
 
-### Phase 3.2 ✅ DONE (28/01/2026)
-- Created `alert_clusters` table with metric_family, entity, time_window, causal_chain types
-- Created `alert_cluster_members` junction table
-- Created `cluster_related_alerts` function to group related alerts
+### Phase 7.3: Audience Data SSOT (LOW PRIORITY)
 
-### Phase 3.3 ✅ DONE (28/01/2026)
-- Created `variance_decision_cards` table for auto-dispatched cards
-- Created `auto_dispatch_variance_to_cards` trigger function
-- Trigger fires on `cross_domain_variance_alerts` insert
-- Auto-creates decision cards for FDP, MDP, CDP based on variance type
+**Task 7.3.1:** Create v_cdp_rfm_segments view
+- Move RFM calculation logic to SQL
+- Pre-compute segment assignments
 
-### Phase 4.1 ✅ DONE (28/01/2026)
-- Created `cross_module_config` table for centralized configuration
-- Implemented `seed_cross_module_config_defaults` function
-- Default configs: variance thresholds, cost fallbacks, escalation hours, sync schedule, MDP thresholds
-
-### Phase 4.2 ✅ DONE (28/01/2026)
-- Created `ltv_industry_assumptions` table with 5 industry presets
-- Created `tenant_ltv_config` table for tenant-specific overrides
-- Implemented `get_tenant_ltv_assumptions` RPC for effective assumptions
-- Created `trigger_auto_seed_tenant_config` to auto-seed on tenant creation
-- Created `get_cross_module_config` and `set_cross_module_config` RPCs
-
-### Phase 5.1 ✅ DONE (28/01/2026)
-- Created `forecast_row` type for structured output
-- Created `generate_cash_forecast` RPC with full logic:
-  - AR collection probability curve (85% → 10% based on days overdue)
-  - T+14 eCommerce settlement delay
-  - AP payment spread by due dates
-  - Recurring expense normalization (weekly/yearly → monthly)
-  - Confidence interval bands (1.2%/day, max 60%)
-  - Support for 'rule-based' and 'simple' methods
-- Created `get_forecast_inputs_summary` RPC for data quality status
-- Created `src/hooks/useCashForecastSSOT.ts` as thin wrapper
-
-### Phase 6.1 ✅ DONE (28/01/2026)
-- Created `cdp_insight_actions` table for dismiss/snooze tracking
-- Created RPCs: `dismiss_insight`, `snooze_insight`, `reactivate_insight`
-- Created `v_cdp_insights_with_actions` view for display status
-- Created `src/hooks/useInsightActions.ts` with mutation hooks
-- Created `src/components/cdp/insights/InsightActionButtons.tsx` UI component
-
-### Phase 6.2 ✅ DONE (28/01/2026)
-- Created `alert_resolutions` table for resolution workflow
-- Created RPCs: `start_alert_resolution`, `complete_alert_resolution`, `mark_alert_false_positive`
-- Created `v_alerts_with_resolution` view for resolution status + time metrics
-- Created `src/hooks/useAlertResolution.ts` with query + mutation hooks
-- Created `src/components/control-tower/AlertResolutionWorkflow.tsx` UI component
+**Task 7.3.2:** Refactor useAudienceData
+- Remove .reduce() business logic
+- Fetch from view
 
 ---
 
-## ARCHITECTURE ROADMAP COMPLETE ✅
+## 6. METRICS TARGET POST-PHASE 7
 
-All 6 phases have been successfully implemented:
-- Phase 1: Critical Fixes (Metric Registry, MDP Decision Logic, Escalation)
-- Phase 2: Cross-Module Integration (AR→Credit, Seasonal, Channel ROI)
-- Phase 3: Automation & Triggers (Daily Sync, Alert Clustering, Variance Dispatch)
-- Phase 4: Configuration Table (Cross-Module Config, LTV Auto-Seed)
-- Phase 5: Cash Forecast Migration (RPC-based forecast generation)
-- Phase 6: UI Polish & Governance (Insight Actions, Alert Resolution)
+| Metric | Current | Target | Notes |
+|--------|---------|--------|-------|
+| FDP SSOT | 95% | 100% | Fix generateForecast |
+| MDP SSOT | 85% | 98% | Fix MDPV2CEOPage |
+| CDP SSOT | 95% | 100% | Fix useAudienceData |
+| CT SSOT | 90% | 95% | Minor cleanup |
+| Frontend Business Logic Lines | ~200 | <50 | Focus on 3 hooks |
+
+---
+
+## 7. POSITIVE FINDINGS
+
+### 7.1 Metric Registry đã sửa đúng
+- 4 metrics đã chuyển từ `external_orders` → `cdp_orders`
+- ESLint guardrails đang hoạt động
+
+### 7.2 Database-First Architecture hoàn thiện
+- 15+ RPCs đã tạo
+- 10+ Views cho aggregation
+- Triggers cho automation
+
+### 7.3 Cross-Module Data Flywheel hoạt động
+- 12/12 integration cases implemented
+- Fallback chain (Locked → Observed → Estimated)
+- Daily sync orchestration
+
+### 7.4 UI Polish & Governance
+- Insight Actions (Dismiss/Snooze)
+- Alert Resolution Workflow
+- Governance Overlay (?governance=1)
+
+---
+
+## 8. RECOMMENDATIONS
+
+### Immediate (This Week)
+1. Fix MDPV2CEOPage.tsx to use useMDPDecisionSignals
+2. Update DailyForecastView.tsx to use useCashForecastSSOT
+
+### Short-term (Next 2 Weeks)
+3. Create v_cdp_rfm_segments view
+4. Refactor useAudienceData.ts
+5. Audit remaining .reduce() usage
+
+### Long-term (Next Month)
+6. Remove deprecated hooks after 30-day notice
+7. Strengthen ESLint rules to ERROR level
+8. Add unit tests for database functions
