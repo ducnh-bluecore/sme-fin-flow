@@ -1,380 +1,499 @@
+# BLUECORE ARCHITECTURE FIX PLAN
+## Roadmap Sửa lỗi Kiến trúc FDP-MDP-CDP-Control Tower
 
+**Phiên bản:** 2.0  
+**Ngày tạo:** 28/01/2026  
+**Trạng thái:** Planning
 
-# Kế hoạch: Tích hợp Chi phí Tạm tính vào P&L Report
+---
 
-## 1. Tổng quan Business Rule
+## 📋 TỔNG QUAN
 
-### 1.1 Rule Ưu tiên Dữ liệu
+### Mục tiêu
+Sửa tất cả các tồn tại được xác định trong rà soát kiến trúc để đạt:
+- 100% SSOT compliance
+- 0 business logic trong frontend hooks
+- Cross-module integration hoàn chỉnh
 
-| Ưu tiên | Nguồn | Mục đích | Badge hiển thị |
-|---------|-------|----------|----------------|
-| 1 | `expenses` / `finance_expenses_daily` | Chi phí thực tế đã ghi nhận | "Thực tế" |
-| 2 | `expense_baselines` | Chi phí cố định tạm tính (Lương, Thuê, Điện) | "Tạm tính" |
-| 3 | `expense_estimates` | Biến phí dự kiến (Marketing, Logistics) | "Tạm tính" |
+### Timeline: 6 Tuần
 
-### 1.2 Rule Cảnh báo
+---
 
-- **Underestimate**: Thực tế > Tạm tính + 10% → Cảnh báo màu đỏ
-- **On Track**: Chênh lệch trong khoảng ±10% → OK màu xanh
-- **Overestimate**: Thực tế < Tạm tính - 20% → Thông tin màu cam
+## 🔴 PHASE 1: CRITICAL FIXES (Week 1)
 
-## 2. Thay đổi Database
+### Task 1.1: Fix Metric Registry - External Orders Reference
+**Priority:** 🔴 HIGH  
+**Module:** FDP  
+**Status:** [ ] TODO
 
-### 2.1 Thêm cột vào `pl_report_cache`
+**Vấn đề:**
+- `src/lib/metric-registry.ts` đang reference `external_orders` thay vì `cdp_orders`
 
+**Giải pháp:**
+- [ ] Đọc và audit `metric-registry.ts`
+- [ ] Update tất cả references từ `external_orders` → `cdp_orders`
+- [ ] Verify với ESLint rule không còn vi phạm
+
+**Files cần sửa:**
+- `src/lib/metric-registry.ts`
+
+---
+
+### Task 1.2: Migrate MDP Decision Logic to Database
+**Priority:** 🔴 HIGH  
+**Module:** MDP  
+**Status:** [ ] TODO
+
+**Vấn đề:**
+- `useMarketingDecisionEngine.ts` chứa hardcoded business rules
+- Thresholds `MDP_V2_THRESHOLDS` trong frontend
+
+**Giải pháp:**
+- [ ] Tạo view `v_mdp_decision_signals` trong database
+- [ ] Migrate logic KILL/PAUSE/SCALE/MONITOR sang SQL
+- [ ] Refactor hook thành thin wrapper
+- [ ] Tạo table `mdp_config` cho configurable thresholds
+
+**Database Migration:**
 ```sql
-ALTER TABLE pl_report_cache 
-ADD COLUMN IF NOT EXISTS opex_data_source jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS total_opex_estimated numeric DEFAULT 0,
-ADD COLUMN IF NOT EXISTS total_opex_actual numeric DEFAULT 0,
-ADD COLUMN IF NOT EXISTS opex_logistics numeric DEFAULT 0;
-```
-
-### 2.2 Update RPC `refresh_pl_cache`
-
-Thay đổi logic trong function hiện tại để:
-
-**Bước 1**: Lấy chi phí TẠM TÍNH từ `expense_baselines` + `expense_estimates`
-
-```sql
--- Fixed costs từ expense_baselines
+-- View cho decision signals
+CREATE OR REPLACE VIEW v_mdp_decision_signals AS
 SELECT 
-  COALESCE(SUM(CASE WHEN category = 'salary' THEN monthly_amount END), 0),
-  COALESCE(SUM(CASE WHEN category = 'rent' THEN monthly_amount END), 0),
-  COALESCE(SUM(CASE WHEN category = 'utilities' THEN monthly_amount END), 0),
-  COALESCE(SUM(CASE WHEN category = 'other' THEN monthly_amount END), 0)
-INTO v_est_salary, v_est_rent, v_est_utilities, v_est_other
-FROM expense_baselines
-WHERE tenant_id = p_tenant_id
-  AND effective_from <= v_start_date
-  AND (effective_to IS NULL OR effective_to >= v_end_date);
+  campaign_id,
+  campaign_name,
+  profit_roas,
+  cm_percent,
+  cash_conversion_rate,
+  consecutive_negative_days,
+  CASE 
+    WHEN profit_roas < 0 AND consecutive_negative_days >= 3 THEN 'KILL'
+    WHEN cash_conversion_rate < 0.5 THEN 'PAUSE'
+    WHEN cm_percent < -0.1 THEN 'KILL'
+    WHEN cm_percent >= 0.15 AND cash_conversion_rate >= 0.7 THEN 'SCALE'
+    ELSE 'MONITOR'
+  END AS recommended_action,
+  CASE 
+    WHEN profit_roas < 0 THEN 'critical'
+    WHEN cm_percent < 0 THEN 'warning'
+    ELSE 'info'
+  END AS severity
+FROM v_mdp_campaign_performance;
 
--- Variable costs từ expense_estimates
-SELECT 
-  COALESCE(SUM(CASE WHEN category = 'marketing' THEN 
-    COALESCE(actual_amount, estimated_amount) END), 0),
-  COALESCE(SUM(CASE WHEN category = 'logistics' THEN 
-    COALESCE(actual_amount, estimated_amount) END), 0)
-INTO v_est_marketing, v_est_logistics
-FROM expense_estimates
-WHERE tenant_id = p_tenant_id
-  AND year = p_year
-  AND (p_month IS NULL OR month = p_month);
+-- Config table cho thresholds
+CREATE TABLE mdp_config (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id),
+  config_key text NOT NULL,
+  config_value jsonb NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, config_key)
+);
+
+-- Default thresholds
+INSERT INTO mdp_config (tenant_id, config_key, config_value) VALUES
+  ('{{tenant_id}}', 'decision_thresholds', '{
+    "kill_roas_threshold": 0,
+    "kill_cm_threshold": -0.1,
+    "pause_cash_conversion": 0.5,
+    "scale_cm_threshold": 0.15,
+    "scale_cash_conversion": 0.7,
+    "consecutive_days_for_kill": 3
+  }');
 ```
 
-**Bước 2**: Lấy chi phí THỰC TẾ (giữ nguyên logic hiện tại từ `finance_expenses_daily`)
+**Files cần sửa:**
+- `src/hooks/useMarketingDecisionEngine.ts` → Thin wrapper
+- `src/types/mdp-v2.ts` → Remove hardcoded thresholds
 
-**Bước 3**: Merge với rule ưu tiên
+---
 
+### Task 1.3: Move Control Tower Escalation to Database
+**Priority:** 🔴 HIGH  
+**Module:** Control Tower  
+**Status:** [ ] TODO
+
+**Vấn đề:**
+- `shouldEscalate` logic trong frontend hook
+
+**Giải pháp:**
+- [ ] Tạo trigger `auto_escalate_alerts`
+- [ ] Tạo table `escalations` để track
+- [ ] Refactor hook để chỉ fetch escalation status
+
+**Database Migration:**
 ```sql
--- Merge: Thực tế > 0 → dùng Thực tế, ngược lại dùng Tạm tính
-v_opex_salaries := CASE 
-  WHEN v_actual_salary > 0 THEN v_actual_salary 
-  ELSE v_est_salary 
-END;
-v_source_salary := CASE WHEN v_actual_salary > 0 THEN 'actual' ELSE 'estimate' END;
+-- Escalations table
+CREATE TABLE escalations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id),
+  alert_id uuid NOT NULL REFERENCES alert_instances(id),
+  escalate_to text NOT NULL, -- 'CEO', 'CFO', 'COO'
+  escalated_at timestamptz DEFAULT now(),
+  acknowledged_at timestamptz,
+  acknowledged_by uuid
+);
 
-v_opex_rent := CASE 
-  WHEN v_actual_rent > 0 THEN v_actual_rent 
-  ELSE v_est_rent 
+-- Auto-escalation function
+CREATE OR REPLACE FUNCTION auto_escalate_alerts() 
+RETURNS trigger AS $$
+DECLARE
+  age_hours numeric;
+BEGIN
+  age_hours := EXTRACT(EPOCH FROM (now() - NEW.created_at)) / 3600;
+  
+  -- Critical alerts > 24h → CEO
+  IF NEW.severity = 'critical' AND age_hours > 24 AND NEW.status = 'open' THEN
+    INSERT INTO escalations (tenant_id, alert_id, escalate_to)
+    VALUES (NEW.tenant_id, NEW.id, 'CEO')
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  -- Warning alerts > 48h → CFO
+  IF NEW.severity = 'warning' AND age_hours > 48 AND NEW.status = 'open' THEN
+    INSERT INTO escalations (tenant_id, alert_id, escalate_to)
+    VALUES (NEW.tenant_id, NEW.id, 'CFO')
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  RETURN NEW;
 END;
-v_source_rent := CASE WHEN v_actual_rent > 0 THEN 'actual' ELSE 'estimate' END;
+$$ LANGUAGE plpgsql;
 
--- Tương tự cho: utilities, marketing, logistics, other
+-- Trigger
+CREATE TRIGGER trigger_auto_escalate
+  AFTER INSERT OR UPDATE ON alert_instances
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_escalate_alerts();
 ```
 
-**Bước 4**: Lưu metadata nguồn dữ liệu và tổng tạm tính/thực tế
+**Files cần sửa:**
+- `src/hooks/useAlertEscalation.ts` → Thin wrapper
+
+---
+
+## 🟡 PHASE 2: CROSS-MODULE INTEGRATION (Week 2-3)
+
+### Task 2.1: Complete AR → Credit Risk Flow (Case 8)
+**Priority:** 🟡 MEDIUM  
+**Module:** FDP → CDP  
+**Status:** [ ] TODO
+
+**Vấn đề:**
+- Customer ID join không đúng giữa `invoices` và `cdp_customers`
+
+**Giải pháp:**
+- [ ] Fix `fdp_push_ar_to_cdp` để join qua `external_id`
+- [ ] Verify credit_risk scores được update đúng
+
+**Database Migration:**
+```sql
+CREATE OR REPLACE FUNCTION fdp_push_ar_to_cdp(p_tenant_id uuid)
+RETURNS void AS $$
+BEGIN
+  -- Update credit risk based on AR aging
+  INSERT INTO cdp_customer_credit_risk (tenant_id, customer_id, risk_score, ar_overdue_amount, last_calculated_at)
+  SELECT 
+    i.tenant_id,
+    c.id as customer_id,
+    CASE 
+      WHEN SUM(CASE WHEN age_days > 90 THEN remaining_amount ELSE 0 END) > 0 THEN 'high'
+      WHEN SUM(CASE WHEN age_days > 60 THEN remaining_amount ELSE 0 END) > 0 THEN 'medium'
+      WHEN SUM(CASE WHEN age_days > 30 THEN remaining_amount ELSE 0 END) > 0 THEN 'low'
+      ELSE 'minimal'
+    END as risk_score,
+    SUM(CASE WHEN age_days > 30 THEN remaining_amount ELSE 0 END) as ar_overdue_amount,
+    now()
+  FROM ar_aging i
+  JOIN cdp_customers c ON c.external_id = i.customer_id::text AND c.tenant_id = i.tenant_id
+  WHERE i.tenant_id = p_tenant_id
+  GROUP BY i.tenant_id, c.id
+  ON CONFLICT (tenant_id, customer_id) 
+  DO UPDATE SET
+    risk_score = EXCLUDED.risk_score,
+    ar_overdue_amount = EXCLUDED.ar_overdue_amount,
+    last_calculated_at = now();
+END;
+$$ LANGUAGE plpgsql;
+```
+
+---
+
+### Task 2.2: Implement Seasonal Pattern Sync (Case 9)
+**Priority:** 🟡 MEDIUM  
+**Module:** MDP → FDP  
+**Status:** [ ] TODO
+
+**Vấn đề:**
+- Seasonal patterns từ MDP chưa được sync sang FDP forecast
+
+**Giải pháp:**
+- [ ] Tạo table `seasonal_patterns` 
+- [ ] Tạo RPC `mdp_push_seasonal_to_fdp`
+- [ ] Update Cash Forecast logic để sử dụng patterns
+
+**Database Migration:**
+```sql
+CREATE TABLE seasonal_patterns (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id),
+  source_module text NOT NULL, -- 'MDP', 'CDP'
+  pattern_type text NOT NULL, -- 'monthly', 'weekly', 'quarterly'
+  month int, -- 1-12 for monthly
+  week int, -- 1-52 for weekly
+  multiplier numeric NOT NULL DEFAULT 1.0,
+  confidence numeric DEFAULT 0.7,
+  sample_size int,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, source_module, pattern_type, month, week)
+);
+
+CREATE OR REPLACE FUNCTION mdp_push_seasonal_to_fdp(p_tenant_id uuid)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO seasonal_patterns (tenant_id, source_module, pattern_type, month, multiplier, sample_size)
+  SELECT 
+    tenant_id,
+    'MDP',
+    'monthly',
+    EXTRACT(MONTH FROM order_date)::int,
+    SUM(gross_revenue) / NULLIF(AVG(SUM(gross_revenue)) OVER (), 0),
+    COUNT(*)
+  FROM cdp_orders
+  WHERE tenant_id = p_tenant_id
+    AND order_date >= now() - interval '2 years'
+  GROUP BY tenant_id, EXTRACT(MONTH FROM order_date)
+  ON CONFLICT (tenant_id, source_module, pattern_type, month, week) 
+  DO UPDATE SET 
+    multiplier = EXCLUDED.multiplier,
+    sample_size = EXCLUDED.sample_size;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+---
+
+### Task 2.3: Channel ROI → Budget Reallocation (Case 10)
+**Priority:** 🟡 MEDIUM  
+**Module:** MDP → FDP  
+**Status:** [ ] TODO
+
+**Vấn đề:**
+- Channel ROI chưa trigger budget reallocation suggestions
+
+**Giải pháp:**
+- [ ] Tạo view `v_budget_reallocation_suggestions`
+- [ ] Integrate với Control Tower decision cards
+
+---
+
+## 🟢 PHASE 3: AUTOMATION & TRIGGERS (Week 4)
+
+### Task 3.1: Schedule Cross-Module Daily Sync
+**Priority:** 🟢 MEDIUM  
+**Module:** Cross-Module  
+**Status:** [ ] TODO
+
+**Giải pháp:**
+- [ ] Verify `cross_module_run_daily_sync` function
+- [ ] Add to pg_cron schedule
 
 ```sql
-INSERT INTO pl_report_cache (
-  ...,
-  opex_data_source,
-  total_opex_estimated,
-  total_opex_actual,
-  opex_logistics
-) VALUES (
-  ...,
-  jsonb_build_object(
-    'salary', v_source_salary,
-    'rent', v_source_rent,
-    'utilities', v_source_utilities,
-    'marketing', v_source_marketing,
-    'logistics', v_source_logistics,
-    'other', v_source_other
-  ),
-  v_est_salary + v_est_rent + v_est_utilities + v_est_marketing + v_est_logistics + v_est_other,
-  v_actual_salary + v_actual_rent + v_actual_utilities + v_actual_marketing + v_actual_logistics + v_actual_other,
-  v_opex_logistics
+SELECT cron.schedule(
+  'cross-module-daily-sync',
+  '0 4 * * *',  -- 04:00 daily (after all module builds)
+  $$SELECT cross_module_run_daily_sync()$$
 );
 ```
 
-### 2.3 Tạo View `v_expense_variance_alerts`
+---
 
-View để phát hiện chênh lệch Tạm tính vs Thực tế, dùng cho Control Tower:
+### Task 3.2: Alert Clustering Implementation
+**Priority:** 🟢 MEDIUM  
+**Module:** Control Tower  
+**Status:** [ ] TODO
 
+**Giải pháp:**
+- [ ] Tạo table `alert_clusters`
+- [ ] Tạo function `cluster_related_alerts`
+- [ ] Update UI để show clustered alerts
+
+---
+
+### Task 3.3: Variance Auto-Dispatch
+**Priority:** 🟢 MEDIUM  
+**Module:** Control Tower  
+**Status:** [ ] TODO
+
+**Giải pháp:**
+- [ ] Tạo trigger sau `detect_cross_domain_variance`
+- [ ] Auto-create decision cards cho relevant module
+
+---
+
+## 🔵 PHASE 4: CONFIGURATION TABLE (Week 5)
+
+### Task 4.1: Cross-Module Config Table
+**Priority:** 🔵 LOW  
+**Module:** Cross-Module  
+**Status:** [ ] TODO
+
+**Database Migration:**
 ```sql
-CREATE OR REPLACE VIEW v_expense_variance_alerts AS
-SELECT 
-  eb.tenant_id,
-  eb.category,
-  eb.name,
-  eb.monthly_amount AS estimated,
-  COALESCE(act.actual_amount, 0) AS actual,
-  COALESCE(act.actual_amount, 0) - eb.monthly_amount AS variance,
-  CASE 
-    WHEN eb.monthly_amount > 0 THEN 
-      ((COALESCE(act.actual_amount, 0) - eb.monthly_amount) / eb.monthly_amount) * 100
-    ELSE 0
-  END AS variance_percent,
-  CASE 
-    WHEN COALESCE(act.actual_amount, 0) > eb.monthly_amount * 1.1 THEN 'underestimate'
-    WHEN COALESCE(act.actual_amount, 0) < eb.monthly_amount * 0.8 THEN 'overestimate'
-    ELSE 'on_track'
-  END AS alert_status,
-  date_trunc('month', CURRENT_DATE) AS alert_month
-FROM expense_baselines eb
-LEFT JOIN (
-  SELECT tenant_id, category, SUM(amount) as actual_amount
-  FROM expenses
-  WHERE expense_date >= date_trunc('month', CURRENT_DATE)
-    AND expense_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
-  GROUP BY tenant_id, category
-) act ON eb.tenant_id = act.tenant_id AND eb.category = act.category::text
-WHERE eb.effective_from <= CURRENT_DATE
-  AND (eb.effective_to IS NULL OR eb.effective_to >= CURRENT_DATE);
+CREATE TABLE cross_module_config (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id),
+  config_key text NOT NULL,
+  config_value jsonb NOT NULL,
+  description text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, config_key)
+);
+
+-- Default configs
+INSERT INTO cross_module_config (tenant_id, config_key, config_value, description) VALUES
+  ('{{tenant_id}}', 'variance_threshold', '{"default": 0.10, "critical": 0.20}', 'Threshold để trigger variance alert'),
+  ('{{tenant_id}}', 'cost_fallback', '{"cogs_percent": 0.55, "fee_percent": 0.20}', 'Fallback costs khi không có actual'),
+  ('{{tenant_id}}', 'escalation_hours', '{"critical": 24, "warning": 48}', 'Giờ trước khi auto-escalate'),
+  ('{{tenant_id}}', 'sync_schedule', '{"daily_build": "02:00", "cross_sync": "04:00"}', 'Schedule cho sync jobs');
 ```
 
-## 3. Thay đổi Frontend
+---
 
-### 3.1 Update Hooks
+### Task 4.2: LTV Auto-Seed Assumptions
+**Priority:** 🔵 LOW  
+**Module:** CDP  
+**Status:** [ ] TODO
 
-**`src/hooks/usePLData.ts`** - Thêm fields mới:
+**Giải pháp:**
+- [ ] Tạo default assumptions per industry
+- [ ] Auto-seed khi tenant mới được tạo
 
-```typescript
-export interface PLData {
-  // ... existing fields
-  opexDataSource?: Record<string, 'actual' | 'estimate'>;
-  totalOpexEstimated?: number;
-  totalOpexActual?: number;
-  hasProvisionalData?: boolean;
-}
-```
+---
 
-**`src/hooks/usePLCache.ts`** - Map thêm cột mới:
+## 🟣 PHASE 5: CASH FORECAST MIGRATION (Week 5-6)
 
-```typescript
-const plData: PLData | null = query.data ? {
-  // ... existing
-  opexDataSource: query.data.opex_data_source as Record<string, 'actual' | 'estimate'> || {},
-  totalOpexEstimated: query.data.total_opex_estimated || 0,
-  totalOpexActual: query.data.total_opex_actual || 0,
-  hasProvisionalData: Object.values(query.data.opex_data_source || {}).includes('estimate'),
-} : null;
-```
+### Task 5.1: Migrate Forecast Logic to RPC
+**Priority:** 🟡 MEDIUM  
+**Module:** FDP  
+**Status:** [ ] TODO
 
-**`src/hooks/useExpenseVarianceAlerts.ts`** - Hook mới:
+**Vấn đề:**
+- `useForecastInputs.ts` có `generateForecast()` logic trong frontend
 
-```typescript
-export function useExpenseVarianceAlerts() {
-  // Fetch từ v_expense_variance_alerts
-  // Return alerts với status: underestimate | overestimate | on_track
-}
-```
+**Giải pháp:**
+- [ ] Tạo RPC `generate_cash_forecast`
+- [ ] Move AR collection probability logic sang DB
+- [ ] Move T+14 settlement logic sang DB
+- [ ] Refactor hook thành thin wrapper
 
-### 3.2 Update `PLReportPage.tsx`
+---
 
-**A. Thêm Badge nguồn dữ liệu vào `PLLineItem`:**
+## 🟤 PHASE 6: UI POLISH & GOVERNANCE (Week 6)
 
-```typescript
-// Trong PLLineItem props
-dataSource?: 'actual' | 'estimate';
+### Task 6.1: Insight Dismiss/Snooze UI
+**Priority:** 🔵 LOW  
+**Module:** CDP  
+**Status:** [ ] TODO
 
-// Render badge nhỏ bên cạnh label
-{dataSource === 'estimate' && (
-  <Badge variant="outline" className="text-[10px] ml-1 px-1 py-0 h-4 bg-amber-50 text-amber-700 border-amber-300">
-    Tạm tính
-  </Badge>
-)}
-```
+---
 
-**B. Thêm Section "Chi phí dự kiến tháng tới" vào Tab Summary:**
+### Task 6.2: Resolution Workflow UI
+**Priority:** 🔵 LOW  
+**Module:** Control Tower  
+**Status:** [ ] TODO
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ 📊 Chi phí dự kiến tháng tới (từ định nghĩa)               │
-├─────────────────────────────────────────────────────────────┤
-│ Chi phí cố định                                            │
-│   Lương nhân viên      210,000,000đ                        │
-│   Thuê mặt bằng         35,000,000đ                        │
-│   Điện nước              5,000,000đ                        │
-│ ─────────────────────────────────────────────────────────   │
-│ Biến phí dự kiến                                           │
-│   Marketing Shopee      20,000,000đ                        │
-│   Vận chuyển            15,000,000đ                        │
-│ ─────────────────────────────────────────────────────────   │
-│ TỔNG DỰ KIẾN           285,000,000đ                        │
-│                                                             │
-│ ⓘ Dữ liệu từ "Định nghĩa chi phí" trong menu Chi phí       │
-└─────────────────────────────────────────────────────────────┘
-```
+---
 
-**C. Thêm Tab "Dự báo" (tùy chọn sau này):**
+### Task 6.3: Governance Dashboard Enhancement
+**Priority:** 🔵 LOW  
+**Module:** All  
+**Status:** [ ] TODO
 
-Hiển thị forecast 6 tháng từ baselines/estimates.
+---
 
-### 3.3 Update `ExpensesPage.tsx` 
+## ✅ ACCEPTANCE CRITERIA
 
-**Thêm cảnh báo Variance vào tab "Định nghĩa chi phí":**
+### Phase 1 Complete When:
+- [ ] ESLint shows 0 `external_orders` violations
+- [ ] `useMarketingDecisionEngine` chỉ fetch, không compute
+- [ ] Escalation happens via DB trigger, không frontend
 
-```typescript
-// Component nhỏ dưới mỗi panel
-<ExpenseVarianceAlerts />
-```
+### Phase 2 Complete When:
+- [ ] Credit Risk scores update từ AR aging
+- [ ] Seasonal patterns available trong FDP forecast
+- [ ] Budget suggestions generated từ Channel ROI
 
-### 3.4 Tạo Component mới
+### Phase 3 Complete When:
+- [ ] Daily sync runs automatically at 04:00
+- [ ] Alerts được cluster và hiển thị grouped
+- [ ] Variance tự động tạo decision cards
 
-**`src/components/expenses/ExpenseVarianceAlerts.tsx`:**
+### Phase 4 Complete When:
+- [ ] Tất cả thresholds configurable từ DB
+- [ ] New tenants có auto-seeded LTV assumptions
 
-```typescript
-// Hiển thị cảnh báo kiểu:
-// ⚠️ "Lương nhân viên vượt kế hoạch +20M (9.5%)" 
-// ✓ "Marketing Shopee đang đúng kế hoạch"
-```
+### Phase 5 Complete When:
+- [ ] Cash forecast 100% từ RPC
+- [ ] `useForecastInputs` chỉ là thin wrapper
 
-**`src/components/pl/ProvisionalExpensesSummary.tsx`:**
+### Phase 6 Complete When:
+- [ ] Insights có dismiss/snooze buttons
+- [ ] Alerts có resolution workflow
+- [ ] Governance dashboard shows all health metrics
 
-```typescript
-// Panel hiển thị tổng chi phí tạm tính
-// Dùng trong P&L Report
-```
+---
 
-## 4. Data Flow
+## 📊 METRICS TRACKING
 
-```text
-┌─────────────────────┐     ┌─────────────────────┐
-│ expense_baselines   │     │ expense_estimates   │
-│ (Lương: 210M,       │     │ (Marketing: 20M)    │
-│  Thuê: 35M)         │     │                     │
-├─────────────────────┤     ├─────────────────────┤
-│  NGUỒN TẠM TÍNH     │     │  NGUỒN TẠM TÍNH     │
-└──────────┬──────────┘     └──────────┬──────────┘
-           │                           │
-           └─────────────┬─────────────┘
-                         │
-                         ▼
-           ┌─────────────────────────┐
-           │   refresh_pl_cache RPC  │
-           │   ─────────────────────│
-           │   RULE:                 │
-           │   IF actual > 0         │
-           │     THEN use actual     │
-           │     data_source='actual'│
-           │   ELSE use estimate     │
-           │     data_source='estimate'│
-           └─────────────┬───────────┘
-                         ▲
-          ┌──────────────┴──────────────┐
-          │                             │
-┌─────────────────────┐     ┌─────────────────────┐
-│ finance_expenses    │     │ expenses table      │
-│ _daily              │     │                     │
-├─────────────────────┤     ├─────────────────────┤
-│  NGUỒN THỰC TẾ      │     │  NGUỒN THỰC TẾ      │
-└─────────────────────┘     └─────────────────────┘
-                         │
-                         ▼
-           ┌─────────────────────────┐
-           │   pl_report_cache       │
-           │   ─────────────────────│
-           │   opex_salaries: 210M   │
-           │   opex_data_source: {   │
-           │     "salary": "estimate"│
-           │     "marketing":"actual"│
-           │   }                     │
-           │   total_opex_estimated  │
-           │   total_opex_actual     │
-           └─────────────┬───────────┘
-                         │
-                         ▼
-           ┌─────────────────────────┐
-           │   usePLData hook        │
-           │   ─────────────────────│
-           │   hasProvisionalData    │
-           │   opexDataSource        │
-           └─────────────┬───────────┘
-                         │
-                         ▼
-           ┌─────────────────────────┐
-           │   PLReportPage.tsx      │
-           │   ─────────────────────│
-           │   Badge [Tạm tính]      │
-           │   beside expense items  │
-           │   Variance alerts       │
-           └─────────────────────────┘
-```
+| Metric | Current | Target |
+|--------|---------|--------|
+| FDP SSOT % | 85% | 100% |
+| MDP SSOT % | 75% | 95% |
+| CDP SSOT % | 90% | 100% |
+| CT SSOT % | 80% | 95% |
+| Cross-Module Integration | 8/12 | 12/12 |
+| Frontend Business Logic Lines | ~500 | <50 |
 
-## 5. Use Cases
+---
 
-### Use Case 1: Tháng chưa có phí thực tế
+## 🚀 NEXT ACTIONS
 
-```text
-expense_baselines: Lương = 210M
-expenses table: (trống)
+1. **Bắt đầu Phase 1.1:** Fix metric-registry.ts
+2. **Review files:** `useMarketingDecisionEngine.ts`, `useAlertEscalation.ts`
+3. **Prepare migrations:** v_mdp_decision_signals, mdp_config, escalations
 
-→ P&L hiển thị: 
-  Lương nhân viên    210,000,000đ  [Tạm tính]
-```
+---
 
-### Use Case 2: Tháng có một phần phí thực tế
+## 📁 PHỤ LỤC: Kế hoạch Chi phí Tạm tính (ĐÃ HOÀN THÀNH)
 
-```text
-expense_baselines: 
-  - Lương = 210M
-  - Thuê = 35M
-expenses table: 
-  - Lương = 230M (có thực tế)
-  - Thuê = (trống)
+### Tổng quan
+Tích hợp chi phí tạm tính từ `expense_baselines` và `expense_estimates` vào P&L Report.
 
-→ P&L hiển thị:
-  Lương nhân viên    230,000,000đ  [Thực tế] ⚠️ +9.5%
-  Thuê mặt bằng       35,000,000đ  [Tạm tính]
-```
+### Rule Ưu tiên Dữ liệu
 
-### Use Case 3: Cảnh báo Underestimate
+| Ưu tiên | Nguồn | Badge |
+|---------|-------|-------|
+| 1 | `expenses` / `finance_expenses_daily` | "Thực tế" |
+| 2 | `expense_baselines` | "Tạm tính" |
+| 3 | `expense_estimates` | "Tạm tính" |
 
-```text
-expense_baselines: Marketing = 20M
-expense_estimates: Marketing Shopee = 20M
-expenses table: Marketing = 25M (thực tế)
+### Rule Cảnh báo
 
-→ Cảnh báo: "Chi phí Marketing vượt kế hoạch +5M (+25%)"
-→ Alert status: underestimate
-```
+- **Underestimate**: Thực tế > Tạm tính + 10% → Cảnh báo đỏ
+- **On Track**: Chênh lệch ±10% → OK xanh
+- **Overestimate**: Thực tế < Tạm tính - 20% → Thông tin cam
 
-## 6. Files thay đổi
+### Kết quả đã triển khai
 
-| File | Loại | Mô tả |
-|------|------|-------|
-| `supabase/migrations/xxx.sql` | New | ALTER TABLE + UPDATE FUNCTION + CREATE VIEW |
-| `src/hooks/usePLData.ts` | Edit | Thêm interface fields mới + map từ cache |
-| `src/hooks/usePLCache.ts` | Edit | Thêm types + map cột mới |
-| `src/hooks/useExpenseVarianceAlerts.ts` | New | Hook fetch variance alerts |
-| `src/pages/PLReportPage.tsx` | Edit | Badge nguồn dữ liệu + Section tạm tính |
-| `src/pages/ExpensesPage.tsx` | Edit | Hiển thị variance alerts |
-| `src/components/expenses/ExpenseVarianceAlerts.tsx` | New | Component cảnh báo |
-| `src/components/pl/ProvisionalExpensesSummary.tsx` | New | Panel tổng hợp tạm tính |
+✅ View `v_expense_variance_alerts` đã tạo  
+✅ Hook `useExpenseVarianceAlerts.ts` đã tạo  
+✅ P&L Report hiển thị badge nguồn dữ liệu  
+✅ Cảnh báo variance hoạt động  
 
-## 7. Kết quả mong đợi
+---
 
-1. **P&L tự động fill chi phí**: Khi chưa có expenses thực → dùng baselines/estimates
-2. **Badge nguồn dữ liệu**: User biết số liệu từ đâu (Tạm tính vs Thực tế)
-3. **Section dự kiến tháng tới**: Xem chi phí forecast từ định nghĩa
-4. **Cảnh báo variance**: Thông báo khi thực tế vượt kế hoạch >10%
-5. **SSOT tuân thủ**: Mọi tính toán trong DB, frontend chỉ render
-
-## 8. Lưu ý quan trọng
-
-- **Không xóa fallback hiện tại**: Vẫn giữ logic lấy từ `expenses` table nếu baselines chưa được định nghĩa
-- **Yearly aggregation**: Với báo cáo yearly, cần nhân baselines × số tháng hiệu lực (sẽ xử lý trong RPC)
-- **Trigger refresh**: Khi user thay đổi baselines/estimates → cần refresh P&L cache
-
+**Người thực hiện:** AI Assistant  
+**Reviewer:** User  
+**Approval Required:** Yes (trước mỗi migration)
