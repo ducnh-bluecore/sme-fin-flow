@@ -39,8 +39,15 @@ import {
   CreditCard,
   Store,
   Percent,
-  BarChart3
+  BarChart3,
+  Info
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface SKUCostBreakdownDialogProps {
   open: boolean;
@@ -341,29 +348,67 @@ export function SKUCostBreakdownDialog({
                   <Percent className="h-4 w-4 text-primary" />
                   Phân bổ phí (theo tỷ lệ doanh thu)
                 </h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-purple-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Phí sàn</p>
-                      <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.platform)}</p>
+                <TooltipProvider>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-purple-500" />
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs text-muted-foreground">Phí sàn</p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs text-xs">
+                                Phí sàn được phân bổ theo tỷ trọng doanh thu của SKU trong mỗi đơn hàng (revenue share)
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.platform)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-blue-500" />
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs text-muted-foreground">Phí vận chuyển</p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs text-xs">
+                                Phí vận chuyển được phân bổ theo tỷ trọng doanh thu của SKU trong mỗi đơn hàng
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.shipping)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-gray-500" />
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs text-muted-foreground">Phí khác</p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-xs text-xs">
+                                Các phí khác được phân bổ theo tỷ trọng doanh thu của SKU trong mỗi đơn hàng
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.other)}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Phí vận chuyển</p>
-                      <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.shipping)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Receipt className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Phí khác</p>
-                      <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.other)}</p>
-                    </div>
-                  </div>
-                </div>
+                </TooltipProvider>
               </div>
             </TabsContent>
 
@@ -449,7 +494,23 @@ export function SKUCostBreakdownDialog({
                       <TableHead className="text-right">SL</TableHead>
                       <TableHead className="text-right">Doanh thu</TableHead>
                       <TableHead className="text-right">COGS</TableHead>
-                      <TableHead className="text-right">Phí phân bổ</TableHead>
+                      <TableHead className="text-right">
+                        <TooltipProvider>
+                          <div className="flex items-center justify-end gap-1">
+                            <span>Phí phân bổ</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs text-xs">
+                                  Tổng phí (sàn + vận chuyển + khác) được phân bổ theo tỷ trọng doanh thu của SKU trong đơn hàng
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
+                      </TableHead>
                       <TableHead className="text-right">Lợi nhuận</TableHead>
                       <TableHead className="text-right">Margin</TableHead>
                     </TableRow>
