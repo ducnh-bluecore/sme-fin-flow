@@ -662,6 +662,140 @@ export type Database = {
           },
         ]
       }
+      alert_cluster_members: {
+        Row: {
+          added_at: string | null
+          alert_id: string
+          cluster_id: string
+          id: string
+          is_root: boolean | null
+        }
+        Insert: {
+          added_at?: string | null
+          alert_id: string
+          cluster_id: string
+          id?: string
+          is_root?: boolean | null
+        }
+        Update: {
+          added_at?: string | null
+          alert_id?: string
+          cluster_id?: string
+          id?: string
+          is_root?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_cluster_members_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_cluster_members_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_cluster_members_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "alert_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_clusters: {
+        Row: {
+          alert_count: number | null
+          cluster_key: string
+          cluster_type: string
+          created_at: string | null
+          id: string
+          resolved_at: string | null
+          root_alert_id: string | null
+          severity: string | null
+          status: string | null
+          tenant_id: string
+          total_impact_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          alert_count?: number | null
+          cluster_key: string
+          cluster_type: string
+          created_at?: string | null
+          id?: string
+          resolved_at?: string | null
+          root_alert_id?: string | null
+          severity?: string | null
+          status?: string | null
+          tenant_id: string
+          total_impact_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          alert_count?: number | null
+          cluster_key?: string
+          cluster_type?: string
+          created_at?: string | null
+          id?: string
+          resolved_at?: string | null
+          root_alert_id?: string | null
+          severity?: string | null
+          status?: string | null
+          tenant_id?: string
+          total_impact_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_clusters_root_alert_id_fkey"
+            columns: ["root_alert_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_clusters_root_alert_id_fkey"
+            columns: ["root_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_clusters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_clusters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "alert_clusters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "alert_clusters_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       alert_data_sources: {
         Row: {
           connector_integration_id: string | null
@@ -23025,6 +23159,89 @@ export type Database = {
           },
         ]
       }
+      variance_decision_cards: {
+        Row: {
+          assigned_to: string | null
+          card_type: string
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          impact_amount: number | null
+          priority: number | null
+          recommended_action: string | null
+          status: string | null
+          target_module: string
+          tenant_id: string
+          title: string
+          updated_at: string | null
+          variance_alert_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          card_type: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_amount?: number | null
+          priority?: number | null
+          recommended_action?: string | null
+          status?: string | null
+          target_module: string
+          tenant_id: string
+          title: string
+          updated_at?: string | null
+          variance_alert_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          card_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_amount?: number | null
+          priority?: number | null
+          recommended_action?: string | null
+          status?: string | null
+          target_module?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string | null
+          variance_alert_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variance_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variance_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "variance_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "variance_decision_cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       vendor_payments: {
         Row: {
           amount: number
@@ -30743,6 +30960,13 @@ export type Database = {
         Args: { p_period_id: string }
         Returns: boolean
       }
+      cluster_related_alerts: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          alerts_clustered: number
+          clusters_created: number
+        }[]
+      }
       collapse_alerts_to_parent: {
         Args: {
           p_child_metric: string
@@ -30791,11 +31015,11 @@ export type Database = {
         Returns: number
       }
       cross_module_run_daily_sync: {
-        Args: { p_tenant_id: string }
+        Args: { p_tenant_id?: string }
         Returns: {
-          records_affected: number
+          details: Json
           status: string
-          sync_step: string
+          step: string
         }[]
       }
       detect_cross_domain_variance: {

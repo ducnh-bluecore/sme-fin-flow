@@ -217,10 +217,25 @@ Tạo `cross_module_config` table với:
 - Created `fdp_get_budget_recommendations` RPC
 - Action types: KILL, REDUCE, SCALE, MAINTAIN based on Profit ROAS & CM%
 
+### Phase 3.1 ✅ DONE (28/01/2026)
+- Created pg_cron job `cross_module_daily_sync` scheduled at 04:00 UTC daily
+- Job calls `scheduled-sync` edge function with `cross_module_sync` action
+
+### Phase 3.2 ✅ DONE (28/01/2026)
+- Created `alert_clusters` table with metric_family, entity, time_window, causal_chain types
+- Created `alert_cluster_members` junction table
+- Created `cluster_related_alerts` function to group related alerts
+
+### Phase 3.3 ✅ DONE (28/01/2026)
+- Created `variance_decision_cards` table for auto-dispatched cards
+- Created `auto_dispatch_variance_to_cards` trigger function
+- Trigger fires on `cross_domain_variance_alerts` insert
+- Auto-creates decision cards for FDP, MDP, CDP based on variance type
+
 ---
 
 ## NEXT ACTIONS
 
-1. **Phase 3.1:** Schedule `cross_module_run_daily_sync` via pg_cron
-2. **Phase 3.2:** Alert Clustering Implementation
-3. **Phase 3.3:** Variance Auto-Dispatch trigger
+1. **Phase 4.1:** Create `cross_module_config` table
+2. **Phase 4.2:** LTV Auto-Seed Assumptions
+3. **Phase 5.1:** Migrate Cash Forecast logic to RPC
