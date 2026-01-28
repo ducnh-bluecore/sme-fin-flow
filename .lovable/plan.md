@@ -1,99 +1,75 @@
 
-## Tình trạng hiện tại (vì sao vẫn lỗi)
-Tab **SKU Profitability** vẫn không có data vì RPC `get_sku_profitability_by_date_range` đang **crash ở DB** do tham chiếu sai schema bảng `cdp_order_items`.
+## Tóm tắt tình trạng (đã kiểm tra trực tiếp trong database)
+Hiện **không phải “không có data”** mà là **RPC đang crash** nên UI không render được.
 
-Bằng chứng từ network request hiện tại:
-- RPC trả **400** với lỗi:
-  - `column coi.sku does not exist` (code `42703`)
+- `cdp_orders` có dữ liệu thật:
+  - Tenant `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`: 5,500 orders (min `2024-01-01`, max `2026-01-26`)
+  - Tenant `11111111-1111-1111-1111-111111111111` (active): 1,800 orders (min `2024-07-01`, max `2025-04-26`)
+- `cdp_order_items` cũng có dữ liệu:
+  - Tenant `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee`: 13,200 items
+  - Tenant `11111111-1111-1111-1111-111111111111`: 1,620 items
+- Function hiện tại chỉ còn **1 signature** (không còn overload):
+  - `public.get_sku_profitability_by_date_range(p_tenant_id uuid, p_start_date date, p_end_date date, p_limit integer)`
 
-Nguyên nhân:
-- Migration gần nhất đã “fix join text=uuid”, nhưng function mới lại dùng các cột **không tồn tại** trong `cdp_order_items` và `cdp_orders`:
-  - `coi.sku` (không có)
-  - `coi.quantity` (đúng phải là `coi.qty`)
-  - `coi.line_total` (đúng phải là `coi.line_revenue`)
-  - `coi.cogs_amount` (đúng phải là `coi.line_cogs`)
-  - `co.order_date` (đúng là `co.order_at`)
-  - `co.status` (cdp_orders không có cột này trong schema hiện tại)
+Nhưng khi chạy function, DB trả lỗi:
+- `ERROR: 42703: column p.code does not exist`
 
-Schema thật (đã xác nhận trong migration tạo bảng):
-- `cdp_order_items`: `product_id (text)`, `qty`, `unit_price`, `line_revenue`, `line_cogs`, `line_margin`
-- `cdp_orders`: `order_at`, `channel`, `net_revenue`, `cogs`, `gross_margin`… (không có status)
+=> Nghĩa là RPC hiện tại vẫn **tham chiếu sai cột trong bảng `products`**.
 
-=> Vì vậy function hiện tại **không thể chạy** nên UI chỉ hiện “Không thể tải dữ liệu SKU”.
+## Nguyên nhân gốc (Root Cause)
+Migration mới nhất của function dùng:
+- `COALESCE(p.code, ...)`  
 
----
+Trong khi schema thật của `products` là:
+- có `products.sku` (varchar)
+- **không có** `products.code`
 
-## Mục tiêu fix
-1) RPC `get_sku_profitability_by_date_range(uuid, date, date, integer)` chạy OK với schema thật
-2) Frontend hook `useCachedSKUProfitability()` không còn throw error
-3) SKU Profitability tab hiển thị được list + summary theo date range (đúng DB-first / SSOT)
+=> RPC crash ngay khi SELECT `p.code`.
 
----
+## Hướng xử lý (SSOT / DB-first, không “làm đẹp số”)
+### 1) Sửa RPC: thay `p.code` -> `p.sku` (đúng schema)
+Tạo migration mới để `CREATE OR REPLACE FUNCTION public.get_sku_profitability_by_date_range(...)` và chỉnh:
+- `sku` output:
+  - `COALESCE(p.sku, coi.product_id, 'Unknown')::text AS sku`
+- `GROUP BY` tương ứng:
+  - `GROUP BY COALESCE(p.sku, coi.product_id, 'Unknown'), COALESCE(p.name, 'Unknown'), COALESCE(co.channel, 'Unknown')`
 
-## Thiết kế giải pháp (DB-first, an toàn, không “làm đẹp số”)
-### 1) Sửa lại RPC bằng migration mới (CREATE OR REPLACE / DROP + CREATE)
-Tạo migration mới để **DROP và tạo lại** function `public.get_sku_profitability_by_date_range(uuid, date, date, integer)` với các thay đổi:
+Giữ nguyên:
+- cột `qty`, `line_revenue`, `line_cogs`, `order_at` (đúng schema SSOT)
+- join “regex guard” `product_id::uuid` để tránh crash kiểu text/uuid
+- return columns đúng như frontend hook đang map
+- `GRANT EXECUTE` cho `authenticated` và `anon`
 
-**a) Dùng đúng cột thực tế**
-- Quantity: `SUM(coi.qty)`
-- Revenue: `SUM(coi.line_revenue)`
-- COGS: `SUM(coi.line_cogs)` (không tự “ước lượng” nếu null; nếu có null thì trả đúng null/0 tùy dữ liệu hiện có, tránh magic number)
-- Order count: `COUNT(DISTINCT coi.order_id)` hoặc `COUNT(DISTINCT co.id)` (tương đương)
+### 2) Xác minh end-to-end sau migration
+Sau khi migration chạy, kiểm tra theo 2 tầng:
 
-**b) Filter theo thời gian đúng**
-- `co.order_at::date BETWEEN p_start_date AND p_end_date`
+**(A) DB verification**
+- Chạy SQL:
+  - `select * from public.get_sku_profitability_by_date_range(<tenant>, <start>, <end>, 10);`
+- Kỳ vọng: trả về array rows, không còn lỗi `p.code`.
 
-**c) SKU / product_name**
-Vì `products` table không có cột `sku`, chỉ có `code`:
-- `sku` output sẽ dùng: `COALESCE(p.code, coi.product_id, 'Unknown')::text`
-- `product_name`: `COALESCE(p.name, 'Unknown')::text`
+**(B) UI verification**
+- Reload tab SKU Profitability:
+  - Nếu date range có dữ liệu: phải hiện list + summary.
+  - Nếu date range rỗng: phải hiện empty-state (không phải error).
 
-**d) Channel**
-- `channel`: `COALESCE(co.channel, 'Unknown')::text`
+### 3) Kiểm tra 1 điểm rất hay gây hiểu nhầm: Date range trên UI
+Tenant “active” hiện tại trong DB là `11111111-...` và dữ liệu của tenant này **dừng ở `2025-04-26`**.
+Nếu UI đang chọn “Last 30 days” theo ngày hiện tại (2026) thì **đúng là sẽ không có data** (nhưng phải là empty-state, không phải crash).
 
-**e) Fix join text -> uuid vẫn giữ “regex guard”**
-Giữ join an toàn để không crash:
-- `p.id = CASE WHEN coi.product_id matches UUID THEN coi.product_id::uuid ELSE NULL END`
-- `p.tenant_id = coi.tenant_id`
+=> Sau khi RPC hết crash, nếu vẫn không thấy data, bước tiếp theo là:
+- chuyển date range về khoảng có dữ liệu (ví dụ `2025-04-01` → `2025-04-26`) hoặc đổi active tenant sang tenant có data 2026.
 
-**f) Bỏ điều kiện status**
-Vì `cdp_orders` không có `status`, sẽ bỏ:
-- `AND co.status NOT IN (...)`
+## Dọn kỹ thuật (để không tái phát)
+- `src/integrations/supabase/types.ts` đã bị chạm sửa tay ở các lần trước (đi ngược chuẩn). Khi implement, sẽ **revert** về trạng thái auto-generated và không chỉnh nữa.
+- Frontend hook `useSKUProfitabilityCache.ts` hiện đã truyền `p_limit` explicit (tốt), không cần đổi thêm cho bug này.
 
-**g) Return types khớp frontend**
-Giữ đúng các cột frontend đang map:
-- `sku, product_name, channel, order_count, total_quantity, total_revenue, total_cogs, gross_profit, margin_percent`
-(Chỉ chỉnh dữ liệu nguồn cho đúng schema)
+## Phạm vi thay đổi khi bạn chuyển mình sang Default mode để mình sửa
+1) Backend: thêm 1 migration “Fix products.sku reference in get_sku_profitability_by_date_range” (p.code → p.sku)
+2) (Nếu cần) revert thay đổi thủ công trong `src/integrations/supabase/types.ts`
 
-**h) Quyền thực thi**
-- `GRANT EXECUTE` cho `authenticated` và `anon` như hiện tại.
-
----
-
-## 2) Xác minh end-to-end sau khi migration chạy
-1) Trên client, request RPC `/rpc/get_sku_profitability_by_date_range` phải trả 200 và array rows
-2) UI SKU tab:
-   - Không còn “Không thể tải dữ liệu SKU”
-   - Nếu không có orders trong range: UI vào empty-state “Chưa có dữ liệu…” (khác error)
-
----
-
-## 3) Dọn kỹ thuật (để không tái phát)
-- Không chỉnh `src/integrations/supabase/types.ts` thủ công nữa (đang bị chạm nhiều lần). Khi implement ở default mode, sẽ revert nó về trạng thái auto-generated / remove các sửa tay nếu còn.
-
----
-
-## Phạm vi thay đổi khi chuyển sang Default mode (implementation)
-- Backend:
-  - Thêm 1 migration mới thay thế function `get_sku_profitability_by_date_range` (sửa đúng tên cột + order_at)
-- Frontend:
-  - Không cần đổi hook `useSKUProfitabilityCache.ts` (vì hook đã gọi đúng params + mapping đúng output)
-  - (Optional) nếu muốn thông báo lỗi chi tiết hơn trong UI, có thể render `error.message`, nhưng không bắt buộc để fix data.
-
----
-
-## Tiêu chí “DONE”
-- Network không còn 400 `column ... does not exist`
-- SKU Profitability hiển thị list (Top 500) theo date range
-- Không có “magic numbers” che lỗi dữ liệu; thiếu data thì empty-state, không fake
-
+## Tiêu chí DONE
+- RPC không còn 400/42703
+- Tab SKU Profitability:
+  - có data khi date range nằm trong khoảng có orders
+  - hoặc empty-state rõ ràng khi không có orders (không crash, không fake)
