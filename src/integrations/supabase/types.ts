@@ -700,6 +700,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "alert_cluster_members_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "alert_cluster_members_cluster_id_fkey"
             columns: ["cluster_id"]
             isOneToOne: false
@@ -764,6 +771,13 @@ export type Database = {
             columns: ["root_alert_id"]
             isOneToOne: false
             referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_clusters_root_alert_id_fkey"
+            columns: ["root_alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
             referencedColumns: ["id"]
           },
           {
@@ -1081,6 +1095,13 @@ export type Database = {
             columns: ["alert_id"]
             isOneToOne: false
             referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_escalations_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
             referencedColumns: ["id"]
           },
           {
@@ -1402,6 +1423,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "alert_notification_logs_alert_instance_id_fkey"
+            columns: ["alert_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "alert_notification_logs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1656,6 +1684,122 @@ export type Database = {
           },
           {
             foreignKeyName: "alert_objects_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      alert_resolutions: {
+        Row: {
+          actions_taken: Json | null
+          alert_id: string
+          assigned_at: string | null
+          assigned_to: string | null
+          created_at: string
+          follow_up_date: string | null
+          follow_up_required: boolean | null
+          id: string
+          metadata: Json | null
+          resolution_notes: string | null
+          resolution_status: string
+          resolution_type: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          root_cause: string | null
+          started_at: string | null
+          tenant_id: string
+          time_to_resolve_minutes: number | null
+          updated_at: string
+        }
+        Insert: {
+          actions_taken?: Json | null
+          alert_id: string
+          assigned_at?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          follow_up_date?: string | null
+          follow_up_required?: boolean | null
+          id?: string
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolution_status?: string
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          root_cause?: string | null
+          started_at?: string | null
+          tenant_id: string
+          time_to_resolve_minutes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actions_taken?: Json | null
+          alert_id?: string
+          assigned_at?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          follow_up_date?: string | null
+          follow_up_required?: boolean | null
+          id?: string
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolution_status?: string
+          resolution_type?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          root_cause?: string | null
+          started_at?: string | null
+          tenant_id?: string
+          time_to_resolve_minutes?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_resolutions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alert_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_resolutions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_pending_escalation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_resolutions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_resolutions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_resolutions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "alert_resolutions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "alert_resolutions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -5961,6 +6105,13 @@ export type Database = {
             referencedColumns: ["event_id"]
           },
           {
+            foreignKeyName: "cdp_decision_insight_links_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insights_with_actions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cdp_decision_insight_links_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -6287,6 +6438,123 @@ export type Database = {
           },
         ]
       }
+      cdp_insight_actions: {
+        Row: {
+          action_at: string
+          action_by: string | null
+          action_type: string
+          created_at: string
+          id: string
+          insight_event_id: string
+          metadata: Json | null
+          reason: string | null
+          snooze_until: string | null
+          tenant_id: string
+        }
+        Insert: {
+          action_at?: string
+          action_by?: string | null
+          action_type: string
+          created_at?: string
+          id?: string
+          insight_event_id: string
+          metadata?: Json | null
+          reason?: string | null
+          snooze_until?: string | null
+          tenant_id: string
+        }
+        Update: {
+          action_at?: string
+          action_by?: string | null
+          action_type?: string
+          created_at?: string
+          id?: string
+          insight_event_id?: string
+          metadata?: Json | null
+          reason?: string | null
+          snooze_until?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_decision_evidence"
+            referencedColumns: ["insight_event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_demand_insights"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_highlight_signals"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_feed"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insights_with_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_insight_audit_log: {
         Row: {
           checked_at: string
@@ -6369,6 +6637,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_insight_feed"
             referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_audit_log_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insights_with_actions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "cdp_insight_audit_log_tenant_id_fkey"
@@ -6475,6 +6750,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cdp_insight_feed"
             referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_cluster_members_insight_event_id_fkey"
+            columns: ["insight_event_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insights_with_actions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "cdp_insight_cluster_members_tenant_id_fkey"
@@ -17185,6 +17467,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notifications_alert_instance_id_fkey"
+            columns: ["alert_instance_id"]
+            isOneToOne: false
+            referencedRelation: "v_alerts_with_resolution"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notifications_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -26342,6 +26631,61 @@ export type Database = {
           },
         ]
       }
+      v_alerts_with_resolution: {
+        Row: {
+          alert_status: string | null
+          alert_type: string | null
+          assigned_to: string | null
+          created_at: string | null
+          follow_up_date: string | null
+          follow_up_required: boolean | null
+          id: string | null
+          impact_amount: number | null
+          minutes_in_progress: number | null
+          minutes_since_created: number | null
+          resolution_id: string | null
+          resolution_notes: string | null
+          resolution_status: string | null
+          resolution_type: string | null
+          resolved_at: string | null
+          root_cause: string | null
+          severity: string | null
+          started_at: string | null
+          tenant_id: string | null
+          time_to_resolve_minutes: number | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "alert_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "alert_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_audience_rfm_summary: {
         Row: {
           at_risk: number | null
@@ -28013,6 +28357,76 @@ export type Database = {
           total_count: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cdp_insights_with_actions: {
+        Row: {
+          confidence: number | null
+          cooldown_until: string | null
+          created_at: string | null
+          dismiss_reason: string | null
+          dismissed_at: string | null
+          display_status: string | null
+          id: string | null
+          insight_code: string | null
+          is_actionable: boolean | null
+          severity: string | null
+          snooze_reason: string | null
+          snooze_until: string | null
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "cdp_insight_registry"
+            referencedColumns: ["insight_code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_detail"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "cdp_insight_events_insight_code_fkey"
+            columns: ["insight_code"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_insight_registry_summary"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "cdp_insight_events_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -31133,6 +31547,17 @@ export type Database = {
         }
         Returns: Json
       }
+      complete_alert_resolution: {
+        Args: {
+          p_actions_taken?: Json
+          p_alert_id: string
+          p_resolution_notes?: string
+          p_resolution_type: string
+          p_root_cause?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       complete_compute_job: {
         Args: {
           p_error_code?: string
@@ -31185,6 +31610,14 @@ export type Database = {
         Returns: number
       }
       detect_real_alerts: { Args: { p_tenant_id: string }; Returns: number }
+      dismiss_insight: {
+        Args: {
+          p_insight_event_id: string
+          p_reason?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       execute_readonly_query: {
         Args: { params: Json; query_text: string }
         Returns: Json
@@ -31630,6 +32063,10 @@ export type Database = {
         }
         Returns: string
       }
+      mark_alert_false_positive: {
+        Args: { p_alert_id: string; p_reason: string; p_tenant_id: string }
+        Returns: string
+      }
       mdp_get_churn_signals: {
         Args: { p_min_urgency?: string; p_tenant_id: string }
         Returns: {
@@ -31720,6 +32157,10 @@ export type Database = {
         Returns: number
       }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
+      reactivate_insight: {
+        Args: { p_insight_event_id: string; p_tenant_id: string }
+        Returns: boolean
+      }
       recalculate_product_metrics:
         | { Args: { p_sku?: string; p_tenant_id: string }; Returns: number }
         | {
@@ -31774,6 +32215,23 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: boolean
+      }
+      snooze_insight: {
+        Args: {
+          p_insight_event_id: string
+          p_reason?: string
+          p_snooze_days?: number
+          p_tenant_id: string
+        }
+        Returns: string
+      }
+      start_alert_resolution: {
+        Args: {
+          p_alert_id: string
+          p_assigned_to?: string
+          p_tenant_id: string
+        }
+        Returns: string
       }
       start_compute_job: {
         Args: {

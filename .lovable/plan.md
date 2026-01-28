@@ -256,10 +256,28 @@ Tạo `cross_module_config` table với:
 - Created `get_forecast_inputs_summary` RPC for data quality status
 - Created `src/hooks/useCashForecastSSOT.ts` as thin wrapper
 
+### Phase 6.1 ✅ DONE (28/01/2026)
+- Created `cdp_insight_actions` table for dismiss/snooze tracking
+- Created RPCs: `dismiss_insight`, `snooze_insight`, `reactivate_insight`
+- Created `v_cdp_insights_with_actions` view for display status
+- Created `src/hooks/useInsightActions.ts` with mutation hooks
+- Created `src/components/cdp/insights/InsightActionButtons.tsx` UI component
+
+### Phase 6.2 ✅ DONE (28/01/2026)
+- Created `alert_resolutions` table for resolution workflow
+- Created RPCs: `start_alert_resolution`, `complete_alert_resolution`, `mark_alert_false_positive`
+- Created `v_alerts_with_resolution` view for resolution status + time metrics
+- Created `src/hooks/useAlertResolution.ts` with query + mutation hooks
+- Created `src/components/control-tower/AlertResolutionWorkflow.tsx` UI component
+
 ---
 
-## NEXT ACTIONS
+## ARCHITECTURE ROADMAP COMPLETE ✅
 
-1. **Phase 6.1:** Insight Dismiss/Snooze UI (CDP)
-2. **Phase 6.2:** Resolution Workflow UI (Control Tower)
-3. **Phase 6.3:** Governance Dashboard Enhancement
+All 6 phases have been successfully implemented:
+- Phase 1: Critical Fixes (Metric Registry, MDP Decision Logic, Escalation)
+- Phase 2: Cross-Module Integration (AR→Credit, Seasonal, Channel ROI)
+- Phase 3: Automation & Triggers (Daily Sync, Alert Clustering, Variance Dispatch)
+- Phase 4: Configuration Table (Cross-Module Config, LTV Auto-Seed)
+- Phase 5: Cash Forecast Migration (RPC-based forecast generation)
+- Phase 6: UI Polish & Governance (Insight Actions, Alert Resolution)
