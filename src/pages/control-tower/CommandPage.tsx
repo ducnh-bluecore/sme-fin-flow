@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Activity, AlertTriangle, TrendingDown, Clock, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useActiveAlerts } from '@/hooks/useAlertInstances';
+import { useActiveAlerts, AlertInstance } from '@/hooks/useAlertInstances';
+import { OutcomeRecordingDialog } from '@/components/control-tower';
 import { formatDistanceToNow, differenceInHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,8 @@ interface ModuleHealth {
 
 export default function CommandPage() {
   const { data: alerts = [], isLoading } = useActiveAlerts();
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
 
   // Calculate module health
   const moduleHealth = useMemo((): ModuleHealth[] => {
@@ -134,6 +137,11 @@ export default function CommandPage() {
   };
 
   const config = stateConfig[systemState];
+
+  const handleResolve = (alert: AlertInstance) => {
+    setSelectedAlert(alert);
+    setResolveDialogOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -274,7 +282,11 @@ export default function CommandPage() {
                         </div>
 
                         {/* Action */}
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleResolve(alert)}
+                        >
                           Resolve
                         </Button>
                       </div>
@@ -313,6 +325,15 @@ export default function CommandPage() {
           </div>
         </div>
       </div>
+
+      {/* Outcome Recording Dialog */}
+      {selectedAlert && (
+        <OutcomeRecordingDialog
+          open={resolveDialogOpen}
+          onOpenChange={setResolveDialogOpen}
+          alert={selectedAlert}
+        />
+      )}
     </>
   );
 }

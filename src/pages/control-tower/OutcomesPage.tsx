@@ -1,168 +1,148 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Target, TrendingUp, TrendingDown, CheckCircle2, XCircle, Calendar } from 'lucide-react';
+import { Target, Calendar, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantContext } from '@/contexts/TenantContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useDecisionEffectiveness, usePendingFollowups, useLearningInsights } from '@/hooks/control-tower';
+import {
+  EffectivenessSummaryCards,
+  ModuleEffectivenessTable,
+  LearningInsightsCard,
+  PendingFollowupList,
+} from '@/components/control-tower';
 import { cn } from '@/lib/utils';
-import { subDays, subWeeks, subMonths, startOfDay } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 /**
- * OUTCOMES PAGE - Retrospective analysis
+ * OUTCOMES PAGE - Decision Effectiveness Tracking
  * 
- * Shows:
- * - Resolved decisions count
- * - Success rate
- * - Total saved/lost value
- * - Predicted vs Actual comparison
+ * Features:
+ * - Summary metrics: Resolved, Success Rate, Accuracy, Total ROI
+ * - Accuracy trend chart
+ * - Effectiveness by module table
+ * - Learning insights
+ * - Pending follow-up list
  */
-
-const formatCurrency = (amount: number): string => {
-  if (Math.abs(amount) >= 1_000_000_000) return `₫${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(amount) >= 1_000_000) return `₫${(amount / 1_000_000).toFixed(0)}M`;
-  return `₫${amount.toLocaleString('vi-VN')}`;
-};
 
 type Period = '7d' | '30d' | '90d';
 
-interface OutcomeRecord {
-  id: string;
-  title: string;
-  predictedImpact: number;
-  actualImpact: number;
-  accuracy: number;
-  isSuccess: boolean;
-  resolvedAt: string;
-  decisionType: string;
-}
-
 export default function OutcomesPage() {
-  const [period, setPeriod] = useState<Period>('7d');
-  const { activeTenant } = useTenantContext();
+  const [period, setPeriod] = useState<Period>('30d');
+  const [activeTab, setActiveTab] = useState<'overview' | 'followup'>('overview');
 
-  const periodStart = useMemo(() => {
-    const now = new Date();
-    switch (period) {
-      case '7d': return startOfDay(subDays(now, 7));
-      case '30d': return startOfDay(subMonths(now, 1));
-      case '90d': return startOfDay(subMonths(now, 3));
-    }
-  }, [period]);
+  const { data: effectiveness, isLoading: loadingEffectiveness } = useDecisionEffectiveness(period);
+  const { data: pendingFollowups = [], isLoading: loadingFollowups } = usePendingFollowups();
+  const { insights, isLoading: loadingInsights, hasData } = useLearningInsights();
 
-  // Fetch resolved decisions/alerts
-  const { data: resolvedItems = [], isLoading } = useQuery({
-    queryKey: ['decision-outcomes', activeTenant?.id, periodStart.toISOString()],
-    queryFn: async () => {
-      if (!activeTenant?.id) return [];
-
-      // Fetch resolved alerts
-      const { data: alerts, error } = await supabase
-        .from('alert_instances')
-        .select('*')
-        .eq('tenant_id', activeTenant.id)
-        .eq('status', 'resolved')
-        .gte('resolved_at', periodStart.toISOString())
-        .order('resolved_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('Error fetching outcomes:', error);
-        return [];
-      }
-
-      return alerts || [];
-    },
-    enabled: !!activeTenant?.id,
-  });
-
-  // Transform to outcome records
-  const outcomes = useMemo((): OutcomeRecord[] => {
-    if (resolvedItems.length === 0) {
-      // Demo data
+  // Generate chart data from module effectiveness
+  const chartData = useMemo(() => {
+    if (!effectiveness || effectiveness.byModule.length === 0) {
+      // Demo data when no real data
       return [
-        {
-          id: '1',
-          title: 'Stop SKU-A0015 (Margin < 5%)',
-          predictedImpact: 85_000_000,
-          actualImpact: 92_000_000,
-          accuracy: 108,
-          isSuccess: true,
-          resolvedAt: new Date().toISOString(),
-          decisionType: 'FDP',
-        },
-        {
-          id: '2',
-          title: 'Pause Campaign FB-Holiday',
-          predictedImpact: 45_000_000,
-          actualImpact: 43_000_000,
-          accuracy: 96,
-          isSuccess: true,
-          resolvedAt: new Date().toISOString(),
-          decisionType: 'MDP',
-        },
-        {
-          id: '3',
-          title: 'Scale Channel TikTok',
-          predictedImpact: 30_000_000,
-          actualImpact: -12_000_000,
-          accuracy: -40,
-          isSuccess: false,
-          resolvedAt: new Date().toISOString(),
-          decisionType: 'MDP',
-        },
-        {
-          id: '4',
-          title: 'Reactivate Dormant Segment',
-          predictedImpact: 120_000_000,
-          actualImpact: 95_000_000,
-          accuracy: 79,
-          isSuccess: true,
-          resolvedAt: new Date().toISOString(),
-          decisionType: 'CDP',
-        },
+        { module: 'FDP', predicted: 250, actual: 240, accuracy: 96 },
+        { module: 'MDP', predicted: 150, actual: 128, accuracy: 85 },
+        { module: 'CDP', predicted: 50, actual: 47, accuracy: 94 },
       ];
     }
 
-    return resolvedItems.map((item: any) => {
-      const predicted = item.impact_amount || 0;
-      const actual = item.metadata?.actual_outcome || predicted * (0.8 + Math.random() * 0.4);
-      const accuracy = predicted > 0 ? (actual / predicted) * 100 : 0;
-      
-      return {
-        id: item.id,
-        title: item.title,
-        predictedImpact: predicted,
-        actualImpact: actual,
-        accuracy,
-        isSuccess: accuracy >= 70,
-        resolvedAt: item.resolved_at,
-        decisionType: item.category?.toUpperCase() || 'SYSTEM',
-      };
-    });
-  }, [resolvedItems]);
+    return effectiveness.byModule.map(m => ({
+      module: m.decision_type,
+      predicted: m.total_predicted_value / 1_000_000,
+      actual: m.total_actual_value / 1_000_000,
+      accuracy: m.avg_accuracy,
+    }));
+  }, [effectiveness]);
 
-  // Calculate summary metrics
-  const summary = useMemo(() => {
-    const resolved = outcomes.length;
-    const successful = outcomes.filter(o => o.isSuccess).length;
-    const successRate = resolved > 0 ? (successful / resolved) * 100 : 0;
-    const totalSaved = outcomes
-      .filter(o => o.isSuccess)
-      .reduce((sum, o) => sum + o.actualImpact, 0);
-    const totalLost = outcomes
-      .filter(o => !o.isSuccess && o.actualImpact < 0)
-      .reduce((sum, o) => sum + Math.abs(o.actualImpact), 0);
+  // Demo effectiveness if no data
+  const displayEffectiveness = useMemo(() => {
+    if (effectiveness && effectiveness.totalDecisions > 0) {
+      return effectiveness;
+    }
+    // Demo data
+    return {
+      totalDecisions: 12,
+      successfulCount: 10,
+      failedCount: 2,
+      pendingCount: 3,
+      overallSuccessRate: 83.3,
+      overallAccuracy: 91.5,
+      totalROI: 450_000_000,
+      byModule: [
+        { decision_type: 'FDP', total_decisions: 5, successful_count: 4, failed_count: 1, pending_count: 1, success_rate: 80, avg_accuracy: 95, total_actual_value: 250_000_000, total_predicted_value: 260_000_000 },
+        { decision_type: 'MDP', total_decisions: 4, successful_count: 4, failed_count: 0, pending_count: 1, success_rate: 100, avg_accuracy: 88, total_actual_value: 150_000_000, total_predicted_value: 170_000_000 },
+        { decision_type: 'CDP', total_decisions: 3, successful_count: 2, failed_count: 1, pending_count: 1, success_rate: 67, avg_accuracy: 92, total_actual_value: 50_000_000, total_predicted_value: 55_000_000 },
+      ],
+    };
+  }, [effectiveness]);
 
-    return { resolved, successful, successRate, totalSaved, totalLost };
-  }, [outcomes]);
+  // Demo pending followups if no data
+  const displayFollowups = useMemo(() => {
+    if (pendingFollowups.length > 0) {
+      return pendingFollowups;
+    }
+    return [
+      {
+        id: '1',
+        tenant_id: '',
+        decision_id: null,
+        decision_type: 'MDP',
+        decision_title: 'Scale TikTok Channel',
+        predicted_impact_amount: 45_000_000,
+        decided_at: new Date().toISOString(),
+        followup_due_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        outcome_verdict: 'pending_followup',
+        urgency_status: 'due_soon' as const,
+        days_until_due: 5,
+      },
+      {
+        id: '2',
+        tenant_id: '',
+        decision_id: null,
+        decision_type: 'CDP',
+        decision_title: 'Reactivate Dormant Segment',
+        predicted_impact_amount: 120_000_000,
+        decided_at: new Date().toISOString(),
+        followup_due_date: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString(),
+        outcome_verdict: 'pending_followup',
+        urgency_status: 'upcoming' as const,
+        days_until_due: 12,
+      },
+      {
+        id: '3',
+        tenant_id: '',
+        decision_id: null,
+        decision_type: 'FDP',
+        decision_title: 'New pricing strategy',
+        predicted_impact_amount: 85_000_000,
+        decided_at: new Date().toISOString(),
+        followup_due_date: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+        outcome_verdict: 'pending_followup',
+        urgency_status: 'upcoming' as const,
+        days_until_due: 20,
+      },
+    ];
+  }, [pendingFollowups]);
+
+  // Demo insights if no data
+  const displayInsights = useMemo(() => {
+    if (insights.length > 0) {
+      return insights;
+    }
+    return [
+      { id: '1', type: 'positive' as const, icon: '💡' as const, message: 'FDP margin decisions có accuracy 95% - rất đáng tin cậy' },
+      { id: '2', type: 'warning' as const, icon: '⚠️' as const, message: 'MDP campaign decisions thường underestimate impact 15%' },
+      { id: '3', type: 'info' as const, icon: '📊' as const, message: 'Decisions resolved trong 4h có success rate cao hơn 20%' },
+    ];
+  }, [insights]);
+
+  const overdueCount = displayFollowups.filter(f => f.urgency_status === 'overdue').length;
 
   return (
     <>
       <Helmet>
-        <title>Decision Outcomes | Control Tower</title>
+        <title>Decision Effectiveness | Control Tower</title>
       </Helmet>
 
       <div className="space-y-6">
@@ -171,158 +151,130 @@ export default function OutcomesPage() {
           <div className="flex items-center gap-3">
             <Target className="h-5 w-5 text-muted-foreground" />
             <div>
-              <h1 className="text-lg font-semibold">Decision Outcomes</h1>
+              <h1 className="text-lg font-semibold">Decision Effectiveness</h1>
               <p className="text-sm text-muted-foreground">
-                Đánh giá hiệu quả các quyết định đã thực hiện
+                Theo dõi hiệu quả và ROI của các quyết định
               </p>
             </div>
           </div>
 
-          {/* Period Filter */}
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">7 ngày qua</SelectItem>
-                <SelectItem value="30d">30 ngày qua</SelectItem>
-                <SelectItem value="90d">90 ngày qua</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-4">
+            {/* Follow-up Badge */}
+            {displayFollowups.length > 0 && (
+              <Badge 
+                variant={overdueCount > 0 ? 'destructive' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActiveTab('followup')}
+              >
+                {overdueCount > 0 ? `${overdueCount} overdue` : `${displayFollowups.length} pending`}
+              </Badge>
+            )}
+
+            {/* Period Filter */}
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">7 ngày qua</SelectItem>
+                  <SelectItem value="30d">30 ngày qua</SelectItem>
+                  <SelectItem value="90d">90 ngày qua</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="py-4">
-              <p className="text-sm text-muted-foreground">Resolved</p>
-              <p className="text-3xl font-bold">{summary.resolved}</p>
-              <p className="text-xs text-muted-foreground">decisions</p>
-            </CardContent>
-          </Card>
-          <Card className={cn(
-            summary.successRate >= 80 ? 'border-emerald-500/50 bg-emerald-500/5' :
-            summary.successRate >= 60 ? 'border-amber-500/50 bg-amber-500/5' :
-            'border-destructive/50 bg-destructive/5'
-          )}>
-            <CardContent className="py-4">
-              <p className="text-sm text-muted-foreground">Success Rate</p>
-              <p className={cn(
-                'text-3xl font-bold',
-                summary.successRate >= 80 ? 'text-emerald-600' :
-                summary.successRate >= 60 ? 'text-amber-600' : 'text-destructive'
-              )}>
-                {summary.successRate.toFixed(0)}%
-              </p>
-              <p className="text-xs text-muted-foreground">{summary.successful} successful</p>
-            </CardContent>
-          </Card>
-          <Card className="border-emerald-500/50 bg-emerald-500/5">
-            <CardContent className="py-4">
-              <p className="text-sm text-muted-foreground">Total Saved</p>
-              <p className="text-3xl font-bold text-emerald-600">
-                {formatCurrency(summary.totalSaved)}
-              </p>
-              <p className="text-xs text-muted-foreground">from successful decisions</p>
-            </CardContent>
-          </Card>
-          <Card className={cn(summary.totalLost > 0 && 'border-destructive/50 bg-destructive/5')}>
-            <CardContent className="py-4">
-              <p className="text-sm text-muted-foreground">Total Lost</p>
-              <p className={cn(
-                'text-3xl font-bold',
-                summary.totalLost > 0 ? 'text-destructive' : 'text-muted-foreground'
-              )}>
-                {summary.totalLost > 0 ? formatCurrency(summary.totalLost) : '₫0'}
-              </p>
-              <p className="text-xs text-muted-foreground">from failed decisions</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'overview' | 'followup')}>
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="followup" className="relative">
+              Follow-up
+              {overdueCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive" />
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Outcomes Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Decision Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="py-8 text-center text-muted-foreground">Loading...</div>
-            ) : outcomes.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                Không có outcomes trong khoảng thời gian này
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {/* Header */}
-                <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide border-b">
-                  <div className="col-span-1">Result</div>
-                  <div className="col-span-4">Decision</div>
-                  <div className="col-span-2 text-right">Predicted</div>
-                  <div className="col-span-2 text-right">Actual</div>
-                  <div className="col-span-2 text-right">Accuracy</div>
-                  <div className="col-span-1">Type</div>
+          <TabsContent value="overview" className="space-y-6 mt-6">
+            {/* Summary Cards */}
+            <EffectivenessSummaryCards 
+              data={displayEffectiveness} 
+              isLoading={loadingEffectiveness}
+            />
+
+            {/* Accuracy Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Predicted vs Actual by Module (₫M)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} barGap={4}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="module" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                        formatter={(value: number) => [`₫${value.toFixed(0)}M`, '']}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey="predicted" 
+                        fill="hsl(var(--muted-foreground))" 
+                        name="Predicted"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar 
+                        dataKey="actual" 
+                        fill="hsl(142.1 76.2% 36.3%)" 
+                        name="Actual"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Rows */}
-                {outcomes.map((outcome) => (
-                  <div 
-                    key={outcome.id}
-                    className={cn(
-                      'grid grid-cols-12 gap-4 px-3 py-3 rounded-lg transition-colors',
-                      outcome.isSuccess ? 'bg-emerald-500/5' : 'bg-destructive/5'
-                    )}
-                  >
-                    <div className="col-span-1">
-                      {outcome.isSuccess ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-destructive" />
-                      )}
-                    </div>
-                    <div className="col-span-4">
-                      <p className="font-medium">{outcome.title}</p>
-                    </div>
-                    <div className="col-span-2 text-right font-mono">
-                      {formatCurrency(outcome.predictedImpact)}
-                    </div>
-                    <div className="col-span-2 text-right font-mono">
-                      <span className={cn(
-                        outcome.actualImpact >= 0 ? 'text-emerald-600' : 'text-destructive'
-                      )}>
-                        {formatCurrency(outcome.actualImpact)}
-                      </span>
-                    </div>
-                    <div className="col-span-2 text-right flex items-center justify-end gap-1">
-                      {outcome.accuracy >= 100 ? (
-                        <TrendingUp className="h-4 w-4 text-emerald-500" />
-                      ) : outcome.accuracy >= 70 ? (
-                        <TrendingUp className="h-4 w-4 text-amber-500" />
-                      ) : (
-                        <TrendingDown className="h-4 w-4 text-destructive" />
-                      )}
-                      <span className={cn(
-                        'font-semibold',
-                        outcome.accuracy >= 100 ? 'text-emerald-600' :
-                        outcome.accuracy >= 70 ? 'text-amber-600' : 'text-destructive'
-                      )}>
-                        {outcome.accuracy.toFixed(0)}%
-                      </span>
-                    </div>
-                    <div className="col-span-1">
-                      <Badge variant="outline" className="text-xs">
-                        {outcome.decisionType}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Module Effectiveness */}
+              <ModuleEffectivenessTable 
+                data={displayEffectiveness.byModule}
+                isLoading={loadingEffectiveness}
+              />
+
+              {/* Learning Insights */}
+              <LearningInsightsCard 
+                insights={displayInsights}
+                isLoading={loadingInsights}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="followup" className="space-y-6 mt-6">
+            <PendingFollowupList
+              data={displayFollowups}
+              isLoading={loadingFollowups}
+              onMeasure={(followup) => {
+                // TODO: Open outcome recording dialog for measurement
+                console.log('Measure followup:', followup);
+              }}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );
