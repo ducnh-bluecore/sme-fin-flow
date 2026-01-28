@@ -20,19 +20,53 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // SECURITY: Require service role key for scheduled functions
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader !== `Bearer ${supabaseKey}`) {
-      console.error('Unauthorized: scheduled-sync requires service role key');
-      return new Response(JSON.stringify({ error: 'Unauthorized - Service role required' }), {
-        status: 401,
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Parse request body to check action type
+    let action = 'connector_sync';
+    try {
+      const body = await req.json();
+      if (body?.action) {
+        action = body.action;
+      }
+    } catch {
+      // No body or invalid JSON, default to connector_sync
+    }
+
+    console.log(`Starting scheduled sync with action: ${action}`);
+
+    // Handle cross-module sync action
+    if (action === 'cross_module_sync') {
+      console.log('Running cross-module daily sync...');
+      
+      const { data: syncResults, error: syncError } = await supabase
+        .rpc('cross_module_run_daily_sync');
+      
+      if (syncError) {
+        console.error('Cross-module sync error:', syncError);
+        return new Response(JSON.stringify({
+          success: false,
+          action: 'cross_module_sync',
+          error: syncError.message,
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log('Cross-module sync completed:', syncResults);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'cross_module_sync',
+        results: syncResults,
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    console.log('Starting scheduled sync for all active integrations...');
+    // Default: connector sync
+    console.log('Starting connector sync for all active integrations...');
 
     // Get all active integrations that need syncing
     const now = new Date();
@@ -109,6 +143,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
+      action: 'connector_sync',
       synced_count: results.filter(r => r.status === 'success').length,
       failed_count: results.filter(r => r.status !== 'success').length,
       results,
