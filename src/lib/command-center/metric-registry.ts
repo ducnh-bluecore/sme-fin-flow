@@ -105,7 +105,7 @@ const FDP_METRICS: MetricContract[] = [
     metric_code: 'net_revenue',
     label: 'Net Revenue',
     label_vi: 'Doanh thu thuần',
-    source_view: 'external_orders',
+    source_view: 'cdp_orders', // SSOT: Changed from external_orders
     source_expression: 'SUM(net_revenue)',
     grain: 'tenant',
     source_type: 'database_table',
@@ -119,7 +119,7 @@ const FDP_METRICS: MetricContract[] = [
     metric_code: 'contribution_margin',
     label: 'Contribution Margin',
     label_vi: 'Lợi nhuận gộp',
-    source_view: 'external_orders',
+    source_view: 'cdp_orders', // SSOT: Changed from external_orders
     source_expression: 'SUM(net_profit)',
     grain: 'tenant',
     source_type: 'database_table',
@@ -133,7 +133,7 @@ const FDP_METRICS: MetricContract[] = [
     metric_code: 'contribution_margin_percent',
     label: 'CM %',
     label_vi: 'Tỷ suất lợi nhuận gộp',
-    source_view: 'external_orders',
+    source_view: 'cdp_orders', // SSOT: Changed from external_orders
     source_expression: 'SUM(net_profit) / NULLIF(SUM(net_revenue), 0)',
     grain: 'tenant',
     source_type: 'hook_computed',
@@ -262,7 +262,7 @@ const MDP_METRICS: MetricContract[] = [
     metric_code: 'return_rate',
     label: 'Return Rate',
     label_vi: 'Tỷ lệ hoàn trả',
-    source_view: 'external_orders',
+    source_view: 'cdp_orders', // SSOT: Changed from external_orders
     source_expression: 'COUNT(CASE WHEN status = returned) / COUNT(*)',
     grain: 'campaign',
     source_type: 'hook_computed',
