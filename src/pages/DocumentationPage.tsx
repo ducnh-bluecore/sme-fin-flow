@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  Home
+  Home,
+  Download
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -108,6 +109,20 @@ export default function DocumentationPage() {
                   >
                     <ArrowLeft className="h-4 w-4 mr-1" />
                     FDP
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = '/docs/SYSTEM_FEATURES_DOCUMENTATION.md';
+                      link.download = 'SYSTEM_FEATURES_DOCUMENTATION.md';
+                      link.click();
+                    }}
+                    className="h-9 px-3 ml-2"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Tải tài liệu
                   </Button>
                 </div>
                 <div className="p-2 rounded-lg bg-primary/10">
