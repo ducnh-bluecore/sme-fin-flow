@@ -232,10 +232,22 @@ Tạo `cross_module_config` table với:
 - Trigger fires on `cross_domain_variance_alerts` insert
 - Auto-creates decision cards for FDP, MDP, CDP based on variance type
 
+### Phase 4.1 ✅ DONE (28/01/2026)
+- Created `cross_module_config` table for centralized configuration
+- Implemented `seed_cross_module_config_defaults` function
+- Default configs: variance thresholds, cost fallbacks, escalation hours, sync schedule, MDP thresholds
+
+### Phase 4.2 ✅ DONE (28/01/2026)
+- Created `ltv_industry_assumptions` table with 5 industry presets
+- Created `tenant_ltv_config` table for tenant-specific overrides
+- Implemented `get_tenant_ltv_assumptions` RPC for effective assumptions
+- Created `trigger_auto_seed_tenant_config` to auto-seed on tenant creation
+- Created `get_cross_module_config` and `set_cross_module_config` RPCs
+
 ---
 
 ## NEXT ACTIONS
 
-1. **Phase 4.1:** Create `cross_module_config` table
-2. **Phase 4.2:** LTV Auto-Seed Assumptions
-3. **Phase 5.1:** Migrate Cash Forecast logic to RPC
+1. **Phase 5.1:** Migrate Cash Forecast logic to RPC
+2. **Phase 6.1:** Insight Dismiss/Snooze UI (CDP)
+3. **Phase 6.2:** Resolution Workflow UI (Control Tower)
