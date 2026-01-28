@@ -24,10 +24,14 @@ serve(async (req) => {
 
     // Parse request body to check action type
     let action = 'connector_sync';
+    let requestBody: Record<string, unknown> = {};
     try {
-      const body = await req.json();
-      if (body?.action) {
-        action = body.action;
+      const text = await req.text();
+      if (text) {
+        requestBody = JSON.parse(text);
+        if (requestBody?.action) {
+          action = requestBody.action as string;
+        }
       }
     } catch {
       // No body or invalid JSON, default to connector_sync
@@ -60,6 +64,107 @@ serve(async (req) => {
         success: true,
         action: 'cross_module_sync',
         results: syncResults,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Phase 8.4: Handle CDP full pipeline (includes insight detection)
+    if (action === 'cdp_full_pipeline') {
+      const tenantId = requestBody.tenant_id as string;
+      const asOfDate = (requestBody.as_of_date as string) || new Date().toISOString().split('T')[0];
+      
+      if (!tenantId) {
+        return new Response(JSON.stringify({
+          success: false,
+          action: 'cdp_full_pipeline',
+          error: 'tenant_id is required',
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log(`Running CDP full pipeline for tenant ${tenantId}...`);
+      
+      const { data: pipelineResults, error: pipelineError } = await supabase
+        .rpc('cdp_run_full_daily_pipeline', {
+          p_tenant_id: tenantId,
+          p_as_of_date: asOfDate,
+        });
+      
+      if (pipelineError) {
+        console.error('CDP pipeline error:', pipelineError);
+        return new Response(JSON.stringify({
+          success: false,
+          action: 'cdp_full_pipeline',
+          error: pipelineError.message,
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log('CDP full pipeline completed:', pipelineResults);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'cdp_full_pipeline',
+        results: pipelineResults,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Phase 8.4: Handle manual insight trigger
+    if (action === 'trigger_cdp_insights') {
+      const tenantId = requestBody.tenant_id as string;
+      const asOfDate = (requestBody.as_of_date as string) || new Date().toISOString().split('T')[0];
+      
+      if (!tenantId) {
+        return new Response(JSON.stringify({
+          success: false,
+          action: 'trigger_cdp_insights',
+          error: 'tenant_id is required',
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log(`Triggering CDP insight detection for tenant ${tenantId}...`);
+      
+      const { error: insightError } = await supabase
+        .rpc('cdp_detect_behavioral_changes', {
+          p_tenant_id: tenantId,
+          p_as_of_date: asOfDate,
+        });
+      
+      if (insightError) {
+        console.error('CDP insight error:', insightError);
+        return new Response(JSON.stringify({
+          success: false,
+          action: 'trigger_cdp_insights',
+          error: insightError.message,
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Count generated insights
+      const { count } = await supabase
+        .from('cdp_insight_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .gte('detected_at', asOfDate);
+      
+      console.log('CDP insight detection completed, new insights:', count);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        action: 'trigger_cdp_insights',
+        new_insights: count || 0,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
