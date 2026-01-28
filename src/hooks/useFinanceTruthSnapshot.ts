@@ -99,6 +99,20 @@ export interface FinanceTruthSnapshot {
   created_at: string;
 }
 
+// Phase 8.3: Data Quality Flags for transparency
+export interface DataQualityFlags {
+  // CM% warning when variable costs >> gross profit
+  hasContributionMarginWarning: boolean;
+  contributionMarginWarningReason: string | null;
+  
+  // ROAS data source indicator
+  roasDataSource: 'promotion_campaigns' | 'expenses' | 'unavailable';
+  
+  // General data quality
+  dataCompletenessPercent: number;
+  lastComputedAt: string;
+}
+
 // Formatted version for UI consumption
 export interface FormattedFinanceSnapshot {
   // Revenue & Profit (formatted)
@@ -170,6 +184,9 @@ export interface FormattedFinanceSnapshot {
   // Metadata
   snapshotAt: string;
   isStale: boolean;
+  
+  // Phase 8.3: Data Quality Flags
+  dataQuality: DataQualityFlags;
 }
 
 // =============================================================
@@ -345,6 +362,50 @@ function mapToFormatted(
     // Metadata
     snapshotAt: raw.snapshot_at,
     isStale,
+    
+    // Phase 8.3: Data Quality Flags
+    dataQuality: computeDataQualityFlags(raw),
+  };
+}
+
+// Phase 8.3: Compute data quality warnings
+function computeDataQualityFlags(raw: FinanceTruthSnapshot): DataQualityFlags {
+  const grossProfit = Number(raw.gross_profit) || 0;
+  const contributionMargin = Number(raw.contribution_margin) || 0;
+  const marketingRoas = Number(raw.marketing_roas) || 0;
+  const marketingSpend = Number(raw.total_marketing_spend) || 0;
+  
+  // Warning: CM is significantly negative compared to gross profit
+  // This indicates variable costs may be disproportionately high
+  const variableCostsImplied = grossProfit - contributionMargin;
+  const hasContributionMarginWarning = contributionMargin < 0 && variableCostsImplied > grossProfit * 2;
+  
+  let contributionMarginWarningReason: string | null = null;
+  if (hasContributionMarginWarning) {
+    contributionMarginWarningReason = 
+      'Chi phí biến đổi cao bất thường so với lợi nhuận gộp. Có thể do dữ liệu chi phí chưa đồng bộ với doanh thu hoặc là chi phí dự toán.';
+  }
+  
+  // ROAS data source
+  const roasDataSource: 'promotion_campaigns' | 'expenses' | 'unavailable' = 
+    marketingSpend > 0 && marketingRoas > 0 ? 'promotion_campaigns' :
+    marketingSpend > 0 ? 'expenses' : 'unavailable';
+  
+  // Data completeness (simple heuristic)
+  let completenessScore = 0;
+  if (Number(raw.net_revenue) > 0) completenessScore += 20;
+  if (Number(raw.cash_today) > 0) completenessScore += 20;
+  if (Number(raw.total_ar) >= 0) completenessScore += 15;
+  if (Number(raw.total_ap) >= 0) completenessScore += 15;
+  if (Number(raw.total_orders) > 0) completenessScore += 15;
+  if (marketingRoas > 0) completenessScore += 15;
+  
+  return {
+    hasContributionMarginWarning,
+    contributionMarginWarningReason,
+    roasDataSource,
+    dataCompletenessPercent: Math.min(completenessScore, 100),
+    lastComputedAt: raw.snapshot_at,
   };
 }
 

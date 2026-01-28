@@ -31672,6 +31672,10 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: Json
       }
+      cdp_run_full_daily_pipeline: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: Json
+      }
       cdp_run_insight_detection: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -31795,14 +31799,16 @@ export type Database = {
         }
         Returns: number
       }
-      compute_central_metrics_snapshot: {
-        Args: {
-          p_end_date?: string
-          p_start_date?: string
-          p_tenant_id: string
-        }
-        Returns: string
-      }
+      compute_central_metrics_snapshot:
+        | { Args: { p_tenant_id: string }; Returns: string }
+        | {
+            Args: {
+              p_end_date?: string
+              p_start_date?: string
+              p_tenant_id: string
+            }
+            Returns: string
+          }
       compute_finance_expenses_daily: {
         Args: { p_tenant_id: string }
         Returns: undefined
