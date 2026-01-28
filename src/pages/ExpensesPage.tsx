@@ -44,6 +44,7 @@ import { Link } from 'react-router-dom';
 import { FixedCostDefinitionPanel } from '@/components/expenses/FixedCostDefinitionPanel';
 import { VariableCostEstimatePanel } from '@/components/expenses/VariableCostEstimatePanel';
 import { BudgetVsActualSummary } from '@/components/expenses/BudgetVsActualSummary';
+import { ExpenseVarianceAlerts } from '@/components/expenses/ExpenseVarianceAlerts';
 import {
   AreaChart,
   Area,
@@ -467,6 +468,9 @@ export default function ExpensesPage() {
           </TabsContent>
 
           <TabsContent value="definitions" className="space-y-4">
+            {/* Variance Alerts */}
+            <ExpenseVarianceAlerts />
+            
             <div className="grid gap-4 lg:grid-cols-2">
               <FixedCostDefinitionPanel />
               <VariableCostEstimatePanel />

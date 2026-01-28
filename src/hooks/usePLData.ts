@@ -17,6 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
+export type OpexDataSource = Record<string, 'actual' | 'estimate'>;
+
 export interface PLData {
   grossSales: number;
   salesReturns: number;
@@ -47,6 +49,11 @@ export interface PLData {
   incomeTax: number;
   netIncome: number;
   netMargin: number; // Already as % from DB
+  // Provisional data tracking
+  opexDataSource?: OpexDataSource;
+  totalOpexEstimated?: number;
+  totalOpexActual?: number;
+  hasProvisionalData?: boolean;
 }
 
 export interface MonthlyPLData {
