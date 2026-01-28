@@ -4724,6 +4724,83 @@ export type Database = {
           },
         ]
       }
+      cdp_customer_credit_risk: {
+        Row: {
+          created_at: string
+          credit_score: number | null
+          customer_id: string
+          days_overdue: number | null
+          equity_risk_multiplier: number | null
+          id: string
+          last_sync_at: string | null
+          overdue_ar: number | null
+          risk_level: string | null
+          source_module: string | null
+          tenant_id: string
+          total_ar: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credit_score?: number | null
+          customer_id: string
+          days_overdue?: number | null
+          equity_risk_multiplier?: number | null
+          id?: string
+          last_sync_at?: string | null
+          overdue_ar?: number | null
+          risk_level?: string | null
+          source_module?: string | null
+          tenant_id: string
+          total_ar?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credit_score?: number | null
+          customer_id?: string
+          days_overdue?: number | null
+          equity_risk_multiplier?: number | null
+          id?: string
+          last_sync_at?: string | null
+          overdue_ar?: number | null
+          risk_level?: string | null
+          source_module?: string | null
+          tenant_id?: string
+          total_ar?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_customer_credit_risk_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_credit_risk_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_credit_risk_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_customer_credit_risk_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_customer_equity_computed: {
         Row: {
           aov_90d: number | null
@@ -26023,6 +26100,89 @@ export type Database = {
           },
         ]
       }
+      v_budget_reallocation_suggestions: {
+        Row: {
+          action_type: string | null
+          attributed_revenue: number | null
+          cac: number | null
+          channel: string | null
+          confidence_level: string | null
+          current_spend: number | null
+          new_customers: number | null
+          period_end: string | null
+          period_start: string | null
+          profit_roas: number | null
+          recommendation_reason: string | null
+          recommended_budget_change: number | null
+          roas: number | null
+          suggested_budget: number | null
+          tenant_id: string | null
+        }
+        Insert: {
+          action_type?: never
+          attributed_revenue?: number | null
+          cac?: number | null
+          channel?: string | null
+          confidence_level?: never
+          current_spend?: number | null
+          new_customers?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          profit_roas?: number | null
+          recommendation_reason?: string | null
+          recommended_budget_change?: number | null
+          roas?: number | null
+          suggested_budget?: never
+          tenant_id?: string | null
+        }
+        Update: {
+          action_type?: never
+          attributed_revenue?: number | null
+          cac?: number | null
+          channel?: string | null
+          confidence_level?: never
+          current_spend?: number | null
+          new_customers?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          profit_roas?: number | null
+          recommendation_reason?: string | null
+          recommended_budget_change?: number | null
+          roas?: number | null
+          suggested_budget?: never
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_category_pl_summary: {
         Row: {
           category: string | null
@@ -30691,6 +30851,7 @@ export type Database = {
         }
         Returns: string
       }
+      fdp_push_ar_to_cdp: { Args: { p_tenant_id: string }; Returns: number }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
