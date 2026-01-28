@@ -13,17 +13,18 @@ import {
 } from '@/types/mdp-v2';
 
 /**
- * MDP V2 - Marketing Decision Engine
+ * @deprecated Phase 7.1 - Use useMDPDecisionSignals + useMDPCEOSnapshot instead
  * 
- * DETERMINISTIC RULES ONLY:
- * - If profit ROAS < 0 for 3 days → KILL
- * - If cash conversion < 50% at D+14 → PAUSE  
- * - If worst case CM < -10% → KILL
+ * This hook contains legacy business logic that should be in the database.
+ * Migration path:
+ * - Decision Cards: useMDPDecisionSignals() from './useMDPDecisionSignals'
+ * - CEO Snapshot: useMDPCEOSnapshot() from './useMDPCEOSnapshot'
+ * - Scale Opportunities: useMDPScaleOpportunities() from './useMDPCEOSnapshot'
  * 
- * NO:
- * - Inventing metrics
- * - Smoothing numbers
- * - User overrides (without logged justification)
+ * All business logic is now in database views:
+ * - v_mdp_decision_signals
+ * - v_mdp_ceo_snapshot
+ * - v_mdp_scale_opportunities
  */
 export function useMarketingDecisionEngine() {
   const {

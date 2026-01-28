@@ -1,13 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ProfitAttribution } from '@/hooks/useMDPData';
 import { formatVND } from '@/types/mdp-v2';
 
-interface ScaleOpportunityItem extends ProfitAttribution {
-  cashPositive: boolean;
+// Simplified interface for scale opportunities (SSOT-compatible)
+export interface ScaleOpportunityItem {
+  channel: string;
+  campaign_name?: string;
+  contribution_margin: number;
+  contribution_margin_percent: number;
+  profit_roas: number;
   cashConversion: number;
+  cashPositive?: boolean;
 }
 
 interface ScaleOpportunitiesProps {
@@ -55,7 +59,7 @@ export function ScaleOpportunities({ opportunities, onScale }: ScaleOpportunitie
       <CardContent className="space-y-3">
         {opportunities.map((opp) => (
           <div 
-            key={opp.campaign_id}
+            key={opp.channel}
             className="flex items-center justify-between gap-4 p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20"
           >
             <div className="flex-1 min-w-0">
@@ -64,7 +68,7 @@ export function ScaleOpportunities({ opportunities, onScale }: ScaleOpportunitie
                 <span className="text-xs text-emerald-600 font-medium uppercase">Eligible</span>
               </div>
               
-              <p className="font-medium truncate">{opp.campaign_name}</p>
+              <p className="font-medium truncate">{opp.campaign_name || opp.channel}</p>
               
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                 <span>CM: <span className="text-emerald-600 font-medium">{opp.contribution_margin_percent.toFixed(1)}%</span></span>

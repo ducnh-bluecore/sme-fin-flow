@@ -5,8 +5,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useMarketingDecisionEngine } from '@/hooks/useMarketingDecisionEngine';
-import { CEOOneScreenView, DecisionCardStack, ScaleOpportunities, DecisionContextRail } from '@/components/mdp/v2';
+import { useMDPDecisionSignals } from '@/hooks/useMDPDecisionSignals';
+import { useMDPCEOSnapshot, useMDPScaleOpportunities } from '@/hooks/useMDPCEOSnapshot';
+import { DecisionCardStack, ScaleOpportunities, DecisionContextRail } from '@/components/mdp/v2';
 import { ChannelBudgetConfigPanel } from '@/components/mdp/cmo-mode/ChannelBudgetConfigPanel';
 import { MarketingDecisionCard, formatVND } from '@/types/mdp-v2';
 import { DecisionCard, DecisionCardList } from '@/components/decisions';
@@ -25,25 +26,23 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
- * MDP CEO VIEW - Light Professional Theme
+ * MDP CEO VIEW - SSOT Compliant
  * 
- * Decision-First, CFO/CEO-Grade
- * One screen that answers:
- * 1. Is marketing creating or destroying money?
- * 2. How much cash is at risk or locked?
- * 3. Which campaign must be paused/killed?
+ * Phase 7.1: Uses useMDPDecisionSignals + useMDPCEOSnapshot
+ * All business logic is in database views
  */
 export default function MDPV2CEOPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
-  const {
-    decisionCards,
-    ceoSnapshot,
-    scaleOpportunities,
-    isLoading,
-    error,
-  } = useMarketingDecisionEngine();
+  
+  // SSOT: Fetch from database views
+  const { decisionCards, criticalCards, todayCards, isLoading: cardsLoading, error: cardsError } = useMDPDecisionSignals();
+  const { snapshot: ceoSnapshot, isLoading: snapshotLoading, error: snapshotError } = useMDPCEOSnapshot();
+  const { opportunities: scaleOpportunities, isLoading: scaleLoading } = useMDPScaleOpportunities();
+
+  const isLoading = cardsLoading || snapshotLoading || scaleLoading;
+  const error = cardsError || snapshotError;
 
   const handleDecisionAction = async (
     card: MarketingDecisionCard, 
@@ -55,7 +54,7 @@ export default function MDPV2CEOPage() {
   };
 
   const handleScale = (campaign: any) => {
-    toast.success(`Scale recommendation: ${campaign.campaign_name} +30%`);
+    toast.success(`Scale recommendation: ${campaign.channel} +30%`);
   };
 
   if (error) {
@@ -76,7 +75,7 @@ export default function MDPV2CEOPage() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !ceoSnapshot) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -99,11 +98,11 @@ export default function MDPV2CEOPage() {
     );
   }
 
-  // Calculate exposure values from snapshot
-  const totalCashAtRisk = ceoSnapshot.cashReceived * 0.15 + ceoSnapshot.cashPending * 0.3;
+  // Calculate exposure values from SSOT snapshot
+  const totalCashAtRisk = ceoSnapshot.totalCashAtRisk;
   const totalLockedCash = ceoSnapshot.cashLocked;
   const worstCaseLoss = ceoSnapshot.totalMarginDestroyed;
-  const pendingDecisionsCount = decisionCards.filter(c => c.status === 'PENDING').length;
+  const pendingDecisionsCount = ceoSnapshot.totalActions;
 
   // Convert marketing decision cards to unified decision format
   const unifiedDecisions = decisionCards.slice(0, 3).map(card => ({
@@ -350,7 +349,13 @@ export default function MDPV2CEOPage() {
               {/* Scale Opportunities */}
               {scaleOpportunities.length > 0 && (
                 <ScaleOpportunities 
-                  opportunities={scaleOpportunities} 
+                  opportunities={scaleOpportunities.map(o => ({
+                    channel: o.channel,
+                    contribution_margin: o.contributionMargin,
+                    contribution_margin_percent: o.contributionMarginPercent * 100,
+                    profit_roas: o.profitRoas,
+                    cashConversion: 0.7,
+                  }))} 
                   onScale={handleScale} 
                 />
               )}
