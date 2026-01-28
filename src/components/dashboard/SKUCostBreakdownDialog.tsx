@@ -1,7 +1,7 @@
 /**
  * SKU Cost Breakdown Dialog
  * Shows detailed cost allocation per order for a specific SKU
- * Now with channel breakdown summary
+ * Now using CDP SSOT via get_sku_cost_breakdown RPC
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -47,7 +47,7 @@ interface SKUCostBreakdownDialogProps {
   onOpenChange: (open: boolean) => void;
   sku: string;
   productName: string | null;
-  ignoreDateRange?: boolean; // New prop to skip date filtering
+  ignoreDateRange?: boolean;
 }
 
 interface OrderBreakdown {
@@ -61,8 +61,6 @@ interface OrderBreakdown {
   total_cogs: number;
   order_revenue: number;
   platform_fee: number;
-  commission_fee: number;
-  payment_fee: number;
   shipping_fee: number;
   other_fees: number;
   total_order_fees: number;
@@ -84,10 +82,33 @@ interface ChannelSummary {
   margin: number;
   feeBreakdown: {
     platform: number;
-    commission: number;
-    payment: number;
     shipping: number;
+    other: number;
   };
+}
+
+// RPC response type
+interface SKUBreakdownRow {
+  order_id: string;
+  order_key: string | null;
+  channel: string | null;
+  order_at: string;
+  quantity: number;
+  unit_price: number | null;
+  line_revenue: number | null;
+  line_cogs: number | null;
+  line_margin: number | null;
+  order_gross_revenue: number | null;
+  order_platform_fee: number;
+  order_shipping_fee: number;
+  order_other_fees: number;
+  revenue_share_pct: number;
+  allocated_platform_fee: number;
+  allocated_shipping_fee: number;
+  allocated_other_fees: number;
+  gross_profit: number;
+  net_profit: number;
+  margin_percent: number;
 }
 
 export function SKUCostBreakdownDialog({ 
@@ -105,207 +126,72 @@ export function SKUCostBreakdownDialog({
     queryFn: async () => {
       if (!tenantId || !sku) return null;
 
-      // SSOT: Resolve a single master unit cost for this SKU
-      // Priority: products.cost_price -> derived from historical external_order_items total_cogs/qty
-      // This keeps COGS consistent across channels for the same SKU.
-      const { data: masterUnitCostData, error: masterCostError } = await supabase.rpc(
-        'get_sku_master_unit_cost',
+      // Use CDP SSOT via RPC - no more external_order_items
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'get_sku_cost_breakdown',
         {
           p_tenant_id: tenantId,
           p_sku: sku,
+          p_start_date: ignoreDateRange ? '2020-01-01' : startDateStr,
+          p_end_date: ignoreDateRange ? '2099-12-31' : endDateStr
         }
       );
 
-      if (masterCostError) throw masterCostError;
+      if (rpcError) {
+        console.error('SKU cost breakdown RPC error:', rpcError);
+        throw rpcError;
+      }
 
-      const masterUnitCost = masterUnitCostData != null ? Number(masterUnitCostData) : null;
+      const rows = (rpcData as unknown as SKUBreakdownRow[]) || [];
 
-      // First find items by SKU or product name
-      const { data: items, error: itemsError } = await supabase
-        .from('external_order_items')
-        .select(`
-          id,
-          external_order_id,
-          sku,
-          product_name,
-          quantity,
-          unit_price,
-          total_amount,
-          unit_cogs,
-          total_cogs,
-          gross_profit
-        `)
-        .eq('tenant_id', tenantId)
-        .or(`sku.eq.${sku},product_name.ilike.%${productName || sku}%`);
+      if (rows.length === 0) {
+        return { breakdowns: [], summary: null, channelSummaries: [], fromCache: false };
+      }
 
-      if (itemsError) throw itemsError;
-      
-      // FALLBACK: If no order items found, use sku_profitability_cache
-      if (!items || items.length === 0) {
-        const { data: cacheData, error: cacheError } = await supabase
-          .from('sku_profitability_cache')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('sku', sku);
+      // Map RPC response to OrderBreakdown interface
+      const breakdowns: OrderBreakdown[] = rows.map(row => {
+        const quantity = Number(row.quantity || 0);
+        const unitPrice = Number(row.unit_price || 0);
+        const lineRevenue = Number(row.line_revenue || 0);
+        const lineCogs = Number(row.line_cogs || 0);
+        const orderRevenue = Number(row.order_gross_revenue || 0);
         
-         if (cacheError || !cacheData || cacheData.length === 0) {
-           return { breakdowns: [], summary: null, channelSummaries: [], fromCache: true, masterUnitCost };
-         }
+        const platformFee = Number(row.order_platform_fee || 0);
+        const shippingFee = Number(row.order_shipping_fee || 0);
+        const otherFees = Number(row.order_other_fees || 0);
+        const totalOrderFees = platformFee + shippingFee + otherFees;
         
-        // Build channel summaries from cache
-        const channelSummaries: ChannelSummary[] = cacheData.map(row => ({
-          channel: row.channel || 'Unknown',
-          orderCount: Math.ceil(Number(row.quantity || 0) / 2), // Estimate
-          quantity: Number(row.quantity || 0),
-          revenue: Number(row.revenue || 0),
-          cogs: Number(row.cogs || 0),
-          fees: Number(row.fees || 0),
-          profit: Number(row.profit || 0),
-          margin: Number(row.margin_percent || 0),
-          feeBreakdown: {
-            platform: Number(row.fees || 0) * 0.3,
-            commission: Number(row.fees || 0) * 0.4,
-            payment: Number(row.fees || 0) * 0.15,
-            shipping: Number(row.fees || 0) * 0.15,
-          }
-        }));
+        const allocatedPlatformFee = Number(row.allocated_platform_fee || 0);
+        const allocatedShippingFee = Number(row.allocated_shipping_fee || 0);
+        const allocatedOtherFees = Number(row.allocated_other_fees || 0);
+        const allocatedFees = allocatedPlatformFee + allocatedShippingFee + allocatedOtherFees;
         
-        const totalRevenue = channelSummaries.reduce((s, c) => s + c.revenue, 0);
-        const totalCogs = channelSummaries.reduce((s, c) => s + c.cogs, 0);
-        const totalFees = channelSummaries.reduce((s, c) => s + c.fees, 0);
-        const totalProfit = channelSummaries.reduce((s, c) => s + c.profit, 0);
-        const totalQuantity = channelSummaries.reduce((s, c) => s + c.quantity, 0);
-        
+        const grossProfit = Number(row.gross_profit || 0);
+        const netProfit = Number(row.net_profit || 0);
+        const marginPercent = Number(row.margin_percent || 0);
+        const revenueShare = Number(row.revenue_share_pct || 0);
+
         return {
-          breakdowns: [], // No order-level breakdown available from cache
-          summary: {
-            totalOrders: channelSummaries.reduce((s, c) => s + c.orderCount, 0),
-            totalQuantity,
-            totalRevenue,
-            totalCogs,
-            totalFees,
-            totalProfit,
-            avgMargin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
-            feeBreakdown: {
-              platform: totalFees * 0.3,
-              commission: totalFees * 0.4,
-              payment: totalFees * 0.15,
-              shipping: totalFees * 0.15,
-            }
-          },
-          channelSummaries,
-           fromCache: true,
-           masterUnitCost
-        };
-      }
-
-      // Get order IDs
-      const orderIds = [...new Set(items.map(i => i.external_order_id))];
-
-      // Fetch orders - conditionally apply date filter
-      // Use cdp_orders (SSOT) instead of external_orders
-      let ordersQuery = supabase
-        .from('cdp_orders')
-        .select(`
-          id,
-          channel,
-          order_at,
-          gross_revenue,
-          cogs,
-          net_revenue,
-          gross_margin
-        `)
-        .eq('tenant_id', tenantId)
-        .in('id', orderIds);
-      
-      // Only apply date filter if not ignoring date range
-      if (!ignoreDateRange) {
-        ordersQuery = ordersQuery
-          .gte('order_date', startDateStr)
-          .lte('order_date', endDateStr);
-      }
-
-      const { data: orders, error: ordersError } = await ordersQuery;
-
-      const ordersMap = new Map(orders?.map(o => [o.id, o]) || []);
-
-      // Calculate breakdowns
-      const breakdowns: OrderBreakdown[] = [];
-
-      items.forEach(item => {
-        const order = ordersMap.get(item.external_order_id);
-        if (!order) return;
-
-        const qty = Number(item.quantity || 1);
-        const unitPrice = Number(item.unit_price || 0);
-        const itemTotalAmount = item.total_amount != null ? Number(item.total_amount) : null;
-        const itemRevenue = itemTotalAmount != null && itemTotalAmount > 0 
-          ? itemTotalAmount 
-          : unitPrice * qty;
-
-        // Use cdp_orders columns - map appropriately
-        const orderRevenue = Number(order.gross_revenue || 0);
-        const revenueShare = orderRevenue > 0 ? itemRevenue / orderRevenue : 0;
-
-        // cdp_orders doesn't have individual fee columns - use 0
-        const platformFee = 0;
-        const commissionFee = 0;
-        const paymentFee = 0;
-        const shippingFee = 0;
-        const otherFees = 0;
-        const totalOrderFees = 0;
-        const allocatedFees = 0;
-
-        // Calculate COGS - SSOT: Prioritize master unit cost from products table
-        // This ensures consistent COGS across all channels for the same SKU
-        const unitCogs = item.unit_cogs != null ? Number(item.unit_cogs) : 0;
-        const totalCogs = item.total_cogs != null ? Number(item.total_cogs) : 0;
-        const grossProfit = item.gross_profit != null ? Number(item.gross_profit) : 0;
-        const orderCogs = Number(order.cogs || 0);
-
-        let itemCogs = 0;
-        if (masterUnitCost && masterUnitCost > 0) {
-          // SSOT: Use master unit cost from products table - same for all channels
-          itemCogs = masterUnitCost * qty;
-        } else if (unitCogs > 0) {
-          itemCogs = unitCogs * qty;
-        } else if (totalCogs > 0) {
-          itemCogs = totalCogs;
-        } else if (grossProfit !== 0 && itemRevenue > 0) {
-          itemCogs = Math.max(itemRevenue - grossProfit, 0);
-        } else if (orderCogs > 0) {
-          itemCogs = orderCogs * revenueShare;
-        }
-
-        const netProfit = itemRevenue - itemCogs - allocatedFees;
-        const marginPercent = itemRevenue > 0 ? (netProfit / itemRevenue) * 100 : 0;
-
-        breakdowns.push({
-          order_number: order.id.slice(0, 8), // Use ID prefix as order number
-          channel: order.channel || 'Unknown',
-          order_date: order.order_at,
-          quantity: qty,
+          order_number: row.order_key?.slice(0, 8) || row.order_id.slice(0, 8),
+          channel: row.channel || 'Unknown',
+          order_date: row.order_at,
+          quantity,
           unit_price: unitPrice,
-          item_revenue: itemRevenue,
-          unit_cogs: unitCogs,
-          total_cogs: itemCogs,
+          item_revenue: lineRevenue,
+          unit_cogs: quantity > 0 ? lineCogs / quantity : 0,
+          total_cogs: lineCogs,
           order_revenue: orderRevenue,
           platform_fee: platformFee,
-          commission_fee: commissionFee,
-          payment_fee: paymentFee,
           shipping_fee: shippingFee,
           other_fees: otherFees,
           total_order_fees: totalOrderFees,
-          revenue_share: revenueShare * 100,
+          revenue_share: revenueShare,
           allocated_fees: allocatedFees,
-          gross_profit: itemRevenue - itemCogs,
+          gross_profit: grossProfit,
           net_profit: netProfit,
           margin_percent: marginPercent
-        });
+        };
       });
-
-      // Sort by date
-      breakdowns.sort((a, b) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
 
       // Calculate channel summaries
       const channelMap = new Map<string, ChannelSummary>();
@@ -322,9 +208,8 @@ export function SKUCostBreakdownDialog({
             margin: 0,
             feeBreakdown: {
               platform: 0,
-              commission: 0,
-              payment: 0,
-              shipping: 0
+              shipping: 0,
+              other: 0
             }
           });
         }
@@ -338,9 +223,8 @@ export function SKUCostBreakdownDialog({
         // Calculate allocated fee breakdown per channel
         const share = b.revenue_share / 100;
         ch.feeBreakdown.platform += b.platform_fee * share;
-        ch.feeBreakdown.commission += b.commission_fee * share;
-        ch.feeBreakdown.payment += b.payment_fee * share;
         ch.feeBreakdown.shipping += b.shipping_fee * share;
+        ch.feeBreakdown.other += b.other_fees * share;
       });
       
       const channelSummaries = Array.from(channelMap.values()).map(ch => ({
@@ -361,13 +245,12 @@ export function SKUCostBreakdownDialog({
           : 0,
         feeBreakdown: {
           platform: breakdowns.reduce((s, b) => s + b.platform_fee * (b.revenue_share / 100), 0),
-          commission: breakdowns.reduce((s, b) => s + b.commission_fee * (b.revenue_share / 100), 0),
-          payment: breakdowns.reduce((s, b) => s + b.payment_fee * (b.revenue_share / 100), 0),
           shipping: breakdowns.reduce((s, b) => s + b.shipping_fee * (b.revenue_share / 100), 0),
+          other: breakdowns.reduce((s, b) => s + b.other_fees * (b.revenue_share / 100), 0),
         }
       };
 
-       return { breakdowns, summary, channelSummaries, fromCache: false, masterUnitCost };
+      return { breakdowns, summary, channelSummaries, fromCache: false };
     },
     enabled: open && !!tenantId && !!sku
   });
@@ -392,16 +275,6 @@ export function SKUCostBreakdownDialog({
           </div>
         ) : data?.summary ? (
           <Tabs defaultValue="overview" className="space-y-4">
-            {/* Cache notice */}
-            {data.fromCache && (
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                <span>
-                  Dữ liệu từ bộ nhớ đệm (cache). Chi tiết từng đơn hàng không khả dụng vì chưa có dữ liệu chi tiết line-item.
-                </span>
-              </div>
-            )}
-            
             <TabsList>
               <TabsTrigger value="overview">
                 <BarChart3 className="h-4 w-4 mr-2" />
@@ -411,12 +284,10 @@ export function SKUCostBreakdownDialog({
                 <Store className="h-4 w-4 mr-2" />
                 Theo kênh ({data.channelSummaries.length})
               </TabsTrigger>
-              {!data.fromCache && (
-                <TabsTrigger value="orders">
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Chi tiết đơn ({data.breakdowns.length})
-                </TabsTrigger>
-              )}
+              <TabsTrigger value="orders">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Chi tiết đơn ({data.breakdowns.length})
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -446,9 +317,6 @@ export function SKUCostBreakdownDialog({
                     <span className="text-xs text-muted-foreground">Giá vốn (COGS)</span>
                   </div>
                   <p className="text-lg font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
-                  {data.masterUnitCost != null && data.masterUnitCost > 0 && (
-                    <p className="text-xs text-muted-foreground">Unit cost: {formatVNDCompact(data.masterUnitCost)}</p>
-                  )}
                 </div>
 
                 <div className="p-3 rounded-lg bg-muted/50 border">
@@ -471,217 +339,173 @@ export function SKUCostBreakdownDialog({
               <div className="p-4 rounded-lg bg-muted/30 border">
                 <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                   <Percent className="h-4 w-4 text-primary" />
-                  Phân bổ phí sàn (tổng: {formatVNDCompact(data.summary.totalFees)})
+                  Phân bổ phí (theo tỷ lệ doanh thu)
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="flex items-center gap-2">
-                    <Store className="h-4 w-4 text-purple-500" />
+                    <CreditCard className="h-4 w-4 text-purple-500" />
                     <div>
-                      <p className="text-xs text-muted-foreground">Platform Fee</p>
-                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.platform)}</p>
+                      <p className="text-xs text-muted-foreground">Phí sàn</p>
+                      <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.platform)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Percent className="h-4 w-4 text-orange-500" />
+                    <Truck className="h-4 w-4 text-blue-500" />
                     <div>
-                      <p className="text-xs text-muted-foreground">Commission</p>
-                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.commission)}</p>
+                      <p className="text-xs text-muted-foreground">Phí vận chuyển</p>
+                      <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.shipping)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-500" />
+                    <Receipt className="h-4 w-4 text-gray-500" />
                     <div>
-                      <p className="text-xs text-muted-foreground">Payment Fee</p>
-                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.payment)}</p>
+                      <p className="text-xs text-muted-foreground">Phí khác</p>
+                      <p className="font-medium">{formatVNDCompact(data.summary.feeBreakdown.other)}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-green-500" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Shipping Fee</p>
-                      <p className="text-sm font-medium">{formatVNDCompact(data.summary.feeBreakdown.shipping)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Formula Explanation */}
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <h4 className="text-sm font-medium mb-2">Công thức tính</h4>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p><strong className="text-foreground">Phí phân bổ</strong> = Tổng phí đơn × (Doanh thu item / Doanh thu đơn)</p>
-                  <p><strong className="text-foreground">Lợi nhuận ròng</strong> = Doanh thu - COGS - Phí phân bổ</p>
-                  <p><strong className="text-foreground">Margin</strong> = (Lợi nhuận ròng / Doanh thu) × 100%</p>
                 </div>
               </div>
             </TabsContent>
 
             {/* Channels Tab */}
-            <TabsContent value="channels" className="space-y-0">
-              <ScrollArea className="h-[60vh] pr-4">
-                <div className="space-y-4">
-                  {/* Channel cards with fee breakdown */}
-                  {data.channelSummaries.map((ch, idx) => (
-                    <div key={idx} className="p-4 rounded-lg bg-muted/30 border">
+            <TabsContent value="channels" className="space-y-4">
+              <ScrollArea className="h-[400px]">
+                <div className="space-y-3">
+                  {data.channelSummaries.map((ch) => (
+                    <div key={ch.channel} className="p-4 rounded-lg border bg-card">
                       <div className="flex items-center justify-between mb-3">
-                        <Badge variant="outline" className="text-sm px-3 py-1">
-                          {ch.channel}
+                        <div className="flex items-center gap-2">
+                          <Store className="h-4 w-4 text-primary" />
+                          <span className="font-medium">{ch.channel}</span>
+                        </div>
+                        <Badge variant={ch.margin >= 20 ? 'default' : ch.margin >= 0 ? 'secondary' : 'destructive'}>
+                          {ch.margin.toFixed(1)}% margin
                         </Badge>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="text-muted-foreground">{ch.orderCount} đơn</span>
-                          <span className="text-muted-foreground">{ch.quantity} SP</span>
-                          <span className={`font-medium ${ch.margin >= 10 ? 'text-emerald-600' : ch.margin >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-                            Margin: {ch.margin.toFixed(1)}%
-                          </span>
-                        </div>
                       </div>
-
-                      {/* Main metrics */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                        <div className="p-2 rounded bg-background border">
-                          <p className="text-xs text-muted-foreground">Doanh thu</p>
-                          <p className="text-sm font-medium">{formatVNDCompact(ch.revenue)}</p>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs">Đơn hàng</p>
+                          <p className="font-medium">{ch.orderCount} đơn • {ch.quantity} sp</p>
                         </div>
-                        <div className="p-2 rounded bg-background border">
-                          <p className="text-xs text-muted-foreground">COGS</p>
-                          <p className="text-sm font-medium text-amber-600">{formatVNDCompact(ch.cogs)}</p>
-                          {data.masterUnitCost != null && data.masterUnitCost > 0 && (
-                            <p className="text-[10px] text-muted-foreground">Unit: {formatVNDCompact(data.masterUnitCost)}</p>
-                          )}
+                        <div>
+                          <p className="text-muted-foreground text-xs">Doanh thu</p>
+                          <p className="font-medium">{formatVNDCompact(ch.revenue)}</p>
                         </div>
-                        <div className="p-2 rounded bg-background border">
-                          <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
-                          <p className="text-sm font-medium text-orange-600">{formatVNDCompact(ch.fees)}</p>
+                        <div>
+                          <p className="text-muted-foreground text-xs">COGS + Phí</p>
+                          <p className="font-medium text-amber-600">
+                            {formatVNDCompact(ch.cogs)} + {formatVNDCompact(ch.fees)}
+                          </p>
                         </div>
-                        <div className="p-2 rounded bg-background border">
-                          <p className="text-xs text-muted-foreground">Lợi nhuận ròng</p>
-                          <p className={`text-sm font-medium ${ch.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Lợi nhuận</p>
+                          <p className={`font-medium ${ch.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             {formatVNDCompact(ch.profit)}
                           </p>
                         </div>
                       </div>
 
-                      {/* Fee breakdown */}
-                      <div className="pt-3 border-t">
-                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                          <Percent className="h-3 w-3" />
-                          Chi tiết phí sàn phân bổ
-                        </p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div className="flex items-center gap-2">
-                            <Store className="h-3.5 w-3.5 text-purple-500" />
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Platform</p>
-                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.platform)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Percent className="h-3.5 w-3.5 text-orange-500" />
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Commission</p>
-                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.commission)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-3.5 w-3.5 text-blue-500" />
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Payment</p>
-                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.payment)}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Truck className="h-3.5 w-3.5 text-green-500" />
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Shipping</p>
-                              <p className="text-xs font-medium">{formatVNDCompact(ch.feeBreakdown.shipping)}</p>
-                            </div>
-                          </div>
+                      {/* Fee breakdown per channel */}
+                      <div className="mt-3 pt-3 border-t grid grid-cols-3 gap-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <CreditCard className="h-3 w-3 text-purple-500" />
+                          <span className="text-muted-foreground">Phí sàn:</span>
+                          <span>{formatVNDCompact(ch.feeBreakdown.platform)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Truck className="h-3 w-3 text-blue-500" />
+                          <span className="text-muted-foreground">Vận chuyển:</span>
+                          <span>{formatVNDCompact(ch.feeBreakdown.shipping)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Receipt className="h-3 w-3 text-gray-500" />
+                          <span className="text-muted-foreground">Khác:</span>
+                          <span>{formatVNDCompact(ch.feeBreakdown.other)}</span>
                         </div>
                       </div>
                     </div>
                   ))}
-
-                  {/* Total Summary */}
-                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <h4 className="text-sm font-medium mb-3">Tổng cộng tất cả kênh</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Tổng doanh thu</p>
-                        <p className="text-sm font-bold">{formatVNDCompact(data.summary.totalRevenue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Tổng COGS</p>
-                        <p className="text-sm font-bold text-amber-600">{formatVNDCompact(data.summary.totalCogs)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Tổng phí sàn</p>
-                        <p className="text-sm font-bold text-orange-600">{formatVNDCompact(data.summary.totalFees)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Tổng lợi nhuận</p>
-                        <p className={`text-sm font-bold ${data.summary.totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {formatVNDCompact(data.summary.totalProfit)}
-                        </p>
-                      </div>
+                  
+                  {data.channelSummaries.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Store className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Không có dữ liệu theo kênh</p>
                     </div>
-                  </div>
+                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
 
             {/* Orders Tab */}
-            <TabsContent value="orders" className="space-y-4">
-              <div className="rounded-lg border overflow-hidden">
-                <ScrollArea className="h-[400px]">
-                  <Table>
-                    <TableHeader className="bg-muted/50 sticky top-0">
-                      <TableRow>
-                        <TableHead>Đơn hàng</TableHead>
-                        <TableHead>Kênh</TableHead>
-                        <TableHead>Ngày</TableHead>
-                        <TableHead className="text-right">SL</TableHead>
-                        <TableHead className="text-right">Doanh thu</TableHead>
-                        <TableHead className="text-right">COGS</TableHead>
-                        <TableHead className="text-right">% DT đơn</TableHead>
-                        <TableHead className="text-right">Phí phân bổ</TableHead>
-                        <TableHead className="text-right">Lợi nhuận</TableHead>
-                        <TableHead className="text-right">Margin</TableHead>
+            <TabsContent value="orders">
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Đơn hàng</TableHead>
+                      <TableHead>Kênh</TableHead>
+                      <TableHead>Ngày</TableHead>
+                      <TableHead className="text-right">SL</TableHead>
+                      <TableHead className="text-right">Doanh thu</TableHead>
+                      <TableHead className="text-right">COGS</TableHead>
+                      <TableHead className="text-right">Phí phân bổ</TableHead>
+                      <TableHead className="text-right">Lợi nhuận</TableHead>
+                      <TableHead className="text-right">Margin</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.breakdowns.map((b, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-mono text-xs">{b.order_number}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">{b.channel}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {b.order_date ? format(new Date(b.order_date), 'dd/MM/yy') : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">{b.quantity}</TableCell>
+                        <TableCell className="text-right">{formatVNDCompact(b.item_revenue)}</TableCell>
+                        <TableCell className="text-right text-amber-600">{formatVNDCompact(b.total_cogs)}</TableCell>
+                        <TableCell className="text-right text-purple-600">
+                          {formatVNDCompact(b.allocated_fees)}
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({b.revenue_share.toFixed(0)}%)
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-right font-medium ${b.net_profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {formatVNDCompact(b.net_profit)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant={b.margin_percent >= 20 ? 'default' : b.margin_percent >= 0 ? 'secondary' : 'destructive'} className="text-xs">
+                            {b.margin_percent.toFixed(1)}%
+                          </Badge>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.breakdowns.map((row, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium">{row.order_number}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {row.channel}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {format(new Date(row.order_date), 'dd/MM/yyyy')}
-                          </TableCell>
-                          <TableCell className="text-right">{row.quantity}</TableCell>
-                          <TableCell className="text-right">{formatVNDCompact(row.item_revenue)}</TableCell>
-                          <TableCell className="text-amber-600 text-right">{formatVNDCompact(row.total_cogs)}</TableCell>
-                          <TableCell className="text-muted-foreground text-right">{row.revenue_share.toFixed(1)}%</TableCell>
-                          <TableCell className="text-orange-600 text-right">{formatVNDCompact(row.allocated_fees)}</TableCell>
-                          <TableCell className={`text-right font-medium ${row.net_profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {formatVNDCompact(row.net_profit)}
-                          </TableCell>
-                          <TableCell className={`text-right ${row.margin_percent >= 10 ? 'text-emerald-600' : row.margin_percent >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-                            {row.margin_percent.toFixed(1)}%
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </div>
+                    ))}
+                    
+                    {data.breakdowns.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>Không có dữ liệu đơn hàng trong khoảng thời gian này</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="py-12 text-center text-muted-foreground">
-            Không tìm thấy dữ liệu cho SKU này trong khoảng thời gian đã chọn
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <p className="text-muted-foreground">
+              Không tìm thấy dữ liệu chi tiết cho SKU này trong khoảng thời gian đã chọn.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Hãy thử mở rộng khoảng thời gian hoặc kiểm tra lại SKU.
+            </p>
           </div>
         )}
       </DialogContent>

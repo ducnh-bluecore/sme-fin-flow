@@ -30737,6 +30737,36 @@ export type Database = {
           previous_value: number
         }[]
       }
+      get_sku_cost_breakdown: {
+        Args: {
+          p_end_date: string
+          p_sku: string
+          p_start_date: string
+          p_tenant_id: string
+        }
+        Returns: {
+          allocated_other_fees: number
+          allocated_platform_fee: number
+          allocated_shipping_fee: number
+          channel: string
+          gross_profit: number
+          line_cogs: number
+          line_margin: number
+          line_revenue: number
+          margin_percent: number
+          net_profit: number
+          order_at: string
+          order_gross_revenue: number
+          order_id: string
+          order_key: string
+          order_other_fees: number
+          order_platform_fee: number
+          order_shipping_fee: number
+          quantity: number
+          revenue_share_pct: number
+          unit_price: number
+        }[]
+      }
       get_sku_master_unit_cost: {
         Args: { p_sku: string; p_tenant_id: string }
         Returns: number
