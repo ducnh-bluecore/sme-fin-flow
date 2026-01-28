@@ -1,263 +1,232 @@
 
-# BLUECORE SYSTEM REVIEW - POST PHASE 6
-## Đánh giá Kiến trúc và SSOT Compliance
+# Phase 8: Critical Bug Fixes - Post-Review Remediation
 
-**Ngày review:** 28/01/2026
-**Phạm vi:** FDP, MDP, CDP, Control Tower, Cross-Module
-
----
-
-## 1. EXECUTIVE SUMMARY
-
-### Trạng thái tổng quan
-
-| Tiêu chí | Trước Phase 1 | Sau Phase 6 | Đánh giá |
-|----------|--------------|-------------|----------|
-| FDP SSOT | 85% | 95% | GOOD |
-| MDP SSOT | 75% | 85% | NEEDS WORK |
-| CDP SSOT | 90% | 95% | GOOD |
-| Control Tower SSOT | 80% | 90% | GOOD |
-| Cross-Module Integration | 8/12 | 12/12 | COMPLETE |
-| Frontend Business Logic | ~500 lines | ~200 lines | IMPROVED |
+## TL;DR
+Khắc phục 3 vấn đề critical được phát hiện trong System Review:
+1. **CM% = -23.4%**: Công thức đúng, nhưng data issue - Variable Costs cao bất thường (1.9B vs Gross Profit 609M)
+2. **True ROAS = 0.0x**: RPC không query từ `promotion_campaigns`, chỉ từ `expenses.category='marketing'`
+3. **CDP Insight = 0**: Không có data trong `cdp_insight_runs` và `cdp_insight_events` - insight engine chưa được trigger
 
 ---
 
-## 2. VẤN ĐỀ CÒN TỒN ĐỌNG
+## 1. Root Cause Analysis
 
-### 2.1 CRITICAL: MDP Decision Engine còn Business Logic trong Frontend
+### Issue 1: Contribution Margin = -23.4% (CÔNG THỨC ĐÚNG, DATA ISSUE)
 
-**File:** `src/hooks/useMarketingDecisionEngine.ts`
-
-**Vấn đề:**
-- Hook vẫn chứa 280 dòng business logic (lines 39-186)
-- Sử dụng `MDP_V2_THRESHOLDS` từ frontend (`src/types/mdp-v2.ts`)
-- Tính toán `decisionCards`, `ceoSnapshot`, `scaleOpportunities` trong `useMemo`
-- **VI PHẠM:** Manifesto yêu cầu "0 business logic trong hooks"
-
-**Evidence:**
-```text
-Line 112: .filter(c => c.cash_conversion_rate < MDP_V2_THRESHOLDS.PAUSE_CASH_CONVERSION_D14)
-Line 147: return refundRate > MDP_V2_THRESHOLDS.CAP_RETURN_RATE;
-Line 239: .filter(p => p.contribution_margin_percent >= MDP_V2_THRESHOLDS.SCALE_MIN_CM_PERCENT * 100)
+**Database Formula (Line 250):**
+```sql
+v_contribution_margin := v_gross_profit - v_variable_costs;
 ```
 
-**Giải pháp:**
-- Page `MDPV2CEOPage.tsx` vẫn import từ `useMarketingDecisionEngine` thay vì `useMDPDecisionSignals`
-- Cần migrate page sang sử dụng hook SSOT mới
+**Actual Data:**
+| Metric | Value |
+|--------|-------|
+| Net Revenue | 340,391,502 |
+| Gross Profit | 145,859,495 (từ `cdp_orders`) |
+| Variable Costs | 225,552,706 (từ `expenses` table) |
+| **Contribution Margin** | **-79,693,211** |
 
----
-
-### 2.2 MODERATE: Cash Forecast vẫn có Legacy Path
-
-**File:** `src/hooks/useForecastInputs.ts`
-
-**Vấn đề:**
-- Function `generateForecast()` (lines 321-457) vẫn tồn tại với đầy đủ logic
-- `DailyForecastView.tsx` vẫn import và sử dụng `generateForecast()` từ legacy hook
-- RPC `generate_cash_forecast` đã tạo nhưng chưa được sử dụng ở UI
-
-**Evidence:**
-```text
-DailyForecastView.tsx:39 - import { generateForecast } from '@/hooks/useForecastInputs';
-DailyForecastView.tsx:362 - return generateForecast(inputs, 90, forecastMethod, ...);
+**Root Cause:** Variable costs từ `expenses` table được sum TOÀN BỘ thay vì filter theo period. Query:
+```sql
+FROM expenses WHERE tenant_id = ... 
+  AND expense_date BETWEEN v_start_date AND v_end_date -- MISSING CONDITION?
 ```
 
-**Giải pháp:**
-- Migrate `DailyForecastView.tsx` sang sử dụng `useCashForecastSSOT`
-- Deprecate `generateForecast()` function trong `useForecastInputs.ts`
+**Thực tế:** expenses table có ~5.2B total, và với 90-day window có ~2B variable costs vs 609M gross profit = CM âm là đúng với data hiện tại.
+
+**Fix Strategy:** Verify expense data source - có thể là E2E test data với volume expenses không match với order revenue.
 
 ---
 
-### 2.3 MODERATE: external_orders vẫn còn References
+### Issue 2: True ROAS = 0.0x (FORMULA BUG)
 
-**Vấn đề:** Tìm thấy 33 files với 465 references đến `external_orders`
+**Current RPC Code:**
+```sql
+-- Line 243-244
+COALESCE(SUM(CASE WHEN category::text = 'marketing' THEN amount ELSE 0 END), 0)
+INTO v_marketing_spend FROM expenses
+```
 
-**Các trường hợp HỢP LỆ (Exceptions đã documented):**
-1. `useEcommerceReconciliation.ts` - Reconciliation staging data
-2. `PortalPage.tsx` - Data presence check
-3. `scheduled-bigquery-sync/index.ts` - Sync target table
-4. Comments explaining SSOT migration
+**Problem:** Marketing ROAS cần tính từ ad campaign revenue vs spend, nhưng RPC chỉ lấy spend từ `expenses` table, KHÔNG lấy revenue từ `promotion_campaigns`.
 
-**Các trường hợp CẦN XEM XÉT:**
-1. `src/pages/mdp/DataReadinessPage.tsx` - UI field descriptions
-2. `src/hooks/useChannelPL.ts` - Comment outdated (nói là từ external_orders)
-3. `docs/*` - Documentation có thể cần update
+**Database Data:**
+| Source | Spend | Revenue |
+|--------|-------|---------|
+| `expenses.category='marketing'` | 1,101,454,021 | N/A |
+| `promotion_campaigns` | 61,500,000 | 316,000,000 |
 
----
+**Correct ROAS:** 316M / 61.5M = **5.14x**
 
-### 2.4 LOW: Frontend .reduce() vẫn còn nhiều
-
-**Vấn đề:** Tìm thấy 1154 matches trong 62 files
-
-**Phân loại:**
-- **UI Aggregation (OK):** Tổng hợp kết quả từ DB cho hiển thị
-- **Business Logic (BAD):** Tính toán metrics, margins, KPIs
-
-**Files cần review:**
-1. `useAudienceData.ts` - Nhiều .reduce() để tính RFM, LTV
-2. `useSKUProfitabilityCache.ts` - Tổng profit, margin
-3. `useWorkingCapital.ts` - CCC trend calculations
-4. `useProductMetrics.ts` - Aggregations
+**Fix:** Update RPC để query `promotion_campaigns` hoặc `v_mdp_campaign_performance`:
+```sql
+SELECT COALESCE(SUM(total_revenue), 0) / NULLIF(SUM(actual_cost), 0) 
+INTO v_roas FROM promotion_campaigns WHERE tenant_id = p_tenant_id;
+```
 
 ---
 
-## 3. PHÂN TÍCH THEO MODULE
+### Issue 3: CDP Insights = 0 (ENGINE NOT TRIGGERED)
 
-### 3.1 FDP (Financial Data Platform) - 95% SSOT
+**Database State:**
+- `cdp_insight_runs`: 0 rows for tenant
+- `cdp_insight_events`: 0 rows for tenant
 
-**Đạt chuẩn:**
-- `useFinanceTruthSnapshot` - Canonical hook, NO calculations
-- `useCentralFinancialMetrics` - Deprecated wrapper, delegate only
-- `useCashForecastSSOT` - Thin wrapper for RPC
+**Root Cause:** Insight detection function `cdp_detect_behavioral_changes` chưa được gọi. Function này cần được:
+1. Scheduled via cron job (không thấy trong current scheduled functions)
+2. Hoặc triggered sau `cdp_run_daily_build`
 
-**Chưa đạt:**
-- `useForecastInputs.ts` - Legacy generateForecast() còn tồn tại
-- UI components vẫn dùng legacy path
-
-### 3.2 MDP (Marketing Data Platform) - 85% SSOT
-
-**Đạt chuẩn:**
-- `useMDPDecisionSignals` - Thin wrapper cho view
-- `v_mdp_decision_signals` - Logic trong SQL
-- `mdp_config` - Thresholds configurable
-
-**Chưa đạt:**
-- `useMarketingDecisionEngine.ts` - 280 lines business logic
-- `MDPV2CEOPage.tsx` - Sử dụng legacy hook
-- `MDP_V2_THRESHOLDS` - Hardcoded trong types file
-
-### 3.3 CDP (Customer Data Platform) - 95% SSOT
-
-**Đạt chuẩn:**
-- Insight Actions (dismiss/snooze) via RPC
-- Cross-module flows (Credit Risk, LTV, Churn)
-- Population queries from views
-
-**Chưa đạt:**
-- `useAudienceData.ts` - RFM calculations trong frontend
-
-### 3.4 Control Tower - 90% SSOT
-
-**Đạt chuẩn:**
-- Alert Resolution workflow via RPC
-- Escalation via DB trigger
-- Priority Queue from view
-
-**Chưa đạt:**
-- `useControlTowerSSOT.ts` - Một số mapping logic
+**Fix:** Add insight detection to daily build pipeline hoặc schedule riêng.
 
 ---
 
-## 4. CROSS-MODULE INTEGRATION
+## 2. Implementation Plan
 
-### 4.1 Đã hoàn thành 12/12 Cases
+### Task 8.1: Fix Marketing ROAS Calculation (HIGH PRIORITY)
 
-| Case | Flow | Status | Implementation |
-|------|------|--------|----------------|
-| 1 | CDP → FDP: Revenue Forecast | DONE | `cdp_push_revenue_to_fdp` |
-| 2 | FDP → MDP: Locked Costs | DONE | `mdp_get_costs_for_roas` |
-| 3 | CDP → MDP: Segment LTV | DONE | `useMDPSegmentLTV` |
-| 4 | CDP → MDP: Churn Signal | DONE | `useMDPChurnSignals` |
-| 5 | MDP → CDP: Attribution CAC | DONE | `usePushAttributionToCDP` |
-| 6 | MDP → CDP: Acquisition Source | DONE | `usePushAcquisitionToCDP` |
-| 7 | FDP → CDP: Actual Revenue | DONE | `usePushActualRevenueToCDP` |
-| 8 | FDP → CDP: AR → Credit Risk | DONE | `fdp_push_ar_to_cdp` |
-| 9 | MDP → FDP: Seasonal Patterns | DONE | `fdp_get_seasonal_adjustments` |
-| 10 | MDP → FDP: Channel ROI | DONE | `fdp_get_budget_recommendations` |
-| 11 | CT → All: Variance Alerts | DONE | `trigger_auto_dispatch_variance` |
-| 12 | All → CT: Priority Queue | DONE | `useControlTowerPriorityQueue` |
+**Approach:** Update `compute_central_metrics_snapshot` để lấy ROAS từ promotion_campaigns
 
----
+**SQL Changes:**
+```sql
+-- Add after Line 245
+SELECT 
+  COALESCE(SUM(actual_cost), 0),
+  CASE WHEN COALESCE(SUM(actual_cost), 0) > 0 
+    THEN COALESCE(SUM(total_revenue), 0) / SUM(actual_cost) 
+    ELSE 0 
+  END
+INTO v_marketing_spend_campaigns, v_roas
+FROM promotion_campaigns
+WHERE tenant_id = p_tenant_id
+  AND created_at >= v_start_date;
 
-## 5. ACTION ITEMS - PRIORITIZED
+-- Use v_roas directly instead of 0 default
+```
 
-### Phase 7.1: MDP SSOT Completion (HIGH PRIORITY)
-
-**Task 7.1.1:** Migrate MDPV2CEOPage sang useMDPDecisionSignals
-- File: `src/pages/mdp/MDPV2CEOPage.tsx`
-- Thay `useMarketingDecisionEngine` → `useMDPDecisionSignals`
-- Map `decisionCards` từ signals
-- Remove CEOSnapshot computation (move to view)
-
-**Task 7.1.2:** Deprecate useMarketingDecisionEngine
-- Add @deprecated annotation
-- Remove business logic
-- Make it a thin wrapper hoặc delete
-
-**Task 7.1.3:** Move MDP_V2_THRESHOLDS sang Database
-- Thresholds đã có trong `mdp_config`
-- UI nên fetch từ `useMDPConfig()`
-- Update `DecisionContextRail.tsx` để dùng DB values
-
-### Phase 7.2: Cash Forecast Cleanup (MEDIUM PRIORITY)
-
-**Task 7.2.1:** Migrate DailyForecastView sang SSOT
-- Replace `generateForecast()` → `useCashForecastSSOT()`
-- Remove import từ `useForecastInputs`
-
-**Task 7.2.2:** Deprecate generateForecast()
-- Add @deprecated annotation
-- Consider removal sau 30 ngày
-
-### Phase 7.3: Audience Data SSOT (LOW PRIORITY)
-
-**Task 7.3.1:** Create v_cdp_rfm_segments view
-- Move RFM calculation logic to SQL
-- Pre-compute segment assignments
-
-**Task 7.3.2:** Refactor useAudienceData
-- Remove .reduce() business logic
-- Fetch from view
+**Files Modified:**
+- New migration: `fix_marketing_roas_calculation.sql`
 
 ---
 
-## 6. METRICS TARGET POST-PHASE 7
+### Task 8.2: Add CDP Insight Detection to Daily Pipeline (HIGH PRIORITY)
 
-| Metric | Current | Target | Notes |
-|--------|---------|--------|-------|
-| FDP SSOT | 95% | 100% | Fix generateForecast |
-| MDP SSOT | 85% | 98% | Fix MDPV2CEOPage |
-| CDP SSOT | 95% | 100% | Fix useAudienceData |
-| CT SSOT | 90% | 95% | Minor cleanup |
-| Frontend Business Logic Lines | ~200 | <50 | Focus on 3 hooks |
+**Approach:** Trigger `cdp_detect_behavioral_changes` after daily build
 
----
+**SQL Changes:**
+```sql
+-- Update cdp_run_daily_build to include insight detection
+-- After equity build step:
+PERFORM cdp_detect_behavioral_changes(p_tenant_id, p_as_of_date);
+```
 
-## 7. POSITIVE FINDINGS
+**Alternative:** Add cron job trong `scheduled-sync` edge function để gọi insight RPC riêng.
 
-### 7.1 Metric Registry đã sửa đúng
-- 4 metrics đã chuyển từ `external_orders` → `cdp_orders`
-- ESLint guardrails đang hoạt động
-
-### 7.2 Database-First Architecture hoàn thiện
-- 15+ RPCs đã tạo
-- 10+ Views cho aggregation
-- Triggers cho automation
-
-### 7.3 Cross-Module Data Flywheel hoạt động
-- 12/12 integration cases implemented
-- Fallback chain (Locked → Observed → Estimated)
-- Daily sync orchestration
-
-### 7.4 UI Polish & Governance
-- Insight Actions (Dismiss/Snooze)
-- Alert Resolution Workflow
-- Governance Overlay (?governance=1)
+**Files Modified:**
+- Migration: Update `cdp_run_daily_build`
+- Or: `supabase/functions/scheduled-sync/index.ts` (add action)
 
 ---
 
-## 8. RECOMMENDATIONS
+### Task 8.3: Document Contribution Margin Interpretation (MEDIUM)
 
-### Immediate (This Week)
-1. Fix MDPV2CEOPage.tsx to use useMDPDecisionSignals
-2. Update DailyForecastView.tsx to use useCashForecastSSOT
+**Finding:** CM = -23.4% là ĐÚNG VỚI DATA hiện tại. Không phải bug công thức.
 
-### Short-term (Next 2 Weeks)
-3. Create v_cdp_rfm_segments view
-4. Refactor useAudienceData.ts
-5. Audit remaining .reduce() usage
+**Action Items:**
+1. Add data validation warning khi Variable Costs > 2x Gross Profit
+2. UI indicator khi CM calculation dựa trên incomplete expense data
+3. Cross-check với accounting: expenses có phải là annualized/projected không?
 
-### Long-term (Next Month)
-6. Remove deprecated hooks after 30-day notice
-7. Strengthen ESLint rules to ERROR level
-8. Add unit tests for database functions
+**Files Modified:**
+- `src/hooks/useFinanceTruthSnapshot.ts`: Add data quality flags
+- UI components: Show warning badge
+
+---
+
+### Task 8.4: Manual Trigger for Immediate Fix (IMMEDIATE)
+
+**Purpose:** Cho phép user trigger insight engine ngay lập tức
+
+**Implementation:**
+```typescript
+// Add to scheduled-sync edge function
+case 'trigger-cdp-insights':
+  await supabase.rpc('cdp_detect_behavioral_changes', {
+    p_tenant_id: targetTenantId,
+    p_as_of_date: targetDate || new Date().toISOString().split('T')[0]
+  });
+```
+
+---
+
+## 3. Testing Strategy
+
+### Validation Queries:
+
+```sql
+-- 1. Verify ROAS after fix
+SELECT marketing_roas, total_marketing_spend 
+FROM central_metrics_snapshots 
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+ORDER BY snapshot_at DESC LIMIT 1;
+-- Expected: marketing_roas > 0 (approx 5.14)
+
+-- 2. Verify Insights generated
+SELECT COUNT(*) FROM cdp_insight_events 
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+-- Expected: > 0
+
+-- 3. Verify CM with expense breakdown
+SELECT 
+  gross_profit,
+  variable_costs,
+  contribution_margin,
+  (contribution_margin / net_revenue * 100) as cm_pct
+FROM central_metrics_snapshots 
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+ORDER BY snapshot_at DESC LIMIT 1;
+```
+
+---
+
+## 4. Impact Assessment
+
+| Issue | Current | After Fix | Business Impact |
+|-------|---------|-----------|-----------------|
+| True ROAS | 0.0x | ~5.1x | MDP decisions unblocked |
+| CDP Insights | 0 | Variable | AI signals available |
+| CM% | -23.4% | Same* | Documentation clarity |
+
+*CM% reflects actual expense ratio - not a bug
+
+---
+
+## 5. Files to Modify
+
+| File | Change Type | Priority |
+|------|-------------|----------|
+| `supabase/migrations/[new]_fix_roas.sql` | Create | HIGH |
+| `supabase/migrations/[new]_add_insights_to_pipeline.sql` | Create | HIGH |
+| `supabase/functions/scheduled-sync/index.ts` | Modify | MEDIUM |
+| `src/hooks/useFinanceTruthSnapshot.ts` | Modify | LOW |
+| `.lovable/plan.md` | Update | LOW |
+
+---
+
+## 6. Rollback Strategy
+
+Nếu fix gây regression:
+1. ROAS: Revert migration, ROAS sẽ về 0 (safe default)
+2. Insights: Independent module, không ảnh hưởng core data
+3. CM: Không thay đổi formula, chỉ add warnings
+
+---
+
+## 7. Timeline
+
+| Task | Duration | Dependency |
+|------|----------|------------|
+| 8.1 Fix ROAS | 30 min | None |
+| 8.2 Add Insights | 30 min | None |
+| 8.3 CM Documentation | 15 min | After 8.1 |
+| 8.4 Manual Trigger | 15 min | After 8.2 |
+| Testing & Validation | 15 min | After all |
+| **Total** | **~2 hours** | |
