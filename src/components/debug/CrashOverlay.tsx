@@ -24,6 +24,9 @@ type DebugInfo = {
  * This is a debugging aid to eliminate “white screen with no clue”.
  */
 export function CrashOverlay() {
+  // Disabled: Debug overlay removed per user request
+  return null;
+
   const [crash, setCrash] = useState<CrashInfo | null>(null);
   const [debug, setDebug] = useState<DebugInfo | null>(null);
   const [open, setOpen] = useState(true);
