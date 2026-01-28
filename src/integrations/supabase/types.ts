@@ -9613,6 +9613,71 @@ export type Database = {
           },
         ]
       }
+      cross_module_config: {
+        Row: {
+          category: string
+          config_key: string
+          config_value: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          config_key: string
+          config_value: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          config_key?: string
+          config_value?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cross_module_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cross_module_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cross_module_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cross_module_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cross_module_revenue_forecast: {
         Row: {
           confidence_level: string | null
@@ -15801,6 +15866,33 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      ltv_industry_assumptions: {
+        Row: {
+          assumptions: Json
+          created_at: string | null
+          id: string
+          industry_code: string
+          industry_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          assumptions: Json
+          created_at?: string | null
+          id?: string
+          industry_code: string
+          industry_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          assumptions?: Json
+          created_at?: string | null
+          id?: string
+          industry_code?: string
+          industry_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       market_data: {
         Row: {
@@ -22857,6 +22949,72 @@ export type Database = {
             foreignKeyName: "team_members_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      tenant_ltv_config: {
+        Row: {
+          created_at: string | null
+          custom_assumptions: Json | null
+          id: string
+          industry_code: string | null
+          is_custom: boolean | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custom_assumptions?: Json | null
+          id?: string
+          industry_code?: string | null
+          is_custom?: boolean | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custom_assumptions?: Json | null
+          id?: string
+          industry_code?: string | null
+          is_custom?: boolean | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_ltv_config_industry_code_fkey"
+            columns: ["industry_code"]
+            isOneToOne: false
+            referencedRelation: "ltv_industry_assumptions"
+            referencedColumns: ["industry_code"]
+          },
+          {
+            foreignKeyName: "tenant_ltv_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_ltv_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_ltv_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_ltv_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "v_retail_concentration_risk"
             referencedColumns: ["tenant_id"]
           },
@@ -31168,6 +31326,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_cross_module_config: {
+        Args: { p_config_key: string; p_tenant_id: string }
+        Returns: Json
+      }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_evidence: {
         Args: { p_decision_id: string }
@@ -31397,6 +31559,10 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_tenant_ltv_assumptions: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
       get_working_capital_daily: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
@@ -31579,9 +31745,21 @@ export type Database = {
           table_name: string
         }[]
       }
+      seed_cross_module_config_defaults: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       seed_mdp_config_defaults: {
         Args: { p_tenant_id: string }
         Returns: undefined
+      }
+      set_cross_module_config: {
+        Args: {
+          p_config_key: string
+          p_config_value: Json
+          p_tenant_id: string
+        }
+        Returns: boolean
       }
       start_compute_job: {
         Args: {
