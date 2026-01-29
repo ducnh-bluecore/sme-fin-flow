@@ -857,7 +857,7 @@ const marketingPainPoints = [
   },
   {
     number: '03',
-    title: 'Marketing tách rời Cash Flow',
+    title: 'Marketing tách rời dòng tiền',
     bullets: [
       '• Ads chi ngay, tiền về sau 14-21 ngày',
       '• Cash conversion cycle không ai theo dõi',
@@ -898,7 +898,7 @@ const costItems = [
   },
   {
     amount: '100%',
-    label: 'Cash bị khoá vô hình',
+    label: 'Cash bị khóa vô hình',
     desc: 'Chi trước, thu sau nhưng không ai tính cashflow impact',
   },
 ];
@@ -918,7 +918,7 @@ const threePillars = [
   {
     icon: '💵',
     title: 'CASH IMPACT',
-    desc: 'Marketing ảnh hưởng cashflow thế nào',
+    desc: 'Marketing ảnh hưởng dòng tiền thế nào',
   },
 ];
 
@@ -937,7 +937,7 @@ const solutionCards = [
   {
     badge: 'C',
     title: 'Cash at Risk',
-    desc: 'Bao nhiêu tiền đang bị khoá trong ads',
+    desc: 'Bao nhiêu tiền đang bị khóa trong ads',
   },
   {
     badge: 'D',
@@ -972,8 +972,8 @@ const competitiveAdvantages = [
   },
   {
     number: '#3',
-    title: 'MARKETING GẮN LIỀN CASHFLOW',
-    desc: 'Biết chính xác marketing đang khoá bao nhiêu tiền và khi nào tiền sẽ về.',
+    title: 'MARKETING GẮN LIỀN DÒNG TIỀN',
+    desc: 'Biết chính xác marketing đang khóa bao nhiêu tiền và khi nào tiền sẽ về.',
   },
 ];
 
@@ -992,7 +992,7 @@ const useCaseStories = {
   cashImpact: {
     title: '📖 TÌNH HUỐNG THỰC TẾ',
     text: 'Startup của Linh chi 200 triệu/tháng cho ads. Doanh thu tăng đẹp, nhưng tháng nào cũng thiếu tiền trả lương. Linh không hiểu tại sao.',
-    result: '→ VỚI MDP: Dashboard Cash at Risk cho thấy 500 triệu đang bị khoá (chi trước, thu sau 21 ngày). Linh điều chỉnh ngân sách phù hợp cashflow.',
+    result: '→ VỚI MDP: Dashboard Cash at Risk cho thấy 500 triệu đang bị khóa (chi trước, thu sau 21 ngày). Linh điều chỉnh ngân sách phù hợp dòng tiền.',
   },
   netImpact: {
     title: '📖 TÌNH HUỐNG THỰC TẾ',
@@ -1007,7 +1007,7 @@ const manifestoItems = [
   { number: '#2', title: 'Profit before Performance', desc: 'Không quan tâm CTR, CPM — chỉ quan tâm lợi nhuận.' },
   { number: '#3', title: 'Phục vụ CEO/CFO trước', desc: 'Marketer buộc phải điều chỉnh, không phải CEO phải hiểu.' },
   { number: '#4', title: 'Profit Attribution', desc: 'Mỗi campaign được truy tới Contribution Margin.' },
-  { number: '#5', title: 'Marketing gắn liền Cashflow', desc: 'Tiền về nhanh hay chậm? Cash bị khoá bao nhiêu?' },
+  { number: '#5', title: 'Marketing gắn liền dòng tiền', desc: 'Tiền về nhanh hay chậm? Cash bị khóa bao nhiêu?' },
   { number: '#6', title: 'Nuôi FDP & Control Tower', desc: 'MDP không đứng riêng — là nguồn signal cho Decision OS.' },
   { number: '#7', title: 'Risk trước Thành tích', desc: 'Phát hiện marketing đốt tiền trước khi tôn vinh scale.' },
   { number: '#8', title: 'Attribution đơn giản', desc: 'Không AI magic khó giải thích — logic CFO tin được.' },
