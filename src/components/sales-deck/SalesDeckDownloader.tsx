@@ -100,24 +100,24 @@ const SalesDeckDownloader: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {deckOptions.map((deck) => (
-          <Card key={deck.id} className={`relative ${!deck.available ? 'opacity-60' : ''} ${deck.featured ? 'ring-2 ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20' : ''}`}>
+          <Card key={deck.id} className={`relative ${!deck.available ? 'opacity-60' : ''} ${deck.featured ? 'ring-2 ring-primary bg-primary/10' : ''}`}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
-                <div className={`p-2 rounded-lg ${deck.featured ? 'bg-indigo-100' : 'bg-muted'}`}>{deck.icon}</div>
+                <div className={`p-2 rounded-lg ${deck.featured ? 'bg-primary/20' : 'bg-muted'}`}>{deck.icon}</div>
                 {deck.featured ? (
-                  <Badge variant="default" className="bg-indigo-600 text-white">
+                  <Badge variant="default" className="bg-primary text-primary-foreground">
                     Đề xuất
                   </Badge>
                 ) : deck.available ? (
-                  <Badge variant="default" className="bg-green-100 text-green-700">
+                  <Badge variant="default" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                     Sẵn sàng
                   </Badge>
                 ) : (
                   <Badge variant="secondary">Đang phát triển</Badge>
                 )}
               </div>
-              <CardTitle className="text-lg mt-3">{deck.title}</CardTitle>
-              <CardDescription>{deck.subtitle}</CardDescription>
+              <CardTitle className="text-lg mt-3 text-foreground">{deck.title}</CardTitle>
+              <CardDescription className="text-muted-foreground">{deck.subtitle}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
