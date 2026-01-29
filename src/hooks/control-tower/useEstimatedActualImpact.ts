@@ -7,6 +7,12 @@ export interface EstimatedImpact {
   confidence_level: 'LOW' | 'OBSERVED' | 'ESTIMATED';
   data_source: string;
   calculation_method: string;
+  // Detailed breakdown for transparency
+  metric_name: string;
+  before_value: number;
+  after_value: number;
+  period_days: number;
+  low_confidence_reason: string | null;
 }
 
 interface UseEstimatedActualImpactParams {
@@ -52,6 +58,11 @@ export function useEstimatedActualImpact({
         confidence_level: (result.confidence_level || 'LOW') as EstimatedImpact['confidence_level'],
         data_source: result.data_source || 'unknown',
         calculation_method: result.calculation_method || 'unknown',
+        metric_name: result.metric_name || 'N/A',
+        before_value: result.before_value || 0,
+        after_value: result.after_value || 0,
+        period_days: result.period_days || 0,
+        low_confidence_reason: result.low_confidence_reason || null,
       };
     },
     enabled: enabled && !!tenantId && !!decisionType && !!decisionDate,
