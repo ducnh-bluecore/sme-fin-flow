@@ -12,7 +12,17 @@ import {
   Text,
   View,
   StyleSheet,
+  Font,
 } from '@react-pdf/renderer';
+
+// Register Noto Sans font (supports Vietnamese characters)
+Font.register({
+  family: 'NotoSans',
+  fonts: [
+    { src: '/fonts/NotoSans-Regular.ttf', fontWeight: 400 },
+    { src: '/fonts/NotoSans-Bold.ttf', fontWeight: 700 },
+  ],
+});
 
 // Brand colors
 const colors = {
@@ -28,11 +38,11 @@ const colors = {
   black: '#000000',
 };
 
-// Styles - Using built-in Helvetica font (no external font loading)
+// Styles - Using Noto Sans font (supports Vietnamese)
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontFamily: 'Helvetica',
+    fontFamily: 'NotoSans',
     backgroundColor: colors.white,
   },
   coverPage: {
