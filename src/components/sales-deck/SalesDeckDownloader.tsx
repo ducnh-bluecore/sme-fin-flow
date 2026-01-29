@@ -14,6 +14,7 @@ import FDPSalesDeckPDF from './FDPSalesDeckPDF';
 import MDPSalesDeckPDF from './MDPSalesDeckPDF';
 import CDPSalesDeckPDF from './CDPSalesDeckPDF';
 import ControlTowerSalesDeckPDF from './ControlTowerSalesDeckPDF';
+import DataWarehouseSalesDeckPDF from './DataWarehouseSalesDeckPDF';
 
 interface DeckOption {
   id: string;
@@ -66,9 +67,10 @@ const deckOptions: DeckOption[] = [
     id: 'datawarehouse',
     title: 'Data Warehouse',
     subtitle: 'Sales Deck cho kiến trúc Data',
-    icon: <Database className="h-6 w-6 text-slate-600" />,
-    available: false,
+    icon: <Database className="h-6 w-6 text-cyan-600" />,
+    available: true,
     tagline: 'Single Source of Truth',
+    component: <DataWarehouseSalesDeckPDF />,
   },
   {
     id: 'full-system',
