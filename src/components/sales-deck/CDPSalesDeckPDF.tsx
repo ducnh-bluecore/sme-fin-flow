@@ -866,7 +866,7 @@ const customerPainPoints = [
   },
   {
     number: '04',
-    title: 'Marketing đồng loạt, phí phạm',
+    title: 'Marketing đồng loạt, lãng phí',
     bullets: [
       '• Gửi email/SMS cho TẤT CẢ',
       '• Chi 100 triệu, chỉ 5% khách phản hồi',
@@ -893,7 +893,7 @@ const costItems = [
   },
   {
     amount: '10x',
-    label: 'Chi phí marketing phí phạm',
+    label: 'Chi phí marketing lãng phí',
     desc: 'Spray & pray thay vì target đúng segment',
   },
   {
