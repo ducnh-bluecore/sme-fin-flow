@@ -45,6 +45,7 @@ import { FixedCostDefinitionPanel } from '@/components/expenses/FixedCostDefinit
 import { VariableCostEstimatePanel } from '@/components/expenses/VariableCostEstimatePanel';
 import { BudgetVsActualSummary } from '@/components/expenses/BudgetVsActualSummary';
 import { ExpenseVarianceAlerts } from '@/components/expenses/ExpenseVarianceAlerts';
+import { UpcomingPaymentAlerts } from '@/components/expenses/UpcomingPaymentAlerts';
 import {
   AreaChart,
   Area,
@@ -468,6 +469,9 @@ export default function ExpensesPage() {
           </TabsContent>
 
           <TabsContent value="definitions" className="space-y-4">
+            {/* Upcoming Payment Alerts */}
+            <UpcomingPaymentAlerts />
+            
             {/* Variance Alerts */}
             <ExpenseVarianceAlerts />
             
