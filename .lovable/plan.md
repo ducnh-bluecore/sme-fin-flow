@@ -1,201 +1,216 @@
 
 
-# Nâng cấp FDP Sales Deck: Kể câu chuyện Cash Flow cho SME Retail
+# Kế hoạch nâng cấp FDP Sales Deck: Định vị + Use Cases + Lợi thế cạnh tranh
 
-## Vấn đề hiện tại
-Deck 9 trang hiện tại:
-- Chỉ list tính năng, không có hình minh họa
-- Thiếu **câu chuyện về dòng tiền** (Cash Flow Story) - vấn đề cốt lõi của SME Retail
-- Không có **Use Case hàng ngày** - lý do để mở Bluecore mỗi sáng
-- Thiếu hình ảnh UI mockup để người đọc hình dung được sản phẩm
+## Tổng quan vấn đề
+
+Deck hiện tại có cấu trúc tốt (12 slides) nhưng thiếu 3 yếu tố quan trọng:
+
+| # | Vấn đề | Slide | Cần cải thiện |
+|---|--------|-------|---------------|
+| 1 | Slide định vị Bluecore chưa nói rõ "tại sao Bluecore?" | Page 5 | Thêm positioning statement + differentiation |
+| 2 | Use Cases chưa có bối cảnh thực tế | Pages 7-10 | Thêm story format: Tình huống → Vấn đề → Giải pháp → Kết quả |
+| 3 | So sánh đối thủ chưa khẳng định lợi thế | Page 6 | Thêm "Why Bluecore Wins" section + specific advantages |
 
 ---
 
-## Kế hoạch mới: Sales Deck 12 trang với Story Arc
+## Thay đổi chi tiết
 
-### Narrative Arc (Cấu trúc kể chuyện)
+### 1. Page 5: Slide Định vị Bluecore (Nâng cấp)
+
+**Hiện tại**: Chỉ list 4 tính năng (Cash Position, Unit Economics, AR/AP, Cash Runway)
+
+**Thêm mới**:
 
 ```text
-[Hook] → [Pain] → [Root Cause] → [Solution] → [Use Cases] → [Daily Habit] → [Proof] → [CTA]
+┌─────────────────────────────────────────────────────────────┐
+│ EYEBROW: "Định vị"                                          │
+│                                                              │
+│ HEADLINE: "Bluecore FDP không phải BI — không phải ERP"    │
+│                                                              │
+│ POSITIONING STATEMENT (2-3 dòng):                           │
+│ "Bluecore FDP là nền tảng dữ liệu tài chính duy nhất        │
+│  được thiết kế cho CEO và CFO SME Retail Việt Nam.          │
+│  Không phải công cụ báo cáo — mà là hệ thống hỗ trợ         │
+│  quyết định dựa trên dòng tiền thật."                       │
+│                                                              │
+│ 3 PILLARS (thay vì 4 feature cards):                        │
+│ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐    │
+│ │ 💵 REAL CASH   │ │ 📊 TRUTH FIRST │ │ ⚡ ACTION NOW  │    │
+│ │ Tiền thật,     │ │ Không làm đẹp  │ │ Quyết định    │    │
+│ │ không tiền sổ  │ │ số, chỉ sự     │ │ hôm nay,      │    │
+│ │ sách           │ │ thật           │ │ không chờ     │    │
+│ └────────────────┘ └────────────────┘ └────────────────┘    │
+│                                                              │
+│ CORE CAPABILITIES (4 cards như cũ nhưng có context):        │
+│ A: Cash Position — "Biết tiền THẬT trong 5 giây"           │
+│ B: Unit Economics — "Biết SKU nào đang ăn tiền"            │
+│ C: AR/AP Actions — "Biết ai cần gọi hôm nay"               │
+│ D: Cash Forecast — "Biết runway còn bao lâu"               │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Slide Order mới (12 pages)
-
-| # | Slide | Mục đích | Nền |
-|---|-------|----------|-----|
-| 1 | Cover | Hook đầu tiên | Dark + ornaments |
-| 2 | **Câu chuyện: Một ngày của CEO SME Retail** | Đau đớn thật | Gradient |
-| 3 | **Vấn đề: Dòng tiền SME Retail** | Root cause - 5 điểm nghẹt cash | White + Red accents |
-| 4 | **Hệ quả: Chi phí của việc "không biết"** | Loss quantification | Dark |
-| 5 | Bluecore FDP là gì? | Solution positioning | Gradient |
-| 6 | So sánh với đối thủ | Competitive edge | White + Table |
-| 7 | **Use Case 1: Sáng thứ Hai - Kiểm tra Cash** | Daily habit story | White + Mockup |
-| 8 | **Use Case 2: SKU nào đang "ăn" tiền?** | Unit Economics story | Alt + Mockup |
-| 9 | **Use Case 3: Khách nào đang nợ quá hạn?** | AR Collection story | White + Mockup |
-| 10 | **Use Case 4: Dự báo - Còn bao lâu trước khi hết tiền?** | Cash Runway story | Alt + Mockup |
-| 11 | FDP Manifesto (Condensed) | Philosophy anchor | Alt |
-| 12 | Contact/CTA | Next step | Dark + ornaments |
+**Thay đổi code**:
+- Thêm `positioningStatement` text block trước `solutionGrid`
+- Thêm `threePillars` section (3 cột highlight 3 core values)
+- Giữ nguyên 4 `solutionCards` nhưng update copy cho action-oriented hơn
 
 ---
 
-## Chi tiết nội dung mới
+### 2. Pages 7-10: Use Cases với Story Format (Nâng cấp)
 
-### Slide 2: Câu chuyện một ngày của CEO SME Retail
+**Hiện tại**: Chỉ có headline + mockup + 2 benefits + impact
 
-**Headline:** "Một ngày của CEO không biết mình còn bao nhiêu tiền"
+**Thêm mới**: Story block với format "Tình huống → Vấn đề → Bluecore giải quyết"
 
-**Story format (dạng timeline):**
-- 7:00 AM — "Doanh thu hôm qua 800 triệu, nhưng tiền thật về bao nhiêu?"
-- 9:00 AM — "Nhà cung cấp đòi thanh toán 600 triệu hôm nay"
-- 11:00 AM — "Marketing xin thêm 200 triệu cho ads"
-- 2:00 PM — "Kế toán nói có 2 tỷ trong tài khoản, nhưng 1.5 tỷ đang bị Shopee hold"
-- 5:00 PM — "Không biết nên approve hay reject yêu cầu mua hàng mới"
-
-**Visual:** Timeline từ sáng đến chiều với các "pain points" được highlight
-
----
-
-### Slide 3: Vấn đề dòng tiền SME Retail
-
-**Headline:** "5 điểm nghẹt dòng tiền mà Excel không thể hiện"
-
-**5 Pain Points (visual cards):**
-
-1. **Tiền bán hàng chưa phải là tiền thật**
-   - Shopee/Lazada hold 14-21 ngày
-   - COD chưa đối soát
-   - Return chưa xử lý
-
-2. **Hàng tồn = Tiền chết**
-   - 30% tồn kho là slow-moving
-   - Mỗi ngày mất chi phí lưu kho
-   - Không ai biết nên thanh lý SKU nào
-
-3. **Marketing đốt tiền nhưng không biết ROI thật**
-   - Chi 100 triệu ads, về 300 triệu revenue
-   - Nhưng COGS + logistics + return = lỗ?
-   - Không có Unit Economics
-
-4. **Công nợ "đẹp" trên sổ, xấu trong thực tế**
-   - AR 2 tỷ, nhưng 800 triệu quá hạn 60+ ngày
-   - Ai cần gọi hôm nay?
-   - Khả năng thu hồi thực tế?
-
-5. **Không biết còn bao lâu trước khi hết tiền**
-   - Cash Runway? 
-   - Burn rate thực?
-   - Đến khi nào?
-
----
-
-### Slide 4: Chi phí của việc "không biết" (Dramatic)
-
-**Headline:** "Mỗi ngày không biết = Mất tiền thật"
-
-**Visual: 3 "cost boxes" với số liệu shock**
-
-- **Quyết định chậm 1 tuần:** Mất 50-100 triệu cơ hội
-- **SKU lỗ bán thêm 1 tháng:** Mất 30-80 triệu
-- **AR quá hạn không thu 2 tháng:** 20% nguy cơ mất trắng
-
-**Pull quote:**
-> "Doanh nghiệp SME không chết vì quyết định sai — mà chết vì quyết định chậm"
-
----
-
-### Slide 7-10: 4 Use Cases hàng ngày (với UI Mockup)
-
-Mỗi slide theo format:
+#### Use Case #1: Monday Morning Cash Check (Page 7)
 
 ```text
-[Eyebrow: Use Case #X]
-[Headline: Câu hỏi CEO đặt ra]
-[Subtitle: Cách Bluecore trả lời]
-[UI Mockup Illustration - simplified diagram]
-[3 bullet points: What you get]
-[Impact box: số liệu cụ thể]
+STORY BLOCK (thêm trước mockup):
+┌─────────────────────────────────────────────────────────────┐
+│ 📖 TÌNH HUỐNG THỰC TẾ                                       │
+│                                                              │
+│ "Anh Minh, CEO chuỗi thời trang 5 cửa hàng, mỗi sáng        │
+│  thứ Hai phải mất 2 giờ để hỏi kế toán: 'Mình còn bao      │
+│  nhiêu tiền?' Kế toán nói 2 tỷ, nhưng 1.5 tỷ đang bị       │
+│  Shopee hold, 300 triệu là COD chưa đối soát."             │
+│                                                              │
+│ → VỚI BLUECORE: Anh Minh mở app, 5 giây biết ngay:         │
+│   Cash thật: 500 triệu | Hold: 1.5 tỷ | Sẽ về: 800 triệu   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Use Case 1: Sáng thứ Hai - Kiểm tra Cash**
-- Câu hỏi: "Hôm nay mình có bao nhiêu tiền THẬT?"
-- Bluecore trả lời trong 5 giây: Cash Today, Cash Runway, Top Alerts
-- Impact: Giảm 90% thời gian kiểm tra buổi sáng
+#### Use Case #2: SKU Profitability (Page 8)
 
-**Use Case 2: SKU nào đang "ăn" tiền?**
-- Câu hỏi: "Tại sao bán nhiều mà vẫn không có tiền?"
-- Bluecore: Unit Economics Dashboard - CM% từng SKU
-- Impact: Phát hiện 15% SKU đang contribution margin âm
+```text
+STORY BLOCK:
+┌─────────────────────────────────────────────────────────────┐
+│ 📖 TÌNH HUỐNG THỰC TẾ                                       │
+│                                                              │
+│ "Chị Lan, founder shop mỹ phẩm online, tháng vừa rồi       │
+│  doanh thu 500 triệu nhưng cuối tháng hết tiền trả lương.  │
+│  Kiểm tra mới biết: 3 combo khuyến mãi đang bán lỗ,        │
+│  mỗi đơn mất 15k sau khi trừ COGS, ship, ads, return."     │
+│                                                              │
+│ → VỚI BLUECORE: Chị Lan thấy ngay 3 SKU CM âm ngay         │
+│   khi vào dashboard, dừng bán ngay, tiết kiệm 80 triệu.    │
+└─────────────────────────────────────────────────────────────┘
+```
 
-**Use Case 3: Khách nào đang nợ quá hạn?**
-- Câu hỏi: "Ai đang nợ tiền mình?"
-- Bluecore: AR Aging với Top 10 khách cần call ngay
-- Impact: Thu hồi thêm 500M-2B mỗi tháng
+#### Use Case #3: AR Collection (Page 9)
 
-**Use Case 4: Còn bao lâu trước khi hết tiền?**
-- Câu hỏi: "Runway còn bao lâu?"
-- Bluecore: 30/60/90 day forecast với scenarios
-- Impact: Biết trước 2-3 tháng nếu cash sắp cạn
+```text
+STORY BLOCK:
+┌─────────────────────────────────────────────────────────────┐
+│ 📖 TÌNH HUỐNG THỰC TẾ                                       │
+│                                                              │
+│ "Công ty thực phẩm của anh Hùng có AR 3 tỷ trên sổ.        │
+│  Nhưng 800 triệu đã quá hạn 60 ngày, 1 khách hàng lớn      │
+│  đang có dấu hiệu gặp khó khăn tài chính."                 │
+│                                                              │
+│ → VỚI BLUECORE: Anh Hùng có danh sách 5 khách cần gọi      │
+│   ngay hôm nay, thu hồi được 320 triệu trước khi mất.      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Use Case #4: Cash Runway (Page 10)
+
+```text
+STORY BLOCK:
+┌─────────────────────────────────────────────────────────────┐
+│ 📖 TÌNH HUỐNG THỰC TẾ                                       │
+│                                                              │
+│ "Startup của Tuấn đang burn 600 triệu/tháng. Cuối quý      │
+│  mới biết cash sắp cạn, vội vàng đi gọi vốn nhưng đã       │
+│  muộn — valuation bị ép vì thế yếu."                       │
+│                                                              │
+│ → VỚI BLUECORE: Tuấn biết trước 3 tháng runway sắp hết,    │
+│   có thời gian chuẩn bị fundraising, đàm phán từ vị thế    │
+│   mạnh hơn.                                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Thay đổi code**:
+- Thêm style mới `storyBox`, `storyTitle`, `storyText`, `storyResult`
+- Thêm story block vào mỗi Use Case page (sau subtitle, trước mockup)
+- Cập nhật `useCaseAnswer` để ngắn gọn hơn (vì đã có story block)
 
 ---
 
-## Hình minh họa
+### 3. Page 6: Slide So sánh với Lợi thế Cạnh tranh (Nâng cấp)
 
-### Phương án: Sử dụng Abstract Illustrations
+**Hiện tại**: Chỉ có bảng so sánh + 1 quote box
 
-Vì `@react-pdf/renderer` hỗ trợ hình ảnh nhưng cần optimize, tôi sẽ:
+**Thêm mới**:
 
-1. **Tạo Abstract UI Mockups** - dạng "stylized screenshot" đơn giản hóa
-2. **Sử dụng Lovable AI Image Generation** (google/gemini-2.5-flash-image) để generate các mockup illustrations
-3. **Lưu vào `public/sales-deck/`** để load trong PDF
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ SAU BẢNG SO SÁNH:                                           │
+│                                                              │
+│ ❓ "TẠI SAO BLUECORE KHÁC BIỆT?" (Section mới)              │
+│                                                              │
+│ 3 COMPETITIVE ADVANTAGES:                                   │
+│                                                              │
+│ ┌────────────────────────────────────────────────────────┐  │
+│ │ 🏆 #1: THIẾT KẾ CHO CEO/CFO, KHÔNG PHẢI IT             │  │
+│ │ Excel/ERP phục vụ kế toán và IT. Bluecore phục vụ      │  │
+│ │ người ra quyết định.                                    │  │
+│ └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│ ┌────────────────────────────────────────────────────────┐  │
+│ │ 🏆 #2: CASH THẬT, KHÔNG PHẢI SỐ SÁCH                   │  │
+│ │ ERP cho bạn AR 3 tỷ. Bluecore cho bạn biết: 800 triệu  │  │
+│ │ có nguy cơ mất, 500 triệu cần gọi hôm nay.             │  │
+│ └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│ ┌────────────────────────────────────────────────────────┐  │
+│ │ 🏆 #3: TRIỂN KHAI TRONG GIỜ, KHÔNG PHẢI THÁNG          │  │
+│ │ ERP mất 3-6 tháng. BI mất 4-8 tuần training.           │  │
+│ │ Bluecore: kết nối data → thấy giá trị trong 1 ngày.    │  │
+│ └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│ QUOTE BOX (update):                                         │
+│ "Bluecore FDP không cạnh tranh với Excel hay ERP —         │
+│  chúng tôi giải quyết vấn đề họ không thể giải quyết."     │
+└─────────────────────────────────────────────────────────────┘
+```
 
-**Illustrations cần tạo:**
-- `cash-position-mockup.png` - Dashboard Cash Position simplified
-- `unit-economics-mockup.png` - SKU P&L table
-- `ar-aging-mockup.png` - AR Collection screen
-- `runway-forecast-mockup.png` - Cash Runway chart
-
-### Alternative: Stylized Diagrams trong PDF
-
-Nếu không dùng external images, sẽ vẽ bằng `View` + `Text` components:
-- Dạng "wireframe" đơn giản
-- Boxes, lines, numbers để minh họa data flow
-- Vẫn professional nhưng không cần external assets
+**Thay đổi code**:
+- Thêm `competitiveAdvantages` data array (3 items)
+- Thêm styles: `advantageCard`, `advantageNumber`, `advantageTitle`, `advantageDesc`
+- Update quote box text để mạnh mẽ hơn
+- Thêm section "Tại sao Bluecore khác biệt?" sau bảng so sánh
 
 ---
 
-## File sẽ thay đổi
+## Tóm tắt thay đổi code
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/sales-deck/FDPSalesDeckPDF.tsx` | Rewrite hoàn toàn với 12 slides mới |
-| `public/sales-deck/` (new folder) | Lưu generated mockup images (nếu dùng AI generation) |
+| Vị trí | Thay đổi |
+|--------|----------|
+| Lines 870-892 (`solutionCards`) | Thêm `positioningStatement` và `threePillars` data |
+| Lines 894-904 (`comparisonData`) | Thêm `competitiveAdvantages` data array |
+| Lines 452-470 (styles) | Thêm styles mới: `storyBox`, `advantageCard`, `pillarCard` |
+| Page 5 (lines 1029-1061) | Restructure với positioning statement + 3 pillars |
+| Page 6 (lines 1063-1114) | Thêm "Tại sao Bluecore khác biệt?" section |
+| Pages 7-10 (lines 1116-1426) | Thêm story block vào mỗi use case |
 
 ---
 
-## Nội dung tiếng Việt có dấu đầy đủ
+## File thay đổi
 
-Tất cả text sẽ viết đúng tiếng Việt có dấu:
-- "Dòng tiền" (không phải "Dong tien")
-- "Quyết định" (không phải "Quyet dinh")
-- "Khách hàng" (không phải "Khach hang")
+Chỉ 1 file:
+- `src/components/sales-deck/FDPSalesDeckPDF.tsx`
 
 ---
 
 ## Kết quả mong đợi
 
-1. **Kể được câu chuyện** - Người đọc hiểu vấn đề Cash Flow của SME Retail
-2. **Có hình minh họa** - Hình dung được UI/sản phẩm
-3. **Use Cases thực tế** - Biết sẽ dùng Bluecore để làm gì hàng ngày
-4. **Số liệu cụ thể** - Impact rõ ràng, đáng tin
-5. **Deck đáng gửi đi** - Professional, có rhythm, không còn "slide báo cáo"
+1. **Page 5** có positioning statement rõ ràng: "Bluecore là gì và khác biệt ở đâu"
+2. **Pages 7-10** có câu chuyện thực tế với tên người, con số cụ thể, kết quả rõ ràng
+3. **Page 6** khẳng định mạnh mẽ 3 lợi thế cạnh tranh không thể chối cãi
 
----
-
-## Câu hỏi cần xác nhận
-
-**Về hình minh họa:**
-- (A) **Dùng AI generate mockup images** rồi embed vào PDF (đẹp hơn, cần thêm thời gian)
-- (B) **Dùng stylized diagrams** vẽ bằng View/Text trong react-pdf (nhanh hơn, clean)
-
-Nếu bạn không chọn, mình sẽ bắt đầu với **(B) Stylized diagrams** và có thể upgrade sang (A) sau.
+Deck sau khi update sẽ trả lời được 3 câu hỏi quan trọng của khách hàng:
+- "Bluecore là gì?" → Page 5
+- "Tôi sẽ dùng Bluecore để làm gì hàng ngày?" → Pages 7-10
+- "Tại sao Bluecore chứ không phải công cụ khác?" → Page 6
 
