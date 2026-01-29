@@ -25,6 +25,7 @@ export interface ExpenseBaseline {
   monthlyAmount: number;
   effectiveFrom: string;
   effectiveTo: string | null;
+  paymentDueDay: number | null;
   notes: string | null;
   createdBy: string | null;
   createdAt: string;
@@ -37,6 +38,7 @@ export interface CreateBaselineInput {
   monthlyAmount: number;
   effectiveFrom: string;
   effectiveTo?: string | null;
+  paymentDueDay?: number | null;
   notes?: string | null;
 }
 
@@ -47,6 +49,7 @@ export interface UpdateBaselineInput {
   monthlyAmount?: number;
   effectiveFrom?: string;
   effectiveTo?: string | null;
+  paymentDueDay?: number | null;
   notes?: string | null;
 }
 
@@ -81,6 +84,7 @@ function mapToBaseline(row: Record<string, unknown>): ExpenseBaseline {
     monthlyAmount: Number(row.monthly_amount) || 0,
     effectiveFrom: String(row.effective_from || ''),
     effectiveTo: row.effective_to ? String(row.effective_to) : null,
+    paymentDueDay: row.payment_due_day ? Number(row.payment_due_day) : null,
     notes: row.notes ? String(row.notes) : null,
     createdBy: row.created_by ? String(row.created_by) : null,
     createdAt: String(row.created_at || ''),
@@ -189,6 +193,7 @@ export function useCreateExpenseBaseline() {
           monthly_amount: input.monthlyAmount,
           effective_from: input.effectiveFrom,
           effective_to: input.effectiveTo || null,
+          payment_due_day: input.paymentDueDay || null,
           notes: input.notes || null,
         })
         .select()
@@ -220,6 +225,7 @@ export function useUpdateExpenseBaseline() {
       if (input.monthlyAmount !== undefined) updates.monthly_amount = input.monthlyAmount;
       if (input.effectiveFrom !== undefined) updates.effective_from = input.effectiveFrom;
       if (input.effectiveTo !== undefined) updates.effective_to = input.effectiveTo;
+      if (input.paymentDueDay !== undefined) updates.payment_due_day = input.paymentDueDay;
       if (input.notes !== undefined) updates.notes = input.notes;
 
       const { data, error } = await supabase

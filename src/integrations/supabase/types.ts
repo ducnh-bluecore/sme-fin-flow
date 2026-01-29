@@ -13166,6 +13166,7 @@ export type Database = {
           monthly_amount: number
           name: string
           notes: string | null
+          payment_due_day: number | null
           tenant_id: string
           updated_at: string | null
         }
@@ -13179,6 +13180,7 @@ export type Database = {
           monthly_amount: number
           name: string
           notes?: string | null
+          payment_due_day?: number | null
           tenant_id: string
           updated_at?: string | null
         }
@@ -13192,6 +13194,7 @@ export type Database = {
           monthly_amount?: number
           name?: string
           notes?: string | null
+          payment_due_day?: number | null
           tenant_id?: string
           updated_at?: string | null
         }
@@ -31786,6 +31789,49 @@ export type Database = {
           },
           {
             foreignKeyName: "rolling_forecasts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_upcoming_payment_alerts: {
+        Row: {
+          alert_level: string | null
+          category: string | null
+          days_until_due: number | null
+          id: string | null
+          monthly_amount: number | null
+          name: string | null
+          next_payment_date: string | null
+          payment_due_day: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expense_baselines_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"

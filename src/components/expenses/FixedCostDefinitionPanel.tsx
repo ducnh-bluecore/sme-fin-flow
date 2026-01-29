@@ -5,8 +5,8 @@
  * that form the baseline for expense forecasting.
  */
 
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, Building, Users, Zap, MoreHorizontal } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Pencil, Trash2, Building, Users, Zap, MoreHorizontal, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -76,7 +76,23 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
     monthlyAmount: baseline?.monthlyAmount?.toString() || '',
     effectiveFrom: baseline?.effectiveFrom || format(new Date(), 'yyyy-MM-dd'),
     effectiveTo: baseline?.effectiveTo || '',
+    paymentDueDay: baseline?.paymentDueDay?.toString() || '',
     notes: baseline?.notes || '',
+  });
+
+  // Reset form when baseline changes
+  useState(() => {
+    if (baseline) {
+      setFormData({
+        category: baseline.category,
+        name: baseline.name,
+        monthlyAmount: baseline.monthlyAmount?.toString() || '',
+        effectiveFrom: baseline.effectiveFrom,
+        effectiveTo: baseline.effectiveTo || '',
+        paymentDueDay: baseline.paymentDueDay?.toString() || '',
+        notes: baseline.notes || '',
+      });
+    }
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,6 +104,7 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
       monthlyAmount: parseFloat(formData.monthlyAmount) || 0,
       effectiveFrom: formData.effectiveFrom,
       effectiveTo: formData.effectiveTo || null,
+      paymentDueDay: formData.paymentDueDay ? parseInt(formData.paymentDueDay) : null,
       notes: formData.notes || null,
     };
 
@@ -178,6 +195,29 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="paymentDay">Ngày thanh toán hàng tháng (tùy chọn)</Label>
+            <Select
+              value={formData.paymentDueDay}
+              onValueChange={(v) => setFormData(d => ({ ...d, paymentDueDay: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn ngày thanh toán..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Không chỉ định</SelectItem>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <SelectItem key={day} value={day.toString()}>
+                    Ngày {day} hàng tháng
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              VD: Lương thường thanh toán ngày 5, tiền thuê ngày 1
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="notes">Ghi chú</Label>
             <Textarea
               id="notes"
@@ -232,6 +272,12 @@ function CategoryGroup({ category, baselines, total, onEdit, onDelete }: Categor
           >
             <div className="flex-1 min-w-0">
               <span className="text-sm truncate">{b.name}</span>
+              {b.paymentDueDay && (
+                <span className="text-xs text-muted-foreground ml-2 inline-flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Ngày {b.paymentDueDay}
+                </span>
+              )}
               {b.effectiveTo && (
                 <span className="text-xs text-muted-foreground ml-2">
                   (đến {format(new Date(b.effectiveTo), 'dd/MM/yyyy', { locale: vi })})
