@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useDecisionEffectiveness, usePendingFollowups, useLearningInsights } from '@/hooks/control-tower';
+import { useDecisionEffectiveness, usePendingFollowups, useLearningInsights, type PendingFollowup } from '@/hooks/control-tower';
 import {
   EffectivenessSummaryCards,
   ModuleEffectivenessTable,
   LearningInsightsCard,
   PendingFollowupList,
+  OutcomeRecordingDialog,
 } from '@/components/control-tower';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -31,6 +32,8 @@ type Period = '7d' | '30d' | '90d';
 export default function OutcomesPage() {
   const [period, setPeriod] = useState<Period>('30d');
   const [activeTab, setActiveTab] = useState<'overview' | 'followup'>('overview');
+  const [selectedFollowup, setSelectedFollowup] = useState<PendingFollowup | null>(null);
+  const [measureDialogOpen, setMeasureDialogOpen] = useState(false);
 
   const { data: effectiveness, isLoading: loadingEffectiveness } = useDecisionEffectiveness(period);
   const { data: pendingFollowups = [], isLoading: loadingFollowups } = usePendingFollowups();
@@ -269,12 +272,26 @@ export default function OutcomesPage() {
               data={displayFollowups}
               isLoading={loadingFollowups}
               onMeasure={(followup) => {
-                // TODO: Open outcome recording dialog for measurement
-                console.log('Measure followup:', followup);
+                setSelectedFollowup(followup);
+                setMeasureDialogOpen(true);
               }}
             />
           </TabsContent>
         </Tabs>
+
+        {/* Outcome Recording Dialog */}
+        {selectedFollowup && (
+          <OutcomeRecordingDialog
+            open={measureDialogOpen}
+            onOpenChange={setMeasureDialogOpen}
+            alert={{
+              id: selectedFollowup.id,
+              title: selectedFollowup.decision_title,
+              category: selectedFollowup.decision_type,
+              impact_amount: selectedFollowup.predicted_impact_amount,
+            }}
+          />
+        )}
       </div>
     </>
   );
