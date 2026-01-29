@@ -100,10 +100,13 @@ const SalesDeckDownloader: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {deckOptions.map((deck) => (
-          <Card key={deck.id} className={`relative ${!deck.available ? 'opacity-60' : ''} ${deck.featured ? 'ring-2 ring-primary bg-primary/10' : ''}`}>
+          <Card
+            key={deck.id}
+            className={`relative ${!deck.available ? 'opacity-60' : ''} ${deck.featured ? 'ring-2 ring-primary border-primary/30 bg-card' : ''}`}
+          >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
-                <div className={`p-2 rounded-lg ${deck.featured ? 'bg-primary/20' : 'bg-muted'}`}>{deck.icon}</div>
+                <div className={`p-2 rounded-lg ${deck.featured ? 'bg-primary/15' : 'bg-muted'}`}>{deck.icon}</div>
                 {deck.featured ? (
                   <Badge variant="default" className="bg-primary text-primary-foreground">
                     Đề xuất

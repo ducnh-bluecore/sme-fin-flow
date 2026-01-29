@@ -361,7 +361,6 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     lineHeight: 1.6,
     marginBottom: 12,
-    fontStyle: 'italic',
   },
   useCaseResult: {
     flexDirection: 'row',
