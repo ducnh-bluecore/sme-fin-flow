@@ -3,7 +3,7 @@
  * 
  * Professional PDF sales deck for the Data Warehouse module
  * Following the 'Single Source of Truth' philosophy
- * Content based on https://bluecore.vn/
+ * Content based on https://bluecore.vn/blogs/news/10-loi-ich-va-truong-hop-su-dung-data-warehouse
  */
 
 import React from 'react';
@@ -305,6 +305,12 @@ const styles = StyleSheet.create({
     color: colors.textWhite,
     lineHeight: 1.5,
   },
+  manifestoText: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.text,
+    lineHeight: 1.5,
+  },
   // Footer
   footer: {
     position: 'absolute',
@@ -380,162 +386,110 @@ const styles = StyleSheet.create({
 
 // Content data - Vietnamese with full diacritics
 const threePillars = [
-  { icon: '[=]', title: 'ETL', desc: 'Thu thap va chuyen doi' },
-  { icon: '[*]', title: 'DATA WAREHOUSE', desc: 'Kho du lieu tap trung' },
-  { icon: '[>]', title: 'BI DASHBOARD', desc: 'Bao cao truc quan' },
+  { icon: '[=]', title: 'NHAT QUAN', desc: 'Du lieu chuan hoa' },
+  { icon: '[*]', title: 'TAP TRUNG', desc: 'Mot nguon duy nhat' },
+  { icon: '[>]', title: 'TRUY CAP', desc: 'De dang va nhanh chong' },
 ];
 
-const dataChallenges = [
+// 5 loi ich cua Data Warehouse tu bluecore.vn
+const dwBenefits = [
   {
-    title: 'Du lieu nam rai rac nhieu noi',
-    problem: 'Shopee, Lazada, TikTok Shop, Sapo, MISA - moi kenh mot noi',
-    cost: 'Mat 2-3 gio moi ngay de tong hop thu cong bang Excel',
-    icon: '[!]',
+    title: '1. Tinh nhat quan',
+    desc: 'Luu tru du lieu thuong lien quan den viec chuyen doi du lieu tu nhieu nguon va dinh dang thanh mot dinh dang chuan, giup nguoi dung de dang phan tich va chia se thong tin chi tiet.',
   },
   {
-    title: 'Khong biet so nao la dung',
-    problem: 'Moi phong ban bao cao mot con so khac nhau',
-    cost: 'Quyet dinh sai vi thong tin khong nhat quan',
-    icon: '[?]',
+    title: '2. Tinh tap trung',
+    desc: 'Kho du lieu giai quyet van de hop nhat du lieu tu nhieu he thong con duoc xay dung tren cac nen tang khac nhau vao mot kho luu tru duy nhat.',
   },
   {
-    title: 'Du lieu cu, khong cap nhat',
-    problem: 'Bao cao hom nay nhung du lieu cua tuan truoc',
-    cost: 'Bo lo co hoi kinh doanh vi phan ung cham',
-    icon: '[X]',
+    title: '3. Kha nang truy cap',
+    desc: 'Nguoi dung doanh nghiep co the tu tao bao cao va truy van, truy cap tat ca du lieu tu mot giao dien thay vi phai dang nhap vao nhieu he thong.',
   },
   {
-    title: 'Khong co bao cao tu dong',
-    problem: 'Muon xem bao cao phai cho nhan su lam thu cong',
-    cost: 'Mat 1-2 ngay cho moi lan can thong tin cap nhat',
-    icon: '[~]',
+    title: '4. Kha nang kiem soat',
+    desc: 'Kho du lieu dam bao tinh toan ven cua du lieu thong qua cac bien phap kiem soat duoc trien khai doi voi cac vai tro va trach nhiem lien quan.',
+  },
+  {
+    title: '5. Lam sach du lieu',
+    desc: 'Kho du lieu su dung quy trinh khu trung de loai bo thong tin chat luong kem, phat hien cac bo du lieu trung lap, bi hong hoac khong chinh xac.',
   },
 ];
 
-const solutionCards = [
+// Use cases tu bluecore.vn
+const useCases = [
   {
-    title: 'Thu thap du lieu tu dong (ETL)',
-    desc: 'Ket noi va dong bo du lieu tu Shopee, Lazada, TikTok Shop, Sapo, MISA va nhieu nen tang khac',
-    benefit: 'Khong can nhap lieu thu cong',
+    title: 'Hieu qua chien dich Marketing',
+    persona: 'Marketing Manager',
+    situation: 'Du lieu tiep thi nam rai rac tren nhieu he thong: CRM, he thong ban hang, nen tang quang cao',
+    problem: 'Vao thoi diem cac nhom tap hop du lieu phan tan vao bang tinh, du lieu co the da tro nen loi thoi',
+    solution: 'Kho du lieu tao ra mot nguon du lieu duy nhat, hop nhat du lieu tu cac he thong ben trong va ben ngoai',
+    result: 'Tat ca nha tiep thi deu co quyen truy cap vao cung mot du lieu duoc tieu chuan hoa, theo doi ROI va chi phi mua lai khach hang tot hon',
   },
   {
-    title: 'Kho du lieu tap trung (Data Warehouse)',
-    desc: 'Tap trung tat ca du lieu ve mot noi duy nhat, chuan hoa va san sang phan tich',
-    benefit: 'Mot nguon su that duy nhat',
+    title: 'Danh gia hieu suat nhom',
+    persona: 'CEO / CFO',
+    situation: 'Can danh gia hieu suat cua nhom trong toan to chuc',
+    problem: 'Du lieu nam o nhieu he thong khac nhau, kho tong hop de so sanh',
+    solution: 'Nguoi dung co the tim hieu sau hon ve du lieu nhom de tao bang dieu khien hoac bao cao tuy chinh',
+    result: 'Cac chi so nhu mo hinh su dung, gia tri lau dai cua khach hang co the duoc su dung de danh gia cac nhom',
   },
   {
-    title: 'Bao cao tu dong (Automation Report)',
-    desc: 'Tu dong tao bao cao theo lich, gui email cho cac phong ban lien quan',
-    benefit: 'Thong tin dung luc can',
+    title: 'Hop nhat du lieu tu he thong cu',
+    persona: 'IT Manager',
+    situation: 'Du lieu cu duoc luu tru o dinh dang cu hoac he thong loi thoi, gay kho khan cho viec truy cap',
+    problem: 'Cac he thong ke thua duoc xay dung de thuc hien cac chuc nang cu the va khong duoc xay dung de phan tich du lieu',
+    solution: 'Kho du lieu co the tu dong ket noi voi cac he thong cu de thu thap va phan tich du lieu, su dung ETL de chuyen doi',
+    result: 'Hop nhat du lieu cu voi ung dung moi giup cung cap thong tin chi tiet hon ve cac xu huong lich su',
   },
   {
-    title: 'Dashboard truc quan (BI)',
-    desc: 'Bieu do, dashboard de hieu, cap nhat real-time, truy cap moi luc moi noi',
-    benefit: 'Ra quyet dinh nhanh hon',
-  },
-];
-
-const competitiveAdvantages = [
-  {
-    title: 'So voi Excel/Google Sheets',
-    points: [
-      'Tu dong dong bo, khong can copy-paste thu cong',
-      'Khong lo file qua nang, bi loi, mat du lieu',
-      'Nhieu nguoi truy cap cung luc khong bi conflict',
-    ],
-  },
-  {
-    title: 'So voi Power BI truyen thong',
-    points: [
-      'Da tich hop san connector cho e-commerce Viet Nam',
-      'Khong can doi ngu IT de cau hinh phuc tap',
-      'Bao cao tu dong theo lich, gui email truc tiep',
-    ],
-  },
-  {
-    title: 'So voi tu xay Data Warehouse',
-    points: [
-      'Trien khai trong vai ngay, khong phai vai thang',
-      'Chi phi thap hon 10 lan so voi tu xay',
-      'Bao tri va nang cap tu dong, khong can lo',
-    ],
+    title: 'Phan tich du lieu lon theo thoi gian thuc',
+    persona: 'Data Analyst',
+    situation: 'Du lieu dong lon duoc tao lien tuc boi nhieu nguon: web, mobile, thuong mai dien tu',
+    problem: 'Du lieu khong the duoc phan tich lai sau khi truyen phat, can xu ly ngay lap tuc',
+    solution: 'Kho du lieu co the nhom du lieu dong lon de hien thi so lieu thong ke tong the',
+    result: 'Hieu ro hon ve cac hoat dong kinh doanh va khach hang nhu so lan nhap vao trang web, vi tri dia ly cua thiet bi',
   },
 ];
 
-const useCaseStories = [
-  {
-    title: 'Tong hop doanh thu da kenh',
-    persona: 'Chi Huong - CEO chuoi cua hang thoi trang',
-    situation: 'Ban tren 5 kenh: Shopee, Lazada, TikTok Shop, website rieng, cua hang offline',
-    problem: 'Moi sang mat 2 gio de xuat file tu tung kenh roi tong hop bang Excel',
-    solution: 'Bluecore tu dong gom tat ca du lieu ve mot dashboard duy nhat',
-    result: 'Tiet kiem 10 gio/tuan, biet doanh thu thuc chi trong 1 phut',
-  },
-  {
-    title: 'Kiem soat ton kho da kenh',
-    persona: 'Anh Duc - Quan ly kho hang tieu dung',
-    situation: 'Ton kho tren Sapo, tren san TMDT va thuc te kho luon chenh lech',
-    problem: 'Cuoi thang kiem ke moi phat hien mat mat, het hang hot, thua hang cham',
-    solution: 'Dong bo real-time giua POS, WMS va cac san thuong mai dien tu',
-    result: 'Phat hien chenh lech ngay lap tuc, giam hao hut 40%, het canh het hang',
-  },
-  {
-    title: 'Quan ly chien dich quang cao',
-    persona: 'Linh - Marketing Manager my pham',
-    situation: 'Chay quang cao tren Facebook, Google, TikTok, Shopee Ads cung luc',
-    problem: 'Khong biet kenh nao thuc su mang lai loi nhuan, chi biet ROAS chua du',
-    solution: 'Ket noi chi phi quang cao voi doanh thu thuc va margin theo tung kenh',
-    result: 'Xac dinh duoc kenh hieu qua, cat giam 30% ngan sach lang phi',
-  },
-  {
-    title: 'Bao cao tu dong theo phong ban',
-    persona: 'Anh Kien - CFO cong ty phan phoi',
-    situation: 'Moi thang mat 1 tuan de cac phong ban gui so lieu, doi chieu va dong bao cao',
-    problem: 'So lieu tu Marketing, Sales, Kho khong khop nhau, phai hoi di hoi lai',
-    solution: 'Mot nguon du lieu duy nhat, bao cao tu dong tao va gui theo lich',
-    result: 'Dong bao cao trong 1 ngay thay vi 1 tuan, so lieu chinh xac 100%',
-  },
-];
-
-const connectedPlatforms = [
-  'Shopee', 'Lazada', 'TikTok Shop', 'Sendo',
-  'Sapo', 'Haravan', 'KiotViet', 'Nhanh.vn',
-  'MISA', 'CukCuk', 'Base.vn',
-  'Facebook Ads', 'Google Ads', 'TikTok Ads',
-  'MySQL', 'PostgreSQL', 'Google Sheets', 'Excel',
+// Ket qua khi su dung Data Warehouse
+const dwResults = [
+  'Luong thong tin hop ly hoa',
+  'Chat luong va tinh nhat quan cua du lieu duoc nang cao',
+  'Tri tue kinh doanh duoc cai thien',
+  'Loi the canh tranh dang ke',
+  'Cai thien viec ra quyet dinh',
 ];
 
 const manifestoItems = [
-  'TAP TRUNG HOA DU LIEU - Tat ca du lieu ve mot noi duy nhat',
-  'TU DONG THU THAP - Du lieu tu dong chay vao, khong can tac dong',
-  'REAL-TIME - Du lieu luon moi, khong phai cho batch cuoi ngay',
-  'CHUAN HOA - Du lieu duoc kiem tra, lam sach truoc khi luu tru',
-  'TRUY XUAT NGUON GOC - Biet ro du lieu den tu dau, qua nhung buoc nao',
-  'PHAN QUYEN - Ai duoc xem gi, chinh sua gi duoc kiem soat chat',
-  'TRUY VAN NHANH - Bao cao chay nhanh du du lieu lon',
-  'MO RONG - San sang scale khi doanh nghiep phat trien',
-  'CHI PHI HOP LY - Chi tra cho nhung gi thuc su su dung',
-  'KET NOI DE DANG - San sang ket noi voi bat ky he thong nao',
+  'SINGLE SOURCE OF TRUTH - Chi co mot phien ban du lieu duy nhat',
+  'TINH NHAT QUAN - Du lieu duoc chuan hoa tu nhieu nguon va dinh dang',
+  'TINH TAP TRUNG - Hop nhat du lieu vao mot kho luu tru duy nhat',
+  'TRUY CAP DE DANG - Nguoi dung co the tu tao bao cao ma khong can IT',
+  'KIEM SOAT CHAT CHE - Phan quyen ro rang, dam bao tinh toan ven du lieu',
+  'LAM SACH DU LIEU - Loai bo thong tin trung lap, bi hong, khong chinh xac',
+  'TICH HOP ETL - Ket noi va chuyen doi du lieu tu cac he thong cu',
+  'THOI GIAN THUC - Xu ly du lieu dong lon ngay lap tuc',
+  'BAO CAO THONG MINH - Tao bang dieu khien va bao cao tuy chinh',
+  'RA QUYET DINH TOT HON - Cung cap thong tin chi tiet va xu huong lich su',
 ];
 
 // Page components
 const CoverPage = () => (
   <Page size="A4" style={styles.pageDark}>
-    {/* Decorative circles */}
     <View style={[styles.decorCircle, { width: 300, height: 300, top: -100, right: -100, backgroundColor: colors.accent }]} />
     <View style={[styles.decorCircle, { width: 200, height: 200, bottom: -50, left: -50, backgroundColor: colors.accentLight }]} />
     
     <View style={styles.coverContainer}>
       <View style={styles.coverBadge}>
-        <Text style={styles.coverBadgeText}>BLUECORE DATA WAREHOUSE</Text>
+        <Text style={styles.coverBadgeText}>BLUECORE DATA PLATFORM</Text>
       </View>
       <Text style={styles.coverTitle}>Data Warehouse</Text>
-      <Text style={styles.coverSubtitle}>Nen tang du lieu thong nhat cho doanh nghiep ban le</Text>
+      <Text style={styles.coverSubtitle}>Kho du lieu hop nhat cho doanh nghiep</Text>
       <Text style={styles.coverTagline}>Single Source of Truth</Text>
       
       <View style={{ marginTop: 40, alignItems: 'center' }}>
-        <Text style={{ fontSize: 12, color: colors.textLight, marginBottom: 8 }}>Tich hop hoan chinh</Text>
-        <Text style={{ fontSize: 14, color: colors.accentLight, fontWeight: 700 }}>ETL - Data Warehouse - BI Dashboard</Text>
+        <Text style={{ fontSize: 12, color: colors.textLight, marginBottom: 8 }}>Hop nhat du lieu tu nhieu nguon</Text>
+        <Text style={{ fontSize: 14, color: colors.accentLight, fontWeight: 700 }}>Nang cao hieu qua kinh doanh va ra quyet dinh tot hon</Text>
       </View>
     </View>
     
@@ -546,55 +500,44 @@ const CoverPage = () => (
   </Page>
 );
 
-const WhoWeArePage = () => (
+const WhatIsPage = () => (
   <Page size="A4" style={styles.page}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Chung toi la ai?</Text>
+      <Text style={styles.sectionTitle}>Data Warehouse la gi?</Text>
       <Text style={styles.sectionSubtitle}>
-        Bluecore la doi ngu nang dong, sang tao chuyen ve cong nghe va kinh doanh
+        Kho du lieu hop nhat mot luong lon du lieu tu nhieu nguon va toi uu hoa du lieu do de cho phep phan tich
       </Text>
       
       <View style={styles.storyBlock}>
         <Text style={styles.storyText}>
-          Bluecore la tap the doi ngu nhan luc nang dong, sang tao co cung dam me ve cong nghe va kinh doanh de chung tay xay dung cac giai phap chuyen doi so giup doanh nghiep nam bat cac co hoi kinh doanh va tang truong than toc trong thoi dai cong nghe 4.0.
+          Kho du lieu hop nhat mot luong lon du lieu tu nhieu nguon va toi uu hoa du lieu do de cho phep phan tich nham nang cao hieu qua kinh doanh, dua ra quyet dinh tot hon va kham pha cac loi the canh tranh.
         </Text>
       </View>
       
+      <View style={styles.pillContainer}>
+        {threePillars.map((pillar, idx) => (
+          <View key={idx} style={styles.pill}>
+            <Text style={styles.pillText}>{pillar.icon} {pillar.title}</Text>
+          </View>
+        ))}
+      </View>
+      
       <View style={[styles.card, { marginTop: 16 }]}>
-        <Text style={styles.cardTitle}>Giai phap cot loi</Text>
+        <Text style={styles.cardTitle}>Data Warehouse cung cap:</Text>
         <View style={{ marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
-            <Text style={styles.cardText}>He thong bao cao tu dong theo phong ban, nganh hang</Text>
-          </View>
-          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
-            <Text style={styles.cardText}>Tich hop Data Model voi cac he thong khac nhau qua API</Text>
-          </View>
-          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
-            <Text style={styles.cardText}>App tich diem, khuyen mai va cham soc khach hang than thiet</Text>
-          </View>
-          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
-            <Text style={styles.cardText}>Phan mem cham cong thong minh, toi uu quan ly nhan su</Text>
-          </View>
+          {dwResults.map((result, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <Text style={{ color: colors.success, marginRight: 8, fontSize: 11 }}>[+]</Text>
+              <Text style={styles.cardText}>{result}</Text>
+            </View>
+          ))}
         </View>
       </View>
       
-      <View style={styles.row}>
-        <View style={[styles.card, styles.col3, { alignItems: 'center', padding: 20 }]}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, marginBottom: 4 }}>50+</Text>
-          <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>Ket noi da nen tang</Text>
-        </View>
-        <View style={[styles.card, styles.col3, { alignItems: 'center', padding: 20 }]}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, marginBottom: 4 }}>100+</Text>
-          <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>Doanh nghiep tin dung</Text>
-        </View>
-        <View style={[styles.card, styles.col3, { alignItems: 'center', padding: 20 }]}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, marginBottom: 4 }}>24/7</Text>
-          <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>Ho tro ky thuat</Text>
-        </View>
+      <View style={styles.quoteBox}>
+        <Text style={styles.quoteText}>
+          Cac to chuc nam bat duoc toan bo loi ich cua du lieu duoc trang bi tot hon de xu ly cac dieu kien thi truong dang thay doi
+        </Text>
       </View>
     </View>
     
@@ -605,169 +548,102 @@ const WhoWeArePage = () => (
   </Page>
 );
 
-const DataChallengePage = () => (
-  <Page size="A4" style={styles.pageAlt}>
+const BenefitsPage1 = () => (
+  <Page size="A4" style={styles.pageDark}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Van de du lieu cua doanh nghiep ban le</Text>
-      <Text style={styles.sectionSubtitle}>
-        80% doanh nghiep ban le dang mat thoi gian va tien bac vi du lieu khong duoc quan ly tot
+      <Text style={styles.sectionTitleWhite}>5 Loi ich cua Data Warehouse</Text>
+      <Text style={styles.sectionSubtitleWhite}>
+        Kho du lieu duoc trien khai thanh cong co the giup to chuc cua ban theo nhieu cach
       </Text>
       
-      <View style={styles.row}>
-        <View style={styles.col2}>
-          {dataChallenges.slice(0, 2).map((item, idx) => (
-            <View key={idx} style={styles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ backgroundColor: colors.error, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 8 }}>
-                  <Text style={{ color: colors.textWhite, fontSize: 10, fontWeight: 700 }}>{item.icon}</Text>
-                </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-              </View>
-              <Text style={[styles.cardText, { marginBottom: 6 }]}>{item.problem}</Text>
-              <Text style={[styles.cardText, { color: colors.error, fontWeight: 700 }]}>Chi phi: {item.cost}</Text>
-            </View>
-          ))}
+      {dwBenefits.slice(0, 3).map((benefit, idx) => (
+        <View key={idx} style={styles.cardDark}>
+          <Text style={styles.cardTitleWhite}>{benefit.title}</Text>
+          <Text style={styles.cardTextWhite}>{benefit.desc}</Text>
         </View>
-        <View style={styles.col2}>
-          {dataChallenges.slice(2, 4).map((item, idx) => (
-            <View key={idx} style={styles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ backgroundColor: colors.error, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 8 }}>
-                  <Text style={{ color: colors.textWhite, fontSize: 10, fontWeight: 700 }}>{item.icon}</Text>
-                </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-              </View>
-              <Text style={[styles.cardText, { marginBottom: 6 }]}>{item.problem}</Text>
-              <Text style={[styles.cardText, { color: colors.error, fontWeight: 700 }]}>Chi phi: {item.cost}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      ))}
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
+      <Text style={styles.pageNumberWhite}>03</Text>
+    </View>
+  </Page>
+);
+
+const BenefitsPage2 = () => (
+  <Page size="A4" style={styles.pageAlt}>
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>5 Loi ich cua Data Warehouse</Text>
+      <Text style={styles.sectionSubtitle}>
+        Tiep tuc...
+      </Text>
       
-      <View style={styles.quoteBox}>
+      {dwBenefits.slice(3, 5).map((benefit, idx) => (
+        <View key={idx} style={styles.card}>
+          <Text style={styles.cardTitle}>{benefit.title}</Text>
+          <Text style={styles.cardText}>{benefit.desc}</Text>
+        </View>
+      ))}
+      
+      <View style={[styles.quoteBox, { backgroundColor: colors.success }]}>
         <Text style={styles.quoteText}>
-          "Neu khong biet so nao dung, moi quyet dinh deu la dao xuc"
+          Du lieu nhat quan hon co nghia la cac bo phan kinh doanh rieng le co the su dung cung mot nguon du lieu
         </Text>
       </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>03</Text>
+      <Text style={styles.pageNumber}>04</Text>
     </View>
   </Page>
 );
 
-const PositioningPage = () => (
-  <Page size="A4" style={styles.pageDark}>
-    <View style={styles.container}>
-      <Text style={[styles.sectionTitleWhite, { marginBottom: 8 }]}>Bluecore Data Warehouse</Text>
-      <Text style={[styles.sectionSubtitleWhite, { fontSize: 16, marginBottom: 30 }]}>
-        Tich hop hoan chinh 3 he thong trong 1 nen tang
-      </Text>
-      
-      <View style={styles.pillContainer}>
-        {threePillars.map((pillar, idx) => (
-          <View key={idx} style={styles.pill}>
-            <Text style={styles.pillText}>{pillar.icon} {pillar.title}</Text>
-          </View>
-        ))}
-      </View>
-      
-      <View style={styles.row}>
-        {solutionCards.slice(0, 2).map((card, idx) => (
-          <View key={idx} style={[styles.cardDark, styles.col2]}>
-            <Text style={styles.cardTitleWhite}>{card.title}</Text>
-            <Text style={styles.cardTextWhite}>{card.desc}</Text>
-            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
-              <Text style={[styles.cardTextWhite, { color: colors.accentLight, fontWeight: 700 }]}>
-                {card.benefit}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-      <View style={styles.row}>
-        {solutionCards.slice(2, 4).map((card, idx) => (
-          <View key={idx} style={[styles.cardDark, styles.col2]}>
-            <Text style={styles.cardTitleWhite}>{card.title}</Text>
-            <Text style={styles.cardTextWhite}>{card.desc}</Text>
-            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
-              <Text style={[styles.cardTextWhite, { color: colors.accentLight, fontWeight: 700 }]}>
-                {card.benefit}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-    
-    <View style={styles.footer}>
-      <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>04</Text>
-    </View>
-  </Page>
-);
-
-const ConnectionsPage = () => (
+const UseCasePage1 = () => (
   <Page size="A4" style={styles.page}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Cac ket noi san co</Text>
-      <Text style={styles.sectionSubtitle}>
-        Ket noi voi hon 50 nen tang pho bien tai Viet Nam va quoc te
-      </Text>
+      <Text style={styles.sectionTitle}>{useCases[0].title}</Text>
       
-      <View style={styles.row}>
-        <View style={styles.col2}>
-          <View style={styles.card}>
-            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>San TMDT</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {['Shopee', 'Lazada', 'TikTok Shop', 'Sendo'].map((p, i) => (
-                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          <View style={styles.card}>
-            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>POS / ERP</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {['Sapo', 'Haravan', 'KiotViet', 'Nhanh.vn', 'MISA', 'CukCuk', 'Base.vn'].map((p, i) => (
-                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+      <View style={styles.storyBlock}>
+        <Text style={styles.storyTitle}>Tinh huong: {useCases[0].persona}</Text>
+        <Text style={styles.storyText}>{useCases[0].situation}</Text>
+      </View>
+      
+      <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
+        <Text style={[styles.cardTitle, { color: colors.error }]}>Van de</Text>
+        <Text style={styles.cardText}>{useCases[0].problem}</Text>
+      </View>
+      
+      <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
+        <Text style={[styles.cardTitle, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={styles.cardText}>{useCases[0].solution}</Text>
+      </View>
+      
+      <View style={styles.mockupContainer}>
+        <View style={styles.mockupHeader}>
+          <View style={[styles.mockupDot, { backgroundColor: '#ef4444' }]} />
+          <View style={[styles.mockupDot, { backgroundColor: '#f59e0b' }]} />
+          <View style={[styles.mockupDot, { backgroundColor: '#10b981' }]} />
         </View>
-        <View style={styles.col2}>
-          <View style={styles.card}>
-            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>Quang cao</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {['Facebook Ads', 'Google Ads', 'TikTok Ads', 'Shopee Ads', 'Lazada Ads'].map((p, i) => (
-                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
-                </View>
-              ))}
-            </View>
+        <View style={styles.mockupContent}>
+          <View style={styles.mockupRow}>
+            <Text style={styles.mockupLabel}>Facebook Ads | ROI</Text>
+            <Text style={styles.mockupValue}>3.2x</Text>
           </View>
-          <View style={styles.card}>
-            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>Database / File</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {['MySQL', 'PostgreSQL', 'Google Sheets', 'Excel', 'CSV'].map((p, i) => (
-                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
-                </View>
-              ))}
-            </View>
+          <View style={styles.mockupRow}>
+            <Text style={styles.mockupLabel}>Google Ads | ROI</Text>
+            <Text style={styles.mockupValue}>2.8x</Text>
+          </View>
+          <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.mockupLabel}>Chi phi mua lai KH</Text>
+            <Text style={styles.mockupValue}>125,000 VND</Text>
           </View>
         </View>
       </View>
       
-      <View style={[styles.quoteBox, { backgroundColor: colors.success }]}>
-        <Text style={styles.quoteText}>
-          Ket noi mot lan, du lieu tu dong dong bo moi ngay
-        </Text>
+      <View style={[styles.quoteBox, { marginTop: 16 }]}>
+        <Text style={styles.quoteText}>Ket qua: {useCases[0].result}</Text>
       </View>
     </View>
     
@@ -778,58 +654,24 @@ const ConnectionsPage = () => (
   </Page>
 );
 
-const CompetitivePage = () => (
-  <Page size="A4" style={styles.pageAlt}>
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Tai sao chon Bluecore?</Text>
-      <Text style={styles.sectionSubtitle}>
-        So sanh voi cac giai phap pho bien tren thi truong
-      </Text>
-      
-      {competitiveAdvantages.map((adv, idx) => (
-        <View key={idx} style={styles.card}>
-          <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 10 }]}>{adv.title}</Text>
-          {adv.points.map((point, pIdx) => (
-            <View key={pIdx} style={{ flexDirection: 'row', marginBottom: 4 }}>
-              <Text style={{ color: colors.success, marginRight: 8, fontSize: 11 }}>[+]</Text>
-              <Text style={styles.cardText}>{point}</Text>
-            </View>
-          ))}
-        </View>
-      ))}
-      
-      <View style={[styles.quoteBox, { backgroundColor: colors.primary }]}>
-        <Text style={styles.quoteText}>
-          Trien khai trong 1 tuan - Khong can doi ngu IT - Chi phi hop ly
-        </Text>
-      </View>
-    </View>
-    
-    <View style={styles.footer}>
-      <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>06</Text>
-    </View>
-  </Page>
-);
-
-const UseCasePage1 = () => (
+const UseCasePage2 = () => (
   <Page size="A4" style={styles.pageDark}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitleWhite}>{useCaseStories[0].title}</Text>
+      <Text style={styles.sectionTitleWhite}>{useCases[1].title}</Text>
       
       <View style={styles.storyBlockDark}>
-        <Text style={styles.storyTitleWhite}>Tinh huong: {useCaseStories[0].persona}</Text>
-        <Text style={styles.storyTextWhite}>{useCaseStories[0].situation}</Text>
+        <Text style={styles.storyTitleWhite}>Tinh huong: {useCases[1].persona}</Text>
+        <Text style={styles.storyTextWhite}>{useCases[1].situation}</Text>
       </View>
       
       <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
         <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Van de</Text>
-        <Text style={styles.cardTextWhite}>{useCaseStories[0].problem}</Text>
+        <Text style={styles.cardTextWhite}>{useCases[1].problem}</Text>
       </View>
       
       <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Bluecore giai quyet</Text>
-        <Text style={styles.cardTextWhite}>{useCaseStories[0].solution}</Text>
+        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={styles.cardTextWhite}>{useCases[1].solution}</Text>
       </View>
       
       <View style={styles.mockupContainer}>
@@ -840,170 +682,50 @@ const UseCasePage1 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Shopee hom nay</Text>
-            <Text style={styles.mockupValue}>45.2M VND</Text>
+            <Text style={styles.mockupLabel}>Sales Team | Hieu suat</Text>
+            <Text style={styles.mockupValue}>92%</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Lazada hom nay</Text>
-            <Text style={styles.mockupValue}>32.1M VND</Text>
-          </View>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>TikTok Shop hom nay</Text>
-            <Text style={styles.mockupValue}>28.7M VND</Text>
+            <Text style={styles.mockupLabel}>Marketing Team | Hieu suat</Text>
+            <Text style={styles.mockupValue}>88%</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={[styles.mockupLabel, { fontWeight: 700 }]}>TONG CONG</Text>
-            <Text style={[styles.mockupValue, { fontSize: 12 }]}>106.0M VND</Text>
+            <Text style={styles.mockupLabel}>Customer LTV</Text>
+            <Text style={styles.mockupValue}>2.5M VND</Text>
           </View>
         </View>
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 16 }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCaseStories[0].result}</Text>
+        <Text style={styles.quoteText}>Ket qua: {useCases[1].result}</Text>
       </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>07</Text>
-    </View>
-  </Page>
-);
-
-const UseCasePage2 = () => (
-  <Page size="A4" style={styles.page}>
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>{useCaseStories[1].title}</Text>
-      
-      <View style={styles.storyBlock}>
-        <Text style={styles.storyTitle}>Tinh huong: {useCaseStories[1].persona}</Text>
-        <Text style={styles.storyText}>{useCaseStories[1].situation}</Text>
-      </View>
-      
-      <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
-        <Text style={[styles.cardTitle, { color: colors.error }]}>Van de</Text>
-        <Text style={styles.cardText}>{useCaseStories[1].problem}</Text>
-      </View>
-      
-      <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitle, { color: colors.success }]}>Bluecore giai quyet</Text>
-        <Text style={styles.cardText}>{useCaseStories[1].solution}</Text>
-      </View>
-      
-      <View style={styles.mockupContainer}>
-        <View style={styles.mockupHeader}>
-          <View style={[styles.mockupDot, { backgroundColor: '#ef4444' }]} />
-          <View style={[styles.mockupDot, { backgroundColor: '#f59e0b' }]} />
-          <View style={[styles.mockupDot, { backgroundColor: '#10b981' }]} />
-        </View>
-        <View style={styles.mockupContent}>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>SKU-001 | Shopee</Text>
-            <Text style={styles.mockupValue}>50 don vi</Text>
-          </View>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>SKU-001 | Lazada</Text>
-            <Text style={styles.mockupValue}>30 don vi</Text>
-          </View>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>SKU-001 | Kho thuc te</Text>
-            <Text style={[styles.mockupValue, { color: colors.warning }]}>75 don vi</Text>
-          </View>
-          <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.mockupLabel}>Chenh lech</Text>
-            <Text style={[styles.mockupValue, { color: colors.error }]}>[!] -5 don vi</Text>
-          </View>
-        </View>
-      </View>
-      
-      <View style={[styles.quoteBox, { marginTop: 16, backgroundColor: colors.success }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCaseStories[1].result}</Text>
-      </View>
-    </View>
-    
-    <View style={styles.footer}>
-      <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>08</Text>
+      <Text style={styles.pageNumberWhite}>06</Text>
     </View>
   </Page>
 );
 
 const UseCasePage3 = () => (
-  <Page size="A4" style={styles.pageDark}>
-    <View style={styles.container}>
-      <Text style={styles.sectionTitleWhite}>{useCaseStories[2].title}</Text>
-      
-      <View style={styles.storyBlockDark}>
-        <Text style={styles.storyTitleWhite}>Tinh huong: {useCaseStories[2].persona}</Text>
-        <Text style={styles.storyTextWhite}>{useCaseStories[2].situation}</Text>
-      </View>
-      
-      <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Van de</Text>
-        <Text style={styles.cardTextWhite}>{useCaseStories[2].problem}</Text>
-      </View>
-      
-      <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Bluecore giai quyet</Text>
-        <Text style={styles.cardTextWhite}>{useCaseStories[2].solution}</Text>
-      </View>
-      
-      <View style={styles.mockupContainer}>
-        <View style={styles.mockupHeader}>
-          <View style={[styles.mockupDot, { backgroundColor: '#ef4444' }]} />
-          <View style={[styles.mockupDot, { backgroundColor: '#f59e0b' }]} />
-          <View style={[styles.mockupDot, { backgroundColor: '#10b981' }]} />
-        </View>
-        <View style={styles.mockupContent}>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Facebook Ads | Chi phi</Text>
-            <Text style={styles.mockupValue}>15M VND</Text>
-          </View>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Facebook Ads | Margin</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>+8.2M VND</Text>
-          </View>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Google Ads | Chi phi</Text>
-            <Text style={styles.mockupValue}>20M VND</Text>
-          </View>
-          <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.mockupLabel}>Google Ads | Margin</Text>
-            <Text style={[styles.mockupValue, { color: colors.error }]}>-2.1M VND</Text>
-          </View>
-        </View>
-      </View>
-      
-      <View style={[styles.quoteBox, { marginTop: 16 }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCaseStories[2].result}</Text>
-      </View>
-    </View>
-    
-    <View style={styles.footer}>
-      <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>09</Text>
-    </View>
-  </Page>
-);
-
-const UseCasePage4 = () => (
   <Page size="A4" style={styles.pageAlt}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>{useCaseStories[3].title}</Text>
+      <Text style={styles.sectionTitle}>{useCases[2].title}</Text>
       
       <View style={styles.storyBlock}>
-        <Text style={styles.storyTitle}>Tinh huong: {useCaseStories[3].persona}</Text>
-        <Text style={styles.storyText}>{useCaseStories[3].situation}</Text>
+        <Text style={styles.storyTitle}>Tinh huong: {useCases[2].persona}</Text>
+        <Text style={styles.storyText}>{useCases[2].situation}</Text>
       </View>
       
       <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
         <Text style={[styles.cardTitle, { color: colors.error }]}>Van de</Text>
-        <Text style={styles.cardText}>{useCaseStories[3].problem}</Text>
+        <Text style={styles.cardText}>{useCases[2].problem}</Text>
       </View>
       
       <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitle, { color: colors.success }]}>Bluecore giai quyet</Text>
-        <Text style={styles.cardText}>{useCaseStories[3].solution}</Text>
+        <Text style={[styles.cardTitle, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={styles.cardText}>{useCases[2].solution}</Text>
       </View>
       
       <View style={styles.mockupContainer}>
@@ -1014,41 +736,91 @@ const UseCasePage4 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Bao cao Doanh thu</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Tu dong</Text>
+            <Text style={styles.mockupLabel}>He thong cu | Trang thai</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Da ket noi</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Bao cao Ton kho</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Tu dong</Text>
-          </View>
-          <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Bao cao Marketing</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Tu dong</Text>
+            <Text style={styles.mockupLabel}>ETL Pipeline | Trang thai</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Hoat dong</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.mockupLabel}>Thoi gian tong hop</Text>
-            <Text style={styles.mockupValue}>1 ngay (truoc: 7 ngay)</Text>
+            <Text style={styles.mockupLabel}>Du lieu lich su</Text>
+            <Text style={styles.mockupValue}>5 nam</Text>
           </View>
         </View>
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 16, backgroundColor: colors.success }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCaseStories[3].result}</Text>
+        <Text style={styles.quoteText}>Ket qua: {useCases[2].result}</Text>
       </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>10</Text>
+      <Text style={styles.pageNumber}>07</Text>
+    </View>
+  </Page>
+);
+
+const UseCasePage4 = () => (
+  <Page size="A4" style={styles.pageDark}>
+    <View style={styles.container}>
+      <Text style={styles.sectionTitleWhite}>{useCases[3].title}</Text>
+      
+      <View style={styles.storyBlockDark}>
+        <Text style={styles.storyTitleWhite}>Tinh huong: {useCases[3].persona}</Text>
+        <Text style={styles.storyTextWhite}>{useCases[3].situation}</Text>
+      </View>
+      
+      <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
+        <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Van de</Text>
+        <Text style={styles.cardTextWhite}>{useCases[3].problem}</Text>
+      </View>
+      
+      <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
+        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={styles.cardTextWhite}>{useCases[3].solution}</Text>
+      </View>
+      
+      <View style={styles.mockupContainer}>
+        <View style={styles.mockupHeader}>
+          <View style={[styles.mockupDot, { backgroundColor: '#ef4444' }]} />
+          <View style={[styles.mockupDot, { backgroundColor: '#f59e0b' }]} />
+          <View style={[styles.mockupDot, { backgroundColor: '#10b981' }]} />
+        </View>
+        <View style={styles.mockupContent}>
+          <View style={styles.mockupRow}>
+            <Text style={styles.mockupLabel}>Web Events / phut</Text>
+            <Text style={styles.mockupValue}>10,000+</Text>
+          </View>
+          <View style={styles.mockupRow}>
+            <Text style={styles.mockupLabel}>Mobile Events / phut</Text>
+            <Text style={styles.mockupValue}>5,000+</Text>
+          </View>
+          <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.mockupLabel}>Xu ly Real-time</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Hoat dong</Text>
+          </View>
+        </View>
+      </View>
+      
+      <View style={[styles.quoteBox, { marginTop: 16 }]}>
+        <Text style={styles.quoteText}>Ket qua: {useCases[3].result}</Text>
+      </View>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
+      <Text style={styles.pageNumberWhite}>08</Text>
     </View>
   </Page>
 );
 
 const ManifestoPage = () => (
-  <Page size="A4" style={styles.pageDark}>
+  <Page size="A4" style={styles.pageAlt}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitleWhite}>Data Warehouse Manifesto</Text>
-      <Text style={styles.sectionSubtitleWhite}>10 nguyen tac cot loi</Text>
+      <Text style={styles.sectionTitle}>Data Warehouse Manifesto</Text>
+      <Text style={styles.sectionSubtitle}>10 nguyen tac cot loi</Text>
       
       <View style={{ marginTop: 10 }}>
         {manifestoItems.map((item, idx) => (
@@ -1056,36 +828,36 @@ const ManifestoPage = () => (
             <View style={styles.manifestoNumber}>
               <Text style={styles.manifestoNumberText}>{idx + 1}</Text>
             </View>
-            <Text style={styles.manifestoTextWhite}>{item}</Text>
+            <Text style={styles.manifestoText}>{item}</Text>
           </View>
         ))}
       </View>
     </View>
     
     <View style={styles.footer}>
-      <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>11</Text>
+      <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
+      <Text style={styles.pageNumber}>09</Text>
     </View>
   </Page>
 );
 
 const CTAPage = () => (
-  <Page size="A4" style={styles.page}>
+  <Page size="A4" style={styles.pageDark}>
     <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-      <Text style={[styles.sectionTitle, { fontSize: 32, marginBottom: 16 }]}>
-        San sang thong nhat du lieu?
+      <Text style={[styles.sectionTitleWhite, { fontSize: 32, marginBottom: 16 }]}>
+        San sang tap trung hoa du lieu?
       </Text>
-      <Text style={[styles.sectionSubtitle, { fontSize: 16, marginBottom: 40 }]}>
+      <Text style={[styles.sectionSubtitleWhite, { fontSize: 16, marginBottom: 40 }]}>
         Lien he de duoc tu van va demo mien phi
       </Text>
       
-      <View style={[styles.card, { width: 350, alignItems: 'center', padding: 24 }]}>
-        <Text style={[styles.cardTitle, { fontSize: 16, marginBottom: 16 }]}>Bluecore Team</Text>
+      <View style={[styles.cardDark, { width: 350, alignItems: 'center', padding: 24 }]}>
+        <Text style={[styles.cardTitleWhite, { fontSize: 16, marginBottom: 16 }]}>Bluecore Team</Text>
         <View style={{ marginBottom: 8 }}>
-          <Text style={styles.cardText}>Email: contact@bluecore.vn</Text>
+          <Text style={styles.cardTextWhite}>Email: contact@bluecore.vn</Text>
         </View>
         <View style={{ marginBottom: 8 }}>
-          <Text style={styles.cardText}>Website: bluecore.vn</Text>
+          <Text style={styles.cardTextWhite}>Website: bluecore.vn</Text>
         </View>
       </View>
       
@@ -1095,14 +867,14 @@ const CTAPage = () => (
       
       <View style={{ marginTop: 30 }}>
         <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>
-          Kiem soat du lieu - Toi uu chi phi - Ca nhan hoa trai nghiem
+          Kho du lieu co the mang lai gia tri lon cho cac doanh nghiep de tap trung hoa va tao du lieu nhat quan hon
         </Text>
       </View>
     </View>
     
     <View style={styles.footer}>
-      <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>12</Text>
+      <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
+      <Text style={styles.pageNumberWhite}>10</Text>
     </View>
   </Page>
 );
@@ -1113,14 +885,12 @@ const DataWarehouseSalesDeckPDF: React.FC = () => (
     title="Bluecore Data Warehouse Sales Deck"
     author="Bluecore Team"
     subject="Data Warehouse - Single Source of Truth"
-    keywords="data warehouse, ETL, BI, data platform, SME, retail, Vietnam, Shopee, Lazada, TikTok"
+    keywords="data warehouse, ETL, data platform, bluecore"
   >
     <CoverPage />
-    <WhoWeArePage />
-    <DataChallengePage />
-    <PositioningPage />
-    <ConnectionsPage />
-    <CompetitivePage />
+    <WhatIsPage />
+    <BenefitsPage1 />
+    <BenefitsPage2 />
     <UseCasePage1 />
     <UseCasePage2 />
     <UseCasePage3 />
