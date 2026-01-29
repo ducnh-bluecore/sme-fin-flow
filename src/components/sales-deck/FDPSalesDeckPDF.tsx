@@ -12,19 +12,7 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
-  Image,
 } from '@react-pdf/renderer';
-
-// Register Be Vietnam Pro font (using Google Fonts CDN)
-Font.register({
-  family: 'BeVietnamPro',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/bevietnampro/v10/QdVPSTAyLFyeg_IDWvOJmVES_HRUBX8YYQ.ttf', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/bevietnampro/v10/QdVMSTAyLFyeg_IDWvOJmVES_HT4JF8yT7wCpQ.ttf', fontWeight: 600 },
-    { src: 'https://fonts.gstatic.com/s/bevietnampro/v10/QdVMSTAyLFyeg_IDWvOJmVES_HScJl8yT7wCpQ.ttf', fontWeight: 700 },
-  ],
-});
 
 // Brand colors
 const colors = {
@@ -40,11 +28,11 @@ const colors = {
   black: '#000000',
 };
 
-// Styles
+// Styles - Using built-in Helvetica font (no external font loading)
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontFamily: 'BeVietnamPro',
+    fontFamily: 'Helvetica',
     backgroundColor: colors.white,
   },
   coverPage: {
