@@ -384,93 +384,93 @@ const styles = StyleSheet.create({
   },
 });
 
-// Content data - Vietnamese with full diacritics
+// Content data - Vietnamese with full diacritics (tiếng Việt có dấu đầy đủ)
 const threePillars = [
-  { icon: '[=]', title: 'NHAT QUAN', desc: 'Du lieu chuan hoa' },
-  { icon: '[*]', title: 'TAP TRUNG', desc: 'Mot nguon duy nhat' },
-  { icon: '[>]', title: 'TRUY CAP', desc: 'De dang va nhanh chong' },
+  { icon: '[=]', title: 'NHẤT QUÁN', desc: 'Dữ liệu chuẩn hoá' },
+  { icon: '[*]', title: 'TẬP TRUNG', desc: 'Một nguồn duy nhất' },
+  { icon: '[>]', title: 'TRUY CẬP', desc: 'Dễ dàng và nhanh chóng' },
 ];
 
-// 5 loi ich cua Data Warehouse tu bluecore.vn
+// 5 lợi ích của Data Warehouse từ bluecore.vn
 const dwBenefits = [
   {
-    title: '1. Tinh nhat quan',
-    desc: 'Luu tru du lieu thuong lien quan den viec chuyen doi du lieu tu nhieu nguon va dinh dang thanh mot dinh dang chuan, giup nguoi dung de dang phan tich va chia se thong tin chi tiet.',
+    title: '1. Tính nhất quán',
+    desc: 'Lưu trữ dữ liệu thường liên quan đến việc chuyển đổi dữ liệu từ nhiều nguồn và định dạng thành một định dạng chuẩn, giúp người dùng dễ dàng phân tích và chia sẻ thông tin chi tiết.',
   },
   {
-    title: '2. Tinh tap trung',
-    desc: 'Kho du lieu giai quyet van de hop nhat du lieu tu nhieu he thong con duoc xay dung tren cac nen tang khac nhau vao mot kho luu tru duy nhat.',
+    title: '2. Tính tập trung',
+    desc: 'Kho dữ liệu giải quyết vấn đề hợp nhất dữ liệu từ nhiều hệ thống con được xây dựng trên các nền tảng khác nhau vào một kho lưu trữ duy nhất.',
   },
   {
-    title: '3. Kha nang truy cap',
-    desc: 'Nguoi dung doanh nghiep co the tu tao bao cao va truy van, truy cap tat ca du lieu tu mot giao dien thay vi phai dang nhap vao nhieu he thong.',
+    title: '3. Khả năng truy cập',
+    desc: 'Người dùng doanh nghiệp có thể tự tạo báo cáo và truy vấn, truy cập tất cả dữ liệu từ một giao diện thay vì phải đăng nhập vào nhiều hệ thống.',
   },
   {
-    title: '4. Kha nang kiem soat',
-    desc: 'Kho du lieu dam bao tinh toan ven cua du lieu thong qua cac bien phap kiem soat duoc trien khai doi voi cac vai tro va trach nhiem lien quan.',
+    title: '4. Khả năng kiểm soát',
+    desc: 'Kho dữ liệu đảm bảo tính toàn vẹn của dữ liệu thông qua các biện pháp kiểm soát được triển khai đối với các vai trò và trách nhiệm liên quan.',
   },
   {
-    title: '5. Lam sach du lieu',
-    desc: 'Kho du lieu su dung quy trinh khu trung de loai bo thong tin chat luong kem, phat hien cac bo du lieu trung lap, bi hong hoac khong chinh xac.',
+    title: '5. Làm sạch dữ liệu',
+    desc: 'Kho dữ liệu sử dụng quy trình khử trùng để loại bỏ thông tin chất lượng kém, phát hiện các bộ dữ liệu trùng lặp, bị hỏng hoặc không chính xác.',
   },
 ];
 
-// Use cases tu bluecore.vn
+// Use cases từ bluecore.vn
 const useCases = [
   {
-    title: 'Hieu qua chien dich Marketing',
+    title: 'Hiệu quả chiến dịch Marketing',
     persona: 'Marketing Manager',
-    situation: 'Du lieu tiep thi nam rai rac tren nhieu he thong: CRM, he thong ban hang, nen tang quang cao',
-    problem: 'Vao thoi diem cac nhom tap hop du lieu phan tan vao bang tinh, du lieu co the da tro nen loi thoi',
-    solution: 'Kho du lieu tao ra mot nguon du lieu duy nhat, hop nhat du lieu tu cac he thong ben trong va ben ngoai',
-    result: 'Tat ca nha tiep thi deu co quyen truy cap vao cung mot du lieu duoc tieu chuan hoa, theo doi ROI va chi phi mua lai khach hang tot hon',
+    situation: 'Dữ liệu tiếp thị nằm rải rác trên nhiều hệ thống: CRM, hệ thống bán hàng, nền tảng quảng cáo',
+    problem: 'Vào thời điểm các nhóm tập hợp dữ liệu phân tán vào bảng tính, dữ liệu có thể đã trở nên lỗi thời',
+    solution: 'Kho dữ liệu tạo ra một nguồn dữ liệu duy nhất, hợp nhất dữ liệu từ các hệ thống bên trong và bên ngoài',
+    result: 'Tất cả nhà tiếp thị đều có quyền truy cập vào cùng một dữ liệu được tiêu chuẩn hoá, theo dõi ROI và chi phí mua lại khách hàng tốt hơn',
   },
   {
-    title: 'Danh gia hieu suat nhom',
+    title: 'Đánh giá hiệu suất nhóm',
     persona: 'CEO / CFO',
-    situation: 'Can danh gia hieu suat cua nhom trong toan to chuc',
-    problem: 'Du lieu nam o nhieu he thong khac nhau, kho tong hop de so sanh',
-    solution: 'Nguoi dung co the tim hieu sau hon ve du lieu nhom de tao bang dieu khien hoac bao cao tuy chinh',
-    result: 'Cac chi so nhu mo hinh su dung, gia tri lau dai cua khach hang co the duoc su dung de danh gia cac nhom',
+    situation: 'Cần đánh giá hiệu suất của nhóm trong toàn tổ chức',
+    problem: 'Dữ liệu nằm ở nhiều hệ thống khác nhau, khó tổng hợp để so sánh',
+    solution: 'Người dùng có thể tìm hiểu sâu hơn về dữ liệu nhóm để tạo bảng điều khiển hoặc báo cáo tuỳ chỉnh',
+    result: 'Các chỉ số như mô hình sử dụng, giá trị lâu dài của khách hàng có thể được sử dụng để đánh giá các nhóm',
   },
   {
-    title: 'Hop nhat du lieu tu he thong cu',
+    title: 'Hợp nhất dữ liệu từ hệ thống cũ',
     persona: 'IT Manager',
-    situation: 'Du lieu cu duoc luu tru o dinh dang cu hoac he thong loi thoi, gay kho khan cho viec truy cap',
-    problem: 'Cac he thong ke thua duoc xay dung de thuc hien cac chuc nang cu the va khong duoc xay dung de phan tich du lieu',
-    solution: 'Kho du lieu co the tu dong ket noi voi cac he thong cu de thu thap va phan tich du lieu, su dung ETL de chuyen doi',
-    result: 'Hop nhat du lieu cu voi ung dung moi giup cung cap thong tin chi tiet hon ve cac xu huong lich su',
+    situation: 'Dữ liệu cũ được lưu trữ ở định dạng cũ hoặc hệ thống lỗi thời, gây khó khăn cho việc truy cập',
+    problem: 'Các hệ thống kế thừa được xây dựng để thực hiện các chức năng cụ thể và không được xây dựng để phân tích dữ liệu',
+    solution: 'Kho dữ liệu có thể tự động kết nối với các hệ thống cũ để thu thập và phân tích dữ liệu, sử dụng ETL để chuyển đổi',
+    result: 'Hợp nhất dữ liệu cũ với ứng dụng mới giúp cung cấp thông tin chi tiết hơn về các xu hướng lịch sử',
   },
   {
-    title: 'Phan tich du lieu lon theo thoi gian thuc',
+    title: 'Phân tích dữ liệu lớn theo thời gian thực',
     persona: 'Data Analyst',
-    situation: 'Du lieu dong lon duoc tao lien tuc boi nhieu nguon: web, mobile, thuong mai dien tu',
-    problem: 'Du lieu khong the duoc phan tich lai sau khi truyen phat, can xu ly ngay lap tuc',
-    solution: 'Kho du lieu co the nhom du lieu dong lon de hien thi so lieu thong ke tong the',
-    result: 'Hieu ro hon ve cac hoat dong kinh doanh va khach hang nhu so lan nhap vao trang web, vi tri dia ly cua thiet bi',
+    situation: 'Dữ liệu động lớn được tạo liên tục bởi nhiều nguồn: web, mobile, thương mại điện tử',
+    problem: 'Dữ liệu không thể được phân tích lại sau khi truyền phát, cần xử lý ngay lập tức',
+    solution: 'Kho dữ liệu có thể nhóm dữ liệu động lớn để hiển thị số liệu thống kê tổng thể',
+    result: 'Hiểu rõ hơn về các hoạt động kinh doanh và khách hàng như số lần nhấp vào trang web, vị trí địa lý của thiết bị',
   },
 ];
 
-// Ket qua khi su dung Data Warehouse
+// Kết quả khi sử dụng Data Warehouse
 const dwResults = [
-  'Luong thong tin hop ly hoa',
-  'Chat luong va tinh nhat quan cua du lieu duoc nang cao',
-  'Tri tue kinh doanh duoc cai thien',
-  'Loi the canh tranh dang ke',
-  'Cai thien viec ra quyet dinh',
+  'Luồng thông tin hợp lý hoá',
+  'Chất lượng và tính nhất quán của dữ liệu được nâng cao',
+  'Trí tuệ kinh doanh được cải thiện',
+  'Lợi thế cạnh tranh đáng kể',
+  'Cải thiện việc ra quyết định',
 ];
 
 const manifestoItems = [
-  'SINGLE SOURCE OF TRUTH - Chi co mot phien ban du lieu duy nhat',
-  'TINH NHAT QUAN - Du lieu duoc chuan hoa tu nhieu nguon va dinh dang',
-  'TINH TAP TRUNG - Hop nhat du lieu vao mot kho luu tru duy nhat',
-  'TRUY CAP DE DANG - Nguoi dung co the tu tao bao cao ma khong can IT',
-  'KIEM SOAT CHAT CHE - Phan quyen ro rang, dam bao tinh toan ven du lieu',
-  'LAM SACH DU LIEU - Loai bo thong tin trung lap, bi hong, khong chinh xac',
-  'TICH HOP ETL - Ket noi va chuyen doi du lieu tu cac he thong cu',
-  'THOI GIAN THUC - Xu ly du lieu dong lon ngay lap tuc',
-  'BAO CAO THONG MINH - Tao bang dieu khien va bao cao tuy chinh',
-  'RA QUYET DINH TOT HON - Cung cap thong tin chi tiet va xu huong lich su',
+  'SINGLE SOURCE OF TRUTH - Chỉ có một phiên bản dữ liệu duy nhất',
+  'TÍNH NHẤT QUÁN - Dữ liệu được chuẩn hoá từ nhiều nguồn và định dạng',
+  'TÍNH TẬP TRUNG - Hợp nhất dữ liệu vào một kho lưu trữ duy nhất',
+  'TRUY CẬP DỄ DÀNG - Người dùng có thể tự tạo báo cáo mà không cần IT',
+  'KIỂM SOÁT CHẶT CHẼ - Phân quyền rõ ràng, đảm bảo tính toàn vẹn dữ liệu',
+  'LÀM SẠCH DỮ LIỆU - Loại bỏ thông tin trùng lặp, bị hỏng, không chính xác',
+  'TÍCH HỢP ETL - Kết nối và chuyển đổi dữ liệu từ các hệ thống cũ',
+  'THỜI GIAN THỰC - Xử lý dữ liệu động lớn ngay lập tức',
+  'BÁO CÁO THÔNG MINH - Tạo bảng điều khiển và báo cáo tuỳ chỉnh',
+  'RA QUYẾT ĐỊNH TỐT HƠN - Cung cấp thông tin chi tiết và xu hướng lịch sử',
 ];
 
 // Page components
@@ -484,12 +484,12 @@ const CoverPage = () => (
         <Text style={styles.coverBadgeText}>BLUECORE DATA PLATFORM</Text>
       </View>
       <Text style={styles.coverTitle}>Data Warehouse</Text>
-      <Text style={styles.coverSubtitle}>Kho du lieu hop nhat cho doanh nghiep</Text>
+      <Text style={styles.coverSubtitle}>Kho dữ liệu hợp nhất cho doanh nghiệp</Text>
       <Text style={styles.coverTagline}>Single Source of Truth</Text>
       
       <View style={{ marginTop: 40, alignItems: 'center' }}>
-        <Text style={{ fontSize: 12, color: colors.textLight, marginBottom: 8 }}>Hop nhat du lieu tu nhieu nguon</Text>
-        <Text style={{ fontSize: 14, color: colors.accentLight, fontWeight: 700 }}>Nang cao hieu qua kinh doanh va ra quyet dinh tot hon</Text>
+        <Text style={{ fontSize: 12, color: colors.textLight, marginBottom: 8 }}>Hợp nhất dữ liệu từ nhiều nguồn</Text>
+        <Text style={{ fontSize: 14, color: colors.accentLight, fontWeight: 700 }}>Nâng cao hiệu quả kinh doanh và ra quyết định tốt hơn</Text>
       </View>
     </View>
     
@@ -503,14 +503,14 @@ const CoverPage = () => (
 const WhatIsPage = () => (
   <Page size="A4" style={styles.page}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Data Warehouse la gi?</Text>
+      <Text style={styles.sectionTitle}>Data Warehouse là gì?</Text>
       <Text style={styles.sectionSubtitle}>
-        Kho du lieu hop nhat mot luong lon du lieu tu nhieu nguon va toi uu hoa du lieu do de cho phep phan tich
+        Kho dữ liệu hợp nhất một lượng lớn dữ liệu từ nhiều nguồn và tối ưu hoá dữ liệu đó để cho phép phân tích
       </Text>
       
       <View style={styles.storyBlock}>
         <Text style={styles.storyText}>
-          Kho du lieu hop nhat mot luong lon du lieu tu nhieu nguon va toi uu hoa du lieu do de cho phep phan tich nham nang cao hieu qua kinh doanh, dua ra quyet dinh tot hon va kham pha cac loi the canh tranh.
+          Kho dữ liệu hợp nhất một lượng lớn dữ liệu từ nhiều nguồn và tối ưu hoá dữ liệu đó để cho phép phân tích nhằm nâng cao hiệu quả kinh doanh, đưa ra quyết định tốt hơn và khám phá các lợi thế cạnh tranh.
         </Text>
       </View>
       
@@ -523,7 +523,7 @@ const WhatIsPage = () => (
       </View>
       
       <View style={[styles.card, { marginTop: 16 }]}>
-        <Text style={styles.cardTitle}>Data Warehouse cung cap:</Text>
+        <Text style={styles.cardTitle}>Data Warehouse cung cấp:</Text>
         <View style={{ marginTop: 12 }}>
           {dwResults.map((result, idx) => (
             <View key={idx} style={{ flexDirection: 'row', marginBottom: 8 }}>
@@ -536,7 +536,7 @@ const WhatIsPage = () => (
       
       <View style={styles.quoteBox}>
         <Text style={styles.quoteText}>
-          Cac to chuc nam bat duoc toan bo loi ich cua du lieu duoc trang bi tot hon de xu ly cac dieu kien thi truong dang thay doi
+          Các tổ chức nắm bắt được toàn bộ lợi ích của dữ liệu được trang bị tốt hơn để xử lý các điều kiện thị trường đang thay đổi
         </Text>
       </View>
     </View>
@@ -551,9 +551,9 @@ const WhatIsPage = () => (
 const BenefitsPage1 = () => (
   <Page size="A4" style={styles.pageDark}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitleWhite}>5 Loi ich cua Data Warehouse</Text>
+      <Text style={styles.sectionTitleWhite}>5 Lợi ích của Data Warehouse</Text>
       <Text style={styles.sectionSubtitleWhite}>
-        Kho du lieu duoc trien khai thanh cong co the giup to chuc cua ban theo nhieu cach
+        Kho dữ liệu được triển khai thành công có thể giúp tổ chức của bạn theo nhiều cách
       </Text>
       
       {dwBenefits.slice(0, 3).map((benefit, idx) => (
@@ -574,9 +574,9 @@ const BenefitsPage1 = () => (
 const BenefitsPage2 = () => (
   <Page size="A4" style={styles.pageAlt}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>5 Loi ich cua Data Warehouse</Text>
+      <Text style={styles.sectionTitle}>5 Lợi ích của Data Warehouse</Text>
       <Text style={styles.sectionSubtitle}>
-        Tiep tuc...
+        Tiếp tục...
       </Text>
       
       {dwBenefits.slice(3, 5).map((benefit, idx) => (
@@ -588,7 +588,7 @@ const BenefitsPage2 = () => (
       
       <View style={[styles.quoteBox, { backgroundColor: colors.success }]}>
         <Text style={styles.quoteText}>
-          Du lieu nhat quan hon co nghia la cac bo phan kinh doanh rieng le co the su dung cung mot nguon du lieu
+          Dữ liệu nhất quán hơn có nghĩa là các bộ phận kinh doanh riêng lẻ có thể sử dụng cùng một nguồn dữ liệu
         </Text>
       </View>
     </View>
@@ -606,17 +606,17 @@ const UseCasePage1 = () => (
       <Text style={styles.sectionTitle}>{useCases[0].title}</Text>
       
       <View style={styles.storyBlock}>
-        <Text style={styles.storyTitle}>Tinh huong: {useCases[0].persona}</Text>
+        <Text style={styles.storyTitle}>Tình huống: {useCases[0].persona}</Text>
         <Text style={styles.storyText}>{useCases[0].situation}</Text>
       </View>
       
       <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
-        <Text style={[styles.cardTitle, { color: colors.error }]}>Van de</Text>
+        <Text style={[styles.cardTitle, { color: colors.error }]}>Vấn đề</Text>
         <Text style={styles.cardText}>{useCases[0].problem}</Text>
       </View>
       
       <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitle, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={[styles.cardTitle, { color: colors.success }]}>Giải pháp Data Warehouse</Text>
         <Text style={styles.cardText}>{useCases[0].solution}</Text>
       </View>
       
@@ -636,14 +636,14 @@ const UseCasePage1 = () => (
             <Text style={styles.mockupValue}>2.8x</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.mockupLabel}>Chi phi mua lai KH</Text>
+            <Text style={styles.mockupLabel}>Chi phí mua lại KH</Text>
             <Text style={styles.mockupValue}>125,000 VND</Text>
           </View>
         </View>
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 16 }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCases[0].result}</Text>
+        <Text style={styles.quoteText}>Kết quả: {useCases[0].result}</Text>
       </View>
     </View>
     
@@ -660,17 +660,17 @@ const UseCasePage2 = () => (
       <Text style={styles.sectionTitleWhite}>{useCases[1].title}</Text>
       
       <View style={styles.storyBlockDark}>
-        <Text style={styles.storyTitleWhite}>Tinh huong: {useCases[1].persona}</Text>
+        <Text style={styles.storyTitleWhite}>Tình huống: {useCases[1].persona}</Text>
         <Text style={styles.storyTextWhite}>{useCases[1].situation}</Text>
       </View>
       
       <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Van de</Text>
+        <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Vấn đề</Text>
         <Text style={styles.cardTextWhite}>{useCases[1].problem}</Text>
       </View>
       
       <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Giải pháp Data Warehouse</Text>
         <Text style={styles.cardTextWhite}>{useCases[1].solution}</Text>
       </View>
       
@@ -682,11 +682,11 @@ const UseCasePage2 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Sales Team | Hieu suat</Text>
+            <Text style={styles.mockupLabel}>Sales Team | Hiệu suất</Text>
             <Text style={styles.mockupValue}>92%</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Marketing Team | Hieu suat</Text>
+            <Text style={styles.mockupLabel}>Marketing Team | Hiệu suất</Text>
             <Text style={styles.mockupValue}>88%</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
@@ -697,7 +697,7 @@ const UseCasePage2 = () => (
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 16 }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCases[1].result}</Text>
+        <Text style={styles.quoteText}>Kết quả: {useCases[1].result}</Text>
       </View>
     </View>
     
@@ -714,17 +714,17 @@ const UseCasePage3 = () => (
       <Text style={styles.sectionTitle}>{useCases[2].title}</Text>
       
       <View style={styles.storyBlock}>
-        <Text style={styles.storyTitle}>Tinh huong: {useCases[2].persona}</Text>
+        <Text style={styles.storyTitle}>Tình huống: {useCases[2].persona}</Text>
         <Text style={styles.storyText}>{useCases[2].situation}</Text>
       </View>
       
       <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
-        <Text style={[styles.cardTitle, { color: colors.error }]}>Van de</Text>
+        <Text style={[styles.cardTitle, { color: colors.error }]}>Vấn đề</Text>
         <Text style={styles.cardText}>{useCases[2].problem}</Text>
       </View>
       
       <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitle, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={[styles.cardTitle, { color: colors.success }]}>Giải pháp Data Warehouse</Text>
         <Text style={styles.cardText}>{useCases[2].solution}</Text>
       </View>
       
@@ -736,22 +736,22 @@ const UseCasePage3 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>He thong cu | Trang thai</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Da ket noi</Text>
+            <Text style={styles.mockupLabel}>Hệ thống cũ | Trạng thái</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Đã kết nối</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>ETL Pipeline | Trang thai</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Hoat dong</Text>
+            <Text style={styles.mockupLabel}>ETL Pipeline | Trạng thái</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Hoạt động</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.mockupLabel}>Du lieu lich su</Text>
-            <Text style={styles.mockupValue}>5 nam</Text>
+            <Text style={styles.mockupLabel}>Dữ liệu lịch sử</Text>
+            <Text style={styles.mockupValue}>5 năm</Text>
           </View>
         </View>
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 16, backgroundColor: colors.success }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCases[2].result}</Text>
+        <Text style={styles.quoteText}>Kết quả: {useCases[2].result}</Text>
       </View>
     </View>
     
@@ -768,17 +768,17 @@ const UseCasePage4 = () => (
       <Text style={styles.sectionTitleWhite}>{useCases[3].title}</Text>
       
       <View style={styles.storyBlockDark}>
-        <Text style={styles.storyTitleWhite}>Tinh huong: {useCases[3].persona}</Text>
+        <Text style={styles.storyTitleWhite}>Tình huống: {useCases[3].persona}</Text>
         <Text style={styles.storyTextWhite}>{useCases[3].situation}</Text>
       </View>
       
       <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.error }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Van de</Text>
+        <Text style={[styles.cardTitleWhite, { color: colors.error }]}>Vấn đề</Text>
         <Text style={styles.cardTextWhite}>{useCases[3].problem}</Text>
       </View>
       
       <View style={[styles.cardDark, { borderLeftWidth: 4, borderLeftColor: colors.success }]}>
-        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Giai phap Data Warehouse</Text>
+        <Text style={[styles.cardTitleWhite, { color: colors.success }]}>Giải pháp Data Warehouse</Text>
         <Text style={styles.cardTextWhite}>{useCases[3].solution}</Text>
       </View>
       
@@ -790,22 +790,22 @@ const UseCasePage4 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Web Events / phut</Text>
+            <Text style={styles.mockupLabel}>Web Events / phút</Text>
             <Text style={styles.mockupValue}>10,000+</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Mobile Events / phut</Text>
+            <Text style={styles.mockupLabel}>Mobile Events / phút</Text>
             <Text style={styles.mockupValue}>5,000+</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.mockupLabel}>Xu ly Real-time</Text>
-            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Hoat dong</Text>
+            <Text style={styles.mockupLabel}>Xử lý Real-time</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Hoạt động</Text>
           </View>
         </View>
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 16 }]}>
-        <Text style={styles.quoteText}>Ket qua: {useCases[3].result}</Text>
+        <Text style={styles.quoteText}>Kết quả: {useCases[3].result}</Text>
       </View>
     </View>
     
@@ -820,7 +820,7 @@ const ManifestoPage = () => (
   <Page size="A4" style={styles.pageAlt}>
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Data Warehouse Manifesto</Text>
-      <Text style={styles.sectionSubtitle}>10 nguyen tac cot loi</Text>
+      <Text style={styles.sectionSubtitle}>10 nguyên tắc cốt lõi</Text>
       
       <View style={{ marginTop: 10 }}>
         {manifestoItems.map((item, idx) => (
@@ -845,10 +845,10 @@ const CTAPage = () => (
   <Page size="A4" style={styles.pageDark}>
     <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
       <Text style={[styles.sectionTitleWhite, { fontSize: 32, marginBottom: 16 }]}>
-        San sang tap trung hoa du lieu?
+        Sẵn sàng tập trung hoá dữ liệu?
       </Text>
       <Text style={[styles.sectionSubtitleWhite, { fontSize: 16, marginBottom: 40 }]}>
-        Lien he de duoc tu van va demo mien phi
+        Liên hệ để được tư vấn và demo miễn phí
       </Text>
       
       <View style={[styles.cardDark, { width: 350, alignItems: 'center', padding: 24 }]}>
@@ -867,7 +867,7 @@ const CTAPage = () => (
       
       <View style={{ marginTop: 30 }}>
         <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>
-          Kho du lieu co the mang lai gia tri lon cho cac doanh nghiep de tap trung hoa va tao du lieu nhat quan hon
+          Kho dữ liệu có thể mang lại giá trị lớn cho các doanh nghiệp để tập trung hoá và tạo dữ liệu nhất quán hơn
         </Text>
       </View>
     </View>
