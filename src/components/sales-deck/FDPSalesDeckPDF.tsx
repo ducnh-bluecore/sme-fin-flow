@@ -453,44 +453,49 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   
-  // Feature list styles
+  // Feature list styles - IMPROVED
   featureRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
     gap: 14,
   },
   featureColumn: {
     flex: 1,
     backgroundColor: colors.white,
-    padding: 18,
-    borderRadius: 10,
+    padding: 20,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
   featureColumnAlt: {
     flex: 1,
     backgroundColor: colors.backgroundAlt,
-    padding: 18,
-    borderRadius: 10,
+    padding: 20,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#bae6fd',
   },
   featureColumnTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 700,
     color: colors.primaryDark,
-    marginBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-    paddingBottom: 8,
+    marginBottom: 4,
   },
-  featureItem: {
+  featureColumnSubtitle: {
     fontSize: 9,
     fontWeight: 400,
+    color: colors.primary,
+    marginBottom: 14,
+    fontStyle: 'italic',
+  },
+  featureItem: {
+    fontSize: 10,
+    fontWeight: 400,
     color: colors.text,
-    marginBottom: 6,
-    paddingLeft: 8,
+    marginBottom: 8,
+    paddingLeft: 12,
+    lineHeight: 1.4,
   },
   
   // Decision flow styles
@@ -812,46 +817,46 @@ const coreCapabilities = [
   },
 ];
 
-// Feature details (có dấu đầy đủ)
+// Feature details - REWRITTEN FOR DECISION VALUE (có dấu đầy đủ)
 const featureDetails = {
   finance: {
-    title: 'Báo cáo Tài chính',
+    title: 'Biết chính xác đang lãi hay lỗ',
+    subtitle: 'Câu trả lời mỗi sáng mà CEO cần',
     items: [
-      'P&L Report theo tháng/quý/năm',
-      'Gross Margin & Operating Margin',
-      'EBITDA breakdown',
-      'Revenue theo Channel & Category',
-      'Cost structure analysis'
+      'Gross Margin thực sau tất cả chi phí',
+      'Contribution Margin từng Channel',
+      'Chi phí ẩn đang "ăn" lợi nhuận',
+      'So sánh thực vs kế hoạch ngay lập tức'
     ],
   },
   working: {
-    title: 'Vốn lưu động & CCC',
+    title: 'Tiền đang kẹt ở đâu?',
+    subtitle: 'Cash thực ≠ Doanh thu',
     items: [
-      'DSO - Days Sales Outstanding',
-      'DIO - Days Inventory Outstanding',
-      'DPO - Days Payable Outstanding',
-      'Cash Conversion Cycle',
-      'Working Capital optimization'
+      'Bao nhiêu tiền đang nằm trong hàng tồn?',
+      'Bao nhiêu tiền đang chờ khách trả?',
+      'Cash Conversion Cycle đang bao lâu?',
+      'Cần làm gì để rút ngắn vòng tiền?'
     ],
   },
   arap: {
-    title: 'Quản lý AR/AP',
+    title: 'Ai đang nợ tiền mình?',
+    subtitle: 'Danh sách hành động, không phải báo cáo',
     items: [
-      'AR Aging Analysis',
-      'Theo dõi hoá đơn quá hạn',
-      'Dự báo thu tiền',
-      'Lịch thanh toán AP tối ưu',
-      'Cash gap analysis'
+      'Top 10 khách nợ quá hạn cần gọi ngay',
+      'Số tiền có nguy cơ mất trắng',
+      'Cash sẽ về trong 7/14/30 ngày tới',
+      'Vendor nào cần trì hoãn thanh toán?'
     ],
   },
   decision: {
-    title: 'Hỗ trợ Quyết định',
+    title: 'Nên làm hay không?',
+    subtitle: 'Data cho quyết định, không phải biểu đồ',
     items: [
-      'ROI Analysis calculator',
-      'Tính toán NPV/IRR',
-      'Sensitivity analysis',
-      'What-if scenario planning',
-      'Investment decision framework'
+      'ROI thực tế của từng kênh bán',
+      'Chi phí nào cắt được ngay?',
+      'SKU nào bán nhiều mà vẫn lỗ?',
+      'Nên đầu tư thêm hay dừng lại?'
     ],
   },
 };
@@ -1074,23 +1079,28 @@ const FDPSalesDeckPDF: React.FC = () => {
         </View>
       </Page>
 
-      {/* Page 6: Feature Details */}
+      {/* Page 6: Feature Details - REDESIGNED */}
       <Page size="A4" style={styles.pageAlt}>
-        <Text style={styles.eyebrowLabel}>Chi tiết</Text>
-        <Text style={styles.sectionTitleCenter}>Chức năng Chi tiết</Text>
+        <Text style={styles.eyebrowLabel}>Câu hỏi mỗi ngày</Text>
+        <Text style={styles.sectionTitleCenter}>Những câu hỏi CEO cần trả lời</Text>
+        <Text style={styles.sectionSubtitleCenter}>
+          FDP được thiết kế để trả lời các câu hỏi kinh doanh quan trọng nhất — không phải để làm báo cáo.
+        </Text>
         
         <View style={styles.featureRow}>
           <View style={styles.featureColumn}>
             <Text style={styles.featureColumnTitle}>{featureDetails.finance.title}</Text>
+            <Text style={styles.featureColumnSubtitle}>{featureDetails.finance.subtitle}</Text>
             {featureDetails.finance.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
+              <Text key={index} style={styles.featureItem}>→ {item}</Text>
             ))}
           </View>
           
           <View style={styles.featureColumnAlt}>
             <Text style={styles.featureColumnTitle}>{featureDetails.working.title}</Text>
+            <Text style={styles.featureColumnSubtitle}>{featureDetails.working.subtitle}</Text>
             {featureDetails.working.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
+              <Text key={index} style={styles.featureItem}>→ {item}</Text>
             ))}
           </View>
         </View>
@@ -1098,15 +1108,17 @@ const FDPSalesDeckPDF: React.FC = () => {
         <View style={styles.featureRow}>
           <View style={styles.featureColumnAlt}>
             <Text style={styles.featureColumnTitle}>{featureDetails.arap.title}</Text>
+            <Text style={styles.featureColumnSubtitle}>{featureDetails.arap.subtitle}</Text>
             {featureDetails.arap.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
+              <Text key={index} style={styles.featureItem}>→ {item}</Text>
             ))}
           </View>
           
           <View style={styles.featureColumn}>
             <Text style={styles.featureColumnTitle}>{featureDetails.decision.title}</Text>
+            <Text style={styles.featureColumnSubtitle}>{featureDetails.decision.subtitle}</Text>
             {featureDetails.decision.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
+              <Text key={index} style={styles.featureItem}>→ {item}</Text>
             ))}
           </View>
         </View>
