@@ -32,7 +32,7 @@ const deckOptions: DeckOption[] = [
   {
     id: 'full-system',
     title: 'Full System Overview',
-    subtitle: 'Sales Deck tổng quan toàn bộ Bluecore (16 trang)',
+    subtitle: 'Sales Deck tổng quan toàn bộ Bluecore (17 trang)',
     icon: <Layers className="h-6 w-6 text-indigo-600" />,
     available: true,
     tagline: 'Decision-First Platform',

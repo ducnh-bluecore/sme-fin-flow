@@ -518,12 +518,36 @@ const platformModules = [
   },
   {
     id: 'dw',
-    name: 'Data Warehouse',
-    fullName: 'Kho Dữ Liệu Tập Trung',
-    tagline: 'Single Source of Truth',
+    name: 'Financial Spine',
+    fullName: 'Xương Sống Tài Chính',
+    tagline: 'Không có Spine = Mỗi phòng 1 con số',
     color: colors.cyan,
-    description: '35+ connectors cho thị trường Việt Nam - Shopee, Lazada, TikTok, Haravan, Sapo, KiotViet.',
-    features: ['35+ Connectors', 'ETL Pipeline', 'Data Cleaning', 'Real-time Sync', '1-2 Weeks Deploy'],
+    description: 'Nền tảng dữ liệu tập trung với 35+ connectors cho thị trường Việt Nam. Không có Financial Spine, Control Tower vô nghĩa.',
+    features: ['35+ Connectors', 'Single Source of Truth', 'Real-time Sync', '1-2 Weeks Deploy', 'Zero Reconcile'],
+  },
+];
+
+// Hidden cost data - kích hoạt nỗi sợ
+const hiddenCosts = [
+  {
+    title: 'Sai lệch 2-3% Net Revenue',
+    pain: 'Lệch quyết định tồn kho, mua thừa 500 triệu hàng không bán được',
+    cost: '500 triệu VND',
+  },
+  {
+    title: 'ROAS dương nhưng Profit âm',
+    pain: 'Marketing báo "đang thắng" trong khi thực tế đốt 200 triệu/tháng trong im lặng',
+    cost: '2.4 tỷ VND/năm',
+  },
+  {
+    title: 'Không thấy Cash Gap sớm',
+    pain: 'Phát hiện thiếu tiền khi đã muộn, vay nóng lãi suất 18-24%/năm',
+    cost: 'Lãi vay + Mất uy tín',
+  },
+  {
+    title: 'AR quá hạn không ai biết',
+    pain: '800 triệu nợ xấu âm thầm tích lũy, chỉ phát hiện khi kiểm toán cuối năm',
+    cost: '800 triệu VND bad debt',
   },
 ];
 
@@ -707,7 +731,71 @@ const PillarsPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>2 / 16</Text>
+      <Text style={styles.pageNumberWhite}>2 / 17</Text>
+    </View>
+  </Page>
+);
+
+// NEW SLIDE: The Hidden Cost of Not Knowing - kích hoạt nỗi sợ
+const HiddenCostPage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>CẢNH BÁO</Text>
+    <Text style={styles.sectionTitle}>Cái Giá Của "Không Biết"</Text>
+    <Text style={styles.sectionSubtitle}>
+      Những thiệt hại âm thầm xảy ra mỗi ngày khi doanh nghiệp không có nguồn sự thật tài chính đáng tin cậy.
+    </Text>
+    
+    <View style={{ gap: 12 }}>
+      {hiddenCosts.map((item, index) => (
+        <View key={index} style={{ 
+          backgroundColor: index === 0 ? '#fef2f2' : colors.white, 
+          borderRadius: 12, 
+          padding: 16,
+          borderWidth: 1,
+          borderColor: index === 0 ? '#fecaca' : '#e2e8f0',
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+        }}>
+          <View style={{ 
+            width: 32, 
+            height: 32, 
+            borderRadius: 16, 
+            backgroundColor: colors.danger,
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 14,
+          }}>
+            <Text style={{ fontSize: 14, fontWeight: 700, color: colors.white }}>!</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, fontWeight: 700, color: colors.danger, marginBottom: 4 }}>
+              {item.title}
+            </Text>
+            <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5, marginBottom: 6 }}>
+              {item.pain}
+            </Text>
+            <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark }}>
+              Thiệt hại: {item.cost}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+    
+    <View style={{ 
+      marginTop: 20, 
+      backgroundColor: colors.danger,
+      borderRadius: 12,
+      padding: 16,
+    }}>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
+        Doanh nghiệp không chết vì thiếu tiền. Doanh nghiệp chết vì KHÔNG BIẾT mình sắp hết tiền.
+      </Text>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>3 / 17</Text>
     </View>
   </Page>
 );
@@ -735,7 +823,7 @@ const EcosystemOverviewPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>3 / 16</Text>
+      <Text style={styles.pageNumber}>4 / 17</Text>
     </View>
   </Page>
 );
@@ -788,7 +876,7 @@ const FDPDetailPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>4 / 16</Text>
+      <Text style={styles.pageNumber}>5 / 17</Text>
     </View>
   </Page>
 );
@@ -841,7 +929,7 @@ const MDPDetailPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>5 / 16</Text>
+      <Text style={styles.pageNumber}>6 / 17</Text>
     </View>
   </Page>
 );
@@ -900,17 +988,17 @@ const CDPControlTowerPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>6 / 16</Text>
+      <Text style={styles.pageNumber}>7 / 17</Text>
     </View>
   </Page>
 );
 
 const DataWarehousePage = () => (
   <Page size="A4" style={styles.page}>
-    <Text style={styles.eyebrowLabel}>MODULE 5: DATA WAREHOUSE</Text>
-    <Text style={styles.sectionTitle}>Kho Dữ Liệu Tập Trung</Text>
+    <Text style={[styles.eyebrowLabel, { color: colors.cyan }]}>FINANCIAL SPINE</Text>
+    <Text style={styles.sectionTitle}>Xương Sống Tài Chính</Text>
     <Text style={styles.sectionSubtitle}>
-      35+ connectors cho thị trường Việt Nam. Tích hợp trong 1-2 tuần, không cần code.
+      Không có Financial Spine, mỗi phòng một con số. Không có Financial Spine, Control Tower vô nghĩa.
     </Text>
     
     <View style={styles.cardRow}>
@@ -924,7 +1012,7 @@ const DataWarehousePage = () => (
       </View>
       <View style={styles.statBox}>
         <Text style={styles.statNumber}>0</Text>
-        <Text style={styles.statLabel}>Dòng code cần viết</Text>
+        <Text style={styles.statLabel}>Lần reconcile</Text>
       </View>
     </View>
     
@@ -969,9 +1057,22 @@ const DataWarehousePage = () => (
       </View>
     </View>
     
+    <View style={{ 
+      marginTop: 16, 
+      backgroundColor: '#fef3c7',
+      borderRadius: 12,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: '#fcd34d',
+    }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
+        Tại sao gọi là "Financial Spine"? Vì nếu thiếu nó, toàn bộ hệ thống Bluecore không đứng vững — như cơ thể không có xương sống.
+      </Text>
+    </View>
+    
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>7 / 16</Text>
+      <Text style={styles.pageNumber}>8 / 17</Text>
     </View>
   </Page>
 );
@@ -1036,7 +1137,7 @@ const CompetitiveAdvantagesPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>8 / 16</Text>
+      <Text style={styles.pageNumber}>9 / 17</Text>
     </View>
   </Page>
 );
@@ -1089,7 +1190,7 @@ const UseCasePage1 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>9 / 16</Text>
+      <Text style={styles.pageNumber}>10 / 17</Text>
     </View>
   </Page>
 );
@@ -1144,7 +1245,7 @@ const UseCasePage2 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>10 / 16</Text>
+      <Text style={styles.pageNumber}>11 / 17</Text>
     </View>
   </Page>
 );
@@ -1197,7 +1298,7 @@ const UseCasePage3 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>11 / 16</Text>
+      <Text style={styles.pageNumber}>12 / 17</Text>
     </View>
   </Page>
 );
@@ -1252,7 +1353,7 @@ const UseCasePage4 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>12 / 16</Text>
+      <Text style={styles.pageNumber}>13 / 17</Text>
     </View>
   </Page>
 );
@@ -1260,9 +1361,9 @@ const UseCasePage4 = () => (
 const WhyBluecorePage = () => (
   <Page size="A4" style={styles.pageDark}>
     <Text style={styles.eyebrowLabelWhite}>TẠI SAO BLUECORE?</Text>
-    <Text style={styles.sectionTitleWhite}>5 Lý Do Chọn Bluecore</Text>
+    <Text style={styles.sectionTitleWhite}>6 Lý Do Chọn Bluecore</Text>
     
-    <View style={{ marginTop: 20, gap: 12 }}>
+    <View style={{ marginTop: 16, gap: 10 }}>
       <View style={styles.cardDark}>
         <Text style={styles.cardTitleWhite}>1. Thiết kế cho CEO/CFO, không phải Analyst</Text>
         <Text style={styles.cardTextWhite}>Không cần biết SQL. Không cần đợi report. Mở Bluecore = thấy ngay quyết định cần làm hôm nay.</Text>
@@ -1287,11 +1388,16 @@ const WhyBluecorePage = () => (
         <Text style={styles.cardTitleWhite}>5. Chi phí cố định, không "bất ngờ"</Text>
         <Text style={styles.cardTextWhite}>Không phí ẩn. Không charge theo user/data volume. Một giá — tất cả tính năng.</Text>
       </View>
+      
+      <View style={[styles.cardDark, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }]}>
+        <Text style={[styles.cardTitleWhite, { color: '#fca5a5' }]}>6. Không dùng Bluecore = Quyết định trong bóng tối</Text>
+        <Text style={styles.cardTextWhite}>Không biết tiền thật còn bao nhiêu. Không biết marketing đang lãi hay lỗ. Không biết khách hàng đang rời đi. Chờ cuối tháng mới biết — đã quá muộn.</Text>
+      </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>13 / 16</Text>
+      <Text style={styles.pageNumberWhite}>14 / 17</Text>
     </View>
   </Page>
 );
@@ -1316,7 +1422,7 @@ const ManifestoPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>14 / 16</Text>
+      <Text style={styles.pageNumber}>15 / 17</Text>
     </View>
   </Page>
 );
@@ -1411,7 +1517,7 @@ const ArchitecturePage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>15 / 16</Text>
+      <Text style={styles.pageNumber}>16 / 17</Text>
     </View>
   </Page>
 );
@@ -1464,7 +1570,7 @@ const CTAPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>© 2025 Bluecore</Text>
-      <Text style={styles.pageNumberWhite}>16 / 16</Text>
+      <Text style={styles.pageNumberWhite}>17 / 17</Text>
     </View>
   </Page>
 );
@@ -1481,6 +1587,7 @@ const FullSystemSalesDeckPDF: React.FC = () => {
     >
       <CoverPage />
       <PillarsPage />
+      <HiddenCostPage />
       <EcosystemOverviewPage />
       <FDPDetailPage />
       <MDPDetailPage />
