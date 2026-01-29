@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
   },
   coverPage: {
     padding: 60,
+    fontFamily: 'NotoSans',
     backgroundColor: colors.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
@@ -76,8 +77,29 @@ const styles = StyleSheet.create({
   },
   coverBadgeText: {
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
     color: colors.white,
+  },
+
+  // Cover ornaments (to avoid a flat single-color slide)
+  coverOrnament: {
+    position: 'absolute',
+    borderRadius: 9999,
+    opacity: 0.18,
+    backgroundColor: colors.white,
+  },
+  coverCircle1: {
+    width: 420,
+    height: 420,
+    top: -140,
+    right: -180,
+  },
+  coverCircle2: {
+    width: 520,
+    height: 520,
+    bottom: -220,
+    left: -260,
+    opacity: 0.12,
   },
   
   // Section styles
@@ -120,7 +142,7 @@ const styles = StyleSheet.create({
   },
   manifestoTitle: {
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 700,
     color: colors.text,
     marginBottom: 4,
   },
@@ -150,7 +172,7 @@ const styles = StyleSheet.create({
   },
   capabilityTitle: {
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
     color: colors.text,
     marginBottom: 8,
   },
@@ -184,7 +206,7 @@ const styles = StyleSheet.create({
   },
   featureColumnTitle: {
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
     color: colors.primaryDark,
     marginBottom: 12,
     borderBottom: `2px solid ${colors.primary}`,
@@ -225,7 +247,7 @@ const styles = StyleSheet.create({
   },
   decisionStepTitle: {
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 700,
     color: colors.text,
     textAlign: 'center',
   },
@@ -250,7 +272,7 @@ const styles = StyleSheet.create({
   },
   useCaseTitle: {
     fontSize: 16,
-    fontWeight: 600,
+    fontWeight: 700,
     color: colors.white,
     marginBottom: 8,
   },
@@ -360,6 +382,8 @@ const FDPSalesDeckPDF: React.FC = () => {
     <Document title="Bluecore FDP - Sales Deck" author="Bluecore">
       {/* Cover Page */}
       <Page size="A4" style={styles.coverPage}>
+        <View style={[styles.coverOrnament, styles.coverCircle1]} />
+        <View style={[styles.coverOrnament, styles.coverCircle2]} />
         <Text style={styles.coverTitle}>Bluecore FDP</Text>
         <Text style={styles.coverSubtitle}>
           Nền tảng tài chính cho CEO & CFO điều hành — Single Source of Truth cho mọi quyết định kinh doanh
