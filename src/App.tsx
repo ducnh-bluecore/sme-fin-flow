@@ -125,6 +125,7 @@ const FDPSalesKit = lazy(() => import("./pages/sales-kit/FDPSalesKit"));
 const FDPSalesDeckPage = lazy(() => import("./pages/fdp/FDPSalesDeckPage"));
 const FDPExecutiveDeck = lazy(() => import("./pages/fdp/FDPExecutiveDeck"));
 const MDPExecutiveDeck = lazy(() => import("./pages/mdp/MDPExecutiveDeck"));
+const SalesDeckLibraryPage = lazy(() => import("./pages/SalesDeckLibraryPage"));
 // Product Review Hub pages
 const ReviewHubHome = lazy(() => import("./pages/review-hub/ReviewHubHome"));
 const ReviewHubRoutes = lazy(() => import("./pages/review-hub/ReviewHubRoutes"));
@@ -359,6 +360,11 @@ const AppRoutes = () => {
       <Route path="/sales-kit/mdp-executive" element={
         <ProtectedRoute>
           <MDPExecutiveDeck />
+        </ProtectedRoute>
+      } />
+      <Route path="/sales-deck-library" element={
+        <ProtectedRoute>
+          <SalesDeckLibraryPage />
         </ProtectedRoute>
       } />
 
