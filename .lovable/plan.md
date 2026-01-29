@@ -1,101 +1,128 @@
 
+# Fix Font Issues + Upgrade FDP Sales Deck
 
-# Fix: PDF Download Button - "Unknown font format" Error
+## Problem Analysis
 
-## Nguyên nhân gốc
-
-Lỗi từ console logs:
-```
-Error: Unknown font format
-at FontSource._load
-```
-
-`@react-pdf/renderer` không thể tải font `BeVietnamPro` từ Google Fonts gstatic CDN vì:
-1. **CORS policy** - Browser block request đến external CDN
-2. **URL format không tương thích** - react-pdf/renderer cần file TTF trực tiếp, nhưng gstatic có thể không phản hồi đúng
-
-## Giải pháp
-
-### Option A: Dùng font mặc định (Helvetica) - Nhanh nhất
-
-Bỏ font registration và dùng font built-in của react-pdf. Đơn giản, hoạt động ngay.
-
-### Option B: Host font local trong `/public/fonts/` (Khuyến nghị)
-
-1. Download file `.ttf` từ Google Fonts
-2. Đặt vào thư mục `public/fonts/`
-3. Cập nhật `Font.register()` để trỏ đến file local
-
-### Đề xuất: Kết hợp cả hai
-
-- Dùng font mặc định (Helvetica) để PDF hoạt động ngay
-- Sau đó có thể nâng cấp lên custom font nếu cần
-
-## Thay đổi cần thực hiện
-
-### 1. File: `src/components/sales-deck/FDPSalesDeckPDF.tsx`
-
+### 1. Font Loading Error (Critical)
+Current registration uses relative path:
 ```typescript
-// TRƯỚC - Gây lỗi
 Font.register({
-  family: 'BeVietnamPro',
+  family: 'NotoSans',
   fonts: [
-    { src: 'https://fonts.gstatic.com/s/bevietnampro/...', fontWeight: 400 },
-    ...
+    { src: '/fonts/NotoSans-Regular.ttf', fontWeight: 400 },  // WRONG
   ],
 });
-
-const styles = StyleSheet.create({
-  page: {
-    fontFamily: 'BeVietnamPro',
-    ...
-  },
-});
 ```
 
+Browser/PDF renderer cần **absolute URL**. Phải dùng `window.location.origin` hoặc hardcode URL.
+
+### 2. Emoji Not Rendering
+Icons như `📊`, `💰`, `📦`, `🔮` không có trong Noto Sans font. PDF renderer không thể render emojis.
+
+**Solution:** Thay emoji bằng text labels hoặc số thứ tự.
+
+---
+
+## Technical Fix Plan
+
+### File: `src/components/sales-deck/FDPSalesDeckPDF.tsx`
+
+**Change 1: Dynamic Font URL**
 ```typescript
-// SAU - Dùng font mặc định
-// Bỏ Font.register() 
+// Get base URL dynamically for font loading
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return '';
+};
 
-const styles = StyleSheet.create({
-  page: {
-    fontFamily: 'Helvetica',  // Font mặc định của react-pdf
-    ...
-  },
+Font.register({
+  family: 'NotoSans',
+  fonts: [
+    { src: `${getBaseUrl()}/fonts/NotoSans-Regular.ttf`, fontWeight: 400 },
+    { src: `${getBaseUrl()}/fonts/NotoSans-Bold.ttf`, fontWeight: 700 },
+  ],
 });
 ```
 
-### 2. Các style cần cập nhật
+**Change 2: Replace Emojis with Text Labels**
+```typescript
+// BEFORE
+{ icon: '📊', title: 'Single Source of Truth Dashboard' }
 
-| Property | Trước | Sau |
-|----------|-------|-----|
-| `fontFamily` | `'BeVietnamPro'` | `'Helvetica'` |
-| `fontWeight: 600` | Dùng BeVietnamPro | `'Helvetica-Bold'` |
-| `fontWeight: 700` | Dùng BeVietnamPro | `'Helvetica-Bold'` |
-
-### 3. Fix React ref warning (bonus)
-
-Console log cũng báo:
-```
-Warning: Function components cannot be given refs
+// AFTER (use numbered badges or simple text)
+{ icon: 'A', title: 'Single Source of Truth Dashboard' }
+// Or simple styled circles with numbers
 ```
 
-Cần wrap `SalesDeckDownloader` với `React.forwardRef` hoặc đảm bảo không pass ref đến component.
+---
 
-## Files sẽ sửa
+## New Content: 2 New Slides
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/sales-deck/FDPSalesDeckPDF.tsx` | Bỏ Font.register, đổi sang Helvetica |
+### Slide: "Tai sao can Bluecore?" (Why Bluecore?)
 
-## Kết quả sau fix
+| Pain Point | Problem | Solution |
+|------------|---------|----------|
+| Data Fragmented | Data nam rai rac tren nhieu he thong | Single Source of Truth |
+| Bao cao cham | Mat 3-5 ngay de dong bao cao | Realtime dashboard |
+| Quyet dinh mu | Thieu data khi can quyet dinh | Decision-first platform |
+| Khong biet cash thuc | Chi biet doanh thu, khong biet tien that | Real Cash Tracking |
+| SKU lo ma van ban | Khong biet unit economics | Unit Economics Engine |
 
-- Nút "Tải PDF" sẽ hoạt động
-- PDF được generate với font Helvetica (vẫn chuyên nghiệp)
-- Có thể nâng cấp lên custom font sau bằng cách host local
+### Slide: "So sanh voi doi thu" (Competitive Comparison)
 
-## Timeline
+| Feature | Excel | ERP | BI Tools | Bluecore FDP |
+|---------|-------|-----|----------|--------------|
+| Setup time | Ngay | Thang | Tuan | Gio |
+| Real cash tracking | Khong | Co mot phan | Khong | Day du |
+| Unit economics | Thu cong | Khong | Co mot phan | Tu dong |
+| Decision support | Khong | Khong | Charts only | Decision-first |
+| CEO/CFO focus | Khong | Ke toan focus | IT focus | CEO/CFO focus |
 
-- Estimate: 3 phút
-- PDF sẽ download ngay sau khi deploy
+---
 
+## Updated Slide Order (Total: 9 slides)
+
+| # | Slide | Background |
+|---|-------|------------|
+| 1 | Cover | Dark blue + ornaments |
+| 2 | **Tai sao can Bluecore (NEW)** | White + gradient accent |
+| 3 | **So sanh doi thu (NEW)** | Light background + table |
+| 4 | FDP Manifesto | White |
+| 5 | Core Capabilities | White + cards |
+| 6 | Chuc nang Chi tiet | White |
+| 7 | Quy trinh Quyet dinh | White + blue CTA box |
+| 8 | Do luong Ket qua | White |
+| 9 | Contact/CTA | Dark blue + ornaments |
+
+---
+
+## Visual Design Improvements
+
+### Varied Backgrounds
+- **Slide 2 (Why Bluecore):** Light gradient from white to slate-50, with colored accent bar on left
+- **Slide 3 (Comparison):** White background with a highlight row for Bluecore column
+- **Feature cards:** Alternate between white and light blue backgrounds
+
+### Icon Replacement Strategy
+Instead of emojis, use:
+- **Letter badges:** A, B, C, D in colored circles
+- **Or number badges:** 01, 02, 03, 04
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/sales-deck/FDPSalesDeckPDF.tsx` | Fix font URL, remove emojis, add 2 new slides, improve visual design |
+
+---
+
+## Expected Outcome
+
+1. Vietnamese text renders correctly on all slides
+2. No broken emoji characters
+3. More compelling sales story with "Why Bluecore" and competitor comparison
+4. Better visual variety with alternating backgrounds and accent colors
