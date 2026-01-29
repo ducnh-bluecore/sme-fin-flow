@@ -329,7 +329,6 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: colors.white,
     textAlign: 'center',
-    fontStyle: 'italic',
     lineHeight: 1.5,
   },
   
