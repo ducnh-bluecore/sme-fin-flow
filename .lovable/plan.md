@@ -1,29 +1,34 @@
-# ✅ HOÀN THÀNH: Nâng cấp FDP Sales Deck
 
-## Tổng quan thay đổi
+# Sửa lỗi "Phiên bản Tương tác" không hoạt động
 
-Deck FDP đã được nâng cấp với 3 cải tiến chính:
+## Vấn đề phát hiện
 
-### 1. ✅ Page 5: Slide Định vị Bluecore
-- Thêm positioning statement: "Bluecore FDP không phải BI — không phải ERP"
-- Thêm 3 pillars: REAL CASH | TRUTH FIRST | ACTION NOW
-- Cập nhật 4 solution cards với copy action-oriented hơn
+Trong trang **Sales Deck Library** (`/sales-deck-library`), phần "Phiên bản Tương tác" có 3 nút link đến các trang web tương tác:
+1. **FDP Sales Deck** - link đến `/fdp/sales-deck` (KHÔNG TỒN TẠI)
+2. **MDP Sales Deck** - link đến `/mdp/sales-deck` (KHÔNG TỒN TẠI)
+3. **CDP Sales Deck** - đang disable (Sắp ra mắt)
 
-### 2. ✅ Page 6: Lợi thế cạnh tranh
-- Thêm section "TẠI SAO BLUECORE KHÁC BIỆT?"
-- 3 competitive advantages với chi tiết cụ thể
-- Cập nhật quote box mạnh mẽ hơn
+Khi click vào FDP hoặc MDP, hệ thống báo lỗi 404 vì các route này chưa được đăng ký.
 
-### 3. ✅ Pages 7-10: Story-driven Use Cases
-- Thêm story block cho mỗi use case với format: Tình huống → Vấn đề → Bluecore giải quyết
-- Personas thực tế: Anh Minh (CEO thời trang), Chị Lan (founder mỹ phẩm), Anh Hùng (thực phẩm), Tuấn (startup)
-- Con số cụ thể trong mỗi câu chuyện
+## Giải pháp
 
-## File đã thay đổi
-- `src/components/sales-deck/FDPSalesDeckPDF.tsx`
+Cập nhật các link trong `SalesDeckLibraryPage.tsx` để trỏ đến đúng routes đã tồn tại trong `App.tsx`:
 
-## Kết quả
-Deck FDP giờ trả lời được 3 câu hỏi quan trọng:
-- "Bluecore là gì?" → Page 5 (Positioning)
-- "Tôi sẽ dùng hàng ngày để làm gì?" → Pages 7-10 (Use Cases với stories)
-- "Tại sao Bluecore, không phải công cụ khác?" → Page 6 (Competitive Advantages)
+| Link cũ (sai) | Route đúng | Component |
+|---------------|------------|-----------|
+| `/fdp/sales-deck` | `/sales-kit/fdp-deck` | FDPSalesDeckPage |
+| `/mdp/sales-deck` | `/sales-kit/mdp` | MDPSalesDeckPage |
+
+## Chi tiết kỹ thuật
+
+### File cần sửa
+**`src/pages/SalesDeckLibraryPage.tsx`** - Dòng 114 và 122
+
+### Thay đổi cụ thể:
+1. Dòng 114: Thay `<Link to="/fdp/sales-deck">` thành `<Link to="/sales-kit/fdp-deck">`
+2. Dòng 122: Thay `<Link to="/mdp/sales-deck">` thành `<Link to="/sales-kit/mdp">`
+
+## Kết quả sau khi sửa
+- Click "FDP Sales Deck" sẽ mở trang trình chiếu web tương tác của FDP (932 slides với animations)
+- Click "MDP Sales Deck" sẽ mở trang trình chiếu web tương tác của MDP (956 slides với animations)
+- Không còn lỗi 404
