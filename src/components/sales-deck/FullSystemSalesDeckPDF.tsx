@@ -186,12 +186,12 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   cardDark: {
-    flex: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
+    flexDirection: 'column',
   },
   cardHighlight: {
     flex: 1,
@@ -206,10 +206,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTitleWhite: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.white,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   cardText: {
     fontSize: 10,
@@ -217,9 +217,9 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
   },
   cardTextWhite: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.85)',
-    lineHeight: 1.5,
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 1.4,
   },
   
   // Modules grid
@@ -1363,35 +1363,35 @@ const WhyBluecorePage = () => (
     <Text style={styles.eyebrowLabelWhite}>TẠI SAO BLUECORE?</Text>
     <Text style={styles.sectionTitleWhite}>6 Lý Do Chọn Bluecore</Text>
     
-    <View style={{ marginTop: 16, gap: 10 }}>
-      <View style={styles.cardDark}>
-        <Text style={styles.cardTitleWhite}>1. Thiết kế cho CEO/CFO, không phải Analyst</Text>
-        <Text style={styles.cardTextWhite}>Không cần biết SQL. Không cần đợi report. Mở Bluecore = thấy ngay quyết định cần làm hôm nay.</Text>
+    <View style={{ marginTop: 16 }}>
+      <View style={[styles.cardDark, { marginBottom: 8 }]}>
+        <View><Text style={styles.cardTitleWhite}>1. Thiết kế cho CEO/CFO, không phải Analyst</Text></View>
+        <View><Text style={styles.cardTextWhite}>Không cần biết SQL. Không cần đợi report. Mở Bluecore = thấy ngay quyết định cần làm hôm nay.</Text></View>
       </View>
       
-      <View style={styles.cardDark}>
-        <Text style={styles.cardTitleWhite}>2. Native cho thị trường Việt Nam</Text>
-        <Text style={styles.cardTextWhite}>35+ connectors có sẵn: Shopee, Lazada, TikTok, Haravan, Sapo, KiotViet. Không cần code, không cần IT.</Text>
+      <View style={[styles.cardDark, { marginBottom: 8 }]}>
+        <View><Text style={styles.cardTitleWhite}>2. Native cho thị trường Việt Nam</Text></View>
+        <View><Text style={styles.cardTextWhite}>35+ connectors có sẵn: Shopee, Lazada, TikTok, Haravan, Sapo, KiotViet. Không cần code, không cần IT.</Text></View>
       </View>
       
-      <View style={styles.cardDark}>
-        <Text style={styles.cardTitleWhite}>3. Financial Truth, không phải Performance Metrics</Text>
-        <Text style={styles.cardTextWhite}>Profit ROAS thay vì Click ROAS. Real Cash thay vì Revenue on paper. Contribution Margin thay vì Gross Sales.</Text>
+      <View style={[styles.cardDark, { marginBottom: 8 }]}>
+        <View><Text style={styles.cardTitleWhite}>3. Financial Truth, không phải Performance Metrics</Text></View>
+        <View><Text style={styles.cardTextWhite}>Profit ROAS thay vì Click ROAS. Real Cash thay vì Revenue on paper. Contribution Margin thay vì Gross Sales.</Text></View>
       </View>
       
-      <View style={styles.cardDark}>
-        <Text style={styles.cardTitleWhite}>4. Triển khai trong 1-2 tuần, không phải 6 tháng</Text>
-        <Text style={styles.cardTextWhite}>Không cần project team riêng. Không cần thuê consultant. Bluecore team lo toàn bộ integration.</Text>
+      <View style={[styles.cardDark, { marginBottom: 8 }]}>
+        <View><Text style={styles.cardTitleWhite}>4. Triển khai trong 1-2 tuần, không phải 6 tháng</Text></View>
+        <View><Text style={styles.cardTextWhite}>Không cần project team riêng. Không cần thuê consultant. Bluecore team lo toàn bộ integration.</Text></View>
       </View>
       
-      <View style={styles.cardDark}>
-        <Text style={styles.cardTitleWhite}>5. Chi phí cố định, không "bất ngờ"</Text>
-        <Text style={styles.cardTextWhite}>Không phí ẩn. Không charge theo user/data volume. Một giá — tất cả tính năng.</Text>
+      <View style={[styles.cardDark, { marginBottom: 8 }]}>
+        <View><Text style={styles.cardTitleWhite}>5. Chi phí cố định, không "bất ngờ"</Text></View>
+        <View><Text style={styles.cardTextWhite}>Không phí ẩn. Không charge theo user/data volume. Một giá — tất cả tính năng.</Text></View>
       </View>
       
       <View style={[styles.cardDark, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }]}>
-        <Text style={[styles.cardTitleWhite, { color: '#fca5a5' }]}>6. Không dùng Bluecore = Quyết định trong bóng tối</Text>
-        <Text style={styles.cardTextWhite}>Không biết tiền thật còn bao nhiêu. Không biết marketing đang lãi hay lỗ. Không biết khách hàng đang rời đi. Chờ cuối tháng mới biết — đã quá muộn.</Text>
+        <View><Text style={[styles.cardTitleWhite, { color: '#fca5a5' }]}>6. Không dùng Bluecore = Quyết định trong bóng tối</Text></View>
+        <View><Text style={styles.cardTextWhite}>Không biết tiền thật còn bao nhiêu. Không biết marketing đang lãi hay lỗ. Không biết khách hàng đang rời đi. Chờ cuối tháng mới biết — đã quá muộn.</Text></View>
       </View>
     </View>
     
