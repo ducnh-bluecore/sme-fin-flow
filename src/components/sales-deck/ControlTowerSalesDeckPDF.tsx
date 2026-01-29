@@ -906,17 +906,17 @@ const costItems = [
 // Three Pillars (Page 5)
 const threePillars = [
   {
-    icon: '🚨',
+    icon: '!',
     title: 'ALERT',
     desc: 'Chỉ báo điều sai, không tổng hợp KPI',
   },
   {
-    icon: '🎯',
+    icon: '>',
     title: 'ACTION',
     desc: 'Mỗi alert có owner và deadline',
   },
   {
-    icon: '📊',
+    icon: '#',
     title: 'OUTCOME',
     desc: 'Đo lường kết quả mọi quyết định',
   },
@@ -980,24 +980,24 @@ const competitiveAdvantages = [
 // Story Blocks for Use Cases (Pages 7-10)
 const useCaseStories = {
   criticalAlerts: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
-    text: 'CEO của một startup eCommerce nhận 50+ notifications mỗi ngày từ Slack, email, dashboards. Tháng trước bỏ lỡ 1 alert quan trọng về cash — gần hết tiền mà không biết.',
-    result: '→ VỚI CONTROL TOWER: Mỗi sáng chỉ thấy 3-5 alerts chí mạng nhất. Cash alert được highlight với impact = 500 triệu. Không bao giờ bỏ lỡ.',
+    title: 'TINH HUONG THUC TE',
+    text: 'CEO của một startup eCommerce nhận 50+ notifications mỗi ngày từ Slack, email, dashboards. Tháng trước bỏ lỡ 1 alert quan trọng về cash - gần hết tiền mà không biết.',
+    result: 'VOI CONTROL TOWER: Mỗi sáng chỉ thấy 3-5 alerts chí mạng nhất. Cash alert được highlight với impact = 500 triệu. Không bao giờ bỏ lỡ.',
   },
   ownerDeadline: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
-    text: 'CFO phát hiện vấn đề AR overdue 800 triệu trong meeting. Giao cho Sales follow up. 2 tuần sau check lại — chưa ai làm gì. Không có owner, không có deadline.',
-    result: '→ VỚI CONTROL TOWER: Alert có owner (Sales Lead), deadline (3 ngày), auto-escalate nếu không xử lý. CFO không cần nhắc.',
+    title: 'TINH HUONG THUC TE',
+    text: 'CFO phát hiện vấn đề AR overdue 800 triệu trong meeting. Giao cho Sales follow up. 2 tuần sau check lại - chưa ai làm gì. Không có owner, không có deadline.',
+    result: 'VOI CONTROL TOWER: Alert có owner (Sales Lead), deadline (3 ngày), auto-escalate nếu không xử lý. CFO không cần nhắc.',
   },
   outcomeTracking: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'CMO quyết định cắt 3 campaigns dựa trên gut feeling. 1 tháng sau không ai biết quyết định đó đúng hay sai. Không có data để học.',
-    result: '→ VỚI CONTROL TOWER: Outcome tracking cho thấy decision đã tiết kiệm 120 triệu/tháng. CMO biết quyết định đúng, tự tin hơn lần sau.',
+    result: 'VOI CONTROL TOWER: Outcome tracking cho thấy decision đã tiết kiệm 120 triệu/tháng. CMO biết quyết định đúng, tự tin hơn lần sau.',
   },
   cascadeEffect: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'CEO thấy revenue giảm 15% nhưng không hiểu nguyên nhân. Marketing đổ lỗi product, product đổ lỗi sales. Mất 3 tuần họp mới tìm ra root cause.',
-    result: '→ VỚI CONTROL TOWER: Cascade view cho thấy: CDP churn → MDP CAC tăng → FDP cash giảm. Root cause rõ ràng trong 5 phút.',
+    result: 'VOI CONTROL TOWER: Cascade view cho thấy: CDP churn -> MDP CAC tăng -> FDP cash giảm. Root cause rõ ràng trong 5 phút.',
   },
 };
 
@@ -1257,15 +1257,15 @@ const ControlTowerSalesDeckPDF: React.FC = () => {
           
           <View style={styles.mockupKPIRow}>
             <View style={styles.mockupKPICardDanger}>
-              <Text style={styles.mockupKPILabel}>🔴 Cash Critical</Text>
+              <Text style={styles.mockupKPILabel}>[!] Cash Critical</Text>
               <Text style={styles.mockupKPIValueRed}>500 Tr</Text>
             </View>
             <View style={styles.mockupKPICard}>
-              <Text style={styles.mockupKPILabel}>🟡 AR Overdue</Text>
+              <Text style={styles.mockupKPILabel}>[!] AR Overdue</Text>
               <Text style={styles.mockupKPIValue}>320 Tr</Text>
             </View>
             <View style={styles.mockupKPICard}>
-              <Text style={styles.mockupKPILabel}>🟡 Marketing</Text>
+              <Text style={styles.mockupKPILabel}>[!] Marketing</Text>
               <Text style={styles.mockupKPIValue}>-80 Tr</Text>
             </View>
           </View>
@@ -1511,8 +1511,8 @@ const ControlTowerSalesDeckPDF: React.FC = () => {
         </Text>
         
         <View style={styles.contactInfo}>
-          <Text style={styles.contactItem}>📧 contact@bluecore.vn</Text>
-          <Text style={styles.contactItem}>🌐 bluecore.vn</Text>
+          <Text style={styles.contactItem}>Email: contact@bluecore.vn</Text>
+          <Text style={styles.contactItem}>Web: bluecore.vn</Text>
         </View>
         
         <View style={styles.contactCTA}>

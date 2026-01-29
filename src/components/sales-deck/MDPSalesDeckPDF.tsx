@@ -906,17 +906,17 @@ const costItems = [
 // Three Pillars (Page 5)
 const threePillars = [
   {
-    icon: '💰',
+    icon: '$',
     title: 'PROFIT ROAS',
     desc: 'Lợi nhuận thật, không revenue ảo',
   },
   {
-    icon: '🎯',
+    icon: 'X',
     title: 'KILL SIGNAL',
     desc: 'Biết khi nào phải dừng ngay',
   },
   {
-    icon: '💵',
+    icon: 'C',
     title: 'CASH IMPACT',
     desc: 'Marketing ảnh hưởng dòng tiền thế nào',
   },
@@ -980,24 +980,24 @@ const competitiveAdvantages = [
 // Story Blocks for Use Cases (Pages 7-10)
 const useCaseStories = {
   profitRoas: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Chị Hằng, Marketing Manager của một shop thời trang, báo cáo ROAS 4.0 cho Facebook Ads. CEO rất hài lòng và cho tăng budget. 2 tháng sau, lợi nhuận giảm 40% dù doanh thu tăng.',
-    result: '→ VỚI MDP: Chị Hằng thấy Profit ROAS chỉ có 0.6 — mỗi đơn từ ads đang lỗ 35%. Dừng ngay campaign, tiết kiệm 180 triệu/tháng.',
+    result: 'VOI MDP: Chị Hằng thấy Profit ROAS chỉ có 0.6 - mỗi đơn từ ads đang lỗ 35%. Dừng ngay campaign, tiết kiệm 180 triệu/tháng.',
   },
   killSignal: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Anh Dũng chạy 15 campaigns song song trên Shopee, Lazada, TikTok. Không có thời gian phân tích từng cái. Cuối tháng mới biết 6 campaigns đang "burning cash".',
-    result: '→ VỚI MDP: Decision Cards tự động báo 🔴 KILL cho 6 campaigns có CM âm. Anh Dũng dừng ngay, chuyển budget sang 3 campaigns 🟢 SCALE.',
+    result: 'VOI MDP: Decision Cards tự động báo KILL cho 6 campaigns có CM âm. Anh Dũng dừng ngay, chuyển budget sang 3 campaigns SCALE.',
   },
   cashImpact: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Startup của Linh chi 200 triệu/tháng cho ads. Doanh thu tăng đẹp, nhưng tháng nào cũng thiếu tiền trả lương. Linh không hiểu tại sao.',
-    result: '→ VỚI MDP: Dashboard Cash at Risk cho thấy 500 triệu đang bị khóa (chi trước, thu sau 21 ngày). Linh điều chỉnh ngân sách phù hợp dòng tiền.',
+    result: 'VOI MDP: Dashboard Cash at Risk cho thấy 500 triệu đang bị khóa (chi trước, thu sau 21 ngày). Linh điều chỉnh ngân sách phù hợp dòng tiền.',
   },
   netImpact: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'CFO của công ty mỹ phẩm hỏi CMO: "Marketing có đóng góp gì cho lợi nhuận không?" CMO không trả lời được vì chỉ có số ROAS và clicks.',
-    result: '→ VỚI MDP: Net Marketing Impact = 320 triệu lợi nhuận thật từ tất cả channels. CFO hiểu rõ giá trị marketing, approve tăng budget.',
+    result: 'VOI MDP: Net Marketing Impact = 320 triệu lợi nhuận thật từ tất cả channels. CFO hiểu rõ giá trị marketing, approve tăng budget.',
   },
 };
 
@@ -1317,15 +1317,15 @@ const MDPSalesDeckPDF: React.FC = () => {
           
           <View style={styles.mockupKPIRow}>
             <View style={styles.mockupKPICardDanger}>
-              <Text style={styles.mockupKPILabel}>🔴 KILL</Text>
+              <Text style={styles.mockupKPILabel}>[X] KILL</Text>
               <Text style={styles.mockupKPIValueRed}>6</Text>
             </View>
             <View style={styles.mockupKPICard}>
-              <Text style={styles.mockupKPILabel}>🟡 PAUSE</Text>
+              <Text style={styles.mockupKPILabel}>[!] PAUSE</Text>
               <Text style={styles.mockupKPIValue}>4</Text>
             </View>
             <View style={styles.mockupKPICardHighlight}>
-              <Text style={styles.mockupKPILabel}>🟢 SCALE</Text>
+              <Text style={styles.mockupKPILabel}>[+] SCALE</Text>
               <Text style={styles.mockupKPIValueGreen}>3</Text>
             </View>
           </View>
@@ -1511,8 +1511,8 @@ const MDPSalesDeckPDF: React.FC = () => {
         </Text>
         
         <View style={styles.contactInfo}>
-          <Text style={styles.contactItem}>📧 contact@bluecore.vn</Text>
-          <Text style={styles.contactItem}>🌐 bluecore.vn</Text>
+          <Text style={styles.contactItem}>Email: contact@bluecore.vn</Text>
+          <Text style={styles.contactItem}>Web: bluecore.vn</Text>
         </View>
         
         <View style={styles.contactCTA}>

@@ -906,17 +906,17 @@ const costItems = [
 // Three Pillars (Page 5)
 const threePillars = [
   {
-    icon: '👥',
+    icon: 'P',
     title: 'POPULATION',
     desc: 'Phân tích tổng thể, không cá nhân',
   },
   {
-    icon: '📊',
+    icon: 'S',
     title: 'SHIFT',
     desc: 'Phát hiện thay đổi hành vi sớm',
   },
   {
-    icon: '💰',
+    icon: '$',
     title: 'EQUITY',
     desc: 'Khách hàng là tài sản tài chính',
   },
@@ -980,24 +980,24 @@ const competitiveAdvantages = [
 // Story Blocks for Use Cases (Pages 7-10)
 const useCaseStories = {
   customerEquity: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
-    text: 'Chị Mai, founder startup eCommerce, đang gọi vốn Series A. Investor hỏi: "Customer Equity của bạn là bao nhiêu?" Chị Mai chỉ có số revenue và customer count — không có tổng giá trị tài sản khách hàng.',
-    result: '→ VỚI CDP: Chị Mai trình bày: Customer Equity = 12 tỷ, 24M Forecast = 18 tỷ. Investor hiểu rõ giá trị, deal thành công.',
+    title: 'TINH HUONG THUC TE',
+    text: 'Chị Mai, founder startup eCommerce, đang gọi vốn Series A. Investor hỏi: "Customer Equity của bạn là bao nhiêu?" Chị Mai chỉ có số revenue và customer count - không có tổng giá trị tài sản khách hàng.',
+    result: 'VOI CDP: Chị Mai trình bày: Customer Equity = 12 tỷ, 24M Forecast = 18 tỷ. Investor hiểu rõ giá trị, deal thành công.',
   },
   churnDetection: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Shop thời trang của anh Khoa có 200 khách VIP (top 5%). Cuối năm check lại, 40 người đã ngừng mua từ 6 tháng trước. Mất 30% doanh thu tiềm năng mà không hay biết.',
-    result: '→ VỚI CDP: Signal "CLV Decay" báo ngay khi khách VIP giảm tần suất mua. Anh Khoa win back được 25 khách, giữ lại 120 triệu/năm.',
+    result: 'VOI CDP: Signal "CLV Decay" báo ngay khi khách VIP giảm tần suất mua. Anh Khoa win back được 25 khách, giữ lại 120 triệu/năm.',
   },
   segmentValue: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Marketing team của Linh chạy campaign cho TẤT CẢ 50,000 khách, chi 100 triệu. Chỉ 2,500 người mua. Linh không biết segment nào có ROI cao nhất.',
-    result: '→ VỚI CDP: CLV by Segment cho thấy top 10% khách có ROI gấp 8x. Linh focus budget vào segment này, tiết kiệm 70% chi phí, doanh thu tăng 40%.',
+    result: 'VOI CDP: CLV by Segment cho thấy top 10% khách có ROI gấp 8x. Linh focus budget vào segment này, tiết kiệm 70% chi phí, doanh thu tăng 40%.',
   },
   behavioralShift: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Shop mỹ phẩm của Hoa thấy doanh thu giảm 15% nhưng số khách không đổi. Không hiểu tại sao. 3 tháng sau mới biết: basket size giảm từ 350k xuống 220k.',
-    result: '→ VỚI CDP: Behavioral Shift signal "BASKET_COLLAPSE" báo ngay khi AOV giảm 20%. Hoa điều chỉnh pricing strategy kịp thời.',
+    result: 'VOI CDP: Behavioral Shift signal "BASKET_COLLAPSE" báo ngay khi AOV giảm 20%. Hoa điều chỉnh pricing strategy kịp thời.',
   },
 };
 
@@ -1511,8 +1511,8 @@ const CDPSalesDeckPDF: React.FC = () => {
         </Text>
         
         <View style={styles.contactInfo}>
-          <Text style={styles.contactItem}>📧 contact@bluecore.vn</Text>
-          <Text style={styles.contactItem}>🌐 bluecore.vn</Text>
+          <Text style={styles.contactItem}>Email: contact@bluecore.vn</Text>
+          <Text style={styles.contactItem}>Web: bluecore.vn</Text>
         </View>
         
         <View style={styles.contactCTA}>
