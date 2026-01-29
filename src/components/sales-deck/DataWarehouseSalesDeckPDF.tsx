@@ -3,6 +3,7 @@
  * 
  * Professional PDF sales deck for the Data Warehouse module
  * Following the 'Single Source of Truth' philosophy
+ * Content based on https://bluecore.vn/
  */
 
 import React from 'react';
@@ -278,29 +279,6 @@ const styles = StyleSheet.create({
     color: colors.textWhite,
     lineHeight: 1.6,
   },
-  // Comparison table
-  comparisonRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: 8,
-  },
-  comparisonCell: {
-    flex: 1,
-    fontSize: 10,
-    color: colors.text,
-    paddingHorizontal: 8,
-  },
-  comparisonCellWhite: {
-    flex: 1,
-    fontSize: 10,
-    color: colors.textWhite,
-    paddingHorizontal: 8,
-  },
-  comparisonHeader: {
-    fontWeight: 700,
-    fontSize: 11,
-  },
   // Manifesto styles
   manifestoItem: {
     flexDirection: 'row',
@@ -320,12 +298,6 @@ const styles = StyleSheet.create({
     color: colors.textWhite,
     fontSize: 11,
     fontWeight: 700,
-  },
-  manifestoText: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.text,
-    lineHeight: 1.5,
   },
   manifestoTextWhite: {
     flex: 1,
@@ -406,86 +378,86 @@ const styles = StyleSheet.create({
   },
 });
 
-// Content data
+// Content data - Vietnamese with full diacritics
 const threePillars = [
-  { icon: '[=]', title: 'SINGLE SOURCE', desc: 'Mot nguon du lieu duy nhat' },
-  { icon: '[*]', title: 'REAL-TIME SYNC', desc: 'Dong bo lien tuc' },
-  { icon: '[>]', title: 'QUERY READY', desc: 'San sang truy van' },
+  { icon: '[=]', title: 'ETL', desc: 'Thu thap va chuyen doi' },
+  { icon: '[*]', title: 'DATA WAREHOUSE', desc: 'Kho du lieu tap trung' },
+  { icon: '[>]', title: 'BI DASHBOARD', desc: 'Bao cao truc quan' },
 ];
 
 const dataChallenges = [
   {
-    title: 'Du lieu nam rai rac',
-    problem: 'Shopee mot noi, Lazada mot noi, ke toan mot noi',
-    cost: 'Mat 2-3 gio moi ngay de tong hop thu cong',
+    title: 'Du lieu nam rai rac nhieu noi',
+    problem: 'Shopee, Lazada, TikTok Shop, Sapo, MISA - moi kenh mot noi',
+    cost: 'Mat 2-3 gio moi ngay de tong hop thu cong bang Excel',
     icon: '[!]',
   },
   {
-    title: 'Khong biet so nao dung',
-    problem: 'Moi phong ban bao cao mot so khac nhau',
+    title: 'Khong biet so nao la dung',
+    problem: 'Moi phong ban bao cao mot con so khac nhau',
     cost: 'Quyet dinh sai vi thong tin khong nhat quan',
     icon: '[?]',
   },
   {
     title: 'Du lieu cu, khong cap nhat',
-    problem: 'Bao cao hom nay nhung so cua tuan truoc',
-    cost: 'Bo lo co hoi vi phan ung cham',
+    problem: 'Bao cao hom nay nhung du lieu cua tuan truoc',
+    cost: 'Bo lo co hoi kinh doanh vi phan ung cham',
     icon: '[X]',
   },
   {
-    title: 'Khong truy van duoc',
-    problem: 'Muon xem chi tiet phai nho IT lam bao cao',
-    cost: 'Mat 1-2 ngay cho moi lan can thong tin',
+    title: 'Khong co bao cao tu dong',
+    problem: 'Muon xem bao cao phai cho nhan su lam thu cong',
+    cost: 'Mat 1-2 ngay cho moi lan can thong tin cap nhat',
     icon: '[~]',
   },
 ];
 
 const solutionCards = [
   {
-    title: 'Ket noi tu dong',
-    desc: 'Tu dong dong bo du lieu tu Shopee, Lazada, TikTok, ke toan, kho',
+    title: 'Thu thap du lieu tu dong (ETL)',
+    desc: 'Ket noi va dong bo du lieu tu Shopee, Lazada, TikTok Shop, Sapo, MISA va nhieu nen tang khac',
     benefit: 'Khong can nhap lieu thu cong',
   },
   {
-    title: 'Chuan hoa du lieu',
-    desc: 'Chuyen doi du lieu tu nhieu nguon ve cung mot format chuan',
-    benefit: 'So lieu nhat quan, tin cay',
+    title: 'Kho du lieu tap trung (Data Warehouse)',
+    desc: 'Tap trung tat ca du lieu ve mot noi duy nhat, chuan hoa va san sang phan tich',
+    benefit: 'Mot nguon su that duy nhat',
   },
   {
-    title: 'Cap nhat real-time',
-    desc: 'Du lieu duoc dong bo lien tuc, khong phai cho cuoi ngay',
-    benefit: 'Luon co thong tin moi nhat',
+    title: 'Bao cao tu dong (Automation Report)',
+    desc: 'Tu dong tao bao cao theo lich, gui email cho cac phong ban lien quan',
+    benefit: 'Thong tin dung luc can',
   },
   {
-    title: 'Tu do truy van',
-    desc: 'Truy xuat bat ky thong tin nao ma khong can nho IT',
+    title: 'Dashboard truc quan (BI)',
+    desc: 'Bieu do, dashboard de hieu, cap nhat real-time, truy cap moi luc moi noi',
     benefit: 'Ra quyet dinh nhanh hon',
   },
 ];
 
 const competitiveAdvantages = [
   {
-    title: 'vs. Excel/Google Sheets',
+    title: 'So voi Excel/Google Sheets',
     points: [
-      'Tu dong, khong can copy-paste thu cong',
-      'Khong lo file qua nang, bi loi',
-      'Nhieu nguoi dung cung luc khong conflict',
+      'Tu dong dong bo, khong can copy-paste thu cong',
+      'Khong lo file qua nang, bi loi, mat du lieu',
+      'Nhieu nguoi truy cap cung luc khong bi conflict',
     ],
   },
   {
-    title: 'vs. ERP truyen thong',
+    title: 'So voi Power BI truyen thong',
+    points: [
+      'Da tich hop san connector cho e-commerce Viet Nam',
+      'Khong can doi ngu IT de cau hinh phuc tap',
+      'Bao cao tu dong theo lich, gui email truc tiep',
+    ],
+  },
+  {
+    title: 'So voi tu xay Data Warehouse',
     points: [
       'Trien khai trong vai ngay, khong phai vai thang',
-      'Chi phi thap hon 10 lan',
-      'Linh hoat, de tuy chinh theo nhu cau',
-    ],
-  },
-  {
-    title: 'vs. Tu xay Data Warehouse',
-    points: [
-      'Khong can doi ngu IT chuyen biet',
-      'Da co san connector cho e-commerce VN',
-      'Bao tri va nang cap tu dong',
+      'Chi phi thap hon 10 lan so voi tu xay',
+      'Bao tri va nang cap tu dong, khong can lo',
     ],
   },
 ];
@@ -494,57 +466,56 @@ const useCaseStories = [
   {
     title: 'Tong hop doanh thu da kenh',
     persona: 'Chi Huong - CEO chuoi cua hang thoi trang',
-    situation: 'Ban tren 5 kenh: Shopee, Lazada, TikTok, website, cua hang',
-    problem: 'Moi sang mat 2 gio de tong hop doanh thu tu tung kenh',
-    solution: 'Data Warehouse tu dong gom tat ca ve mot dashboard',
-    result: 'Tiet kiem 10 gio/tuan, biet doanh thu thuc ngay khi can',
+    situation: 'Ban tren 5 kenh: Shopee, Lazada, TikTok Shop, website rieng, cua hang offline',
+    problem: 'Moi sang mat 2 gio de xuat file tu tung kenh roi tong hop bang Excel',
+    solution: 'Bluecore tu dong gom tat ca du lieu ve mot dashboard duy nhat',
+    result: 'Tiet kiem 10 gio/tuan, biet doanh thu thuc chi trong 1 phut',
   },
   {
-    title: 'Doi chieu ton kho thuc te',
-    persona: 'Anh Duc - Quan ly kho thuc pham',
-    situation: 'Ton kho tren he thong va thuc te luon chenh lech',
-    problem: 'Cuoi thang kiem ke moi biet mat mat, qua han',
-    solution: 'Dong bo real-time giua POS, WMS va ke toan',
-    result: 'Phat hien chenh lech ngay lap tuc, giam hao hut 40%',
+    title: 'Kiem soat ton kho da kenh',
+    persona: 'Anh Duc - Quan ly kho hang tieu dung',
+    situation: 'Ton kho tren Sapo, tren san TMDT va thuc te kho luon chenh lech',
+    problem: 'Cuoi thang kiem ke moi phat hien mat mat, het hang hot, thua hang cham',
+    solution: 'Dong bo real-time giua POS, WMS va cac san thuong mai dien tu',
+    result: 'Phat hien chenh lech ngay lap tuc, giam hao hut 40%, het canh het hang',
   },
   {
-    title: 'Phan tich hieu qua Marketing',
+    title: 'Quan ly chien dich quang cao',
     persona: 'Linh - Marketing Manager my pham',
-    situation: 'Chay quang cao tren 4 nen tang khac nhau',
-    problem: 'Khong biet kenh nao thuc su mang lai loi nhuan',
-    solution: 'Ket noi chi phi ads voi doanh thu va margin thuc',
-    result: 'Xac dinh duoc kenh hieu qua, cat giam 30% budget lang phi',
+    situation: 'Chay quang cao tren Facebook, Google, TikTok, Shopee Ads cung luc',
+    problem: 'Khong biet kenh nao thuc su mang lai loi nhuan, chi biet ROAS chua du',
+    solution: 'Ket noi chi phi quang cao voi doanh thu thuc va margin theo tung kenh',
+    result: 'Xac dinh duoc kenh hieu qua, cat giam 30% ngan sach lang phi',
   },
   {
-    title: 'Bao cao tai chinh tu dong',
+    title: 'Bao cao tu dong theo phong ban',
     persona: 'Anh Kien - CFO cong ty phan phoi',
-    situation: 'Moi thang mat 1 tuan de dong bao cao tai chinh',
-    problem: 'So lieu tu nhieu phong ban khong khop, phai doi chieu lai',
-    solution: 'Mot nguon du lieu duy nhat, bao cao tu dong tao',
-    result: 'Dong bao cao trong 1 ngay thay vi 1 tuan',
+    situation: 'Moi thang mat 1 tuan de cac phong ban gui so lieu, doi chieu va dong bao cao',
+    problem: 'So lieu tu Marketing, Sales, Kho khong khop nhau, phai hoi di hoi lai',
+    solution: 'Mot nguon du lieu duy nhat, bao cao tu dong tao va gui theo lich',
+    result: 'Dong bao cao trong 1 ngay thay vi 1 tuan, so lieu chinh xac 100%',
   },
 ];
 
-const architectureComponents = [
-  { name: 'Data Sources', desc: 'Shopee, Lazada, TikTok, POS, WMS, Ke toan' },
-  { name: 'ETL Pipeline', desc: 'Extract, Transform, Load tu dong' },
-  { name: 'Data Lake', desc: 'Luu tru du lieu tho, chua xu ly' },
-  { name: 'Data Warehouse', desc: 'Du lieu da chuan hoa, san sang truy van' },
-  { name: 'Data Marts', desc: 'Datasets chuyen biet cho tung module' },
-  { name: 'BI Layer', desc: 'Dashboards va Reports' },
+const connectedPlatforms = [
+  'Shopee', 'Lazada', 'TikTok Shop', 'Sendo',
+  'Sapo', 'Haravan', 'KiotViet', 'Nhanh.vn',
+  'MISA', 'CukCuk', 'Base.vn',
+  'Facebook Ads', 'Google Ads', 'TikTok Ads',
+  'MySQL', 'PostgreSQL', 'Google Sheets', 'Excel',
 ];
 
 const manifestoItems = [
-  'SINGLE SOURCE OF TRUTH - Chi co mot phien ban du lieu duy nhat',
-  'AUTOMATED INGESTION - Du lieu tu dong chay vao, khong can tac dong',
-  'REAL-TIME FRESHNESS - Du lieu luon moi, khong phai cho batch cuoi ngay',
-  'SCHEMA ENFORCEMENT - Du lieu duoc kiem tra va chuan hoa truoc khi luu',
-  'LINEAGE TRACKING - Biet ro du lieu den tu dau, di qua nhung buoc nao',
-  'ACCESS CONTROL - Phan quyen ro rang, ai duoc xem gi',
-  'QUERY PERFORMANCE - Truy van nhanh du du lieu lon',
-  'SCALABILITY - Mo rong khong gioi han khi doanh nghiep phat trien',
-  'COST EFFICIENCY - Chi tra cho nhung gi su dung',
-  'INTEGRATION READY - San sang ket noi voi bat ky he thong nao',
+  'TAP TRUNG HOA DU LIEU - Tat ca du lieu ve mot noi duy nhat',
+  'TU DONG THU THAP - Du lieu tu dong chay vao, khong can tac dong',
+  'REAL-TIME - Du lieu luon moi, khong phai cho batch cuoi ngay',
+  'CHUAN HOA - Du lieu duoc kiem tra, lam sach truoc khi luu tru',
+  'TRUY XUAT NGUON GOC - Biet ro du lieu den tu dau, qua nhung buoc nao',
+  'PHAN QUYEN - Ai duoc xem gi, chinh sua gi duoc kiem soat chat',
+  'TRUY VAN NHANH - Bao cao chay nhanh du du lieu lon',
+  'MO RONG - San sang scale khi doanh nghiep phat trien',
+  'CHI PHI HOP LY - Chi tra cho nhung gi thuc su su dung',
+  'KET NOI DE DANG - San sang ket noi voi bat ky he thong nao',
 ];
 
 // Page components
@@ -559,23 +530,87 @@ const CoverPage = () => (
         <Text style={styles.coverBadgeText}>BLUECORE DATA WAREHOUSE</Text>
       </View>
       <Text style={styles.coverTitle}>Data Warehouse</Text>
-      <Text style={styles.coverSubtitle}>Nen tang du lieu thong nhat cho doanh nghiep</Text>
+      <Text style={styles.coverSubtitle}>Nen tang du lieu thong nhat cho doanh nghiep ban le</Text>
       <Text style={styles.coverTagline}>Single Source of Truth</Text>
+      
+      <View style={{ marginTop: 40, alignItems: 'center' }}>
+        <Text style={{ fontSize: 12, color: colors.textLight, marginBottom: 8 }}>Tich hop hoan chinh</Text>
+        <Text style={{ fontSize: 14, color: colors.accentLight, fontWeight: 700 }}>ETL - Data Warehouse - BI Dashboard</Text>
+      </View>
     </View>
     
     <View style={styles.footer}>
-      <Text style={styles.footerTextWhite}>Bluecore Data Platform</Text>
+      <Text style={styles.footerTextWhite}>bluecore.vn</Text>
       <Text style={styles.pageNumberWhite}>01</Text>
     </View>
   </Page>
 );
 
-const DataChallengePage = () => (
+const WhoWeArePage = () => (
   <Page size="A4" style={styles.page}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Van de du lieu cua SME Retail</Text>
+      <Text style={styles.sectionTitle}>Chung toi la ai?</Text>
       <Text style={styles.sectionSubtitle}>
-        80% SME Retail dang mat thoi gian va tien bac vi du lieu khong duoc quan ly tot
+        Bluecore la doi ngu nang dong, sang tao chuyen ve cong nghe va kinh doanh
+      </Text>
+      
+      <View style={styles.storyBlock}>
+        <Text style={styles.storyText}>
+          Bluecore la tap the doi ngu nhan luc nang dong, sang tao co cung dam me ve cong nghe va kinh doanh de chung tay xay dung cac giai phap chuyen doi so giup doanh nghiep nam bat cac co hoi kinh doanh va tang truong than toc trong thoi dai cong nghe 4.0.
+        </Text>
+      </View>
+      
+      <View style={[styles.card, { marginTop: 16 }]}>
+        <Text style={styles.cardTitle}>Giai phap cot loi</Text>
+        <View style={{ marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
+            <Text style={styles.cardText}>He thong bao cao tu dong theo phong ban, nganh hang</Text>
+          </View>
+          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
+            <Text style={styles.cardText}>Tich hop Data Model voi cac he thong khac nhau qua API</Text>
+          </View>
+          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
+            <Text style={styles.cardText}>App tich diem, khuyen mai va cham soc khach hang than thiet</Text>
+          </View>
+          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+            <Text style={{ color: colors.accent, marginRight: 8, fontSize: 11 }}>[+]</Text>
+            <Text style={styles.cardText}>Phan mem cham cong thong minh, toi uu quan ly nhan su</Text>
+          </View>
+        </View>
+      </View>
+      
+      <View style={styles.row}>
+        <View style={[styles.card, styles.col3, { alignItems: 'center', padding: 20 }]}>
+          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, marginBottom: 4 }}>50+</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>Ket noi da nen tang</Text>
+        </View>
+        <View style={[styles.card, styles.col3, { alignItems: 'center', padding: 20 }]}>
+          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, marginBottom: 4 }}>100+</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>Doanh nghiep tin dung</Text>
+        </View>
+        <View style={[styles.card, styles.col3, { alignItems: 'center', padding: 20 }]}>
+          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, marginBottom: 4 }}>24/7</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>Ho tro ky thuat</Text>
+        </View>
+      </View>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
+      <Text style={styles.pageNumber}>02</Text>
+    </View>
+  </Page>
+);
+
+const DataChallengePage = () => (
+  <Page size="A4" style={styles.pageAlt}>
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>Van de du lieu cua doanh nghiep ban le</Text>
+      <Text style={styles.sectionSubtitle}>
+        80% doanh nghiep ban le dang mat thoi gian va tien bac vi du lieu khong duoc quan ly tot
       </Text>
       
       <View style={styles.row}>
@@ -618,7 +653,7 @@ const DataChallengePage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>02</Text>
+      <Text style={styles.pageNumber}>03</Text>
     </View>
   </Page>
 );
@@ -628,7 +663,7 @@ const PositioningPage = () => (
     <View style={styles.container}>
       <Text style={[styles.sectionTitleWhite, { marginBottom: 8 }]}>Bluecore Data Warehouse</Text>
       <Text style={[styles.sectionSubtitleWhite, { fontSize: 16, marginBottom: 30 }]}>
-        Khong phai Data Lake phuc tap - Khong phai Excel don gian
+        Tich hop hoan chinh 3 he thong trong 1 nen tang
       </Text>
       
       <View style={styles.pillContainer}>
@@ -669,65 +704,86 @@ const PositioningPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>03</Text>
+      <Text style={styles.pageNumberWhite}>04</Text>
     </View>
   </Page>
 );
 
-const ArchitecturePage = () => (
-  <Page size="A4" style={styles.pageAlt}>
+const ConnectionsPage = () => (
+  <Page size="A4" style={styles.page}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Kien truc Data Warehouse</Text>
+      <Text style={styles.sectionTitle}>Cac ket noi san co</Text>
       <Text style={styles.sectionSubtitle}>
-        Du lieu chay tu nguon den bao cao - tu dong, nhat quan, dang tin cay
+        Ket noi voi hon 50 nen tang pho bien tai Viet Nam va quoc te
       </Text>
       
-      {/* Architecture flow diagram */}
-      <View style={{ marginBottom: 20 }}>
-        {architectureComponents.map((comp, idx) => (
-          <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{ 
-              width: 30, 
-              height: 30, 
-              backgroundColor: colors.accent, 
-              borderRadius: 15, 
-              justifyContent: 'center', 
-              alignItems: 'center',
-              marginRight: 12 
-            }}>
-              <Text style={{ color: colors.textWhite, fontSize: 12, fontWeight: 700 }}>{idx + 1}</Text>
+      <View style={styles.row}>
+        <View style={styles.col2}>
+          <View style={styles.card}>
+            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>San TMDT</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {['Shopee', 'Lazada', 'TikTok Shop', 'Sendo'].map((p, i) => (
+                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
+                </View>
+              ))}
             </View>
-            <View style={{ flex: 1, backgroundColor: colors.background, padding: 12, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: colors.text, marginBottom: 2 }}>{comp.name}</Text>
-              <Text style={{ fontSize: 10, color: colors.textLight }}>{comp.desc}</Text>
-            </View>
-            {idx < architectureComponents.length - 1 && (
-              <View style={{ position: 'absolute', left: 14, top: 38, width: 2, height: 20, backgroundColor: colors.accent }} />
-            )}
           </View>
-        ))}
+          <View style={styles.card}>
+            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>POS / ERP</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {['Sapo', 'Haravan', 'KiotViet', 'Nhanh.vn', 'MISA', 'CukCuk', 'Base.vn'].map((p, i) => (
+                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+        <View style={styles.col2}>
+          <View style={styles.card}>
+            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>Quang cao</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {['Facebook Ads', 'Google Ads', 'TikTok Ads', 'Shopee Ads', 'Lazada Ads'].map((p, i) => (
+                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          <View style={styles.card}>
+            <Text style={[styles.cardTitle, { color: colors.accent, marginBottom: 12 }]}>Database / File</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {['MySQL', 'PostgreSQL', 'Google Sheets', 'Excel', 'CSV'].map((p, i) => (
+                <View key={i} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, color: colors.text }}>{p}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
       </View>
       
-      <View style={styles.quoteBox}>
+      <View style={[styles.quoteBox, { backgroundColor: colors.success }]}>
         <Text style={styles.quoteText}>
-          Du lieu tu Shopee, Lazada, TikTok den Dashboard chi mat vai phut
+          Ket noi mot lan, du lieu tu dong dong bo moi ngay
         </Text>
       </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>04</Text>
+      <Text style={styles.pageNumber}>05</Text>
     </View>
   </Page>
 );
 
 const CompetitivePage = () => (
-  <Page size="A4" style={styles.page}>
+  <Page size="A4" style={styles.pageAlt}>
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Tai sao Bluecore Data Warehouse?</Text>
+      <Text style={styles.sectionTitle}>Tai sao chon Bluecore?</Text>
       <Text style={styles.sectionSubtitle}>
-        So sanh voi cac giai phap pho bien khac tren thi truong
+        So sanh voi cac giai phap pho bien tren thi truong
       </Text>
       
       {competitiveAdvantages.map((adv, idx) => (
@@ -742,7 +798,7 @@ const CompetitivePage = () => (
         </View>
       ))}
       
-      <View style={[styles.quoteBox, { backgroundColor: colors.success }]}>
+      <View style={[styles.quoteBox, { backgroundColor: colors.primary }]}>
         <Text style={styles.quoteText}>
           Trien khai trong 1 tuan - Khong can doi ngu IT - Chi phi hop ly
         </Text>
@@ -751,7 +807,7 @@ const CompetitivePage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>05</Text>
+      <Text style={styles.pageNumber}>06</Text>
     </View>
   </Page>
 );
@@ -792,7 +848,7 @@ const UseCasePage1 = () => (
             <Text style={styles.mockupValue}>32.1M VND</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>TikTok hom nay</Text>
+            <Text style={styles.mockupLabel}>TikTok Shop hom nay</Text>
             <Text style={styles.mockupValue}>28.7M VND</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
@@ -809,13 +865,13 @@ const UseCasePage1 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>06</Text>
+      <Text style={styles.pageNumberWhite}>07</Text>
     </View>
   </Page>
 );
 
 const UseCasePage2 = () => (
-  <Page size="A4" style={styles.pageAlt}>
+  <Page size="A4" style={styles.page}>
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>{useCaseStories[1].title}</Text>
       
@@ -842,16 +898,20 @@ const UseCasePage2 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>SKU-001 | He thong</Text>
-            <Text style={styles.mockupValue}>150 don vi</Text>
+            <Text style={styles.mockupLabel}>SKU-001 | Shopee</Text>
+            <Text style={styles.mockupValue}>50 don vi</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>SKU-001 | Thuc te</Text>
-            <Text style={[styles.mockupValue, { color: colors.error }]}>142 don vi</Text>
+            <Text style={styles.mockupLabel}>SKU-001 | Lazada</Text>
+            <Text style={styles.mockupValue}>30 don vi</Text>
+          </View>
+          <View style={styles.mockupRow}>
+            <Text style={styles.mockupLabel}>SKU-001 | Kho thuc te</Text>
+            <Text style={[styles.mockupValue, { color: colors.warning }]}>75 don vi</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.mockupLabel}>Chenh lech</Text>
-            <Text style={[styles.mockupValue, { color: colors.error }]}>[!] -8 don vi</Text>
+            <Text style={[styles.mockupValue, { color: colors.error }]}>[!] -5 don vi</Text>
           </View>
         </View>
       </View>
@@ -863,7 +923,7 @@ const UseCasePage2 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>07</Text>
+      <Text style={styles.pageNumber}>08</Text>
     </View>
   </Page>
 );
@@ -921,7 +981,7 @@ const UseCasePage3 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>08</Text>
+      <Text style={styles.pageNumberWhite}>09</Text>
     </View>
   </Page>
 );
@@ -954,11 +1014,15 @@ const UseCasePage4 = () => (
         </View>
         <View style={styles.mockupContent}>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Bao cao P&L</Text>
+            <Text style={styles.mockupLabel}>Bao cao Doanh thu</Text>
             <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Tu dong</Text>
           </View>
           <View style={styles.mockupRow}>
-            <Text style={styles.mockupLabel}>Bao cao Cash Flow</Text>
+            <Text style={styles.mockupLabel}>Bao cao Ton kho</Text>
+            <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Tu dong</Text>
+          </View>
+          <View style={styles.mockupRow}>
+            <Text style={styles.mockupLabel}>Bao cao Marketing</Text>
             <Text style={[styles.mockupValue, { color: colors.success }]}>[OK] Tu dong</Text>
           </View>
           <View style={[styles.mockupRow, { borderBottomWidth: 0 }]}>
@@ -975,7 +1039,7 @@ const UseCasePage4 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>09</Text>
+      <Text style={styles.pageNumber}>10</Text>
     </View>
   </Page>
 );
@@ -984,7 +1048,7 @@ const ManifestoPage = () => (
   <Page size="A4" style={styles.pageDark}>
     <View style={styles.container}>
       <Text style={styles.sectionTitleWhite}>Data Warehouse Manifesto</Text>
-      <Text style={styles.sectionSubtitleWhite}>10 nguyen tac bat bien</Text>
+      <Text style={styles.sectionSubtitleWhite}>10 nguyen tac cot loi</Text>
       
       <View style={{ marginTop: 10 }}>
         {manifestoItems.map((item, idx) => (
@@ -1000,7 +1064,7 @@ const ManifestoPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumberWhite}>10</Text>
+      <Text style={styles.pageNumberWhite}>11</Text>
     </View>
   </Page>
 );
@@ -1021,18 +1085,24 @@ const CTAPage = () => (
           <Text style={styles.cardText}>Email: contact@bluecore.vn</Text>
         </View>
         <View style={{ marginBottom: 8 }}>
-          <Text style={styles.cardText}>Web: bluecore.vn</Text>
+          <Text style={styles.cardText}>Website: bluecore.vn</Text>
         </View>
       </View>
       
       <View style={[styles.quoteBox, { marginTop: 40, width: 350 }]}>
         <Text style={styles.quoteText}>Single Source of Truth</Text>
       </View>
+      
+      <View style={{ marginTop: 30 }}>
+        <Text style={{ fontSize: 10, color: colors.textLight, textAlign: 'center' }}>
+          Kiem soat du lieu - Toi uu chi phi - Ca nhan hoa trai nghiem
+        </Text>
+      </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>Bluecore Data Warehouse</Text>
-      <Text style={styles.pageNumber}>11</Text>
+      <Text style={styles.pageNumber}>12</Text>
     </View>
   </Page>
 );
@@ -1043,12 +1113,13 @@ const DataWarehouseSalesDeckPDF: React.FC = () => (
     title="Bluecore Data Warehouse Sales Deck"
     author="Bluecore Team"
     subject="Data Warehouse - Single Source of Truth"
-    keywords="data warehouse, ETL, data platform, SME, retail, Vietnam"
+    keywords="data warehouse, ETL, BI, data platform, SME, retail, Vietnam, Shopee, Lazada, TikTok"
   >
     <CoverPage />
+    <WhoWeArePage />
     <DataChallengePage />
     <PositioningPage />
-    <ArchitecturePage />
+    <ConnectionsPage />
     <CompetitivePage />
     <UseCasePage1 />
     <UseCasePage2 />
