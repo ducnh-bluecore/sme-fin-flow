@@ -81,7 +81,7 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
   });
 
   // Reset form when baseline changes
-  useState(() => {
+  useEffect(() => {
     if (baseline) {
       setFormData({
         category: baseline.category,
@@ -92,8 +92,18 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
         paymentDueDay: baseline.paymentDueDay?.toString() || '',
         notes: baseline.notes || '',
       });
+    } else {
+      setFormData({
+        category: 'salary',
+        name: '',
+        monthlyAmount: '',
+        effectiveFrom: format(new Date(), 'yyyy-MM-dd'),
+        effectiveTo: '',
+        paymentDueDay: '',
+        notes: '',
+      });
     }
-  });
+  }, [baseline]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +114,7 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
       monthlyAmount: parseFloat(formData.monthlyAmount) || 0,
       effectiveFrom: formData.effectiveFrom,
       effectiveTo: formData.effectiveTo || null,
-      paymentDueDay: formData.paymentDueDay ? parseInt(formData.paymentDueDay) : null,
+      paymentDueDay: formData.paymentDueDay && formData.paymentDueDay !== 'none' ? parseInt(formData.paymentDueDay) : null,
       notes: formData.notes || null,
     };
 
@@ -204,7 +214,7 @@ function BaselineDialog({ open, onOpenChange, baseline }: BaselineDialogProps) {
                 <SelectValue placeholder="Chọn ngày thanh toán..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Không chỉ định</SelectItem>
+                <SelectItem value="none">Không chỉ định</SelectItem>
                 {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                   <SelectItem key={day} value={day.toString()}>
                     Ngày {day} hàng tháng
