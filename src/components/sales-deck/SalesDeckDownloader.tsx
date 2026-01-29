@@ -11,6 +11,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { FileDown, Loader2, FileText, Building2, TrendingUp, Users, AlertTriangle, Database } from 'lucide-react';
 import FDPSalesDeckPDF from './FDPSalesDeckPDF';
+import MDPSalesDeckPDF from './MDPSalesDeckPDF';
+import CDPSalesDeckPDF from './CDPSalesDeckPDF';
+import ControlTowerSalesDeckPDF from './ControlTowerSalesDeckPDF';
 
 interface DeckOption {
   id: string;
@@ -37,24 +40,27 @@ const deckOptions: DeckOption[] = [
     title: 'MDP - Marketing Data Platform',
     subtitle: 'Sales Deck cho hệ thống Marketing',
     icon: <Building2 className="h-6 w-6 text-purple-600" />,
-    available: false,
+    available: true,
     tagline: 'Profit before Performance',
+    component: <MDPSalesDeckPDF />,
   },
   {
     id: 'cdp',
     title: 'CDP - Customer Data Platform',
     subtitle: 'Sales Deck cho hệ thống Khách hàng',
     icon: <Users className="h-6 w-6 text-green-600" />,
-    available: false,
+    available: true,
     tagline: 'Population > Individual',
+    component: <CDPSalesDeckPDF />,
   },
   {
     id: 'control-tower',
     title: 'Control Tower',
     subtitle: 'Sales Deck cho Trung tâm điều hành',
     icon: <AlertTriangle className="h-6 w-6 text-amber-600" />,
-    available: false,
+    available: true,
     tagline: 'Awareness before Analytics',
+    component: <ControlTowerSalesDeckPDF />,
   },
   {
     id: 'datawarehouse',
