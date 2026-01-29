@@ -988,17 +988,17 @@ const costItems = [
 // Three Pillars (Page 5)
 const threePillars = [
   {
-    icon: '💵',
+    icon: '$',
     title: 'REAL CASH',
     desc: 'Tiền thật, không tiền sổ sách',
   },
   {
-    icon: '📊',
+    icon: '#',
     title: 'TRUTH FIRST',
     desc: 'Không làm đẹp số, chỉ sự thật',
   },
   {
-    icon: '⚡',
+    icon: '>',
     title: 'ACTION NOW',
     desc: 'Quyết định hôm nay, không chờ',
   },
@@ -1062,24 +1062,24 @@ const competitiveAdvantages = [
 // Story Blocks for Use Cases (Pages 7-10)
 const useCaseStories = {
   cashCheck: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Anh Minh, CEO chuỗi thời trang 5 cửa hàng, mỗi sáng thứ Hai phải mất 2 giờ để hỏi kế toán: "Mình còn bao nhiêu tiền?" Kế toán nói 2 tỷ, nhưng 1.5 tỷ đang bị Shopee hold, 300 triệu là COD chưa đối soát.',
-    result: '→ VỚI BLUECORE: Anh Minh mở app, 5 giây biết ngay: Cash thật: 500 triệu | Hold: 1.5 tỷ | Sẽ về: 800 triệu',
+    result: 'VOI BLUECORE: Anh Minh mở app, 5 giây biết ngay: Cash thật: 500 triệu | Hold: 1.5 tỷ | Sẽ về: 800 triệu',
   },
   skuProfit: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Chị Lan, founder shop mỹ phẩm online, tháng vừa rồi doanh thu 500 triệu nhưng cuối tháng hết tiền trả lương. Kiểm tra mới biết: 3 combo khuyến mãi đang bán lỗ, mỗi đơn mất 15k sau khi trừ COGS, ship, ads, return.',
-    result: '→ VỚI BLUECORE: Chị Lan thấy ngay 3 SKU CM âm khi vào dashboard, dừng bán ngay, tiết kiệm 80 triệu.',
+    result: 'VOI BLUECORE: Chị Lan thấy ngay 3 SKU CM âm khi vào dashboard, dừng bán ngay, tiết kiệm 80 triệu.',
   },
   arCollection: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    title: 'TINH HUONG THUC TE',
     text: 'Công ty thực phẩm của anh Hùng có AR 3 tỷ trên sổ. Nhưng 800 triệu đã quá hạn 60 ngày, 1 khách hàng lớn đang có dấu hiệu gặp khó khăn tài chính.',
-    result: '→ VỚI BLUECORE: Anh Hùng có danh sách 5 khách cần gọi ngay hôm nay, thu hồi được 320 triệu trước khi mất.',
+    result: 'VOI BLUECORE: Anh Hùng có danh sách 5 khách cần gọi ngay hôm nay, thu hồi được 320 triệu trước khi mất.',
   },
   cashRunway: {
-    title: '📖 TÌNH HUỐNG THỰC TẾ',
-    text: 'Startup của Tuấn đang burn 600 triệu/tháng. Cuối quý mới biết cash sắp cạn, vội vàng đi gọi vốn nhưng đã muộn — valuation bị ép vì thế yếu.',
-    result: '→ VỚI BLUECORE: Tuấn biết trước 3 tháng runway sắp hết, có thời gian chuẩn bị fundraising, đàm phán từ vị thế mạnh hơn.',
+    title: 'TINH HUONG THUC TE',
+    text: 'Startup của Tuấn đang burn 600 triệu/tháng. Cuối quý mới biết cash sắp cạn, vội vàng đi gọi vốn nhưng đã muộn - valuation bị ép vì thế yếu.',
+    result: 'VOI BLUECORE: Tuấn biết trước 3 tháng runway sắp hết, có thời gian chuẩn bị fundraising, đàm phán từ vị thế mạnh hơn.',
   },
 };
 
