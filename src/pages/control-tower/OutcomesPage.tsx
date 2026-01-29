@@ -289,6 +289,7 @@ export default function OutcomesPage() {
               title: selectedFollowup.decision_title,
               category: selectedFollowup.decision_type,
               impact_amount: selectedFollowup.predicted_impact_amount,
+              decided_at: selectedFollowup.decided_at, // Pass decision date for time-based calculation
             }}
           />
         )}

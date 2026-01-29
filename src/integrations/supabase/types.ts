@@ -32547,6 +32547,20 @@ export type Database = {
             }
             Returns: string
           }
+      compute_estimated_actual_impact: {
+        Args: {
+          p_decision_date: string
+          p_decision_type: string
+          p_predicted_impact: number
+          p_tenant_id: string
+        }
+        Returns: {
+          calculation_method: string
+          confidence_level: string
+          data_source: string
+          estimated_impact: number
+        }[]
+      }
       compute_finance_expenses_daily: {
         Args: { p_tenant_id: string }
         Returns: undefined
