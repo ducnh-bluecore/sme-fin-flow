@@ -9,12 +9,13 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileDown, Loader2, FileText, Building2, TrendingUp, Users, AlertTriangle, Database } from 'lucide-react';
+import { FileDown, Loader2, FileText, Building2, TrendingUp, Users, AlertTriangle, Database, Layers } from 'lucide-react';
 import FDPSalesDeckPDF from './FDPSalesDeckPDF';
 import MDPSalesDeckPDF from './MDPSalesDeckPDF';
 import CDPSalesDeckPDF from './CDPSalesDeckPDF';
 import ControlTowerSalesDeckPDF from './ControlTowerSalesDeckPDF';
 import DataWarehouseSalesDeckPDF from './DataWarehouseSalesDeckPDF';
+import FullSystemSalesDeckPDF from './FullSystemSalesDeckPDF';
 
 interface DeckOption {
   id: string;
@@ -24,9 +25,20 @@ interface DeckOption {
   available: boolean;
   tagline: string;
   component?: React.ReactElement;
+  featured?: boolean;
 }
 
 const deckOptions: DeckOption[] = [
+  {
+    id: 'full-system',
+    title: 'Full System Overview',
+    subtitle: 'Sales Deck tổng quan toàn bộ Bluecore (16 trang)',
+    icon: <Layers className="h-6 w-6 text-indigo-600" />,
+    available: true,
+    tagline: 'Decision-First Platform',
+    component: <FullSystemSalesDeckPDF />,
+    featured: true,
+  },
   {
     id: 'fdp',
     title: 'FDP - Financial Data Platform',
@@ -72,14 +84,6 @@ const deckOptions: DeckOption[] = [
     tagline: 'Single Source of Truth',
     component: <DataWarehouseSalesDeckPDF />,
   },
-  {
-    id: 'full-system',
-    title: 'Full System Overview',
-    subtitle: 'Sales Deck tổng quan toàn bộ Bluecore',
-    icon: <FileText className="h-6 w-6 text-indigo-600" />,
-    available: false,
-    tagline: 'Decision-First Platform',
-  },
 ];
 
 const SalesDeckDownloader: React.FC = () => {
@@ -96,11 +100,15 @@ const SalesDeckDownloader: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {deckOptions.map((deck) => (
-          <Card key={deck.id} className={`relative ${!deck.available ? 'opacity-60' : ''}`}>
+          <Card key={deck.id} className={`relative ${!deck.available ? 'opacity-60' : ''} ${deck.featured ? 'ring-2 ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20' : ''}`}>
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
-                <div className="p-2 bg-muted rounded-lg">{deck.icon}</div>
-                {deck.available ? (
+                <div className={`p-2 rounded-lg ${deck.featured ? 'bg-indigo-100' : 'bg-muted'}`}>{deck.icon}</div>
+                {deck.featured ? (
+                  <Badge variant="default" className="bg-indigo-600 text-white">
+                    Đề xuất
+                  </Badge>
+                ) : deck.available ? (
                   <Badge variant="default" className="bg-green-100 text-green-700">
                     Sẵn sàng
                   </Badge>
