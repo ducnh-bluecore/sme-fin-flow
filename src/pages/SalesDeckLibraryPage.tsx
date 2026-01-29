@@ -111,7 +111,7 @@ const SalesDeckLibraryPage: React.FC = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Button asChild variant="outline" className="justify-start h-auto py-4 border-slate-600 hover:bg-slate-700/50">
-                  <Link to="/fdp/sales-deck">
+                  <Link to="/sales-kit/fdp-deck">
                     <div className="text-left">
                       <div className="font-semibold text-white">FDP Sales Deck</div>
                       <div className="text-xs text-slate-400">Phiên bản web tương tác</div>
@@ -119,7 +119,7 @@ const SalesDeckLibraryPage: React.FC = () => {
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="justify-start h-auto py-4 border-slate-600 hover:bg-slate-700/50">
-                  <Link to="/mdp/sales-deck">
+                  <Link to="/sales-kit/mdp">
                     <div className="text-left">
                       <div className="font-semibold text-white">MDP Sales Deck</div>
                       <div className="text-xs text-slate-400">Phiên bản web tương tác</div>
