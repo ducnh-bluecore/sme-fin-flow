@@ -26,8 +26,15 @@ import {
   Target,
   Sparkles,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Info,
+  Calculator
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -46,15 +53,17 @@ interface OutcomeRecordingDialogProps {
 }
 
 const formatCurrency = (amount: number): string => {
-  if (Math.abs(amount) >= 1_000_000_000) return `₫${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(amount) >= 1_000_000) return `₫${(amount / 1_000_000).toFixed(0)}M`;
-  return `₫${amount.toLocaleString('vi-VN')}`;
+  const absAmount = Math.abs(amount);
+  const sign = amount < 0 ? '-' : '';
+  if (absAmount >= 1_000_000_000) return `${sign}₫${(absAmount / 1_000_000_000).toFixed(1)}B`;
+  if (absAmount >= 1_000_000) return `${sign}₫${(absAmount / 1_000_000).toFixed(0)}M`;
+  return `${sign}₫${absAmount.toLocaleString('vi-VN')}`;
 };
 
-const confidenceLevelLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-  OBSERVED: { label: 'Từ dữ liệu thật', variant: 'default' },
-  ESTIMATED: { label: 'Ước tính', variant: 'secondary' },
-  LOW: { label: 'Độ tin cậy thấp', variant: 'outline' },
+const confidenceLevelLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline'; color: string }> = {
+  OBSERVED: { label: 'Từ dữ liệu thật', variant: 'default', color: 'text-emerald-600' },
+  ESTIMATED: { label: 'Ước tính', variant: 'secondary', color: 'text-amber-600' },
+  LOW: { label: 'Độ tin cậy thấp', variant: 'outline', color: 'text-destructive' },
 };
 
 type Step = 'input' | 'confirm';
@@ -235,14 +244,52 @@ export function OutcomeRecordingDialog({
                   />
                 </div>
 
-                {/* Estimation info */}
-                {estimatedData && estimatedData.confidence_level !== 'LOW' && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    Ước tính từ thay đổi {estimatedData.data_source === 'cdp_orders_revenue' ? 'doanh thu' : 
-                      estimatedData.data_source === 'cdp_orders_profit' ? 'lợi nhuận' : 'dữ liệu'} 
-                    {' '}từ ngày quyết định đến nay
-                  </p>
+                {/* Calculation Breakdown - Show formula and before/after */}
+                {estimatedData && (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Calculator className="h-4 w-4 text-primary" />
+                      Công thức tính
+                    </div>
+                    
+                    {/* Metric being measured */}
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">Chỉ số:</span> {estimatedData.metric_name}
+                    </div>
+                    
+                    {/* Before/After breakdown */}
+                    {estimatedData.confidence_level !== 'LOW' && estimatedData.before_value !== undefined && (
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="rounded bg-background p-2 text-center">
+                          <p className="text-muted-foreground mb-1">Trước ({estimatedData.period_days} ngày)</p>
+                          <p className="font-mono font-medium">{formatCurrency(estimatedData.before_value)}</p>
+                        </div>
+                        <div className="flex items-center justify-center">
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="rounded bg-background p-2 text-center">
+                          <p className="text-muted-foreground mb-1">Sau ({estimatedData.period_days} ngày)</p>
+                          <p className="font-mono font-medium">{formatCurrency(estimatedData.after_value)}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Calculation method */}
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">Phương pháp:</span> {estimatedData.calculation_method}
+                    </div>
+                    
+                    {/* LOW confidence reason - prominently displayed */}
+                    {estimatedData.confidence_level === 'LOW' && estimatedData.low_confidence_reason && (
+                      <div className="flex items-start gap-2 rounded bg-destructive/10 p-2 text-xs text-destructive">
+                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium">Lý do độ tin cậy thấp:</p>
+                          <p>{estimatedData.low_confidence_reason}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {estimateError && (

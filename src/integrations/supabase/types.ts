@@ -32555,10 +32555,15 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: {
+          after_value: number
+          before_value: number
           calculation_method: string
           confidence_level: string
           data_source: string
           estimated_impact: number
+          low_confidence_reason: string
+          metric_name: string
+          period_days: number
         }[]
       }
       compute_finance_expenses_daily: {
