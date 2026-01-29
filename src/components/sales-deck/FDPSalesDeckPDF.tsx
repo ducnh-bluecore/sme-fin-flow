@@ -333,6 +333,51 @@ const styles = StyleSheet.create({
   },
   
   // Solution positioning (Page 5)
+  positioningStatement: {
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  positioningText: {
+    fontSize: 11,
+    fontWeight: 400,
+    color: colors.text,
+    lineHeight: 1.6,
+  },
+  threePillarsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  pillarCard: {
+    flex: 1,
+    backgroundColor: colors.primaryDark,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pillarIcon: {
+    fontSize: 18,
+    marginBottom: 6,
+  },
+  pillarTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: colors.white,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  pillarDesc: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.white,
+    opacity: 0.85,
+    textAlign: 'center',
+    lineHeight: 1.3,
+  },
   solutionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -447,6 +492,79 @@ const styles = StyleSheet.create({
     color: colors.accent,
     textAlign: 'center',
     backgroundColor: colors.greenLight,
+  },
+
+  // Competitive Advantages (Page 6)
+  advantagesSection: {
+    marginTop: 16,
+  },
+  advantagesSectionTitle: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.primaryDark,
+    marginBottom: 10,
+  },
+  advantageCard: {
+    backgroundColor: colors.greenLight,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  advantageNumber: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.accent,
+    width: 24,
+  },
+  advantageContent: {
+    flex: 1,
+  },
+  advantageTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: colors.text,
+    marginBottom: 3,
+  },
+  advantageDesc: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.textLight,
+    lineHeight: 1.4,
+  },
+
+  // Story Box (Use Cases Pages 7-10)
+  storyBox: {
+    backgroundColor: colors.backgroundAlt,
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  storyTitle: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.primary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  storyText: {
+    fontSize: 9,
+    fontWeight: 400,
+    color: colors.text,
+    lineHeight: 1.5,
+    marginBottom: 8,
+  },
+  storyResult: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.accent,
+    lineHeight: 1.4,
   },
   
   // Use Case Pages (Pages 7-10)
@@ -867,27 +985,46 @@ const costItems = [
   },
 ];
 
+// Three Pillars (Page 5)
+const threePillars = [
+  {
+    icon: '💵',
+    title: 'REAL CASH',
+    desc: 'Tiền thật, không tiền sổ sách',
+  },
+  {
+    icon: '📊',
+    title: 'TRUTH FIRST',
+    desc: 'Không làm đẹp số, chỉ sự thật',
+  },
+  {
+    icon: '⚡',
+    title: 'ACTION NOW',
+    desc: 'Quyết định hôm nay, không chờ',
+  },
+];
+
 // Solution Cards (Page 5)
 const solutionCards = [
   {
     badge: 'A',
-    title: 'Cash Position Realtime',
-    desc: 'Biết chính xác tiền thật trong tài khoản, tiền đang bị hold, tiền sẽ về.',
+    title: 'Cash Position',
+    desc: 'Biết tiền THẬT trong 5 giây',
   },
   {
     badge: 'B',
-    title: 'Unit Economics Engine',
-    desc: 'P&L đến từng SKU, từng order — biết ngay đâu lãi, đâu lỗ.',
+    title: 'Unit Economics',
+    desc: 'Biết SKU nào đang ăn tiền',
   },
   {
     badge: 'C',
-    title: 'AR/AP Action List',
-    desc: 'Danh sách khách cần gọi hôm nay, vendor cần trì hoãn thanh toán.',
+    title: 'AR/AP Actions',
+    desc: 'Biết ai cần gọi hôm nay',
   },
   {
     badge: 'D',
-    title: 'Cash Runway Forecast',
-    desc: 'Dự báo 30/60/90 ngày, biết trước 2-3 tháng nếu cash sắp cạn.',
+    title: 'Cash Forecast',
+    desc: 'Biết runway còn bao lâu',
   },
 ];
 
@@ -901,6 +1038,49 @@ const comparisonData = {
     ['Hỗ trợ quyết định', 'Không', 'Không', 'Chỉ charts', 'Decision-first'],
     ['Tập trung CEO/CFO', 'Không', 'Kế toán', 'IT focus', 'CEO/CFO'],
   ],
+};
+
+// Competitive Advantages (Page 6)
+const competitiveAdvantages = [
+  {
+    number: '#1',
+    title: 'THIẾT KẾ CHO CEO/CFO, KHÔNG PHẢI IT',
+    desc: 'Excel/ERP phục vụ kế toán và IT. Bluecore phục vụ người ra quyết định.',
+  },
+  {
+    number: '#2',
+    title: 'CASH THẬT, KHÔNG PHẢI SỐ SÁCH',
+    desc: 'ERP cho bạn AR 3 tỷ. Bluecore cho bạn biết: 800 triệu có nguy cơ mất, 500 triệu cần gọi hôm nay.',
+  },
+  {
+    number: '#3',
+    title: 'TRIỂN KHAI TRONG GIỜ, KHÔNG PHẢI THÁNG',
+    desc: 'ERP mất 3-6 tháng. BI mất 4-8 tuần training. Bluecore: kết nối data → thấy giá trị trong 1 ngày.',
+  },
+];
+
+// Story Blocks for Use Cases (Pages 7-10)
+const useCaseStories = {
+  cashCheck: {
+    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    text: 'Anh Minh, CEO chuỗi thời trang 5 cửa hàng, mỗi sáng thứ Hai phải mất 2 giờ để hỏi kế toán: "Mình còn bao nhiêu tiền?" Kế toán nói 2 tỷ, nhưng 1.5 tỷ đang bị Shopee hold, 300 triệu là COD chưa đối soát.',
+    result: '→ VỚI BLUECORE: Anh Minh mở app, 5 giây biết ngay: Cash thật: 500 triệu | Hold: 1.5 tỷ | Sẽ về: 800 triệu',
+  },
+  skuProfit: {
+    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    text: 'Chị Lan, founder shop mỹ phẩm online, tháng vừa rồi doanh thu 500 triệu nhưng cuối tháng hết tiền trả lương. Kiểm tra mới biết: 3 combo khuyến mãi đang bán lỗ, mỗi đơn mất 15k sau khi trừ COGS, ship, ads, return.',
+    result: '→ VỚI BLUECORE: Chị Lan thấy ngay 3 SKU CM âm khi vào dashboard, dừng bán ngay, tiết kiệm 80 triệu.',
+  },
+  arCollection: {
+    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    text: 'Công ty thực phẩm của anh Hùng có AR 3 tỷ trên sổ. Nhưng 800 triệu đã quá hạn 60 ngày, 1 khách hàng lớn đang có dấu hiệu gặp khó khăn tài chính.',
+    result: '→ VỚI BLUECORE: Anh Hùng có danh sách 5 khách cần gọi ngay hôm nay, thu hồi được 320 triệu trước khi mất.',
+  },
+  cashRunway: {
+    title: '📖 TÌNH HUỐNG THỰC TẾ',
+    text: 'Startup của Tuấn đang burn 600 triệu/tháng. Cuối quý mới biết cash sắp cạn, vội vàng đi gọi vốn nhưng đã muộn — valuation bị ép vì thế yếu.',
+    result: '→ VỚI BLUECORE: Tuấn biết trước 3 tháng runway sắp hết, có thời gian chuẩn bị fundraising, đàm phán từ vị thế mạnh hơn.',
+  },
 };
 
 // FDP Manifesto condensed (Page 11)
@@ -1026,14 +1206,30 @@ const FDPSalesDeckPDF: React.FC = () => {
         </View>
       </Page>
 
-      {/* ========== Page 5: Bluecore FDP là gì? ========== */}
+      {/* ========== Page 5: Bluecore FDP là gì? (Enhanced with Positioning) ========== */}
       <Page size="A4" style={styles.pageGradient}>
-        <Text style={styles.eyebrowLabel}>Giải pháp</Text>
-        <Text style={styles.sectionTitle}>Bluecore FDP — Nền tảng Dữ liệu Tài chính</Text>
-        <Text style={styles.sectionSubtitle}>
-          Single Source of Truth cho mọi câu hỏi về tiền của doanh nghiệp. Thiết kế dành riêng cho CEO và CFO.
-        </Text>
+        <Text style={styles.eyebrowLabel}>Định vị</Text>
+        <Text style={styles.sectionTitle}>Bluecore FDP không phải BI — không phải ERP</Text>
         
+        {/* Positioning Statement */}
+        <View style={styles.positioningStatement}>
+          <Text style={styles.positioningText}>
+            Bluecore FDP là nền tảng dữ liệu tài chính duy nhất được thiết kế cho CEO và CFO SME Retail Việt Nam. Không phải công cụ báo cáo — mà là hệ thống hỗ trợ quyết định dựa trên dòng tiền thật.
+          </Text>
+        </View>
+        
+        {/* Three Pillars */}
+        <View style={styles.threePillarsRow}>
+          {threePillars.map((pillar, index) => (
+            <View key={index} style={styles.pillarCard}>
+              <Text style={styles.pillarIcon}>{pillar.icon}</Text>
+              <Text style={styles.pillarTitle}>{pillar.title}</Text>
+              <Text style={styles.pillarDesc}>{pillar.desc}</Text>
+            </View>
+          ))}
+        </View>
+        
+        {/* Core Capabilities */}
         <View style={styles.solutionGrid}>
           {solutionCards.map((item, index) => (
             <View key={index} style={index % 2 === 0 ? styles.solutionCard : styles.solutionCardAlt}>
@@ -1060,12 +1256,12 @@ const FDPSalesDeckPDF: React.FC = () => {
         </View>
       </Page>
 
-      {/* ========== Page 6: So sánh với đối thủ ========== */}
+      {/* ========== Page 6: So sánh với đối thủ + Competitive Advantages ========== */}
       <Page size="A4" style={styles.page}>
         <Text style={styles.eyebrowLabel}>So sánh</Text>
-        <Text style={styles.sectionTitle}>So sánh với giải pháp khác</Text>
+        <Text style={styles.sectionTitle}>Tại sao chọn Bluecore FDP?</Text>
         <Text style={styles.sectionSubtitle}>
-          Bluecore FDP được thiết kế dành riêng cho CEO/CFO — không phải cho IT hay kế toán.
+          So sánh với các giải pháp khác và lý do Bluecore khác biệt.
         </Text>
         
         <View style={styles.compTable}>
@@ -1100,10 +1296,23 @@ const FDPSalesDeckPDF: React.FC = () => {
           ))}
         </View>
         
-        <View style={[styles.quoteBox, { marginTop: 24 }]}>
-          <Text style={[styles.quoteText, { fontStyle: 'normal', fontSize: 11 }]}>
-            Bluecore FDP không chỉ là công cụ báo cáo — mà là nền tảng hỗ trợ quyết định.{'\n'}
-            Triển khai trong vài giờ, thấy giá trị ngay lập tức.
+        {/* Competitive Advantages Section */}
+        <View style={styles.advantagesSection}>
+          <Text style={styles.advantagesSectionTitle}>TẠI SAO BLUECORE KHÁC BIỆT?</Text>
+          {competitiveAdvantages.map((adv, index) => (
+            <View key={index} style={styles.advantageCard}>
+              <Text style={styles.advantageNumber}>{adv.number}</Text>
+              <View style={styles.advantageContent}>
+                <Text style={styles.advantageTitle}>{adv.title}</Text>
+                <Text style={styles.advantageDesc}>{adv.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        
+        <View style={[styles.quoteBox, { marginTop: 12 }]}>
+          <Text style={[styles.quoteText, { fontSize: 10 }]}>
+            "Bluecore FDP không cạnh tranh với Excel hay ERP — chúng tôi giải quyết vấn đề họ không thể giải quyết."
           </Text>
         </View>
         
@@ -1117,7 +1326,13 @@ const FDPSalesDeckPDF: React.FC = () => {
       <Page size="A4" style={styles.page}>
         <Text style={styles.eyebrowLabel}>Use Case #1</Text>
         <Text style={styles.useCaseQuestion}>"Hôm nay mình có bao nhiêu tiền THẬT?"</Text>
-        <Text style={styles.useCaseAnswer}>Bluecore trả lời trong 5 giây — mỗi sáng thứ Hai, CEO chỉ cần mở 1 màn hình.</Text>
+        
+        {/* Story Block */}
+        <View style={styles.storyBox}>
+          <Text style={styles.storyTitle}>{useCaseStories.cashCheck.title}</Text>
+          <Text style={styles.storyText}>{useCaseStories.cashCheck.text}</Text>
+          <Text style={styles.storyResult}>{useCaseStories.cashCheck.result}</Text>
+        </View>
         
         {/* Stylized Mockup */}
         <View style={styles.mockupContainer}>
@@ -1184,7 +1399,13 @@ const FDPSalesDeckPDF: React.FC = () => {
       <Page size="A4" style={styles.pageAlt}>
         <Text style={styles.eyebrowLabel}>Use Case #2</Text>
         <Text style={styles.useCaseQuestion}>"Tại sao bán nhiều mà vẫn không có tiền?"</Text>
-        <Text style={styles.useCaseAnswer}>Bluecore cho thấy Unit Economics từng SKU — phát hiện ngay SKU đang contribution margin âm.</Text>
+        
+        {/* Story Block */}
+        <View style={styles.storyBox}>
+          <Text style={styles.storyTitle}>{useCaseStories.skuProfit.title}</Text>
+          <Text style={styles.storyText}>{useCaseStories.skuProfit.text}</Text>
+          <Text style={styles.storyResult}>{useCaseStories.skuProfit.result}</Text>
+        </View>
         
         {/* Stylized Mockup - SKU Table */}
         <View style={styles.mockupContainer}>
@@ -1263,7 +1484,13 @@ const FDPSalesDeckPDF: React.FC = () => {
       <Page size="A4" style={styles.page}>
         <Text style={styles.eyebrowLabel}>Use Case #3</Text>
         <Text style={styles.useCaseQuestion}>"Ai đang nợ tiền mình?"</Text>
-        <Text style={styles.useCaseAnswer}>Bluecore hiển thị AR Aging với Top 10 khách cần gọi ngay hôm nay.</Text>
+        
+        {/* Story Block */}
+        <View style={styles.storyBox}>
+          <Text style={styles.storyTitle}>{useCaseStories.arCollection.title}</Text>
+          <Text style={styles.storyText}>{useCaseStories.arCollection.text}</Text>
+          <Text style={styles.storyResult}>{useCaseStories.arCollection.result}</Text>
+        </View>
         
         {/* Stylized Mockup - AR Table */}
         <View style={styles.mockupContainer}>
@@ -1346,7 +1573,13 @@ const FDPSalesDeckPDF: React.FC = () => {
       <Page size="A4" style={styles.pageAlt}>
         <Text style={styles.eyebrowLabel}>Use Case #4</Text>
         <Text style={styles.useCaseQuestion}>"Còn bao lâu trước khi hết tiền?"</Text>
-        <Text style={styles.useCaseAnswer}>Bluecore dự báo Cash Runway 30/60/90 ngày với các scenario khác nhau.</Text>
+        
+        {/* Story Block */}
+        <View style={styles.storyBox}>
+          <Text style={styles.storyTitle}>{useCaseStories.cashRunway.title}</Text>
+          <Text style={styles.storyText}>{useCaseStories.cashRunway.text}</Text>
+          <Text style={styles.storyResult}>{useCaseStories.cashRunway.result}</Text>
+        </View>
         
         {/* Stylized Mockup - Runway Forecast */}
         <View style={styles.mockupContainer}>
