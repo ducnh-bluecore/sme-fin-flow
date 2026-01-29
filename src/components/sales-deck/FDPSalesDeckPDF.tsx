@@ -1,10 +1,10 @@
 /**
- * FDP Sales Deck PDF Generator
+ * FDP Sales Deck PDF Generator - v2.0
  * 
- * Generates a professional PDF sales deck for the Financial Data Platform
- * using @react-pdf/renderer
+ * 12-slide narrative deck telling the Cash Flow Story for SME Retail
+ * [Hook] → [Pain] → [Root Cause] → [Solution] → [Use Cases] → [Daily Habit] → [Proof] → [CTA]
  * 
- * Vietnamese content with proper diacritics
+ * Vietnamese content with proper diacritics (tiếng Việt có dấu đầy đủ)
  */
 
 import React from 'react';
@@ -41,6 +41,8 @@ const colors = {
   accent: '#10b981',       // Green
   warning: '#f59e0b',      // Amber
   danger: '#ef4444',       // Red
+  dangerLight: '#fef2f2',  // Red 50
+  dangerBorder: '#fecaca', // Red 200
   text: '#1f2937',         // Gray 800
   textLight: '#6b7280',    // Gray 500
   background: '#f8fafc',   // Slate 50
@@ -49,9 +51,11 @@ const colors = {
   black: '#000000',
   gradientStart: '#f0f9ff', // Sky 50
   gradientEnd: '#e0f2fe',   // Sky 100
+  greenLight: '#ecfdf5',    // Green 50
+  greenBorder: '#a7f3d0',   // Green 200
 };
 
-// Styles - Using Noto Sans font (supports Vietnamese)
+// Styles
 const styles = StyleSheet.create({
   // Base page styles
   page: {
@@ -68,6 +72,11 @@ const styles = StyleSheet.create({
     padding: 40,
     fontFamily: 'NotoSans',
     backgroundColor: colors.gradientStart,
+  },
+  pageDark: {
+    padding: 40,
+    fontFamily: 'NotoSans',
+    backgroundColor: colors.primaryDark,
   },
   
   // Cover page
@@ -115,8 +124,6 @@ const styles = StyleSheet.create({
     color: colors.accent,
     opacity: 0.9,
   },
-
-  // Cover ornaments
   coverOrnament: {
     position: 'absolute',
     borderRadius: 9999,
@@ -144,131 +151,240 @@ const styles = StyleSheet.create({
     opacity: 0.08,
   },
   
-  // Slide header components
+  // Section headers
   eyebrowLabel: {
     fontSize: 10,
     fontWeight: 700,
     color: colors.primary,
     letterSpacing: 1,
     marginBottom: 8,
-    textTransform: 'uppercase',
+  },
+  eyebrowLabelRed: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: colors.danger,
+    letterSpacing: 1,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 700,
     color: colors.primaryDark,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionTitleCenter: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 700,
     color: colors.primaryDark,
-    marginBottom: 12,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  sectionTitleWhite: {
+    fontSize: 26,
+    fontWeight: 700,
+    color: colors.white,
+    marginBottom: 10,
     textAlign: 'center',
   },
   sectionSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 400,
     color: colors.textLight,
-    marginBottom: 28,
+    marginBottom: 24,
     maxWidth: 480,
     lineHeight: 1.5,
   },
   sectionSubtitleCenter: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 400,
     color: colors.textLight,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
     maxWidth: 420,
     alignSelf: 'center',
     lineHeight: 1.5,
   },
   
-  // Why Bluecore page styles
-  whyContainer: {
-    flexDirection: 'column',
-    gap: 10,
+  // CEO Day Timeline (Page 2)
+  timelineContainer: {
+    marginTop: 10,
   },
-  whyRow: {
+  timelineItem: {
     flexDirection: 'row',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    marginBottom: 12,
+    alignItems: 'flex-start',
   },
-  whyPainColumn: {
+  timelineTime: {
+    width: 70,
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.primary,
+  },
+  timelineContent: {
     flex: 1,
-    backgroundColor: '#fef2f2',
-    padding: 14,
-    borderRightWidth: 2,
-    borderRightColor: '#fecaca',
+    backgroundColor: colors.white,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
   },
-  whySolutionColumn: {
+  timelineContentDanger: {
     flex: 1,
-    backgroundColor: '#ecfdf5',
-    padding: 14,
+    backgroundColor: colors.dangerLight,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.danger,
   },
-  whyLabelPain: {
-    fontSize: 8,
-    fontWeight: 700,
-    color: colors.danger,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  whyLabelSolution: {
-    fontSize: 8,
-    fontWeight: 700,
-    color: colors.accent,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  whyPainTitle: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  whyPainDesc: {
-    fontSize: 9,
-    fontWeight: 400,
-    color: colors.textLight,
-    lineHeight: 1.4,
-  },
-  whySolutionTitle: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  whySolutionDesc: {
-    fontSize: 9,
-    fontWeight: 400,
-    color: colors.textLight,
-    lineHeight: 1.4,
-  },
-  costBox: {
-    marginTop: 16,
-    backgroundColor: colors.primaryDark,
-    padding: 16,
-    borderRadius: 10,
-  },
-  costBoxTitle: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: colors.white,
-    marginBottom: 6,
-  },
-  costBoxText: {
+  timelineText: {
     fontSize: 10,
     fontWeight: 400,
+    color: colors.text,
+    lineHeight: 1.4,
+  },
+  timelineHighlight: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: colors.danger,
+  },
+  
+  // Pain Points Grid (Page 3)
+  painGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  painCard: {
+    width: '48%',
+    backgroundColor: colors.white,
+    padding: 14,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.danger,
+    marginBottom: 10,
+  },
+  painNumber: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.danger,
+    marginBottom: 4,
+  },
+  painTitle: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  painBullet: {
+    fontSize: 9,
+    fontWeight: 400,
+    color: colors.textLight,
+    marginBottom: 3,
+    lineHeight: 1.4,
+  },
+  
+  // Cost Boxes (Page 4)
+  costGrid: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 20,
+  },
+  costCard: {
+    flex: 1,
+    backgroundColor: colors.dangerLight,
+    padding: 18,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    alignItems: 'center',
+  },
+  costAmount: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: colors.danger,
+    marginBottom: 4,
+  },
+  costLabel: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  costDesc: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.textLight,
+    textAlign: 'center',
+    lineHeight: 1.4,
+  },
+  quoteBox: {
+    marginTop: 24,
+    backgroundColor: colors.primaryDark,
+    padding: 20,
+    borderRadius: 10,
+  },
+  quoteText: {
+    fontSize: 13,
+    fontWeight: 700,
     color: colors.white,
-    opacity: 0.9,
+    textAlign: 'center',
+    fontStyle: 'italic',
     lineHeight: 1.5,
   },
   
-  // Comparison table styles
+  // Solution positioning (Page 5)
+  solutionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  solutionCard: {
+    width: '48%',
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 10,
+  },
+  solutionCardAlt: {
+    width: '48%',
+    backgroundColor: colors.backgroundAlt,
+    padding: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    marginBottom: 10,
+  },
+  solutionBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  solutionBadgeText: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.white,
+  },
+  solutionTitle: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  solutionDesc: {
+    fontSize: 9,
+    fontWeight: 400,
+    color: colors.textLight,
+    lineHeight: 1.4,
+  },
+  
+  // Comparison table (Page 6)
   compTable: {
     width: '100%',
     borderRadius: 10,
@@ -311,7 +427,7 @@ const styles = StyleSheet.create({
   compHeaderCell: {
     flex: 1,
     padding: 10,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 700,
     color: colors.white,
     textAlign: 'center',
@@ -319,7 +435,7 @@ const styles = StyleSheet.create({
   compHeaderCellFirst: {
     flex: 1.3,
     padding: 10,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 700,
     color: colors.white,
     textAlign: 'left',
@@ -331,306 +447,290 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: colors.accent,
     textAlign: 'center',
-    backgroundColor: '#ecfdf5',
-  },
-  compHighlightBox: {
-    marginTop: 24,
-    backgroundColor: colors.primaryDark,
-    padding: 20,
-    borderRadius: 10,
-  },
-  compHighlightTitle: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: colors.white,
-    marginBottom: 8,
-  },
-  compHighlightText: {
-    fontSize: 10,
-    fontWeight: 400,
-    color: colors.white,
-    opacity: 0.9,
-    lineHeight: 1.6,
+    backgroundColor: colors.greenLight,
   },
   
-  // Manifesto styles
-  manifestoContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  manifestoItem: {
-    width: '48%',
-    backgroundColor: colors.white,
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  manifestoNumber: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  manifestoTitle: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  manifestoDesc: {
-    fontSize: 8,
-    fontWeight: 400,
-    color: colors.textLight,
-    lineHeight: 1.4,
-  },
-  
-  // Capability styles
-  capabilityGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 14,
-  },
-  capabilityCard: {
-    width: '48%',
-    backgroundColor: colors.white,
-    padding: 18,
-    borderRadius: 10,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  capabilityCardAlt: {
-    width: '48%',
-    backgroundColor: colors.backgroundAlt,
-    padding: 18,
-    borderRadius: 10,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  capabilityIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  capabilityIconText: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: colors.white,
-  },
-  capabilityTitle: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: colors.text,
-    marginBottom: 6,
-  },
-  capabilityDesc: {
-    fontSize: 9,
-    fontWeight: 400,
-    color: colors.textLight,
-    lineHeight: 1.5,
-    marginBottom: 10,
-  },
-  capabilityFeatures: {
-    marginTop: 8,
-  },
-  capabilityFeature: {
-    fontSize: 8,
-    fontWeight: 400,
-    color: colors.text,
-    marginBottom: 4,
-    paddingLeft: 8,
-  },
-  
-  // Feature list styles - IMPROVED
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 14,
-  },
-  featureColumn: {
+  // Use Case Pages (Pages 7-10)
+  useCaseContainer: {
     flex: 1,
-    backgroundColor: colors.white,
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
-  featureColumnAlt: {
-    flex: 1,
-    backgroundColor: colors.backgroundAlt,
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  featureColumnTitle: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: colors.primaryDark,
-    marginBottom: 4,
-  },
-  featureColumnSubtitle: {
-    fontSize: 9,
-    fontWeight: 400,
-    color: colors.primary,
-    marginBottom: 14,
-    fontStyle: 'italic',
-  },
-  featureItem: {
-    fontSize: 10,
-    fontWeight: 400,
-    color: colors.text,
-    marginBottom: 8,
-    paddingLeft: 12,
-    lineHeight: 1.4,
-  },
-  
-  // Decision flow styles
-  decisionFlow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    paddingHorizontal: 10,
-  },
-  decisionStep: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 10,
-  },
-  decisionStepCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  decisionStepNumber: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: colors.white,
-  },
-  decisionStepTitle: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  decisionStepDesc: {
-    fontSize: 9,
-    fontWeight: 400,
-    color: colors.textLight,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  decisionArrow: {
+  useCaseQuestion: {
     fontSize: 20,
     fontWeight: 700,
-    color: colors.primary,
-    marginHorizontal: 6,
+    color: colors.primaryDark,
+    marginBottom: 6,
+  },
+  useCaseAnswer: {
+    fontSize: 11,
+    fontWeight: 400,
+    color: colors.textLight,
+    marginBottom: 20,
   },
   
-  // Use case box
-  useCaseBox: {
-    backgroundColor: colors.primaryDark,
-    padding: 22,
+  // Stylized Mockup Diagram
+  mockupContainer: {
+    backgroundColor: colors.white,
     borderRadius: 12,
-    marginTop: 10,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    marginBottom: 16,
   },
-  useCaseTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: colors.white,
-    marginBottom: 8,
-  },
-  useCaseValue: {
-    fontSize: 32,
-    fontWeight: 700,
-    color: colors.accent,
-    marginBottom: 8,
-  },
-  useCaseDesc: {
-    fontSize: 10,
-    fontWeight: 400,
-    color: colors.white,
-    opacity: 0.9,
-    lineHeight: 1.5,
-  },
-  useCaseMetrics: {
+  mockupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 18,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  useCaseMetric: {
     alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    marginBottom: 12,
   },
-  useCaseMetricValue: {
-    fontSize: 16,
+  mockupTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: colors.text,
+  },
+  mockupLive: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  mockupLiveText: {
+    fontSize: 7,
     fontWeight: 700,
     color: colors.white,
   },
-  useCaseMetricLabel: {
+  
+  // Mockup KPI cards
+  mockupKPIRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  mockupKPICard: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  mockupKPICardHighlight: {
+    flex: 1,
+    backgroundColor: colors.greenLight,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  mockupKPICardDanger: {
+    flex: 1,
+    backgroundColor: colors.dangerLight,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.danger,
+  },
+  mockupKPILabel: {
+    fontSize: 7,
+    fontWeight: 400,
+    color: colors.textLight,
+    marginBottom: 4,
+  },
+  mockupKPIValue: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: colors.primaryDark,
+  },
+  mockupKPIValueGreen: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: colors.accent,
+  },
+  mockupKPIValueRed: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: colors.danger,
+  },
+  
+  // Mockup Table
+  mockupTable: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  mockupTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mockupTableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  mockupTableCell: {
+    flex: 1,
+    padding: 6,
+    fontSize: 7,
+    fontWeight: 400,
+    color: colors.text,
+  },
+  mockupTableCellHeader: {
+    flex: 1,
+    padding: 6,
+    fontSize: 7,
+    fontWeight: 700,
+    color: colors.text,
+  },
+  mockupTableCellHighlight: {
+    flex: 1,
+    padding: 6,
+    fontSize: 7,
+    fontWeight: 700,
+    color: colors.accent,
+    backgroundColor: colors.greenLight,
+  },
+  mockupTableCellDanger: {
+    flex: 1,
+    padding: 6,
+    fontSize: 7,
+    fontWeight: 700,
+    color: colors.danger,
+    backgroundColor: colors.dangerLight,
+  },
+  
+  // Use Case Benefits
+  benefitRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  benefitCard: {
+    flex: 1,
+    backgroundColor: colors.greenLight,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent,
+  },
+  benefitTitle: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  benefitText: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.textLight,
+    lineHeight: 1.4,
+  },
+  
+  // Impact Box
+  impactBox: {
+    backgroundColor: colors.primaryDark,
+    padding: 16,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  impactLabel: {
     fontSize: 9,
     fontWeight: 400,
     color: colors.white,
     opacity: 0.8,
+  },
+  impactValue: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: colors.accent,
     marginTop: 4,
   },
+  impactDesc: {
+    fontSize: 9,
+    fontWeight: 400,
+    color: colors.white,
+    opacity: 0.9,
+    maxWidth: 200,
+    lineHeight: 1.4,
+  },
   
-  // Contact page
+  // Manifesto (Page 11)
+  manifestoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  manifestoCard: {
+    width: '48%',
+    backgroundColor: colors.white,
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    marginBottom: 8,
+  },
+  manifestoNumber: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.primary,
+    marginBottom: 3,
+  },
+  manifestoTitle: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: colors.text,
+    marginBottom: 3,
+  },
+  manifestoDesc: {
+    fontSize: 7,
+    fontWeight: 400,
+    color: colors.textLight,
+    lineHeight: 1.4,
+  },
+  
+  // Contact/CTA (Page 12)
   contactTitle: {
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: 700,
     color: colors.white,
-    marginBottom: 16,
+    marginBottom: 14,
     textAlign: 'center',
   },
   contactSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 400,
     color: colors.white,
     opacity: 0.9,
     textAlign: 'center',
-    maxWidth: 380,
+    maxWidth: 360,
     lineHeight: 1.6,
   },
   contactInfo: {
-    marginTop: 40,
+    marginTop: 36,
     alignItems: 'center',
   },
   contactItem: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 400,
     color: colors.white,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   contactCTA: {
-    marginTop: 30,
+    marginTop: 28,
     backgroundColor: colors.accent,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 28,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 24,
   },
   contactCTAText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 700,
     color: colors.white,
   },
@@ -638,7 +738,7 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     position: 'absolute',
-    bottom: 28,
+    bottom: 24,
     left: 40,
     right: 40,
     flexDirection: 'row',
@@ -646,122 +746,157 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.textLight,
+  },
+  footerTextWhite: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.white,
+    opacity: 0.6,
+  },
+  pageNumber: {
     fontSize: 9,
     fontWeight: 400,
     color: colors.textLight,
   },
-  pageNumber: {
-    fontSize: 10,
+  pageNumberWhite: {
+    fontSize: 9,
     fontWeight: 400,
-    color: colors.textLight,
-  },
-  
-  // Accent bar for some slides
-  accentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 6,
-    backgroundColor: colors.primary,
+    color: colors.white,
+    opacity: 0.6,
   },
 });
 
-// ============== CONTENT WITH PROPER VIETNAMESE DIACRITICS ==============
+// ============== CONTENT DATA ==============
 
-// FDP Manifesto - 10 nguyên tắc bất biến (có dấu đầy đủ)
-const manifestoItems = [
+// CEO Day Timeline (Page 2)
+const ceoDayTimeline = [
   { 
-    number: '#1', 
-    title: 'Không phải phần mềm kế toán', 
-    desc: 'Phục vụ CEO/CFO điều hành doanh nghiệp, không phải nộp báo cáo thuế.' 
+    time: '7:00 AM', 
+    text: 'Doanh thu hôm qua 800 triệu, nhưng tiền thật về bao nhiêu?',
+    danger: false,
   },
   { 
-    number: '#2', 
-    title: 'Single Source of Truth', 
-    desc: '1 Net Revenue, 1 Contribution Margin, 1 Cash Position. Không có phiên bản khác.' 
+    time: '9:00 AM', 
+    text: 'Nhà cung cấp đòi thanh toán 600 triệu hôm nay. Có đủ tiền không?',
+    danger: true,
   },
   { 
-    number: '#3', 
-    title: 'Truth > Flexibility', 
-    desc: 'Không cho tự định nghĩa metric tuỳ tiện, không "chọn số đẹp".' 
+    time: '11:00 AM', 
+    text: 'Marketing xin thêm 200 triệu cho ads. Approve hay không?',
+    danger: false,
   },
   { 
-    number: '#4', 
-    title: 'Real Cash', 
-    desc: 'Phân biệt rõ: Cash đã về / sẽ về / có nguy cơ không về / đang bị khoá.' 
+    time: '2:00 PM', 
+    text: 'Kế toán nói có 2 tỷ trong tài khoản — nhưng 1.5 tỷ đang bị Shopee hold.',
+    danger: true,
   },
   { 
-    number: '#5', 
-    title: 'Revenue gắn liền Cost', 
-    desc: 'Mọi doanh thu đều đi kèm chi phí. Không có doanh thu "đứng một mình".' 
-  },
-  { 
-    number: '#6', 
-    title: 'Unit Economics dẫn đến Action', 
-    desc: 'SKU lỗ + khoá cash + tăng risk = phải nói STOP.' 
-  },
-  { 
-    number: '#7', 
-    title: "Today's Decision", 
-    desc: 'Phục vụ quyết định hôm nay, không phải báo cáo cuối tháng.' 
-  },
-  { 
-    number: '#8', 
-    title: 'Surface Problems', 
-    desc: 'Không làm đẹp số, không che anomaly, chỉ ra vấn đề sớm.' 
-  },
-  { 
-    number: '#9', 
-    title: 'Feed Control Tower', 
-    desc: 'FDP là nguồn sự thật, Control Tower hành động dựa trên đó.' 
-  },
-  { 
-    number: '#10', 
-    title: 'Final Test', 
-    desc: 'Nếu không khiến quyết định rõ ràng hơn thì FDP đã thất bại.' 
+    time: '5:00 PM', 
+    text: 'Không biết nên approve hay reject yêu cầu mua hàng mới trị giá 500 triệu.',
+    danger: true,
   },
 ];
 
-// Why Bluecore - Pain/Solution matrix (có dấu đầy đủ)
-const whyBluecoreItems = [
-  { 
-    pain: 'Dữ liệu phân tán', 
-    painDesc: 'Data nằm rải rác trên nhiều hệ thống, không ai biết số nào đúng.',
-    solution: 'Single Source of Truth',
-    solutionDesc: 'Một nguồn dữ liệu duy nhất, tất cả cùng nhìn một con số.'
+// 5 Pain Points (Page 3)
+const cashPainPoints = [
+  {
+    number: '01',
+    title: 'Tiền bán hàng chưa phải tiền thật',
+    bullets: [
+      '• Shopee/Lazada hold 14-21 ngày',
+      '• COD chưa đối soát xong',
+      '• Return chưa xử lý',
+    ],
   },
-  { 
-    pain: 'Báo cáo chậm', 
-    painDesc: 'Mất 3-5 ngày để đóng báo cáo cuối tháng, khi có số thì đã quá muộn.',
-    solution: 'Dashboard Realtime',
-    solutionDesc: 'Data cập nhật liên tục, biết ngay không cần chờ.'
+  {
+    number: '02',
+    title: 'Hàng tồn = Tiền chết',
+    bullets: [
+      '• 30% tồn kho là slow-moving',
+      '• Mỗi ngày mất chi phí lưu kho',
+      '• Không ai biết nên thanh lý SKU nào',
+    ],
   },
-  { 
-    pain: 'Quyết định mù', 
-    painDesc: 'Thiếu data khi cần quyết định gấp, phải "đoán" thay vì "biết".',
-    solution: 'Decision-first Platform',
-    solutionDesc: 'Data sẵn sàng cho mọi quyết định, không cần gấp rút tìm kiếm.'
+  {
+    number: '03',
+    title: 'Marketing đốt tiền không biết ROI thật',
+    bullets: [
+      '• Chi 100 triệu ads → 300 triệu revenue',
+      '• Nhưng COGS + logistics + return = lỗ?',
+      '• Không có Unit Economics',
+    ],
   },
-  { 
-    pain: 'Không biết cash thực', 
-    painDesc: 'Chỉ biết doanh thu trên sổ sách, không biết tiền thật đã về chưa.',
-    solution: 'Real Cash Tracking',
-    solutionDesc: 'Phân biệt rõ cash đã về, sẽ về, và đang bị khoá.'
+  {
+    number: '04',
+    title: 'Công nợ "đẹp" trên sổ, xấu thực tế',
+    bullets: [
+      '• AR 2 tỷ, nhưng 800 triệu quá hạn 60+ ngày',
+      '• Ai cần gọi hôm nay?',
+      '• Khả năng thu hồi thực tế?',
+    ],
   },
-  { 
-    pain: 'SKU lỗ mà vẫn bán', 
-    painDesc: 'Không biết unit economics, bán nhiều mà càng lỗ nhiều.',
-    solution: 'Unit Economics Engine',
-    solutionDesc: 'Biết chính xác SKU nào lãi, SKU nào lỗ để hành động.'
+  {
+    number: '05',
+    title: 'Không biết còn bao lâu trước khi hết tiền',
+    bullets: [
+      '• Cash Runway là bao lâu?',
+      '• Burn rate thực mỗi tháng?',
+      '• Khi nào cần hành động?',
+    ],
   },
 ];
 
-// Comparison table data (có dấu đầy đủ)
+// Cost of Not Knowing (Page 4)
+const costItems = [
+  {
+    amount: '50-100tr',
+    label: 'Quyết định chậm 1 tuần',
+    desc: 'Mất cơ hội mua hàng giá tốt, không kịp react thị trường',
+  },
+  {
+    amount: '30-80tr',
+    label: 'SKU lỗ bán thêm 1 tháng',
+    desc: 'Càng bán càng lỗ, khoá thêm vốn vào hàng tồn',
+  },
+  {
+    amount: '20%',
+    label: 'AR quá hạn 2 tháng',
+    desc: 'Nguy cơ mất trắng công nợ nếu không hành động sớm',
+  },
+];
+
+// Solution Cards (Page 5)
+const solutionCards = [
+  {
+    badge: 'A',
+    title: 'Cash Position Realtime',
+    desc: 'Biết chính xác tiền thật trong tài khoản, tiền đang bị hold, tiền sẽ về.',
+  },
+  {
+    badge: 'B',
+    title: 'Unit Economics Engine',
+    desc: 'P&L đến từng SKU, từng order — biết ngay đâu lãi, đâu lỗ.',
+  },
+  {
+    badge: 'C',
+    title: 'AR/AP Action List',
+    desc: 'Danh sách khách cần gọi hôm nay, vendor cần trì hoãn thanh toán.',
+  },
+  {
+    badge: 'D',
+    title: 'Cash Runway Forecast',
+    desc: 'Dự báo 30/60/90 ngày, biết trước 2-3 tháng nếu cash sắp cạn.',
+  },
+];
+
+// Comparison table (Page 6)
 const comparisonData = {
   headers: ['Tiêu chí', 'Excel', 'ERP', 'BI Tools', 'Bluecore FDP'],
   rows: [
-    ['Thời gian triển khai', 'Vài ngày', 'Vài tháng', 'Vài tuần', 'Vài giờ'],
+    ['Triển khai', 'Vài ngày', 'Vài tháng', 'Vài tuần', 'Vài giờ'],
     ['Theo dõi cash thực', 'Không', 'Một phần', 'Không', 'Đầy đủ'],
     ['Unit Economics', 'Thủ công', 'Không', 'Một phần', 'Tự động'],
     ['Hỗ trợ quyết định', 'Không', 'Không', 'Chỉ charts', 'Decision-first'],
@@ -769,158 +904,32 @@ const comparisonData = {
   ],
 };
 
-// Core capabilities (có dấu đầy đủ)
-const coreCapabilities = [
-  {
-    badge: 'A',
-    title: 'Dashboard Sự thật Duy nhất',
-    desc: 'Một màn hình duy nhất cho tất cả KPIs quan trọng của doanh nghiệp.',
-    features: [
-      'Net Revenue, Gross Margin, Contribution Margin',
-      'Cash Position realtime',
-      'Cash Runway calculation',
-      'Key alerts và anomalies'
-    ],
-  },
-  {
-    badge: 'B',
-    title: 'Theo dõi Cash Thực',
-    desc: 'Phân loại cash theo trạng thái thực tế, không phải số trên sổ sách.',
-    features: [
-      'Cash đã về tài khoản',
-      'Cash sẽ về (AR pending)',
-      'Cash có nguy cơ không về',
-      'Cash đang bị khoá (Inventory, Ads, Ops)'
-    ],
-  },
-  {
-    badge: 'C',
-    title: 'Unit Economics Engine',
-    desc: 'P&L đến từng SKU, từng order để biết chính xác đâu lãi, đâu lỗ.',
-    features: [
-      'Revenue per SKU/Order',
-      'COGS + Variable costs per unit',
-      'Contribution margin per unit',
-      'Xác định SKU đang thua lỗ'
-    ],
-  },
-  {
-    badge: 'D',
-    title: 'Dự báo Cash & Runway',
-    desc: 'Dự báo dòng tiền và cảnh báo sớm trước khi quá muộn.',
-    features: [
-      'Dự báo 30/60/90 ngày',
-      'Cash runway calculation',
-      'Phân tích burn rate',
-      'What-if scenarios'
-    ],
-  },
-];
-
-// Feature details - REWRITTEN FOR DECISION VALUE (có dấu đầy đủ)
-const featureDetails = {
-  finance: {
-    title: 'Biết chính xác đang lãi hay lỗ',
-    subtitle: 'Câu trả lời mỗi sáng mà CEO cần',
-    items: [
-      'Gross Margin thực sau tất cả chi phí',
-      'Contribution Margin từng Channel',
-      'Chi phí ẩn đang "ăn" lợi nhuận',
-      'So sánh thực vs kế hoạch ngay lập tức'
-    ],
-  },
-  working: {
-    title: 'Tiền đang kẹt ở đâu?',
-    subtitle: 'Cash thực ≠ Doanh thu',
-    items: [
-      'Bao nhiêu tiền đang nằm trong hàng tồn?',
-      'Bao nhiêu tiền đang chờ khách trả?',
-      'Cash Conversion Cycle đang bao lâu?',
-      'Cần làm gì để rút ngắn vòng tiền?'
-    ],
-  },
-  arap: {
-    title: 'Ai đang nợ tiền mình?',
-    subtitle: 'Danh sách hành động, không phải báo cáo',
-    items: [
-      'Top 10 khách nợ quá hạn cần gọi ngay',
-      'Số tiền có nguy cơ mất trắng',
-      'Cash sẽ về trong 7/14/30 ngày tới',
-      'Vendor nào cần trì hoãn thanh toán?'
-    ],
-  },
-  decision: {
-    title: 'Nên làm hay không?',
-    subtitle: 'Data cho quyết định, không phải biểu đồ',
-    items: [
-      'ROI thực tế của từng kênh bán',
-      'Chi phí nào cắt được ngay?',
-      'SKU nào bán nhiều mà vẫn lỗ?',
-      'Nên đầu tư thêm hay dừng lại?'
-    ],
-  },
-};
-
-// Outcome features (có dấu đầy đủ)
-const outcomeFeatures = {
-  before: {
-    title: 'So sánh Before/After',
-    items: [
-      'Tự động capture metrics trước quyết định',
-      'So sánh với kết quả thực tế sau action',
-      'Tính toán variance và accuracy',
-      'Gợi ý verdict dựa trên data'
-    ],
-  },
-  roi: {
-    title: 'Tính toán ROI',
-    items: [
-      'Đo lường impact tài chính thực tế',
-      'So sánh với dự đoán ban đầu',
-      'Cost vs Benefit analysis',
-      'Cumulative ROI tracking'
-    ],
-  },
-  learning: {
-    title: 'Learning Feedback',
-    items: [
-      'Ghi nhận bài học từ mọi quyết định',
-      'Build pattern recognition',
-      'Cải thiện độ chính xác theo thời gian',
-      'Knowledge base for team'
-    ],
-  },
-  gqs: {
-    title: 'Quality Score (GQS)',
-    items: [
-      'Governance Quality Score 0-100',
-      'Track decision quality over time',
-      'Xác định improvement areas',
-      'Benchmark across teams'
-    ],
-  },
-};
-
-// Decision flow steps (có dấu đầy đủ)
-const decisionSteps = [
-  { number: '1', title: 'Phát hiện', desc: 'Alert từ hệ thống' },
-  { number: '2', title: 'Phân tích', desc: 'Evidence & Context' },
-  { number: '3', title: 'Quyết định', desc: 'Accept / Reject' },
-  { number: '4', title: 'Đo lường', desc: 'Before vs After' },
+// FDP Manifesto condensed (Page 11)
+const manifestoItems = [
+  { number: '#1', title: 'Không phải phần mềm kế toán', desc: 'Phục vụ CEO/CFO điều hành, không nộp báo cáo thuế.' },
+  { number: '#2', title: 'Single Source of Truth', desc: '1 Net Revenue, 1 Contribution Margin, 1 Cash Position.' },
+  { number: '#3', title: 'Truth > Flexibility', desc: 'Không cho tự định nghĩa metric, không "chọn số đẹp".' },
+  { number: '#4', title: 'Real Cash', desc: 'Phân biệt: Cash đã về / sẽ về / bị khoá / có nguy cơ mất.' },
+  { number: '#5', title: 'Revenue gắn liền Cost', desc: 'Mọi doanh thu đều đi kèm chi phí tương ứng.' },
+  { number: '#6', title: 'Unit Economics → Action', desc: 'SKU lỗ + khoá cash + tăng risk = phải nói STOP.' },
+  { number: '#7', title: "Today's Decision", desc: 'Phục vụ quyết định hôm nay, không chờ cuối tháng.' },
+  { number: '#8', title: 'Surface Problems', desc: 'Không làm đẹp số, chỉ ra vấn đề sớm.' },
+  { number: '#9', title: 'Feed Control Tower', desc: 'FDP là nguồn sự thật cho mọi hành động.' },
+  { number: '#10', title: 'Final Test', desc: 'Nếu không giúp quyết định rõ hơn = thất bại.' },
 ];
 
 const FDPSalesDeckPDF: React.FC = () => {
   return (
     <Document title="Bluecore FDP - Sales Deck" author="Bluecore">
-      {/* Page 1: Cover Page */}
+      {/* ========== Page 1: Cover ========== */}
       <Page size="A4" style={styles.coverPage}>
         <View style={[styles.coverOrnament, styles.coverCircle1]} />
         <View style={[styles.coverOrnament, styles.coverCircle2]} />
         <View style={[styles.coverOrnament, styles.coverCircle3]} />
         <Text style={styles.coverTitle}>Bluecore FDP</Text>
         <Text style={styles.coverSubtitle}>
-          Nền tảng Dữ liệu Tài chính cho CEO & CFO điều hành{'\n'}
-          Single Source of Truth cho mọi quyết định kinh doanh
+          Nền tảng Dữ liệu Tài chính cho CEO & CFO{'\n'}
+          Kể câu chuyện thật về dòng tiền của doanh nghiệp
         </Text>
         <View style={styles.coverBadge}>
           <Text style={styles.coverBadgeText}>FINANCIAL DATA PLATFORM</Text>
@@ -928,40 +937,29 @@ const FDPSalesDeckPDF: React.FC = () => {
         <Text style={styles.coverTagline}>Truth {'>'} Flexibility</Text>
       </Page>
 
-      {/* Page 2: Why Bluecore */}
+      {/* ========== Page 2: Một ngày của CEO SME Retail ========== */}
       <Page size="A4" style={styles.pageGradient}>
-        <View style={styles.accentBar} />
-        <View style={{ paddingLeft: 16 }}>
-          <Text style={styles.eyebrowLabel}>Vấn đề</Text>
-          <Text style={styles.sectionTitle}>Tại sao cần Bluecore?</Text>
-          <Text style={styles.sectionSubtitle}>
-            Những vấn đề phổ biến mà CEO/CFO gặp phải — và cách Bluecore giải quyết chúng.
-          </Text>
-          
-          <View style={styles.whyContainer}>
-            {whyBluecoreItems.map((item, index) => (
-              <View key={index} style={styles.whyRow}>
-                <View style={styles.whyPainColumn}>
-                  <Text style={styles.whyLabelPain}>VẤN ĐỀ</Text>
-                  <Text style={styles.whyPainTitle}>{item.pain}</Text>
-                  <Text style={styles.whyPainDesc}>{item.painDesc}</Text>
-                </View>
-                <View style={styles.whySolutionColumn}>
-                  <Text style={styles.whyLabelSolution}>GIẢI PHÁP BLUECORE</Text>
-                  <Text style={styles.whySolutionTitle}>{item.solution}</Text>
-                  <Text style={styles.whySolutionDesc}>{item.solutionDesc}</Text>
-                </View>
+        <Text style={styles.eyebrowLabel}>Câu chuyện</Text>
+        <Text style={styles.sectionTitle}>Một ngày của CEO không biết mình còn bao nhiêu tiền</Text>
+        <Text style={styles.sectionSubtitle}>
+          Đây là câu chuyện thật xảy ra mỗi ngày tại hàng nghìn doanh nghiệp SME Retail Việt Nam.
+        </Text>
+        
+        <View style={styles.timelineContainer}>
+          {ceoDayTimeline.map((item, index) => (
+            <View key={index} style={styles.timelineItem}>
+              <Text style={styles.timelineTime}>{item.time}</Text>
+              <View style={item.danger ? styles.timelineContentDanger : styles.timelineContent}>
+                <Text style={styles.timelineText}>{item.text}</Text>
               </View>
-            ))}
-          </View>
-          
-          <View style={styles.costBox}>
-            <Text style={styles.costBoxTitle}>Chi phí của việc không hành động</Text>
-            <Text style={styles.costBoxText}>
-              Mỗi ngày chậm ra quyết định = mất tiền, mất cash, mất cơ hội. 
-              Doanh nghiệp không chết vì quyết định sai — mà chết vì quyết định chậm.
-            </Text>
-          </View>
+            </View>
+          ))}
+        </View>
+        
+        <View style={styles.quoteBox}>
+          <Text style={styles.quoteText}>
+            "Cuối ngày, CEO vẫn không biết chắc mình còn bao nhiêu tiền THẬT để xài."
+          </Text>
         </View>
         
         <View style={styles.footer}>
@@ -970,7 +968,100 @@ const FDPSalesDeckPDF: React.FC = () => {
         </View>
       </Page>
 
-      {/* Page 3: Competitive Comparison */}
+      {/* ========== Page 3: 5 điểm nghẹt dòng tiền ========== */}
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.eyebrowLabelRed}>Vấn đề</Text>
+        <Text style={styles.sectionTitle}>5 điểm nghẹt dòng tiền mà Excel không thể hiện</Text>
+        <Text style={styles.sectionSubtitle}>
+          Những vấn đề "ẩn" khiến doanh nghiệp có doanh thu nhưng không có tiền.
+        </Text>
+        
+        <View style={styles.painGrid}>
+          {cashPainPoints.map((item, index) => (
+            <View key={index} style={styles.painCard}>
+              <Text style={styles.painNumber}>{item.number}</Text>
+              <Text style={styles.painTitle}>{item.title}</Text>
+              {item.bullets.map((bullet, bIndex) => (
+                <Text key={bIndex} style={styles.painBullet}>{bullet}</Text>
+              ))}
+            </View>
+          ))}
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumber}>3</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 4: Chi phí của việc "không biết" ========== */}
+      <Page size="A4" style={styles.pageDark}>
+        <View style={[styles.coverOrnament, styles.coverCircle1]} />
+        <View style={[styles.coverOrnament, styles.coverCircle2]} />
+        
+        <Text style={{ fontSize: 10, fontWeight: 700, color: colors.warning, letterSpacing: 1, marginBottom: 8 }}>Hệ quả</Text>
+        <Text style={styles.sectionTitleWhite}>Mỗi ngày không biết = Mất tiền thật</Text>
+        <Text style={{ fontSize: 12, fontWeight: 400, color: colors.white, opacity: 0.8, marginBottom: 28, lineHeight: 1.5 }}>
+          Đây không phải lý thuyết — đây là những con số thực tế từ các doanh nghiệp SME Retail.
+        </Text>
+        
+        <View style={styles.costGrid}>
+          {costItems.map((item, index) => (
+            <View key={index} style={styles.costCard}>
+              <Text style={styles.costAmount}>{item.amount}</Text>
+              <Text style={styles.costLabel}>{item.label}</Text>
+              <Text style={styles.costDesc}>{item.desc}</Text>
+            </View>
+          ))}
+        </View>
+        
+        <View style={[styles.quoteBox, { marginTop: 32, backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+          <Text style={[styles.quoteText, { fontSize: 15 }]}>
+            "Doanh nghiệp SME không chết vì quyết định sai —{'\n'}mà chết vì quyết định chậm."
+          </Text>
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerTextWhite}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumberWhite}>4</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 5: Bluecore FDP là gì? ========== */}
+      <Page size="A4" style={styles.pageGradient}>
+        <Text style={styles.eyebrowLabel}>Giải pháp</Text>
+        <Text style={styles.sectionTitle}>Bluecore FDP — Nền tảng Dữ liệu Tài chính</Text>
+        <Text style={styles.sectionSubtitle}>
+          Single Source of Truth cho mọi câu hỏi về tiền của doanh nghiệp. Thiết kế dành riêng cho CEO và CFO.
+        </Text>
+        
+        <View style={styles.solutionGrid}>
+          {solutionCards.map((item, index) => (
+            <View key={index} style={index % 2 === 0 ? styles.solutionCard : styles.solutionCardAlt}>
+              <View style={styles.solutionBadge}>
+                <Text style={styles.solutionBadgeText}>{item.badge}</Text>
+              </View>
+              <Text style={styles.solutionTitle}>{item.title}</Text>
+              <Text style={styles.solutionDesc}>{item.desc}</Text>
+            </View>
+          ))}
+        </View>
+        
+        <View style={styles.impactBox}>
+          <View>
+            <Text style={styles.impactLabel}>Triển khai trong</Text>
+            <Text style={styles.impactValue}>Vài giờ</Text>
+          </View>
+          <Text style={styles.impactDesc}>Không cần IT, không cần training phức tạp. Thấy giá trị ngay lập tức.</Text>
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumber}>5</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 6: So sánh với đối thủ ========== */}
       <Page size="A4" style={styles.page}>
         <Text style={styles.eyebrowLabel}>So sánh</Text>
         <Text style={styles.sectionTitle}>So sánh với giải pháp khác</Text>
@@ -1010,9 +1101,8 @@ const FDPSalesDeckPDF: React.FC = () => {
           ))}
         </View>
         
-        <View style={styles.compHighlightBox}>
-          <Text style={styles.compHighlightTitle}>Điểm khác biệt cốt lõi</Text>
-          <Text style={styles.compHighlightText}>
+        <View style={[styles.quoteBox, { marginTop: 24 }]}>
+          <Text style={[styles.quoteText, { fontStyle: 'normal', fontSize: 11 }]}>
             Bluecore FDP không chỉ là công cụ báo cáo — mà là nền tảng hỗ trợ quyết định.{'\n'}
             Triển khai trong vài giờ, thấy giá trị ngay lập tức.
           </Text>
@@ -1020,11 +1110,323 @@ const FDPSalesDeckPDF: React.FC = () => {
         
         <View style={styles.footer}>
           <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
-          <Text style={styles.pageNumber}>3</Text>
+          <Text style={styles.pageNumber}>6</Text>
         </View>
       </Page>
 
-      {/* Page 4: Manifesto */}
+      {/* ========== Page 7: Use Case 1 - Kiểm tra Cash sáng thứ Hai ========== */}
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.eyebrowLabel}>Use Case #1</Text>
+        <Text style={styles.useCaseQuestion}>"Hôm nay mình có bao nhiêu tiền THẬT?"</Text>
+        <Text style={styles.useCaseAnswer}>Bluecore trả lời trong 5 giây — mỗi sáng thứ Hai, CEO chỉ cần mở 1 màn hình.</Text>
+        
+        {/* Stylized Mockup */}
+        <View style={styles.mockupContainer}>
+          <View style={styles.mockupHeader}>
+            <Text style={styles.mockupTitle}>Cash Position Dashboard</Text>
+            <View style={styles.mockupLive}>
+              <Text style={styles.mockupLiveText}>LIVE</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mockupKPIRow}>
+            <View style={styles.mockupKPICardHighlight}>
+              <Text style={styles.mockupKPILabel}>Tiền thật trong tài khoản</Text>
+              <Text style={styles.mockupKPIValueGreen}>2.4 Tỷ</Text>
+            </View>
+            <View style={styles.mockupKPICard}>
+              <Text style={styles.mockupKPILabel}>Tiền đang bị Hold</Text>
+              <Text style={styles.mockupKPIValue}>1.2 Tỷ</Text>
+            </View>
+            <View style={styles.mockupKPICard}>
+              <Text style={styles.mockupKPILabel}>Tiền sẽ về (7 ngày)</Text>
+              <Text style={styles.mockupKPIValue}>800 Tr</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mockupKPIRow}>
+            <View style={styles.mockupKPICard}>
+              <Text style={styles.mockupKPILabel}>Cash Runway</Text>
+              <Text style={styles.mockupKPIValue}>4.2 tháng</Text>
+            </View>
+            <View style={styles.mockupKPICardDanger}>
+              <Text style={styles.mockupKPILabel}>Cần thanh toán hôm nay</Text>
+              <Text style={styles.mockupKPIValueRed}>650 Tr</Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.benefitRow}>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Không cần chờ kế toán</Text>
+            <Text style={styles.benefitText}>Data tự động cập nhật từ bank, sàn TMĐT, POS</Text>
+          </View>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Phân biệt tiền thật vs tiền sổ sách</Text>
+            <Text style={styles.benefitText}>Biết rõ tiền đã về, đang hold, sẽ về, có nguy cơ</Text>
+          </View>
+        </View>
+        
+        <View style={styles.impactBox}>
+          <View>
+            <Text style={styles.impactLabel}>Impact</Text>
+            <Text style={styles.impactValue}>Giảm 90%</Text>
+          </View>
+          <Text style={styles.impactDesc}>Thời gian kiểm tra cash buổi sáng. Từ 2 giờ xuống còn 5 phút.</Text>
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumber}>7</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 8: Use Case 2 - SKU nào đang "ăn" tiền? ========== */}
+      <Page size="A4" style={styles.pageAlt}>
+        <Text style={styles.eyebrowLabel}>Use Case #2</Text>
+        <Text style={styles.useCaseQuestion}>"Tại sao bán nhiều mà vẫn không có tiền?"</Text>
+        <Text style={styles.useCaseAnswer}>Bluecore cho thấy Unit Economics từng SKU — phát hiện ngay SKU đang contribution margin âm.</Text>
+        
+        {/* Stylized Mockup - SKU Table */}
+        <View style={styles.mockupContainer}>
+          <View style={styles.mockupHeader}>
+            <Text style={styles.mockupTitle}>Unit Economics by SKU</Text>
+            <View style={[styles.mockupLive, { backgroundColor: colors.warning }]}>
+              <Text style={styles.mockupLiveText}>3 SKU LỖ</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mockupTable}>
+            <View style={styles.mockupTableHeader}>
+              <Text style={[styles.mockupTableCellHeader, { flex: 2 }]}>SKU</Text>
+              <Text style={styles.mockupTableCellHeader}>Revenue</Text>
+              <Text style={styles.mockupTableCellHeader}>COGS</Text>
+              <Text style={styles.mockupTableCellHeader}>Logistics</Text>
+              <Text style={styles.mockupTableCellHeader}>CM%</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Áo polo nam premium</Text>
+              <Text style={styles.mockupTableCell}>120tr</Text>
+              <Text style={styles.mockupTableCell}>60tr</Text>
+              <Text style={styles.mockupTableCell}>12tr</Text>
+              <Text style={styles.mockupTableCellHighlight}>40%</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Quần jean slim fit</Text>
+              <Text style={styles.mockupTableCell}>85tr</Text>
+              <Text style={styles.mockupTableCell}>55tr</Text>
+              <Text style={styles.mockupTableCell}>15tr</Text>
+              <Text style={styles.mockupTableCellHighlight}>18%</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Váy đầm nữ sale</Text>
+              <Text style={styles.mockupTableCell}>200tr</Text>
+              <Text style={styles.mockupTableCell}>180tr</Text>
+              <Text style={styles.mockupTableCell}>35tr</Text>
+              <Text style={styles.mockupTableCellDanger}>-7.5%</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Phụ kiện combo</Text>
+              <Text style={styles.mockupTableCell}>45tr</Text>
+              <Text style={styles.mockupTableCell}>42tr</Text>
+              <Text style={styles.mockupTableCell}>8tr</Text>
+              <Text style={styles.mockupTableCellDanger}>-11%</Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.benefitRow}>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Không chỉ Gross Margin</Text>
+            <Text style={styles.benefitText}>Tính đủ COGS, logistics, return, platform fees</Text>
+          </View>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Action ngay lập tức</Text>
+            <Text style={styles.benefitText}>Dừng bán SKU lỗ, điều chỉnh giá, optimize ads</Text>
+          </View>
+        </View>
+        
+        <View style={styles.impactBox}>
+          <View>
+            <Text style={styles.impactLabel}>Phát hiện</Text>
+            <Text style={styles.impactValue}>15% SKU</Text>
+          </View>
+          <Text style={styles.impactDesc}>Đang có contribution margin âm — càng bán càng lỗ.</Text>
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumber}>8</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 9: Use Case 3 - AR Collection ========== */}
+      <Page size="A4" style={styles.page}>
+        <Text style={styles.eyebrowLabel}>Use Case #3</Text>
+        <Text style={styles.useCaseQuestion}>"Ai đang nợ tiền mình?"</Text>
+        <Text style={styles.useCaseAnswer}>Bluecore hiển thị AR Aging với Top 10 khách cần gọi ngay hôm nay.</Text>
+        
+        {/* Stylized Mockup - AR Table */}
+        <View style={styles.mockupContainer}>
+          <View style={styles.mockupHeader}>
+            <Text style={styles.mockupTitle}>AR Collection Priority</Text>
+            <View style={[styles.mockupLive, { backgroundColor: colors.danger }]}>
+              <Text style={styles.mockupLiveText}>5 KHÁCH QUÁ HẠN</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mockupKPIRow}>
+            <View style={styles.mockupKPICard}>
+              <Text style={styles.mockupKPILabel}>Tổng AR</Text>
+              <Text style={styles.mockupKPIValue}>3.2 Tỷ</Text>
+            </View>
+            <View style={styles.mockupKPICardDanger}>
+              <Text style={styles.mockupKPILabel}>Quá hạn 30+ ngày</Text>
+              <Text style={styles.mockupKPIValueRed}>850 Tr</Text>
+            </View>
+            <View style={styles.mockupKPICard}>
+              <Text style={styles.mockupKPILabel}>Quá hạn 60+ ngày</Text>
+              <Text style={styles.mockupKPIValue}>320 Tr</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mockupTable}>
+            <View style={styles.mockupTableHeader}>
+              <Text style={[styles.mockupTableCellHeader, { flex: 2 }]}>Khách hàng</Text>
+              <Text style={styles.mockupTableCellHeader}>Số tiền</Text>
+              <Text style={styles.mockupTableCellHeader}>Quá hạn</Text>
+              <Text style={styles.mockupTableCellHeader}>Ưu tiên</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Công ty TNHH ABC</Text>
+              <Text style={styles.mockupTableCell}>320 Tr</Text>
+              <Text style={styles.mockupTableCellDanger}>45 ngày</Text>
+              <Text style={[styles.mockupTableCell, { fontWeight: 700 }]}>GỌI NGAY</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Shop XYZ - Shopee</Text>
+              <Text style={styles.mockupTableCell}>180 Tr</Text>
+              <Text style={styles.mockupTableCellDanger}>38 ngày</Text>
+              <Text style={[styles.mockupTableCell, { fontWeight: 700 }]}>GỌI NGAY</Text>
+            </View>
+            <View style={styles.mockupTableRow}>
+              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Đại lý Miền Bắc</Text>
+              <Text style={styles.mockupTableCell}>150 Tr</Text>
+              <Text style={styles.mockupTableCell}>21 ngày</Text>
+              <Text style={styles.mockupTableCell}>Tuần này</Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.benefitRow}>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Ưu tiên theo rủi ro</Text>
+            <Text style={styles.benefitText}>Khách quá hạn lâu + số tiền lớn = gọi trước</Text>
+          </View>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Tracking kết quả</Text>
+            <Text style={styles.benefitText}>Ghi nhận outcome sau mỗi cuộc gọi thu hồi</Text>
+          </View>
+        </View>
+        
+        <View style={styles.impactBox}>
+          <View>
+            <Text style={styles.impactLabel}>Thu hồi thêm</Text>
+            <Text style={styles.impactValue}>500tr - 2 Tỷ</Text>
+          </View>
+          <Text style={styles.impactDesc}>Mỗi tháng nhờ action sớm với khách quá hạn.</Text>
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumber}>9</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 10: Use Case 4 - Cash Runway Forecast ========== */}
+      <Page size="A4" style={styles.pageAlt}>
+        <Text style={styles.eyebrowLabel}>Use Case #4</Text>
+        <Text style={styles.useCaseQuestion}>"Còn bao lâu trước khi hết tiền?"</Text>
+        <Text style={styles.useCaseAnswer}>Bluecore dự báo Cash Runway 30/60/90 ngày với các scenario khác nhau.</Text>
+        
+        {/* Stylized Mockup - Runway Forecast */}
+        <View style={styles.mockupContainer}>
+          <View style={styles.mockupHeader}>
+            <Text style={styles.mockupTitle}>Cash Runway Forecast</Text>
+            <View style={styles.mockupLive}>
+              <Text style={styles.mockupLiveText}>UPDATED TODAY</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mockupKPIRow}>
+            <View style={styles.mockupKPICardHighlight}>
+              <Text style={styles.mockupKPILabel}>Cash Runway hiện tại</Text>
+              <Text style={styles.mockupKPIValueGreen}>4.2 tháng</Text>
+            </View>
+            <View style={styles.mockupKPICard}>
+              <Text style={styles.mockupKPILabel}>Burn Rate / tháng</Text>
+              <Text style={styles.mockupKPIValue}>580 Tr</Text>
+            </View>
+          </View>
+          
+          {/* Simplified forecast visualization */}
+          <View style={{ marginTop: 10, padding: 12, backgroundColor: colors.background, borderRadius: 8 }}>
+            <Text style={{ fontSize: 8, fontWeight: 700, color: colors.text, marginBottom: 10 }}>DỰ BÁO 90 NGÀY</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 7, color: colors.textLight }}>Hôm nay</Text>
+                <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>2.4 Tỷ</Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 7, color: colors.textLight }}>+30 ngày</Text>
+                <Text style={{ fontSize: 12, fontWeight: 700, color: colors.primary }}>1.8 Tỷ</Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 7, color: colors.textLight }}>+60 ngày</Text>
+                <Text style={{ fontSize: 12, fontWeight: 700, color: colors.warning }}>1.2 Tỷ</Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 7, color: colors.textLight }}>+90 ngày</Text>
+                <Text style={{ fontSize: 12, fontWeight: 700, color: colors.danger }}>600 Tr</Text>
+              </View>
+            </View>
+            
+            {/* Progress bar visualization */}
+            <View style={{ height: 8, backgroundColor: '#e2e8f0', borderRadius: 4, overflow: 'hidden', flexDirection: 'row' }}>
+              <View style={{ width: '60%', backgroundColor: colors.accent }} />
+              <View style={{ width: '20%', backgroundColor: colors.warning }} />
+              <View style={{ width: '20%', backgroundColor: colors.danger }} />
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.benefitRow}>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>What-if Scenarios</Text>
+            <Text style={styles.benefitText}>Nếu tăng chi ads 20%? Nếu AR thu chậm 1 tháng?</Text>
+          </View>
+          <View style={styles.benefitCard}>
+            <Text style={styles.benefitTitle}>Cảnh báo sớm</Text>
+            <Text style={styles.benefitText}>Alert khi runway xuống dưới ngưỡng an toàn</Text>
+          </View>
+        </View>
+        
+        <View style={styles.impactBox}>
+          <View>
+            <Text style={styles.impactLabel}>Biết trước</Text>
+            <Text style={styles.impactValue}>2-3 tháng</Text>
+          </View>
+          <Text style={styles.impactDesc}>Nếu cash sắp cạn, có thời gian để hành động.</Text>
+        </View>
+        
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
+          <Text style={styles.pageNumber}>10</Text>
+        </View>
+      </Page>
+
+      {/* ========== Page 11: FDP Manifesto (Condensed) ========== */}
       <Page size="A4" style={styles.pageAlt}>
         <Text style={styles.eyebrowLabel}>Triết lý</Text>
         <Text style={styles.sectionTitleCenter}>FDP Manifesto</Text>
@@ -1032,9 +1434,9 @@ const FDPSalesDeckPDF: React.FC = () => {
           10 nguyên tắc bất biến của Financial Data Platform — những cam kết Bluecore không bao giờ thoả hiệp.
         </Text>
         
-        <View style={styles.manifestoContainer}>
+        <View style={styles.manifestoGrid}>
           {manifestoItems.map((item, index) => (
-            <View key={index} style={styles.manifestoItem}>
+            <View key={index} style={styles.manifestoCard}>
               <Text style={styles.manifestoNumber}>{item.number}</Text>
               <Text style={styles.manifestoTitle}>{item.title}</Text>
               <Text style={styles.manifestoDesc}>{item.desc}</Text>
@@ -1044,193 +1446,11 @@ const FDPSalesDeckPDF: React.FC = () => {
         
         <View style={styles.footer}>
           <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
-          <Text style={styles.pageNumber}>4</Text>
+          <Text style={styles.pageNumber}>11</Text>
         </View>
       </Page>
 
-      {/* Page 5: Core Capabilities */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.eyebrowLabel}>Năng lực</Text>
-        <Text style={styles.sectionTitleCenter}>Core Capabilities</Text>
-        <Text style={styles.sectionSubtitleCenter}>
-          Những năng lực cốt lõi giúp CEO/CFO điều hành doanh nghiệp hiệu quả hơn.
-        </Text>
-        
-        <View style={styles.capabilityGrid}>
-          {coreCapabilities.map((cap, index) => (
-            <View key={index} style={index % 2 === 0 ? styles.capabilityCard : styles.capabilityCardAlt}>
-              <View style={styles.capabilityIconBadge}>
-                <Text style={styles.capabilityIconText}>{cap.badge}</Text>
-              </View>
-              <Text style={styles.capabilityTitle}>{cap.title}</Text>
-              <Text style={styles.capabilityDesc}>{cap.desc}</Text>
-              <View style={styles.capabilityFeatures}>
-                {cap.features.map((feature, fIndex) => (
-                  <Text key={fIndex} style={styles.capabilityFeature}>• {feature}</Text>
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
-          <Text style={styles.pageNumber}>5</Text>
-        </View>
-      </Page>
-
-      {/* Page 6: Feature Details - REDESIGNED */}
-      <Page size="A4" style={styles.pageAlt}>
-        <Text style={styles.eyebrowLabel}>Câu hỏi mỗi ngày</Text>
-        <Text style={styles.sectionTitleCenter}>Những câu hỏi CEO cần trả lời</Text>
-        <Text style={styles.sectionSubtitleCenter}>
-          FDP được thiết kế để trả lời các câu hỏi kinh doanh quan trọng nhất — không phải để làm báo cáo.
-        </Text>
-        
-        <View style={styles.featureRow}>
-          <View style={styles.featureColumn}>
-            <Text style={styles.featureColumnTitle}>{featureDetails.finance.title}</Text>
-            <Text style={styles.featureColumnSubtitle}>{featureDetails.finance.subtitle}</Text>
-            {featureDetails.finance.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>→ {item}</Text>
-            ))}
-          </View>
-          
-          <View style={styles.featureColumnAlt}>
-            <Text style={styles.featureColumnTitle}>{featureDetails.working.title}</Text>
-            <Text style={styles.featureColumnSubtitle}>{featureDetails.working.subtitle}</Text>
-            {featureDetails.working.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>→ {item}</Text>
-            ))}
-          </View>
-        </View>
-        
-        <View style={styles.featureRow}>
-          <View style={styles.featureColumnAlt}>
-            <Text style={styles.featureColumnTitle}>{featureDetails.arap.title}</Text>
-            <Text style={styles.featureColumnSubtitle}>{featureDetails.arap.subtitle}</Text>
-            {featureDetails.arap.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>→ {item}</Text>
-            ))}
-          </View>
-          
-          <View style={styles.featureColumn}>
-            <Text style={styles.featureColumnTitle}>{featureDetails.decision.title}</Text>
-            <Text style={styles.featureColumnSubtitle}>{featureDetails.decision.subtitle}</Text>
-            {featureDetails.decision.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>→ {item}</Text>
-            ))}
-          </View>
-        </View>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
-          <Text style={styles.pageNumber}>6</Text>
-        </View>
-      </Page>
-
-      {/* Page 7: Decision Flow */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.eyebrowLabel}>Quy trình</Text>
-        <Text style={styles.sectionTitleCenter}>Quy trình Quyết định</Text>
-        <Text style={styles.sectionSubtitleCenter}>
-          Từ phát hiện vấn đề đến đo lường kết quả — mọi quyết định đều được tracking.
-        </Text>
-        
-        <View style={styles.decisionFlow}>
-          {decisionSteps.map((step, index) => (
-            <React.Fragment key={index}>
-              <View style={styles.decisionStep}>
-                <View style={styles.decisionStepCircle}>
-                  <Text style={styles.decisionStepNumber}>{step.number}</Text>
-                </View>
-                <Text style={styles.decisionStepTitle}>{step.title}</Text>
-                <Text style={styles.decisionStepDesc}>{step.desc}</Text>
-              </View>
-              {index < decisionSteps.length - 1 && (
-                <Text style={styles.decisionArrow}>→</Text>
-              )}
-            </React.Fragment>
-          ))}
-        </View>
-        
-        <View style={styles.useCaseBox}>
-          <Text style={styles.useCaseTitle}>Ví dụ: AR quá hạn cần thu hồi</Text>
-          <Text style={styles.useCaseValue}>+3.4 Tỷ VNĐ</Text>
-          <Text style={styles.useCaseDesc}>
-            105 khách hàng có nợ quá hạn. Nếu thu hồi thành công trong 7-14 ngày,{'\n'}
-            Cash Runway sẽ tăng thêm 0.9 tháng.
-          </Text>
-          
-          <View style={styles.useCaseMetrics}>
-            <View style={styles.useCaseMetric}>
-              <Text style={styles.useCaseMetricValue}>105</Text>
-              <Text style={styles.useCaseMetricLabel}>Khách hàng</Text>
-            </View>
-            <View style={styles.useCaseMetric}>
-              <Text style={styles.useCaseMetricValue}>14 ngày</Text>
-              <Text style={styles.useCaseMetricLabel}>Deadline</Text>
-            </View>
-            <View style={styles.useCaseMetric}>
-              <Text style={styles.useCaseMetricValue}>+0.9 tháng</Text>
-              <Text style={styles.useCaseMetricLabel}>Runway Impact</Text>
-            </View>
-          </View>
-        </View>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
-          <Text style={styles.pageNumber}>7</Text>
-        </View>
-      </Page>
-
-      {/* Page 8: Outcome Tracking */}
-      <Page size="A4" style={styles.pageAlt}>
-        <Text style={styles.eyebrowLabel}>Đo lường</Text>
-        <Text style={styles.sectionTitleCenter}>Đo lường Kết quả Tự động</Text>
-        <Text style={styles.sectionSubtitleCenter}>
-          So sánh Before vs After — tracking outcome của mọi quyết định để học và cải thiện.
-        </Text>
-        
-        <View style={styles.featureRow}>
-          <View style={styles.featureColumn}>
-            <Text style={styles.featureColumnTitle}>{outcomeFeatures.before.title}</Text>
-            {outcomeFeatures.before.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
-            ))}
-          </View>
-          
-          <View style={styles.featureColumnAlt}>
-            <Text style={styles.featureColumnTitle}>{outcomeFeatures.roi.title}</Text>
-            {outcomeFeatures.roi.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
-            ))}
-          </View>
-        </View>
-        
-        <View style={styles.featureRow}>
-          <View style={styles.featureColumnAlt}>
-            <Text style={styles.featureColumnTitle}>{outcomeFeatures.learning.title}</Text>
-            {outcomeFeatures.learning.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
-            ))}
-          </View>
-          
-          <View style={styles.featureColumn}>
-            <Text style={styles.featureColumnTitle}>{outcomeFeatures.gqs.title}</Text>
-            {outcomeFeatures.gqs.items.map((item, index) => (
-              <Text key={index} style={styles.featureItem}>• {item}</Text>
-            ))}
-          </View>
-        </View>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Bluecore FDP - Financial Data Platform</Text>
-          <Text style={styles.pageNumber}>8</Text>
-        </View>
-      </Page>
-
-      {/* Page 9: Contact/CTA */}
+      {/* ========== Page 12: Contact/CTA ========== */}
       <Page size="A4" style={styles.coverPage}>
         <View style={[styles.coverOrnament, styles.coverCircle1]} />
         <View style={[styles.coverOrnament, styles.coverCircle2]} />
@@ -1250,8 +1470,8 @@ const FDPSalesDeckPDF: React.FC = () => {
           <Text style={styles.contactCTAText}>Đặt lịch Demo ngay</Text>
         </View>
         
-        <View style={{ position: 'absolute', bottom: 40 }}>
-          <Text style={{ fontSize: 12, color: colors.white, opacity: 0.6 }}>
+        <View style={{ position: 'absolute', bottom: 36 }}>
+          <Text style={{ fontSize: 11, color: colors.white, opacity: 0.6 }}>
             Truth {'>'} Flexibility
           </Text>
         </View>
