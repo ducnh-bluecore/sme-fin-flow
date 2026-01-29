@@ -15,11 +15,23 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CalendarIcon, BarChart3, ArrowRight, ArrowLeft, TrendingUp, TrendingDown, Target } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  CalendarIcon, 
+  BarChart3, 
+  ArrowRight, 
+  ArrowLeft, 
+  TrendingUp, 
+  TrendingDown, 
+  Target,
+  Sparkles,
+  Loader2,
+  AlertCircle
+} from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { useRecordOutcome, OutcomeVerdict } from '@/hooks/control-tower';
+import { useRecordOutcome, OutcomeVerdict, useEstimatedActualImpact } from '@/hooks/control-tower';
 
 interface OutcomeRecordingDialogProps {
   open: boolean;
@@ -29,6 +41,7 @@ interface OutcomeRecordingDialogProps {
     title: string;
     category?: string;
     impact_amount?: number | null;
+    decided_at?: string; // Decision date for time-based calculation
   };
 }
 
@@ -36,6 +49,12 @@ const formatCurrency = (amount: number): string => {
   if (Math.abs(amount) >= 1_000_000_000) return `₫${(amount / 1_000_000_000).toFixed(1)}B`;
   if (Math.abs(amount) >= 1_000_000) return `₫${(amount / 1_000_000).toFixed(0)}M`;
   return `₫${amount.toLocaleString('vi-VN')}`;
+};
+
+const confidenceLevelLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  OBSERVED: { label: 'Từ dữ liệu thật', variant: 'default' },
+  ESTIMATED: { label: 'Ước tính', variant: 'secondary' },
+  LOW: { label: 'Độ tin cậy thấp', variant: 'outline' },
 };
 
 type Step = 'input' | 'confirm';
@@ -48,6 +67,7 @@ export function OutcomeRecordingDialog({
   const [step, setStep] = useState<Step>('input');
   const [cannotMeasure, setCannotMeasure] = useState(false);
   const [actualImpact, setActualImpact] = useState<string>('');
+  const [isManualOverride, setIsManualOverride] = useState(false);
   const [verdict, setVerdict] = useState<OutcomeVerdict>('as_expected');
   const [notes, setNotes] = useState<string>('');
   const [followupDate, setFollowupDate] = useState<Date | undefined>(addDays(new Date(), 14));
@@ -55,6 +75,27 @@ export function OutcomeRecordingDialog({
   const { mutate: recordOutcome, isPending } = useRecordOutcome();
 
   const predictedImpact = alert.impact_amount || 0;
+  const decisionDate = alert.decided_at || new Date().toISOString();
+
+  // Fetch estimated actual impact from system
+  const { 
+    data: estimatedData, 
+    isLoading: isEstimating,
+    isError: estimateError 
+  } = useEstimatedActualImpact({
+    decisionType: alert.category || 'SYSTEM',
+    decisionDate: decisionDate,
+    predictedImpact: predictedImpact,
+    enabled: open && !cannotMeasure,
+  });
+
+  // Auto-fill with estimated value when available
+  useEffect(() => {
+    if (estimatedData && !isManualOverride && !actualImpact) {
+      setActualImpact(estimatedData.estimated_impact.toString());
+    }
+  }, [estimatedData, isManualOverride, actualImpact]);
+
   const actualValue = actualImpact ? parseFloat(actualImpact) : 0;
   
   // Computed metrics
@@ -86,11 +127,17 @@ export function OutcomeRecordingDialog({
       setStep('input');
       setCannotMeasure(false);
       setActualImpact('');
+      setIsManualOverride(false);
       setVerdict('as_expected');
       setNotes('');
       setFollowupDate(addDays(new Date(), 14));
     }
   }, [open]);
+
+  const handleActualInputChange = (value: string) => {
+    setActualImpact(value);
+    setIsManualOverride(true);
+  };
 
   const handleFollowupSubmit = () => {
     recordOutcome(
@@ -139,7 +186,7 @@ export function OutcomeRecordingDialog({
                 Đo lường kết quả
               </DialogTitle>
               <DialogDescription>
-                Nhập kết quả thực tế để so sánh với dự đoán ban đầu.
+                Hệ thống tự động ước tính impact thực tế. Bạn có thể điều chỉnh nếu cần.
               </DialogDescription>
             </DialogHeader>
 
@@ -152,24 +199,61 @@ export function OutcomeRecordingDialog({
                 </p>
               </div>
 
-              {/* Actual Input */}
+              {/* Actual Input with System Estimate */}
               <div className="space-y-3">
-                <Label htmlFor="actualImpact">Impact thực tế là bao nhiêu?</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="actualImpact">Impact thực tế</Label>
+                  {isEstimating && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Đang tính toán...
+                    </span>
+                  )}
+                  {estimatedData && !isManualOverride && (
+                    <Badge variant={confidenceLevelLabels[estimatedData.confidence_level]?.variant || 'outline'} className="text-xs">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      {confidenceLevelLabels[estimatedData.confidence_level]?.label || 'Ước tính'}
+                    </Badge>
+                  )}
+                  {isManualOverride && (
+                    <Badge variant="outline" className="text-xs">
+                      Nhập tay
+                    </Badge>
+                  )}
+                </div>
+                
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₫</span>
                   <Input
                     id="actualImpact"
                     type="number"
-                    placeholder="0"
+                    placeholder={isEstimating ? "Đang tính..." : "0"}
                     value={actualImpact}
-                    onChange={(e) => setActualImpact(e.target.value)}
+                    onChange={(e) => handleActualInputChange(e.target.value)}
                     disabled={cannotMeasure}
                     className="pl-8"
                   />
                 </div>
 
+                {/* Estimation info */}
+                {estimatedData && estimatedData.confidence_level !== 'LOW' && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Ước tính từ thay đổi {estimatedData.data_source === 'cdp_orders_revenue' ? 'doanh thu' : 
+                      estimatedData.data_source === 'cdp_orders_profit' ? 'lợi nhuận' : 'dữ liệu'} 
+                    {' '}từ ngày quyết định đến nay
+                  </p>
+                )}
+
+                {estimateError && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Không thể ước tính tự động
+                  </p>
+                )}
+
                 {/* Cannot Measure Checkbox */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 pt-2">
                   <Checkbox
                     id="cannotMeasure"
                     checked={cannotMeasure}
