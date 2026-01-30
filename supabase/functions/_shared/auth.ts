@@ -107,34 +107,68 @@ export async function validateAuth(req: Request): Promise<AuthResult> {
     const email = claims.email as string | null;
     const role = claims.role as string | null;
 
-    // Get tenant from tenant_users table (tenant isolation)
+    // Get tenant from profiles.active_tenant_id OR header fallback
+    // Users can belong to multiple tenants, so we use active_tenant_id
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { data: tenantUser, error: tenantError } = await serviceClient
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', userId)
-      .maybeSingle();
+    // First try to get from x-tenant-id header (for explicit tenant context)
+    const headerTenantId = req.headers.get('x-tenant-id');
+    
+    let resolvedTenantId: string | null = null;
+    
+    if (headerTenantId) {
+      // Validate user has access to this tenant
+      const { data: tenantAccess } = await serviceClient
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .eq('tenant_id', headerTenantId)
+        .maybeSingle();
+      
+      if (tenantAccess) {
+        resolvedTenantId = headerTenantId;
+      }
+    }
+    
+    // If no header or invalid, get from active_tenant_id in profiles
+    if (!resolvedTenantId) {
+      const { data: profile, error: profileError } = await serviceClient
+        .from('profiles')
+        .select('active_tenant_id')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (tenantError) {
-      console.error('Error fetching tenant:', tenantError);
-      return {
-        authenticated: true,
-        userId,
-        tenantId: null,
-        email,
-        role,
-        error: 'Failed to resolve tenant'
-      };
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      } else {
+        resolvedTenantId = profile?.active_tenant_id || null;
+      }
+    }
+
+    // Final fallback: get first tenant from tenant_users
+    if (!resolvedTenantId) {
+      const { data: tenantUser, error: tenantError } = await serviceClient
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (tenantError) {
+        console.error('Error fetching tenant from tenant_users:', tenantError);
+      } else {
+        resolvedTenantId = tenantUser?.tenant_id || null;
+      }
     }
 
     return {
       authenticated: true,
       userId,
-      tenantId: tenantUser?.tenant_id || null,
+      tenantId: resolvedTenantId,
       email,
       role,
       error: null
