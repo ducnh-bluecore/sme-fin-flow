@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useMemo } from 'react';
 
 export interface ABTest {
@@ -38,7 +37,7 @@ export interface ABTestStats {
 }
 
 export function useABTestingData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   // Fetch campaigns data and transform to A/B tests
@@ -46,15 +45,21 @@ export function useABTestingData() {
     queryKey: ['ab-testing-campaigns', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+
+      let query = client
         .from('promotion_campaigns')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('start_date', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Transform campaigns to A/B test format

@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { CentralFinancialMetrics } from './useCentralFinancialMetrics';
 
@@ -51,7 +50,7 @@ interface CachedMetricsRow {
  * Falls back to triggering background refresh if cache is stale
  */
 export function useCentralMetricsCache() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const queryClient = useQueryClient();
 
@@ -61,11 +60,15 @@ export function useCentralMetricsCache() {
       if (!tenantId) return null;
 
       // Fetch cached data
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('dashboard_kpi_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await dbQuery.maybeSingle();
 
       if (error) {
         console.error('Error fetching cached metrics:', error);
@@ -83,7 +86,7 @@ export function useCentralMetricsCache() {
 
         if (cacheAge > CACHE_MAX_AGE_MS || !dateRangeMatches) {
           // Trigger background refresh
-          triggerBackgroundRefresh(tenantId, startDateStr, endDateStr, queryClient);
+          triggerBackgroundRefresh(client, tenantId, startDateStr, endDateStr, queryClient);
         }
 
         // Return cached data immediately
@@ -91,10 +94,10 @@ export function useCentralMetricsCache() {
       }
 
       // No cache exists - trigger creation and return null
-      triggerBackgroundRefresh(tenantId, startDateStr, endDateStr, queryClient);
+      triggerBackgroundRefresh(client, tenantId, startDateStr, endDateStr, queryClient);
       return null;
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 30000, // 30 seconds
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
@@ -110,14 +113,14 @@ export function useCentralMetricsCache() {
  */
 export function useRefreshCentralMetricsCache() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { error } = await supabase.rpc('refresh_central_metrics_cache', {
+      const { error } = await client.rpc('refresh_central_metrics_cache', {
         p_tenant_id: tenantId,
         p_start_date: startDateStr,
         p_end_date: endDateStr,
@@ -134,13 +137,14 @@ export function useRefreshCentralMetricsCache() {
 
 // Helper: trigger background refresh without blocking
 async function triggerBackgroundRefresh(
+  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
   tenantId: string, 
   startDate: string, 
   endDate: string,
   queryClient: ReturnType<typeof useQueryClient>
 ) {
   try {
-    await supabase.rpc('refresh_central_metrics_cache', {
+    await client.rpc('refresh_central_metrics_cache', {
       p_tenant_id: tenantId,
       p_start_date: startDate,
       p_end_date: endDate,

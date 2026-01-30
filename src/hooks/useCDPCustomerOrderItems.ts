@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 interface OrderItem {
   id: string;
@@ -65,13 +65,15 @@ export interface CustomerOrderItemsData {
 }
 
 export function useCDPCustomerOrderItems(customerId: string | undefined) {
+  const { client, isReady } = useTenantSupabaseCompat();
+
   return useQuery({
     queryKey: ['cdp-customer-order-items', customerId],
     queryFn: async (): Promise<CustomerOrderItemsData | null> => {
       if (!customerId) return null;
 
       // Fetch order items with order details
-      const { data: rawItems, error } = await supabase
+      const { data: rawItems, error } = await client
         .from('cdp_order_items')
         .select(`
           id,
@@ -181,7 +183,7 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
       
       let productInfoMap: Record<string, { name: string; sku: string }> = {};
       if (productIds.length > 0) {
-        const { data: productData } = await supabase
+        const { data: productData } = await client
           .from('products')
           .select('id, name, sku')
           .in('id', productIds);
@@ -285,7 +287,7 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
         },
       };
     },
-    enabled: !!customerId,
+    enabled: !!customerId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
