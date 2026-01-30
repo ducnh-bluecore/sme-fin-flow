@@ -1,387 +1,221 @@
 
-# Plan: Data Assessment Survey System
 
-## Mục tiêu
+# Plan: Smart Data Inference - Tự động suy luận data từ nguồn đã chọn
 
-Xây dựng hệ thống **khảo sát dữ liệu đầu vào** (Data Assessment) cho từng module. Khi user lần đầu vào module, hệ thống sẽ:
+## Vấn đề hiện tại
 
-1. **Hỏi**: "Bạn hiện có những loại dữ liệu nào?"
-2. **So sánh**: với data requirements của module đó
-3. **Đề xuất thông minh**: 
-   - Data nào kết nối từ Data Warehouse (connectors)
-   - Data nào import từ template Excel
-   - Data nào cần nhập thủ công
+Hỏi "Bạn có loại dữ liệu nào?" quá technical cho người dùng phổ thông:
+- CEO/CFO không quan tâm "invoices" hay "bills" là gì
+- Họ chỉ biết "tôi dùng Shopee" hoặc "tôi có phần mềm kế toán MISA"
+- Bắt họ chọn từng loại data = gây confusion và drop-off
 
----
+## Giải pháp: Smart Data Inference
 
-## Phân tích hiện trạng
+**Nguyên tắc**: Từ nguồn dữ liệu → Tự suy ra loại data có sẵn
 
-### Đã có:
-- **DataReadinessPage (MDP)**: Kiểm tra data đã có trong DB - nhưng chạy SAU khi data đã import
-- **FileImportDialog**: 21 template import (invoices, bills, orders, expenses...)
-- **AddConnectorDialog**: 35+ connectors (Shopee, Lazada, TikTok Shop, Haravan, Sapo, ERP...)
-- **useMDPDataReadiness**: Hook kiểm tra trạng thái data theo từng table
+### Logic Mapping:
 
-### Thiếu:
-- Không có **pre-assessment** trước khi user bắt đầu
-- Không có **smart mapping** giữa data user có → nguồn import phù hợp
-- Không có **personalized onboarding path** dựa trên khảo sát
+| Nguồn user chọn | Hệ thống tự biết có |
+|-----------------|---------------------|
+| Sàn TMĐT (Shopee, Lazada...) | orders, customers, products, channel_fees, settlements |
+| Website (Haravan, Sapo...) | orders, customers, products |
+| Phần mềm kế toán (MISA, Fast...) | invoices, bills, expenses, vendors, bank_transactions |
+| ERP (SAP, Oracle...) | invoices, bills, expenses, vendors, inventory, bank_transactions |
+| Nền tảng quảng cáo | marketing_spend, campaigns |
+| Excel / Manual | *Cần hỏi thêm* (không suy được) |
 
----
-
-## Kiến trúc Data Assessment
-
-### Flow tổng quan:
+## Flow mới (3 bước thay vì 4 bước)
 
 ```text
-User vào Module lần đầu
-         ↓
-+---------------------------+
-|   DATA ASSESSMENT SURVEY  |
-|   "Bạn hiện có gì?"       |
-+---------------------------+
-         ↓
-+---------------------------+
-|   SMART MATCHING ENGINE   |
-|   Compare với Module Req  |
-+---------------------------+
-         ↓
-+---------------------------+
-|   PERSONALIZED ROADMAP    |
-|   - Connect từ DW         |
-|   - Import từ Excel       |
-|   - Skip (để sau)         |
-+---------------------------+
-         ↓
-     Module Dashboard
+TRƯỚC (4 steps):
+[Nguồn] → [Loại data] → [Format] → [Plan]
+
+SAU (3 steps):
+[Nguồn chi tiết] → [Xác nhận & bổ sung] → [Plan]
 ```
 
----
+### Step 1: Chọn nguồn CHI TIẾT hơn (có sub-options)
 
-## Chi tiết: Data Assessment Survey
-
-### Survey Questions (Per Module)
-
-**Survey flow dạng multi-step wizard:**
-
-**Step 1: Current Data Sources**
-```text
-"Doanh nghiệp bạn đang sử dụng nguồn dữ liệu nào?"
-
-□ Bán hàng trên sàn TMĐT (Shopee, Lazada, TikTok Shop...)
-□ Website riêng (Haravan, Sapo, WooCommerce...)
-□ Phần mềm kế toán (MISA, Fast, Bravo...)
-□ Phần mềm ERP (SAP, Oracle, Odoo...)
-□ Excel / Google Sheets
-□ Chưa có hệ thống - nhập thủ công
-```
-
-**Step 2: Available Data Types**
-```text
-"Bạn có sẵn những loại dữ liệu nào?" (chọn nhiều)
-
-□ Danh sách đơn hàng (orders)
-□ Danh sách khách hàng (customers)
-□ Hóa đơn bán hàng (invoices)
-□ Hóa đơn mua hàng / công nợ (bills)
-□ Chi phí vận hành (expenses)
-□ Giao dịch ngân hàng (bank statements)
-□ Chi phí marketing (ads spend)
-□ Dữ liệu tồn kho (inventory)
-□ Chưa có - cần tạo mới
-```
-
-**Step 3: Data Format**
-```text
-"Dữ liệu của bạn đang ở định dạng nào?"
-
-○ Export từ phần mềm (có thể kết nối API)
-○ File Excel/CSV
-○ Nhập thủ công từng giao dịch
-○ Hỗn hợp nhiều nguồn
-```
-
----
-
-## Data Requirements Map (Per Module)
-
-### FDP Requirements:
-
-| Priority | Data Type | Table | Connector Sources | Template |
-|----------|-----------|-------|-------------------|----------|
-| Critical | Hóa đơn AR | invoices | MISA, Fast | invoices |
-| Critical | Hóa đơn AP | bills | MISA, Fast | bills |
-| Critical | Bank Transactions | bank_transactions | BigQuery, Manual | bank_transactions |
-| Important | Khách hàng | customers | Shopee, Lazada | customers |
-| Important | Nhà cung cấp | vendors | MISA | vendors |
-| Important | Expenses | expenses | MISA, Manual | expenses |
-| Optional | Cash Forecast | cash_forecasts | Manual | cash_forecasts |
-
-### MDP Requirements:
-
-| Priority | Data Type | Table | Connector Sources | Template |
-|----------|-----------|-------|-------------------|----------|
-| Critical | Orders | cdp_orders | Shopee, Lazada, TikTok | orders |
-| Critical | Marketing Spend | marketing_expenses | Facebook Ads, Google Ads | expenses |
-| Important | Campaigns | promotion_campaigns | Meta Graph, TikTok Ads | promotions |
-| Important | Products | external_products | Shopee, Lazada | products |
-| Important | Channel Fees | channel_fees | Shopee, Lazada | - |
-| Optional | Settlements | channel_settlements | Shopee, Lazada | bank_transactions |
-
-### CDP Requirements:
-
-| Priority | Data Type | Table | Connector Sources | Template |
-|----------|-----------|-------|-------------------|----------|
-| Critical | Orders | cdp_orders | Shopee, Lazada, TikTok | orders |
-| Critical | Customers | customers | Shopee, Lazada | customers |
-| Important | Order Items | external_order_items | Shopee, Lazada | - |
-| Important | Products | external_products | Shopee, Lazada | products |
-| Optional | Customer Events | customer_events | Analytics | - |
-
----
-
-## Smart Matching Engine
-
-### Logic:
+**Thay đổi UI**: Khi chọn "Sàn TMĐT", hiện thêm sub-options:
 
 ```text
-User Selection → Module Requirements → Source Mapping
-
-Example:
-- User chọn: "Bán hàng trên Shopee" + "File Excel chi phí"
-- Module: MDP
-
-Output:
 ┌─────────────────────────────────────────────────────────┐
-│  RECOMMENDED DATA IMPORT PATH                           │
-├─────────────────────────────────────────────────────────┤
-│  ✅ Đơn hàng → Kết nối Shopee (auto-sync)              │
-│  ✅ Sản phẩm → Kết nối Shopee (auto-sync)              │
-│  📄 Chi phí Marketing → Import từ Excel template       │
-│  📄 Campaigns → Import từ Excel template               │
-│  ⏭️  Analytics → Skip (optional, cấu hình sau)         │
+│ ☑ Sàn TMĐT                                              │
+│   ├─ ☑ Shopee                                           │
+│   ├─ ☑ Lazada                                           │
+│   ├─ ☐ TikTok Shop                                      │
+│   └─ ☐ Sendo                                            │
+│                                                         │
+│ ☑ Phần mềm kế toán                                      │
+│   ├─ ☑ MISA                                             │
+│   ├─ ☐ Fast Accounting                                  │
+│   └─ ☐ Bravo                                            │
+│                                                         │
+│ ☐ Excel / Google Sheets                                 │
+│   (Nếu chọn → hỏi thêm loại data ở step 2)             │
 └─────────────────────────────────────────────────────────┘
 ```
 
----
+### Step 2: Xác nhận & Bổ sung
 
-## Database Schema
-
-### Bảng mới: `user_data_assessments`
-
-```sql
-CREATE TABLE user_data_assessments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users NOT NULL,
-  tenant_id UUID REFERENCES tenants(id) NOT NULL,
-  module_key TEXT NOT NULL, -- 'fdp', 'mdp', 'cdp', 'control_tower'
-  
-  -- Survey responses (JSONB)
-  survey_responses JSONB DEFAULT '{}',
-  -- Example: {
-  --   "data_sources": ["shopee", "lazada", "excel"],
-  --   "data_types": ["orders", "customers", "expenses"],
-  --   "data_format": "mixed"
-  -- }
-  
-  -- Generated import plan (JSONB)
-  import_plan JSONB DEFAULT '{}',
-  -- Example: {
-  --   "connect": ["shopee", "lazada"],
-  --   "import": ["expenses", "marketing_expenses"],
-  --   "skip": ["channel_analytics"]
-  -- }
-  
-  -- Status tracking
-  status TEXT DEFAULT 'pending', -- 'pending', 'completed', 'skipped'
-  completed_at TIMESTAMP WITH TIME ZONE,
-  skipped_at TIMESTAMP WITH TIME ZONE,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  
-  UNIQUE(user_id, tenant_id, module_key)
-);
-
--- RLS
-ALTER TABLE user_data_assessments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage their own assessments"
-  ON user_data_assessments FOR ALL
-  USING (auth.uid() = user_id);
-```
-
----
-
-## Cấu trúc Files
+**Auto-generated summary + cho phép bổ sung:**
 
 ```text
-src/
-├── pages/onboarding/
-│   └── DataAssessmentPage.tsx         # Main wizard page
-│
-├── components/assessment/
-│   ├── DataAssessmentWizard.tsx       # Multi-step wizard container
-│   ├── DataSourceStep.tsx             # Step 1: Current sources
-│   ├── DataTypeStep.tsx               # Step 2: Available data types
-│   ├── DataFormatStep.tsx             # Step 3: Format selection
-│   ├── ImportPlanStep.tsx             # Generated plan display
-│   ├── DataRequirementCard.tsx        # Individual requirement card
-│   └── SmartMatcher.tsx               # Matching logic display
-│
-├── hooks/
-│   ├── useDataAssessment.ts           # CRUD for assessments
-│   ├── useModuleDataRequirements.ts   # Get requirements per module
-│   └── useSmartDataMatcher.ts         # Matching algorithm
-│
-├── lib/
-│   └── dataRequirementsMap.ts         # Static config: module → requirements
-│
-└── contexts/
-    └── DataAssessmentContext.tsx       # Wizard state management
+┌─────────────────────────────────────────────────────────┐
+│ Dựa trên nguồn bạn chọn, hệ thống xác định:             │
+│                                                         │
+│ ✅ Từ Shopee, Lazada:                                   │
+│   • Đơn hàng                                            │
+│   • Khách hàng                                          │
+│   • Sản phẩm                                            │
+│   • Phí sàn                                             │
+│                                                         │
+│ ✅ Từ MISA:                                             │
+│   • Hóa đơn bán hàng (AR)                               │
+│   • Hóa đơn mua hàng (AP)                               │
+│   • Chi phí vận hành                                    │
+│                                                         │
+│ ❓ Bạn còn data nào khác? (chọn thêm nếu có)            │
+│   ☐ Giao dịch ngân hàng (Excel)                         │
+│   ☐ Chi phí marketing (Excel)                           │
+└─────────────────────────────────────────────────────────┘
 ```
+
+### Step 3: Import Plan (như cũ)
+
+Hiển thị kế hoạch: Connect vs Import vs Skip
 
 ---
 
-## Component: Import Plan Display
+## Thay đổi kỹ thuật
 
-### UI mockup sau khi matching:
-
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  📊 KẾ HOẠCH IMPORT DỮ LIỆU CHO MDP                         │
-│  Dựa trên khảo sát của bạn, đây là lộ trình tối ưu:         │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  🔗 KẾT NỐI TỰ ĐỘNG (2)                                     │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ [Shopee Logo] Shopee                                   │ │
-│  │ → Đơn hàng, Sản phẩm, Phí sàn, Settlements            │ │
-│  │ [Kết nối ngay]                                         │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ [Lazada Logo] Lazada                                   │ │
-│  │ → Đơn hàng, Sản phẩm, Phí sàn                         │ │
-│  │ [Kết nối ngay]                                         │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  📄 IMPORT TỪ EXCEL (2)                                     │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ Chi phí Marketing                         [Tải mẫu ↓]  │ │
-│  │ Cần cho: Profit Attribution, Cash Impact               │ │
-│  │ [Upload file]                                          │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ Campaigns                                 [Tải mẫu ↓]  │ │
-│  │ Cần cho: ROI Analysis                                  │ │
-│  │ [Upload file]                                          │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  ⏭️ ĐỂ SAU (1)                                              │
-│  • Ads Performance (optional - không bắt buộc)              │
-│                                                              │
-├──────────────────────────────────────────────────────────────┤
-│  [Hoàn thành sau] [Bắt đầu kết nối →]                       │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Integration Points
-
-### 1. Trigger Assessment:
+### 1. Thêm `providedDataTypes` vào `DataSourceOption`
 
 ```typescript
-// In module layout or guard
-function ModuleAssessmentGuard({ moduleKey, children }) {
-  const { data: assessment } = useDataAssessment(moduleKey);
+// src/lib/dataRequirementsMap.ts
+
+export interface DataSourceOption {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  connectorTypes: string[];
+  // NEW: Data types this source typically provides
+  providedDataTypes: string[];
+  // NEW: Sub-sources (specific platforms)
+  subSources?: {
+    id: string;
+    label: string;
+    connectorType: string;
+    logo?: string;
+  }[];
+}
+
+// Updated options:
+export const dataSourceOptions: DataSourceOption[] = [
+  {
+    id: 'ecommerce',
+    label: 'Sàn TMĐT',
+    description: 'Shopee, Lazada, TikTok Shop...',
+    icon: 'ShoppingBag',
+    connectorTypes: ['shopee', 'lazada', 'tiktok_shop', 'sendo'],
+    providedDataTypes: ['orders', 'customers', 'products', 'channel_fees', 'settlements'],
+    subSources: [
+      { id: 'shopee', label: 'Shopee', connectorType: 'shopee' },
+      { id: 'lazada', label: 'Lazada', connectorType: 'lazada' },
+      { id: 'tiktok_shop', label: 'TikTok Shop', connectorType: 'tiktok_shop' },
+      { id: 'sendo', label: 'Sendo', connectorType: 'sendo' },
+    ],
+  },
+  {
+    id: 'accounting',
+    label: 'Phần mềm kế toán',
+    description: 'MISA, Fast Accounting, Bravo...',
+    icon: 'Calculator',
+    connectorTypes: ['misa', 'fast_accounting', 'bravo', 'effect', 'sac'],
+    providedDataTypes: ['invoices', 'bills', 'expenses', 'vendors', 'bank_transactions'],
+    subSources: [
+      { id: 'misa', label: 'MISA', connectorType: 'misa' },
+      { id: 'fast', label: 'Fast Accounting', connectorType: 'fast_accounting' },
+      { id: 'bravo', label: 'Bravo', connectorType: 'bravo' },
+    ],
+  },
+  // ... etc
+];
+```
+
+### 2. Mới: `inferDataTypesFromSources()` function
+
+```typescript
+// src/lib/dataRequirementsMap.ts
+
+export function inferDataTypesFromSources(
+  selectedSourceIds: string[],
+  selectedSubSources: string[]
+): { inferred: string[]; source: string }[] {
+  const result: { inferred: string[]; source: string }[] = [];
   
-  // Show assessment wizard if not completed
-  if (!assessment?.completed_at && !assessment?.skipped_at) {
-    return <DataAssessmentWizard moduleKey={moduleKey} />;
-  }
+  selectedSourceIds.forEach(sourceId => {
+    const source = dataSourceOptions.find(s => s.id === sourceId);
+    if (source && source.providedDataTypes.length > 0) {
+      result.push({
+        source: source.label,
+        inferred: source.providedDataTypes,
+      });
+    }
+  });
   
-  return children;
+  return result;
 }
 ```
 
-### 2. Smart Matcher Hook:
+### 3. Thay `DataTypeStep` bằng `DataConfirmStep`
+
+Component mới hiển thị:
+- Auto-inferred data (read-only, từ nguồn đã chọn)
+- Additional data selection (chỉ cho Excel/Manual)
+
+### 4. Bỏ `DataFormatStep` 
+
+Format có thể suy từ nguồn:
+- Có connector → API
+- Excel/Manual → Manual import
+- Mixed → cả hai
+
+### 5. Update `SurveyResponses` type
 
 ```typescript
-function useSmartDataMatcher(moduleKey: string, userResponses: SurveyResponses) {
-  const requirements = useModuleDataRequirements(moduleKey);
-  const connectors = useConnectorIntegrations();
-  
-  return useMemo(() => {
-    const plan: ImportPlan = {
-      connect: [],    // Connectors to setup
-      import: [],     // Templates to use
-      skip: [],       // Optional items
-      existing: [],   // Already connected
-    };
-    
-    requirements.forEach(req => {
-      // Check if user has this data source
-      const hasSource = userResponses.data_sources.some(
-        source => req.connectorSources.includes(source)
-      );
-      
-      // Check if already connected
-      const isConnected = connectors.some(
-        c => req.connectorSources.includes(c.connector_type) && c.status === 'active'
-      );
-      
-      if (isConnected) {
-        plan.existing.push(req);
-      } else if (hasSource && req.connectorSources.length > 0) {
-        plan.connect.push(req);
-      } else if (req.templateId) {
-        plan.import.push(req);
-      } else if (req.importance === 'optional') {
-        plan.skip.push(req);
-      }
-    });
-    
-    return plan;
-  }, [requirements, userResponses, connectors]);
+export interface SurveyResponses {
+  data_sources: string[];         // Main sources: ['ecommerce', 'accounting']
+  sub_sources: string[];          // Specific: ['shopee', 'lazada', 'misa']
+  additional_data_types: string[]; // Extra from Excel/manual
+  // Remove: data_format (auto-inferred)
 }
 ```
 
 ---
 
-## Ưu tiên triển khai
+## File Changes
 
-| Phase | Scope | Effort |
-|-------|-------|--------|
-| **Phase 1** | DB schema + useDataAssessment hook | 0.5 day |
-| **Phase 2** | Survey wizard (3 steps) | 1 day |
-| **Phase 3** | Smart Matcher + Import Plan UI | 1 day |
-| **Phase 4** | Integration với AddConnector + FileImport | 0.5 day |
-| **Phase 5** | Module Guards (FDP, MDP, CDP) | 0.5 day |
+| File | Action | Description |
+|------|--------|-------------|
+| `src/lib/dataRequirementsMap.ts` | Update | Add `providedDataTypes`, `subSources`, helper functions |
+| `src/hooks/useDataAssessment.ts` | Update | Change `SurveyResponses` type |
+| `src/hooks/useSmartDataMatcher.ts` | Update | Use inferred data types instead of user-selected |
+| `src/components/assessment/DataSourceStep.tsx` | Update | Add sub-source selection UI |
+| `src/components/assessment/DataConfirmStep.tsx` | Create | New step showing inferred + additional |
+| `src/components/assessment/DataTypeStep.tsx` | Delete | No longer needed |
+| `src/components/assessment/DataFormatStep.tsx` | Delete | No longer needed |
+| `src/components/assessment/DataAssessmentWizard.tsx` | Update | Change from 4 steps to 3 steps |
+| `src/components/assessment/index.ts` | Update | Export changes |
 
 ---
 
 ## Lợi ích
 
-1. **Reduced Friction**: User không cần biết trước module cần gì
-2. **Smart Guidance**: Hệ thống tự đề xuất path tối ưu
-3. **Time-to-Value**: Nhanh chóng connect đúng nguồn dữ liệu
-4. **Personalized**: Mỗi user có roadmap riêng dựa trên hoàn cảnh
-5. **Progressive**: Có thể skip và quay lại sau
+1. **Giảm cognitive load**: User chỉ cần biết họ dùng phần mềm gì, không cần hiểu "data types"
+2. **Giảm steps**: 4 → 3 steps = faster completion
+3. **Accurate matching**: Chọn cụ thể Shopee/Lazada = biết chính xác connector nào
+4. **Smart defaults**: Tự suy 80% data, chỉ hỏi 20% còn lại (Excel/manual)
+5. **Better UX**: Hiển thị "Bạn có X, Y, Z từ Shopee" = user thấy value ngay
 
----
-
-## Kết hợp với Onboarding System
-
-Data Assessment sẽ là **Layer 3** trong hệ thống onboarding đã plan trước đó:
-
-```text
-Layer 1: Platform Onboarding (Welcome, Role, Company)
-         ↓
-Layer 2: Tenant Onboarding (Industry, Scale, Data Sources)
-         ↓
-Layer 3: DATA ASSESSMENT (Per-module, Smart Matching) ← NEW
-         ↓
-Layer 4: Module Tour (Interactive spotlight)
-```
-
-Layer 2 sẽ thu thập thông tin high-level về data sources, Layer 3 sẽ đi sâu vào từng module với matching thông minh.
