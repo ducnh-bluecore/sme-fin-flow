@@ -1,6 +1,11 @@
+/**
+ * useBigQueryRealtime - BigQuery realtime data hooks
+ * 
+ * Refactored to use Schema-per-Tenant architecture.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 export type QueryType = 
@@ -32,7 +37,7 @@ interface BigQueryRealtimeResult {
 }
 
 export function useBigQueryRealtime(params: BigQueryRealtimeParams) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['bigquery-realtime', tenantId, params.queryType, params.startDate, params.endDate],
@@ -41,7 +46,7 @@ export function useBigQueryRealtime(params: BigQueryRealtimeParams) {
         throw new Error('No active tenant');
       }
 
-      const { data, error } = await supabase.functions.invoke('bigquery-realtime', {
+      const { data, error } = await client.functions.invoke('bigquery-realtime', {
         body: {
           tenant_id: tenantId,
           query_type: params.queryType,
@@ -59,15 +64,15 @@ export function useBigQueryRealtime(params: BigQueryRealtimeParams) {
 
       return data;
     },
-    enabled: !!tenantId && !!params.queryType,
-    staleTime: params.useCache ? 5 * 60 * 1000 : 0, // 5 minutes if using cache
-    refetchInterval: params.queryType === 'hourly_trend' ? 5 * 60 * 1000 : false, // Auto-refresh hourly trends
+    enabled: !!tenantId && isReady && !!params.queryType,
+    staleTime: params.useCache ? 5 * 60 * 1000 : 0,
+    refetchInterval: params.queryType === 'hourly_trend' ? 5 * 60 * 1000 : false,
   });
 }
 
 // Hook for invalidating cache
 export function useInvalidateBigQueryCache() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -75,11 +80,15 @@ export function useInvalidateBigQueryCache() {
       if (!tenantId) throw new Error('No active tenant');
 
       // Invalidate cache in database
-      const { error } = await supabase
+      let query = client
         .from('bigquery_query_cache')
-        .update({ is_valid: false })
-        .eq('tenant_id', tenantId);
-
+        .update({ is_valid: false });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { error } = await query;
       if (error) throw error;
 
       // Also invalidate React Query cache
@@ -96,51 +105,59 @@ export function useInvalidateBigQueryCache() {
 
 // Hook for watermarks management
 export function useSyncWatermarks() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['sync-watermarks', tenantId],
     queryFn: async () => {
       if (!tenantId) throw new Error('No active tenant');
 
-      const { data, error } = await supabase
+      let query = client
         .from('bigquery_sync_watermarks')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('data_model', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Hook for data model configurations
 export function useBigQueryDataModels() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['bigquery-data-models', tenantId],
     queryFn: async () => {
       if (!tenantId) throw new Error('No active tenant');
 
-      const { data, error } = await supabase
+      let query = client
         .from('bigquery_data_models')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('model_name', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Create/update data model configuration
 export function useUpsertDataModel() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -159,7 +176,7 @@ export function useUpsertDataModel() {
     }) => {
       if (!tenantId) throw new Error('No active tenant');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('bigquery_data_models')
         .upsert({
           tenant_id: tenantId,

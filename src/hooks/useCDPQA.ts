@@ -1,6 +1,12 @@
+/**
+ * useCDPQA - CDP Q&A streaming chat hook
+ * 
+ * Refactored to use Schema-per-Tenant architecture.
+ * Uses Edge Function for AI chat with tenant context.
+ */
+
 import { useState, useCallback } from 'react';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { toast } from 'sonner';
 
 interface Message {
@@ -13,7 +19,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cdp-qa`;
 export function useCDPQA() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   const sendMessage = useCallback(async (question: string) => {
     if (!tenantId) {
@@ -28,7 +34,7 @@ export function useCDPQA() {
 
     try {
       // Get auth token
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await client.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Chưa đăng nhập');
       }
@@ -151,7 +157,7 @@ export function useCDPQA() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, tenantId]);
+  }, [messages, tenantId, client]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
