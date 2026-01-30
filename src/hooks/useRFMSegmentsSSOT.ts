@@ -6,8 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface RFMSegment {
   name: string;
@@ -26,17 +25,18 @@ export interface RFMSegment {
 }
 
 export function useRFMSegmentsSSOT() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: segments, isLoading, error } = useQuery({
     queryKey: ['cdp-rfm-segments-ssot', tenantId],
     queryFn: async (): Promise<RFMSegment[]> => {
       if (!tenantId) return getDefaultSegments();
 
-      const { data, error } = await supabase
-        .from('v_cdp_rfm_segment_summary')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      let query = client.from('v_cdp_rfm_segment_summary').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) {
         console.error('[useRFMSegmentsSSOT] Query error:', error);
@@ -63,7 +63,7 @@ export function useRFMSegmentsSSOT() {
         color: row.color || '#6b7280',
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 

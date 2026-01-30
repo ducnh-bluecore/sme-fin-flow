@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 // Types matching v_cdp_insight_feed view
 export type InsightTopic = 'demand' | 'value' | 'timing' | 'risk' | 'equity';
 export type InsightSeverity = 'critical' | 'high' | 'medium' | 'low';
@@ -32,19 +31,18 @@ export interface TopicCount {
 
 // Hook for insight feed list
 export function useCDPInsightFeed() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-insight-feed', tenantId],
     queryFn: async (): Promise<InsightFeedItem[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('v_cdp_insight_feed')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('detected_at', { ascending: false });
+      let query = client.from('v_cdp_insight_feed').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.order('detected_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching insight feed:', error);
@@ -69,15 +67,14 @@ export function useCDPInsightFeed() {
         cooldown_until: row.cooldown_until,
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
 // Hook for topic counts (sidebar summary)
 export function useCDPInsightTopicCounts() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-insight-topic-counts', tenantId],
@@ -92,10 +89,11 @@ export function useCDPInsightTopicCounts() {
 
       if (!tenantId) return defaultCounts;
 
-      const { data, error } = await supabase
-        .from('v_cdp_insight_topic_counts')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      let query = client.from('v_cdp_insight_topic_counts').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching topic counts:', error);
@@ -116,7 +114,7 @@ export function useCDPInsightTopicCounts() {
 
       return counts;
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 2 * 60 * 1000,
   });
 }

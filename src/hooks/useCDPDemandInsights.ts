@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 // Types matching v_cdp_demand_insights view
 export type DemandCategory = 'demand_shift' | 'substitution' | 'basket_structure' | 'product_customer' | 'product_risk';
 
@@ -30,19 +29,18 @@ export interface DemandCategoryCount {
 
 // Hook for demand insights list
 export function useCDPDemandInsights() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-demand-insights', tenantId],
     queryFn: async (): Promise<DemandInsight[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('v_cdp_demand_insights')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('detected_at', { ascending: false });
+      let query = client.from('v_cdp_demand_insights').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.order('detected_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching demand insights:', error);
@@ -67,15 +65,14 @@ export function useCDPDemandInsights() {
         status: row.status as 'active' | 'cooldown',
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 2 * 60 * 1000,
   });
 }
 
 // Hook for demand category counts
 export function useCDPDemandCategoryCounts() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-demand-category-counts', tenantId],
@@ -90,10 +87,11 @@ export function useCDPDemandCategoryCounts() {
 
       if (!tenantId) return defaultCounts;
 
-      const { data, error } = await supabase
-        .from('v_cdp_demand_category_counts')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      let query = client.from('v_cdp_demand_category_counts').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching demand category counts:', error);
@@ -114,7 +112,7 @@ export function useCDPDemandCategoryCounts() {
 
       return counts;
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 2 * 60 * 1000,
   });
 }

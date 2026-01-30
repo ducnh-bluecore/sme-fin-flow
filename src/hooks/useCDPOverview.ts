@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import type { HighlightSignal } from '@/components/cdp/overview/HighlightSignalCard';
 import type { TopicSummary } from '@/components/cdp/overview/TopicSummarySection';
 
@@ -63,16 +62,17 @@ function mapSeverity(sev: string | null): SeverityType {
  * KHÔNG tính toán - chỉ fetch từ view
  */
 export function useCDPHighlightSignals() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-highlight-signals', tenantId],
     queryFn: async (): Promise<HighlightSignal[]> => {
-      const { data, error } = await supabase
-        .from('v_cdp_highlight_signals')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(10);
+      if (!tenantId) return [];
+      let query = client.from('v_cdp_highlight_signals').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.limit(10);
 
       if (error) throw error;
 
@@ -88,7 +88,7 @@ export function useCDPHighlightSignals() {
         category: mapCategory(row.topic || row.category),
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -96,15 +96,17 @@ export function useCDPHighlightSignals() {
  * Hook để lấy topic summaries từ database
  */
 export function useCDPTopicSummaries() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-topic-summaries', tenantId],
     queryFn: async (): Promise<TopicSummary[]> => {
-      const { data, error } = await supabase
-        .from('v_cdp_topic_summaries')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      if (!tenantId) return [];
+      let query = client.from('v_cdp_topic_summaries').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -116,7 +118,7 @@ export function useCDPTopicSummaries() {
         headline: row.headline || '',
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -124,16 +126,17 @@ export function useCDPTopicSummaries() {
  * Hook để lấy pending decisions từ database
  */
 export function useCDPPendingDecisions() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-pending-decisions', tenantId],
     queryFn: async (): Promise<PendingDecision[]> => {
-      const { data, error } = await supabase
-        .from('v_cdp_pending_decisions')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(10);
+      if (!tenantId) return [];
+      let query = client.from('v_cdp_pending_decisions').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.limit(10);
 
       if (error) throw error;
 
@@ -149,7 +152,7 @@ export function useCDPPendingDecisions() {
         riskIfIgnored: row.risk_if_ignored || 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -157,16 +160,24 @@ export function useCDPPendingDecisions() {
  * Hook để lấy data confidence metrics từ database
  */
 export function useCDPDataConfidence() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-data-confidence', tenantId],
     queryFn: async (): Promise<DataConfidence> => {
-      const { data, error } = await supabase
-        .from('v_cdp_data_quality')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      if (!tenantId) return {
+        overallScore: 0,
+        identityCoverage: 0,
+        matchAccuracy: 0,
+        returnDataCompleteness: 0,
+        dataFreshnessDays: 0,
+        issues: [],
+      };
+      let query = client.from('v_cdp_data_quality').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
@@ -209,24 +220,33 @@ export function useCDPDataConfidence() {
         issues,
       };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
 /**
  * Hook để lấy equity snapshot từ database
  */
-export function useCDPEquitySnapshot() {
-  const { data: tenantId } = useActiveTenantId();
+export function useCDPEquitySnapshotForOverview() {
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['cdp-equity-snapshot', tenantId],
+    queryKey: ['cdp-equity-snapshot-overview', tenantId],
     queryFn: async (): Promise<EquitySnapshot> => {
-      const { data, error } = await supabase
-        .from('v_cdp_equity_snapshot')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      if (!tenantId) return {
+        totalEquity12M: 0,
+        totalEquity24M: 0,
+        atRiskValue: 0,
+        atRiskPercent: 0,
+        equityChange: 0,
+        changeDirection: 'stable',
+        topDrivers: [],
+      };
+      let query = client.from('v_cdp_equity_snapshot').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
@@ -253,7 +273,7 @@ export function useCDPEquitySnapshot() {
         topDrivers: [], // Would need separate table for drivers
       };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -265,7 +285,7 @@ export function useCDPOverview() {
   const topics = useCDPTopicSummaries();
   const decisions = useCDPPendingDecisions();
   const confidence = useCDPDataConfidence();
-  const equity = useCDPEquitySnapshot();
+  const equity = useCDPEquitySnapshotForOverview();
 
   return {
     signals: signals.data || [],
@@ -277,3 +297,6 @@ export function useCDPOverview() {
     error: signals.error || topics.error || decisions.error || confidence.error || equity.error,
   };
 }
+
+// Alias for backward compatibility
+export { useCDPEquitySnapshotForOverview as useCDPEquitySnapshot };

@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export type PopulationType = 'tier' | 'segment' | 'cohort';
 export type StabilityLevel = 'stable' | 'drifting' | 'volatile';
@@ -47,8 +46,7 @@ export interface PopulationSummary {
 
 // Hook for population catalog
 export function useCDPPopulationCatalog() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-population-catalog', tenantId],
@@ -56,10 +54,11 @@ export function useCDPPopulationCatalog() {
       if (!tenantId) return [];
 
       // Query from view with computed revenue_share
-      const { data, error } = await supabase
-        .from('v_cdp_population_catalog' as any)
-        .select('*')
-        .eq('tenant_id', tenantId);
+      let query = client.from('v_cdp_population_catalog' as any).select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching population catalog:', error);
@@ -77,15 +76,14 @@ export function useCDPPopulationCatalog() {
         insightCount: row.insight_count || 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
 // Hook for population summary
 export function useCDPPopulationSummary() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-population-summary', tenantId],
@@ -100,11 +98,11 @@ export function useCDPPopulationSummary() {
 
       if (!tenantId) return defaultSummary;
 
-      const { data, error } = await supabase
-        .from('v_cdp_population_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      let query = client.from('v_cdp_population_summary').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching population summary:', error);
@@ -121,7 +119,7 @@ export function useCDPPopulationSummary() {
         totalInsights: data.total_insights || 0,
       };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -152,20 +150,18 @@ export function useCDPPopulations() {
 
 // Hook for single population detail
 export function useCDPPopulationDetail(populationId: string | undefined) {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-population-detail', tenantId, populationId],
     queryFn: async (): Promise<PopulationDetailData | null> => {
       if (!tenantId || !populationId) return null;
 
-      const { data, error } = await supabase
-        .from('v_cdp_population_detail' as any)
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('population_id', populationId)
-        .maybeSingle();
+      let query = client.from('v_cdp_population_detail' as any).select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.eq('population_id', populationId).maybeSingle();
 
       if (error) {
         console.error('Error fetching population detail:', error);
@@ -199,7 +195,7 @@ export function useCDPPopulationDetail(populationId: string | undefined) {
         criteriaJson: row.criteria_json as Record<string, unknown> | null,
       };
     },
-    enabled: !!tenantId && !!populationId,
+    enabled: isReady && !!populationId,
     staleTime: 5 * 60 * 1000,
   });
 }
