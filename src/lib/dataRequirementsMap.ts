@@ -314,24 +314,51 @@ export const fdpRequirements: DataRequirement[] = [
   {
     id: 'fdp_invoices',
     dataType: 'invoices',
-    displayName: 'Hóa đơn bán hàng (AR)',
-    description: 'Công nợ phải thu từ khách hàng',
+    displayName: 'Doanh thu bán hàng (AR)',
+    description: 'Đơn hàng/hóa đơn = Tiền khách phải trả (D2C: Order = Invoice)',
     tableName: 'invoices',
     priority: 'critical',
-    connectorSources: ['misa', 'fast_accounting', 'bravo', 'effect', 'sac'],
+    connectorSources: [
+      // === SÀN TMĐT - Order = Invoice (D2C/Retail) ===
+      'shopee', 'lazada', 'tiktok_shop', 'sendo', 'shopify',
+      // === WEBSITE RIÊNG - Order = Invoice ===
+      'haravan', 'sapo', 'woocommerce', 'magento',
+      // === PHẦN MỀM KẾ TOÁN - Invoice truyền thống (B2B) ===
+      'misa', 'fast_accounting', 'bravo', 'effect', 'sac',
+      // === ERP ===
+      'sap', 'oracle', 'odoo', 'netsuite',
+    ],
     templateId: 'invoices',
-    usedFor: ['AR Aging', 'Cash Position', 'DSO Calculation'],
+    usedFor: ['AR Aging', 'Cash Position', 'DSO Calculation', 'Revenue Tracking'],
   },
   {
     id: 'fdp_bills',
     dataType: 'bills',
-    displayName: 'Hóa đơn mua hàng (AP)',
-    description: 'Công nợ phải trả nhà cung cấp',
+    displayName: 'Chi phí phải trả (AP)',
+    description: 'Phí sàn, hóa đơn mua hàng = Tiền phải trả (D2C: Phí sàn = Bill)',
     tableName: 'bills',
     priority: 'critical',
-    connectorSources: ['misa', 'fast_accounting', 'bravo', 'effect'],
+    connectorSources: [
+      // === SÀN TMĐT - Phí sàn = Bill (D2C/Retail) ===
+      'shopee', 'lazada', 'tiktok_shop', 'sendo',
+      // === PHẦN MỀM KẾ TOÁN - Bill truyền thống (B2B) ===
+      'misa', 'fast_accounting', 'bravo', 'effect', 'sac',
+      // === ERP ===
+      'sap', 'oracle', 'odoo', 'netsuite',
+    ],
     templateId: 'bills',
-    usedFor: ['AP Aging', 'Cash Forecast', 'DPO Calculation'],
+    usedFor: ['AP Aging', 'Cash Forecast', 'DPO Calculation', 'Variable Cost'],
+  },
+  {
+    id: 'fdp_settlements',
+    dataType: 'settlements',
+    displayName: 'Tiền về từ kênh bán',
+    description: 'Cash thực sự về tài khoản (T+14 từ sàn)',
+    tableName: 'channel_settlements',
+    priority: 'critical',
+    connectorSources: ['shopee', 'lazada', 'tiktok_shop', 'haravan', 'sapo'],
+    templateId: 'bank_transactions',
+    usedFor: ['Cash Position', 'Platform Hold', 'Settlement Reconciliation'],
   },
   {
     id: 'fdp_bank',
@@ -362,7 +389,7 @@ export const fdpRequirements: DataRequirement[] = [
     description: 'Danh sách NCC, điều khoản thanh toán',
     tableName: 'vendors',
     priority: 'important',
-    connectorSources: ['misa', 'fast_accounting'],
+    connectorSources: ['misa', 'fast_accounting', 'sap', 'oracle', 'odoo'],
     templateId: 'vendors',
     usedFor: ['AP Aging by Vendor', 'Payment Planning'],
   },
@@ -373,7 +400,7 @@ export const fdpRequirements: DataRequirement[] = [
     description: 'Chi phí cố định và biến đổi',
     tableName: 'expenses',
     priority: 'important',
-    connectorSources: ['misa', 'fast_accounting'],
+    connectorSources: ['misa', 'fast_accounting', 'sap', 'oracle'],
     templateId: 'expenses',
     usedFor: ['Operating Burn Rate', 'Cash Forecast'],
   },
