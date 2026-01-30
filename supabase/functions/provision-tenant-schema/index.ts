@@ -65,25 +65,36 @@ Deno.serve(async (req: Request) => {
 
     // Authorization check: 
     // 1. User can provision their own tenant
-    // 2. OR user is an admin/super_admin in ANY tenant (global admin capability)
+    // 2. OR user is a SYSTEM admin (in user_roles table)
     // 3. OR user has owner/admin role in the target tenant
     let canProvision = false;
     
     if (tenantId === userTenantId) {
       canProvision = true;
-    } else if (role === 'admin' || role === 'super_admin') {
-      canProvision = true;
     } else {
-      // Check if user has admin/owner role in the target tenant
-      const { data: targetTenantUser } = await supabase
-        .from('tenant_users')
+      // Check if user is a system admin (from user_roles table)
+      const { data: systemAdmin } = await supabase
+        .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
+        .eq('role', 'admin')
         .maybeSingle();
       
-      if (targetTenantUser && ['owner', 'admin'].includes(targetTenantUser.role)) {
+      if (systemAdmin) {
         canProvision = true;
+        console.log(`[provision-tenant-schema] System admin ${userId} authorized to provision any tenant`);
+      } else {
+        // Check if user has admin/owner role in the target tenant
+        const { data: targetTenantUser } = await supabase
+          .from('tenant_users')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        
+        if (targetTenantUser && ['owner', 'admin'].includes(targetTenantUser.role)) {
+          canProvision = true;
+        }
       }
     }
 
