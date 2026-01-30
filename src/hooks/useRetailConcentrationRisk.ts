@@ -1,20 +1,11 @@
 /**
  * useRetailConcentrationRisk - SSOT Hook for Retail Concentration Risks
  * 
- * Fetches from v_retail_concentration_risk view.
- * NO client-side calculations - all aggregation done in database.
- * 
- * 5 Risk Types:
- * 1. Channel Concentration - Platform dependency risk (Shopee, Lazada, etc.)
- * 2. Category Concentration - Product category dependency
- * 3. Customer Concentration - Key customer dependency
- * 4. SKU Concentration - Hero product margin dependency  
- * 5. Seasonal Concentration - Peak season cash lock risk
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface ChannelConcentration {
   name: string;
@@ -62,7 +53,6 @@ export interface RetailConcentrationData {
   skuData: SKUConcentration[];
   seasonalData: SeasonalPattern[];
   alerts: ConcentrationAlert[];
-  // Summary metrics
   top1ChannelPct: number;
   top1CategoryPct: number;
   top10CustomerPct: number;
@@ -70,15 +60,6 @@ export interface RetailConcentrationData {
   maxSeasonalityIndex: number;
 }
 
-/**
- * Generate alerts based on concentration thresholds
- * Thresholds per Retail Best Practices:
- * - Channel > 50% = Medium, > 70% = High
- * - Category > 40% = Medium, > 60% = High
- * - Top 10 Customers > 30% = Medium, > 50% = High
- * - Top 5 SKU Margin > 30% = Medium, > 50% = High
- * - Seasonality Index > 1.5 = Medium, > 2.0 = High
- */
 function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
   const alerts: ConcentrationAlert[] = [];
   
@@ -91,7 +72,6 @@ function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
   const channelData = (data.channel_concentration as ChannelConcentration[]) || [];
   const categoryData = (data.category_concentration as CategoryConcentration[]) || [];
   
-  // Channel concentration alert
   if (top1ChannelPct > 50) {
     alerts.push({
       type: 'channel',
@@ -100,7 +80,6 @@ function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
     });
   }
   
-  // Category concentration alert
   if (top1CategoryPct > 40) {
     alerts.push({
       type: 'category',
@@ -109,7 +88,6 @@ function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
     });
   }
   
-  // Customer concentration alert
   if (top10CustomerPct > 30) {
     alerts.push({
       type: 'customer',
@@ -118,7 +96,6 @@ function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
     });
   }
   
-  // SKU concentration alert
   if (top5SKUMarginPct > 30) {
     alerts.push({
       type: 'sku',
@@ -127,7 +104,6 @@ function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
     });
   }
   
-  // Seasonal concentration alert
   if (maxSeasonalityIndex > 1.5) {
     alerts.push({
       type: 'seasonal',
@@ -140,25 +116,27 @@ function generateAlerts(data: Record<string, unknown>): ConcentrationAlert[] {
 }
 
 export function useRetailConcentrationRisk() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery<RetailConcentrationData>({
     queryKey: ['retail-concentration-risk', tenantId],
     queryFn: async () => {
       if (!tenantId) throw new Error('No tenant');
       
-      // Query the view directly - use type assertion for untyped views
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rows, error } = await (supabase as any)
+      let query = (client as any)
         .from('v_retail_concentration_risk')
         .select('*')
-        .eq('tenant_id', tenantId)
         .limit(1);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data: rows, error } = await query;
       
       if (error) throw error;
       const data = rows?.[0] as Record<string, unknown> | undefined;
       
-      // Return empty state if no data
       if (!data) {
         return {
           channelData: [],
@@ -191,7 +169,7 @@ export function useRetailConcentrationRisk() {
         maxSeasonalityIndex: Number(rawData.max_seasonality_index) || 1,
       };
     },
-    enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: isReady,
+    staleTime: 5 * 60 * 1000,
   });
 }

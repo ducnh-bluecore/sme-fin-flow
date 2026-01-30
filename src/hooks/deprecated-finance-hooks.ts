@@ -35,7 +35,6 @@ export {
   useFDPMetricValue,
   useFDPRevenueMetrics,
   useFDPMarketingMetrics,
-  useFDPCashMetrics,
   FDP_METRIC_CODES,
   type FDPMetricCode,
   type FDPMetricValue,

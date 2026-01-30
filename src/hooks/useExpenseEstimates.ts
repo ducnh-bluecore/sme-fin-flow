@@ -1,13 +1,11 @@
 /**
  * useExpenseEstimates - Hook for Variable Cost Estimates
  * 
- * Manages expense_estimates table for monthly budget planning
- * of variable costs like marketing and logistics.
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 import { useMemo } from 'react';
 
@@ -53,7 +51,7 @@ export interface UpdateEstimateInput {
 }
 
 // =============================================================
-// CATEGORY & CHANNEL LABELS
+// LABELS
 // =============================================================
 
 export const estimateCategoryLabels: Record<EstimateCategory, string> = {
@@ -72,7 +70,7 @@ export const channelLabels: Record<string, string> = {
 };
 
 // =============================================================
-// HELPER - Map DB row to typed object
+// HELPER
 // =============================================================
 
 function mapToEstimate(row: Record<string, unknown>): ExpenseEstimate {
@@ -100,7 +98,7 @@ function mapToEstimate(row: Record<string, unknown>): ExpenseEstimate {
 // =============================================================
 
 export function useExpenseEstimates(year?: number, month?: number) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const currentYear = year ?? new Date().getFullYear();
   const currentMonth = month ?? (new Date().getMonth() + 1);
 
@@ -109,14 +107,17 @@ export function useExpenseEstimates(year?: number, month?: number) {
     queryFn: async (): Promise<ExpenseEstimate[]> => {
       if (!tenantId) return [];
 
-      let queryBuilder = supabase
+      let queryBuilder = client
         .from('expense_estimates')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('year', currentYear)
         .eq('month', currentMonth)
         .order('category', { ascending: true })
         .order('channel', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        queryBuilder = queryBuilder.eq('tenant_id', tenantId);
+      }
 
       const { data, error } = await queryBuilder;
 
@@ -127,21 +128,17 @@ export function useExpenseEstimates(year?: number, month?: number) {
 
       return (data || []).map(mapToEstimate);
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Derived data
   const derived = useMemo(() => {
     const estimates = query.data || [];
-
-    // Calculate totals
     const totalEstimated = estimates.reduce((sum, e) => sum + e.estimatedAmount, 0);
     const totalActual = estimates.reduce((sum, e) => sum + (e.actualAmount || 0), 0);
     const totalVariance = totalActual - totalEstimated;
     const variancePercent = totalEstimated > 0 ? (totalVariance / totalEstimated) * 100 : 0;
 
-    // Group by category
     const byCategory: Record<EstimateCategory, ExpenseEstimate[]> = {
       marketing: [],
       logistics: [],
@@ -158,7 +155,6 @@ export function useExpenseEstimates(year?: number, month?: number) {
       categoryTotals[e.category].actual += e.actualAmount || 0;
     });
 
-    // Check if all have actuals
     const dataCompleteness = estimates.length > 0
       ? (estimates.filter(e => e.actualAmount !== null).length / estimates.length) * 100
       : 0;
@@ -189,13 +185,13 @@ export function useExpenseEstimates(year?: number, month?: number) {
 
 export function useCreateExpenseEstimate() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (input: CreateEstimateInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('expense_estimates')
         .insert({
           tenant_id: tenantId,
@@ -225,6 +221,7 @@ export function useCreateExpenseEstimate() {
 
 export function useUpdateExpenseEstimate() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (input: UpdateEstimateInput) => {
@@ -234,7 +231,7 @@ export function useUpdateExpenseEstimate() {
       if (input.actualAmount !== undefined) updates.actual_amount = input.actualAmount;
       if (input.notes !== undefined) updates.notes = input.notes;
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('expense_estimates')
         .update(updates)
         .eq('id', input.id)
@@ -257,10 +254,11 @@ export function useUpdateExpenseEstimate() {
 
 export function useLockExpenseEstimate() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('expense_estimates')
         .update({
           status: 'locked',
@@ -286,10 +284,11 @@ export function useLockExpenseEstimate() {
 
 export function useDeleteExpenseEstimate() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('expense_estimates')
         .delete()
         .eq('id', id);

@@ -1,14 +1,11 @@
 /**
  * useExecutiveHealthScores - SSOT Hook for Executive Health Radar
  * 
- * ✅ DB-FIRST: All scores pre-computed in v_executive_health_scores view
- * ✅ NO client-side calculations - pure data fetch
- * ✅ Formulas centralized in DB (×15, ×2.5, ×4 multipliers)
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface HealthDimension {
   dimension: string;
@@ -27,8 +24,6 @@ export interface ExecutiveHealthData {
   warningCount: number;
   criticalCount: number;
   snapshotAt: string | null;
-  
-  // Raw values for display
   runwayMonths: number;
   dso: number;
   grossMargin: number;
@@ -65,23 +60,23 @@ interface DBHealthScores {
   snapshot_at: string | null;
 }
 
-/**
- * Fetches pre-computed health scores from DB view
- * ZERO client-side calculations
- */
 export function useExecutiveHealthScores() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['executive-health-scores', tenantId],
     queryFn: async (): Promise<ExecutiveHealthData | null> => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      let query = client
         .from('v_executive_health_scores')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query.maybeSingle();
       
       if (error) {
         console.error('Error fetching health scores:', error);
@@ -89,7 +84,6 @@ export function useExecutiveHealthScores() {
       }
       
       if (!data) {
-        // Return default empty state
         return {
           dimensions: [],
           overallScore: 0,
@@ -109,7 +103,6 @@ export function useExecutiveHealthScores() {
       
       const dbData = data as DBHealthScores;
       
-      // Direct mapping from DB - NO calculations
       const dimensions: HealthDimension[] = [
         {
           dimension: 'Thanh khoản',
@@ -177,7 +170,7 @@ export function useExecutiveHealthScores() {
         ebitdaMargin: dbData.ebitda_margin || 0,
       };
     },
-    enabled: !!tenantId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: isReady,
+    staleTime: 5 * 60 * 1000,
   });
 }

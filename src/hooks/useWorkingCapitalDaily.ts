@@ -3,11 +3,12 @@
  * 
  * ⚠️ DB-First: Fetches precomputed data from working_capital_daily table
  * NO client-side calculations for DSO/DPO/DIO/CCC
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface FormattedWorkingCapital {
   day: string;
@@ -28,7 +29,7 @@ export interface FormattedWorkingCapital {
  * Fetch precomputed working capital daily metrics
  */
 export function useWorkingCapitalDaily(options?: { days?: number }) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const days = options?.days || 90;
 
   return useQuery({
@@ -36,12 +37,18 @@ export function useWorkingCapitalDaily(options?: { days?: number }) {
     queryFn: async (): Promise<FormattedWorkingCapital[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('working_capital_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('metric_date', { ascending: false })
         .limit(days);
+
+      // Add tenant filter if using shared DB mode
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('[useWorkingCapitalDaily] Error:', error);
@@ -63,7 +70,7 @@ export function useWorkingCapitalDaily(options?: { days?: number }) {
         inventoryTurnover: Number(row.inventory_turnover) || 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -72,20 +79,24 @@ export function useWorkingCapitalDaily(options?: { days?: number }) {
  * Fetch latest working capital snapshot
  */
 export function useLatestWorkingCapital() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['working-capital-latest', tenantId],
     queryFn: async (): Promise<FormattedWorkingCapital | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('working_capital_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('metric_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error || !data) return null;
 
@@ -105,7 +116,7 @@ export function useLatestWorkingCapital() {
         inventoryTurnover: Number(row.inventory_turnover) || 0,
       };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 }

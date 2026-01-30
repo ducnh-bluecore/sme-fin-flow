@@ -1,13 +1,11 @@
 /**
  * useExpensePlanSummary - Budget vs Actual Summary
  * 
- * Combines expense_baselines (fixed) and expense_estimates (variable)
- * to provide a unified view of planned vs actual expenses.
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useMemo } from 'react';
 
 // =============================================================
@@ -33,7 +31,7 @@ export interface ExpensePlanSummary {
 // =============================================================
 
 export function useExpensePlanSummary(months: number = 6) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const now = new Date();
 
   const query = useQuery({
@@ -41,14 +39,18 @@ export function useExpensePlanSummary(months: number = 6) {
     queryFn: async (): Promise<ExpensePlanSummary[]> => {
       if (!tenantId) return [];
 
-      // Query the view
-      const { data, error } = await supabase
+      let queryBuilder = client
         .from('v_expense_plan_summary')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('year', { ascending: false })
         .order('month', { ascending: false })
         .limit(months);
+
+      if (shouldAddTenantFilter) {
+        queryBuilder = queryBuilder.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await queryBuilder;
 
       if (error) {
         console.error('[useExpensePlanSummary] Error:', error);
@@ -68,14 +70,13 @@ export function useExpensePlanSummary(months: number = 6) {
         variancePercent: row.total_planned > 0 
           ? (Number(row.variance) / Number(row.total_planned)) * 100 
           : 0,
-        dataCompleteness: 100, // Will be calculated if needed
+        dataCompleteness: 100,
       }));
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Derived data for current month
   const derived = useMemo(() => {
     const summaries = query.data || [];
     
@@ -83,7 +84,6 @@ export function useExpensePlanSummary(months: number = 6) {
       s.year === now.getFullYear() && s.month === (now.getMonth() + 1)
     );
 
-    // YTD totals
     const ytdSummaries = summaries.filter(s => 
       s.year === now.getFullYear() && s.month <= (now.getMonth() + 1)
     );
