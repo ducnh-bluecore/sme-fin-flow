@@ -9,13 +9,15 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, X, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, Loader2, Check, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { DataSourceStep } from './DataSourceStep';
 import { DataConfirmStep } from './DataConfirmStep';
 import { ImportPlanStep } from './ImportPlanStep';
+import { DataAssessmentIntro } from './DataAssessmentIntro';
+import { AssessmentSpotlightTour, useAssessmentTour } from './AssessmentSpotlightTour';
 import { useDataAssessment, type SurveyResponses } from '@/hooks/useDataAssessment';
 import { useSmartDataMatcher } from '@/hooks/useSmartDataMatcher';
 import { moduleDisplayInfo, type ModuleKey } from '@/lib/dataRequirementsMap';
@@ -46,6 +48,10 @@ export function DataAssessmentWizard({
     sub_sources: [],
     additional_data_types: [],
   });
+  const [showIntro, setShowIntro] = useState(true);
+  
+  // Tour management
+  const { showTour, closeTour, completeTour, startTour } = useAssessmentTour();
 
   const { upsertAssessment, completeAssessment, skipAssessment } = useDataAssessment(moduleKey);
   const { importPlan, summary, recommendations } = useSmartDataMatcher(
@@ -117,15 +123,26 @@ export function DataAssessmentWizard({
                   Bước {stepIndex + 1}: {STEP_LABELS[currentStep]}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSkip}
-                disabled={isLoading}
-              >
-                <X className="h-4 w-4 mr-1" />
-                Bỏ qua
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={startTour}
+                  className="text-muted-foreground"
+                >
+                  <HelpCircle className="h-4 w-4 mr-1" />
+                  Hướng dẫn
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSkip}
+                  disabled={isLoading}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Bỏ qua
+                </Button>
+              </div>
             </div>
             <Progress value={progress} className="h-1" />
           </div>
@@ -133,6 +150,14 @@ export function DataAssessmentWizard({
 
         {/* Content */}
         <main className="flex-1 container max-w-4xl mx-auto px-4 py-8">
+          {/* Intro Section (only on sources step) */}
+          {currentStep === 'sources' && showIntro && (
+            <DataAssessmentIntro
+              moduleKey={moduleKey}
+              onDismiss={() => setShowIntro(false)}
+            />
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -235,6 +260,13 @@ export function DataAssessmentWizard({
           </div>
         </footer>
       </div>
+
+      {/* Spotlight Tour */}
+      <AssessmentSpotlightTour
+        isOpen={showTour}
+        onClose={closeTour}
+        onComplete={completeTour}
+      />
     </div>
   );
 }

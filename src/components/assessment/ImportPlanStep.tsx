@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { DataTypeTooltip } from './DataTypeTooltip';
 import type { ImportPlan, ImportPlanItem } from '@/hooks/useDataAssessment';
 import { moduleDisplayInfo, type ModuleKey } from '@/lib/dataRequirementsMap';
 
@@ -302,6 +303,7 @@ function PlanSection({
                 <span className="text-sm font-medium text-foreground truncate">
                   {item.displayName}
                 </span>
+                <DataTypeTooltip dataType={item.dataType} />
                 {item.priority === 'critical' && (
                   <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                     Quan trọng
