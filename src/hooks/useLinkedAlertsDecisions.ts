@@ -1,10 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
-import { toast } from 'sonner';
-
 /**
- * Hook quản lý liên kết giữa Alert và Decision Card
+ * useLinkedAlertsDecisions - Alert and Decision Card linking
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Integration
  * 
  * NGUYÊN TẮC:
  * - Alert = Monitoring & Notification (Control Tower)
@@ -12,6 +10,10 @@ import { toast } from 'sonner';
  * - Khi có Decision Card → Alert ẩn khỏi Control Tower
  * - Khi Decision được thực hiện → Alert tự động resolve
  */
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { toast } from 'sonner';
 
 export interface LinkAlertToDecisionParams {
   alertId: string;
@@ -30,10 +32,11 @@ export interface ResolveAlertsByDecisionParams {
  */
 export function useLinkAlertToDecision() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ alertId, decisionCardId }: LinkAlertToDecisionParams) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           linked_decision_card_id: decisionCardId,
@@ -63,13 +66,13 @@ export function useLinkAlertToDecision() {
  */
 export function useResolveAlertsByDecision() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ decisionCardId, resolution, comment }: ResolveAlertsByDecisionParams) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
       
       const now = new Date().toISOString();
       const resolutionNote = resolution === 'approved' 
@@ -79,7 +82,7 @@ export function useResolveAlertsByDecision() {
         : `Tạm hoãn qua Decision Card: ${comment || 'Snoozed'}`;
 
       // Tìm và resolve tất cả alerts có linked_decision_card_id
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: resolution === 'snoozed' ? 'snoozed' : 'resolved',
@@ -118,7 +121,7 @@ export function useResolveAlertsByDecision() {
  */
 export function useBulkLinkAlertsByEntity() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ 
@@ -133,7 +136,7 @@ export function useBulkLinkAlertsByEntity() {
       if (!tenantId) throw new Error('No tenant');
 
       // Link tất cả alerts có cùng object_type và external_object_id
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           linked_decision_card_id: decisionCardId,
@@ -163,13 +166,13 @@ export function useBulkLinkAlertsByEntity() {
  * Dùng để suggest linking khi tạo decision card
  */
 export function useRelatedAlerts(entityType?: string, entityId?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId || !entityType || !entityId) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .select('*')
         .eq('tenant_id', tenantId)

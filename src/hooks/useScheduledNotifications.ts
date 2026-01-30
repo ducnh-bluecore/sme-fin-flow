@@ -1,6 +1,12 @@
+/**
+ * useScheduledNotifications - Scheduled notifications management
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Notifications
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -38,30 +44,35 @@ export interface ScheduledNotificationInput {
 
 // Fetch scheduled notifications
 export function useScheduledNotifications() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['scheduled-notifications', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('scheduled_notifications')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as ScheduledNotification[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Create scheduled notification
 export function useCreateScheduledNotification() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (input: ScheduledNotificationInput) => {
@@ -69,7 +80,7 @@ export function useCreateScheduledNotification() {
 
       const nextRunAt = calculateNextRun(input);
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('scheduled_notifications')
         .insert(
           {
@@ -106,12 +117,13 @@ export function useCreateScheduledNotification() {
 // Update scheduled notification
 export function useUpdateScheduledNotification() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: ScheduledNotificationInput & { id: string }) => {
       const nextRunAt = calculateNextRun(input);
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('scheduled_notifications')
         .update({
           title: input.title,
@@ -146,10 +158,11 @@ export function useUpdateScheduledNotification() {
 // Delete scheduled notification
 export function useDeleteScheduledNotification() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('scheduled_notifications')
         .delete()
         .eq('id', id);
@@ -169,10 +182,11 @@ export function useDeleteScheduledNotification() {
 // Toggle active status
 export function useToggleScheduledNotification() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('scheduled_notifications')
         .update({ is_active })
         .eq('id', id);
