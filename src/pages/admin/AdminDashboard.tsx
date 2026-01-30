@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Users, TrendingUp, AlertCircle } from 'lucide-react';
+import { Building2, Users, TrendingUp, AlertCircle, Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useOpenCSAlertsCount } from '@/hooks/useTenantHealth';
+import { CSAlertsDashboard } from '@/components/admin/CSAlertsDashboard';
 
 export default function AdminDashboard() {
   const { t } = useLanguage();
@@ -35,6 +37,8 @@ export default function AdminDashboard() {
     },
   });
 
+  const { data: openAlertsCount } = useOpenCSAlertsCount();
+
   const statsCards = [
     {
       title: t('admin.totalTenants'),
@@ -62,11 +66,11 @@ export default function AdminDashboard() {
     },
     {
       title: t('admin.alerts'),
-      value: 0,
+      value: openAlertsCount || 0,
       description: t('admin.alertsDesc'),
-      icon: AlertCircle,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10',
+      icon: Bell,
+      color: openAlertsCount && openAlertsCount > 0 ? 'text-destructive' : 'text-orange-500',
+      bgColor: openAlertsCount && openAlertsCount > 0 ? 'bg-destructive/10' : 'bg-orange-500/10',
     },
   ];
 
@@ -102,6 +106,11 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* CS Alerts Dashboard */}
+        <div className="lg:col-span-2">
+          <CSAlertsDashboard />
         </div>
 
         {/* Recent Activity */}
