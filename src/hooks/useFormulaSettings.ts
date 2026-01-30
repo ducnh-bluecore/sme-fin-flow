@@ -8,8 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface FormulaSettings {
   // Forecasting Parameters
@@ -62,7 +61,7 @@ const DEFAULT_SETTINGS: FormulaSettings = {
 };
 
 export function useFormulaSettings() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const query = useQuery({
     queryKey: ['formula-settings', tenantId],
@@ -71,7 +70,7 @@ export function useFormulaSettings() {
         return DEFAULT_SETTINGS;
       }
 
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('formula_settings')
         .select(`
           forecast_default_growth_rate,
@@ -88,9 +87,13 @@ export function useFormulaSettings() {
           vat_rate,
           corporate_tax_rate,
           custom_parameters
-        `)
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        `);
+
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await dbQuery.maybeSingle();
 
       if (error) {
         console.error('[useFormulaSettings] Error:', error);
@@ -119,13 +122,13 @@ export function useFormulaSettings() {
         source: 'db',
       };
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
   });
 
   return {
     settings: query.data ?? DEFAULT_SETTINGS,
-    isLoading: query.isLoading || tenantLoading,
+    isLoading: query.isLoading,
     error: query.error,
   };
 }

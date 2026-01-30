@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 interface EntityMetrics {
@@ -27,22 +26,28 @@ interface MeasurementResult {
 
 // Hàm đo lường metrics theo entity type
 async function measureEntityMetrics(
+  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
   tenantId: string,
   entityType: string,
-  entityId: string | null
+  entityId: string | null,
+  shouldAddTenantFilter: boolean
 ): Promise<Record<string, number | string | null>> {
   switch (entityType.toUpperCase()) {
     case 'SKU':
       if (!entityId) return {};
-      const { data: skuData } = await supabase
+      let skuQuery = client
         .from('object_calculated_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('object_type', 'sku')
         .eq('external_id', entityId)
         .order('calculated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (shouldAddTenantFilter) {
+        skuQuery = skuQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: skuData } = await skuQuery.maybeSingle();
       
       if (!skuData) return {};
       
@@ -56,19 +61,29 @@ async function measureEntityMetrics(
       };
 
     case 'CASH':
-      const { data: bankData } = await supabase
+      let bankQuery = client
         .from('bank_accounts')
-        .select('current_balance')
-        .eq('tenant_id', tenantId);
+        .select('current_balance');
+
+      if (shouldAddTenantFilter) {
+        bankQuery = bankQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: bankData } = await bankQuery;
       
       const totalCash = (bankData || []).reduce((sum, b) => sum + (b.current_balance || 0), 0);
       
       // Get runway estimate from expenses
-      const { data: expenses } = await supabase
+      let expensesQuery = client
         .from('expenses')
         .select('amount')
-        .eq('tenant_id', tenantId)
         .gte('expense_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      if (shouldAddTenantFilter) {
+        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: expenses } = await expensesQuery;
       
       const monthlyBurn = (expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0);
       const runwayDays = monthlyBurn > 0 ? Math.round((totalCash / monthlyBurn) * 30) : 999;
@@ -215,14 +230,14 @@ function generateSummary(
 // Hook chính: Auto-measure outcome
 export function useAutoMeasureOutcome() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (decisionAuditId: string): Promise<MeasurementResult> => {
       if (!tenantId) throw new Error('Missing tenantId');
 
       // 1. Lấy thông tin decision
-      const { data: decision, error } = await supabase
+      const { data: decision, error } = await client
         .from('decision_audit_log')
         .select('*')
         .eq('id', decisionAuditId)
@@ -251,7 +266,7 @@ export function useAutoMeasureOutcome() {
       }
 
       // 3. Đo metrics hiện tại
-      const currentMetrics = await measureEntityMetrics(tenantId, entityType, entityId);
+      const currentMetrics = await measureEntityMetrics(client, tenantId, entityType, entityId, shouldAddTenantFilter);
 
       // 4. Tính variance
       const { variance, hasAnyCurrentData } = calculateVariance(baselineMetrics, currentMetrics);
@@ -295,7 +310,7 @@ export function useAutoMeasureOutcome() {
 // Hook để lưu measured outcome
 export function useSaveMeasuredOutcome() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({
@@ -315,7 +330,7 @@ export function useSaveMeasuredOutcome() {
     }) => {
       if (!tenantId) throw new Error('Missing tenantId');
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
       // Calculate impact from variance if possible
       let actualImpact: number | null = null;
@@ -326,7 +341,7 @@ export function useSaveMeasuredOutcome() {
       else if (revenueChange != null) actualImpact = revenueChange;
 
       // Insert outcome
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('decision_outcomes')
         .insert({
           tenant_id: tenantId,
@@ -348,7 +363,7 @@ export function useSaveMeasuredOutcome() {
       if (error) throw error;
 
       // Update follow-up status
-      const { error: updateError } = await supabase
+      const { error: updateError } = await client
         .from('decision_audit_log')
         .update({ follow_up_status: 'completed' })
         .eq('id', decisionAuditId)
