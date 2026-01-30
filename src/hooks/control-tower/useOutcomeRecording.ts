@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { toast } from 'sonner';
 
 export type OutcomeVerdict = 'better_than_expected' | 'as_expected' | 'worse_than_expected' | 'pending_followup';
@@ -19,16 +19,16 @@ export interface OutcomeRecordPayload {
 
 export function useRecordOutcome() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (payload: OutcomeRecordPayload) => {
       if (!tenantId) throw new Error('Missing tenant ID');
 
-      const { data: user } = await supabase.auth.getUser();
+      const { data: user } = await client.auth.getUser();
 
       // Insert outcome record
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('decision_outcome_records')
         .insert({
           tenant_id: tenantId,
@@ -54,7 +54,7 @@ export function useRecordOutcome() {
 
       // If linked to alert, update alert status to resolved
       if (payload.alertId) {
-        await supabase
+        await client
           .from('alert_instances')
           .update({
             status: 'resolved',

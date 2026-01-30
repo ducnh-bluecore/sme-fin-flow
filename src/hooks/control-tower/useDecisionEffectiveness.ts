@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 
 export interface EffectivenessByModule {
   decision_type: string;
@@ -26,7 +25,7 @@ export interface EffectivenessSummary {
 }
 
 export function useDecisionEffectiveness(period: '7d' | '30d' | '90d' = '30d') {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['decision-effectiveness', tenantId, period],
@@ -36,10 +35,15 @@ export function useDecisionEffectiveness(period: '7d' | '30d' | '90d' = '30d') {
       }
 
       // Fetch from effectiveness view
-      const { data, error } = await supabase
+      let query = client
         .from('v_decision_effectiveness')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching effectiveness:', error);
@@ -88,7 +92,7 @@ export function useDecisionEffectiveness(period: '7d' | '30d' | '90d' = '30d') {
         byModule,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000, // 1 minute
   });
 }
