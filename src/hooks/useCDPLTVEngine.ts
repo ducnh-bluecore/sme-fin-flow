@@ -7,7 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 // ============ TYPES ============
 
@@ -102,24 +102,27 @@ export interface LTVSummary {
  * Fetch all LTV models for the tenant
  */
 export function useLTVModels() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-models', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_ltv_model_assumptions')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('is_active', { ascending: false })
         .order('created_at', { ascending: false });
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as LTVModelAssumption[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -127,24 +130,26 @@ export function useLTVModels() {
  * Get the active LTV model
  */
 export function useActiveLTVModel() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-model-active', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_ltv_model_assumptions')
         .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('is_active', true);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
       return data as LTVModelAssumption | null;
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -152,7 +157,7 @@ export function useActiveLTVModel() {
  * Calculate LTV for all customers using the specified model
  */
 export function useLTVCalculation(modelId?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-calculation', tenantId, modelId],
@@ -168,7 +173,7 @@ export function useLTVCalculation(modelId?: string) {
       if (error) throw error;
       return (data || []) as LTVCalculation[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes - expensive calculation
   });
 }
@@ -177,24 +182,27 @@ export function useLTVCalculation(modelId?: string) {
  * Fetch LTV by cohort analysis
  */
 export function useLTVByCohort() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-by-cohort', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_ltv_by_cohort')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('cohort_month', { ascending: false })
-        .limit(24); // Last 24 months
+        .limit(24);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as LTVByCohort[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -202,23 +210,26 @@ export function useLTVByCohort() {
  * Fetch LTV by acquisition source
  */
 export function useLTVBySource() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-by-source', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_ltv_by_source')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('avg_ltv_24m', { ascending: false });
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as LTVBySource[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -226,23 +237,23 @@ export function useLTVBySource() {
  * Fetch LTV summary for dashboard
  */
 export function useLTVSummary() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-summary', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
-        .from('v_cdp_ltv_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      let query = client.from('v_cdp_ltv_summary').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
       return data as LTVSummary | null;
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -252,7 +263,7 @@ export function useLTVSummary() {
  * Used to calculate: Còn lại = Equity - Đã thu
  */
 export function useRealizedRevenue() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'realized-revenue', tenantId],
@@ -261,10 +272,11 @@ export function useRealizedRevenue() {
 
       // Get ALL actual revenue from orders (total collected from these customers)
       // Use order_at (correct column name, not order_date)
-      const { data, error } = await supabase
-        .from('cdp_orders')
-        .select('net_revenue')
-        .eq('tenant_id', tenantId);
+      let query = client.from('cdp_orders').select('net_revenue');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -277,7 +289,7 @@ export function useRealizedRevenue() {
         order_count: data?.length || 0
       };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -305,7 +317,7 @@ export interface UpdateLTVModelInput extends Partial<CreateLTVModelInput> {
  */
 export function useCreateLTVModel() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (input: CreateLTVModelInput) => {
@@ -344,7 +356,7 @@ export function useCreateLTVModel() {
  */
 export function useUpdateLTVModel() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateLTVModelInput) => {
@@ -383,7 +395,7 @@ export function useUpdateLTVModel() {
  */
 export function useDeleteLTVModel() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -409,7 +421,7 @@ export function useDeleteLTVModel() {
  */
 export function useSetActiveModel() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (modelId: string) => {

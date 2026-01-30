@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface CustomerAuditData {
   internalId: string;
@@ -26,34 +26,34 @@ export interface CustomerAuditData {
 }
 
 export function useCDPCustomerAudit(customerId: string | undefined) {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-customer-audit', tenantId, customerId],
     queryFn: async (): Promise<CustomerAuditData | null> => {
       if (!tenantId || !customerId) return null;
 
-      const { data, error } = await supabase
-        .from('v_cdp_customer_audit')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('id', customerId)
-        .maybeSingle();
+      let query = client.from('v_cdp_customer_audit').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.eq('id', customerId).maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
 
       // Get active connectors for this tenant (real data sources)
-      const { data: connectors } = await supabase
+      let connectorQuery = client
         .from('connector_integrations')
-        .select('connector_type, status, last_sync_at')
-        .eq('tenant_id', tenantId);
+        .select('connector_type, status, last_sync_at');
+      if (shouldAddTenantFilter) {
+        connectorQuery = connectorQuery.eq('tenant_id', tenantId);
+      }
+      const { data: connectors } = await connectorQuery;
 
       // Get REAL order stats per channel from cdp_orders using RPC (avoids 1000 row limit)
       const { data: channelStats } = await supabase
         .rpc('cdp_customer_channel_stats', { p_customer_id: customerId });
-
       // Build channel aggregates from RPC result
       const channelAggregates: Record<string, { orderCount: number; totalValue: number }> = {};
       (channelStats || []).forEach((stat: { channel: string; order_count: number; total_value: number }) => {
@@ -206,7 +206,7 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
         sources,
       };
     },
-    enabled: !!tenantId && !!customerId,
+    enabled: isReady && !!customerId,
     staleTime: 5 * 60 * 1000,
   });
 }

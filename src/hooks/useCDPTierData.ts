@@ -6,8 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface TierData {
   tierLabel: string;
@@ -21,7 +20,7 @@ export interface TierData {
  * Fetch tier statistics for a specific tier label
  */
 export function useCDPTierData(tierLabel: string | undefined) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'tier-data', tenantId, tierLabel],
@@ -29,13 +28,16 @@ export function useCDPTierData(tierLabel: string | undefined) {
       if (!tenantId || !tierLabel) return null;
 
       // Get customer IDs and revenue from tier membership
-      const { data: tierData, error: tierError } = await supabase
+      let tierQuery = client
         .from('cdp_value_tier_membership_daily')
         .select('customer_id, metric_value')
-        .eq('tenant_id', tenantId)
         .eq('tier_label', tierLabel)
         .eq('is_member', true)
         .eq('metric_name', 'net_revenue_365');
+      if (shouldAddTenantFilter) {
+        tierQuery = tierQuery.eq('tenant_id', tenantId);
+      }
+      const { data: tierData, error: tierError } = await tierQuery;
 
       if (tierError) {
         console.error('Error fetching tier data:', tierError);
@@ -60,11 +62,14 @@ export function useCDPTierData(tierLabel: string | undefined) {
       const totalRevenue = tierData.reduce((sum, row) => sum + (Number(row.metric_value) || 0), 0);
 
       // Get equity data for these customers
-      const { data: equityData, error: equityError } = await supabase
+      let equityQuery = client
         .from('cdp_customer_equity_computed')
         .select('equity_12m')
-        .eq('tenant_id', tenantId)
         .in('customer_id', customerIds);
+      if (shouldAddTenantFilter) {
+        equityQuery = equityQuery.eq('tenant_id', tenantId);
+      }
+      const { data: equityData, error: equityError } = await equityQuery;
 
       let estimatedEquity = 0;
       if (!equityError && equityData) {
@@ -81,7 +86,7 @@ export function useCDPTierData(tierLabel: string | undefined) {
         avgRevenuePerCustomer,
       };
     },
-    enabled: !!tenantId && !!tierLabel,
+    enabled: isReady && !!tierLabel,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -90,7 +95,7 @@ export function useCDPTierData(tierLabel: string | undefined) {
  * Fetch RFM segment statistics
  */
 export function useCDPRFMData(rfmSegment: string | undefined) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'rfm-data', tenantId, rfmSegment],
@@ -98,11 +103,14 @@ export function useCDPRFMData(rfmSegment: string | undefined) {
       if (!tenantId || !rfmSegment) return null;
 
       // Get customers with this RFM segment using raw query
-      const { data: customers, error: customerError } = await supabase
+      let customerQuery = client
         .from('cdp_customers')
         .select('id')
-        .eq('tenant_id', tenantId)
         .ilike('rfm_segment', rfmSegment);
+      if (shouldAddTenantFilter) {
+        customerQuery = customerQuery.eq('tenant_id', tenantId);
+      }
+      const { data: customers, error: customerError } = await customerQuery;
 
       if (customerError) {
         console.error('Error fetching RFM customers:', customerError);
@@ -123,11 +131,14 @@ export function useCDPRFMData(rfmSegment: string | undefined) {
       const customerCount = customerIds.length;
 
       // Get total revenue from orders for these customers
-      const { data: orderData, error: orderError } = await supabase
+      let orderQuery = client
         .from('cdp_orders')
         .select('net_revenue')
-        .eq('tenant_id', tenantId)
         .in('customer_id', customerIds);
+      if (shouldAddTenantFilter) {
+        orderQuery = orderQuery.eq('tenant_id', tenantId);
+      }
+      const { data: orderData, error: orderError } = await orderQuery;
 
       let totalRevenue = 0;
       if (!orderError && orderData) {
@@ -135,11 +146,14 @@ export function useCDPRFMData(rfmSegment: string | undefined) {
       }
 
       // Get equity data for these customers
-      const { data: equityData, error: equityError } = await supabase
+      let equityQuery = client
         .from('cdp_customer_equity_computed')
         .select('equity_12m')
-        .eq('tenant_id', tenantId)
         .in('customer_id', customerIds);
+      if (shouldAddTenantFilter) {
+        equityQuery = equityQuery.eq('tenant_id', tenantId);
+      }
+      const { data: equityData, error: equityError } = await equityQuery;
 
       let estimatedEquity = 0;
       if (!equityError && equityData) {
@@ -156,7 +170,7 @@ export function useCDPRFMData(rfmSegment: string | undefined) {
         avgRevenuePerCustomer,
       };
     },
-    enabled: !!tenantId && !!rfmSegment,
+    enabled: isReady && !!rfmSegment,
     staleTime: 5 * 60 * 1000,
   });
 }

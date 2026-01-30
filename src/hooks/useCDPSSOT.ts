@@ -12,8 +12,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useMemo } from 'react';
 import {
   CDPSSOTResult,
@@ -33,21 +32,24 @@ import {
 // ============ MAIN HOOK ============
 
 export function useCDPSSOT(): CDPSSOTResult {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   // ============ QUERY: Customer count (for data sufficiency check) ============
   const customersQuery = useQuery({
     queryKey: ['cdp-ssot-customers-count', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0 };
-      const { count, error } = await supabase
+      let query = client
         .from('cdp_customers')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
+        .select('*', { count: 'exact', head: true });
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { count, error } = await query;
       if (error) throw error;
       return { count: count || 0 };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ QUERY: Orders count (for data sufficiency check) ============
@@ -55,14 +57,17 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-orders-count', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0 };
-      const { count, error } = await supabase
+      let query = client
         .from('cdp_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
+        .select('*', { count: 'exact', head: true });
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { count, error } = await query;
       if (error) throw error;
       return { count: count || 0 };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ QUERY: Equity Overview from DB view ============
@@ -70,15 +75,15 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-equity-overview', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
-      const { data, error } = await supabase
-        .from('v_cdp_equity_overview')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      let query = client.from('v_cdp_equity_overview').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ QUERY: Equity Distribution from DB view ============
@@ -86,14 +91,15 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-equity-distribution', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('v_cdp_equity_distribution')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      let query = client.from('v_cdp_equity_distribution').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ QUERY: Equity Drivers from DB view ============
@@ -101,14 +107,15 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-equity-drivers', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('v_cdp_equity_drivers')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      let query = client.from('v_cdp_equity_drivers').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ QUERY: Insight signals from backend (NOT computed in frontend) ============
@@ -116,15 +123,15 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-insights', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('v_cdp_highlight_signals')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(20);
+      let query = client.from('v_cdp_highlight_signals').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.limit(20);
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ QUERY: Data quality from DB view ============
@@ -132,15 +139,15 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-data-quality', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
-      const { data, error } = await supabase
-        .from('v_cdp_data_quality')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      let query = client.from('v_cdp_data_quality').select('*');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // ============ DERIVED: Data Quality ============

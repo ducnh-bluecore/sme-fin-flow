@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useDemographicsData } from './useDemographicsData';
 import { useMemo } from 'react';
@@ -152,7 +151,7 @@ interface CustomerMetric {
 }
 
 export function useAudienceData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   // Fetch orders data for audience analysis
@@ -161,13 +160,16 @@ export function useAudienceData() {
     queryFn: async () => {
       if (!tenantId) return [];
       // SSOT: Query cdp_orders instead of external_orders
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_orders')
         .select('id, customer_id, channel, gross_revenue, net_revenue, cogs, gross_margin, order_at')
-        .eq('tenant_id', tenantId)
         .gte('order_at', startDateStr)
         .lte('order_at', endDateStr)
         .limit(50000);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       // Map cdp_orders to OrderData format for compatibility
       return (data || []).map(d => ({
@@ -187,7 +189,7 @@ export function useAudienceData() {
         net_profit: Number(d.gross_margin) || 0
       })) as OrderData[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Fetch channel revenue for cost data - use cdp_orders (SSOT)
@@ -195,16 +197,19 @@ export function useAudienceData() {
     queryKey: ['audience-channel-revenue', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_orders')
         .select('channel, net_revenue, order_at')
-        .eq('tenant_id', tenantId)
         .gte('order_at', startDateStr)
         .lte('order_at', endDateStr);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []).map(d => ({ ...d, net_revenue: Number(d.net_revenue) || 0 }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Calculate customer-level metrics
