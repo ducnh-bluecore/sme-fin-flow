@@ -1,7 +1,12 @@
+/**
+ * Monthly Plans Hook
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 export interface MonthlyPlan {
   id: string;
@@ -40,54 +45,64 @@ export interface MonthlyActual {
 
 // Fetch monthly plans for a scenario
 export function useMonthlyPlans(scenarioId: string | undefined, year: number) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['monthly-plans', tenantId, scenarioId, year],
     queryFn: async () => {
       if (!tenantId || !scenarioId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('scenario_monthly_plans')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('scenario_id', scenarioId)
         .eq('year', year);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as MonthlyPlan[];
     },
-    enabled: !!tenantId && !!scenarioId,
+    enabled: !!tenantId && !!scenarioId && isReady,
   });
 }
 
 // Fetch monthly actuals
 export function useMonthlyActuals(year: number) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['monthly-actuals', tenantId, year],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('scenario_monthly_actuals')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('year', year)
         .order('month', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as MonthlyActual[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Save or update monthly plan
 export function useSaveMonthlyPlan() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({
@@ -126,7 +141,7 @@ export function useSaveMonthlyPlan() {
       };
 
       // First check if exists
-      const { data: existing } = await supabase
+      const { data: existing } = await client
         .from('scenario_monthly_plans')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -138,7 +153,7 @@ export function useSaveMonthlyPlan() {
       let result;
       if (existing) {
         // Update existing
-        result = await supabase
+        result = await client
           .from('scenario_monthly_plans')
           .update(planData)
           .eq('id', existing.id)
@@ -146,7 +161,7 @@ export function useSaveMonthlyPlan() {
           .single();
       } else {
         // Insert new
-        result = await supabase
+        result = await client
           .from('scenario_monthly_plans')
           .insert(planData)
           .select()
@@ -157,7 +172,7 @@ export function useSaveMonthlyPlan() {
       return result.data;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['monthly-plans'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-plans', tenantId] });
       // Refresh any reporting views that aggregate plans (Budget vs Actual, etc.)
       queryClient.invalidateQueries({
         queryKey: ['scenario-budget-data', tenantId, variables?.scenarioId, variables?.year],
@@ -174,7 +189,7 @@ export function useSaveMonthlyPlan() {
 // Save or update monthly actual
 export function useSaveMonthlyActual() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({
@@ -202,7 +217,7 @@ export function useSaveMonthlyActual() {
       };
 
       // First check if exists
-      const { data: existing } = await supabase
+      const { data: existing } = await client
         .from('scenario_monthly_actuals')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -213,14 +228,14 @@ export function useSaveMonthlyActual() {
 
       let result;
       if (existing) {
-        result = await supabase
+        result = await client
           .from('scenario_monthly_actuals')
           .update(actualData)
           .eq('id', existing.id)
           .select()
           .single();
       } else {
-        result = await supabase
+        result = await client
           .from('scenario_monthly_actuals')
           .insert(actualData)
           .select()
@@ -231,7 +246,7 @@ export function useSaveMonthlyActual() {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monthly-actuals'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-actuals', tenantId] });
       // Budget vs Actual derives actuals directly from orders/expenses, but other pages may rely on this.
       queryClient.invalidateQueries({ queryKey: ['scenario-budget-data'] });
       toast.success('Đã lưu số liệu thực tế');

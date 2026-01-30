@@ -1,6 +1,11 @@
+/**
+ * Auto Decision Card States Hook
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ */
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenantId } from "./useActiveTenantId";
+import { useTenantSupabaseCompat } from "./useTenantSupabase";
 
 export type AutoDecisionCardStateStatus =
   | "OPEN"
@@ -25,28 +30,34 @@ export interface AutoDecisionCardState {
 }
 
 export function useAutoDecisionCardStates() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ["auto-decision-card-states", tenantId],
     queryFn: async () => {
       if (!tenantId) return [] as AutoDecisionCardState[];
-      const { data, error } = await supabase
+
+      let query = client
         .from("auto_decision_card_states")
         .select("*")
-        .eq("tenant_id", tenantId)
         .order("updated_at", { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq("tenant_id", tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as AutoDecisionCardState[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useUpsertAutoDecisionCardState() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (payload: {
@@ -61,7 +72,7 @@ export function useUpsertAutoDecisionCardState() {
     }) => {
       if (!tenantId) throw new Error("Missing tenantId");
 
-      const { error } = await supabase.from("auto_decision_card_states").upsert(
+      const { error } = await client.from("auto_decision_card_states").upsert(
         {
           tenant_id: tenantId,
           auto_card_id: payload.autoCardId,
@@ -81,7 +92,7 @@ export function useUpsertAutoDecisionCardState() {
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["auto-decision-card-states"] });
+      queryClient.invalidateQueries({ queryKey: ["auto-decision-card-states", tenantId] });
     },
   });
 }
