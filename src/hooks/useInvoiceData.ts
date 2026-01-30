@@ -1,6 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+/**
+ * useInvoiceData - Invoice management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
+import { useQuery } from '@tanstack/react-query';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { getDateRangeFromFilter, formatDateForQuery } from '@/lib/dateUtils';
 
 export interface InvoiceWithCustomer {
@@ -56,28 +61,29 @@ export interface CollectionStats {
 
 // Fetch all invoices with customer info and date range filter
 export function useInvoices(dateRange?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const range = dateRange ? getDateRangeFromFilter(dateRange) : null;
   const startDateStr = range ? formatDateForQuery(range.startDate) : undefined;
   const endDateStr = range ? formatDateForQuery(range.endDate) : undefined;
 
   return useQuery({
-    // Include concrete bounds so `custom` ranges refetch correctly
     queryKey: ['invoices-all', tenantId, dateRange, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('invoices')
         .select(`
           *,
           customers (name, email, phone, address, tax_code)
         `)
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
-      // Apply date filter if provided
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
       if (startDateStr && endDateStr) {
         query = query.gte('issue_date', startDateStr).lte('issue_date', endDateStr);
       }
@@ -88,47 +94,57 @@ export function useInvoices(dateRange?: string) {
       return data as InvoiceWithCustomer[];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch single invoice with full details - OPTIMIZED with parallel queries
 export function useInvoiceDetail(invoiceId: string | undefined) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['invoice-detail', tenantId, invoiceId],
     queryFn: async () => {
       if (!invoiceId || !tenantId) return null;
 
-      // Fetch all data in parallel for better performance
+      // Build individual queries with tenant filter if needed
+      let invoiceQuery = client
+        .from('invoices')
+        .select(`
+          *,
+          customers (id, name, email, phone, address, tax_code)
+        `)
+        .eq('id', invoiceId);
+
+      let itemsQuery = client
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .order('created_at', { ascending: true });
+
+      let paymentsQuery = client
+        .from('payments')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .order('payment_date', { ascending: false });
+
+      let promotionsQuery = client
+        .from('invoice_promotions')
+        .select('*')
+        .eq('invoice_id', invoiceId);
+
+      if (shouldAddTenantFilter) {
+        invoiceQuery = invoiceQuery.eq('tenant_id', tenantId);
+        itemsQuery = itemsQuery.eq('tenant_id', tenantId);
+        paymentsQuery = paymentsQuery.eq('tenant_id', tenantId);
+        promotionsQuery = promotionsQuery.eq('tenant_id', tenantId);
+      }
+
       const [invoiceResult, itemsResult, paymentsResult, promotionsResult] = await Promise.all([
-        supabase
-          .from('invoices')
-          .select(`
-            *,
-            customers (id, name, email, phone, address, tax_code)
-          `)
-          .eq('id', invoiceId)
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        supabase
-          .from('invoice_items')
-          .select('*')
-          .eq('invoice_id', invoiceId)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('payments')
-          .select('*')
-          .eq('invoice_id', invoiceId)
-          .eq('tenant_id', tenantId)
-          .order('payment_date', { ascending: false }),
-        supabase
-          .from('invoice_promotions')
-          .select('*')
-          .eq('invoice_id', invoiceId)
-          .eq('tenant_id', tenantId)
+        invoiceQuery.maybeSingle(),
+        itemsQuery,
+        paymentsQuery,
+        promotionsQuery
       ]);
 
       if (invoiceResult.error) throw invoiceResult.error;
@@ -146,7 +162,7 @@ export function useInvoiceDetail(invoiceId: string | undefined) {
       };
     },
     staleTime: 30000,
-    enabled: !!invoiceId && !!tenantId,
+    enabled: !!invoiceId && !!tenantId && isReady,
   });
 }
 

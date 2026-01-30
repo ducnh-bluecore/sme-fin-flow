@@ -1,6 +1,11 @@
+/**
+ * useConnectorIntegrations - Connector integration management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 import { Database, Json } from '@/integrations/supabase/types';
 
@@ -17,7 +22,7 @@ export interface CreateIntegrationParams {
 }
 
 export function useConnectorIntegrations() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   const integrationsQuery = useQuery({
@@ -25,25 +30,30 @@ export function useConnectorIntegrations() {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('connector_integrations')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as ConnectorIntegration[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const createIntegration = useMutation({
     mutationFn: async (params: CreateIntegrationParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data: user } = await supabase.auth.getUser();
+      const { data: user } = await client.auth.getUser();
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('connector_integrations')
         .insert([{
           tenant_id: tenantId,
@@ -79,7 +89,7 @@ export function useConnectorIntegrations() {
       id: string; 
       updates: Partial<ConnectorIntegration> 
     }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('connector_integrations')
         .update(updates)
         .eq('id', id)
@@ -100,7 +110,7 @@ export function useConnectorIntegrations() {
 
   const deleteIntegration = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('connector_integrations')
         .delete()
         .eq('id', id);
@@ -118,8 +128,7 @@ export function useConnectorIntegrations() {
 
   const syncIntegration = useMutation({
     mutationFn: async (integrationId: string) => {
-      // Fetch integration to determine which sync path to use
-      const { data: integration, error: integrationError } = await supabase
+      const { data: integration, error: integrationError } = await client
         .from('connector_integrations')
         .select('id, connector_type')
         .eq('id', integrationId)
@@ -127,13 +136,11 @@ export function useConnectorIntegrations() {
 
       if (integrationError) throw integrationError;
 
-      // BigQuery syncing requires service account key (kept in BigQuery panel), so don’t call sync-connector
       if (integration?.connector_type === 'bigquery') {
-        throw new Error('BigQuery: vui lòng đồng bộ trong phần “Data Warehouse” (cần Service Account Key).');
+        throw new Error('BigQuery: vui lòng đồng bộ trong phần "Data Warehouse" (cần Service Account Key).');
       }
 
-      // Call backend function to sync
-      const { data, error } = await supabase.functions.invoke('sync-connector', {
+      const { data, error } = await client.functions.invoke('sync-connector', {
         body: {
           integration_id: integrationId,
           sync_type: 'full',
