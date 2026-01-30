@@ -1,14 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
-import { toast } from 'sonner';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-
 /**
  * Variance Analysis Hook - Refactored
- * Now uses scenario_monthly_plans as the source of budget data
- * instead of the separate budgets table.
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Uses scenario_monthly_plans as the source of budget data.
  */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { toast } from 'sonner';
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 
 export interface VarianceItem {
   id: string;
@@ -54,17 +54,25 @@ export interface VarianceSummary {
 }
 
 export function useVarianceAnalysis(periodType: 'monthly' | 'quarterly' = 'monthly') {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['variance-analysis', tenantId, periodType],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!tenantId) return [];
+
+      let query = client
         .from('variance_analysis')
         .select('*')
         .eq('period_type', periodType)
         .order('analysis_period', { ascending: false })
         .order('is_significant', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       
       if (error) throw error;
       // Map data to handle JSON fields properly
@@ -73,7 +81,7 @@ export function useVarianceAnalysis(periodType: 'monthly' | 'quarterly' = 'month
         variance_drivers: (item.variance_drivers as unknown as VarianceDriver[]) || [],
       })) as VarianceItem[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -158,7 +166,7 @@ interface PlanRow {
 
 export function useGenerateVarianceAnalysis() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async (periodDate?: Date) => {
@@ -178,12 +186,17 @@ export function useGenerateVarianceAnalysis() {
       const priorYearEnd = endOfMonth(subMonths(targetDate, 12));
       
       // Get primary scenario for budget data
-      const { data: scenarios } = await supabase
+      let scenarioQuery = client
         .from('scenarios')
         .select('id')
-        .eq('tenant_id', tenantId)
         .eq('is_primary', true)
         .limit(1);
+
+      if (shouldAddTenantFilter) {
+        scenarioQuery = scenarioQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: scenarios } = await scenarioQuery;
       
       const primaryScenarioId = scenarios?.[0]?.id;
       
@@ -192,7 +205,7 @@ export function useGenerateVarianceAnalysis() {
       let opexBudget = 0;
       
       if (primaryScenarioId) {
-        const { data: plans } = await supabase
+        const { data: plans } = await client
           .from('scenario_monthly_plans')
           .select('*')
           .eq('scenario_id', primaryScenarioId)
@@ -207,51 +220,67 @@ export function useGenerateVarianceAnalysis() {
         opexBudget = opexPlan ? Number(opexPlan[monthKey]) || 0 : 0;
       }
       
-      // Get actual revenue from cdp_orders (SSOT)
-      const { data: orders } = await supabase
+      // Build queries with conditional tenant filtering
+      let ordersQuery = client
         .from('cdp_orders')
         .select('gross_revenue')
-        .eq('tenant_id', tenantId)
         .gte('order_at', format(periodStart, 'yyyy-MM-dd'))
         .lte('order_at', format(periodEnd, 'yyyy-MM-dd'));
-      
-      // Get actual expenses
-      const { data: expenses } = await supabase
+
+      let expensesQuery = client
         .from('expenses')
         .select('amount, category')
-        .eq('tenant_id', tenantId)
         .gte('expense_date', format(periodStart, 'yyyy-MM-dd'))
         .lte('expense_date', format(periodEnd, 'yyyy-MM-dd'));
-      
-      // Prior period data
-      const { data: priorOrders } = await supabase
+
+      let priorOrdersQuery = client
         .from('cdp_orders')
         .select('gross_revenue')
-        .eq('tenant_id', tenantId)
         .gte('order_at', format(priorPeriodStart, 'yyyy-MM-dd'))
         .lte('order_at', format(priorPeriodEnd, 'yyyy-MM-dd'));
-      
-      const { data: priorExpenses } = await supabase
+
+      let priorExpensesQuery = client
         .from('expenses')
         .select('amount')
-        .eq('tenant_id', tenantId)
         .gte('expense_date', format(priorPeriodStart, 'yyyy-MM-dd'))
         .lte('expense_date', format(priorPeriodEnd, 'yyyy-MM-dd'));
-      
-      // Prior year data
-      const { data: pyOrders } = await supabase
+
+      let pyOrdersQuery = client
         .from('cdp_orders')
         .select('gross_revenue')
-        .eq('tenant_id', tenantId)
         .gte('order_at', format(priorYearStart, 'yyyy-MM-dd'))
         .lte('order_at', format(priorYearEnd, 'yyyy-MM-dd'));
-      
-      const { data: pyExpenses } = await supabase
+
+      let pyExpensesQuery = client
         .from('expenses')
         .select('amount')
-        .eq('tenant_id', tenantId)
         .gte('expense_date', format(priorYearStart, 'yyyy-MM-dd'))
         .lte('expense_date', format(priorYearEnd, 'yyyy-MM-dd'));
+
+      if (shouldAddTenantFilter) {
+        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
+        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
+        priorOrdersQuery = priorOrdersQuery.eq('tenant_id', tenantId);
+        priorExpensesQuery = priorExpensesQuery.eq('tenant_id', tenantId);
+        pyOrdersQuery = pyOrdersQuery.eq('tenant_id', tenantId);
+        pyExpensesQuery = pyExpensesQuery.eq('tenant_id', tenantId);
+      }
+
+      const [
+        { data: orders },
+        { data: expenses },
+        { data: priorOrders },
+        { data: priorExpenses },
+        { data: pyOrders },
+        { data: pyExpenses },
+      ] = await Promise.all([
+        ordersQuery,
+        expensesQuery,
+        priorOrdersQuery,
+        priorExpensesQuery,
+        pyOrdersQuery,
+        pyExpensesQuery,
+      ]);
       
       // Calculate totals
       const actualRevenue = orders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
@@ -314,7 +343,7 @@ export function useGenerateVarianceAnalysis() {
       }));
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase
+      const { error } = await client
         .from('variance_analysis')
         .upsert(insertData as any, {
           onConflict: 'tenant_id,analysis_period,period_type,category,subcategory,channel',
@@ -385,10 +414,11 @@ function generateVarianceDrivers(category: string, actual: number, budget: numbe
 
 export function useUpdateVarianceAction() {
   const queryClient = useQueryClient();
+  const { client, tenantId } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async ({ id, actionTaken }: { id: string; actionTaken: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('variance_analysis')
         .update({ 
           action_taken: actionTaken,
@@ -402,7 +432,7 @@ export function useUpdateVarianceAction() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['variance-analysis'] });
+      queryClient.invalidateQueries({ queryKey: ['variance-analysis', tenantId] });
       toast.success('Đã cập nhật hành động');
     },
     onError: (error) => {
