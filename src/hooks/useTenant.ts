@@ -155,38 +155,44 @@ export function useCreateTenant() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  };
+
   return useMutation({
     mutationFn: async (data: { name: string; slug?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const slug = data.slug || generateSlug(data.name);
 
-      // Create tenant
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .insert({
-          name: data.name,
-          slug,
-        })
-        .select()
-        .single();
+      // Use backend function to avoid RLS issues when creating the very first tenant
+      const response = await supabase.functions.invoke('create-tenant-self', {
+        body: { name: data.name, slug },
+      });
 
-      if (tenantError) throw tenantError;
+      if (response.error) {
+        throw new Error(response.error.message || 'Lỗi khi tạo công ty');
+      }
 
-      // Add user as owner
-      const { error: memberError } = await supabase
-        .from('tenant_users')
-        .insert({
-          tenant_id: tenant.id,
-          user_id: user.id,
-          role: 'owner',
-          joined_at: new Date().toISOString(),
-        });
+      if ((response.data as any)?.error) {
+        throw new Error((response.data as any).error);
+      }
 
-      if (memberError) throw memberError;
+      const tenant = (response.data as any)?.tenant as Tenant | undefined;
+      if (!tenant?.id) {
+        throw new Error('Không nhận được dữ liệu công ty sau khi tạo');
+      }
 
-      return tenant as Tenant;
+      return tenant;
     },
     onSuccess: (tenant) => {
       queryClient.invalidateQueries({ queryKey: ['user-tenants'] });
