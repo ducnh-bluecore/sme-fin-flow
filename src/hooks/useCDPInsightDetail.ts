@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import type { Json } from '@/integrations/supabase/types';
+
 // Types matching v_cdp_insight_detail view
 export interface InsightDriver {
   name: string;
@@ -53,22 +53,25 @@ export interface InsightDetailData {
 
 // Hook for insight detail
 export function useCDPInsightDetail(insightCode: string | undefined) {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-insight-detail', tenantId, insightCode],
     queryFn: async (): Promise<InsightDetailData | null> => {
       if (!tenantId || !insightCode) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_insight_detail')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('code', insightCode)
         .order('detected_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching insight detail:', error);
@@ -142,14 +145,14 @@ export function useCDPInsightDetail(insightCode: string | undefined) {
         action_owner: data.action_owner || 'CEO',
       };
     },
-    enabled: !!tenantId && !!insightCode,
+    enabled: !!tenantId && !!insightCode && isReady,
     staleTime: 2 * 60 * 1000,
   });
 }
 
 // Hook to create decision card from insight
 export function useCreateDecisionFromInsight() {
-  const { data: currentTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -164,13 +167,13 @@ export function useCreateDecisionFromInsight() {
       title: string;
       summary: string;
     }) => {
-      if (!currentTenant?.id) throw new Error('No tenant');
+      if (!tenantId) throw new Error('No tenant');
 
       // Create decision card
-      const { data: card, error: cardError } = await supabase
+      const { data: card, error: cardError } = await client
         .from('cdp_decision_cards')
-        .insert({
-          tenant_id: currentTenant.id,
+        .insert([{
+          tenant_id: tenantId,
           source_type: 'INSIGHT_EVENT',
           source_ref: { insight_event_id: insightEventId, insight_code: insightCode },
           title,
@@ -180,21 +183,21 @@ export function useCreateDecisionFromInsight() {
           severity: 'HIGH',
           priority: 'P1',
           owner_role: 'CEO',
-        })
+        }])
         .select('id')
         .single();
 
       if (cardError) throw cardError;
 
       // Create link
-      const { error: linkError } = await supabase
+      const { error: linkError } = await client
         .from('cdp_decision_insight_links')
-        .insert({
-          tenant_id: currentTenant.id,
+        .insert([{
+          tenant_id: tenantId,
           decision_id: card.id,
           insight_event_id: insightEventId,
           link_type: 'PRIMARY',
-        });
+        }]);
 
       if (linkError) throw linkError;
 

@@ -9,8 +9,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 
@@ -113,24 +112,29 @@ export function useDashboardKPIs() {
 
 // Fetch Cash Forecasts - Still uses direct query (acceptable for operational data)
 export function useCashForecasts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cash-forecasts', tenantId],
     queryFn: async (): Promise<CashForecast[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('cash_forecasts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('forecast_date', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       
       if (error) throw error;
       return data || [];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -142,7 +146,7 @@ export { useActiveAlertsCount as useAlerts } from './useNotificationCenter';
  * Note: This still uses direct query but is for operational list, not metrics
  */
 export function useOverdueInvoices(limit?: number) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const today = new Date().toISOString().split('T')[0];
 
   return useQuery({
@@ -150,7 +154,7 @@ export function useOverdueInvoices(limit?: number) {
     queryFn: async (): Promise<InvoiceWithCustomer[]> => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('invoices')
         .select(`
           id,
@@ -163,10 +167,13 @@ export function useOverdueInvoices(limit?: number) {
           status,
           customers (name)
         `)
-        .eq('tenant_id', tenantId)
         .neq('status', 'paid')
         .or(`status.eq.overdue,due_date.lt.${today}`)
         .order('due_date', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
       
       if (limit) {
         query = query.limit(limit);
@@ -178,7 +185,7 @@ export function useOverdueInvoices(limit?: number) {
       return data || [];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -206,23 +213,28 @@ export function useARAgingData() {
 
 // Fetch Scenarios - Kept as-is (not a metrics hook)
 export function useScenarios() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['scenarios', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('scenarios')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       
       if (error) throw error;
       return data || [];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }

@@ -4,9 +4,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 import type { SalesChannel, AlertGroup } from './useIntelligentAlertRules';
 
 interface AlertRuleTemplate {
@@ -1012,7 +1011,7 @@ export const defaultAlertRuleTemplates: AlertRuleTemplate[] = [
 // ========== HOOKS ==========
 
 export function useSeedAlertRules() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -1038,7 +1037,7 @@ export function useSeedAlertRules() {
         cooldown_hours: 4,
       }));
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('intelligent_alert_rules')
         .upsert(rulesToInsert, { 
           onConflict: 'tenant_id,rule_code',
@@ -1060,8 +1059,6 @@ export function useSeedAlertRules() {
 }
 
 export function useAlertRuleStats() {
-  const { data: tenantId } = useActiveTenantId();
-
   return {
     getStatsByChannel: (rules: any[], channel: SalesChannel) => {
       const filtered = rules.filter(r => 

@@ -11,8 +11,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 // Types matching v_alerts_pending_escalation view
@@ -52,23 +51,28 @@ export interface AlertEscalation {
  * Fetch alerts with their escalation status from DB view
  */
 export function useAlertsEscalationStatus() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: alerts, isLoading, error, refetch } = useQuery({
     queryKey: ['alerts-escalation-status', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_alerts_pending_escalation')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('age_hours', { ascending: false });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as AlertEscalationStatus[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     refetchInterval: 60 * 1000, // Refetch every minute for escalation checks
   });
 
@@ -98,18 +102,21 @@ export function useAlertsEscalationStatus() {
  * Fetch escalation history
  */
 export function useEscalationHistory(alertId?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: escalations, isLoading } = useQuery({
     queryKey: ['escalation-history', tenantId, alertId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('alert_escalations')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('escalated_at', { ascending: false });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (alertId) {
         query = query.eq('alert_id', alertId);
@@ -119,7 +126,7 @@ export function useEscalationHistory(alertId?: string) {
       if (error) throw error;
       return (data || []) as AlertEscalation[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   return { escalations: escalations || [], isLoading };
@@ -130,11 +137,11 @@ export function useEscalationHistory(alertId?: string) {
  */
 export function useTriggerEscalationCheck() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('auto_escalate_alerts');
+      const { error } = await client.rpc('auto_escalate_alerts');
       if (error) throw error;
     },
     onSuccess: () => {
@@ -153,11 +160,11 @@ export function useTriggerEscalationCheck() {
  */
 export function useAcknowledgeEscalation() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (escalationId: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_escalations')
         .update({ resolution_status: 'acknowledged' })
         .eq('id', escalationId);
@@ -180,11 +187,11 @@ export function useAcknowledgeEscalation() {
  */
 export function useResolveEscalation() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ escalationId, notes }: { escalationId: string; notes?: string }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_escalations')
         .update({ 
           resolution_status: 'resolved',
