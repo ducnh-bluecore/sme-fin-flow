@@ -11,8 +11,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from './useTenant';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface ConsistencyCheck {
   id: string;
@@ -143,9 +142,44 @@ const CROSS_SCREEN_CHECKS = [
   },
 ];
 
-async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsistencyResult> {
+async function runConsistencyChecks(
+  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
+  tenantId: string,
+  shouldAddTenantFilter: boolean
+): Promise<CrossScreenConsistencyResult> {
   const checks: ConsistencyCheck[] = [];
   const now = new Date();
+
+  // Build queries with optional tenant filter
+  let snapshotQuery = client
+    .from('central_metrics_snapshots')
+    .select('dso, dio, dpo, ccc, gross_margin_percent, net_revenue')
+    .order('snapshot_at', { ascending: false })
+    .limit(1);
+
+  let kpiCacheQuery = client
+    .from('dashboard_kpi_cache')
+    .select('net_revenue, total_cogs, cash_today, gross_margin');
+
+  let financeSummaryQuery = client
+    .from('v_fdp_finance_summary')
+    .select('net_revenue, total_cogs');
+
+  let channelTotalQuery = client
+    .from('v_channel_analytics_total')
+    .select('net_revenue');
+
+  let bankAccountsQuery = client
+    .from('bank_accounts')
+    .select('current_balance');
+
+  if (shouldAddTenantFilter) {
+    snapshotQuery = snapshotQuery.eq('tenant_id', tenantId);
+    kpiCacheQuery = kpiCacheQuery.eq('tenant_id', tenantId);
+    financeSummaryQuery = financeSummaryQuery.eq('tenant_id', tenantId);
+    channelTotalQuery = channelTotalQuery.eq('tenant_id', tenantId);
+    bankAccountsQuery = bankAccountsQuery.eq('tenant_id', tenantId);
+  }
 
   // Fetch all required data sources in parallel
   const [
@@ -155,33 +189,11 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
     channelTotalResult,
     bankAccountsResult,
   ] = await Promise.all([
-    supabase
-      .from('central_metrics_snapshots')
-      .select('dso, dio, dpo, ccc, gross_margin_percent, net_revenue')
-      .eq('tenant_id', tenantId)
-      .order('snapshot_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('dashboard_kpi_cache')
-      .select('net_revenue, total_cogs, cash_today, gross_margin')
-      .eq('tenant_id', tenantId)
-      .maybeSingle(),
-    supabase
-      .from('v_fdp_finance_summary')
-      .select('net_revenue, total_cogs')
-      .eq('tenant_id', tenantId)
-      .maybeSingle(),
-    // Use v_channel_analytics_total (aggregated) instead of individual channel rows
-    supabase
-      .from('v_channel_analytics_total')
-      .select('net_revenue')
-      .eq('tenant_id', tenantId)
-      .maybeSingle(),
-    supabase
-      .from('bank_accounts')
-      .select('current_balance')
-      .eq('tenant_id', tenantId),
+    snapshotQuery.maybeSingle(),
+    kpiCacheQuery.maybeSingle(),
+    financeSummaryQuery.maybeSingle(),
+    channelTotalQuery.maybeSingle(),
+    bankAccountsQuery,
   ]);
 
   const snapshot = snapshotResult.data;
@@ -302,13 +314,12 @@ async function runConsistencyChecks(tenantId: string): Promise<CrossScreenConsis
 }
 
 export function useFDPCrossScreenConsistency() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['fdp-cross-screen-consistency', tenantId],
-    queryFn: () => runConsistencyChecks(tenantId!),
-    enabled: !!tenantId,
+    queryFn: () => runConsistencyChecks(client, tenantId!, shouldAddTenantFilter),
+    enabled: !!tenantId && isReady,
     refetchInterval: 60000, // Auto-refresh every minute
     staleTime: 30000,
   });

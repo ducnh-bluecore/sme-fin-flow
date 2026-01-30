@@ -16,8 +16,7 @@
 
 /* eslint-disable no-restricted-syntax */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { toast } from 'sonner';
 
@@ -113,15 +112,15 @@ function mapOrderStatus(status: string | null, deliveredAt: string | null, cance
 
 // Fetch e-commerce orders from external_orders
 export function useEcommerceOrders() {
-  const { data: tenantId } = useActiveTenantId();
-  const { startDate, endDate, startDateStr, endDateStr } = useDateRangeForQuery();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
     queryKey: ['ecommerce-orders-reconciliation', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('external_orders')
         .select(`
           id,
@@ -146,11 +145,16 @@ export function useEcommerceOrders() {
           fulfillment_status,
           shipping_fee
         `)
-        .eq('tenant_id', tenantId)
         .gte('order_date', startDateStr)
         .lte('order_date', endDateStr)
         .order('order_date', { ascending: false })
         .limit(50000);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -218,13 +222,13 @@ export function useEcommerceOrders() {
       return orders;
     },
     staleTime: 60000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Transform external_orders to ShippingOrder format (for COD orders)
 export function useShippingOrders() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -232,7 +236,7 @@ export function useShippingOrders() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('external_orders')
         .select(`
           id,
@@ -255,12 +259,17 @@ export function useShippingOrders() {
           payment_status,
           fulfillment_status
         `)
-        .eq('tenant_id', tenantId)
         .eq('payment_method', 'cod')
         .gte('order_date', startDateStr)
         .lte('order_date', endDateStr)
         .order('order_date', { ascending: false })
         .limit(50000);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -316,20 +325,20 @@ export function useShippingOrders() {
       return orders;
     },
     staleTime: 60000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch channel settlements
 export function useChannelSettlements() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['channel-settlements', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('channel_settlements')
         .select(`
           id,
@@ -350,9 +359,14 @@ export function useChannelSettlements() {
             connector_type
           )
         `)
-        .eq('tenant_id', tenantId)
         .order('period_end', { ascending: false })
         .limit(50);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -379,20 +393,21 @@ export function useChannelSettlements() {
       return settlements;
     },
     staleTime: 60000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Mark orders as reconciled
 export function useMarkOrderReconciled() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ orderIds, type }: { orderIds: string[]; type: 'ecommerce' | 'shipping' }) => {
       // Update payment_status to 'paid' for the orders
-      const { error } = await supabase
+      const { error } = await client
         .from('external_orders')
-        .update({ 
+        .update({
           payment_status: 'paid',
           updated_at: new Date().toISOString()
         })
@@ -416,12 +431,13 @@ export function useMarkOrderReconciled() {
 // Mark settlement as reconciled
 export function useMarkSettlementReconciled() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ settlementId, varianceNotes }: { settlementId: string; varianceNotes?: string }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('channel_settlements')
-        .update({ 
+        .update({
           is_reconciled: true,
           reconciled_at: new Date().toISOString(),
           variance_notes: varianceNotes

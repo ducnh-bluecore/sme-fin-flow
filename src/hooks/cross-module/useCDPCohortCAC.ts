@@ -6,8 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -31,7 +30,7 @@ interface CACRPCResult {
 }
 
 export function useCDPCohortCAC(options: UseCDPCACOptions = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery<CrossModuleData<CACData>>({
     queryKey: ['cdp-cohort-cac', tenantId, options.cohortMonth, options.channel],
@@ -46,7 +45,7 @@ export function useCDPCohortCAC(options: UseCDPCACOptions = {}) {
       }
 
       // Use raw SQL call for new functions not in types yet
-      const { data, error } = await supabase.rpc('cdp_get_cac_for_ltv' as any, {
+      const { data, error } = await client.rpc('cdp_get_cac_for_ltv' as any, {
         p_tenant_id: tenantId,
         p_cohort_month: options.cohortMonth ?? null,
         p_channel: options.channel ?? null,
@@ -82,7 +81,7 @@ export function useCDPCohortCAC(options: UseCDPCACOptions = {}) {
         result.is_cross_module ? 'MDP' : undefined
       );
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -105,18 +104,23 @@ interface CohortCACRow {
  * Get all cohort CAC records
  */
 export function useCDPAllCohortCAC() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-all-cohort-cac', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_customer_cohort_cac' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('cohort_month', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching all cohort CAC:', error);
@@ -125,6 +129,6 @@ export function useCDPAllCohortCAC() {
 
       return (data ?? []) as unknown as CohortCACRow[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
