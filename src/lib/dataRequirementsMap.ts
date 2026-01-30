@@ -334,8 +334,8 @@ export const fdpRequirements: DataRequirement[] = [
   {
     id: 'fdp_bills',
     dataType: 'bills',
-    displayName: 'Chi phí phải trả (AP)',
-    description: 'Phí sàn, hóa đơn mua hàng = Tiền phải trả (D2C: Phí sàn = Bill)',
+    displayName: 'Phí sàn TMĐT (AP)',
+    description: 'Commission, phí vận chuyển, phí thanh toán từ sàn',
     tableName: 'bills',
     priority: 'critical',
     connectorSources: [
