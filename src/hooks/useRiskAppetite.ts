@@ -1,6 +1,12 @@
+/**
+ * useRiskAppetite - Risk Appetite Management
+ * 
+ * Refactored to Schema-per-Tenant architecture.
+ * Uses useTenantSupabaseCompat for tenant-aware queries.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 // Types
@@ -86,125 +92,137 @@ export interface EvaluationResult {
 
 // Fetch active risk appetite
 export function useActiveRiskAppetite() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['risk-appetite-active', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_active_risk_appetite')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       return data as RiskAppetite | null;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch all risk appetites
 export function useRiskAppetites() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['risk-appetites', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('risk_appetites')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('version', { ascending: false });
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.order('version', { ascending: false });
 
       if (error) throw error;
       return data as RiskAppetite[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch rules for a risk appetite
 export function useRiskAppetiteRules(appetiteId: string | null) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['risk-appetite-rules', tenantId, appetiteId],
     queryFn: async () => {
       if (!tenantId || !appetiteId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('risk_appetite_rules')
         .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('risk_appetite_id', appetiteId)
-        .order('risk_domain', { ascending: true });
+        .eq('risk_appetite_id', appetiteId);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.order('risk_domain', { ascending: true });
 
       if (error) throw error;
       return data as RiskAppetiteRule[];
     },
-    enabled: !!tenantId && !!appetiteId,
+    enabled: !!tenantId && !!appetiteId && isReady,
   });
 }
 
 // Evaluate rules against current metrics
 export function useEvaluateRiskAppetite() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['risk-appetite-evaluation', tenantId],
     queryFn: async (): Promise<EvaluationResult | null> => {
       if (!tenantId) return null;
 
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) return null;
 
-      const response = await supabase.functions.invoke('risk-appetite/evaluate', {
+      const response = await client.functions.invoke('risk-appetite/evaluate', {
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
       });
 
       if (response.error) throw new Error(response.error.message);
       return response.data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     refetchInterval: 5 * 60 * 1000, // Every 5 minutes
   });
 }
 
 // Fetch breach events
 export function useRiskBreaches(unresolved = false) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['risk-breaches', tenantId, unresolved],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) return [];
 
       const params = new URLSearchParams();
       if (unresolved) params.set('unresolved', 'true');
 
-      const response = await supabase.functions.invoke(`risk-appetite/breaches?${params}`, {
+      const response = await client.functions.invoke(`risk-appetite/breaches?${params}`, {
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
       });
 
       if (response.error) throw new Error(response.error.message);
       return (response.data?.breaches || []) as RiskBreachEvent[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Create risk appetite
 export function useCreateRiskAppetite() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (data: {
@@ -213,30 +231,41 @@ export function useCreateRiskAppetite() {
       effective_from: string;
       status?: 'draft' | 'active';
     }) => {
-      const { data: sessionData } = await supabase.auth.getSession();
+      if (!tenantId) throw new Error('No tenant selected');
+      
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) throw new Error('Not authenticated');
 
       // Get latest version
-      const { data: latest } = await supabase
+      let versionQuery = client
         .from('risk_appetites')
         .select('version')
-        .eq('tenant_id', tenantId)
         .order('version', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (shouldAddTenantFilter) {
+        versionQuery = versionQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: latest } = await versionQuery.maybeSingle();
 
       const newVersion = (latest?.version || 0) + 1;
 
       // If activating, retire existing active appetite
       if (data.status === 'active') {
-        await supabase
+        let updateQuery = client
           .from('risk_appetites')
           .update({ status: 'retired', effective_to: new Date().toISOString().split('T')[0] })
-          .eq('tenant_id', tenantId)
           .eq('status', 'active');
+
+        if (shouldAddTenantFilter) {
+          updateQuery = updateQuery.eq('tenant_id', tenantId);
+        }
+
+        await updateQuery;
       }
 
-      const { data: appetite, error } = await supabase
+      const { data: appetite, error } = await client
         .from('risk_appetites')
         .insert({
           tenant_id: tenantId,
@@ -269,23 +298,30 @@ export function useCreateRiskAppetite() {
 // Update risk appetite status (activate/retire)
 export function useUpdateRiskAppetiteStatus() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ appetiteId, status }: { appetiteId: string; status: 'active' | 'retired' }) => {
-      const { data: sessionData } = await supabase.auth.getSession();
+      if (!tenantId) throw new Error('No tenant selected');
+      
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) throw new Error('Not authenticated');
 
       if (status === 'active') {
         // Retire current active
-        await supabase
+        let retireQuery = client
           .from('risk_appetites')
           .update({ status: 'retired', effective_to: new Date().toISOString().split('T')[0] })
-          .eq('tenant_id', tenantId)
           .eq('status', 'active');
+
+        if (shouldAddTenantFilter) {
+          retireQuery = retireQuery.eq('tenant_id', tenantId);
+        }
+
+        await retireQuery;
       }
 
-      const { error } = await supabase
+      let updateQuery = client
         .from('risk_appetites')
         .update({
           status,
@@ -293,8 +329,13 @@ export function useUpdateRiskAppetiteStatus() {
           approved_at: status === 'active' ? new Date().toISOString() : null,
           effective_to: status === 'retired' ? new Date().toISOString().split('T')[0] : null,
         })
-        .eq('id', appetiteId)
-        .eq('tenant_id', tenantId);
+        .eq('id', appetiteId);
+
+      if (shouldAddTenantFilter) {
+        updateQuery = updateQuery.eq('tenant_id', tenantId);
+      }
+
+      const { error } = await updateQuery;
 
       if (error) throw error;
     },
@@ -310,11 +351,13 @@ export function useUpdateRiskAppetiteStatus() {
 // Add rule to appetite
 export function useAddRiskRule() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (rule: Omit<RiskAppetiteRule, 'id' | 'tenant_id' | 'created_at'>) => {
-      const { data, error } = await supabase
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { data, error } = await client
         .from('risk_appetite_rules')
         .insert({ ...rule, tenant_id: tenantId })
         .select()
@@ -334,13 +377,20 @@ export function useAddRiskRule() {
 // Update rule
 export function useUpdateRiskRule() {
   const queryClient = useQueryClient();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ ruleId, updates }: { ruleId: string; updates: Partial<RiskAppetiteRule> }) => {
-      const { error } = await supabase
+      let query = client
         .from('risk_appetite_rules')
         .update(updates)
         .eq('id', ruleId);
+
+      if (shouldAddTenantFilter && tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
     },
@@ -355,13 +405,20 @@ export function useUpdateRiskRule() {
 // Delete rule
 export function useDeleteRiskRule() {
   const queryClient = useQueryClient();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (ruleId: string) => {
-      const { error } = await supabase
+      let query = client
         .from('risk_appetite_rules')
         .delete()
         .eq('id', ruleId);
+
+      if (shouldAddTenantFilter && tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
     },
@@ -375,13 +432,14 @@ export function useDeleteRiskRule() {
 // Run breach detection
 export function useDetectBreaches() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) throw new Error('Not authenticated');
 
-      const response = await supabase.functions.invoke('risk-appetite/detect', {
+      const response = await client.functions.invoke('risk-appetite/detect', {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
       });
@@ -405,13 +463,14 @@ export function useDetectBreaches() {
 // Resolve breach
 export function useResolveBreach() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ breachId, notes }: { breachId: string; notes?: string }) => {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) throw new Error('Not authenticated');
 
-      const response = await supabase.functions.invoke('risk-appetite/resolve', {
+      const response = await client.functions.invoke('risk-appetite/resolve', {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
         body: { breachId, notes },
