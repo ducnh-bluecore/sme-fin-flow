@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface ChannelBudget {
@@ -41,7 +41,7 @@ export interface ChannelBudgetInput {
 const DEFAULT_CHANNELS = ['shopee', 'lazada', 'tiktok', 'facebook', 'google', 'website', 'offline'];
 
 export function useChannelBudgets(year?: number, month?: number) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   
   const currentYear = year || new Date().getFullYear();
@@ -52,18 +52,22 @@ export function useChannelBudgets(year?: number, month?: number) {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('channel_budgets')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('year', currentYear)
         .eq('month', currentMonth)
         .order('channel');
       
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await dbQuery;
       if (error) throw error;
       return (data || []) as ChannelBudget[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const upsertMutation = useMutation({

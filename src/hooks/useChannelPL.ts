@@ -14,10 +14,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
 import { startOfMonth, endOfMonth, subMonths, format, parseISO, eachMonthOfInterval } from 'date-fns';
-import { INDUSTRY_BENCHMARKS, THRESHOLD_LEVELS, getMetricStatus, MetricStatus } from '@/lib/financial-constants';
+import { INDUSTRY_BENCHMARKS, getMetricStatus, MetricStatus } from '@/lib/financial-constants';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface ChannelPLData {
   channel: string;
@@ -71,7 +70,7 @@ export interface ChannelPLSummary {
 }
 
 export function useChannelPL(channelName: string, months: number = 12) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['channel-pl', tenantId, channelName, months],
@@ -85,13 +84,18 @@ export function useChannelPL(channelName: string, months: number = 12) {
       const normalizedChannel = channelName.toLowerCase();
 
       // Fetch orders for this channel from cdp_orders (SSOT)
-      const { data: orders, error: ordersError } = await supabase
+      let ordersQuery = client
         .from('cdp_orders')
         .select('id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
-        .eq('tenant_id', tenantId)
         .ilike('channel', `%${normalizedChannel}%`)
         .gte('order_at', startDate.toISOString())
         .lte('order_at', endDate.toISOString());
+      
+      if (shouldAddTenantFilter) {
+        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: orders, error: ordersError } = await ordersQuery;
 
       if (ordersError) {
         console.error('Error fetching channel orders:', ordersError);
@@ -99,13 +103,18 @@ export function useChannelPL(channelName: string, months: number = 12) {
       }
 
       // Fetch ads expenses for this channel
-      const { data: expenses, error: expError } = await supabase
+      let expQuery = client
         .from('expenses')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('category', 'marketing')
         .gte('expense_date', startDate.toISOString())
         .lte('expense_date', endDate.toISOString());
+      
+      if (shouldAddTenantFilter) {
+        expQuery = expQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data: expenses } = await expQuery;
 
       // Filter ads related to this channel
       const channelAds = (expenses || []).filter(exp => {
@@ -251,13 +260,13 @@ export function useChannelPL(channelName: string, months: number = 12) {
         },
       };
     },
-    enabled: !!tenantId && !tenantLoading && !!channelName,
+    enabled: !!tenantId && isReady && !!channelName,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useAvailableChannels() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['available-channels', tenantId],
@@ -265,11 +274,16 @@ export function useAvailableChannels() {
       if (!tenantId) return [];
 
       // Use cdp_orders (SSOT) for channel discovery
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_orders')
         .select('channel')
-        .eq('tenant_id', tenantId)
         .not('channel', 'is', null);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching channels:', error);
@@ -280,7 +294,7 @@ export function useAvailableChannels() {
       const channels = [...new Set(data.map(d => d.channel?.toUpperCase()).filter(Boolean))];
       return channels.sort();
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 10 * 60 * 1000,
   });
 }

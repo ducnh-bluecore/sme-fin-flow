@@ -5,8 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { BaselineCategory } from './useExpenseBaselines';
 
 // =============================================================
@@ -32,18 +31,23 @@ export interface UpcomingPaymentAlert {
 // =============================================================
 
 export function useUpcomingPaymentAlerts() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['upcoming-payment-alerts', tenantId],
     queryFn: async (): Promise<UpcomingPaymentAlert[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_upcoming_payment_alerts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('days_until_due', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('[useUpcomingPaymentAlerts] Error:', error);
@@ -62,7 +66,7 @@ export function useUpcomingPaymentAlerts() {
         alertLevel: row.alert_level as AlertLevel,
       }));
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 60 * 60 * 1000, // Refresh every hour
   });

@@ -9,8 +9,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import type { PlatformAdsData } from '@/components/mdp/marketing-mode/PlatformAdsOverview';
 
 const PLATFORM_NAME_MAP: Record<string, string> = {
@@ -23,18 +22,22 @@ const PLATFORM_NAME_MAP: Record<string, string> = {
 };
 
 export function usePlatformAdsData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['platform-ads-data', tenantId],
     queryFn: async (): Promise<PlatformAdsData[]> => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('v_mdp_platform_ads_summary')
-        .select('*')
-        .eq('tenant_id', tenantId);
-        
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       
       if (!data || data.length === 0) return [];
@@ -68,7 +71,7 @@ export function usePlatformAdsData() {
         roas_trend: Number(row.roas_trend) || 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 30000, // Cache for 30 seconds
   });
 }

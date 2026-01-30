@@ -11,9 +11,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
 import { INDUSTRY_BENCHMARKS, getMetricStatus, MetricStatus } from '@/lib/financial-constants';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface ChannelPLMonthly {
   channel: string;
@@ -66,7 +65,7 @@ export interface ChannelPLSummary {
  * ✅ Uses centralized INDUSTRY_BENCHMARKS for health indicators
  */
 export function useChannelPLSSOT(channelName: string) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['channel-pl-ssot', tenantId, channelName],
@@ -76,13 +75,17 @@ export function useChannelPLSSOT(channelName: string) {
       const normalizedChannel = channelName.toUpperCase();
 
       // Fetch from precomputed view - NO CALCULATIONS
-      const { data, error } = await supabase
+      let query = client
         .from('v_channel_pl_summary' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('channel', normalizedChannel)
         .order('period', { ascending: true });
-
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       if (error) {
         console.error('[useChannelPLSSOT] Error:', error);
         return null;
@@ -169,7 +172,7 @@ export function useChannelPLSSOT(channelName: string) {
         },
       };
     },
-    enabled: !!tenantId && !tenantLoading && !!channelName,
+    enabled: !!tenantId && isReady && !!channelName,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -179,18 +182,22 @@ export function useChannelPLSSOT(channelName: string) {
  * Uses v_channel_pl_summary to get unique channels
  */
 export function useAvailableChannelsSSOT() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['available-channels-ssot', tenantId],
     queryFn: async (): Promise<string[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_channel_pl_summary' as any)
-        .select('channel')
-        .eq('tenant_id', tenantId);
-
+        .select('channel');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       if (error) {
         console.error('[useAvailableChannelsSSOT] Error:', error);
         return [];
@@ -200,7 +207,7 @@ export function useAvailableChannelsSSOT() {
       const channels = [...new Set((data || []).map((d: any) => d.channel))];
       return channels.sort();
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 10 * 60 * 1000,
   });
 }
