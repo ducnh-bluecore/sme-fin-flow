@@ -6,8 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface CEOSnapshot {
   isCreatingMoney: boolean;
@@ -28,18 +27,22 @@ export interface CEOSnapshot {
 }
 
 export function useMDPCEOSnapshot() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: snapshot, isLoading, error } = useQuery({
     queryKey: ['mdp-ceo-snapshot', tenantId],
     queryFn: async (): Promise<CEOSnapshot | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_mdp_ceo_snapshot')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('[useMDPCEOSnapshot] Query error:', error);
@@ -86,7 +89,7 @@ export function useMDPCEOSnapshot() {
         lastUpdated: data.last_updated || new Date().toISOString(),
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000, // 1 minute
   });
 
@@ -101,20 +104,25 @@ export function useMDPCEOSnapshot() {
  * Fetch scale opportunities from database view
  */
 export function useMDPScaleOpportunities() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: opportunities, isLoading, error } = useQuery({
     queryKey: ['mdp-scale-opportunities', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_mdp_scale_opportunities')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('is_scalable', true)
         .order('contribution_margin', { ascending: false })
         .limit(5);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('[useMDPScaleOpportunities] Query error:', error);
@@ -132,7 +140,7 @@ export function useMDPScaleOpportunities() {
         isScalable: Boolean(row.is_scalable),
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 

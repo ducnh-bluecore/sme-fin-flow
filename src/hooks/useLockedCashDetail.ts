@@ -10,8 +10,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export type LockType = 'inventory' | 'ads' | 'ops' | 'platform';
 export type LockStatus = 'active' | 'slow_moving' | 'pending' | 'settled' | 'pending_settlement';
@@ -41,17 +40,22 @@ export interface LockedCashSummary {
 }
 
 export function useLockedCashDetail() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['locked-cash-detail', tenantId],
     queryFn: async (): Promise<LockedCashSummary | null> => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      let query = client
         .from('v_locked_cash_detail')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       
       if (error) {
         console.error('[useLockedCashDetail] Fetch error:', error);
@@ -128,7 +132,7 @@ export function useLockedCashDetail() {
         }
       };
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
