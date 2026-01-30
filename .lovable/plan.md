@@ -70,64 +70,34 @@ File: `supabase/functions/provision-tenant-schema/index.ts`
 
 ---
 
-## Phase 3: Frontend Refactoring (Tuần 5-8)
+## 🔄 Phase 3: Frontend Refactoring (IN PROGRESS)
 
 ### 3.1 Supabase Client Wrapper ✅ (DONE)
 
-File: `src/integrations/supabase/tenantClient.ts`
+- `src/integrations/supabase/tenantClient.ts`
+- `src/hooks/useTenantSupabase.ts`
+- `src/hooks/useTenantQueryBuilder.ts` - Helper for query building
 
-### 3.2 Refactor All Hooks (185 files)
+### 3.2 FDP Hooks Refactored ✅ (DONE - 8 files)
 
-Sử dụng `useTenantSupabaseCompat()` cho backward compatibility:
+| File | Status |
+|------|--------|
+| `useFinanceTruthSnapshot.ts` | ✅ Done |
+| `usePLData.ts` | ✅ Done |
+| `useExpenseBaselines.ts` | ✅ Done |
+| `useCashFlowDirect.ts` | ✅ Done |
+| `useExpensesDaily.ts` | ✅ Done |
+| `usePLCache.ts` | ✅ Done |
 
-```typescript
-// TRƯỚC (Shared DB + RLS)
-export function useCDPOrders() {
-  const { data: tenantId } = useActiveTenantId();
-  
-  return useQuery({
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('cdp_orders')
-        .select('*')
-        .eq('tenant_id', tenantId)  // <-- RLS filter
-        .range(0, 999);
-      return data;
-    },
-    enabled: !!tenantId,
-  });
-}
-
-// SAU (Schema-per-Tenant với backward compat)
-export function useCDPOrders() {
-  const { client, isReady, shouldAddTenantFilter, tenantId } = useTenantSupabaseCompat();
-  
-  return useQuery({
-    queryFn: async () => {
-      let query = client.from('cdp_orders').select('*');
-      
-      // Only add filter if schema not provisioned (backward compat)
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data } = await query.range(0, 999);
-      return data;
-    },
-    enabled: isReady,
-  });
-}
-```
-
-### 3.3 Files cần refactor
+### 3.3 Remaining Hooks to Refactor
 
 | Module | Files | Priority |
 |--------|-------|----------|
-| CDP Hooks | 25 files | High |
-| FDP Hooks | 30 files | High |
-| Control Tower | 15 files | High |
+| FDP Hooks (remaining) | ~22 files | High |
 | MDP Hooks | 12 files | Medium |
-| Settings/Admin | 20 files | Medium |
+| CDP Hooks | 25 files | Medium |
+| Control Tower | 15 files | Medium |
+| Settings/Admin | 20 files | Low |
 | Other | 83 files | Low |
 
 ---

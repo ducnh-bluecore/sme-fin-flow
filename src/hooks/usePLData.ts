@@ -14,7 +14,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export type OpexDataSource = Record<string, 'actual' | 'estimate'>;
@@ -92,7 +92,7 @@ export interface RevenueBreakdown {
  * All calculations are performed in database RPCs/Views
  */
 export function usePLData() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -117,44 +117,54 @@ export function usePLData() {
         revenueBreakdownResult,
       ] = await Promise.all([
         // 1. Get aggregated P&L data from RPC
-        supabase.rpc('get_pl_aggregated', {
+        client.rpc('get_pl_aggregated', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
 
         // 2. Get YoY comparison from RPC
-        supabase.rpc('get_pl_comparison', {
+        client.rpc('get_pl_comparison', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
 
         // 3. Get category data from RPC
-        supabase.rpc('get_category_pl_aggregated', {
+        client.rpc('get_category_pl_aggregated', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
 
-        // 4. Get monthly data from view
-        supabase
-          .from('v_pl_monthly_summary')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .gte('year_month', startDateStr.slice(0, 7))
-          .lte('year_month', endDateStr.slice(0, 7))
-          .order('period_year', { ascending: true })
-          .order('period_month', { ascending: true }),
+        // 4. Get monthly data from view (with tenant filter if needed)
+        (async () => {
+          let query = client
+            .from('v_pl_monthly_summary')
+            .select('*');
+          if (shouldAddTenantFilter) {
+            query = query.eq('tenant_id', tenantId);
+          }
+          return query
+            .gte('year_month', startDateStr.slice(0, 7))
+            .lte('year_month', endDateStr.slice(0, 7))
+            .order('period_year', { ascending: true })
+            .order('period_month', { ascending: true });
+        })(),
 
-        // 5. Get revenue breakdown from cache
-        supabase
-          .from('pl_report_cache')
-          .select('invoice_revenue, contract_revenue, integrated_revenue, net_sales, opex_salaries, opex_rent, opex_utilities, opex_marketing, opex_depreciation, opex_insurance, opex_supplies, opex_maintenance, opex_professional, opex_other, sales_returns, sales_discounts, other_income, interest_expense, income_before_tax, income_tax')
-          .eq('tenant_id', tenantId)
-          .not('period_month', 'is', null)
-          .gte('period_year', parseInt(startDateStr.slice(0, 4)))
-          .lte('period_year', parseInt(endDateStr.slice(0, 4))),
+        // 5. Get revenue breakdown from cache (with tenant filter if needed)
+        (async () => {
+          let query = client
+            .from('pl_report_cache')
+            .select('invoice_revenue, contract_revenue, integrated_revenue, net_sales, opex_salaries, opex_rent, opex_utilities, opex_marketing, opex_depreciation, opex_insurance, opex_supplies, opex_maintenance, opex_professional, opex_other, sales_returns, sales_discounts, other_income, interest_expense, income_before_tax, income_tax');
+          if (shouldAddTenantFilter) {
+            query = query.eq('tenant_id', tenantId);
+          }
+          return query
+            .not('period_month', 'is', null)
+            .gte('period_year', parseInt(startDateStr.slice(0, 4)))
+            .lte('period_year', parseInt(endDateStr.slice(0, 4)));
+        })(),
       ]);
 
       // Handle errors
@@ -283,7 +293,7 @@ export function usePLData() {
         revenueBreakdown,
       };
     },
-    enabled: !tenantLoading && !!tenantId,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

@@ -7,6 +7,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
 import { useMemo } from 'react';
@@ -97,7 +98,7 @@ function mapToBaseline(row: Record<string, unknown>): ExpenseBaseline {
 // =============================================================
 
 export function useExpenseBaselines() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const today = new Date().toISOString().split('T')[0];
 
   const query = useQuery({
@@ -105,10 +106,15 @@ export function useExpenseBaselines() {
     queryFn: async (): Promise<ExpenseBaseline[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('expense_baselines')
-        .select('*')
-        .eq('tenant_id', tenantId)
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await dbQuery
         .order('category', { ascending: true })
         .order('name', { ascending: true });
 
@@ -119,7 +125,7 @@ export function useExpenseBaselines() {
 
       return (data || []).map(mapToBaseline);
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 

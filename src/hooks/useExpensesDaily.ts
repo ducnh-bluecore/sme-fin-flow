@@ -13,7 +13,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 // =============================================================
@@ -86,7 +86,7 @@ interface UseExpensesDailyOptions {
 }
 
 export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const { days = 30 } = options;
   
@@ -96,7 +96,7 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
       if (!tenantId) return [];
       
       // Try RPC first (preferred)
-      const { data: rpcData, error: rpcError } = await supabase
+      const { data: rpcData, error: rpcError } = await client
         .rpc('get_expenses_daily', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
@@ -108,10 +108,15 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
       }
       
       // Fallback to direct table query
-      const { data, error } = await supabase
+      let query = client
         .from('finance_expenses_daily')
-        .select('*')
-        .eq('tenant_id', tenantId)
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query
         .gte('day', startDateStr)
         .lte('day', endDateStr)
         .order('day', { ascending: false })
@@ -127,7 +132,7 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
       // Map to formatted shape - NO CALCULATIONS
       return data.map(mapToFormatted);
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
@@ -141,7 +146,7 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
  * Get expenses summary for period from precomputed data
  */
 export function useExpensesSummary() {
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const { data: dailyData } = useExpensesDaily({ days: 365 });
   

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
 import { useCashRunway } from './useCashRunway';
@@ -65,17 +66,20 @@ export interface CashFlowSummary {
 }
 
 export const useCashFlowDirect = (periodType?: string) => {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cash-flow-direct', tenantId, periodType],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('cash_flow_direct' as any)
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (periodType) {
         query = query.eq('period_type', periodType);
@@ -86,7 +90,7 @@ export const useCashFlowDirect = (periodType?: string) => {
       if (error) throw error;
       return (data as unknown) as CashFlowDirect[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 };
 

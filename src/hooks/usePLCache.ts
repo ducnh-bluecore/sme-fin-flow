@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useActiveTenantId } from './useActiveTenantId';
 import { PLData, MonthlyPLData, ComparisonData, RevenueBreakdown } from './usePLData';
 
@@ -69,7 +70,7 @@ export interface PLReportCache {
 const CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
 export function usePLCache(year: number = new Date().getFullYear(), month?: number) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -77,11 +78,15 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
     queryFn: async (): Promise<PLReportCache | null> => {
       if (!tenantId) return null;
 
-      let queryBuilder = supabase
+      let queryBuilder = client
         .from('pl_report_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('period_year', year);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        queryBuilder = queryBuilder.eq('tenant_id', tenantId);
+      }
+      
+      queryBuilder = queryBuilder.eq('period_year', year);
 
       if (month !== undefined) {
         queryBuilder = queryBuilder.eq('period_month', month).eq('period_type', 'monthly');
@@ -122,7 +127,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
 
       return data as PLReportCache | null;
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 30000,
     gcTime: 5 * 60 * 1000,
   });
