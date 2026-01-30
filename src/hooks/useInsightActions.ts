@@ -9,8 +9,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 interface DismissInsightParams {
@@ -30,13 +29,13 @@ interface ReactivateInsightParams {
 
 export function useDismissInsight() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ insightEventId, reason }: DismissInsightParams) => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await supabase.rpc('dismiss_insight', {
+      const { data, error } = await client.rpc('dismiss_insight', {
         p_tenant_id: tenantId,
         p_insight_event_id: insightEventId,
         p_reason: reason || null,
@@ -61,13 +60,13 @@ export function useDismissInsight() {
 
 export function useSnoozeInsight() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ insightEventId, snoozeDays = 7, reason }: SnoozeInsightParams) => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await supabase.rpc('snooze_insight', {
+      const { data, error } = await client.rpc('snooze_insight', {
         p_tenant_id: tenantId,
         p_insight_event_id: insightEventId,
         p_snooze_days: snoozeDays,
@@ -93,13 +92,13 @@ export function useSnoozeInsight() {
 
 export function useReactivateInsight() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ insightEventId }: ReactivateInsightParams) => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await supabase.rpc('reactivate_insight', {
+      const { data, error } = await client.rpc('reactivate_insight', {
         p_tenant_id: tenantId,
         p_insight_event_id: insightEventId,
       });

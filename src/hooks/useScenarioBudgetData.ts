@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 /**
  * Scenario Budget Data Hook
@@ -101,7 +100,7 @@ interface PlanRow {
 }
 
 export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const year = targetYear || new Date().getFullYear();
 
   return useQuery({
@@ -112,11 +111,16 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       }
 
       // Fetch scenarios
-      const { data: scenarios } = await supabase
+      let scenarioQuery = client
         .from('scenarios')
         .select('id, name, is_primary')
-        .eq('tenant_id', tenantId)
         .order('is_primary', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        scenarioQuery = scenarioQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: scenarios } = await scenarioQuery;
 
       const scenarioList = scenarios || [];
       
@@ -132,7 +136,7 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
 
       // Fetch monthly plans for the active scenario
       // Schema: metric_type = 'revenue' | 'opex' | 'ebitda', month_1 to month_12
-      const { data: plans } = await supabase
+      const { data: plans } = await client
         .from('scenario_monthly_plans')
         .select('*')
         .eq('scenario_id', activeScenario.id)
@@ -151,20 +155,24 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
 
       // SSOT: Query cdp_orders instead of external_orders
       // cdp_orders only contains delivered orders, no status filter needed
-      const [ordersRes, expensesRes] = await Promise.all([
-        supabase
-          .from('cdp_orders')
-          .select('gross_revenue, order_at')
-          .eq('tenant_id', tenantId)
-          .gte('order_at', startOfYear)
-          .lte('order_at', endOfYear),
-        supabase
-          .from('expenses')
-          .select('amount, expense_date')
-          .eq('tenant_id', tenantId)
-          .gte('expense_date', startOfYear)
-          .lte('expense_date', endOfYear)
-      ]);
+      let ordersQuery = client
+        .from('cdp_orders')
+        .select('gross_revenue, order_at')
+        .gte('order_at', startOfYear)
+        .lte('order_at', endOfYear);
+
+      let expensesQuery = client
+        .from('expenses')
+        .select('amount, expense_date')
+        .gte('expense_date', startOfYear)
+        .lte('expense_date', endOfYear);
+
+      if (shouldAddTenantFilter) {
+        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
+        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
+      }
+
+      const [ordersRes, expensesRes] = await Promise.all([ordersQuery, expensesQuery]);
 
       // Map cdp_orders to legacy format for compatibility
       const rawOrders = ordersRes.data || [];
@@ -303,7 +311,7 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
         scenarios: scenarioList
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000
   });
 }
