@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface Investment {
@@ -28,35 +27,40 @@ export type InvestmentInsert = Omit<Investment, 'id' | 'created_at' | 'updated_a
 export type InvestmentUpdate = Partial<InvestmentInsert>;
 
 export function useInvestments() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['investments', tenantId],
     queryFn: async (): Promise<Investment[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('investments')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useInvestmentMutations() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   const createInvestment = useMutation({
     mutationFn: async (investment: Omit<InvestmentInsert, 'tenant_id'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('investments')
         .insert({ ...investment, tenant_id: tenantId })
         .select()
@@ -76,7 +80,7 @@ export function useInvestmentMutations() {
 
   const updateInvestment = useMutation({
     mutationFn: async ({ id, ...updates }: InvestmentUpdate & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('investments')
         .update(updates)
         .eq('id', id)
@@ -97,7 +101,7 @@ export function useInvestmentMutations() {
 
   const deleteInvestment = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('investments')
         .delete()
         .eq('id', id);
