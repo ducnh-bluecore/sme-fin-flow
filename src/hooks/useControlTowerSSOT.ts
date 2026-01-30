@@ -10,8 +10,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface ControlTowerData {
@@ -60,7 +59,7 @@ export interface ControlTowerData {
 }
 
 export function useControlTowerSSOT() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -68,7 +67,7 @@ export function useControlTowerSSOT() {
     queryFn: async (): Promise<ControlTowerData | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase.rpc('get_control_tower_summary', {
+      const { data, error } = await client.rpc('get_control_tower_summary', {
         p_tenant_id: tenantId,
         p_start_date: startDateStr,
         p_end_date: endDateStr,
@@ -107,7 +106,7 @@ export function useControlTowerSSOT() {
         },
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000, // Cache 2 minutes
   });
 }

@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 export interface NotificationRecipient {
   id: string;
@@ -26,30 +25,35 @@ export interface NotificationRecipientInput {
 }
 
 export function useNotificationRecipients() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['notification-recipients', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('notification_recipients')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('role', { ascending: true })
         .order('name', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as NotificationRecipient[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useSaveNotificationRecipient() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (recipient: NotificationRecipientInput & { id?: string }) => {
@@ -66,7 +70,7 @@ export function useSaveNotificationRecipient() {
       };
 
       if (recipient.id) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('notification_recipients')
           .update(dataToSave)
           .eq('id', recipient.id)
@@ -76,9 +80,9 @@ export function useSaveNotificationRecipient() {
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('notification_recipients')
-          .insert(dataToSave)
+          .insert([dataToSave])
           .select()
           .single();
 
@@ -99,10 +103,11 @@ export function useSaveNotificationRecipient() {
 
 export function useDeleteNotificationRecipient() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('notification_recipients')
         .delete()
         .eq('id', id);

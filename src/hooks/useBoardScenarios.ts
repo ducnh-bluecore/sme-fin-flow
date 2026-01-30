@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/board-scenarios`;
 
@@ -68,17 +68,26 @@ interface SimulationResult {
   simulatedAt: string;
 }
 
-async function getAuthHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    'Authorization': `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
+export function useBoardScenarioAuth() {
+  const { client, tenantId } = useTenantSupabaseCompat();
+  
+  const getAuthHeaders = async () => {
+    const { data: { session } } = await client.auth.getSession();
+    return {
+      'Authorization': `Bearer ${session?.access_token}`,
+      'Content-Type': 'application/json',
+      'x-tenant-id': tenantId || '',
+    };
   };
+  
+  return { getAuthHeaders, tenantId };
 }
 
 export function useScenarioTemplates() {
+  const { getAuthHeaders, tenantId } = useBoardScenarioAuth();
+  
   return useQuery({
-    queryKey: ['board-scenarios', 'templates'],
+    queryKey: ['board-scenarios', 'templates', tenantId],
     queryFn: async (): Promise<{ templates: ScenarioTemplate[] }> => {
       const headers = await getAuthHeaders();
       const response = await fetch(`${FUNCTION_URL}/templates`, {
@@ -93,12 +102,15 @@ export function useScenarioTemplates() {
 
       return response.json();
     },
+    enabled: !!tenantId,
   });
 }
 
 export function useScenarioList(includeArchived = false) {
+  const { getAuthHeaders, tenantId } = useBoardScenarioAuth();
+  
   return useQuery({
-    queryKey: ['board-scenarios', 'list', includeArchived],
+    queryKey: ['board-scenarios', 'list', tenantId, includeArchived],
     queryFn: async (): Promise<{ scenarios: Scenario[] }> => {
       const headers = await getAuthHeaders();
       const url = includeArchived 
@@ -117,12 +129,15 @@ export function useScenarioList(includeArchived = false) {
 
       return response.json();
     },
+    enabled: !!tenantId,
   });
 }
 
 export function useScenario(id: string) {
+  const { getAuthHeaders, tenantId } = useBoardScenarioAuth();
+  
   return useQuery({
-    queryKey: ['board-scenarios', id],
+    queryKey: ['board-scenarios', tenantId, id],
     queryFn: async (): Promise<Scenario> => {
       const headers = await getAuthHeaders();
       const response = await fetch(`${FUNCTION_URL}/${id}`, {
@@ -137,12 +152,13 @@ export function useScenario(id: string) {
 
       return response.json();
     },
-    enabled: !!id,
+    enabled: !!id && !!tenantId,
   });
 }
 
 export function useRunScenario() {
   const queryClient = useQueryClient();
+  const { getAuthHeaders, tenantId } = useBoardScenarioAuth();
 
   return useMutation({
     mutationFn: async (data: {
@@ -155,7 +171,7 @@ export function useRunScenario() {
       const response = await fetch(`${FUNCTION_URL}/simulate`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, tenantId }),
       });
 
       if (!response.ok) {
@@ -172,8 +188,10 @@ export function useRunScenario() {
 }
 
 export function useCompareScenarios(scenarioIds: string[]) {
+  const { getAuthHeaders, tenantId } = useBoardScenarioAuth();
+  
   return useQuery({
-    queryKey: ['board-scenarios', 'compare', scenarioIds],
+    queryKey: ['board-scenarios', 'compare', tenantId, scenarioIds],
     queryFn: async () => {
       const headers = await getAuthHeaders();
       const response = await fetch(
@@ -188,12 +206,13 @@ export function useCompareScenarios(scenarioIds: string[]) {
 
       return response.json();
     },
-    enabled: scenarioIds.length >= 2,
+    enabled: scenarioIds.length >= 2 && !!tenantId,
   });
 }
 
 export function useArchiveScenario() {
   const queryClient = useQueryClient();
+  const { getAuthHeaders, tenantId } = useBoardScenarioAuth();
 
   return useMutation({
     mutationFn: async (scenarioId: string) => {
@@ -201,7 +220,7 @@ export function useArchiveScenario() {
       const response = await fetch(`${FUNCTION_URL}/archive`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ scenarioId }),
+        body: JSON.stringify({ scenarioId, tenantId }),
       });
 
       if (!response.ok) {
