@@ -3,6 +3,8 @@
  * 
  * Maps each module to its required data types, priority levels,
  * available connector sources, and import templates.
+ * 
+ * Smart Data Inference: Sources → Auto-inferred Data Types
  */
 
 export type DataPriority = 'critical' | 'important' | 'optional';
@@ -20,12 +22,21 @@ export interface DataRequirement {
   usedFor: string[]; // Features that need this data
 }
 
+export interface SubSource {
+  id: string;
+  label: string;
+  connectorType: string;
+  logo?: string;
+}
+
 export interface DataSourceOption {
   id: string;
   label: string;
   description: string;
   icon: string; // Lucide icon name
   connectorTypes: string[]; // Maps to connector_type in connector_integrations
+  providedDataTypes: string[]; // Data types this source typically provides
+  subSources?: SubSource[]; // Specific platforms within this category
 }
 
 export interface DataTypeOption {
@@ -35,14 +46,8 @@ export interface DataTypeOption {
   icon: string;
 }
 
-export interface DataFormatOption {
-  id: string;
-  label: string;
-  description: string;
-}
-
 // ============================================================
-// DATA SOURCE OPTIONS (Step 1 of survey)
+// DATA SOURCE OPTIONS with Sub-sources and Inferred Data Types
 // ============================================================
 export const dataSourceOptions: DataSourceOption[] = [
   {
@@ -51,6 +56,13 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'Shopee, Lazada, TikTok Shop, Sendo...',
     icon: 'ShoppingBag',
     connectorTypes: ['shopee', 'lazada', 'tiktok_shop', 'sendo', 'shopify'],
+    providedDataTypes: ['orders', 'customers', 'products', 'channel_fees', 'settlements', 'order_items'],
+    subSources: [
+      { id: 'shopee', label: 'Shopee', connectorType: 'shopee' },
+      { id: 'lazada', label: 'Lazada', connectorType: 'lazada' },
+      { id: 'tiktok_shop', label: 'TikTok Shop', connectorType: 'tiktok_shop' },
+      { id: 'sendo', label: 'Sendo', connectorType: 'sendo' },
+    ],
   },
   {
     id: 'website',
@@ -58,6 +70,13 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'Haravan, Sapo, WooCommerce, Magento...',
     icon: 'Globe',
     connectorTypes: ['haravan', 'sapo', 'woocommerce', 'magento', 'wordpress'],
+    providedDataTypes: ['orders', 'customers', 'products'],
+    subSources: [
+      { id: 'haravan', label: 'Haravan', connectorType: 'haravan' },
+      { id: 'sapo', label: 'Sapo', connectorType: 'sapo' },
+      { id: 'woocommerce', label: 'WooCommerce', connectorType: 'woocommerce' },
+      { id: 'magento', label: 'Magento', connectorType: 'magento' },
+    ],
   },
   {
     id: 'accounting',
@@ -65,6 +84,14 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'MISA, Fast Accounting, Bravo, SAC...',
     icon: 'Calculator',
     connectorTypes: ['misa', 'fast_accounting', 'bravo', 'effect', 'sac'],
+    providedDataTypes: ['invoices', 'bills', 'expenses', 'vendors', 'bank_transactions'],
+    subSources: [
+      { id: 'misa', label: 'MISA', connectorType: 'misa' },
+      { id: 'fast_accounting', label: 'Fast Accounting', connectorType: 'fast_accounting' },
+      { id: 'bravo', label: 'Bravo', connectorType: 'bravo' },
+      { id: 'effect', label: 'Effect', connectorType: 'effect' },
+      { id: 'sac', label: 'SAC', connectorType: 'sac' },
+    ],
   },
   {
     id: 'erp',
@@ -72,6 +99,13 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'SAP, Oracle, Odoo, Microsoft Dynamics...',
     icon: 'Database',
     connectorTypes: ['sap', 'oracle', 'odoo', 'microsoft_dynamics', 'netsuite'],
+    providedDataTypes: ['invoices', 'bills', 'expenses', 'vendors', 'inventory', 'bank_transactions', 'products'],
+    subSources: [
+      { id: 'sap', label: 'SAP', connectorType: 'sap' },
+      { id: 'oracle', label: 'Oracle', connectorType: 'oracle' },
+      { id: 'odoo', label: 'Odoo', connectorType: 'odoo' },
+      { id: 'netsuite', label: 'NetSuite', connectorType: 'netsuite' },
+    ],
   },
   {
     id: 'ads',
@@ -79,6 +113,13 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'Facebook Ads, Google Ads, TikTok Ads...',
     icon: 'Megaphone',
     connectorTypes: ['meta_ads', 'google_ads', 'tiktok_ads', 'zalo_ads'],
+    providedDataTypes: ['marketing_spend', 'campaigns'],
+    subSources: [
+      { id: 'meta_ads', label: 'Facebook / Meta Ads', connectorType: 'meta_ads' },
+      { id: 'google_ads', label: 'Google Ads', connectorType: 'google_ads' },
+      { id: 'tiktok_ads', label: 'TikTok Ads', connectorType: 'tiktok_ads' },
+      { id: 'zalo_ads', label: 'Zalo Ads', connectorType: 'zalo_ads' },
+    ],
   },
   {
     id: 'excel',
@@ -86,6 +127,7 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'File báo cáo, sổ sách thủ công',
     icon: 'FileSpreadsheet',
     connectorTypes: [], // No connector, use template import
+    providedDataTypes: [], // Cannot auto-infer - need to ask
   },
   {
     id: 'manual',
@@ -93,11 +135,12 @@ export const dataSourceOptions: DataSourceOption[] = [
     description: 'Nhập thủ công từng giao dịch',
     icon: 'Edit3',
     connectorTypes: [],
+    providedDataTypes: [], // Cannot auto-infer
   },
 ];
 
 // ============================================================
-// DATA TYPE OPTIONS (Step 2 of survey)
+// DATA TYPE OPTIONS (for additional data selection with Excel/Manual)
 // ============================================================
 export const dataTypeOptions: DataTypeOption[] = [
   {
@@ -154,39 +197,114 @@ export const dataTypeOptions: DataTypeOption[] = [
     description: 'Danh mục sản phẩm, SKU',
     icon: 'Box',
   },
-  {
-    id: 'none',
-    label: 'Chưa có dữ liệu',
-    description: 'Cần tạo mới từ đầu',
-    icon: 'Plus',
-  },
 ];
 
 // ============================================================
-// DATA FORMAT OPTIONS (Step 3 of survey)
+// SMART DATA INFERENCE FUNCTIONS
 // ============================================================
-export const dataFormatOptions: DataFormatOption[] = [
-  {
-    id: 'api',
-    label: 'Export từ phần mềm (kết nối API)',
-    description: 'Dữ liệu có thể đồng bộ tự động qua API',
-  },
-  {
-    id: 'excel',
-    label: 'File Excel / CSV',
-    description: 'Import thủ công từ file',
-  },
-  {
-    id: 'manual',
-    label: 'Nhập thủ công',
-    description: 'Tự nhập từng giao dịch vào hệ thống',
-  },
-  {
-    id: 'mixed',
-    label: 'Hỗn hợp nhiều nguồn',
-    description: 'Kết hợp API, file và nhập tay',
-  },
-];
+
+export interface InferredDataGroup {
+  source: string;
+  sourceId: string;
+  dataTypes: string[];
+  connectorTypes: string[];
+}
+
+/**
+ * Infer data types from selected sources
+ * Returns grouped inferred data by source for display
+ */
+export function inferDataTypesFromSources(
+  selectedSourceIds: string[],
+  selectedSubSources: string[]
+): InferredDataGroup[] {
+  const result: InferredDataGroup[] = [];
+  
+  selectedSourceIds.forEach(sourceId => {
+    const source = dataSourceOptions.find(s => s.id === sourceId);
+    if (source && source.providedDataTypes.length > 0) {
+      // Get connector types from selected sub-sources or all if none selected
+      const relevantSubSources = source.subSources?.filter(
+        sub => selectedSubSources.includes(sub.id)
+      ) || source.subSources || [];
+      
+      const connectorTypes = relevantSubSources.length > 0
+        ? relevantSubSources.map(sub => sub.connectorType)
+        : source.connectorTypes;
+      
+      const subSourceLabels = relevantSubSources.map(sub => sub.label);
+      const sourceLabel = subSourceLabels.length > 0
+        ? subSourceLabels.join(', ')
+        : source.label;
+      
+      result.push({
+        source: sourceLabel,
+        sourceId: source.id,
+        dataTypes: source.providedDataTypes,
+        connectorTypes,
+      });
+    }
+  });
+  
+  return result;
+}
+
+/**
+ * Get all unique inferred data types from selected sources
+ */
+export function getAllInferredDataTypes(
+  selectedSourceIds: string[],
+  selectedSubSources: string[]
+): string[] {
+  const groups = inferDataTypesFromSources(selectedSourceIds, selectedSubSources);
+  const allTypes = new Set<string>();
+  
+  groups.forEach(group => {
+    group.dataTypes.forEach(type => allTypes.add(type));
+  });
+  
+  return Array.from(allTypes);
+}
+
+/**
+ * Get connector types from selected sub-sources
+ */
+export function getConnectorTypesFromSubSources(
+  selectedSourceIds: string[],
+  selectedSubSources: string[]
+): string[] {
+  const connectorTypes = new Set<string>();
+  
+  selectedSourceIds.forEach(sourceId => {
+    const source = dataSourceOptions.find(s => s.id === sourceId);
+    if (source?.subSources) {
+      source.subSources.forEach(sub => {
+        if (selectedSubSources.includes(sub.id)) {
+          connectorTypes.add(sub.connectorType);
+        }
+      });
+    } else if (source) {
+      source.connectorTypes.forEach(ct => connectorTypes.add(ct));
+    }
+  });
+  
+  return Array.from(connectorTypes);
+}
+
+/**
+ * Check if user selected Excel or Manual source (need additional data type question)
+ */
+export function needsAdditionalDataTypeQuestion(selectedSourceIds: string[]): boolean {
+  return selectedSourceIds.includes('excel') || selectedSourceIds.includes('manual');
+}
+
+/**
+ * Get data type display name
+ */
+export function getDataTypeDisplayName(dataTypeId: string): string {
+  const option = dataTypeOptions.find(o => o.id === dataTypeId);
+  return option?.label || dataTypeId;
+}
 
 // ============================================================
 // MODULE DATA REQUIREMENTS

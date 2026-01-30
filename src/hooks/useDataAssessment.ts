@@ -10,9 +10,9 @@ import { toast } from 'sonner';
 import type { ModuleKey } from '@/lib/dataRequirementsMap';
 
 export interface SurveyResponses {
-  data_sources: string[];
-  data_types: string[];
-  data_format: string;
+  data_sources: string[];         // Main sources: ['ecommerce', 'accounting']
+  sub_sources: string[];          // Specific platforms: ['shopee', 'lazada', 'misa']
+  additional_data_types: string[]; // Extra from Excel/manual selection
 }
 
 export interface ImportPlanItem {
@@ -49,8 +49,8 @@ export interface DataAssessment {
 // Default values for empty responses/plan
 const defaultSurveyResponses: SurveyResponses = {
   data_sources: [],
-  data_types: [],
-  data_format: '',
+  sub_sources: [],
+  additional_data_types: [],
 };
 
 const defaultImportPlan: ImportPlan = {

@@ -2,7 +2,7 @@
  * useSmartDataMatcher - Smart matching algorithm for data assessment
  * 
  * Compares user's survey responses with module requirements
- * to generate an optimal import plan.
+ * to generate an optimal import plan using inferred data types.
  */
 
 import { useMemo } from 'react';
@@ -12,6 +12,8 @@ import {
   type DataRequirement,
   getModuleRequirements,
   dataSourceOptions,
+  getConnectorTypesFromSubSources,
+  getAllInferredDataTypes,
 } from '@/lib/dataRequirementsMap';
 import type { SurveyResponses, ImportPlan, ImportPlanItem } from './useDataAssessment';
 
@@ -27,22 +29,6 @@ interface MatcherResult {
     existingCount: number;
   };
   recommendations: string[];
-}
-
-/**
- * Maps user-selected data sources to connector types
- */
-function getConnectorTypesFromSources(selectedSources: string[]): string[] {
-  const connectorTypes = new Set<string>();
-  
-  selectedSources.forEach(sourceId => {
-    const source = dataSourceOptions.find(s => s.id === sourceId);
-    if (source) {
-      source.connectorTypes.forEach(ct => connectorTypes.add(ct));
-    }
-  });
-  
-  return Array.from(connectorTypes);
 }
 
 /**
@@ -75,12 +61,15 @@ function canConnectRequirement(
 }
 
 /**
- * Check if user indicated they have this data type available
+ * Check if user has this data type available (from inferred or additional)
  */
 function userHasDataType(
   requirement: DataRequirement,
-  userDataTypes: string[]
+  inferredDataTypes: string[],
+  additionalDataTypes: string[]
 ): boolean {
+  const allUserData = [...inferredDataTypes, ...additionalDataTypes];
+  
   // Map requirement dataType to survey dataType options
   const dataTypeMapping: Record<string, string[]> = {
     orders: ['orders'],
@@ -92,16 +81,33 @@ function userHasDataType(
     bank_transactions: ['bank_transactions'],
     marketing_spend: ['marketing_spend'],
     cash_forecasts: ['expenses'], // Related to expenses
-    campaigns: ['marketing_spend'],
+    campaigns: ['marketing_spend', 'campaigns'],
     products: ['products'],
-    channel_fees: ['orders'], // Derived from orders
-    settlements: ['bank_transactions'],
-    order_items: ['orders'],
+    channel_fees: ['orders', 'channel_fees'], // Derived from orders/channel fees
+    settlements: ['bank_transactions', 'settlements'],
+    order_items: ['orders', 'order_items'],
     customer_events: ['orders'], // Behavior data
   };
   
   const mappedTypes = dataTypeMapping[requirement.dataType] || [requirement.dataType];
-  return mappedTypes.some(t => userDataTypes.includes(t));
+  return mappedTypes.some(t => allUserData.includes(t));
+}
+
+/**
+ * Determine if sources indicate API preference (has connectors) or Excel
+ */
+function determineDataFormat(selectedSources: string[]): { prefersAPI: boolean; prefersExcel: boolean } {
+  const hasConnectorSources = selectedSources.some(sourceId => {
+    const source = dataSourceOptions.find(s => s.id === sourceId);
+    return source && source.connectorTypes.length > 0;
+  });
+  
+  const hasExcelManual = selectedSources.includes('excel') || selectedSources.includes('manual');
+  
+  return {
+    prefersAPI: hasConnectorSources,
+    prefersExcel: hasExcelManual || !hasConnectorSources,
+  };
 }
 
 export function useSmartDataMatcher(
@@ -137,8 +143,17 @@ export function useSmartDataMatcher(
       };
     }
     
-    // Get user's connector types from selected sources
-    const userConnectorTypes = getConnectorTypesFromSources(surveyResponses.data_sources);
+    // Get user's connector types from selected sub-sources
+    const userConnectorTypes = getConnectorTypesFromSubSources(
+      surveyResponses.data_sources,
+      surveyResponses.sub_sources
+    );
+    
+    // Get inferred data types from sources
+    const inferredDataTypes = getAllInferredDataTypes(
+      surveyResponses.data_sources,
+      surveyResponses.sub_sources
+    );
     
     // Get active connector types from existing integrations
     const activeConnectorTypes = integrations
@@ -146,9 +161,7 @@ export function useSmartDataMatcher(
       .map(i => i.connector_type);
     
     // Determine data format preference
-    const dataFormat = surveyResponses.data_format;
-    const prefersAPI = dataFormat === 'api' || dataFormat === 'mixed';
-    const prefersExcel = dataFormat === 'excel' || dataFormat === 'mixed';
+    const { prefersAPI, prefersExcel } = determineDataFormat(surveyResponses.data_sources);
     
     const plan: ImportPlan = {
       connect: [],
@@ -161,7 +174,7 @@ export function useSmartDataMatcher(
     
     // Process each requirement
     requirements.forEach(req => {
-      const hasData = userHasDataType(req, surveyResponses.data_types);
+      const hasData = userHasDataType(req, inferredDataTypes, surveyResponses.additional_data_types);
       const connectionResult = canConnectRequirement(req, userConnectorTypes, activeConnectorTypes);
       
       const planItem: ImportPlanItem = {

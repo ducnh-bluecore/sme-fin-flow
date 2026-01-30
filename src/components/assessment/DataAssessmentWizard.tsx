@@ -1,11 +1,10 @@
 /**
  * DataAssessmentWizard - Multi-step wizard for data assessment
  * 
- * Guides users through:
- * 1. Data Sources selection
- * 2. Data Types selection
- * 3. Data Format selection
- * 4. Import Plan review
+ * Simplified 3-step flow with smart data inference:
+ * 1. Data Sources selection (with sub-sources)
+ * 2. Data Confirmation (auto-inferred + additional)
+ * 3. Import Plan review
  */
 
 import React, { useState } from 'react';
@@ -15,8 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { DataSourceStep } from './DataSourceStep';
-import { DataTypeStep } from './DataTypeStep';
-import { DataFormatStep } from './DataFormatStep';
+import { DataConfirmStep } from './DataConfirmStep';
 import { ImportPlanStep } from './ImportPlanStep';
 import { useDataAssessment, type SurveyResponses } from '@/hooks/useDataAssessment';
 import { useSmartDataMatcher } from '@/hooks/useSmartDataMatcher';
@@ -28,8 +26,14 @@ interface DataAssessmentWizardProps {
   onSkip?: () => void;
 }
 
-const STEPS = ['sources', 'types', 'format', 'plan'] as const;
+const STEPS = ['sources', 'confirm', 'plan'] as const;
 type Step = typeof STEPS[number];
+
+const STEP_LABELS: Record<Step, string> = {
+  sources: 'Nguồn dữ liệu',
+  confirm: 'Xác nhận',
+  plan: 'Kế hoạch',
+};
 
 export function DataAssessmentWizard({
   moduleKey,
@@ -39,8 +43,8 @@ export function DataAssessmentWizard({
   const [currentStep, setCurrentStep] = useState<Step>('sources');
   const [surveyData, setSurveyData] = useState<SurveyResponses>({
     data_sources: [],
-    data_types: [],
-    data_format: '',
+    sub_sources: [],
+    additional_data_types: [],
   });
 
   const { upsertAssessment, completeAssessment, skipAssessment } = useDataAssessment(moduleKey);
@@ -57,10 +61,9 @@ export function DataAssessmentWizard({
     switch (currentStep) {
       case 'sources':
         return surveyData.data_sources.length > 0;
-      case 'types':
-        return surveyData.data_types.length > 0;
-      case 'format':
-        return surveyData.data_format !== '';
+      case 'confirm':
+        // Always can proceed - inferred data is automatic
+        return true;
       case 'plan':
         return true;
       default:
@@ -111,7 +114,7 @@ export function DataAssessmentWizard({
                   Khảo sát dữ liệu cho {moduleInfo.name}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Bước {stepIndex + 1} / {STEPS.length}
+                  Bước {stepIndex + 1}: {STEP_LABELS[currentStep]}
                 </p>
               </div>
               <Button
@@ -141,21 +144,24 @@ export function DataAssessmentWizard({
               {currentStep === 'sources' && (
                 <DataSourceStep
                   selectedSources={surveyData.data_sources}
-                  onSourcesChange={(sources) => setSurveyData(prev => ({ ...prev, data_sources: sources }))}
+                  selectedSubSources={surveyData.sub_sources}
+                  onSourcesChange={(sources) => 
+                    setSurveyData(prev => ({ ...prev, data_sources: sources }))
+                  }
+                  onSubSourcesChange={(subSources) => 
+                    setSurveyData(prev => ({ ...prev, sub_sources: subSources }))
+                  }
                 />
               )}
 
-              {currentStep === 'types' && (
-                <DataTypeStep
-                  selectedTypes={surveyData.data_types}
-                  onTypesChange={(types) => setSurveyData(prev => ({ ...prev, data_types: types }))}
-                />
-              )}
-
-              {currentStep === 'format' && (
-                <DataFormatStep
-                  selectedFormat={surveyData.data_format}
-                  onFormatChange={(format) => setSurveyData(prev => ({ ...prev, data_format: format }))}
+              {currentStep === 'confirm' && (
+                <DataConfirmStep
+                  selectedSources={surveyData.data_sources}
+                  selectedSubSources={surveyData.sub_sources}
+                  additionalDataTypes={surveyData.additional_data_types}
+                  onAdditionalTypesChange={(types) => 
+                    setSurveyData(prev => ({ ...prev, additional_data_types: types }))
+                  }
                 />
               )}
 
