@@ -1,6 +1,11 @@
+/**
+ * useAudit - Audit event hooks
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ */
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenant } from "@/hooks/useTenant";
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useToast } from "@/hooks/use-toast";
 
 export interface AuditEvent {
@@ -79,12 +84,12 @@ export interface AuditFilters {
 }
 
 export function useAuditEvents(filters: AuditFilters = {}) {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['audit-events', activeTenant?.id, filters],
+    queryKey: ['audit-events', tenantId, filters],
     queryFn: async () => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
@@ -97,14 +102,14 @@ export function useAuditEvents(filters: AuditFilters = {}) {
       if (filters.limit) params.set('limit', filters.limit.toString());
       if (filters.offset) params.set('offset', filters.offset.toString());
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit/events?${params}`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -115,28 +120,28 @@ export function useAuditEvents(filters: AuditFilters = {}) {
 
       return response.json() as Promise<{ events: AuditEvent[]; total: number; limit: number; offset: number }>;
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useAuditSummary(days = 30) {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['audit-summary', activeTenant?.id, days],
+    queryKey: ['audit-summary', tenantId, days],
     queryFn: async (): Promise<AuditSummary> => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit/summary?days=${days}`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -147,28 +152,28 @@ export function useAuditSummary(days = 30) {
 
       return response.json();
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useSOCControls() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['soc-controls', activeTenant?.id],
+    queryKey: ['soc-controls', tenantId],
     queryFn: async (): Promise<SOCControl[]> => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit/controls`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -180,12 +185,12 @@ export function useSOCControls() {
       const data = await response.json();
       return data.controls;
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useExportAudit() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const { toast } = useToast();
 
   return useMutation({
@@ -196,7 +201,7 @@ export function useExportAudit() {
       action?: string;
       resourceType?: string;
     }) => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
@@ -207,14 +212,14 @@ export function useExportAudit() {
       if (action) params.set('action', action);
       if (resourceType) params.set('resource_type', resourceType);
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit/export?${params}`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -253,23 +258,23 @@ export function useExportAudit() {
 }
 
 export function useEvidencePack() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (period: '7d' | '30d' | '90d' = '30d'): Promise<EvidencePack> => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit/evidence-pack/${period}`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
