@@ -14,8 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+
 import { 
   useMetricRegistry, 
   useMetricConsistency, 
@@ -45,8 +45,7 @@ interface HealthCheck {
 }
 
 export function SSOTComplianceDashboard() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   const { data: registry, isLoading: registryLoading, refetch: refetchRegistry } = useMetricRegistry();
   const { data: consistency, isLoading: consistencyLoading, refetch: refetchConsistency } = useMetricConsistency();
@@ -132,7 +131,7 @@ export function SSOTComplianceDashboard() {
   ];
 
   const runHealthChecks = useCallback(async () => {
-    if (!tenantId) return;
+    if (!tenantId || !client) return;
     
     setIsRunningHealthChecks(true);
     const results: HealthCheck[] = [];
@@ -145,11 +144,11 @@ export function SSOTComplianceDashboard() {
         // ═══════════════════════════════════════════════════════════════════
         if (check.view === 'v_cdp_equity_snapshot') {
           const [viewResult, sourceResult] = await Promise.all([
-            supabase.from('v_cdp_equity_snapshot')
+            client.from('v_cdp_equity_snapshot')
               .select('total_equity_12m, total_equity_24m')
               .eq('tenant_id', tenantId)
               .maybeSingle(),
-            supabase.from('cdp_customer_equity_computed')
+            client.from('cdp_customer_equity_computed')
               .select('equity_12m')
               .eq('tenant_id', tenantId)
               .not('equity_12m', 'is', null)
@@ -169,7 +168,7 @@ export function SSOTComplianceDashboard() {
         }
         
         if (check.view === 'v_cdp_data_quality') {
-          const { data, error } = await supabase
+          const { data, error } = await client
             .from('v_cdp_data_quality')
             .select('confidence_level, is_reliable')
             .eq('tenant_id', tenantId)
@@ -185,11 +184,11 @@ export function SSOTComplianceDashboard() {
         // ═══════════════════════════════════════════════════════════════════
         if (check.view === 'v_fdp_finance_summary') {
           const [viewResult, sourceResult] = await Promise.all([
-            supabase.from('v_fdp_finance_summary')
+            client.from('v_fdp_finance_summary')
               .select('net_revenue, gross_revenue')
               .eq('tenant_id', tenantId)
               .maybeSingle(),
-            supabase.from('cdp_orders')
+            client.from('cdp_orders')
               .select('id')
               .eq('tenant_id', tenantId)
               .limit(1)
@@ -211,7 +210,7 @@ export function SSOTComplianceDashboard() {
           const startDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
           const endDate = today.toISOString().split('T')[0];
           
-          const { data, error } = await supabase.rpc('get_fdp_period_summary', {
+          const { data, error } = await client.rpc('get_fdp_period_summary', {
             p_tenant_id: tenantId,
             p_start_date: startDate,
             p_end_date: endDate,
@@ -229,7 +228,7 @@ export function SSOTComplianceDashboard() {
         }
 
         if (check.view === 'central_metrics_snapshots') {
-          const { data, error } = await supabase
+          const { data, error } = await client
             .from('central_metrics_snapshots')
             .select('snapshot_at')
             .eq('tenant_id', tenantId)
@@ -250,11 +249,11 @@ export function SSOTComplianceDashboard() {
         // ═══════════════════════════════════════════════════════════════════
         if (check.view === 'v_mdp_campaign_performance') {
           const [viewResult, sourceResult] = await Promise.all([
-            supabase.from('v_mdp_campaign_performance')
+            client.from('v_mdp_campaign_performance')
               .select('campaign_id, spend')
               .eq('tenant_id', tenantId)
               .limit(5),
-            supabase.from('promotion_campaigns')
+            client.from('promotion_campaigns')
               .select('id')
               .eq('tenant_id', tenantId)
               .limit(1)
@@ -272,7 +271,7 @@ export function SSOTComplianceDashboard() {
         }
 
         if (check.view === 'v_mdp_mode_summary') {
-          const { data, error } = await supabase
+          const { data, error } = await client
             .from('v_mdp_mode_summary')
             .select('total_spend, total_orders')
             .eq('tenant_id', tenantId)
@@ -284,7 +283,7 @@ export function SSOTComplianceDashboard() {
         }
 
         if (check.view === 'v_mdp_funnel_summary') {
-          const { data, error } = await supabase
+          const { data, error } = await client
             .from('v_mdp_funnel_summary')
             .select('impressions, orders')
             .eq('tenant_id', tenantId)
@@ -303,7 +302,7 @@ export function SSOTComplianceDashboard() {
           const startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
           const endDate = today.toISOString().split('T')[0];
           
-          const { data, error } = await supabase.rpc('get_control_tower_summary', {
+          const { data, error } = await client.rpc('get_control_tower_summary', {
             p_tenant_id: tenantId,
             p_start_date: startDate,
             p_end_date: endDate,
@@ -321,7 +320,7 @@ export function SSOTComplianceDashboard() {
         }
 
         if (check.view === 'decision_cards') {
-          const { error, count } = await supabase
+          const { error, count } = await client
             .from('decision_cards')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
@@ -331,7 +330,7 @@ export function SSOTComplianceDashboard() {
         }
 
         if (check.view === 'early_warning_alerts') {
-          const { error, count } = await supabase
+          const { error, count } = await client
             .from('early_warning_alerts')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', tenantId);
@@ -351,7 +350,7 @@ export function SSOTComplianceDashboard() {
     const resolvedResults = await Promise.all(checkPromises);
     setHealthChecks(resolvedResults);
     setIsRunningHealthChecks(false);
-  }, [tenantId]);
+  }, [tenantId, client]);
 
   useEffect(() => {
     if (tenantId) {
