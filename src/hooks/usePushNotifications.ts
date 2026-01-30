@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useAuth } from './useAuth';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -35,12 +34,13 @@ export function usePushNotificationSupport() {
 
 export function usePushSubscriptions() {
   const { user } = useAuth();
+  const { client, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['push-subscriptions', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('push_subscriptions')
         .select('*')
         .eq('user_id', user.id)
@@ -48,13 +48,13 @@ export function usePushSubscriptions() {
       if (error) throw error;
       return data as PushSubscription[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isReady,
   });
 }
 
 export function useSubscribePush() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const { user } = useAuth();
 
   return useMutation({
@@ -63,7 +63,7 @@ export function useSubscribePush() {
         throw new Error('Push notifications not supported');
       }
 
-      if (!tenantId || !user?.id) {
+      if (!tenantId || !user?.id || !isReady) {
         throw new Error('Missing tenant or user');
       }
 
@@ -75,7 +75,7 @@ export function useSubscribePush() {
       const registration = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      const { data: vapidData, error: vapidError } = await supabase.functions.invoke('get-vapid-key');
+      const { data: vapidData, error: vapidError } = await client.functions.invoke('get-vapid-key');
       if (vapidError || !vapidData?.publicKey) {
         throw new Error('Failed to get VAPID key');
       }
@@ -104,7 +104,7 @@ export function useSubscribePush() {
         },
       };
 
-      const { error } = await supabase
+      const { error } = await client
         .from('push_subscriptions')
         .upsert(insertData as never, { onConflict: 'user_id,endpoint' });
 
@@ -123,12 +123,15 @@ export function useSubscribePush() {
 
 export function useUnsubscribePush() {
   const queryClient = useQueryClient();
+  const { client, isReady } = useTenantSupabaseCompat();
   const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (subscriptionId?: string) => {
+      if (!isReady) throw new Error('Client not ready');
+      
       if (subscriptionId) {
-        const { error } = await supabase
+        const { error } = await client
           .from('push_subscriptions')
           .update({ is_active: false })
           .eq('id', subscriptionId)
@@ -142,7 +145,7 @@ export function useUnsubscribePush() {
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
           await subscription.unsubscribe();
-          const { error } = await supabase
+          const { error } = await client
             .from('push_subscriptions')
             .update({ is_active: false })
             .eq('user_id', user?.id)

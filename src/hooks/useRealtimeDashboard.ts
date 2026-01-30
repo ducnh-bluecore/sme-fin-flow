@@ -1,17 +1,24 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 /**
  * Hook để lắng nghe realtime updates từ các bảng quan trọng
  * và tự động invalidate queries khi dữ liệu thay đổi
+ * 
+ * Note: Realtime subscriptions use the tenant-aware client but listen
+ * to schema-level changes (public schema for now, will need adjustment
+ * when tenant schemas are fully deployed)
  */
 export function useRealtimeDashboard() {
   const queryClient = useQueryClient();
+  const { client, isReady } = useTenantSupabaseCompat();
 
   useEffect(() => {
+    if (!isReady) return;
+
     // Channel cho bank_accounts
-    const bankChannel = supabase
+    const bankChannel = client
       .channel('bank-accounts-changes')
       .on(
         'postgres_changes',
@@ -29,7 +36,7 @@ export function useRealtimeDashboard() {
       .subscribe();
 
     // Channel cho revenues
-    const revenueChannel = supabase
+    const revenueChannel = client
       .channel('revenues-changes')
       .on(
         'postgres_changes',
@@ -47,7 +54,7 @@ export function useRealtimeDashboard() {
       .subscribe();
 
     // Channel cho expenses
-    const expenseChannel = supabase
+    const expenseChannel = client
       .channel('expenses-changes')
       .on(
         'postgres_changes',
@@ -65,7 +72,7 @@ export function useRealtimeDashboard() {
       .subscribe();
 
     // Channel cho cash_forecasts
-    const forecastChannel = supabase
+    const forecastChannel = client
       .channel('cash-forecasts-changes')
       .on(
         'postgres_changes',
@@ -83,7 +90,7 @@ export function useRealtimeDashboard() {
       .subscribe();
 
     // Channel cho invoices
-    const invoiceChannel = supabase
+    const invoiceChannel = client
       .channel('invoices-changes')
       .on(
         'postgres_changes',
@@ -104,11 +111,11 @@ export function useRealtimeDashboard() {
 
     // Cleanup subscriptions on unmount
     return () => {
-      supabase.removeChannel(bankChannel);
-      supabase.removeChannel(revenueChannel);
-      supabase.removeChannel(expenseChannel);
-      supabase.removeChannel(forecastChannel);
-      supabase.removeChannel(invoiceChannel);
+      client.removeChannel(bankChannel);
+      client.removeChannel(revenueChannel);
+      client.removeChannel(expenseChannel);
+      client.removeChannel(forecastChannel);
+      client.removeChannel(invoiceChannel);
     };
-  }, [queryClient]);
+  }, [queryClient, client, isReady]);
 }

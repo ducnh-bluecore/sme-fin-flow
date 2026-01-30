@@ -5,8 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface ChannelMetric {
@@ -70,7 +69,7 @@ const getChannelDisplayName = (channel: string): string => {
 };
 
 export function useUnifiedChannelMetrics() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   const { data, isLoading, error } = useQuery({
@@ -79,10 +78,15 @@ export function useUnifiedChannelMetrics() {
       if (!tenantId) return null;
 
       // Fetch channel performance from v_channel_pl_summary
-      const { data: channelData, error: channelError } = await supabase
+      let query = client
         .from('v_channel_pl_summary' as any)
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data: channelData, error: channelError } = await query;
 
       if (channelError) {
         console.error('[useUnifiedChannelMetrics] Error:', channelError);
@@ -165,7 +169,7 @@ export function useUnifiedChannelMetrics() {
         hasConfiguredBudgets: false,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 
