@@ -101,7 +101,7 @@ export default function DecisionCenterPage() {
     status: statusFilter,
     priority: priorityFilter === 'ALL' ? undefined : [priorityFilter],
   });
-  const { data: stats } = useDecisionCardStats();
+  const { stats } = useDecisionCardStats();
 
   // Fetch decided cards for history
   const { data: decidedCards } = useDecisionCards({

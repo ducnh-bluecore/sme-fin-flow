@@ -7,13 +7,16 @@
  * - Notification recipients
  * - Alert statistics
  * - Realtime updates
+ * 
+ * Schema-per-Tenant Ready
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 import { useEffect, useCallback, useMemo } from 'react';
+import { useActiveTenantId } from './useActiveTenantId';
 
 // ============= Types =============
 
@@ -182,7 +185,7 @@ const QUERY_KEYS = {
 // ============= Main Hook =============
 
 export function useNotificationCenter(filters?: AlertFilters) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   // ============= Alert Configs (Rules) =============
@@ -191,17 +194,22 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('extended_alert_configs')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('category', { ascending: true })
         .order('alert_type', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as AlertConfig[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -211,10 +219,13 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('alert_instances')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (filters?.status) query = query.eq('status', filters.status);
       if (filters?.severity) query = query.eq('severity', filters.severity);
@@ -229,7 +240,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
       if (error) throw error;
       return data as AlertInstance[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -239,18 +250,23 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_instances')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('status', 'active')
         .order('priority', { ascending: true })
         .order('created_at', { ascending: false });
 
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       return data as AlertInstance[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     refetchInterval: 30000, // Refresh every 30 seconds
     staleTime: 15 * 1000,
   });
@@ -261,17 +277,22 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('notification_recipients')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('role', { ascending: true })
         .order('name', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as NotificationRecipient[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -333,13 +354,17 @@ export function useNotificationCenter(filters?: AlertFilters) {
       if (!tenantId) throw new Error('No tenant selected');
 
       // Check if config exists
-      const { data: existing } = await supabase
+      let existingQuery = client
         .from('extended_alert_configs')
         .select('id')
-        .eq('tenant_id', tenantId)
         .eq('category', config.category)
-        .eq('alert_type', config.alert_type)
-        .maybeSingle();
+        .eq('alert_type', config.alert_type);
+
+      if (shouldAddTenantFilter) {
+        existingQuery = existingQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: existing } = await existingQuery.maybeSingle();
 
       const dataToSave = {
         tenant_id: tenantId,
@@ -362,7 +387,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
       };
 
       if (existing?.id) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('extended_alert_configs')
           .update(dataToSave)
           .eq('id', existing.id)
@@ -372,7 +397,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('extended_alert_configs')
           .insert(dataToSave)
           .select()
@@ -394,7 +419,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Toggle Alert Config
   const toggleConfig = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('extended_alert_configs')
         .update({ enabled })
         .eq('id', id)
@@ -416,9 +441,9 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Acknowledge Alert
   const acknowledgeAlert = useMutation({
     mutationFn: async (id: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: 'acknowledged',
@@ -444,9 +469,9 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Resolve Alert
   const resolveAlert = useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: 'resolved',
@@ -473,7 +498,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Snooze Alert
   const snoozeAlert = useMutation({
     mutationFn: async ({ id, until }: { id: string; until: Date }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: 'snoozed',
@@ -498,7 +523,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Assign Alert to Owner - Control Tower Manifesto #5
   const assignAlert = useMutation({
     mutationFn: async ({ id, assignedTo }: { id: string; assignedTo: string | null }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           assigned_to: assignedTo,
@@ -523,7 +548,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Bulk Update Alerts
   const bulkUpdateAlerts = useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<AlertInstance> }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_instances')
         .update(updates)
         .in('id', ids);
@@ -556,7 +581,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
       };
 
       if (recipient.id) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('notification_recipients')
           .update(dataToSave)
           .eq('id', recipient.id)
@@ -566,7 +591,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('notification_recipients')
           .insert(dataToSave)
           .select()
@@ -588,7 +613,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Delete Recipient
   const deleteRecipient = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('notification_recipients')
         .delete()
         .eq('id', id);
@@ -608,6 +633,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   useEffect(() => {
     if (!tenantId) return;
 
+    // Use global supabase for realtime (schema routing not needed for subscriptions)
     const channel = supabase
       .channel('notification-center-realtime')
       .on(
@@ -664,7 +690,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // ============= Return =============
   return {
     // Loading states
-    isLoading: tenantLoading || configsQuery.isLoading || instancesQuery.isLoading,
+    isLoading: !isReady || configsQuery.isLoading || instancesQuery.isLoading,
     isConfigsLoading: configsQuery.isLoading,
     isInstancesLoading: instancesQuery.isLoading,
     isRecipientsLoading: recipientsQuery.isLoading,
@@ -723,18 +749,23 @@ export function useNotificationCenter(filters?: AlertFilters) {
  * Hook for dashboard badge - only fetches active alerts count
  */
 export function useActiveAlertsCount() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: [QUERY_KEYS.activeAlerts, 'count', tenantId],
     queryFn: async () => {
       if (!tenantId) return { total: 0, critical: 0 };
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_instances')
         .select('severity')
-        .eq('tenant_id', tenantId)
         .eq('status', 'active');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -743,7 +774,7 @@ export function useActiveAlertsCount() {
         critical: data.filter(a => a.severity === 'critical').length,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     refetchInterval: 60000, // 1 minute
     staleTime: 30 * 1000,
   });
@@ -753,7 +784,7 @@ export function useActiveAlertsCount() {
  * Hook for quick stats panel
  */
 export function useAlertQuickStats() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: [QUERY_KEYS.stats, 'quick', tenantId],
@@ -763,11 +794,16 @@ export function useAlertQuickStats() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_instances')
         .select('status, severity, created_at')
-        .eq('tenant_id', tenantId)
         .gte('created_at', today.toISOString());
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -778,7 +814,7 @@ export function useAlertQuickStats() {
         todayResolved: data.filter(a => a.status === 'resolved').length,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60 * 1000,
   });
 }
