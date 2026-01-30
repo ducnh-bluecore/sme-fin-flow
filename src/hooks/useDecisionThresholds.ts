@@ -1,6 +1,12 @@
+/**
+ * Decision Threshold Configuration
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Decisions
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 
@@ -183,18 +189,22 @@ export const THRESHOLD_METADATA: Record<string, { label: string; description: st
  * Trả về DEFAULT_THRESHOLDS nếu chưa có config
  */
 export function useDecisionThresholds() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['decision-thresholds', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('decision_threshold_configs')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       
@@ -203,7 +213,7 @@ export function useDecisionThresholds() {
       
       return null;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -227,14 +237,14 @@ export function useEffectiveThresholds() {
  */
 export function useSaveDecisionThresholds() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (config: Partial<DecisionThresholdConfig>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
       // Check if config exists
-      const { data: existing } = await supabase
+      const { data: existing } = await client
         .from('decision_threshold_configs')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -242,7 +252,7 @@ export function useSaveDecisionThresholds() {
 
       if (existing) {
         // Update
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('decision_threshold_configs')
           .update({
             ...config,
@@ -256,7 +266,7 @@ export function useSaveDecisionThresholds() {
         return data;
       } else {
         // Insert
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('decision_threshold_configs')
           .insert({
             tenant_id: tenantId,
@@ -292,13 +302,13 @@ export function useSaveDecisionThresholds() {
  */
 export function useResetDecisionThresholds() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { error } = await supabase
+      const { error } = await client
         .from('decision_threshold_configs')
         .delete()
         .eq('tenant_id', tenantId);

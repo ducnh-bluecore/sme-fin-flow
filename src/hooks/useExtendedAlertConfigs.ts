@@ -1,7 +1,13 @@
+/**
+ * useExtendedAlertConfigs - Extended alert configurations
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Alerts
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 export type AlertCategory = 'product' | 'business' | 'store' | 'cashflow' | 'kpi' | 'customer' | 'fulfillment' | 'operations';
@@ -127,30 +133,35 @@ export const recipientRoleLabels: Record<string, string> = {
 };
 
 export function useExtendedAlertConfigs() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['extended-alert-configs', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('extended_alert_configs')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('category', { ascending: true })
         .order('alert_type', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as ExtendedAlertConfig[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useSaveExtendedAlertConfig() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (config: ExtendedAlertConfigInput & { id?: string }) => {
@@ -176,7 +187,7 @@ export function useSaveExtendedAlertConfig() {
         notify_in_daily_digest: config.notify_in_daily_digest,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('extended_alert_configs')
         .upsert(dataToSave, { onConflict: 'tenant_id,category,alert_type' })
         .select()
@@ -188,12 +199,12 @@ export function useSaveExtendedAlertConfig() {
       if (config.enabled && config.notify_immediately) {
         try {
           // Run detect-alerts to create alert_instances based on new config
-          await supabase.functions.invoke('detect-alerts', {
+          await client.functions.invoke('detect-alerts', {
             body: { tenant_id: tenantId, use_precalculated: true },
           });
 
           // Run process-alert-notifications to create actual notifications
-          await supabase.functions.invoke('process-alert-notifications', {
+          await client.functions.invoke('process-alert-notifications', {
             body: { tenant_id: tenantId },
           });
 
@@ -221,7 +232,7 @@ export function useSaveExtendedAlertConfig() {
 
 export function useInitializeDefaultAlerts() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
@@ -232,7 +243,7 @@ export function useInitializeDefaultAlerts() {
         ...alert,
       }));
 
-      const { error } = await supabase
+      const { error } = await client
         .from('extended_alert_configs')
         .upsert(dataToInsert, { onConflict: 'tenant_id,category,alert_type' });
 
@@ -251,7 +262,7 @@ export function useInitializeDefaultAlerts() {
 
 export function useBulkUpdateAlertConfigs() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (configs: ExtendedAlertConfigInput[]) => {
@@ -262,7 +273,7 @@ export function useBulkUpdateAlertConfigs() {
         ...config,
       }));
 
-      const { error } = await supabase
+      const { error } = await client
         .from('extended_alert_configs')
         .upsert(dataToSave, { onConflict: 'tenant_id,category,alert_type' });
 
