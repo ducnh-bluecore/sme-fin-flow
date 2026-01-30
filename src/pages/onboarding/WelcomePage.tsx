@@ -53,14 +53,18 @@ export default function WelcomePage() {
   const { goToNextStep, isUpdating } = useOnboardingFlow();
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background */}
+    <div className="min-h-screen relative overflow-hidden bg-slate-950">
+      {/* Background - positioned at edges, not center */}
       <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40"
         style={{ backgroundImage: `url(${heroBg})` }}
       />
-      {/* Overlay for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/40 to-slate-900/80" />
+      
+      {/* Strong center overlay to ensure text readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-950/95 to-slate-950/80" />
+      
+      {/* Radial gradient for center focus */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_rgb(2,6,23)_70%)]" />
       
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
