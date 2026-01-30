@@ -23,8 +23,11 @@ export interface SecureContext {
   supabase: SupabaseClient;
   userId: string;
   tenantId: string;
+  tenantSlug: string | null;
   email: string | null;
   role: string | null;
+  /** Whether schema-per-tenant mode is active (schema provisioned) */
+  isSchemaMode: boolean;
 }
 
 export const corsHeaders = {
@@ -152,6 +155,11 @@ export async function validateAuth(req: Request): Promise<AuthResult> {
 /**
  * Full security check with tenant isolation
  * Use this for user-initiated requests that need tenant context
+ * 
+ * Schema-per-Tenant Support:
+ * - Automatically checks if tenant schema is provisioned
+ * - If provisioned, sets search_path to tenant schema
+ * - Returns isSchemaMode flag to indicate active mode
  */
 export async function requireAuth(req: Request): Promise<SecureContext | Response> {
   // Handle CORS preflight
@@ -177,12 +185,50 @@ export async function requireAuth(req: Request): Promise<SecureContext | Respons
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
+  // Schema-per-Tenant: Check if tenant schema is provisioned
+  let isSchemaMode = false;
+  let tenantSlug: string | null = null;
+
+  try {
+    // Get tenant slug
+    const { data: tenant } = await supabase
+      .from('tenants')
+      .select('slug')
+      .eq('id', auth.tenantId)
+      .maybeSingle();
+    
+    tenantSlug = tenant?.slug || null;
+
+    // Check if schema is provisioned
+    const { data: isProvisioned } = await supabase
+      .rpc('is_tenant_schema_provisioned', { p_tenant_id: auth.tenantId });
+
+    if (isProvisioned) {
+      // Set search_path to tenant schema
+      const { error: schemaError } = await supabase
+        .rpc('set_tenant_schema', { p_tenant_id: auth.tenantId });
+
+      if (schemaError) {
+        console.error('Failed to set tenant schema:', schemaError);
+        // Continue with shared DB mode if schema switch fails
+      } else {
+        isSchemaMode = true;
+        console.log(`[Auth] Schema mode active for tenant: tenant_${tenantSlug}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error checking tenant schema:', err);
+    // Continue with shared DB mode on error
+  }
+
   return {
     supabase,
     userId: auth.userId!,
     tenantId: auth.tenantId,
+    tenantSlug,
     email: auth.email,
-    role: auth.role
+    role: auth.role,
+    isSchemaMode
   };
 }
 
