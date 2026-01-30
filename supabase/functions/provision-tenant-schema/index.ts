@@ -63,9 +63,31 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Missing required fields: tenantId and slug', 400);
     }
 
-    // Authorization: Only allow provisioning own tenant OR admin role
-    // For now, check if user belongs to the tenant they're trying to provision
-    if (tenantId !== userTenantId && role !== 'admin' && role !== 'super_admin') {
+    // Authorization check: 
+    // 1. User can provision their own tenant
+    // 2. OR user is an admin/super_admin in ANY tenant (global admin capability)
+    // 3. OR user has owner/admin role in the target tenant
+    let canProvision = false;
+    
+    if (tenantId === userTenantId) {
+      canProvision = true;
+    } else if (role === 'admin' || role === 'super_admin') {
+      canProvision = true;
+    } else {
+      // Check if user has admin/owner role in the target tenant
+      const { data: targetTenantUser } = await supabase
+        .from('tenant_users')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      
+      if (targetTenantUser && ['owner', 'admin'].includes(targetTenantUser.role)) {
+        canProvision = true;
+      }
+    }
+
+    if (!canProvision) {
       console.error(`[provision-tenant-schema] Unauthorized: User ${userId} (tenant ${userTenantId}) tried to provision tenant ${tenantId}`);
       return errorResponse('Unauthorized to provision this tenant', 403);
     }
