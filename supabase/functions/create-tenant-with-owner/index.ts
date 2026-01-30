@@ -269,6 +269,28 @@ Deno.serve(async (req) => {
       .update({ active_tenant_id: tenant.id })
       .eq('id', ownerId)
 
+    // Auto-provision dedicated schema for tenant
+    console.log(`[create-tenant-with-owner] Auto-provisioning schema for tenant ${tenant.id} (${slug})`)
+    let schemaProvisioned = false
+    try {
+      const { data: provisionResult, error: provisionError } = await supabaseAdmin
+        .rpc('provision_tenant_schema', {
+          p_tenant_id: tenant.id,
+          p_slug: slug
+        })
+
+      if (provisionError) {
+        console.error('[create-tenant-with-owner] Error provisioning schema:', provisionError)
+        // Non-fatal - schema can be provisioned later by admin
+      } else {
+        console.log('[create-tenant-with-owner] Schema provisioned successfully:', provisionResult)
+        schemaProvisioned = true
+      }
+    } catch (provisionErr) {
+      console.error('[create-tenant-with-owner] Exception during schema provisioning:', provisionErr)
+      // Non-fatal - continue with tenant creation
+    }
+
     console.log('Successfully created tenant with owner')
 
     return new Response(
@@ -277,6 +299,7 @@ Deno.serve(async (req) => {
         tenant: tenant,
         ownerId: ownerId,
         isNewUser: isNewUser,
+        schemaProvisioned: schemaProvisioned,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

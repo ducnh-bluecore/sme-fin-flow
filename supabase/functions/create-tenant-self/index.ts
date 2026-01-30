@@ -125,6 +125,26 @@ Deno.serve(async (req: Request) => {
       // Non-fatal; UI can still switch tenant via hook if needed
     }
 
+    // Auto-provision dedicated schema for tenant
+    console.log(`[create-tenant-self] Auto-provisioning schema for tenant ${tenant.id} (${slug})`);
+    try {
+      const { data: provisionResult, error: provisionError } = await serviceClient
+        .rpc('provision_tenant_schema', {
+          p_tenant_id: tenant.id,
+          p_slug: slug
+        });
+
+      if (provisionError) {
+        console.error('[create-tenant-self] Error provisioning schema:', provisionError);
+        // Non-fatal - schema can be provisioned later by admin
+      } else {
+        console.log('[create-tenant-self] Schema provisioned successfully:', provisionResult);
+      }
+    } catch (provisionErr) {
+      console.error('[create-tenant-self] Exception during schema provisioning:', provisionErr);
+      // Non-fatal - continue with tenant creation
+    }
+
     return jsonResponse({ success: true, tenant });
   } catch (err) {
     console.error('[create-tenant-self] Unexpected error:', err);
