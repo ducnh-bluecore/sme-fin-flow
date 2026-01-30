@@ -8,8 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface ProblematicSKU {
   sku: string;
@@ -25,7 +24,7 @@ export interface ProblematicSKU {
 }
 
 export function useAllProblematicSKUs() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['problematic-skus', tenantId],
@@ -36,8 +35,7 @@ export function useAllProblematicSKUs() {
       const seenSKUs = new Set<string>();
 
       // 1. SSOT: First try product_metrics (real-time calculated from orders + products)
-      // profit_status values from DB: 'critical', 'warning', 'healthy'
-      const { data: metricsData, error: metricsError } = await supabase
+      let metricsQuery = client
         .from('product_metrics')
         .select(`
           sku, product_name, 
@@ -45,11 +43,16 @@ export function useAllProblematicSKUs() {
           total_revenue_30d, total_cost_30d, total_quantity_30d,
           profit_per_unit, profit_status
         `)
-        .eq('tenant_id', tenantId)
         .or('profit_status.eq.critical,profit_status.eq.warning')
         .gt('total_quantity_30d', 0)
         .order('gross_margin_percent', { ascending: true })
         .limit(50);
+
+      if (shouldAddTenantFilter) {
+        metricsQuery = metricsQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: metricsData, error: metricsError } = await metricsQuery;
 
       if (!metricsError && metricsData) {
         metricsData.forEach(row => {
@@ -70,14 +73,19 @@ export function useAllProblematicSKUs() {
       }
 
       // 2. Fallback: Also check sku_profitability_cache for SKUs not in product_metrics
-      const { data: cacheData, error: cacheError } = await supabase
+      let cacheQuery = client
         .from('sku_profitability_cache')
         .select('sku, product_name, channel, profit, margin_percent, revenue, cogs, fees, quantity')
-        .eq('tenant_id', tenantId)
         .lt('margin_percent', 10) // Margin < 10% needs attention
         .gt('revenue', 0) // Only SKUs with actual sales
         .order('margin_percent', { ascending: true })
         .limit(50);
+
+      if (shouldAddTenantFilter) {
+        cacheQuery = cacheQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: cacheData, error: cacheError } = await cacheQuery;
 
       if (!cacheError && cacheData) {
         cacheData.forEach(row => {
@@ -107,7 +115,7 @@ export function useAllProblematicSKUs() {
       // Sort by margin (worst first)
       return results.sort((a, b) => a.margin_percent - b.margin_percent);
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000 // 2 minutes
   });
 }

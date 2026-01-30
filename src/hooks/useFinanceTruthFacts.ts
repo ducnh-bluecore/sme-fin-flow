@@ -21,8 +21,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 // =============================================================
 // TYPES - Mirror the database schema exactly
@@ -97,7 +96,7 @@ interface UseFinanceTruthFactsOptions {
 }
 
 export function useFinanceTruthFacts(options: UseFinanceTruthFactsOptions) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { grainType, limit = 50, orderBy = 'revenue', ascending = false } = options;
   
   return useQuery({
@@ -106,13 +105,18 @@ export function useFinanceTruthFacts(options: UseFinanceTruthFactsOptions) {
       if (!tenantId) return [];
       
       // Direct fetch - NO CALCULATIONS
-      const { data, error } = await supabase
+      let query = client
         .from('central_metric_facts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('grain_type', grainType)
         .order(orderBy, { ascending })
         .limit(limit);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
       
       if (error) {
         console.error('[useFinanceTruthFacts] Fetch error:', error);
@@ -124,7 +128,7 @@ export function useFinanceTruthFacts(options: UseFinanceTruthFactsOptions) {
       // Map to formatted shape - NO CALCULATIONS
       return data.map(mapToFormatted);
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
@@ -238,7 +242,7 @@ function mapToFormatted(raw: MetricFact): FormattedFact {
  * NO CLIENT-SIDE AGGREGATION
  */
 export function useFactsSummary(grainType: FactGrainType) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['finance-truth-facts-summary', tenantId, grainType],
@@ -246,7 +250,7 @@ export function useFactsSummary(grainType: FactGrainType) {
       if (!tenantId) return null;
       
       // Fetch from precomputed summary table - NO CLIENT CALCULATIONS
-      const { data, error } = await supabase
+      const { data, error } = await client
         .rpc('get_facts_summary', {
           p_tenant_id: tenantId,
           p_grain_type: grainType,
@@ -255,12 +259,16 @@ export function useFactsSummary(grainType: FactGrainType) {
       if (error) {
         console.error('[useFactsSummary] RPC error:', error);
         // Fallback to summary table direct query
-        const { data: fallbackData, error: fallbackError } = await supabase
+        let fallbackQuery = client
           .from('central_metric_facts_summary')
           .select('*')
-          .eq('tenant_id', tenantId)
-          .eq('grain_type', grainType)
-          .maybeSingle();
+          .eq('grain_type', grainType);
+
+        if (shouldAddTenantFilter) {
+          fallbackQuery = fallbackQuery.eq('tenant_id', tenantId);
+        }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery.maybeSingle();
         
         if (fallbackError || !fallbackData) return null;
         
@@ -288,7 +296,7 @@ export function useFactsSummary(grainType: FactGrainType) {
         avgMarginPercent: Number(row.avg_margin_percent) || 0,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
