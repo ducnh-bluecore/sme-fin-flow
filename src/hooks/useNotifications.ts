@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useAuth } from './useAuth';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -36,13 +35,14 @@ export interface CreateNotificationInput {
 // Fetch user's notifications
 export function useNotifications(limit = 50) {
   const { user } = useAuth();
+  const { client, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['notifications', user?.id, limit],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
@@ -52,20 +52,21 @@ export function useNotifications(limit = 50) {
       if (error) throw error;
       return data as Notification[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isReady,
   });
 }
 
 // Fetch unread count
 export function useUnreadNotificationCount() {
   const { user } = useAuth();
+  const { client, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['notifications-unread-count', user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
 
-      const { count, error } = await supabase
+      const { count, error } = await client
         .from('notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
@@ -74,7 +75,7 @@ export function useUnreadNotificationCount() {
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isReady,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }
@@ -83,10 +84,11 @@ export function useUnreadNotificationCount() {
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('id', notificationId)
@@ -105,10 +107,11 @@ export function useMarkNotificationRead() {
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      const { error } = await client
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('user_id', user?.id)
@@ -128,10 +131,11 @@ export function useMarkAllNotificationsRead() {
 export function useDeleteNotification() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('notifications')
         .delete()
         .eq('id', notificationId)
@@ -150,10 +154,11 @@ export function useDeleteNotification() {
 export function useClearAllNotifications() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      const { error } = await client
         .from('notifications')
         .delete()
         .eq('user_id', user?.id);
@@ -172,11 +177,12 @@ export function useClearAllNotifications() {
 export function useRealtimeNotifications() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { client, isReady } = useTenantSupabaseCompat();
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !isReady) return;
 
-    const channel = supabase
+    const channel = client
       .channel('notifications-realtime')
       .on(
         'postgres_changes',
@@ -213,7 +219,7 @@ export function useRealtimeNotifications() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [user?.id, queryClient, client, isReady]);
 }

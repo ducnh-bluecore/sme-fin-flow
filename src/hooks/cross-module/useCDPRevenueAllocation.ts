@@ -6,8 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 interface RevenueAllocation {
   id: string;
@@ -28,18 +27,23 @@ interface RevenueAllocation {
 }
 
 export function useCDPRevenueAllocations() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery<RevenueAllocation[]>({
     queryKey: ['cdp-revenue-allocations', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('revenue_allocation_bridge')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching revenue allocations:', error);
@@ -64,7 +68,7 @@ export function useCDPRevenueAllocations() {
         createdAt: row.created_at,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -80,14 +84,14 @@ interface PushRevenueParams {
 }
 
 export function usePushRevenueToFDP() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: PushRevenueParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase.rpc('cdp_push_revenue_to_fdp', {
+      const { data, error } = await client.rpc('cdp_push_revenue_to_fdp', {
         p_tenant_id: tenantId,
         p_equity_12m: params.equity12m,
         p_quarterly_weights: params.quarterlyWeights ?? {
@@ -110,7 +114,7 @@ export function usePushRevenueToFDP() {
 }
 
 export function useCrossModuleRevenueForecasts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const year = new Date().getFullYear();
 
   return useQuery({
@@ -118,12 +122,17 @@ export function useCrossModuleRevenueForecasts() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('cross_module_revenue_forecast')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('year', year)
         .order('month', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching revenue forecasts:', error);
@@ -132,6 +141,6 @@ export function useCrossModuleRevenueForecasts() {
 
       return data ?? [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
