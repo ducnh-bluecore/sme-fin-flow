@@ -1,6 +1,12 @@
+/**
+ * useApprovals - Enterprise approval workflow management
+ * 
+ * Schema-per-Tenant Ready
+ * Uses Edge Functions for approval operations
+ */
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenant } from "@/hooks/useTenant";
+import { useTenantSupabaseCompat } from "@/integrations/supabase/tenantClient";
 import { useToast } from "@/hooks/use-toast";
 
 export interface EnterprisePolicy {
@@ -68,21 +74,21 @@ export interface PolicyCheckResult {
 }
 
 export function usePolicies() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['enterprise-policies', activeTenant?.id],
+    queryKey: ['enterprise-policies', tenantId],
     queryFn: async (): Promise<EnterprisePolicy[]> => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/policies`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -91,12 +97,12 @@ export function usePolicies() {
       const data = await response.json();
       return data.policies;
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useCreatePolicy() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -108,16 +114,16 @@ export function useCreatePolicy() {
       requiredApprovals?: number;
       approverRoles?: string[];
     }) => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/policies`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(policy),
@@ -141,22 +147,22 @@ export function useCreatePolicy() {
 }
 
 export function useUpdatePolicy() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<EnterprisePolicy> & { id: string }) => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/policies/${id}`,
         {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(updates),
@@ -177,21 +183,21 @@ export function useUpdatePolicy() {
 }
 
 export function usePendingApprovals() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['pending-approvals', activeTenant?.id],
+    queryKey: ['pending-approvals', tenantId],
     queryFn: async (): Promise<{ requests: ApprovalRequest[]; canApprove: boolean }> => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/pending`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -199,27 +205,27 @@ export function usePendingApprovals() {
       if (!response.ok) throw new Error('Failed to fetch pending approvals');
       return response.json();
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 }
 
 export function useApprovalHistory(limit = 50) {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['approval-history', activeTenant?.id, limit],
+    queryKey: ['approval-history', tenantId, limit],
     queryFn: async (): Promise<ApprovalRequest[]> => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/history?limit=${limit}`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -228,26 +234,26 @@ export function useApprovalHistory(limit = 50) {
       const data = await response.json();
       return data.requests;
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useApprovalStats() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['approval-stats', activeTenant?.id],
+    queryKey: ['approval-stats', tenantId],
     queryFn: async (): Promise<ApprovalStats> => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/stats`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -255,28 +261,28 @@ export function useApprovalStats() {
       if (!response.ok) throw new Error('Failed to fetch approval stats');
       return response.json();
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useCheckPolicy() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ policyType, context }: {
       policyType: string;
       context: Record<string, unknown>;
     }): Promise<PolicyCheckResult> => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/check`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ policyType, context }),
@@ -290,7 +296,7 @@ export function useCheckPolicy() {
 }
 
 export function useCreateApprovalRequest() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -302,16 +308,16 @@ export function useCreateApprovalRequest() {
       resourceId?: string;
       resourceData?: Record<string, unknown>;
     }) => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/request`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(request),
@@ -335,7 +341,7 @@ export function useCreateApprovalRequest() {
 }
 
 export function useDecideApproval() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -345,16 +351,16 @@ export function useDecideApproval() {
       decision: 'approve' | 'reject';
       comment?: string;
     }) => {
-      if (!activeTenant?.id) throw new Error('No active tenant');
+      if (!tenantId) throw new Error('No active tenant');
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/approvals/decide/${requestId}`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ decision, comment }),

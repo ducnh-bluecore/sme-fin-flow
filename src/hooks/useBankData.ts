@@ -1,7 +1,12 @@
+/**
+ * useBankData - Bank account and transaction management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 export interface BankAccount {
   id: string;
@@ -34,44 +39,52 @@ export interface BankTransaction {
 
 // Fetch all bank accounts
 export function useBankAccounts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['bank-accounts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('bank_accounts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('bank_name', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as BankAccount[];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch bank transactions
 export function useBankTransactions(bankAccountId?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['bank-transactions', tenantId, bankAccountId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('bank_transactions')
         .select(`
           *,
           bank_accounts (bank_name, account_number)
         `)
-        .eq('tenant_id', tenantId)
         .order('transaction_date', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (bankAccountId) {
         query = query.eq('bank_account_id', bankAccountId);
@@ -82,7 +95,7 @@ export function useBankTransactions(bankAccountId?: string) {
       return data as BankTransaction[];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -122,11 +135,12 @@ export function useBankStats() {
 
 // Update bank account
 export function useUpdateBankAccount() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<BankAccount> }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('bank_accounts')
         .update(updates)
         .eq('id', id);

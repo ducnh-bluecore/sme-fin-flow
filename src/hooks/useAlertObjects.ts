@@ -1,7 +1,12 @@
+/**
+ * useAlertObjects - Alert object management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 export type AlertObjectType = 'product' | 'order' | 'customer' | 'store' | 'inventory' | 'cashflow' | 'kpi' | 'channel';
 export type AlertObjectStatus = 'normal' | 'warning' | 'critical' | 'acknowledged';
@@ -49,17 +54,20 @@ export interface AlertObjectFilters {
 }
 
 export function useAlertObjects(filters?: AlertObjectFilters) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['alert-objects', tenantId, filters],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('alert_objects')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (filters?.object_type) {
         query = query.eq('object_type', filters.object_type);
@@ -82,22 +90,27 @@ export function useAlertObjects(filters?: AlertObjectFilters) {
       if (error) throw error;
       return data as AlertObject[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useAlertObjectStats() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['alert-object-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_objects')
-        .select('object_type, alert_status, is_monitored')
-        .eq('tenant_id', tenantId);
+        .select('object_type, alert_status, is_monitored');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -120,19 +133,19 @@ export function useAlertObjectStats() {
 
       return stats;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useCreateAlertObject() {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
 
   return useMutation({
     mutationFn: async (input: AlertObjectInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_objects')
         .insert({
           tenant_id: tenantId,
@@ -156,11 +169,12 @@ export function useCreateAlertObject() {
 }
 
 export function useUpdateAlertObject() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<AlertObject> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_objects')
         .update(input)
         .eq('id', id)
@@ -182,11 +196,12 @@ export function useUpdateAlertObject() {
 }
 
 export function useDeleteAlertObject() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_objects')
         .delete()
         .eq('id', id);
@@ -206,11 +221,12 @@ export function useDeleteAlertObject() {
 }
 
 export function useBulkUpdateAlertObjects() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<AlertObject> }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_objects')
         .update(updates)
         .in('id', ids);
