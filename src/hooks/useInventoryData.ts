@@ -1,6 +1,11 @@
+/**
+ * useInventoryData - Inventory management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface InventoryItem {
   id: string;
@@ -37,7 +42,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export function useInventoryData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['inventory-data', tenantId],
@@ -45,13 +50,18 @@ export function useInventoryData() {
       if (!tenantId) return { items: [], categories: [], warehouses: [] };
 
       // Fetch inventory objects (products with stock)
-      const { data: products, error } = await supabase
+      let query = client
         .from('alert_objects')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('object_type', 'product')
         .order('object_name', { ascending: true })
         .limit(10000);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data: products, error } = await query;
 
       if (error) throw error;
 
@@ -125,7 +135,7 @@ export function useInventoryData() {
 
       return { items, categories, warehouses };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 

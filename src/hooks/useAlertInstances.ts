@@ -1,7 +1,12 @@
+/**
+ * useAlertInstances - Alert instance management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 import { useEffect } from 'react';
 
 export type AlertInstanceStatus = 'active' | 'acknowledged' | 'resolved' | 'snoozed';
@@ -59,22 +64,25 @@ export interface AlertInstanceFilters {
   alert_type?: string;
   object_type?: string;
   date_from?: string;
-  hideLinkedToDecision?: boolean; // Ẩn alerts đã có decision card
+  hideLinkedToDecision?: boolean;
   date_to?: string;
 }
 
 export function useAlertInstances(filters?: AlertInstanceFilters) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['alert-instances', tenantId, filters],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('alert_instances')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -97,7 +105,6 @@ export function useAlertInstances(filters?: AlertInstanceFilters) {
       if (filters?.date_to) {
         query = query.lte('created_at', filters.date_to);
       }
-      // Ẩn alerts đã được link tới Decision Card khỏi Control Tower
       if (filters?.hideLinkedToDecision) {
         query = query.is('linked_decision_card_id', null);
       }
@@ -107,46 +114,56 @@ export function useAlertInstances(filters?: AlertInstanceFilters) {
       if (error) throw error;
       return data as AlertInstance[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useActiveAlerts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['active-alerts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_instances')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('status', 'active')
         .order('priority', { ascending: true })
         .order('created_at', { ascending: false });
 
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       return data as AlertInstance[];
     },
-    enabled: !!tenantId,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: !!tenantId && isReady,
+    refetchInterval: 30000,
   });
 }
 
 export function useAlertInstanceStats() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['alert-instance-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_instances')
-        .select('status, severity, category')
-        .eq('tenant_id', tenantId);
+        .select('status, severity, category');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -174,18 +191,19 @@ export function useAlertInstanceStats() {
 
       return stats;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useAcknowledgeAlert() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: 'acknowledged',
@@ -212,13 +230,14 @@ export function useAcknowledgeAlert() {
 }
 
 export function useResolveAlert() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: 'resolved',
@@ -246,11 +265,12 @@ export function useResolveAlert() {
 }
 
 export function useSnoozeAlert() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, until }: { id: string; until: Date }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_instances')
         .update({
           status: 'snoozed',
@@ -276,11 +296,12 @@ export function useSnoozeAlert() {
 }
 
 export function useBulkUpdateAlerts() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<AlertInstance> }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_instances')
         .update(updates)
         .in('id', ids);
@@ -302,13 +323,13 @@ export function useBulkUpdateAlerts() {
 
 // Realtime subscription for alerts
 export function useRealtimeAlerts() {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || !isReady) return;
 
-    const channel = supabase
+    const channel = client
       .channel('alert-instances-realtime')
       .on(
         'postgres_changes',
@@ -342,7 +363,7 @@ export function useRealtimeAlerts() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
-  }, [tenantId, queryClient]);
+  }, [tenantId, isReady, queryClient, client]);
 }

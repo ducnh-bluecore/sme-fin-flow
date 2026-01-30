@@ -1,7 +1,12 @@
+/**
+ * useAlertSettings - Alert settings management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 // Chuẩn hóa severity: critical, warning, info (thay thế high, medium, low)
 export interface AlertTypeConfig {
@@ -65,18 +70,22 @@ const defaultSettings: AlertSettingsInput = {
 };
 
 export function useAlertSettings() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['alert-settings', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_settings')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       
@@ -90,28 +99,32 @@ export function useAlertSettings() {
       
       return null;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useSaveAlertSettings() {
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
 
   return useMutation({
     mutationFn: async (settings: AlertSettingsInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
       // Check if settings exist
-      const { data: existing } = await supabase
+      let checkQuery = client
         .from('alert_settings')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('id');
+
+      if (shouldAddTenantFilter) {
+        checkQuery = checkQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: existing } = await checkQuery.maybeSingle();
 
       if (existing) {
         // Update existing
-        const { data, error } = await supabase
+        let updateQuery = client
           .from('alert_settings')
           .update({
             alert_configs: JSON.parse(JSON.stringify(settings.alert_configs)),
@@ -123,10 +136,13 @@ export function useSaveAlertSettings() {
             notify_immediately: settings.notify_immediately,
             notify_daily_summary: settings.notify_daily_summary,
             notify_weekly_summary: settings.notify_weekly_summary,
-          })
-          .eq('tenant_id', tenantId)
-          .select()
-          .single();
+          });
+
+        if (shouldAddTenantFilter) {
+          updateQuery = updateQuery.eq('tenant_id', tenantId);
+        }
+
+        const { data, error } = await updateQuery.select().single();
 
         if (error) throw error;
         return data;
@@ -145,7 +161,7 @@ export function useSaveAlertSettings() {
           notify_weekly_summary: settings.notify_weekly_summary,
         };
 
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('alert_settings')
           .upsert(insertData as never, { onConflict: 'tenant_id' })
           .select()
