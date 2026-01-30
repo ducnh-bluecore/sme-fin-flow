@@ -18,7 +18,8 @@ import {
   Clock,
   Shield,
   BarChart3,
-  History
+  History,
+  HeartPulse
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantSchemaStatus } from '@/hooks/useTenantSchemaStatus';
@@ -26,6 +27,7 @@ import { useTenantMembers } from '@/hooks/useTenant';
 import { TenantSchemaStatus } from '@/components/admin/TenantSchemaStatus';
 import { ProvisionSchemaButton } from '@/components/admin/ProvisionSchemaButton';
 import { TenantStatsCard } from '@/components/admin/TenantStatsCard';
+import { TenantHealthTab } from '@/components/admin/TenantHealthTab';
 import { TenantAuditLog } from '@/components/admin/TenantAuditLog';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -139,6 +141,10 @@ export default function AdminTenantDetailPage() {
             <TabsTrigger value="audit" className="gap-2">
               <History className="w-4 h-4" />
               Lịch sử
+            </TabsTrigger>
+            <TabsTrigger value="health" className="gap-2">
+              <HeartPulse className="w-4 h-4" />
+              Sức khỏe
             </TabsTrigger>
           </TabsList>
 
@@ -367,6 +373,11 @@ export default function AdminTenantDetailPage() {
           {/* Audit Log Tab */}
           <TabsContent value="audit">
             <TenantAuditLog tenantId={tenant.id} />
+          </TabsContent>
+
+          {/* Health Tab */}
+          <TabsContent value="health">
+            <TenantHealthTab tenantId={tenant.id} />
           </TabsContent>
         </Tabs>
       </div>
