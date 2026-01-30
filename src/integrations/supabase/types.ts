@@ -10139,6 +10139,106 @@ export type Database = {
           },
         ]
       }
+      cs_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          alert_type: string
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          recommended_action: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          alert_type: string
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          recommended_action?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          alert_type?: string
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          recommended_action?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cs_alerts_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cs_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cs_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cs_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cs_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cs_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       currencies: {
         Row: {
           code: string
@@ -23878,6 +23978,182 @@ export type Database = {
           },
         ]
       }
+      tenant_events: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          event_name: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          module: string | null
+          route: string | null
+          session_id: string | null
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          event_name: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          module?: string | null
+          route?: string | null
+          session_id?: string | null
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          event_name?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          module?: string | null
+          route?: string | null
+          session_id?: string | null
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_health: {
+        Row: {
+          avg_session_duration_min: number | null
+          churn_risk_score: number | null
+          created_at: string
+          daily_active_users: number | null
+          data_freshness_days: number | null
+          date: string
+          engagement_trend: string | null
+          health_score: number | null
+          id: string
+          last_activity_at: string | null
+          modules_used: string[] | null
+          monthly_active_users: number | null
+          onboarding_percent: number | null
+          onboarding_step: string | null
+          tenant_id: string
+          total_decisions: number | null
+          total_exports: number | null
+          total_page_views: number | null
+          updated_at: string
+          weekly_active_users: number | null
+        }
+        Insert: {
+          avg_session_duration_min?: number | null
+          churn_risk_score?: number | null
+          created_at?: string
+          daily_active_users?: number | null
+          data_freshness_days?: number | null
+          date: string
+          engagement_trend?: string | null
+          health_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          modules_used?: string[] | null
+          monthly_active_users?: number | null
+          onboarding_percent?: number | null
+          onboarding_step?: string | null
+          tenant_id: string
+          total_decisions?: number | null
+          total_exports?: number | null
+          total_page_views?: number | null
+          updated_at?: string
+          weekly_active_users?: number | null
+        }
+        Update: {
+          avg_session_duration_min?: number | null
+          churn_risk_score?: number | null
+          created_at?: string
+          daily_active_users?: number | null
+          data_freshness_days?: number | null
+          date?: string
+          engagement_trend?: string | null
+          health_score?: number | null
+          id?: string
+          last_activity_at?: string | null
+          modules_used?: string[] | null
+          monthly_active_users?: number | null
+          onboarding_percent?: number | null
+          onboarding_step?: string | null
+          tenant_id?: string
+          total_decisions?: number | null
+          total_exports?: number | null
+          total_page_views?: number | null
+          updated_at?: string
+          weekly_active_users?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       tenant_ltv_config: {
         Row: {
           created_at: string | null
@@ -32311,6 +32587,10 @@ export type Database = {
         Args: { p_object_id: string }
         Returns: undefined
       }
+      calculate_tenant_health_score: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       calculate_trend_metrics: { Args: { p_values: number[] }; Returns: Json }
       cdp_attach_data_quality_to_insights: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
@@ -33124,6 +33404,11 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_tenant_activity_summary: {
+        Args: { p_days?: number; p_tenant_id: string }
+        Returns: Json
+      }
+      get_tenant_health: { Args: { p_tenant_id: string }; Returns: Json }
       get_tenant_ltv_assumptions: {
         Args: { p_tenant_id: string }
         Returns: Json
@@ -33392,6 +33677,19 @@ export type Database = {
         Returns: string
       }
       sync_budget_actuals: { Args: never; Returns: undefined }
+      track_tenant_event: {
+        Args: {
+          p_duration_ms?: number
+          p_event_name: string
+          p_event_type: string
+          p_metadata?: Json
+          p_module?: string
+          p_route?: string
+          p_session_id?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       update_metric_formula: {
         Args: {
           p_change_reason: string
