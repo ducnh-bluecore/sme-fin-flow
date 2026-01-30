@@ -7,11 +7,12 @@
  * Falls back to sku_profitability_cache for historical/period-specific data.
  * 
  * Performance: Uses pre-aggregated data instead of 100k+ order items
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { toast } from 'sonner';
 
@@ -44,7 +45,7 @@ export interface SKUProfitabilitySummary {
  * Fetch SKU profitability from pre-aggregated view (fast, all-time data)
  */
 export function useSKUProfitabilityFromView() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['sku-profitability-view', tenantId],
@@ -52,12 +53,17 @@ export function useSKUProfitabilityFromView() {
       if (!tenantId) return null;
 
       // Use pre-aggregated SKU summary view (cast to any since views not in types)
-      const { data, error } = await supabase
+      let query = client
         .from('fdp_sku_summary' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('total_revenue', { ascending: false })
         .limit(500); // Top 500 SKUs
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -116,7 +122,7 @@ export function useSKUProfitabilityFromView() {
         lastCalculated: new Date().toISOString()
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000 // 5 minutes
   });
 }
@@ -126,7 +132,7 @@ export function useSKUProfitabilityFromView() {
  * Uses database RPC for proper date filtering (DB-First architecture)
  */
 export function useCachedSKUProfitability() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -136,7 +142,7 @@ export function useCachedSKUProfitability() {
 
       // Use RPC to get SKU profitability filtered by date range
       // Always pass p_limit explicitly to avoid function overload ambiguity
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
+      const { data: rpcData, error: rpcError } = await client.rpc(
         'get_sku_profitability_by_date_range',
         {
           p_tenant_id: tenantId,
@@ -222,7 +228,7 @@ export function useCachedSKUProfitability() {
         lastCalculated: new Date().toISOString()
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000 // 5 minutes
   });
 }
@@ -232,7 +238,7 @@ export function useCachedSKUProfitability() {
  * This is now only needed for historical period-specific analysis
  */
 export function useRecalculateSKUProfitability() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const queryClient = useQueryClient();
 
@@ -241,10 +247,15 @@ export function useRecalculateSKUProfitability() {
       if (!tenantId) throw new Error('No tenant');
 
       // Use fdp_sku_summary view data to populate cache
-      const { data: rawSkuData, error: skuError } = await supabase
+      let query = client
         .from('fdp_sku_summary' as any)
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data: rawSkuData, error: skuError } = await query;
 
       if (skuError) throw skuError;
 
@@ -285,18 +296,23 @@ export function useRecalculateSKUProfitability() {
       });
 
       // Delete old cache for this period
-      await supabase
+      let deleteQuery = client
         .from('sku_profitability_cache')
         .delete()
-        .eq('tenant_id', tenantId)
         .eq('period_start', startDateStr)
         .eq('period_end', endDateStr);
+      
+      if (shouldAddTenantFilter) {
+        deleteQuery = deleteQuery.eq('tenant_id', tenantId);
+      }
+      
+      await deleteQuery;
 
       // Insert new cache (batch in chunks of 100)
       const chunkSize = 100;
       for (let i = 0; i < cacheRecords.length; i += chunkSize) {
         const chunk = cacheRecords.slice(i, i + chunkSize);
-        const { error: insertError } = await supabase
+        const { error: insertError } = await client
           .from('sku_profitability_cache')
           .insert(chunk);
 

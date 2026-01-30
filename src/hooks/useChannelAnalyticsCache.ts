@@ -1,6 +1,13 @@
+/**
+ * Channel Analytics Cache Hook
+ * 
+ * Uses pre-computed cache table for fast channel analytics.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { ChannelPerformance, OrderStatusSummary, FeeSummary } from './useChannelAnalytics';
 
 export interface ChannelAnalyticsCache {
@@ -61,8 +68,8 @@ export function useChannelAnalyticsCache() {
       if (data) {
         const cacheAge = Date.now() - new Date(data.calculated_at).getTime();
         if (cacheAge > CACHE_MAX_AGE_MS) {
-          // Trigger background refresh
-          supabase.rpc('refresh_channel_analytics_cache', { 
+          // Trigger background refresh using tenant-aware client
+          client.rpc('refresh_channel_analytics_cache', { 
             p_tenant_id: tenantId 
           }).then(() => {
             queryClient.invalidateQueries({ queryKey: ['channel-analytics-cache', tenantId] });
@@ -70,7 +77,7 @@ export function useChannelAnalyticsCache() {
         }
       } else {
         // No cache exists, create it
-        supabase.rpc('refresh_channel_analytics_cache', { 
+        client.rpc('refresh_channel_analytics_cache', { 
           p_tenant_id: tenantId 
         }).then(() => {
           queryClient.invalidateQueries({ queryKey: ['channel-analytics-cache', tenantId] });
@@ -152,13 +159,13 @@ export function useChannelAnalyticsCache() {
 
 export function useRefreshChannelAnalyticsCache() {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { error } = await supabase.rpc('refresh_channel_analytics_cache', {
+      const { error } = await client.rpc('refresh_channel_analytics_cache', {
         p_tenant_id: tenantId,
       });
 

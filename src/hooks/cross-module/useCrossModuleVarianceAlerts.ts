@@ -3,11 +3,12 @@
  * 
  * Hook to fetch and manage cross-domain variance alerts.
  * Used by Control Tower for cross-module monitoring.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { CrossDomainVarianceAlert, SourceModule } from '@/types/cross-module';
 
 interface UseVarianceAlertsOptions {
@@ -16,7 +17,7 @@ interface UseVarianceAlertsOptions {
 }
 
 export function useCrossModuleVarianceAlerts(options: UseVarianceAlertsOptions = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { status = 'open', severity = 'all' } = options;
 
   return useQuery<CrossDomainVarianceAlert[]>({
@@ -24,11 +25,14 @@ export function useCrossModuleVarianceAlerts(options: UseVarianceAlertsOptions =
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('cross_domain_variance_alerts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (status !== 'all') {
         query = query.eq('status', status);
@@ -62,17 +66,18 @@ export function useCrossModuleVarianceAlerts(options: UseVarianceAlertsOptions =
         createdAt: row.created_at,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60 * 1000, // 1 minute
   });
 }
 
 export function useAcknowledgeVarianceAlert() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (alertId: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('cross_domain_variance_alerts')
         .update({
           status: 'acknowledged',
@@ -89,11 +94,12 @@ export function useAcknowledgeVarianceAlert() {
 }
 
 export function useResolveVarianceAlert() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ alertId, notes }: { alertId: string; notes?: string }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('cross_domain_variance_alerts')
         .update({
           status: 'resolved',
@@ -111,11 +117,12 @@ export function useResolveVarianceAlert() {
 }
 
 export function useDismissVarianceAlert() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ alertId, notes }: { alertId: string; notes?: string }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('cross_domain_variance_alerts')
         .update({
           status: 'dismissed',
@@ -132,14 +139,14 @@ export function useDismissVarianceAlert() {
 }
 
 export function useDetectVarianceAlerts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase.rpc('detect_cross_domain_variance', {
+      const { data, error } = await client.rpc('detect_cross_domain_variance', {
         p_tenant_id: tenantId,
       });
 

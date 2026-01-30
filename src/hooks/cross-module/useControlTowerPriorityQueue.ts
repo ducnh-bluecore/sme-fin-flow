@@ -3,11 +3,12 @@
  * 
  * Hook to manage the Control Tower priority queue.
  * Aggregates signals from FDP, MDP, and CDP.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { SourceModule } from '@/types/cross-module';
 import { toast } from 'sonner';
 
@@ -73,7 +74,7 @@ interface UseQueueOptions {
 }
 
 export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { status = 'pending', sourceModule, limit = 20 } = options;
 
   return useQuery<PrioritySignal[]>({
@@ -81,13 +82,16 @@ export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('control_tower_priority_queue' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('priority_score', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(limit);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (status !== 'all') {
         query = query.eq('status', status);
@@ -106,7 +110,7 @@ export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
 
       return ((data ?? []) as unknown as QueueRow[]).map(mapRowToSignal);
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     refetchInterval: 60 * 1000,
   });
 }
@@ -115,17 +119,22 @@ export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
  * Get queue statistics
  */
 export function useControlTowerQueueStats() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['control-tower-queue-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('control_tower_priority_queue' as any)
-        .select('status, source_module, priority_score, impact_amount')
-        .eq('tenant_id', tenantId);
+        .select('status, source_module, priority_score, impact_amount');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching queue stats:', error);
@@ -153,7 +162,7 @@ export function useControlTowerQueueStats() {
         criticalCount: pending.filter((r) => (r.priority_score ?? 0) >= 80).length,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -161,14 +170,14 @@ export function useControlTowerQueueStats() {
  * Refresh the priority queue by aggregating signals from all modules
  */
 export function useRefreshPriorityQueue() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase.rpc('control_tower_aggregate_signals' as any, {
+      const { data, error } = await client.rpc('control_tower_aggregate_signals' as any, {
         p_tenant_id: tenantId,
       });
 
@@ -193,6 +202,7 @@ export function useRefreshPriorityQueue() {
  * Update signal status
  */
 export function useUpdateSignalStatus() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -203,7 +213,7 @@ export function useUpdateSignalStatus() {
       signalId: string;
       status: PrioritySignal['status'];
     }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('control_tower_priority_queue' as any)
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', signalId);
@@ -221,6 +231,7 @@ export function useUpdateSignalStatus() {
  * Assign signal to user
  */
 export function useAssignSignal() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -231,7 +242,7 @@ export function useAssignSignal() {
       signalId: string;
       userId: string;
     }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('control_tower_priority_queue' as any)
         .update({
           assigned_to: userId,

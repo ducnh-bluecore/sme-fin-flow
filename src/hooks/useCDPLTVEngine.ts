@@ -3,10 +3,11 @@
  * 
  * Thin wrappers around database views and functions.
  * No client-side calculations - all logic in Postgres.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 // ============ TYPES ============
@@ -122,7 +123,7 @@ export function useLTVModels() {
       if (error) throw error;
       return (data || []) as LTVModelAssumption[];
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -149,7 +150,7 @@ export function useActiveLTVModel() {
       if (error && error.code !== 'PGRST116') throw error;
       return data as LTVModelAssumption | null;
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -157,14 +158,14 @@ export function useActiveLTVModel() {
  * Calculate LTV for all customers using the specified model
  */
 export function useLTVCalculation(modelId?: string) {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp', 'ltv-calculation', tenantId, modelId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase.rpc('cdp_calculate_customer_ltv', {
+      const { data, error } = await client.rpc('cdp_calculate_customer_ltv', {
         p_tenant_id: tenantId,
         p_model_id: modelId || null,
         p_horizon_months: 24,
@@ -173,7 +174,7 @@ export function useLTVCalculation(modelId?: string) {
       if (error) throw error;
       return (data || []) as LTVCalculation[];
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes - expensive calculation
   });
 }
@@ -202,7 +203,7 @@ export function useLTVByCohort() {
       if (error) throw error;
       return (data || []) as LTVByCohort[];
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -229,7 +230,7 @@ export function useLTVBySource() {
       if (error) throw error;
       return (data || []) as LTVBySource[];
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -253,7 +254,7 @@ export function useLTVSummary() {
       if (error && error.code !== 'PGRST116') throw error;
       return data as LTVSummary | null;
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -289,7 +290,7 @@ export function useRealizedRevenue() {
         order_count: data?.length || 0
       };
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -317,7 +318,7 @@ export interface UpdateLTVModelInput extends Partial<CreateLTVModelInput> {
  */
 export function useCreateLTVModel() {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (input: CreateLTVModelInput) => {
@@ -325,13 +326,16 @@ export function useCreateLTVModel() {
 
       // If setting as active, deactivate others first
       if (input.is_active) {
-        await supabase
+        let deactivateQuery = client
           .from('cdp_ltv_model_assumptions')
-          .update({ is_active: false })
-          .eq('tenant_id', tenantId);
+          .update({ is_active: false });
+        if (shouldAddTenantFilter) {
+          deactivateQuery = deactivateQuery.eq('tenant_id', tenantId);
+        }
+        await deactivateQuery;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('cdp_ltv_model_assumptions')
         .insert({
           ...input,
@@ -356,7 +360,7 @@ export function useCreateLTVModel() {
  */
 export function useUpdateLTVModel() {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UpdateLTVModelInput) => {
@@ -364,20 +368,24 @@ export function useUpdateLTVModel() {
 
       // If setting as active, deactivate others first
       if (input.is_active) {
-        await supabase
+        let deactivateQuery = client
           .from('cdp_ltv_model_assumptions')
           .update({ is_active: false })
-          .eq('tenant_id', tenantId)
           .neq('id', id);
+        if (shouldAddTenantFilter) {
+          deactivateQuery = deactivateQuery.eq('tenant_id', tenantId);
+        }
+        await deactivateQuery;
       }
 
-      const { data, error } = await supabase
+      let updateQuery = client
         .from('cdp_ltv_model_assumptions')
         .update(input)
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .select()
-        .single();
+        .eq('id', id);
+      if (shouldAddTenantFilter) {
+        updateQuery = updateQuery.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await updateQuery.select().single();
 
       if (error) throw error;
       return data as LTVModelAssumption;
@@ -395,17 +403,20 @@ export function useUpdateLTVModel() {
  */
 export function useDeleteLTVModel() {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { error } = await supabase
+      let query = client
         .from('cdp_ltv_model_assumptions')
         .delete()
-        .eq('id', id)
-        .eq('tenant_id', tenantId);
+        .eq('id', id);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { error } = await query;
 
       if (error) throw error;
     },
@@ -421,26 +432,30 @@ export function useDeleteLTVModel() {
  */
 export function useSetActiveModel() {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (modelId: string) => {
       if (!tenantId) throw new Error('No tenant selected');
 
       // Deactivate all models
-      await supabase
+      let deactivateQuery = client
         .from('cdp_ltv_model_assumptions')
-        .update({ is_active: false })
-        .eq('tenant_id', tenantId);
+        .update({ is_active: false });
+      if (shouldAddTenantFilter) {
+        deactivateQuery = deactivateQuery.eq('tenant_id', tenantId);
+      }
+      await deactivateQuery;
 
       // Activate the selected model
-      const { data, error } = await supabase
+      let activateQuery = client
         .from('cdp_ltv_model_assumptions')
         .update({ is_active: true })
-        .eq('id', modelId)
-        .eq('tenant_id', tenantId)
-        .select()
-        .single();
+        .eq('id', modelId);
+      if (shouldAddTenantFilter) {
+        activateQuery = activateQuery.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await activateQuery.select().single();
 
       if (error) throw error;
       return data as LTVModelAssumption;

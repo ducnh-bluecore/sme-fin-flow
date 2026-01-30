@@ -3,11 +3,12 @@
  * 
  * Hook to manage seasonal patterns from MDP for FDP consumption.
  * Part of Case 9: MDP → FDP flow.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -38,7 +39,7 @@ interface SeasonalAdjustmentRPC {
  * Get seasonal adjustments for FDP forecasting
  */
 export function useFDPSeasonalAdjustments(targetMonth?: number) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const month = targetMonth ?? new Date().getMonth() + 1;
 
   return useQuery<CrossModuleData<SeasonalAdjustment[]>>({
@@ -53,7 +54,7 @@ export function useFDPSeasonalAdjustments(targetMonth?: number) {
         );
       }
 
-      const { data, error } = await supabase.rpc('fdp_get_seasonal_adjustments' as any, {
+      const { data, error } = await client.rpc('fdp_get_seasonal_adjustments' as any, {
         p_tenant_id: tenantId,
         p_target_month: month,
       });
@@ -102,7 +103,7 @@ export function useFDPSeasonalAdjustments(targetMonth?: number) {
         results[0]?.is_cross_module ? 'MDP' : undefined
       );
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 30 * 60 * 1000, // 30 minutes
   });
 }
@@ -120,14 +121,14 @@ interface PushPatternParams {
  * Push seasonal pattern from MDP to FDP
  */
 export function usePushSeasonalToFDP() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: PushPatternParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase.rpc('mdp_push_seasonal_to_fdp' as any, {
+      const { data, error } = await client.rpc('mdp_push_seasonal_to_fdp' as any, {
         p_tenant_id: tenantId,
         p_pattern_type: params.patternType,
         p_period_key: params.periodKey,
@@ -155,20 +156,25 @@ export function usePushSeasonalToFDP() {
  * Get all seasonal patterns for management
  */
 export function useMDPAllSeasonalPatterns() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['mdp-all-seasonal-patterns', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('mdp_seasonal_patterns' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('pattern_type', { ascending: true })
         .order('period_key', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching seasonal patterns:', error);
@@ -186,6 +192,6 @@ export function useMDPAllSeasonalPatterns() {
         created_at: string;
       }>;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
