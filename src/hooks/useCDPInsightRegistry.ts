@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
@@ -106,10 +105,11 @@ export function useCDPInsightRegistry() {
  */
 export function useCDPInsightToggle() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ code, enabled }: { code: string; enabled: boolean }) => {
-      const { error } = await supabase.rpc('cdp_toggle_insight_enabled', {
+      const { error } = await client.rpc('cdp_toggle_insight_enabled', {
         p_insight_code: code,
         p_enabled: enabled,
       });

@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface DecisionAnalysis {
@@ -22,18 +21,21 @@ export interface DecisionAnalysis {
 }
 
 export function useDecisionAnalyses(analysisType?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['decision-analyses', tenantId, analysisType],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('decision_analyses')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (analysisType) {
         query = query.eq('analysis_type', analysisType);
@@ -43,21 +45,21 @@ export function useDecisionAnalyses(analysisType?: string) {
       if (error) throw error;
       return data as DecisionAnalysis[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useSaveDecisionAnalysis() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (analysis: Omit<DecisionAnalysis, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'created_by'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('decision_analyses')
         .insert({
           tenant_id: tenantId,
@@ -83,11 +85,11 @@ export function useSaveDecisionAnalysis() {
 
 export function useUpdateDecisionAnalysis() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<DecisionAnalysis> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('decision_analyses')
         .update(updates)
         .eq('id', id)
