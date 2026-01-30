@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Building2, Upload } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { useOnboardingStatus, useUpdateTenantOnboarding } from '@/hooks/useOnboa
 import { useSwitchTenant, useCreateTenant } from '@/hooks/useTenant';
 
 export default function CompanyProfilePage() {
+  const queryClient = useQueryClient();
   const { goToNextStep, isUpdating } = useOnboardingFlow();
   const { data: onboardingData } = useOnboardingStatus();
   const updateTenant = useUpdateTenantOnboarding();
@@ -38,9 +40,12 @@ export default function CompanyProfilePage() {
     } else {
       // Create new tenant
       const newTenant = await createTenant.mutateAsync({ name: companyName });
-      if (newTenant) {
-        await switchTenant.mutateAsync(newTenant.id);
-      }
+      if (!newTenant) return;
+      
+      await switchTenant.mutateAsync(newTenant.id);
+      
+      // Force refetch onboarding status to ensure tenant data is available for next step
+      await queryClient.refetchQueries({ queryKey: ['onboarding-status'] });
     }
 
     goToNextStep('company');

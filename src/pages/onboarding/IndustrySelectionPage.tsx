@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingLayout } from '@/components/onboarding';
 import { IndustryCard } from '@/components/onboarding/IndustryCard';
@@ -14,7 +14,7 @@ import { INDUSTRIES, type Industry } from '@/lib/onboardingConfig';
 
 export default function IndustrySelectionPage() {
   const { goToNextStep, isUpdating } = useOnboardingFlow();
-  const { data: onboardingData } = useOnboardingStatus();
+  const { data: onboardingData, isLoading: isLoadingOnboarding } = useOnboardingStatus();
   const updateTenant = useUpdateTenantOnboarding();
 
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(
@@ -33,6 +33,17 @@ export default function IndustrySelectionPage() {
   };
 
   const isLoading = isUpdating || updateTenant.isPending;
+
+  // Show loading while fetching tenant data
+  if (isLoadingOnboarding) {
+    return (
+      <OnboardingLayout stepId="industry" title="Đang tải..." showBack={false} showSkip={false}>
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
   return (
     <OnboardingLayout
