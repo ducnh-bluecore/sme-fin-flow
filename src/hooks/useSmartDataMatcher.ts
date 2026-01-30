@@ -71,10 +71,18 @@ function userHasDataType(
   const allUserData = [...inferredDataTypes, ...additionalDataTypes];
   
   // Map requirement dataType to survey dataType options
+  // D2C/Retail: Order từ MỌI nguồn = Invoice, Phí sàn = Bill
   const dataTypeMapping: Record<string, string[]> = {
+    // === Core Financial Mapping (FDP Manifesto) ===
+    // Order từ sàn TMĐT = Invoice (AR) = "Cash sẽ về"
+    invoices: ['invoices', 'orders'],
+    // Phí sàn, chi phí = Bill (AP) = "Cash bị khóa/trừ"  
+    bills: ['bills', 'channel_fees', 'expenses'],
+    // Settlement = "Cash đã về" (T+14)
+    settlements: ['settlements', 'bank_transactions'],
+    
+    // === Standard Mappings ===
     orders: ['orders'],
-    invoices: ['invoices'],
-    bills: ['bills'],
     customers: ['customers'],
     vendors: ['vendors'],
     expenses: ['expenses'],
@@ -84,7 +92,6 @@ function userHasDataType(
     campaigns: ['marketing_spend', 'campaigns'],
     products: ['products'],
     channel_fees: ['orders', 'channel_fees'], // Derived from orders/channel fees
-    settlements: ['bank_transactions', 'settlements'],
     order_items: ['orders', 'order_items'],
     customer_events: ['orders'], // Behavior data
   };
