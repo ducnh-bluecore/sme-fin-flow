@@ -23,6 +23,7 @@ import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
 import { useActiveAlertsCount } from '@/hooks/useNotificationCenter';
+import { ActivityTrackerProvider } from '@/components/providers/ActivityTrackerProvider';
 
 /**
  * CONTROL TOWER LAYOUT - Rebuilt
@@ -157,6 +158,7 @@ export function ControlTowerLayout() {
   );
 
   return (
+    <ActivityTrackerProvider>
     <div className="min-h-screen bg-background flex">
       {/* Mobile Header */}
       <div className="lg:hidden">
@@ -237,5 +239,6 @@ export function ControlTowerLayout() {
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav onMoreClick={() => setMobileDrawerOpen(true)} />
     </div>
+    </ActivityTrackerProvider>
   );
 }

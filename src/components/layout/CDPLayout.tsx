@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { ActivityTrackerProvider } from '@/components/providers/ActivityTrackerProvider';
 
 /**
  * CDP LAYOUT - Light Professional Theme
@@ -143,6 +144,7 @@ export function CDPLayout({ children }: CDPLayoutProps) {
   );
 
   return (
+    <ActivityTrackerProvider>
     <div className="h-screen flex w-full bg-background overflow-hidden">
       {/* Mobile Overlay */}
       <AnimatePresence>
@@ -210,5 +212,6 @@ export function CDPLayout({ children }: CDPLayoutProps) {
         </main>
       </div>
     </div>
+    </ActivityTrackerProvider>
   );
 }
