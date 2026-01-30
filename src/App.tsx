@@ -176,6 +176,13 @@ const MobileSettingsPage = lazy(() => import("./pages/mobile/MobileSettingsPage"
 
 // Onboarding pages
 const DataAssessmentPage = lazy(() => import("./pages/onboarding/DataAssessmentPage"));
+const WelcomePage = lazy(() => import("./pages/onboarding/WelcomePage"));
+const RoleSelectionPage = lazy(() => import("./pages/onboarding/RoleSelectionPage"));
+const DashboardPreviewPage = lazy(() => import("./pages/onboarding/DashboardPreviewPage"));
+const CompanyProfilePage = lazy(() => import("./pages/onboarding/CompanyProfilePage"));
+const IndustrySelectionPage = lazy(() => import("./pages/onboarding/IndustrySelectionPage"));
+const ScaleRevenuePage = lazy(() => import("./pages/onboarding/ScaleRevenuePage"));
+const DataSourcesOverviewPage = lazy(() => import("./pages/onboarding/DataSourcesOverviewPage"));
 
 // Docs Download page
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
@@ -220,7 +227,46 @@ const AppRoutes = () => {
       {/* Redirect /formulas to /documentation since formulas are documented there */}
       <Route path="/formulas" element={<Navigate to="/documentation" replace />} />
       
-      {/* Onboarding & Data Assessment Routes */}
+      {/* Onboarding Routes - Platform Layer */}
+      <Route path="/onboarding/welcome" element={
+        <ProtectedRoute>
+          <WelcomePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/role" element={
+        <ProtectedRoute>
+          <RoleSelectionPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/preview" element={
+        <ProtectedRoute>
+          <DashboardPreviewPage />
+        </ProtectedRoute>
+      } />
+      
+      {/* Onboarding Routes - Tenant Layer */}
+      <Route path="/onboarding/company" element={
+        <ProtectedRoute>
+          <CompanyProfilePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/industry" element={
+        <ProtectedRoute>
+          <IndustrySelectionPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/scale" element={
+        <ProtectedRoute>
+          <ScaleRevenuePage />
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/sources" element={
+        <ProtectedRoute>
+          <DataSourcesOverviewPage />
+        </ProtectedRoute>
+      } />
+      
+      {/* Onboarding Routes - Module Layer (Data Assessment) */}
       <Route path="/onboarding/data-assessment/:moduleKey" element={
         <ProtectedRoute>
           <DataAssessmentPage />

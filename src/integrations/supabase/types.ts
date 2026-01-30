@@ -19754,9 +19754,12 @@ export type Database = {
           department: string | null
           full_name: string | null
           id: string
+          onboarding_completed_at: string | null
+          onboarding_status: string | null
           phone: string | null
           position: string | null
           updated_at: string
+          user_role: string | null
         }
         Insert: {
           active_tenant_id?: string | null
@@ -19766,9 +19769,12 @@ export type Database = {
           department?: string | null
           full_name?: string | null
           id: string
+          onboarding_completed_at?: string | null
+          onboarding_status?: string | null
           phone?: string | null
           position?: string | null
           updated_at?: string
+          user_role?: string | null
         }
         Update: {
           active_tenant_id?: string | null
@@ -19778,9 +19784,12 @@ export type Database = {
           department?: string | null
           full_name?: string | null
           id?: string
+          onboarding_completed_at?: string | null
+          onboarding_status?: string | null
           phone?: string | null
           position?: string | null
           updated_at?: string
+          user_role?: string | null
         }
         Relationships: [
           {
@@ -24076,33 +24085,48 @@ export type Database = {
       }
       tenants: {
         Row: {
+          company_scale: string | null
           created_at: string | null
+          data_sources: Json | null
           id: string
+          industry: string | null
           is_active: boolean | null
           logo_url: string | null
+          monthly_revenue_range: string | null
           name: string
+          onboarding_status: string | null
           plan: string | null
           settings: Json | null
           slug: string
           updated_at: string | null
         }
         Insert: {
+          company_scale?: string | null
           created_at?: string | null
+          data_sources?: Json | null
           id?: string
+          industry?: string | null
           is_active?: boolean | null
           logo_url?: string | null
+          monthly_revenue_range?: string | null
           name: string
+          onboarding_status?: string | null
           plan?: string | null
           settings?: Json | null
           slug: string
           updated_at?: string | null
         }
         Update: {
+          company_scale?: string | null
           created_at?: string | null
+          data_sources?: Json | null
           id?: string
+          industry?: string | null
           is_active?: boolean | null
           logo_url?: string | null
+          monthly_revenue_range?: string | null
           name?: string
+          onboarding_status?: string | null
           plan?: string | null
           settings?: Json | null
           slug?: string
