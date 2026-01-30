@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 export interface BankCovenant {
@@ -61,22 +60,30 @@ const COVENANT_TYPE_LABELS: Record<string, string> = {
 export const getCovenantTypeLabel = (type: string) => COVENANT_TYPE_LABELS[type] || type;
 
 export function useCovenants() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['bank-covenants', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!tenantId) return [];
+      
+      let query = client
         .from('bank_covenants')
         .select('*')
         .eq('is_active', true)
         .order('status', { ascending: false })
         .order('next_measurement_date', { ascending: true });
       
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
+      
       if (error) throw error;
       return data as BankCovenant[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -122,36 +129,44 @@ export function useCovenantSummary() {
 }
 
 export function useCovenantMeasurements(covenantId: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
-    queryKey: ['covenant-measurements', covenantId],
+    queryKey: ['covenant-measurements', tenantId, covenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!tenantId || !covenantId) return [];
+      
+      let query = client
         .from('covenant_measurements')
         .select('*')
         .eq('covenant_id', covenantId)
         .order('measurement_date', { ascending: false })
         .limit(12);
       
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
+      
       if (error) throw error;
       return data as CovenantMeasurement[];
     },
-    enabled: !!tenantId && !!covenantId,
+    enabled: !!tenantId && !!covenantId && isReady,
   });
 }
 
 export function useCreateCovenant() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async (covenant: Omit<BankCovenant, 'id' | 'tenant_id' | 'created_at' | 'compliance_margin'>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('bank_covenants')
-        .insert({ ...covenant, tenant_id: tenantId })
+        .insert([{ ...covenant, tenant_id: tenantId }])
         .select()
         .single();
       
@@ -170,10 +185,11 @@ export function useCreateCovenant() {
 
 export function useUpdateCovenant() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<BankCovenant> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('bank_covenants')
         .update(updates)
         .eq('id', id)
@@ -195,7 +211,7 @@ export function useUpdateCovenant() {
 
 export function useRecordMeasurement() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async ({ 
@@ -214,7 +230,7 @@ export function useRecordMeasurement() {
       if (!tenantId) throw new Error('No tenant selected');
       
       // Get covenant to determine status
-      const { data: covenant } = await supabase
+      const { data: covenant } = await client
         .from('bank_covenants')
         .select('*')
         .eq('id', covenantId)
@@ -245,10 +261,10 @@ export function useRecordMeasurement() {
         status = 'warning';
       }
       
-      // Insert measurement
-      const { error: measurementError } = await supabase
+      // Insert measurement - always include tenant_id as required by schema
+      const { error: measurementError } = await client
         .from('covenant_measurements')
-        .insert({
+        .insert([{
           tenant_id: tenantId,
           covenant_id: covenantId,
           measurement_date: new Date().toISOString().split('T')[0],
@@ -257,7 +273,7 @@ export function useRecordMeasurement() {
           numerator_value: numeratorValue,
           denominator_value: denominatorValue,
           notes,
-        });
+        }]);
       
       if (measurementError) throw measurementError;
       
@@ -275,7 +291,7 @@ export function useRecordMeasurement() {
           break;
       }
       
-      const { error: updateError } = await supabase
+      const { error: updateError } = await client
         .from('bank_covenants')
         .update({
           current_value: measuredValue,

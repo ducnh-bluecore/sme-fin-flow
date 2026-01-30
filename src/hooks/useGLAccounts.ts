@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 export interface GLAccount {
@@ -36,23 +35,28 @@ export interface GLAccountInput {
 }
 
 export function useGLAccounts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['gl-accounts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('gl_accounts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('account_code');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return data as GLAccount[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -93,18 +97,15 @@ export function useGLAccountTree() {
 
 export function useCreateGLAccount() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (input: GLAccountInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('gl_accounts')
-        .insert({
-          ...input,
-          tenant_id: tenantId,
-        })
+        .insert([{ ...input, tenant_id: tenantId }])
         .select()
         .single();
       
@@ -123,10 +124,11 @@ export function useCreateGLAccount() {
 
 export function useUpdateGLAccount() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: GLAccountInput & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('gl_accounts')
         .update(input)
         .eq('id', id)
@@ -148,10 +150,11 @@ export function useUpdateGLAccount() {
 
 export function useDeleteGLAccount() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('gl_accounts')
         .delete()
         .eq('id', id);
@@ -169,7 +172,7 @@ export function useDeleteGLAccount() {
 }
 
 export function useTrialBalance() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['trial-balance', tenantId],
@@ -177,11 +180,16 @@ export function useTrialBalance() {
       if (!tenantId) return [];
       
       // Use gl_accounts instead of deprecated trial_balance view
-      const { data, error } = await supabase
+      let query = client
         .from('gl_accounts')
         .select('id, account_code, account_name, account_type, is_active')
-        .eq('tenant_id', tenantId)
         .eq('is_active', true);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return (data || []).map(acc => ({
@@ -193,6 +201,6 @@ export function useTrialBalance() {
         credit: 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }

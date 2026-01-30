@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useTenantSupabaseCompat } from './useTenantSupabase';
-import { useActiveTenantId } from './useActiveTenantId';
 import { PLData, MonthlyPLData, ComparisonData, RevenueBreakdown } from './usePLData';
 
 export interface PLReportCache {
@@ -106,7 +104,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
         const cacheAge = Date.now() - new Date(data.calculated_at).getTime();
         if (cacheAge > CACHE_MAX_AGE_MS) {
           // Trigger background refresh
-          supabase.rpc('refresh_pl_cache', { 
+          client.rpc('refresh_pl_cache', { 
             p_tenant_id: tenantId,
             p_year: year,
             p_month: month || null,
@@ -116,7 +114,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
         }
       } else {
         // No cache exists, create it
-        supabase.rpc('refresh_pl_cache', { 
+        client.rpc('refresh_pl_cache', { 
           p_tenant_id: tenantId,
           p_year: year,
           p_month: month || null,
@@ -127,7 +125,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
 
       return data as PLReportCache | null;
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
     staleTime: 30000,
     gcTime: 5 * 60 * 1000,
   });
@@ -190,7 +188,7 @@ export function usePLCache(year: number = new Date().getFullYear(), month?: numb
 
 // Hook to get all monthly P&L for a year
 export function useMonthlyPLCache(year: number = new Date().getFullYear()) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useQuery({
@@ -198,13 +196,18 @@ export function useMonthlyPLCache(year: number = new Date().getFullYear()) {
     queryFn: async (): Promise<MonthlyPLData[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let queryBuilder = client
         .from('pl_report_cache')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('period_year', year)
         .eq('period_type', 'monthly')
         .order('period_month', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        queryBuilder = queryBuilder.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await queryBuilder;
 
       if (error) {
         console.error('Error fetching monthly PL cache:', error);
@@ -216,7 +219,7 @@ export function useMonthlyPLCache(year: number = new Date().getFullYear()) {
         const existingMonths = new Set(data?.map(d => d.period_month) || []);
         for (let m = 1; m <= 12; m++) {
           if (!existingMonths.has(m)) {
-            supabase.rpc('refresh_pl_cache', {
+            client.rpc('refresh_pl_cache', {
               p_tenant_id: tenantId,
               p_year: year,
               p_month: m,
@@ -239,7 +242,7 @@ export function useMonthlyPLCache(year: number = new Date().getFullYear()) {
         netIncome: Math.round((row.net_income || 0) / 1000000),
       }));
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 30000,
     gcTime: 5 * 60 * 1000,
   });
@@ -247,13 +250,13 @@ export function useMonthlyPLCache(year: number = new Date().getFullYear()) {
 
 export function useRefreshPLCache() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ year, month }: { year: number; month?: number }) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { error } = await supabase.rpc('refresh_pl_cache', {
+      const { error } = await client.rpc('refresh_pl_cache', {
         p_tenant_id: tenantId,
         p_year: year,
         p_month: month || null,
