@@ -22,7 +22,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 // =============================================================
 // TYPES - Mirror the database schema exactly
@@ -196,18 +196,23 @@ export interface FormattedFinanceSnapshot {
 const STALE_THRESHOLD_MINUTES = 60;
 
 export function useFinanceTruthSnapshot() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isLoading: tenantLoading, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['finance-truth-snapshot', tenantId],
     queryFn: async (): Promise<FormattedFinanceSnapshot | null> => {
       if (!tenantId) return null;
       
-      // Fetch latest snapshot - NO CALCULATIONS
-      const { data, error } = await supabase
+      // Fetch latest snapshot - with tenant filter if needed
+      let query = client
         .from('central_metrics_snapshots')
-        .select('*')
-        .eq('tenant_id', tenantId)
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query
         .order('snapshot_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -219,7 +224,7 @@ export function useFinanceTruthSnapshot() {
       
       // If no snapshot exists, trigger computation
       if (!data) {
-        const { data: newSnapshot, error: computeError } = await supabase
+        const { data: newSnapshot, error: computeError } = await client
           .rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId });
         
         if (computeError) {
@@ -228,7 +233,7 @@ export function useFinanceTruthSnapshot() {
         }
         
         // Fetch the newly created snapshot
-        const { data: freshData } = await supabase
+        const { data: freshData } = await client
           .from('central_metrics_snapshots')
           .select('*')
           .eq('id', newSnapshot)
@@ -244,13 +249,13 @@ export function useFinanceTruthSnapshot() {
       
       if (isStale) {
         // Trigger background refresh (don't await)
-        supabase.rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId })
+        client.rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId })
           .then(() => console.log('[useFinanceTruthSnapshot] Background refresh completed'));
       }
       
       return mapToFormatted(data as FinanceTruthSnapshot, isStale);
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
@@ -263,13 +268,13 @@ export function useFinanceTruthSnapshot() {
 
 export function useRefreshFinanceSnapshot() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId });
       
       if (error) throw error;
