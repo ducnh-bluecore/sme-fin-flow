@@ -1,6 +1,12 @@
+/**
+ * useDecisionOutcomes - Decision outcome tracking
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Decisions
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface DecisionOutcome {
@@ -43,52 +49,62 @@ export interface PendingFollowup {
 
 // Hook để lấy danh sách decisions cần follow-up
 export function usePendingFollowups() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['pending-followups', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('decisions_pending_followup')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as PendingFollowup[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Hook để lấy outcomes của một decision
 export function useDecisionOutcomes(decisionAuditId: string | null) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['decision-outcomes', tenantId, decisionAuditId],
     queryFn: async () => {
       if (!tenantId || !decisionAuditId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('decision_outcomes')
         .select('*')
-        .eq('tenant_id', tenantId)
         .eq('decision_audit_id', decisionAuditId)
         .order('measured_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as DecisionOutcome[];
     },
-    enabled: !!tenantId && !!decisionAuditId,
+    enabled: !!tenantId && !!decisionAuditId && isReady,
   });
 }
 
 // Hook để ghi nhận outcome
 export function useRecordOutcome() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (payload: {
@@ -104,7 +120,7 @@ export function useRecordOutcome() {
     }) => {
       if (!tenantId) throw new Error('Missing tenantId');
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
       // Calculate variance if both values provided
       let impactVariance: number | null = null;
@@ -117,7 +133,7 @@ export function useRecordOutcome() {
         }
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('decision_outcomes')
         .insert({
           tenant_id: tenantId,
@@ -139,14 +155,14 @@ export function useRecordOutcome() {
       if (error) throw error;
 
       // Update follow-up status
-      await supabase
+      await client
         .from('decision_audit_log')
         .update({ follow_up_status: 'completed' })
         .eq('id', payload.decisionAuditId);
 
       return data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['decision-outcomes'] });
       queryClient.invalidateQueries({ queryKey: ['pending-followups'] });
       queryClient.invalidateQueries({ queryKey: ['unified-decision-history'] });
@@ -163,7 +179,7 @@ export function useRecordOutcome() {
 // Hook để cập nhật follow-up status
 export function useUpdateFollowupStatus() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({
@@ -185,7 +201,7 @@ export function useUpdateFollowupStatus() {
         updateData.follow_up_date = followUpDate;
       }
 
-      const { error } = await supabase
+      const { error } = await client
         .from('decision_audit_log')
         .update(updateData)
         .eq('id', decisionAuditId);
@@ -201,17 +217,22 @@ export function useUpdateFollowupStatus() {
 
 // Hook để lấy thống kê outcomes
 export function useOutcomeStats() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['outcome-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('decision_outcomes')
-        .select('outcome_status, actual_impact_amount, impact_variance, would_repeat')
-        .eq('tenant_id', tenantId);
+        .select('outcome_status, actual_impact_amount, impact_variance, would_repeat');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -233,6 +254,6 @@ export function useOutcomeStats() {
 
       return stats;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }

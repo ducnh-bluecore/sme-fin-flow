@@ -1,5 +1,12 @@
+/**
+ * useAuditLogs - Audit logs access
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Core/Audit
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface AuditLog {
   id: string;
@@ -15,18 +22,29 @@ export interface AuditLog {
 }
 
 export function useAuditLogs() {
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+
   return useQuery({
-    queryKey: ['audit-logs'],
+    queryKey: ['audit-logs', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!tenantId) return [];
+
+      let query = client
         .from('audit_logs')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       return data as AuditLog[];
     },
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -35,11 +53,13 @@ export function useAuditLogs() {
  * Avoids 1000 row limit issue
  */
 export function useAuditLogStats() {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+
   return useQuery({
-    queryKey: ['audit-log-stats'],
+    queryKey: ['audit-log-stats', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_audit_log_stats', { p_tenant_id: null });
+      const { data, error } = await client
+        .rpc('get_audit_log_stats', { p_tenant_id: tenantId });
 
       if (error) {
         console.error('[useAuditLogStats] RPC error:', error);
@@ -59,5 +79,6 @@ export function useAuditLogStats() {
         criticalActions: stats?.critical_actions ?? 0,
       };
     },
+    enabled: !!tenantId && isReady,
   });
 }
