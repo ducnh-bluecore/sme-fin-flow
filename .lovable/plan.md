@@ -78,7 +78,7 @@ File: `supabase/functions/provision-tenant-schema/index.ts`
 - `src/hooks/useTenantSupabase.ts`
 - `src/hooks/useTenantQueryBuilder.ts` - Helper for query building
 
-### 3.2 FDP Hooks Refactored ✅ (DONE - 8 files)
+### 3.2 FDP Hooks Refactored ✅ (DONE - 15 files)
 
 | File | Status |
 |------|--------|
@@ -88,17 +88,44 @@ File: `supabase/functions/provision-tenant-schema/index.ts`
 | `useCashFlowDirect.ts` | ✅ Done |
 | `useExpensesDaily.ts` | ✅ Done |
 | `usePLCache.ts` | ✅ Done |
+| `useWorkingCapitalDaily.ts` | ✅ Done |
+| `useWorkingCapital.ts` | ✅ Done |
+| `useFDPFinanceSSOT.ts` | ✅ Done |
+| `useExpenseEstimates.ts` | ✅ Done |
+| `useExpensePlanSummary.ts` | ✅ Done |
+| `useFinanceMonthlySummary.ts` | ✅ Done |
+| `useCashForecastSSOT.ts` | ✅ Done |
+| `useRetailConcentrationRisk.ts` | ✅ Done |
+| `useExecutiveHealthScores.ts` | ✅ Done |
 
-### 3.3 Remaining Hooks to Refactor
+### 3.3 MDP Hooks ⏳ PENDING
 
-| Module | Files | Priority |
-|--------|-------|----------|
-| FDP Hooks (remaining) | ~22 files | High |
-| MDP Hooks | 12 files | Medium |
-| CDP Hooks | 25 files | Medium |
-| Control Tower | 15 files | Medium |
-| Settings/Admin | 20 files | Low |
-| Other | 83 files | Low |
+| File | Status |
+|------|--------|
+| `useMDPData.ts` | ⏳ Pending |
+| `useMDPDataSSOT.ts` | ⏳ Pending |
+| `usePlatformAdsData.ts` | ⏳ Pending |
+| `useMarketingDecisionEngine.ts` | ⏳ Pending |
+| `useChannelAnalytics.ts` | ⏳ Pending |
+| + remaining MDP hooks | ⏳ Pending |
+
+### 3.4 CDP Hooks ⏳ PENDING
+
+| File | Status |
+|------|--------|
+| `useCDPOverview.ts` | ⏳ Pending |
+| `useCDPSSOT.ts` | ⏳ Pending |
+| `useCDPEquity.ts` | ⏳ Pending |
+| + remaining CDP hooks (25 files) | ⏳ Pending |
+
+### 3.5 Control Tower Hooks ⏳ PENDING
+
+| File | Status |
+|------|--------|
+| `useControlTowerSSOT.ts` | ⏳ Pending |
+| `useAlertInstances.ts` | ⏳ Pending |
+| `useDecisionCards.ts` | ⏳ Pending |
+| + remaining CT hooks (15 files) | ⏳ Pending |
 
 ---
 

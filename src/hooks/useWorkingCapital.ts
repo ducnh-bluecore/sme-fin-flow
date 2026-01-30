@@ -3,20 +3,16 @@
  * 
  * ⚠️ NOW USES CANONICAL HOOKS ONLY - NO CLIENT-SIDE CALCULATIONS
  * 
- * Uses:
- * - useWorkingCapitalDaily for historical trend
- * - useLatestWorkingCapital for current snapshot
- * - useFinanceTruthSnapshot for core metrics
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useWorkingCapitalDaily, useLatestWorkingCapital, FormattedWorkingCapital } from './useWorkingCapitalDaily';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 // =============================================================
 // TYPES
@@ -69,21 +65,26 @@ export interface WorkingCapitalRecommendation {
 // =============================================================
 
 export function useWorkingCapitalMetrics() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['working-capital-metrics', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = client
         .from('working_capital_metrics')
         .select('*')
         .order('metric_date', { ascending: false })
         .limit(12);
       
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as WorkingCapitalMetric[];
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 }
 
@@ -92,7 +93,7 @@ export function useWorkingCapitalMetrics() {
  * NO client-side DSO/DPO/CCC calculations
  */
 export function useWorkingCapitalSummary() {
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   
   // Use canonical precomputed hooks
@@ -104,7 +105,6 @@ export function useWorkingCapitalSummary() {
     queryKey: ['working-capital-summary', tenantId, startDateStr, endDateStr],
     queryFn: async (): Promise<WorkingCapitalSummary | null> => {
       // Build current metric from precomputed data ONLY
-      // Priority: central_metrics_snapshots (SSOT) > working_capital_daily > fallback 0
       const dso = snapshot?.dso ?? latestWC?.dso ?? 0;
       const dpo = snapshot?.dpo ?? latestWC?.dpo ?? 0;
       const dio = snapshot?.dio ?? latestWC?.dio ?? 0;
@@ -118,8 +118,6 @@ export function useWorkingCapitalSummary() {
       const targetDPO = 45;
       const targetDIO = 45;
       
-      // Potential cash release - precomputed in snapshot if available
-      // Otherwise simple formula: AR reduction potential
       const potentialCashRelease = dso > targetDSO && dso > 0
         ? totalAR * (1 - targetDSO / dso)
         : 0;
@@ -148,7 +146,7 @@ export function useWorkingCapitalSummary() {
         created_at: new Date().toISOString(),
       };
       
-      // Build trend from precomputed daily data (no calculations)
+      // Build trend from precomputed daily data
       const trend: WorkingCapitalMetric[] = (dailyData || []).map((d: FormattedWorkingCapital) => ({
         id: d.day,
         tenant_id: tenantId || '',
@@ -173,7 +171,7 @@ export function useWorkingCapitalSummary() {
         created_at: d.day,
       }));
       
-      // Generate recommendations from precomputed values (no calculations)
+      // Generate recommendations from precomputed values
       const recommendations: WorkingCapitalRecommendation[] = [];
       const dailyRevenue = snapshot?.netRevenue && snapshot?.netRevenue > 0 
         ? snapshot.netRevenue / 30 : 0;
@@ -234,7 +232,7 @@ export function useWorkingCapitalSummary() {
         cccTrend,
       };
     },
-    enabled: !!tenantId && (!!latestWC || !!snapshot),
+    enabled: isReady && (!!latestWC || !!snapshot),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -245,13 +243,13 @@ export function useWorkingCapitalSummary() {
 
 export function useSaveWorkingCapitalMetric() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async (metric: Partial<WorkingCapitalMetric>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('working_capital_metrics')
         .upsert({
           ...metric,

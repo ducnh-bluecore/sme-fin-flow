@@ -1,16 +1,11 @@
 /**
  * useCashForecastSSOT - Thin wrapper for DB-First Cash Forecast
  * 
- * Phase 5.1: All forecast logic migrated to database RPC
- * - generate_cash_forecast: Main forecast generation
- * - get_forecast_inputs_summary: Input data summary for UI
- * 
- * This hook only fetches pre-computed data, NO client-side calculations.
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export type ForecastMethod = 'rule-based' | 'simple';
 
@@ -64,14 +59,14 @@ export interface ForecastInputsSummary {
  * Generate cash forecast using database RPC (100% DB-First)
  */
 export function useCashForecastSSOT(days: number = 90, method: ForecastMethod = 'rule-based') {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   const { data: forecast, isLoading: forecastLoading, error } = useQuery({
     queryKey: ['cash-forecast-ssot', tenantId, days, method],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase.rpc('generate_cash_forecast', {
+      const { data, error } = await client.rpc('generate_cash_forecast', {
         p_tenant_id: tenantId,
         p_days: days,
         p_method: method
@@ -82,7 +77,6 @@ export function useCashForecastSSOT(days: number = 90, method: ForecastMethod = 
         throw error;
       }
 
-      // Transform snake_case to camelCase for UI compatibility
       return (data || []).map((row: any) => ({
         date: row.forecast_date,
         displayDate: row.display_date,
@@ -95,29 +89,29 @@ export function useCashForecastSSOT(days: number = 90, method: ForecastMethod = 
         isActual: row.is_actual,
       }));
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 60000,
   });
 
   return {
     forecast: forecast || [],
-    isLoading: tenantLoading || forecastLoading,
+    isLoading: !isReady || forecastLoading,
     error,
   };
 }
 
 /**
- * Get forecast inputs summary (for displaying data quality, missing data, etc.)
+ * Get forecast inputs summary
  */
 export function useForecastInputsSSOT() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   const { data: inputs, isLoading: inputsLoading, error } = useQuery({
     queryKey: ['forecast-inputs-ssot', tenantId],
     queryFn: async (): Promise<ForecastInputsSummary | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase.rpc('get_forecast_inputs_summary', {
+      const { data, error } = await client.rpc('get_forecast_inputs_summary', {
         p_tenant_id: tenantId
       });
 
@@ -126,7 +120,6 @@ export function useForecastInputsSSOT() {
         throw error;
       }
 
-      // RPC returns JSONB, cast to any for access
       if (!data) return null;
       
       const jsonData = data as Record<string, any>;
@@ -166,13 +159,13 @@ export function useForecastInputsSSOT() {
         },
       };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
     staleTime: 60000,
   });
 
   return {
     inputs: inputs,
-    isLoading: tenantLoading || inputsLoading,
+    isLoading: !isReady || inputsLoading,
     error,
   };
 }
