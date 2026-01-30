@@ -1,9 +1,14 @@
+/**
+ * useDecisionFlow - Decision processing workflow
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Decisions
+ */
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenantId } from "./useActiveTenantId";
+import { useTenantSupabaseCompat } from "@/integrations/supabase/tenantClient";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
-import { useResolveAlertsByDecision } from "./useLinkedAlertsDecisions";
 
 // Constants
 const IMPACT_THRESHOLD_FOR_APPROVAL = 50000000; // 50M VND
@@ -49,7 +54,7 @@ export interface DecisionResult {
  * 6. Notify tất cả stakeholders
  */
 export function useDecisionFlow() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -85,7 +90,7 @@ export function useDecisionFlow() {
         ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() 
         : null;
 
-      const { error: stateError } = await supabase.from("auto_decision_card_states").upsert(
+      const { error: stateError } = await client.from("auto_decision_card_states").upsert(
         [
           {
             tenant_id: tenantId,
@@ -114,7 +119,7 @@ export function useDecisionFlow() {
 
       if (requiresApproval) {
         // Impact >= 50M → Gửi lên CEO/CFO phê duyệt
-        await supabase.from("decision_analyses").insert({
+        await client.from("decision_analyses").insert({
           tenant_id: tenantId,
           created_by: user.id,
           analysis_type: `marketing_${decision.type}`,
@@ -151,7 +156,7 @@ export function useDecisionFlow() {
           medium: 'medium',
         };
 
-        await supabase.from("tasks").insert({
+        await client.from("tasks").insert({
           tenant_id: tenantId,
           title: `[MKT-${decision.type.toUpperCase()}] ${decision.entity_name}`,
           description: `${decision.headline}\n\n${decision.reason}\n\nKhuyến nghị: ${decision.recommended_action}`,
@@ -177,7 +182,7 @@ export function useDecisionFlow() {
       // Step 4: Resolve tất cả alerts liên quan đến decision card này
       // Bao gồm cả source_alert_id và các alerts đã link qua linked_decision_card_id
       if (decision.source_alert_id) {
-        await supabase.from("alert_instances")
+        await client.from("alert_instances")
           .update({
             status: 'resolved',
             resolved_by: user.id,
@@ -190,7 +195,7 @@ export function useDecisionFlow() {
       }
 
       // Resolve thêm các alerts đã link tới decision card này
-      const { data: linkedAlerts } = await supabase.from("alert_instances")
+      const { data: linkedAlerts } = await client.from("alert_instances")
         .update({
           status: 'resolved',
           resolved_by: user.id,
@@ -217,7 +222,7 @@ export function useDecisionFlow() {
         ? `CMO đã phê duyệt ${decision.type} cho ${decision.entity_name}. Impact: ${formatCurrency(decision.impact_amount)}đ. Đang chờ CEO/CFO phê duyệt cuối cùng.`
         : `Đã tạo task cho Marketing Team. ${decision.recommended_action}. Impact: ${formatCurrency(decision.impact_amount)}đ.`;
 
-      await supabase.from("alert_instances").insert({
+      await client.from("alert_instances").insert({
         tenant_id: tenantId,
         alert_type: 'cmo_decision',
         category: 'marketing',

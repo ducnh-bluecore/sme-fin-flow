@@ -7,11 +7,13 @@
  * Truth levels:
  * - settled: BANK, MANUAL, ACCOUNTING authority
  * - provisional: RULE authority (forecasts with assumptions)
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Decisions
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface DecisionSnapshot {
   id: string;
@@ -81,24 +83,28 @@ const STALE_THRESHOLD_MS = 15 * 60 * 1000;
  * Fetch latest snapshot for a metric
  */
 export function useLatestSnapshot(metricCode: string, enabled = true) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['decision-snapshot-latest', tenantId, metricCode],
     queryFn: async (): Promise<DecisionSnapshot | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_decision_latest')
         .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('metric_code', metricCode)
-        .maybeSingle();
+        .eq('metric_code', metricCode);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       return data as DecisionSnapshot | null;
     },
-    enabled: !!tenantId && enabled,
+    enabled: !!tenantId && enabled && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -107,7 +113,7 @@ export function useLatestSnapshot(metricCode: string, enabled = true) {
  * Fetch all cash-related snapshots with staleness check
  */
 export function useCashSnapshots() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['decision-snapshots-cash', tenantId],
@@ -123,11 +129,16 @@ export function useCashSnapshots() {
         };
       }
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_decision_latest')
         .select('*')
-        .eq('tenant_id', tenantId)
         .in('metric_code', ['cash_today', 'cash_flow_today', 'cash_next_7d']);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -163,7 +174,7 @@ export function useCashSnapshots() {
         lastUpdated,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
@@ -172,27 +183,24 @@ export function useCashSnapshots() {
  * Compute and write cash snapshots via edge function
  */
 export function useComputeCashSnapshots() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant ID');
 
-      const { data, error } = await supabase.functions.invoke('decision-snapshots', {
-        body: { tenantId },
-        method: 'POST',
-      });
-
-      // The edge function path is /compute/cash but we need to call it differently
+      const session = await client.auth.getSession();
+      
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/decision-snapshots/compute/cash`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${session.data.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId,
           },
           body: JSON.stringify({ tenantId }),
         }
@@ -216,10 +224,14 @@ export function useComputeCashSnapshots() {
  * Get explanation for a snapshot
  */
 export function useSnapshotExplanation(snapshotId: string | null) {
+  const { client, tenantId } = useTenantSupabaseCompat();
+
   return useQuery({
     queryKey: ['decision-snapshot-explain', snapshotId],
     queryFn: async (): Promise<SnapshotExplanation | null> => {
       if (!snapshotId) return null;
+
+      const session = await client.auth.getSession();
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/decision-snapshots/explain/${snapshotId}`,
@@ -227,8 +239,9 @@ export function useSnapshotExplanation(snapshotId: string | null) {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${session.data.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId || '',
           },
         }
       );
@@ -249,7 +262,7 @@ export function useSnapshotExplanation(snapshotId: string | null) {
  * Create a new snapshot manually
  */
 export function useCreateSnapshot() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -266,14 +279,17 @@ export function useCreateSnapshot() {
     }) => {
       if (!tenantId) throw new Error('No tenant ID');
 
+      const session = await client.auth.getSession();
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/decision-snapshots/snapshots`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${session.data.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId,
           },
           body: JSON.stringify({
             tenantId,

@@ -1,10 +1,12 @@
 /**
  * useAlertEscalation - Alert escalation rules management
+ * 
+ * @architecture Schema-per-Tenant
+ * @domain Control Tower/Alerts
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface EscalationRule {
@@ -35,7 +37,7 @@ export interface DigestConfig {
 }
 
 export function useEscalationRules() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   const { data: rules, isLoading, error } = useQuery({
@@ -43,12 +45,17 @@ export function useEscalationRules() {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('alert_escalation_rules')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('severity', { ascending: true })
         .order('escalate_after_minutes', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -59,14 +66,14 @@ export function useEscalationRules() {
           : JSON.parse(rule.notify_channels as string || '[]'),
       })) as EscalationRule[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const createRule = useMutation({
     mutationFn: async (rule: Omit<EscalationRule, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_escalation_rules')
         .insert({
           tenant_id: tenantId,
@@ -94,7 +101,7 @@ export function useEscalationRules() {
 
   const updateRule = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<EscalationRule> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_escalation_rules')
         .update(updates)
         .eq('id', id)
@@ -115,7 +122,7 @@ export function useEscalationRules() {
 
   const deleteRule = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_escalation_rules')
         .delete()
         .eq('id', id);
@@ -133,7 +140,7 @@ export function useEscalationRules() {
 
   const toggleRule = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_escalation_rules')
         .update({ is_active })
         .eq('id', id);
@@ -161,7 +168,7 @@ export function useEscalationRules() {
 }
 
 export function useDigestConfig() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   const { data: config, isLoading } = useQuery({
@@ -169,11 +176,15 @@ export function useDigestConfig() {
     queryFn: async () => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      let query = client
         .from('alert_digest_configs')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       
@@ -191,14 +202,14 @@ export function useDigestConfig() {
       
       return data as DigestConfig;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const saveConfig = useMutation({
     mutationFn: async (newConfig: Omit<DigestConfig, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_digest_configs')
         .upsert({
           tenant_id: tenantId,
