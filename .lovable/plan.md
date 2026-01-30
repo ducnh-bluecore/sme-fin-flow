@@ -1,149 +1,228 @@
 
+# Customer Journey: Hệ thống Onboarding Toàn diện
 
-# Plan: Mở rộng FDP Requirements - Order = Invoice/Bill trong D2C/Retail
+## Tổng quan Kiến trúc 3 Lớp
 
-## Bản chất vấn đề
-
-**Logic hiện tại SAI:**
-```typescript
-// fdp_invoices chỉ nhận phần mềm kế toán
-connectorSources: ['misa', 'fast_accounting', 'bravo', 'effect', 'sac']
-
-// fdp_bills cũng vậy  
-connectorSources: ['misa', 'fast_accounting', 'bravo', 'effect']
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                     BLUECORE ONBOARDING SYSTEM                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  LAYER 1: PLATFORM                LAYER 2: TENANT                   │
+│  ┌────────────────────┐          ┌────────────────────┐             │
+│  │ 👋 Welcome         │          │ 🏢 Company Profile │             │
+│  │ 👤 Role Selection  │    →     │ 📊 Industry/Scale  │             │
+│  │ 🎯 Dashboard Intro │          │ 🔌 Data Sources    │             │
+│  └────────────────────┘          └────────────────────┘             │
+│            │                              │                          │
+│            └──────────────┬───────────────┘                         │
+│                           ▼                                          │
+│                    ┌──────────────┐                                 │
+│                    │  Portal Hub  │                                 │
+│                    └──────┬───────┘                                 │
+│                           │                                          │
+│            ┌──────────────┼──────────────┐                          │
+│            ▼              ▼              ▼                          │
+│   LAYER 3: MODULE   ┌─────────┐   ┌─────────┐                       │
+│   ┌─────────┐       │   MDP   │   │   CDP   │                       │
+│   │   FDP   │       │ Wizard  │   │ Wizard  │                       │
+│   │ Wizard  │       └─────────┘   └─────────┘                       │
+│   └─────────┘                                                       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
-
-**Logic đúng cho D2C/Retail:**
-| Thuật ngữ | Trong Retail | Nguồn |
-|-----------|--------------|-------|
-| Invoice (AR) | Order từ MỌI kênh bán | Sàn, Website, POS |
-| Bill (AP) | Phí sàn, phí ship, COGS | Sàn, NCC |
-| Settlement | Tiền về thực | Sàn chuyển T+14 |
 
 ---
 
-## Giải pháp: Mở rộng connectorSources
+## Customer Journey Chi tiết
 
-### 1. `fdp_invoices` - Thêm TẤT CẢ nguồn bán hàng
+### Giai đoạn 1: Đăng ký → Platform Onboarding
 
-```typescript
-// BEFORE:
-connectorSources: ['misa', 'fast_accounting', 'bravo', 'effect', 'sac']
+| Bước | Màn hình | Mục đích | Dữ liệu thu thập |
+|------|----------|----------|------------------|
+| 1.1 | Welcome Screen | Chào mừng, giới thiệu nhanh Bluecore | - |
+| 1.2 | Role Selection | Xác định vai trò người dùng | `profile.role`: CEO/CFO/CMO/COO/Marketer/Accountant |
+| 1.3 | Dashboard Preview | Show preview dashboard phù hợp với role | - |
 
-// AFTER:
-connectorSources: [
-  // === SÀN TMĐT - Order = Invoice ===
-  'shopee', 'lazada', 'tiktok_shop', 'sendo', 'shopify',
-  
-  // === WEBSITE RIÊNG - Order = Invoice ===
-  'haravan', 'sapo', 'woocommerce', 'magento',
-  
-  // === PHẦN MỀM KẾ TOÁN - Invoice truyền thống ===
-  'misa', 'fast_accounting', 'bravo', 'effect', 'sac',
-  
-  // === ERP ===
-  'sap', 'oracle', 'odoo', 'netsuite'
-]
+### Giai đoạn 2: Tenant Onboarding
+
+| Bước | Màn hình | Mục đích | Dữ liệu thu thập |
+|------|----------|----------|------------------|
+| 2.1 | Company Profile | Thông tin cơ bản doanh nghiệp | `tenant.name`, `tenant.logo` |
+| 2.2 | Industry Selection | Xác định ngành (Retail/D2C/B2B/F&B) | `tenant.industry` |
+| 2.3 | Scale & Revenue | Quy mô và doanh thu tháng | `tenant.scale`, `tenant.monthly_revenue` |
+| 2.4 | Data Sources Overview | Chọn các nền tảng đang sử dụng | `tenant.data_sources[]` |
+
+### Giai đoạn 3: Module Onboarding (theo module đầu tiên user vào)
+
+| Bước | Màn hình | Mục đích |
+|------|----------|----------|
+| 3.1 | Nguồn dữ liệu | Chọn chi tiết sub-sources |
+| 3.2 | Xác nhận dữ liệu | Xem dữ liệu inferred + bổ sung |
+| 3.3 | Kế hoạch Import | Roadmap: Connect/Import/Skip |
+
+---
+
+## Database Schema Changes
+
+### 1. Thêm cột vào bảng `profiles`
+
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS 
+  onboarding_status TEXT DEFAULT 'pending' 
+  CHECK (onboarding_status IN ('pending', 'platform_done', 'completed', 'skipped'));
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS 
+  user_role TEXT 
+  CHECK (user_role IN ('ceo', 'cfo', 'cmo', 'coo', 'marketer', 'accountant', 'admin'));
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS 
+  onboarding_completed_at TIMESTAMPTZ;
 ```
 
-### 2. `fdp_bills` - Thêm sàn TMĐT (phí sàn = bill)
+### 2. Thêm cột vào bảng `tenants`
 
-```typescript
-// BEFORE:
-connectorSources: ['misa', 'fast_accounting', 'bravo', 'effect']
+```sql
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS 
+  onboarding_status TEXT DEFAULT 'pending' 
+  CHECK (onboarding_status IN ('pending', 'in_progress', 'completed', 'skipped'));
 
-// AFTER:
-connectorSources: [
-  // === SÀN TMĐT - Phí sàn = Bill ===
-  'shopee', 'lazada', 'tiktok_shop', 'sendo',
-  
-  // === PHẦN MỀM KẾ TOÁN ===
-  'misa', 'fast_accounting', 'bravo', 'effect', 'sac',
-  
-  // === ERP ===
-  'sap', 'oracle', 'odoo', 'netsuite'
-]
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS 
+  industry TEXT;
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS 
+  company_scale TEXT 
+  CHECK (company_scale IN ('startup', 'sme', 'enterprise'));
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS 
+  monthly_revenue_range TEXT;
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS 
+  data_sources JSONB DEFAULT '[]'::jsonb;
 ```
 
-### 3. Thêm `fdp_settlements` - Critical cho Cash Position
+---
+
+## File Structure Mới
+
+```text
+src/
+├── pages/
+│   └── onboarding/
+│       ├── index.ts                    # Export all
+│       ├── WelcomePage.tsx             # Step 1.1
+│       ├── RoleSelectionPage.tsx       # Step 1.2
+│       ├── DashboardPreviewPage.tsx    # Step 1.3
+│       ├── CompanyProfilePage.tsx      # Step 2.1
+│       ├── IndustrySelectionPage.tsx   # Step 2.2
+│       ├── ScaleRevenuePage.tsx        # Step 2.3
+│       ├── DataSourcesOverviewPage.tsx # Step 2.4
+│       └── DataAssessmentPage.tsx      # Existing (Module layer)
+│
+├── components/
+│   └── onboarding/
+│       ├── OnboardingGuard.tsx         # Global guard component
+│       ├── OnboardingProgress.tsx      # Progress indicator
+│       ├── RoleCard.tsx                # Role selection card
+│       ├── IndustryCard.tsx            # Industry card
+│       └── ScaleSlider.tsx             # Revenue scale slider
+│
+├── hooks/
+│   ├── useOnboardingStatus.ts          # Check & update status
+│   └── useOnboardingFlow.ts            # Navigation logic
+│
+└── lib/
+    └── onboardingConfig.ts             # Steps config, validation
+```
+
+---
+
+## Routing Changes (App.tsx)
 
 ```typescript
-{
-  id: 'fdp_settlements',
-  dataType: 'settlements',
-  displayName: 'Tiền về từ kênh bán',
-  description: 'Cash thực sự về tài khoản (T+14 từ sàn)',
-  tableName: 'channel_settlements',
-  priority: 'critical',
-  connectorSources: ['shopee', 'lazada', 'tiktok_shop', 'haravan', 'sapo'],
-  templateId: 'bank_transactions',
-  usedFor: ['Cash Position', 'Platform Hold', 'Settlement Reconciliation'],
+// Onboarding Routes - Platform Layer
+<Route path="/onboarding/welcome" element={<WelcomePage />} />
+<Route path="/onboarding/role" element={<RoleSelectionPage />} />
+<Route path="/onboarding/preview" element={<DashboardPreviewPage />} />
+
+// Onboarding Routes - Tenant Layer  
+<Route path="/onboarding/company" element={<CompanyProfilePage />} />
+<Route path="/onboarding/industry" element={<IndustrySelectionPage />} />
+<Route path="/onboarding/scale" element={<ScaleRevenuePage />} />
+<Route path="/onboarding/sources" element={<DataSourcesOverviewPage />} />
+
+// Existing Module Layer
+<Route path="/onboarding/data-assessment/:moduleKey" element={<DataAssessmentPage />} />
+```
+
+---
+
+## OnboardingGuard Logic
+
+```typescript
+// src/components/onboarding/OnboardingGuard.tsx
+function OnboardingGuard({ children }) {
+  const { profile, tenant } = useOnboardingStatus();
+  
+  // Check profile onboarding
+  if (profile.onboarding_status === 'pending') {
+    return <Navigate to="/onboarding/welcome" />;
+  }
+  
+  // Check tenant onboarding (if platform done)
+  if (profile.onboarding_status === 'platform_done' && 
+      tenant.onboarding_status === 'pending') {
+    return <Navigate to="/onboarding/company" />;
+  }
+  
+  return children;
 }
 ```
 
-### 4. Cập nhật Smart Matcher - Mapping orders → invoices
+---
 
-```typescript
-// src/hooks/useSmartDataMatcher.ts
-const dataTypeMapping: Record<string, string[]> = {
-  // Order từ MỌI nguồn = Invoice
-  invoices: ['invoices', 'orders'],
-  
-  // Phí sàn = Bill
-  bills: ['bills', 'channel_fees', 'expenses'],
-  
-  // Settlement = Bank transaction
-  settlements: ['settlements', 'bank_transactions'],
-  
-  // ...existing
-};
-```
+## Implementation Priority
+
+### Phase 1: Core Infrastructure
+1. Database migration (profiles + tenants columns)
+2. `useOnboardingStatus` hook
+3. `OnboardingGuard` component
+4. Update `useAuthRedirect` to check onboarding
+
+### Phase 2: Platform Layer (User)
+1. WelcomePage with animation
+2. RoleSelectionPage (6 roles)
+3. DashboardPreviewPage (role-based preview)
+
+### Phase 3: Tenant Layer (Company)
+1. CompanyProfilePage
+2. IndustrySelectionPage (4 industries)
+3. ScaleRevenuePage
+4. DataSourcesOverviewPage
+
+### Phase 4: Integration
+1. Connect all routes in App.tsx
+2. Test full flow
+3. Add skip functionality
+4. Analytics tracking
 
 ---
 
-## File Changes
+## UX Considerations
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/lib/dataRequirementsMap.ts` | Update | Mở rộng `connectorSources` cho invoices/bills, thêm settlements |
-| `src/hooks/useSmartDataMatcher.ts` | Update | Cập nhật mapping `orders→invoices`, `channel_fees→bills` |
+### Visual Design
+- Full-screen wizard với progress indicator
+- Card-based selection (không dùng dropdown)
+- Animation giữa các bước (framer-motion)
+- Mobile-first responsive
 
----
+### Skip & Resume
+- Cho phép skip từng layer
+- Lưu progress để resume sau
+- Badge nhắc nhở trên Portal nếu chưa hoàn thành
 
-## Kết quả sau thay đổi
-
-**User chọn: Shopee, Lazada, TikTok Shop, Haravan**
-
-### TRƯỚC:
-```text
-✅ Đã kết nối: 1 (Khách hàng)
-📄 Import Excel: 5 (Invoices, Bills, Bank, Vendors, Expenses)
-Độ sẵn sàng: 29%
-```
-
-### SAU:
-```text
-✅ Đã kết nối: 4
-   - Doanh thu bán hàng (từ Orders = Invoice)
-   - Chi phí sàn (từ Channel Fees = Bill)
-   - Tiền về từ kênh bán (Settlements)
-   - Khách hàng
-
-📄 Import Excel: 2 (Giao dịch ngân hàng, Chi phí vận hành)
-⏭️ Để sau: 1 (Dự báo tiền mặt)
-
-Độ sẵn sàng: 86%
-```
-
----
-
-## Lợi ích
-
-1. **Đúng thực tế D2C/Retail**: Order = Invoice, Phí sàn = Bill
-2. **Tương thích đa mô hình**: Vẫn hỗ trợ B2B với phần mềm kế toán
-3. **Tăng data coverage**: User sàn TMĐT sẽ có nhiều data tự động kết nối
-4. **Đúng FDP Manifesto**: 
-   - Order = "Cash sẽ về" 
-   - Settlement = "Cash đã về"
-   - Phí sàn = "Cash bị khóa/trừ"
-
+### Personalization Result
+- CEO → FDP Dashboard + Control Tower alerts
+- CFO → Full FDP + Scenario Planning
+- CMO → MDP focus + Marketing Mode
+- Marketer → MDP Marketing Mode only
