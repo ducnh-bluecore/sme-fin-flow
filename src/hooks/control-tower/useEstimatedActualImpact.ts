@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 
 export interface EstimatedImpact {
   estimated_impact: number;
@@ -28,14 +27,14 @@ export function useEstimatedActualImpact({
   predictedImpact,
   enabled = true,
 }: UseEstimatedActualImpactParams) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['estimated-actual-impact', tenantId, decisionType, decisionDate, predictedImpact],
     queryFn: async (): Promise<EstimatedImpact | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .rpc('compute_estimated_actual_impact', {
           p_tenant_id: tenantId,
           p_decision_type: decisionType,
@@ -65,7 +64,7 @@ export function useEstimatedActualImpact({
         low_confidence_reason: result.low_confidence_reason || null,
       };
     },
-    enabled: enabled && !!tenantId && !!decisionType && !!decisionDate,
+    enabled: enabled && !!tenantId && isReady && !!decisionType && !!decisionDate,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

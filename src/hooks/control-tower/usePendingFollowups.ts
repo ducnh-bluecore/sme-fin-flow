@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 
 export interface PendingFollowup {
   id: string;
@@ -17,18 +16,23 @@ export interface PendingFollowup {
 }
 
 export function usePendingFollowups() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['pending-followups', tenantId],
     queryFn: async (): Promise<PendingFollowup[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_decision_pending_followup')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('followup_due_date', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching pending followups:', error);
@@ -49,7 +53,7 @@ export function usePendingFollowups() {
         days_until_due: Math.round(row.days_until_due || 0),
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     refetchInterval: 60000, // Refresh every minute
   });
 }

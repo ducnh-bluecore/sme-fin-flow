@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 export interface InsightRegistryItem {
@@ -33,16 +33,21 @@ export interface InsightRegistryStats {
  * KHÔNG tính toán - chỉ fetch dữ liệu đã được tính sẵn trong view
  */
 export function useCDPInsightRegistry() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: insights = [], isLoading, error, refetch } = useQuery({
     queryKey: ['cdp-insight-registry', tenantId],
     queryFn: async () => {
       // Query từ view đã được tính toán sẵn
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_insight_registry_summary')
-        .select('*')
-        .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -76,7 +81,7 @@ export function useCDPInsightRegistry() {
 
       return Array.from(uniqueInsights.values());
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Tính stats từ dữ liệu đã fetch (không query thêm)

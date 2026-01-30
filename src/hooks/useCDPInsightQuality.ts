@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface InsightQualitySummary {
   totalInsights: number;
@@ -27,16 +26,20 @@ export interface InsightValidationResult {
  * Hook để lấy Insight Quality Summary từ audit log
  */
 export function useCDPInsightQualitySummary() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-insight-quality-summary', tenantId],
     queryFn: async (): Promise<InsightQualitySummary | null> => {
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_insight_quality_summary' as any)
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching insight quality summary:', error);
@@ -55,7 +58,7 @@ export function useCDPInsightQualitySummary() {
         lastCheckAt: row.last_check_at,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -64,12 +67,12 @@ export function useCDPInsightQualitySummary() {
  * Hook để validate insight accuracy so với source data
  */
 export function useCDPValidateInsightAccuracy(insightCode?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-validate-insight-accuracy', tenantId, insightCode],
     queryFn: async (): Promise<InsightValidationResult[]> => {
-      const { data, error } = await supabase.rpc('cdp_validate_insight_accuracy', {
+      const { data, error } = await client.rpc('cdp_validate_insight_accuracy', {
         p_tenant_id: tenantId,
         p_insight_code: insightCode || null,
       });
@@ -91,7 +94,7 @@ export function useCDPValidateInsightAccuracy(insightCode?: string) {
         overallPassed: row.overall_passed ?? true,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000,
   });
 }
