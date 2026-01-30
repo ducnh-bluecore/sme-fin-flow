@@ -12,8 +12,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { 
   MarketingDecisionCard, 
   DecisionCardType, 
@@ -57,22 +56,26 @@ export interface MDPConfig {
  * This is a THIN WRAPPER - no business logic here
  */
 export function useMDPDecisionSignals() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: signals, isLoading, error } = useQuery({
     queryKey: ['mdp-decision-signals', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_mdp_decision_signals')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as MDPDecisionSignal[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -120,18 +123,22 @@ export function useMDPDecisionSignals() {
  * Fetch MDP config thresholds
  */
 export function useMDPConfig() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['mdp-config', tenantId],
     queryFn: async () => {
       if (!tenantId) return {};
 
-      const { data, error } = await supabase
+      let query = client
         .from('mdp_config')
-        .select('config_key, config_value')
-        .eq('tenant_id', tenantId);
+        .select('config_key, config_value');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       
       // Transform to key-value object
@@ -144,7 +151,7 @@ export function useMDPConfig() {
       
       return configMap;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 30 * 60 * 1000, // 30 minutes - config rarely changes
   });
 

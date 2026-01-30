@@ -98,16 +98,21 @@ File: `supabase/functions/provision-tenant-schema/index.ts`
 | `useRetailConcentrationRisk.ts` | ✅ Done |
 | `useExecutiveHealthScores.ts` | ✅ Done |
 
-### 3.3 MDP Hooks ⏳ PENDING
+### 3.3 MDP Hooks ✅ (DONE - 12 files)
 
 | File | Status |
 |------|--------|
-| `useMDPData.ts` | ⏳ Pending |
-| `useMDPDataSSOT.ts` | ⏳ Pending |
-| `usePlatformAdsData.ts` | ⏳ Pending |
-| `useMarketingDecisionEngine.ts` | ⏳ Pending |
-| `useChannelAnalytics.ts` | ⏳ Pending |
-| + remaining MDP hooks | ⏳ Pending |
+| `useMDPSSOT.ts` | ✅ Done |
+| `useMDPData.ts` | ⏸️ Deprecated (thin wrapper for SSOT) |
+| `useMDPDataSSOT.ts` | ⏸️ Wrapper uses useMDPSSOT |
+| `useMDPDecisionSignals.ts` | ✅ Done |
+| `useChannelPL.ts` | ✅ Done |
+| `useChannelPLSSOT.ts` | ✅ Done |
+| `useChannelAnalyticsCache.ts` | ✅ Done |
+| `useChannelBudgets.ts` | ✅ Done |
+| `usePlatformAdsData.ts` | ✅ Done |
+| `useTopCustomersAR.ts` | ✅ Done |
+| `useUpcomingPaymentAlerts.ts` | ✅ Done |
 
 ### 3.4 CDP Hooks ⏳ PENDING
 

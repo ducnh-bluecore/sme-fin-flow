@@ -13,10 +13,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useMemo } from 'react';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import {
   MDPSSOTResult,
   MDPCampaignAttribution,
@@ -72,7 +71,7 @@ export const MDP_METRIC_CODES = {
 // ============ MAIN HOOK ============
 
 export function useMDPSSOT(): MDPSSOTResult {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   // ============ QUERY: Campaigns ============
@@ -80,17 +79,20 @@ export function useMDPSSOT(): MDPSSOTResult {
     queryKey: ['mdp-ssot-campaigns', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      let query = client
         .from('promotion_campaigns')
         .select('*')
-        .eq('tenant_id', tenantId)
         .lte('start_date', endDateStr)
         .gte('end_date', startDateStr)
         .order('actual_cost', { ascending: false });
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ QUERY: Order Items with COGS ============
@@ -98,15 +100,18 @@ export function useMDPSSOT(): MDPSSOTResult {
     queryKey: ['mdp-ssot-order-items', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      let query = client
         .from('external_order_items')
         .select('external_order_id, sku, quantity, unit_price, total_amount, unit_cogs, total_cogs, gross_profit')
-        .eq('tenant_id', tenantId)
         .limit(100000);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ QUERY: Channel Fees ============
@@ -114,16 +119,19 @@ export function useMDPSSOT(): MDPSSOTResult {
     queryKey: ['mdp-ssot-channel-fees', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      let query = client
         .from('channel_fees')
         .select('*')
-        .eq('tenant_id', tenantId)
         .gte('fee_date', startDateStr)
         .lte('fee_date', endDateStr);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ QUERY: Settlements ============
@@ -131,16 +139,19 @@ export function useMDPSSOT(): MDPSSOTResult {
     queryKey: ['mdp-ssot-settlements', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      let query = client
         .from('channel_settlements')
         .select('*')
-        .eq('tenant_id', tenantId)
         .gte('period_start', startDateStr)
         .lte('period_end', endDateStr);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ QUERY: Orders for cash tracking ============
@@ -150,13 +161,16 @@ export function useMDPSSOT(): MDPSSOTResult {
       if (!tenantId) return [];
       // SSOT: Query cdp_orders instead of external_orders
       // cdp_orders contains validated financial data (all delivered, paid)
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_orders')
         .select('id, channel, gross_revenue, order_at')
-        .eq('tenant_id', tenantId)
         .gte('order_at', startDateStr)
         .lte('order_at', endDateStr)
         .limit(50000);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       // Map columns for compatibility, default: status='delivered', payment_status='paid', shipping_fee=0
       return (data || []).map(d => ({
@@ -169,7 +183,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         shipping_fee: 0
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ QUERY: Marketing Expenses ============
@@ -177,16 +191,19 @@ export function useMDPSSOT(): MDPSSOTResult {
     queryKey: ['mdp-ssot-expenses', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
+      let query = client
         .from('marketing_expenses')
         .select('*')
-        .eq('tenant_id', tenantId)
         .gte('expense_date', startDateStr)
         .lte('expense_date', endDateStr);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ QUERY: Backend Alerts (ONLY SOURCE OF ALERTS) ============
@@ -196,10 +213,9 @@ export function useMDPSSOT(): MDPSSOTResult {
       if (!tenantId) return [];
       
       // Fetch from decision_cards table - backend generated
-      const { data, error } = await supabase
+      let query = client
         .from('decision_cards')
         .select('*')
-        .eq('tenant_id', tenantId)
         .in('card_type', [
           'MDP_NEGATIVE_MARGIN',
           'MDP_BURNING_CASH',
@@ -214,10 +230,15 @@ export function useMDPSSOT(): MDPSSOTResult {
         .eq('status', 'OPEN')
         .order('severity_score', { ascending: false });
       
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // ============ DERIVED: Data Quality ============

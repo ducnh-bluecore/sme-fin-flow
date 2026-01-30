@@ -6,8 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface CustomerARData {
   id: string;
@@ -24,7 +23,7 @@ export interface CustomerARData {
 }
 
 export function useTopCustomersAR(limit: number = 10) {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['top-customers-ar', tenantId, limit],
@@ -32,13 +31,18 @@ export function useTopCustomersAR(limit: number = 10) {
       if (!tenantId) return [];
 
       // Fetch from precomputed view - NO CALCULATIONS
-      const { data, error } = await supabase
+      let query = client
         .from('v_customer_ar_summary')
         .select('*')
-        .eq('tenant_id', tenantId)
         .gt('total_ar', 0) // Only customers with outstanding AR
         .order('total_ar', { ascending: false })
         .limit(limit);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('[useTopCustomersAR] Error:', error);
@@ -62,7 +66,7 @@ export function useTopCustomersAR(limit: number = 10) {
         lastInvoiceDate: row.last_invoice_date,
       }));
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

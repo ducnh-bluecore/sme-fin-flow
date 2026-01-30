@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { ChannelPerformance, OrderStatusSummary, FeeSummary } from './useChannelAnalytics';
 
 export interface ChannelAnalyticsCache {
@@ -34,7 +34,7 @@ export interface ChannelAnalyticsCache {
 const CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
 export function useChannelAnalyticsCache() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -42,11 +42,15 @@ export function useChannelAnalyticsCache() {
     queryFn: async (): Promise<ChannelAnalyticsCache | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('channel_analytics_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await dbQuery.maybeSingle();
 
       if (error) {
         console.error('Error fetching channel analytics cache:', error);
@@ -84,7 +88,7 @@ export function useChannelAnalyticsCache() {
       }
       return null;
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 30000,
     gcTime: 5 * 60 * 1000,
   });
@@ -148,7 +152,7 @@ export function useChannelAnalyticsCache() {
 
 export function useRefreshChannelAnalyticsCache() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async () => {
