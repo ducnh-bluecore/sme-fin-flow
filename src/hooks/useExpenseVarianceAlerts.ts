@@ -3,8 +3,7 @@
  * Compares Baseline/Estimates vs Actual expenses
  */
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface ExpenseVarianceAlert {
   tenant_id: string;
@@ -19,17 +18,22 @@ export interface ExpenseVarianceAlert {
 }
 
 export function useExpenseVarianceAlerts() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['expense-variance-alerts', tenantId],
     queryFn: async (): Promise<ExpenseVarianceAlert[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_expense_variance_alerts')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching expense variance alerts:', error);
@@ -38,7 +42,7 @@ export function useExpenseVarianceAlerts() {
 
       return (data || []) as ExpenseVarianceAlert[];
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

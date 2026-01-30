@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 // Types for Customer Research
@@ -79,8 +78,7 @@ export interface ResearchFilters {
 
 // Hook: Customer Research List with filters
 export function useCDPCustomerResearch(page = 1, pageSize = 10, filters: ResearchFilters = {}) {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-customer-research', tenantId, page, pageSize, filters],
@@ -90,10 +88,13 @@ export function useCDPCustomerResearch(page = 1, pageSize = 10, filters: Researc
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      let query = supabase
+      let query = client
         .from('v_cdp_customer_research')
-        .select('*', { count: 'exact' })
-        .eq('tenant_id', tenantId);
+        .select('*', { count: 'exact' });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       // Apply order count filter
       if (filters.orderCount && filters.orderCount !== 'all') {
@@ -176,15 +177,14 @@ export function useCDPCustomerResearch(page = 1, pageSize = 10, filters: Researc
 
       return { customers, totalCount: count || 0 };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Hook: Research Stats
 export function useCDPResearchStats() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-research-stats', tenantId],
@@ -200,11 +200,15 @@ export function useCDPResearchStats() {
         };
       }
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_research_stats')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
 
@@ -217,26 +221,30 @@ export function useCDPResearchStats() {
         promotionDependency: Number(data?.promotion_dependency) || 0,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Hook: Saved Research Views
 export function useCDPSavedViews() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-saved-views', tenantId],
     queryFn: async (): Promise<SavedResearchView[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_saved_research_views')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -253,25 +261,29 @@ export function useCDPSavedViews() {
         linkedDecisions: Number(row.linked_decisions) || 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Hook: Population Comparison
 export function useCDPPopulationComparison() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-population-comparison', tenantId],
     queryFn: async (): Promise<PopulationComparison[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_population_comparison')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -288,26 +300,30 @@ export function useCDPPopulationComparison() {
         totalRevenue: Number(row.total_revenue) || 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Hook: Population Changelog
 export function useCDPPopulationChangelog() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-population-changelog', tenantId],
     queryFn: async (): Promise<ChangeLogEntry[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_population_changelog')
         .select('*')
-        .eq('tenant_id', tenantId)
         .limit(50);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -322,15 +338,14 @@ export function useCDPPopulationChangelog() {
         changes: row.changes,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Hook: Save Research View (mutation)
 export function useSaveResearchView() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -354,7 +369,7 @@ export function useSaveResearchView() {
           value,
         }));
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('cdp_segments')
         .insert({
           tenant_id: tenantId,
@@ -370,7 +385,7 @@ export function useSaveResearchView() {
       if (error) throw error;
 
       // Evaluate segment membership after creation
-      const { error: evalError } = await supabase.rpc('cdp_evaluate_segments', {
+      const { error: evalError } = await client.rpc('cdp_evaluate_segments', {
         p_tenant_id: tenantId,
         p_as_of_date: new Date().toISOString().split('T')[0], // Today's date
       });

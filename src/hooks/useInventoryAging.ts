@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface InventoryItem {
@@ -41,23 +40,28 @@ const calculateAgeDays = (receivedDate: string): number => {
 };
 
 export const useInventoryItems = () => {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['inventory-items', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('inventory_items')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('received_date', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return (data || []) as InventoryItem[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 };
 
@@ -119,13 +123,13 @@ export const useInventoryAging = () => {
 
 export const useCreateInventoryItem = () => {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (item: Omit<InventoryItem, 'id' | 'tenant_id' | 'total_value' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('inventory_items' as any)
         .insert({ ...item, tenant_id: tenantId })
         .select()
@@ -146,10 +150,11 @@ export const useCreateInventoryItem = () => {
 
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<InventoryItem> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('inventory_items')
         .update(updates)
         .eq('id', id)
@@ -171,10 +176,11 @@ export const useUpdateInventoryItem = () => {
 
 export const useDeleteInventoryItem = () => {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('inventory_items')
         .delete()
         .eq('id', id);
