@@ -1,6 +1,12 @@
+/**
+ * usePerformanceData - Performance Dashboard Data
+ * 
+ * Refactored to Schema-per-Tenant architecture.
+ * Uses useTenantSupabaseCompat for tenant-aware queries.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useStores } from './useStores';
 import { subMonths } from 'date-fns';
 
@@ -34,7 +40,7 @@ export interface StoreRanking {
 }
 
 export function usePerformanceData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { data: stores } = useStores();
 
   return useQuery({
@@ -57,12 +63,17 @@ export function usePerformanceData() {
       }
 
       // Fetch metrics from object_calculated_metrics
-      const { data: metrics, error } = await supabase
+      let query = client
         .from('object_calculated_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(10000);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data: metrics, error } = await query;
 
       if (error) throw error;
 
@@ -151,6 +162,6 @@ export function usePerformanceData() {
         },
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
