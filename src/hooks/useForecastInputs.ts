@@ -13,8 +13,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useMemo } from 'react';
 import { SalesProjection, calculateSalesInflowForDay } from './useSalesProjection';
 
@@ -66,21 +65,24 @@ export interface ForecastInputs {
 }
 
 export function useForecastInputs() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   // Fetch all required data in parallel
   const { data: bankAccounts, isLoading: bankLoading } = useQuery({
     queryKey: ['forecast-bank-accounts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data } = await supabase
+      let query = client
         .from('bank_accounts')
         .select('id, current_balance, status')
-        .eq('tenant_id', tenantId)
         .eq('status', 'active');
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data } = await query;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
@@ -88,14 +90,17 @@ export function useForecastInputs() {
     queryKey: ['forecast-invoices', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data } = await supabase
+      let query = client
         .from('invoices')
         .select('id, total_amount, paid_amount, due_date, status')
-        .eq('tenant_id', tenantId)
         .in('status', ['sent', 'issued', 'overdue', 'partial']);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data } = await query;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
@@ -103,14 +108,17 @@ export function useForecastInputs() {
     queryKey: ['forecast-bills', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data } = await supabase
+      let query = client
         .from('bills')
         .select('id, total_amount, paid_amount, due_date, status')
-        .eq('tenant_id', tenantId)
         .in('status', ['approved', 'pending', 'partial']);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data } = await query;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
@@ -118,14 +126,17 @@ export function useForecastInputs() {
     queryKey: ['forecast-expenses', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data } = await supabase
+      let query = client
         .from('expenses')
         .select('id, amount, is_recurring, recurring_period, expense_date, description')
-        .eq('tenant_id', tenantId)
         .eq('is_recurring', true);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data } = await query;
       return data || [];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
@@ -135,11 +146,14 @@ export function useForecastInputs() {
     queryKey: ['forecast-orders', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data } = await supabase
+      let query = client
         .from('cdp_orders')
         .select('id, net_revenue, order_at')
-        .eq('tenant_id', tenantId)
         .limit(50000);
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data } = await query;
       // Map to expected format: seller_income -> net_revenue, delivered_at -> order_at
       return (data || []).map(o => ({
         id: o.id,
@@ -148,7 +162,7 @@ export function useForecastInputs() {
         delivered_at: o.order_at
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
@@ -158,7 +172,7 @@ export function useForecastInputs() {
     queryFn: async () => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .rpc('get_forecast_historical_stats', { 
           p_tenant_id: tenantId,
           p_days: 90
@@ -172,10 +186,11 @@ export function useForecastInputs() {
       // RPC returns array with single row
       return Array.isArray(data) ? data[0] : data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
+  const tenantLoading = !isReady;
   const inputs = useMemo<ForecastInputs>(() => {
     const today = new Date();
     const in30Days = new Date(today);

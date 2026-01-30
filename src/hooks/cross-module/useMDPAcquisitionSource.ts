@@ -6,8 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -36,7 +35,7 @@ interface AcquisitionSourceRPC {
  * Get acquisition source for a specific customer
  */
 export function useCDPAcquisitionSource(customerId?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery<CrossModuleData<AcquisitionSource>>({
     queryKey: ['cdp-acquisition-source', tenantId, customerId],
@@ -50,7 +49,7 @@ export function useCDPAcquisitionSource(customerId?: string) {
         );
       }
 
-      const { data, error } = await supabase.rpc('cdp_get_customer_acquisition_source' as any, {
+      const { data, error } = await client.rpc('cdp_get_customer_acquisition_source' as any, {
         p_tenant_id: tenantId,
         p_customer_id: customerId,
       });
@@ -89,7 +88,7 @@ export function useCDPAcquisitionSource(customerId?: string) {
         result.is_cross_module ? 'MDP' : undefined
       );
     },
-    enabled: !!tenantId && !!customerId,
+    enabled: !!tenantId && !!customerId && isReady,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 }
@@ -107,14 +106,14 @@ interface PushAcquisitionParams {
  * Push acquisition source from MDP to CDP
  */
 export function usePushAcquisitionToCDP() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: PushAcquisitionParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase.rpc('mdp_push_acquisition_to_cdp' as any, {
+      const { data, error } = await client.rpc('mdp_push_acquisition_to_cdp' as any, {
         p_tenant_id: tenantId,
         p_customer_id: params.customerId,
         p_channel: params.channel,
@@ -144,7 +143,7 @@ export function usePushAcquisitionToCDP() {
  * Batch push acquisition sources
  */
 export function useBatchPushAcquisitionToCDP() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -153,7 +152,7 @@ export function useBatchPushAcquisitionToCDP() {
 
       const results = await Promise.all(
         records.map((params) =>
-          supabase.rpc('mdp_push_acquisition_to_cdp' as any, {
+          client.rpc('mdp_push_acquisition_to_cdp' as any, {
             p_tenant_id: tenantId,
             p_customer_id: params.customerId,
             p_channel: params.channel,

@@ -9,8 +9,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface AgeDistribution {
   range: string;
@@ -66,18 +65,22 @@ const GENDER_COLORS: Record<string, string> = {
 };
 
 export function useDemographicsData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['demographics-data', tenantId],
     queryFn: async (): Promise<DemographicsData | null> => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_demographics_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query.maybeSingle();
         
       if (error) throw error;
       
@@ -107,7 +110,7 @@ export function useDemographicsData() {
         geographic_distribution: rawGeo,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000, // Cache for 1 minute
   });
 }
