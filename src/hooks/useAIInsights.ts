@@ -1,6 +1,11 @@
+/**
+ * useAIInsights - Hook for AI financial analysis
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 interface FinancialSummary {
   totalCash: number;
@@ -23,14 +28,14 @@ interface AIInsightsResponse {
 }
 
 export function useAIInsights(enabled: boolean = true) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['ai-insights', tenantId],
     queryFn: async (): Promise<AIInsightsResponse | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase.functions.invoke('analyze-financial-data');
+      const { data, error } = await client.functions.invoke('analyze-financial-data');
 
       if (error) {
         console.error('AI insights error:', error);
@@ -39,7 +44,7 @@ export function useAIInsights(enabled: boolean = true) {
 
       return data;
     },
-    enabled: !!tenantId && enabled,
+    enabled: !!tenantId && isReady && enabled,
     staleTime: 10 * 60 * 1000, // 10 minutes - increased for better caching
     gcTime: 30 * 60 * 1000, // 30 minutes cache
     refetchInterval: false, // Disable auto-refresh to reduce API calls
@@ -49,11 +54,11 @@ export function useAIInsights(enabled: boolean = true) {
 
 export function useRefreshAIInsights() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (): Promise<AIInsightsResponse> => {
-      const { data, error } = await supabase.functions.invoke('analyze-financial-data');
+      const { data, error } = await client.functions.invoke('analyze-financial-data');
 
       if (error) throw error;
       return data;
