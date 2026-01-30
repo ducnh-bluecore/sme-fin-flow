@@ -32,6 +32,7 @@ import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { MobileBottomNav, MobileHeader, MobileDrawer } from '@/components/mobile';
+import { ActivityTrackerProvider } from '@/components/providers/ActivityTrackerProvider';
 
 /**
  * MDP LAYOUT - Light Professional Theme
@@ -317,6 +318,7 @@ export function MDPLayout() {
   );
 
   return (
+    <ActivityTrackerProvider>
     <div className="min-h-screen bg-background flex">
       {/* Mobile Header */}
       <div className="lg:hidden">
@@ -387,5 +389,6 @@ export function MDPLayout() {
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav onMoreClick={() => setMobileDrawerOpen(true)} />
     </div>
+    </ActivityTrackerProvider>
   );
 }

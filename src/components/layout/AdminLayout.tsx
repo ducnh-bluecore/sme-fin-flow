@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ActivityTrackerProvider } from '@/components/providers/ActivityTrackerProvider';
 
 const adminNavItems = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -43,6 +44,7 @@ export function AdminLayout() {
   };
 
   return (
+    <ActivityTrackerProvider>
     <div className="min-h-screen flex w-full bg-background">
 
       {/* Admin Sidebar */}
@@ -195,5 +197,6 @@ export function AdminLayout() {
         </main>
       </div>
     </div>
+    </ActivityTrackerProvider>
   );
 }
