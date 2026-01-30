@@ -8,13 +8,14 @@
  * 
  * SSOT COMPLIANT: No business calculations in React
  * 
+ * Refactored to Schema-per-Tenant architecture.
+ * 
  * @architecture database-first
  * @domain FDP
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import {
   calculateROAS,
@@ -120,13 +121,56 @@ export interface AggregatedFDPMetricsSSOT {
  * NO client-side .reduce() on financial data.
  */
 export function useFDPAggregatedMetricsSSOT() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
     queryKey: ['fdp-aggregated-metrics-ssot', tenantId, startDateStr, endDateStr],
     queryFn: async (): Promise<AggregatedFDPMetricsSSOT | null> => {
       if (!tenantId) return null;
+
+      // Build channel query
+      let channelQuery = client
+        .from('v_channel_performance')
+        .select('channel, order_count, gross_revenue, net_revenue, total_fees, cogs, gross_margin');
+
+      if (shouldAddTenantFilter) {
+        channelQuery = channelQuery.eq('tenant_id', tenantId);
+      }
+
+      // Build SKU query
+      let skuQuery = client
+        .from('fdp_sku_summary' as any)
+        .select('*')
+        .order('total_revenue', { ascending: false })
+        .limit(100);
+
+      if (shouldAddTenantFilter) {
+        skuQuery = skuQuery.eq('tenant_id', tenantId);
+      }
+
+      // Build marketing expenses query
+      let marketingQuery = client
+        .from('expenses')
+        .select('amount')
+        .eq('category', 'marketing')
+        .gte('expense_date', startDateStr)
+        .lte('expense_date', endDateStr);
+
+      if (shouldAddTenantFilter) {
+        marketingQuery = marketingQuery.eq('tenant_id', tenantId);
+      }
+
+      // Build invoice summary query
+      let invoiceQuery = client
+        .from('fdp_invoice_summary' as any)
+        .select('total_amount, total_paid, outstanding_amount')
+        .gte('invoice_month', startDateStr)
+        .lte('invoice_month', endDateStr);
+
+      if (shouldAddTenantFilter) {
+        invoiceQuery = invoiceQuery.eq('tenant_id', tenantId);
+      }
 
       // Call RPC for pre-aggregated metrics - NO CLIENT-SIDE AGGREGATION
       const [
@@ -137,42 +181,23 @@ export function useFDPAggregatedMetricsSSOT() {
         invoiceRes,
       ] = await Promise.all([
         // Main summary from RPC
-        supabase.rpc('get_fdp_period_summary', {
+        client.rpc('get_fdp_period_summary', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
         
-        // Channel breakdown - using v_channel_performance view (fdp_channel_summary does not exist)
-        supabase
-          .from('v_channel_performance')
-          .select('channel, order_count, gross_revenue, net_revenue, total_fees, cogs, gross_margin')
-          .eq('tenant_id', tenantId),
+        // Channel breakdown
+        channelQuery,
         
         // SKU breakdown (top 100)
-        supabase
-          .from('fdp_sku_summary' as any)
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .order('total_revenue', { ascending: false })
-          .limit(100),
+        skuQuery,
         
         // Marketing expenses (for ROAS/CAC)
-        supabase
-          .from('expenses')
-          .select('amount')
-          .eq('tenant_id', tenantId)
-          .eq('category', 'marketing')
-          .gte('expense_date', startDateStr)
-          .lte('expense_date', endDateStr),
+        marketingQuery,
         
         // Invoice summary
-        supabase
-          .from('fdp_invoice_summary' as any)
-          .select('total_amount, total_paid, outstanding_amount')
-          .eq('tenant_id', tenantId)
-          .gte('invoice_month', startDateStr)
-          .lte('invoice_month', endDateStr),
+        invoiceQuery,
       ]);
 
       // Check for RPC error first
@@ -303,7 +328,7 @@ export function useFDPAggregatedMetricsSSOT() {
         },
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -1,6 +1,12 @@
+/**
+ * useWeeklyCashForecast - 13-week cash forecast
+ * 
+ * Refactored to Schema-per-Tenant architecture.
+ * Uses useTenantSupabaseCompat for tenant-aware queries.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useCashRunway } from './useCashRunway';
 import { format, addWeeks, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
@@ -72,7 +78,7 @@ export interface ScenarioComparison {
 }
 
 export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based') {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr, startDate, endDate } = useDateRangeForQuery();
   // SSOT: Use useCashRunway for current cash position
   const { data: cashRunway, isLoading: isLoadingRunway } = useCashRunway();
@@ -89,6 +95,39 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       // SSOT: Get current cash from useCashRunway instead of calculating independently
       const currentCash = cashRunway?.currentCash || 0;
 
+      // Build queries with tenant filter
+      let invoicesQuery = client
+        .from('invoices')
+        .select('id, total_amount, paid_amount, status, due_date')
+        .neq('status', 'paid')
+        .neq('status', 'cancelled');
+
+      let billsQuery = client
+        .from('bills')
+        .select('id, total_amount, paid_amount, status, due_date')
+        .neq('status', 'paid')
+        .neq('status', 'cancelled');
+
+      let ordersQuery = client
+        .from('cdp_orders')
+        .select('gross_revenue, order_at')
+        .gte('order_at', startDateStr)
+        .lte('order_at', endDateStr)
+        .limit(50000);
+
+      let expensesQuery = client
+        .from('expenses')
+        .select('amount, expense_date, category, is_recurring')
+        .gte('expense_date', startDateStr)
+        .lte('expense_date', endDateStr);
+
+      if (shouldAddTenantFilter) {
+        invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
+        billsQuery = billsQuery.eq('tenant_id', tenantId);
+        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
+        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
+      }
+
       // Fetch historical data for projections (excluding bank_accounts as we use SSOT)
       const [
         invoicesRes,
@@ -96,33 +135,10 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
         ordersRes,
         expensesRes
       ] = await Promise.all([
-        supabase
-          .from('invoices')
-          .select('id, total_amount, paid_amount, status, due_date')
-          .eq('tenant_id', tenantId)
-          .neq('status', 'paid')
-          .neq('status', 'cancelled'),
-        supabase
-          .from('bills')
-          .select('id, total_amount, paid_amount, status, due_date')
-          .eq('tenant_id', tenantId)
-          .neq('status', 'paid')
-          .neq('status', 'cancelled'),
-        // SSOT: Query cdp_orders instead of external_orders
-        // cdp_orders only contains delivered orders, no status filter needed
-        supabase
-          .from('cdp_orders')
-          .select('gross_revenue, order_at')
-          .eq('tenant_id', tenantId)
-          .gte('order_at', startDateStr)
-          .lte('order_at', endDateStr)
-          .limit(50000),
-        supabase
-          .from('expenses')
-          .select('amount, expense_date, category, is_recurring')
-          .eq('tenant_id', tenantId)
-          .gte('expense_date', startDateStr)
-          .lte('expense_date', endDateStr)
+        invoicesQuery,
+        billsQuery,
+        ordersQuery,
+        expensesQuery
       ]);
 
       const invoices = invoicesRes.data || [];
@@ -300,7 +316,7 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
         method
       };
     },
-    enabled: !!tenantId && !isLoadingRunway, // Wait for cashRunway to load first
+    enabled: !!tenantId && isReady && !isLoadingRunway, // Wait for cashRunway to load first
     staleTime: 5 * 60 * 1000
   });
 }

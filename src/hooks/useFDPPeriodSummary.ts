@@ -6,12 +6,12 @@
  * Replaces client-side .reduce() with database RPC.
  * Single query returns pre-aggregated totals.
  * 
+ * Refactored to Schema-per-Tenant architecture.
  * Uses: get_fdp_period_summary RPC
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface FDPPeriodSummary {
@@ -42,7 +42,7 @@ export interface FDPPeriodSummary {
 }
 
 export function useFDPPeriodSummary() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -50,7 +50,7 @@ export function useFDPPeriodSummary() {
     queryFn: async (): Promise<FDPPeriodSummary | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase.rpc('get_fdp_period_summary', {
+      const { data, error } = await client.rpc('get_fdp_period_summary', {
         p_tenant_id: tenantId,
         p_start_date: startDateStr,
         p_end_date: endDateStr,
@@ -109,7 +109,7 @@ export function useFDPPeriodSummary() {
         },
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 3 * 60 * 1000, // Cache 3 minutes
   });
 }
