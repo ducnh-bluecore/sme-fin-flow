@@ -2,6 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
+/**
+ * useIsSuperAdmin - Check if current user has admin role
+ * 
+ * Note: This hook intentionally uses the global supabase client
+ * because user_roles is a global table, not tenant-specific.
+ */
 export function useIsSuperAdmin() {
   const { user, loading: authLoading } = useAuth();
 
@@ -10,6 +16,7 @@ export function useIsSuperAdmin() {
     queryFn: async () => {
       if (!user?.id) return false;
       
+      // user_roles is a global table - use base client
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -22,7 +29,6 @@ export function useIsSuperAdmin() {
         return false;
       }
       
-      console.log('Super admin check:', { userId: user.id, data, isSuperAdmin: !!data });
       return !!data;
     },
     enabled: !!user?.id && !authLoading,

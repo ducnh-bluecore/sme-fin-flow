@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface ReconciliationSuggestion {
   id: string;
@@ -52,12 +51,14 @@ export interface CalibrationData {
 
 // Hook: Fetch suggestions for an exception
 export function useSuggestions(exceptionId: string | null) {
+  const { client, tenantId } = useTenantSupabaseCompat();
+
   return useQuery({
-    queryKey: ['suggestions', exceptionId],
+    queryKey: ['suggestions', tenantId, exceptionId],
     queryFn: async (): Promise<ReconciliationSuggestion[]> => {
       if (!exceptionId) return [];
 
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await client.auth.getSession();
       const token = session?.session?.access_token;
 
       const response = await fetch(
@@ -67,6 +68,7 @@ export function useSuggestions(exceptionId: string | null) {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId || '',
           },
         }
       );
@@ -77,21 +79,21 @@ export function useSuggestions(exceptionId: string | null) {
 
       return response.json();
     },
-    enabled: !!exceptionId,
+    enabled: !!exceptionId && !!tenantId,
     staleTime: 1000 * 60, // 1 minute
   });
 }
 
 // Hook: Get calibration data
 export function useCalibrationData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['calibration', tenantId],
     queryFn: async (): Promise<CalibrationData | null> => {
       if (!tenantId) return null;
 
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await client.auth.getSession();
       const token = session?.session?.access_token;
 
       const response = await fetch(
@@ -101,6 +103,7 @@ export function useCalibrationData() {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId,
           },
         }
       );
@@ -111,7 +114,7 @@ export function useCalibrationData() {
 
       return response.json();
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -119,10 +122,11 @@ export function useCalibrationData() {
 // Hook: Confirm a suggestion
 export function useConfirmSuggestion() {
   const queryClient = useQueryClient();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await client.auth.getSession();
       const token = session?.session?.access_token;
 
       const response = await fetch(
@@ -133,8 +137,9 @@ export function useConfirmSuggestion() {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId || '',
           },
-          body: JSON.stringify({ suggestionId }),
+          body: JSON.stringify({ suggestionId, tenantId }),
         }
       );
 
@@ -159,10 +164,11 @@ export function useConfirmSuggestion() {
 // Hook: Reject a suggestion
 export function useRejectSuggestion() {
   const queryClient = useQueryClient();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await client.auth.getSession();
       const token = session?.session?.access_token;
 
       const response = await fetch(
@@ -173,8 +179,9 @@ export function useRejectSuggestion() {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'x-tenant-id': tenantId || '',
           },
-          body: JSON.stringify({ suggestionId }),
+          body: JSON.stringify({ suggestionId, tenantId }),
         }
       );
 
