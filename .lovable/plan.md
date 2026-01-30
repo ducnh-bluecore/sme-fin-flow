@@ -1,4 +1,3 @@
-
 # Kế hoạch Migration: Schema-per-Tenant Architecture
 
 ## Tổng quan
@@ -11,94 +10,33 @@ Migrate từ kiến trúc **Shared DB + RLS** (hiện tại) sang **Schema-per-T
 
 ---
 
-## Phase 1: Chuẩn bị Infrastructure (Tuần 1-2)
+## ✅ Phase 1: Chuẩn bị Infrastructure (COMPLETED)
 
-### 1.1 Tạo Schema Template
+### 1.1 Database Functions ✅
 
-Tạo template schema chứa tất cả 277 tables, 159 views, indexes:
+Đã tạo các RPC functions:
+- `set_tenant_schema(uuid)` - Set search_path cho tenant
+- `get_tenant_schema()` - Lấy current schema
+- `is_tenant_schema_provisioned(uuid)` - Kiểm tra schema đã tạo chưa
+- `provision_tenant_schema(uuid, text)` - Tạo schema mới với all tables
+- `migrate_tenant_data(uuid, text)` - Migrate data từ public sang tenant schema
+- `get_tenant_schema_stats(uuid)` - Thống kê schema
+- `get_tenant_table_list()` - List tables cần copy
+- `get_tenant_view_list()` - List views cần copy
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│                     DATABASE STRUCTURE                      │
-├────────────────────────────────────────────────────────────┤
-│  public (shared)                                           │
-│  ├── tenants                 (tenant registry)             │
-│  ├── tenant_users            (user-tenant mapping)         │
-│  ├── profiles                (user profiles)               │
-│  ├── user_roles              (super admin roles)           │
-│  └── _template_tables/       (migration templates)         │
-├────────────────────────────────────────────────────────────┤
-│  tenant_abc123 (per-tenant schema)                         │
-│  ├── products, customers, invoices...                      │
-│  ├── cdp_orders, cdp_customers...                          │
-│  ├── v_channel_performance, v_cdp_overview...              │
-│  └── (277 tables + 159 views per tenant)                   │
-├────────────────────────────────────────────────────────────┤
-│  tenant_xyz789 (another tenant)                            │
-│  └── (same structure as above)                             │
-└────────────────────────────────────────────────────────────┘
-```
+### 1.2 Frontend Wrapper ✅
 
-### 1.2 RPC Functions cho Schema Switching
+- `src/integrations/supabase/tenantClient.ts` - Tenant-aware Supabase client
+  - `useTenantSupabase()` - Hook auto-set schema
+  - `useTenantSupabaseCompat()` - Backward compatible hook
+  - `setTenantSchema()` - Direct schema switching
+  - `getTenantSupabase()` - Async function for non-React
+- `src/hooks/useTenantSupabase.ts` - Hook exports
 
-Tạo các functions để dynamic schema routing:
+### 1.3 Edge Functions ✅
 
-```sql
--- Function: Set search_path based on active tenant
-CREATE OR REPLACE FUNCTION set_tenant_schema(p_tenant_id uuid)
-RETURNS void AS $$
-DECLARE
-  v_schema_name text;
-BEGIN
-  SELECT 'tenant_' || slug INTO v_schema_name
-  FROM public.tenants WHERE id = p_tenant_id;
-  
-  EXECUTE format('SET search_path TO %I, public', v_schema_name);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function: Get current tenant schema
-CREATE OR REPLACE FUNCTION get_tenant_schema()
-RETURNS text AS $$
-BEGIN
-  RETURN current_setting('search_path');
-END;
-$$ LANGUAGE sql;
-```
-
-### 1.3 Tenant Provisioning Function
-
-```sql
--- Function: Create new tenant schema with all tables
-CREATE OR REPLACE FUNCTION provision_tenant_schema(
-  p_tenant_id uuid,
-  p_slug text
-) RETURNS void AS $$
-DECLARE
-  v_schema_name text := 'tenant_' || p_slug;
-BEGIN
-  -- Create schema
-  EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', v_schema_name);
-  
-  -- Copy all tables from template
-  FOR rec IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' 
-             AND tablename NOT IN ('tenants', 'tenant_users', 'profiles', 'user_roles')
-  LOOP
-    EXECUTE format(
-      'CREATE TABLE %I.%I (LIKE public.%I INCLUDING ALL)',
-      v_schema_name, rec.tablename, rec.tablename
-    );
-  END LOOP;
-  
-  -- Copy all views
-  -- (similar logic for views)
-  
-  -- Grant permissions
-  EXECUTE format('GRANT USAGE ON SCHEMA %I TO authenticated', v_schema_name);
-  EXECUTE format('GRANT ALL ON ALL TABLES IN SCHEMA %I TO authenticated', v_schema_name);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
+- `provision-tenant-schema` - API để provision schema mới
+- `migrate-tenant-data` - API để migrate data từng table
 
 ---
 
@@ -123,70 +61,31 @@ export async function requireAuth(req: Request): Promise<SecureContext | Respons
   // ... validate JWT
   // ... get tenant slug from public.tenants
   
-  // Set schema cho tenant
-  await supabase.rpc('set_tenant_schema', { p_tenant_id: tenantId });
+  // Set schema cho tenant (if provisioned)
+  const isProvisioned = await supabase.rpc('is_tenant_schema_provisioned', { p_tenant_id: tenantId });
+  if (isProvisioned) {
+    await supabase.rpc('set_tenant_schema', { p_tenant_id: tenantId });
+  }
   
-  return { supabase, userId, tenantId, tenantSlug, email, role };
+  return { supabase, userId, tenantId, tenantSlug, email, role, isSchemaMode: isProvisioned };
 }
 ```
 
-### 2.2 Create Tenant Schema API
+### 2.2 Create Tenant Schema API ✅ (DONE)
 
 File: `supabase/functions/provision-tenant-schema/index.ts`
-
-```typescript
-// Khi tạo tenant mới, tự động provision schema
-Deno.serve(async (req) => {
-  const { tenantId, slug } = await req.json();
-  
-  // Validate admin permission
-  // Call provision_tenant_schema RPC
-  // Migrate initial data if needed
-  
-  return new Response(JSON.stringify({ success: true }));
-});
-```
 
 ---
 
 ## Phase 3: Frontend Refactoring (Tuần 5-8)
 
-### 3.1 Supabase Client Wrapper
-
-Tạo wrapper để auto-set schema:
+### 3.1 Supabase Client Wrapper ✅ (DONE)
 
 File: `src/integrations/supabase/tenantClient.ts`
 
-```typescript
-import { supabase } from './client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-
-export async function getTenantSupabase() {
-  const tenantId = await getCurrentTenantId();
-  
-  // Call RPC to set search_path
-  await supabase.rpc('set_tenant_schema', { p_tenant_id: tenantId });
-  
-  return supabase;
-}
-
-// Hook version for React components
-export function useTenantSupabase() {
-  const { data: tenantId } = useActiveTenantId();
-  
-  useEffect(() => {
-    if (tenantId) {
-      supabase.rpc('set_tenant_schema', { p_tenant_id: tenantId });
-    }
-  }, [tenantId]);
-  
-  return supabase;
-}
-```
-
 ### 3.2 Refactor All Hooks (185 files)
 
-Loại bỏ `.eq('tenant_id', tenantId)` vì schema đã isolate:
+Sử dụng `useTenantSupabaseCompat()` cho backward compatibility:
 
 ```typescript
 // TRƯỚC (Shared DB + RLS)
@@ -206,19 +105,23 @@ export function useCDPOrders() {
   });
 }
 
-// SAU (Schema-per-Tenant)
+// SAU (Schema-per-Tenant với backward compat)
 export function useCDPOrders() {
-  const tenantSupabase = useTenantSupabase();
+  const { client, isReady, shouldAddTenantFilter, tenantId } = useTenantSupabaseCompat();
   
   return useQuery({
     queryFn: async () => {
-      // Schema already set by wrapper
-      const { data } = await tenantSupabase
-        .from('cdp_orders')  // Queries tenant_xxx.cdp_orders
-        .select('*')
-        .range(0, 999);
+      let query = client.from('cdp_orders').select('*');
+      
+      // Only add filter if schema not provisioned (backward compat)
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data } = await query.range(0, 999);
       return data;
     },
+    enabled: isReady,
   });
 }
 ```
@@ -238,34 +141,10 @@ export function useCDPOrders() {
 
 ## Phase 4: Data Migration (Tuần 9-12)
 
-### 4.1 Migration Script Template
+### 4.1 Migration Steps
 
-```sql
--- Migration cho từng tenant
-DO $$
-DECLARE
-  v_tenant RECORD;
-  v_schema_name text;
-BEGIN
-  FOR v_tenant IN SELECT id, slug FROM public.tenants WHERE is_active = true
-  LOOP
-    v_schema_name := 'tenant_' || v_tenant.slug;
-    
-    -- Provision schema nếu chưa có
-    PERFORM provision_tenant_schema(v_tenant.id, v_tenant.slug);
-    
-    -- Migrate data từ shared tables
-    EXECUTE format('
-      INSERT INTO %I.products 
-      SELECT * FROM public.products WHERE tenant_id = %L
-    ', v_schema_name, v_tenant.id);
-    
-    -- Repeat for all 277 tables...
-    
-    RAISE NOTICE 'Migrated tenant: %', v_tenant.slug;
-  END LOOP;
-END $$;
-```
+1. Call `provision-tenant-schema` edge function để tạo schema
+2. Call `migrate-tenant-data` cho từng table theo order
 
 ### 4.2 Migration Order (Data Dependencies)
 
@@ -343,11 +222,6 @@ CREATE TABLE tenant_abc123.cdp_orders (
 CREATE TABLE tenant_abc123.cdp_orders_2025_q1 
   PARTITION OF tenant_abc123.cdp_orders
   FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
-
-CREATE TABLE tenant_abc123.cdp_orders_2025_q2 
-  PARTITION OF tenant_abc123.cdp_orders
-  FOR VALUES FROM ('2025-04-01') TO ('2025-07-01');
--- etc.
 ```
 
 ---
@@ -385,7 +259,7 @@ CREATE TABLE tenant_abc123.cdp_orders_2025_q2
 ## Timeline Tổng Quan
 
 ```text
-Week 1-2:   Phase 1 - Infrastructure Setup
+Week 1-2:   Phase 1 - Infrastructure Setup ✅ COMPLETED
 Week 3-4:   Phase 2 - Edge Functions Middleware
 Week 5-8:   Phase 3 - Frontend Refactoring (185 files)
 Week 9-12:  Phase 4 - Data Migration
@@ -411,19 +285,24 @@ Total: ~4 months for full migration
 
 ## Chi tiết Kỹ thuật
 
-### Database Changes Required
+### Database Changes Required ✅
 
 1. **New Schemas**: 1 schema per tenant (dynamic creation)
-2. **New Functions**: 
+2. **New Functions**: ✅
    - `set_tenant_schema(uuid)` 
    - `provision_tenant_schema(uuid, text)`
    - `get_tenant_schema()`
+   - `is_tenant_schema_provisioned(uuid)`
+   - `migrate_tenant_data(uuid, text)`
+   - `get_tenant_schema_stats(uuid)`
+   - `get_tenant_table_list()`
+   - `get_tenant_view_list()`
 3. **Modified Tables**: Remove `tenant_id` column from tenant-specific tables
 4. **Removed RLS**: All 600+ policies on shared tables
 
-### Frontend Changes Required
+### Frontend Changes Required ✅
 
-1. **New Files**:
+1. **New Files**: ✅
    - `src/integrations/supabase/tenantClient.ts`
    - `src/hooks/useTenantSupabase.ts`
 
@@ -431,6 +310,15 @@ Total: ~4 months for full migration
    - 185 hook files to use new wrapper
    - `TenantContext.tsx` to trigger schema switch on tenant change
 
-3. **Edge Functions**:
-   - `_shared/auth.ts` - Add schema switching logic
-   - All 43 functions to use updated auth module
+3. **Edge Functions**: ✅
+   - `provision-tenant-schema` - Provision new tenant schema
+   - `migrate-tenant-data` - Migrate data per table
+   - `_shared/auth.ts` - Add schema switching logic (Phase 2)
+
+---
+
+## Next Steps
+
+1. **Phase 2**: Update `_shared/auth.ts` to auto-set schema in Edge Functions
+2. **Phase 3**: Begin refactoring hooks module by module (CDP → FDP → Control Tower)
+3. **Test**: Provision a test tenant schema and verify queries work correctly

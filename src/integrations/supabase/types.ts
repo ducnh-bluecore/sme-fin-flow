@@ -33033,6 +33033,21 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: Json
       }
+      get_tenant_schema: { Args: never; Returns: string }
+      get_tenant_schema_stats: { Args: { p_tenant_id: string }; Returns: Json }
+      get_tenant_table_list: {
+        Args: never
+        Returns: {
+          table_name: string
+        }[]
+      }
+      get_tenant_view_list: {
+        Args: never
+        Returns: {
+          view_definition: string
+          view_name: string
+        }[]
+      }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
       get_working_capital_daily: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
@@ -33069,6 +33084,10 @@ export type Database = {
       is_authenticated: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
+      is_tenant_schema_provisioned: {
+        Args: { p_tenant_id: string }
+        Returns: boolean
+      }
       log_audit_event: {
         Args: {
           p_action: string
@@ -33167,6 +33186,10 @@ export type Database = {
         }
         Returns: string
       }
+      migrate_tenant_data: {
+        Args: { p_table_name: string; p_tenant_id: string }
+        Returns: Json
+      }
       populate_central_metric_facts: {
         Args: {
           p_period_end?: string
@@ -33180,6 +33203,10 @@ export type Database = {
         Returns: number
       }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
+      provision_tenant_schema: {
+        Args: { p_slug: string; p_tenant_id: string }
+        Returns: Json
+      }
       reactivate_insight: {
         Args: { p_insight_event_id: string; p_tenant_id: string }
         Returns: boolean
@@ -33239,6 +33266,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_tenant_schema: { Args: { p_tenant_id: string }; Returns: undefined }
       snooze_insight: {
         Args: {
           p_insight_event_id: string
