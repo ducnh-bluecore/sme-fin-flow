@@ -40,34 +40,27 @@ Migrate từ kiến trúc **Shared DB + RLS** (hiện tại) sang **Schema-per-T
 
 ---
 
-## Phase 2: Middleware Layer - Edge Functions (Tuần 3-4)
+## ✅ Phase 2: Middleware Layer - Edge Functions (COMPLETED)
 
-### 2.1 Cập nhật Auth Module
+### 2.1 Cập nhật Auth Module ✅
 
 File: `supabase/functions/_shared/auth.ts`
 
-Thêm logic set schema trước mỗi query:
+Đã thêm logic auto-set schema:
+- Check `is_tenant_schema_provisioned()` khi authenticate
+- Nếu provisioned: call `set_tenant_schema()` để switch search_path
+- Return `isSchemaMode: boolean` trong `SecureContext`
+- Backward compatible: nếu schema chưa provisioned, tiếp tục dùng shared DB mode
 
 ```typescript
-// Hiện tại
-export async function requireAuth(req: Request): Promise<SecureContext | Response> {
-  // ... validate JWT
-  // ... get tenantId from tenant_users
-  return { supabase, userId, tenantId, email, role };
-}
-
-// Sau migration
-export async function requireAuth(req: Request): Promise<SecureContext | Response> {
-  // ... validate JWT
-  // ... get tenant slug from public.tenants
-  
-  // Set schema cho tenant (if provisioned)
-  const isProvisioned = await supabase.rpc('is_tenant_schema_provisioned', { p_tenant_id: tenantId });
-  if (isProvisioned) {
-    await supabase.rpc('set_tenant_schema', { p_tenant_id: tenantId });
-  }
-  
-  return { supabase, userId, tenantId, tenantSlug, email, role, isSchemaMode: isProvisioned };
+export interface SecureContext {
+  supabase: SupabaseClient;
+  userId: string;
+  tenantId: string;
+  tenantSlug: string | null;
+  email: string | null;
+  role: string | null;
+  isSchemaMode: boolean; // true = schema-per-tenant, false = shared DB
 }
 ```
 
@@ -260,7 +253,7 @@ CREATE TABLE tenant_abc123.cdp_orders_2025_q1
 
 ```text
 Week 1-2:   Phase 1 - Infrastructure Setup ✅ COMPLETED
-Week 3-4:   Phase 2 - Edge Functions Middleware
+Week 3-4:   Phase 2 - Edge Functions Middleware ✅ COMPLETED
 Week 5-8:   Phase 3 - Frontend Refactoring (185 files)
 Week 9-12:  Phase 4 - Data Migration
 Week 13-14: Phase 5 - RLS Cleanup + Partitioning
@@ -313,12 +306,12 @@ Total: ~4 months for full migration
 3. **Edge Functions**: ✅
    - `provision-tenant-schema` - Provision new tenant schema
    - `migrate-tenant-data` - Migrate data per table
-   - `_shared/auth.ts` - Add schema switching logic (Phase 2)
+   - `_shared/auth.ts` - Auto schema switching ✅
 
 ---
 
 ## Next Steps
 
-1. **Phase 2**: Update `_shared/auth.ts` to auto-set schema in Edge Functions
-2. **Phase 3**: Begin refactoring hooks module by module (CDP → FDP → Control Tower)
-3. **Test**: Provision a test tenant schema and verify queries work correctly
+1. **Phase 3**: Begin refactoring hooks module by module (CDP → FDP → Control Tower)
+2. **Test**: Provision a test tenant schema and verify queries work correctly
+3. **Optional**: Start data migration for one test tenant
