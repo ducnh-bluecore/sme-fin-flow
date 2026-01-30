@@ -1,319 +1,211 @@
-# Kế hoạch Migration: Schema-per-Tenant Architecture
 
-## Tổng quan
+# Plan: Nâng cấp Trang Quản lý Tenant (Super Admin)
 
-Migrate từ kiến trúc **Shared DB + RLS** (hiện tại) sang **Schema-per-Tenant** để đạt:
-- Physical data isolation hoàn toàn giữa các tenant
-- Loại bỏ RLS overhead cho query performance
-- Dễ dàng backup/restore từng tenant độc lập
-- Hỗ trợ 20-30 triệu rows/tenant với query tối ưu
+## Mục tiêu
+
+Nâng cấp hệ thống quản lý Tenant hiện tại để tích hợp đầy đủ với kiến trúc Schema-per-Tenant mới, cung cấp công cụ quản trị toàn diện cho Super Admin.
 
 ---
 
-## ✅ Phase 1: Chuẩn bị Infrastructure (COMPLETED)
+## Phân tích hiện trạng
 
-### 1.1 Database Functions ✅
+### Đã có:
+- **AdminTenantsPage**: Danh sách tenant, tạo/sửa/xóa, impersonation
+- **AdminUsersPage**: Quản lý Platform Admin (user_roles)
+- **TenantMembersPage**: Quản lý thành viên của từng tenant
+- **Edge Functions**: `create-tenant-with-owner`, `provision-tenant-schema`
+- **Database**: RPC `is_tenant_schema_provisioned`, `provision_tenant_schema`
 
-Đã tạo các RPC functions:
-- `set_tenant_schema(uuid)` - Set search_path cho tenant
-- `get_tenant_schema()` - Lấy current schema
-- `is_tenant_schema_provisioned(uuid)` - Kiểm tra schema đã tạo chưa
-- `provision_tenant_schema(uuid, text)` - Tạo schema mới với all tables
-- `migrate_tenant_data(uuid, text)` - Migrate data từ public sang tenant schema
-- `get_tenant_schema_stats(uuid)` - Thống kê schema
-- `get_tenant_table_list()` - List tables cần copy
-- `get_tenant_view_list()` - List views cần copy
-
-### 1.2 Frontend Wrapper ✅
-
-- `src/integrations/supabase/tenantClient.ts` - Tenant-aware Supabase client
-  - `useTenantSupabase()` - Hook auto-set schema
-  - `useTenantSupabaseCompat()` - Backward compatible hook
-  - `setTenantSchema()` - Direct schema switching
-  - `getTenantSupabase()` - Async function for non-React
-- `src/hooks/useTenantSupabase.ts` - Hook exports
-
-### 1.3 Edge Functions ✅
-
-- `provision-tenant-schema` - API để provision schema mới
-- `migrate-tenant-data` - API để migrate data từng table
+### Thiếu:
+- Hiển thị trạng thái Schema (Provisioned/Pending)
+- Nút Provision Schema từ UI
+- Xem chi tiết tenant với thống kê sử dụng
+- Quản lý thành viên tenant từ Admin Panel
+- Data migration status tracking
+- Audit log cho admin actions
 
 ---
 
-## ✅ Phase 2: Middleware Layer - Edge Functions (COMPLETED)
+## Kế hoạch triển khai
 
-### 2.1 Cập nhật Auth Module ✅
+### Phase 1: Hiển thị Schema Status trên bảng Tenant
 
-File: `supabase/functions/_shared/auth.ts`
+**File: `src/pages/admin/AdminTenantsPage.tsx`**
 
-Đã thêm logic auto-set schema:
-- Check `is_tenant_schema_provisioned()` khi authenticate
-- Nếu provisioned: call `set_tenant_schema()` để switch search_path
-- Return `isSchemaMode: boolean` trong `SecureContext`
-- Backward compatible: nếu schema chưa provisioned, tiếp tục dùng shared DB mode
+Thêm cột "Schema Status" với badge:
+- `Provisioned` (xanh lá)
+- `Pending` (vàng)
+- `Error` (đỏ)
+
+Query bổ sung gọi RPC `is_tenant_schema_provisioned` cho mỗi tenant.
+
+### Phase 2: Trang Chi tiết Tenant (New)
+
+**File: `src/pages/admin/AdminTenantDetailPage.tsx`**
+
+Trang chi tiết với các tab:
+1. **Overview**: Thông tin cơ bản, plan, trạng thái
+2. **Members**: Danh sách thành viên với role
+3. **Schema**: Trạng thái schema, nút Provision, stats
+4. **Usage**: Thống kê sử dụng (số records, storage)
+5. **Audit Log**: Lịch sử thay đổi
+
+### Phase 3: Provision Schema từ UI
+
+**Workflow:**
+```text
++------------------+      +----------------------+      +------------------+
+| Admin clicks     | ---> | Call Edge Function   | ---> | provision_       |
+| "Provision"      |      | provision-tenant-    |      | tenant_schema    |
+|                  |      | schema               |      | RPC              |
++------------------+      +----------------------+      +------------------+
+```
+
+- Nút "Provision Schema" trên tenant chưa có schema
+- Progress indicator trong khi provision
+- Toast notification khi hoàn thành
+
+### Phase 4: Quản lý Members từ Admin
+
+**File: `src/pages/admin/AdminTenantMembersPage.tsx`**
+
+Cho phép Super Admin:
+- Xem tất cả members của một tenant
+- Thêm member mới (by email)
+- Thay đổi role (owner/admin/member/viewer)
+- Xóa member khỏi tenant
+
+### Phase 5: Hook và Components hỗ trợ
+
+**New Files:**
+- `src/hooks/useAdminTenants.ts`: Queries/mutations cho admin
+- `src/hooks/useTenantSchemaStatus.ts`: Check schema status
+- `src/components/admin/TenantSchemaStatus.tsx`: Badge component
+- `src/components/admin/ProvisionSchemaButton.tsx`: Action button
+
+---
+
+## Chi tiết kỹ thuật
+
+### Database Queries cần thiết
+
+```sql
+-- Check schema status cho nhiều tenant
+SELECT t.id, t.slug,
+       is_tenant_schema_provisioned(t.id) as is_provisioned
+FROM tenants t
+WHERE t.id = ANY($1);
+
+-- Get tenant stats (nếu đã provision)
+SELECT * FROM get_tenant_schema_stats(p_tenant_id);
+```
+
+### New Hook: useTenantSchemaStatus
 
 ```typescript
-export interface SecureContext {
-  supabase: SupabaseClient;
-  userId: string;
-  tenantId: string;
-  tenantSlug: string | null;
-  email: string | null;
-  role: string | null;
-  isSchemaMode: boolean; // true = schema-per-tenant, false = shared DB
+export function useTenantSchemaStatus(tenantId: string) {
+  return useQuery({
+    queryKey: ['tenant-schema-status', tenantId],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('is_tenant_schema_provisioned', {
+        p_tenant_id: tenantId
+      });
+      return data;
+    },
+    enabled: !!tenantId,
+  });
 }
 ```
 
-### 2.2 Create Tenant Schema API ✅ (DONE)
+### Provision Schema Mutation
 
-File: `supabase/functions/provision-tenant-schema/index.ts`
-
----
-
-## 🔄 Phase 3: Frontend Refactoring (IN PROGRESS)
-
-### 3.1 Supabase Client Wrapper ✅ (DONE)
-
-- `src/integrations/supabase/tenantClient.ts`
-- `src/hooks/useTenantSupabase.ts`
-- `src/hooks/useTenantQueryBuilder.ts` - Helper for query building
-
-### 3.2 FDP Hooks Refactored ✅ (DONE - 15 files)
-
-| File | Status |
-|------|--------|
-| `useFinanceTruthSnapshot.ts` | ✅ Done |
-| `usePLData.ts` | ✅ Done |
-| `useExpenseBaselines.ts` | ✅ Done |
-| `useCashFlowDirect.ts` | ✅ Done |
-| `useExpensesDaily.ts` | ✅ Done |
-| `usePLCache.ts` | ✅ Done |
-| `useWorkingCapitalDaily.ts` | ✅ Done |
-| `useWorkingCapital.ts` | ✅ Done |
-| `useFDPFinanceSSOT.ts` | ✅ Done |
-| `useExpenseEstimates.ts` | ✅ Done |
-| `useExpensePlanSummary.ts` | ✅ Done |
-| `useFinanceMonthlySummary.ts` | ✅ Done |
-| `useCashForecastSSOT.ts` | ✅ Done |
-| `useRetailConcentrationRisk.ts` | ✅ Done |
-| `useExecutiveHealthScores.ts` | ✅ Done |
-
-### 3.3 MDP Hooks ✅ (DONE - 12 files)
-
-| File | Status |
-|------|--------|
-| `useMDPSSOT.ts` | ✅ Done |
-| `useMDPData.ts` | ⏸️ Deprecated (thin wrapper for SSOT) |
-| `useMDPDataSSOT.ts` | ⏸️ Wrapper uses useMDPSSOT |
-| `useMDPDecisionSignals.ts` | ✅ Done |
-| `useChannelPL.ts` | ✅ Done |
-| `useChannelPLSSOT.ts` | ✅ Done |
-| `useChannelAnalyticsCache.ts` | ✅ Done |
-| `useChannelBudgets.ts` | ✅ Done |
-| `usePlatformAdsData.ts` | ✅ Done |
-| `useTopCustomersAR.ts` | ✅ Done |
-| `useUpcomingPaymentAlerts.ts` | ✅ Done |
-
-### 3.4 CDP Hooks ⏳ PENDING
-
-| File | Status |
-|------|--------|
-| `useCDPOverview.ts` | ⏳ Pending |
-| `useCDPSSOT.ts` | ⏳ Pending |
-| `useCDPEquity.ts` | ⏳ Pending |
-| + remaining CDP hooks (25 files) | ⏳ Pending |
-
-### 3.5 Control Tower Hooks ⏳ PENDING
-
-| File | Status |
-|------|--------|
-| `useControlTowerSSOT.ts` | ⏳ Pending |
-| `useAlertInstances.ts` | ⏳ Pending |
-| `useDecisionCards.ts` | ⏳ Pending |
-| + remaining CT hooks (15 files) | ⏳ Pending |
+```typescript
+const provisionMutation = useMutation({
+  mutationFn: async ({ tenantId, slug }) => {
+    const response = await supabase.functions.invoke('provision-tenant-schema', {
+      body: { tenantId, slug }
+    });
+    if (response.error) throw response.error;
+    return response.data;
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries(['admin-tenants']);
+    toast.success('Schema đã được tạo thành công');
+  }
+});
+```
 
 ---
 
-## Phase 4: Data Migration (Tuần 9-12)
-
-### 4.1 Migration Steps
-
-1. Call `provision-tenant-schema` edge function để tạo schema
-2. Call `migrate-tenant-data` cho từng table theo order
-
-### 4.2 Migration Order (Data Dependencies)
+## Cấu trúc Files
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│                    MIGRATION ORDER                           │
-├──────────────────────────────────────────────────────────────┤
-│ Layer 0: Master Data                                         │
-│ └── products, customers, vendors, gl_accounts, etc.          │
-│                         ↓                                    │
-│ Layer 1: Transactional Data                                  │
-│ └── invoices, bills, orders, payments, etc.                  │
-│                         ↓                                    │
-│ Layer 2: CDP Source Data                                     │
-│ └── cdp_orders, cdp_customers, external_orders               │
-│                         ↓                                    │
-│ Layer 3: Computed Data (Materialized Views)                  │
-│ └── cdp_customer_equity_computed, central_metrics_snapshots  │
-│                         ↓                                    │
-│ Layer 4: Alert/Control Tower Data                            │
-│ └── early_warning_alerts, alert_instances, decision_logs     │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### 4.3 Rollback Strategy
-
-```sql
--- Backup before migration
-CREATE SCHEMA backup_pre_migration;
--- Copy critical tables to backup schema
-
--- Rollback procedure
-CREATE OR REPLACE FUNCTION rollback_tenant_migration(p_tenant_id uuid)
-RETURNS void AS $$
-BEGIN
-  -- Restore from backup
-  -- Re-enable RLS on shared tables
-  -- Update frontend to use shared DB mode
-END;
-$$;
+src/
+├── pages/admin/
+│   ├── AdminTenantsPage.tsx        # Cập nhật: thêm cột schema
+│   ├── AdminTenantDetailPage.tsx   # Mới: chi tiết tenant
+│   └── AdminTenantMembersPage.tsx  # Mới: quản lý members
+├── hooks/
+│   ├── useAdminTenants.ts          # Mới: admin queries
+│   └── useTenantSchemaStatus.ts    # Mới: schema status
+├── components/admin/
+│   ├── TenantSchemaStatus.tsx      # Mới: badge component
+│   ├── ProvisionSchemaButton.tsx   # Mới: action button
+│   └── TenantStatsCard.tsx         # Mới: usage stats
+└── App.tsx                          # Thêm routes mới
 ```
 
 ---
 
-## Phase 5: RLS Cleanup & Table Partitioning (Tuần 13-14)
+## Routes mới
 
-### 5.1 Remove RLS Policies
-
-Sau khi migrate xong, loại bỏ RLS trên shared tables:
-
-```sql
--- Remove RLS policies (keep tables in public for backward compat)
-ALTER TABLE public.cdp_orders DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.invoices DISABLE ROW LEVEL SECURITY;
--- ... for all 277 tables
-
--- Drop old policies
-DROP POLICY IF EXISTS "tenant_isolation" ON public.cdp_orders;
--- ... for all policies
-```
-
-### 5.2 Table Partitioning trong Tenant Schema
-
-Cho các bảng lớn (>10M rows), thêm partitioning:
-
-```sql
--- Trong mỗi tenant schema
-CREATE TABLE tenant_abc123.cdp_orders (
-  id uuid,
-  order_date date,
-  -- ... columns WITHOUT tenant_id
-) PARTITION BY RANGE (order_date);
-
--- Partitions by quarter
-CREATE TABLE tenant_abc123.cdp_orders_2025_q1 
-  PARTITION OF tenant_abc123.cdp_orders
-  FOR VALUES FROM ('2025-01-01') TO ('2025-04-01');
-```
+| Path | Component | Mô tả |
+|------|-----------|-------|
+| `/admin/tenants` | AdminTenantsPage | Danh sách (đã có) |
+| `/admin/tenants/:tenantId` | AdminTenantDetailPage | Chi tiết tenant |
+| `/admin/tenants/:tenantId/members` | AdminTenantMembersPage | Members của tenant |
 
 ---
 
-## Phase 6: Testing & Validation (Tuần 15-16)
+## Translations cần thêm
 
-### 6.1 Test Cases
+```typescript
+// Vietnamese
+'admin.tenants.schemaStatus': 'Trạng thái Schema',
+'admin.tenants.provisioned': 'Đã khởi tạo',
+'admin.tenants.pending': 'Chưa khởi tạo',
+'admin.tenants.provision': 'Khởi tạo Schema',
+'admin.tenants.provisioning': 'Đang khởi tạo...',
+'admin.tenants.viewDetails': 'Xem chi tiết',
+'admin.tenants.tabOverview': 'Tổng quan',
+'admin.tenants.tabMembers': 'Thành viên',
+'admin.tenants.tabSchema': 'Schema',
+'admin.tenants.tabUsage': 'Sử dụng',
 
-| Test | Description | Expected |
-|------|-------------|----------|
-| Tenant Isolation | Query from Tenant A cannot see Tenant B data | Pass |
-| Schema Switching | User switching tenant sees correct data | Pass |
-| Performance | 30M rows query < 2s | Pass |
-| Edge Functions | All 43 functions work with new schema | Pass |
-| Rollback | Can rollback to shared DB if needed | Pass |
-
-### 6.2 Performance Benchmarks
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│              EXPECTED PERFORMANCE COMPARISON                 │
-├─────────────────────────────────────────────────────────────┤
-│ Query Type          │ Shared+RLS  │ Schema-per-Tenant       │
-├─────────────────────┼─────────────┼─────────────────────────┤
-│ Simple SELECT       │ 50ms        │ 15ms (-70%)             │
-│ Aggregation         │ 500ms       │ 150ms (-70%)            │
-│ Join 3 tables       │ 800ms       │ 250ms (-69%)            │
-│ 30M rows scan       │ 15s         │ 4s (-73%)               │
-│ Dashboard load      │ 3s          │ 0.8s (-73%)             │
-└─────────────────────────────────────────────────────────────┘
+// English
+'admin.tenants.schemaStatus': 'Schema Status',
+'admin.tenants.provisioned': 'Provisioned',
+'admin.tenants.pending': 'Pending',
+'admin.tenants.provision': 'Provision Schema',
+...
 ```
 
 ---
 
-## Timeline Tổng Quan
+## Ưu tiên triển khai
 
-```text
-Week 1-2:   Phase 1 - Infrastructure Setup ✅ COMPLETED
-Week 3-4:   Phase 2 - Edge Functions Middleware ✅ COMPLETED
-Week 5-8:   Phase 3 - Frontend Refactoring (185 files)
-Week 9-12:  Phase 4 - Data Migration
-Week 13-14: Phase 5 - RLS Cleanup + Partitioning
-Week 15-16: Phase 6 - Testing & Go-Live
-
-Total: ~4 months for full migration
-```
+1. **Phase 1** - Hiển thị Schema Status (quan trọng nhất)
+2. **Phase 3** - Provision từ UI
+3. **Phase 2** - Trang chi tiết
+4. **Phase 4** - Quản lý members từ admin
+5. **Phase 5** - Stats và audit log
 
 ---
 
-## Rủi ro & Mitigation
+## Lợi ích
 
-| Rủi ro | Mức độ | Mitigation |
-|--------|--------|------------|
-| PostgREST không hỗ trợ dynamic schema | Cao | Sử dụng RPC wrapper thay vì direct table access |
-| Migration downtime | Trung bình | Blue-green deployment với read replica |
-| Cross-tenant reporting khó | Trung bình | Tạo aggregation schema riêng cho admin reports |
-| 43 Edge Functions cần update | Trung bình | Refactor `_shared/auth.ts` để tự động set schema |
-| Frontend 185 files cần update | Thấp | Có thể refactor dần dần, backward compatible |
-
----
-
-## Chi tiết Kỹ thuật
-
-### Database Changes Required ✅
-
-1. **New Schemas**: 1 schema per tenant (dynamic creation)
-2. **New Functions**: ✅
-   - `set_tenant_schema(uuid)` 
-   - `provision_tenant_schema(uuid, text)`
-   - `get_tenant_schema()`
-   - `is_tenant_schema_provisioned(uuid)`
-   - `migrate_tenant_data(uuid, text)`
-   - `get_tenant_schema_stats(uuid)`
-   - `get_tenant_table_list()`
-   - `get_tenant_view_list()`
-3. **Modified Tables**: Remove `tenant_id` column from tenant-specific tables
-4. **Removed RLS**: All 600+ policies on shared tables
-
-### Frontend Changes Required ✅
-
-1. **New Files**: ✅
-   - `src/integrations/supabase/tenantClient.ts`
-   - `src/hooks/useTenantSupabase.ts`
-
-2. **Modified Files**:
-   - 185 hook files to use new wrapper
-   - `TenantContext.tsx` to trigger schema switch on tenant change
-
-3. **Edge Functions**: ✅
-   - `provision-tenant-schema` - Provision new tenant schema
-   - `migrate-tenant-data` - Migrate data per table
-   - `_shared/auth.ts` - Auto schema switching ✅
-
----
-
-## Next Steps
-
-1. **Phase 3**: Begin refactoring hooks module by module (CDP → FDP → Control Tower)
-2. **Test**: Provision a test tenant schema and verify queries work correctly
-3. **Optional**: Start data migration for one test tenant
+- Super Admin có thể theo dõi tiến độ migration
+- Provision schema cho tenant mới ngay từ UI
+- Quản lý tập trung tất cả tenants và members
+- Debug dễ dàng khi có vấn đề với tenant cụ thể
+- Audit trail cho các thay đổi quan trọng
