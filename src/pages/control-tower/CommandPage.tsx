@@ -1,78 +1,33 @@
 import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Activity, AlertTriangle, TrendingDown, Clock, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { useActiveAlerts, AlertInstance } from '@/hooks/useAlertInstances';
 import { OutcomeRecordingDialog } from '@/components/control-tower';
-import { formatDistanceToNow, differenceInHours } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { 
+  BusinessPulse, 
+  RiskHeatmap, 
+  AIPredictionCard, 
+  CriticalAlertCard,
+  type SystemState 
+} from '@/components/control-tower/command';
 
 /**
- * COMMAND PAGE - Control Tower Default View
+ * COMMAND PAGE - Control Tower Default View (WOW Edition)
  * 
  * Manifesto Compliance:
  * - CHỈ hiển thị "ĐIỀU GÌ SAI"
  * - Tối đa 7 alerts
  * - Mỗi alert: Impact + Deadline + Owner
- * - Không dashboard, không charts vô nghĩa
+ * - Dramatic visual effects
+ * - AI-powered recommendations
  */
-
-const formatCurrency = (amount: number): string => {
-  if (amount >= 1_000_000_000) return `₫${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `₫${(amount / 1_000_000).toFixed(0)}M`;
-  return `₫${amount.toLocaleString('vi-VN')}`;
-};
-
-type SystemState = 'CRITICAL' | 'WARNING' | 'STABLE';
-
-interface ModuleHealth {
-  module: string;
-  alertCount: number;
-  exposure: number;
-  status: 'critical' | 'warning' | 'stable';
-}
 
 export default function CommandPage() {
   const { data: alerts = [], isLoading } = useActiveAlerts();
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<AlertInstance | null>(null);
-
-  // Calculate module health
-  const moduleHealth = useMemo((): ModuleHealth[] => {
-    const fdpAlerts = alerts.filter(a => a.category === 'finance' || a.category === 'cash');
-    const mdpAlerts = alerts.filter(a => a.category === 'marketing' || a.category === 'channel');
-    const cdpAlerts = alerts.filter(a => a.category === 'customer' || a.category === 'segment');
-
-    const getStatus = (count: number, hasCritical: boolean): 'critical' | 'warning' | 'stable' => {
-      if (hasCritical) return 'critical';
-      if (count > 0) return 'warning';
-      return 'stable';
-    };
-
-    return [
-      {
-        module: 'FDP',
-        alertCount: fdpAlerts.length,
-        exposure: fdpAlerts.reduce((sum, a) => sum + (a.impact_amount || 0), 0),
-        status: getStatus(fdpAlerts.length, fdpAlerts.some(a => a.severity === 'critical')),
-      },
-      {
-        module: 'MDP',
-        alertCount: mdpAlerts.length,
-        exposure: mdpAlerts.reduce((sum, a) => sum + (a.impact_amount || 0), 0),
-        status: getStatus(mdpAlerts.length, mdpAlerts.some(a => a.severity === 'critical')),
-      },
-      {
-        module: 'CDP',
-        alertCount: cdpAlerts.length,
-        exposure: cdpAlerts.reduce((sum, a) => sum + (a.impact_amount || 0), 0),
-        status: getStatus(cdpAlerts.length, cdpAlerts.some(a => a.severity === 'critical')),
-      },
-    ];
-  }, [alerts]);
 
   // System state
   const systemState = useMemo((): SystemState => {
@@ -87,12 +42,10 @@ export default function CommandPage() {
   const criticalAlerts = useMemo(() => {
     return [...alerts]
       .sort((a, b) => {
-        // Severity first
         const sevOrder = { critical: 0, warning: 1, info: 2 };
         const sevA = sevOrder[a.severity as keyof typeof sevOrder] ?? 3;
         const sevB = sevOrder[b.severity as keyof typeof sevOrder] ?? 3;
         if (sevA !== sevB) return sevA - sevB;
-        // Then by impact
         return (b.impact_amount || 0) - (a.impact_amount || 0);
       })
       .slice(0, 7);
@@ -112,41 +65,20 @@ export default function CommandPage() {
     )[0].deadline_at;
   }, [alerts]);
 
-  const stateConfig = {
-    CRITICAL: {
-      bg: 'bg-destructive/10',
-      border: 'border-destructive/30',
-      text: 'text-destructive',
-      label: 'CRITICAL - Cần xử lý ngay',
-      icon: AlertTriangle,
-    },
-    WARNING: {
-      bg: 'bg-amber-500/10',
-      border: 'border-amber-500/30',
-      text: 'text-amber-500',
-      label: 'WARNING - Cần chú ý',
-      icon: TrendingDown,
-    },
-    STABLE: {
-      bg: 'bg-emerald-500/10',
-      border: 'border-emerald-500/30',
-      text: 'text-emerald-500',
-      label: 'STABLE - Hệ thống ổn định',
-      icon: CheckCircle2,
-    },
-  };
-
-  const config = stateConfig[systemState];
-
-  const handleResolve = (alert: AlertInstance) => {
-    setSelectedAlert(alert);
+  const handleResolve = (alert: AlertInstance | { id: string; title: string; category?: string; impact_amount?: number }) => {
+    setSelectedAlert(alert as AlertInstance);
     setResolveDialogOpen(true);
   };
 
   if (isLoading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
-        <Activity className="h-6 w-6 text-muted-foreground animate-pulse" />
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+        >
+          <Sparkles className="h-8 w-8 text-primary" />
+        </motion.div>
       </div>
     );
   }
@@ -158,172 +90,97 @@ export default function CommandPage() {
       </Helmet>
 
       <div className="space-y-6">
-        {/* System Pulse Banner */}
-        <Card className={cn('border-2', config.border, config.bg)}>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <config.icon className={cn('h-6 w-6', config.text)} />
-                <div>
-                  <h1 className={cn('text-lg font-semibold', config.text)}>
-                    {config.label}
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    {alerts.length} vấn đề đang hoạt động • Cập nhật {new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-              {nearestDeadline && (
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground uppercase">Deadline gần nhất</p>
-                  <p className={cn('text-sm font-medium', differenceInHours(new Date(nearestDeadline), new Date()) < 6 ? 'text-destructive' : 'text-foreground')}>
-                    {formatDistanceToNow(new Date(nearestDeadline), { locale: vi, addSuffix: true })}
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Business Pulse Banner */}
+        <BusinessPulse
+          systemState={systemState}
+          totalAlerts={alerts.length}
+          totalExposure={totalExposure}
+          nearestDeadline={nearestDeadline}
+          lastUpdated={new Date()}
+        />
 
-        {/* Module Health Summary */}
-        <div className="grid grid-cols-3 gap-4">
-          {moduleHealth.map((mod) => (
-            <Card 
-              key={mod.module}
-              className={cn(
-                'transition-all',
-                mod.status === 'critical' && 'border-destructive/50 bg-destructive/5',
-                mod.status === 'warning' && 'border-amber-500/50 bg-amber-500/5'
-              )}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{mod.module}</span>
-                  <Badge 
-                    variant={mod.status === 'stable' ? 'outline' : 'destructive'}
-                    className={cn(
-                      mod.status === 'warning' && 'bg-amber-500/20 text-amber-600 border-amber-500/30'
-                    )}
-                  >
-                    {mod.alertCount} alerts
-                  </Badge>
-                </div>
-                <p className={cn(
-                  'text-xl font-bold',
-                  mod.exposure > 0 ? 'text-destructive' : 'text-muted-foreground'
-                )}>
-                  {mod.exposure > 0 ? formatCurrency(mod.exposure) : '—'}
-                </p>
-                <p className="text-xs text-muted-foreground">at risk</p>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Two Column Layout: Risk Heatmap + AI Prediction */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <RiskHeatmap />
+          <AIPredictionCard />
         </div>
 
         {/* Critical Alerts List */}
-        {criticalAlerts.length > 0 ? (
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Critical Decisions ({criticalAlerts.length})
-            </h2>
-            
-            <div className="space-y-2">
-              {criticalAlerts.map((alert, index) => (
-                <Card 
-                  key={alert.id}
-                  className={cn(
-                    'transition-all hover:shadow-md cursor-pointer',
-                    alert.severity === 'critical' && 'border-l-4 border-l-destructive'
-                  )}
-                >
-                  <CardContent className="py-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-mono text-muted-foreground">#{index + 1}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {alert.category?.toUpperCase() || 'SYSTEM'}
-                          </Badge>
-                          {alert.severity === 'critical' && (
-                            <Badge variant="destructive" className="text-xs">CRITICAL</Badge>
-                          )}
-                        </div>
-                        <h3 className="font-medium truncate">{alert.title}</h3>
-                        {alert.message && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">{alert.message}</p>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-4 shrink-0">
-                        {/* Impact */}
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Impact</p>
-                          <p className={cn(
-                            'text-sm font-semibold',
-                            (alert.impact_amount || 0) > 0 ? 'text-destructive' : 'text-muted-foreground'
-                          )}>
-                            {alert.impact_amount ? formatCurrency(alert.impact_amount) : '—'}
-                          </p>
-                        </div>
-                        
-                        {/* Deadline */}
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Deadline</p>
-                          <p className={cn(
-                            'text-sm font-medium',
-                            alert.deadline_at && differenceInHours(new Date(alert.deadline_at), new Date()) < 6
-                              ? 'text-destructive'
-                              : 'text-foreground'
-                          )}>
-                            {alert.deadline_at 
-                              ? formatDistanceToNow(new Date(alert.deadline_at), { locale: vi, addSuffix: false })
-                              : '—'}
-                          </p>
-                        </div>
-
-                        {/* Action */}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleResolve(alert)}
-                        >
-                          Resolve
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <Card className="bg-emerald-500/5 border-emerald-500/30">
-            <CardContent className="py-12 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-4" />
-              <h2 className="text-lg font-medium text-emerald-600">Không có vấn đề cần xử lý</h2>
-              <p className="text-sm text-muted-foreground mt-1">Hệ thống đang hoạt động ổn định</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Exposure Footer */}
-        <div className="flex items-center justify-between py-3 px-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              Cập nhật lúc {new Date().toLocaleTimeString('vi-VN')}
-            </span>
-          </div>
-          <div className="text-right">
-            <span className="text-sm text-muted-foreground mr-2">Total Exposure:</span>
-            <span className={cn(
-              'text-lg font-bold',
-              totalExposure > 0 ? 'text-destructive' : 'text-foreground'
-            )}>
-              {totalExposure > 0 ? formatCurrency(totalExposure) : '₫0'}
-            </span>
-          </div>
-        </div>
+        <AnimatePresence mode="wait">
+          {criticalAlerts.length > 0 ? (
+            <motion.div
+              key="alerts"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-3"
+            >
+              <motion.h2 
+                className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                Critical Decisions
+                <span className="text-foreground font-bold">({criticalAlerts.length})</span>
+              </motion.h2>
+              
+              <div className="space-y-2">
+                {criticalAlerts.map((alert, index) => (
+                  <CriticalAlertCard
+                    key={alert.id}
+                    alert={{
+                      id: alert.id,
+                      title: alert.title,
+                      message: alert.message || undefined,
+                      category: alert.category,
+                      severity: alert.severity as 'critical' | 'warning' | 'info',
+                      impact_amount: alert.impact_amount || undefined,
+                      deadline_at: alert.deadline_at || undefined,
+                      status: alert.status || undefined,
+                    }}
+                    index={index}
+                    onResolve={() => handleResolve(alert)}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="stable"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <Card className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-500/30">
+                <CardContent className="py-16 text-center">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', bounce: 0.5 }}
+                  >
+                    <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto mb-4" />
+                  </motion.div>
+                  <motion.h2 
+                    className="text-xl font-semibold text-emerald-600"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    Hệ thống hoạt động ổn định
+                  </motion.h2>
+                  <motion.p 
+                    className="text-sm text-muted-foreground mt-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    Không có vấn đề cần xử lý • Tất cả metrics trong ngưỡng an toàn
+                  </motion.p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Outcome Recording Dialog */}
