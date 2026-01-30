@@ -10,8 +10,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface FinancialKPIs {
   netRevenue: number;
@@ -57,33 +56,36 @@ export interface FinancialReportData {
 }
 
 export function useFinancialReportData() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['financial-report-ssot', tenantId],
     queryFn: async (): Promise<FinancialReportData | null> => {
       if (!tenantId) return null;
 
+      // Build queries with optional tenant filter
+      let kpisQuery = client
+        .from('v_financial_report_kpis')
+        .select('*');
+      
+      let insightsQuery = client
+        .from('v_financial_insights')
+        .select('*');
+      
+      let ratiosQuery = client
+        .from('v_financial_ratios_with_targets')
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        kpisQuery = kpisQuery.eq('tenant_id', tenantId);
+        insightsQuery = insightsQuery.eq('tenant_id', tenantId);
+        ratiosQuery = ratiosQuery.eq('tenant_id', tenantId);
+      }
+
       const [kpisRes, insightsRes, ratiosRes] = await Promise.all([
-        // 1. KPIs with precomputed values
-        supabase
-          .from('v_financial_report_kpis')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        
-        // 2. Pre-generated insights
-        supabase
-          .from('v_financial_insights')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .maybeSingle(),
-        
-        // 3. Ratios with targets (pre-computed progress)
-        supabase
-          .from('v_financial_ratios_with_targets')
-          .select('*')
-          .eq('tenant_id', tenantId),
+        kpisQuery.maybeSingle(),
+        insightsQuery.maybeSingle(),
+        ratiosQuery,
       ]);
 
       // Map KPIs - DIRECT mapping, NO calculations
@@ -170,7 +172,7 @@ export function useFinancialReportData() {
 
       return { kpis, insights, ratios };
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });

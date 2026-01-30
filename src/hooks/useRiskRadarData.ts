@@ -9,8 +9,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface RiskRadarData {
   liquidity_score: number;
@@ -42,18 +41,22 @@ function getSeverity(score: number): 'low' | 'medium' | 'high' {
 }
 
 export function useRiskRadarData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const query = useQuery({
     queryKey: ['risk-radar-data', tenantId],
     queryFn: async (): Promise<RiskRadarData | null> => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('v_risk_radar_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await dbQuery.maybeSingle();
         
       if (error) throw error;
       
@@ -72,7 +75,7 @@ export function useRiskRadarData() {
         calculation_details: data.calculation_details as Record<string, unknown> | null,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 60000, // Cache for 1 minute
   });
 

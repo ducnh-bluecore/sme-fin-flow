@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useCashRunway } from './useCashRunway';
 import { useMDPData } from './useMDPData';
 
@@ -121,7 +120,7 @@ export const GRADE_CONFIG: Record<ScoreGrade, {
 
 // Hook to fetch CVRS input data from database
 function useCVRSInputData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cvrs-input-data', tenantId],
@@ -132,26 +131,41 @@ function useCVRSInputData() {
 
       try {
         // Fetch customer metrics from central_metric_facts
-        const { data: customerFacts } = await supabase
+        let customerQuery = client
           .from('central_metric_facts')
           .select('grain_id, grain_name, revenue, profit, order_count')
-          .eq('tenant_id', tenantId)
           .eq('grain_type', 'customer')
           .order('revenue', { ascending: false });
 
+        if (shouldAddTenantFilter) {
+          customerQuery = customerQuery.eq('tenant_id', tenantId);
+        }
+
+        const { data: customerFacts } = await customerQuery;
+
         // Fetch AR aging data
-        const { data: arData } = await supabase
+        let arQuery = client
           .from('invoices')
           .select('total_amount, status, due_date')
-          .eq('tenant_id', tenantId)
           .in('status', ['pending', 'overdue', 'partial']);
 
+        if (shouldAddTenantFilter) {
+          arQuery = arQuery.eq('tenant_id', tenantId);
+        }
+
+        const { data: arData } = await arQuery;
+
         // Fetch marketing spend for CAC
-        const { data: marketingExpenses } = await supabase
+        let marketingQuery = client
           .from('expenses')
           .select('amount')
-          .eq('tenant_id', tenantId)
           .eq('category', 'marketing');
+
+        if (shouldAddTenantFilter) {
+          marketingQuery = marketingQuery.eq('tenant_id', tenantId);
+        }
+
+        const { data: marketingExpenses } = await marketingQuery;
 
         // Calculate metrics
         const customers = customerFacts || [];
@@ -182,13 +196,17 @@ function useCVRSInputData() {
         const overdueARPercent = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
 
         // DSO from working_capital_metrics or estimate
-        const { data: wcData } = await supabase
+        let wcQuery = client
           .from('working_capital_metrics')
           .select('dso_days')
-          .eq('tenant_id', tenantId)
           .order('metric_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+
+        if (shouldAddTenantFilter) {
+          wcQuery = wcQuery.eq('tenant_id', tenantId);
+        }
+
+        const { data: wcData } = await wcQuery.maybeSingle();
         const avgDSO = wcData?.dso_days || 30;
 
         // Repeat purchase rate
@@ -219,7 +237,7 @@ function useCVRSInputData() {
         return getDefaultCVRSData();
       }
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -243,7 +261,7 @@ function getDefaultCVRSData(): CVRSInputData {
 
 // Hook to fetch Bluecore Scores from database
 export function useBluecoreScoresFromDB() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['bluecore-scores', tenantId],
@@ -251,11 +269,16 @@ export function useBluecoreScoresFromDB() {
       if (!tenantId) return [];
 
       // Get the latest score for each type
-      const { data, error } = await supabase
+      let query = client
         .from('bluecore_scores')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('calculated_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -269,7 +292,7 @@ export function useBluecoreScoresFromDB() {
 
       return Object.values(latestScores);
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 

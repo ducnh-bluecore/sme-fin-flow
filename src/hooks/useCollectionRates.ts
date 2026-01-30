@@ -7,8 +7,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 // =============================================================
 // TYPES
@@ -43,7 +42,7 @@ const DEFAULT_RATES: Omit<CollectionRates, 'source'> = {
 // =============================================================
 
 export function useCollectionRates() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const query = useQuery({
     queryKey: ['collection-rates', tenantId],
@@ -52,11 +51,15 @@ export function useCollectionRates() {
         return { ...DEFAULT_RATES, source: 'default' };
       }
 
-      const { data, error } = await supabase
+      let dbQuery = client
         .from('formula_settings')
-        .select('collection_rate_current, collection_rate_30d, collection_rate_60d, collection_rate_90d, collection_rate_over90')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('collection_rate_current, collection_rate_30d, collection_rate_60d, collection_rate_90d, collection_rate_over90');
+
+      if (shouldAddTenantFilter) {
+        dbQuery = dbQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await dbQuery.maybeSingle();
 
       if (error) {
         console.error('[useCollectionRates] Error:', error);
@@ -85,13 +88,13 @@ export function useCollectionRates() {
         source: hasDbRates ? 'db' : 'default',
       };
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
   });
 
   return {
     rates: query.data ?? { ...DEFAULT_RATES, source: 'default' },
-    isLoading: query.isLoading || tenantLoading,
+    isLoading: query.isLoading,
     error: query.error,
   };
 }
