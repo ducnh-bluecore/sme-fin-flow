@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,7 +16,7 @@ import { REVENUE_RANGES, type CompanyScale } from '@/lib/onboardingConfig';
 
 export default function ScaleRevenuePage() {
   const { goToNextStep, isUpdating } = useOnboardingFlow();
-  const { data: onboardingData } = useOnboardingStatus();
+  const { data: onboardingData, isLoading: isLoadingOnboarding } = useOnboardingStatus();
   const updateTenant = useUpdateTenantOnboarding();
 
   const [selectedScale, setSelectedScale] = useState<CompanyScale | null>(
@@ -41,6 +41,17 @@ export default function ScaleRevenuePage() {
   };
 
   const isLoading = isUpdating || updateTenant.isPending;
+
+  // Show loading while fetching tenant data
+  if (isLoadingOnboarding) {
+    return (
+      <OnboardingLayout stepId="scale" title="Đang tải..." showBack={false} showSkip={false}>
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
   return (
     <OnboardingLayout

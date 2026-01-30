@@ -127,6 +127,9 @@ export function useSwitchTenant() {
       await queryClient.invalidateQueries({ queryKey: ['active-tenant'] });
       await queryClient.refetchQueries({ queryKey: ['active-tenant'] });
       
+      // Invalidate onboarding-status so subsequent pages have tenant data
+      queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
+      
       // Then invalidate all other queries so they refetch with new tenant
       queryClient.invalidateQueries({ 
         predicate: (query) => query.queryKey[0] !== 'active-tenant' && query.queryKey[0] !== 'user-tenants'
@@ -187,6 +190,7 @@ export function useCreateTenant() {
     },
     onSuccess: (tenant) => {
       queryClient.invalidateQueries({ queryKey: ['user-tenants'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
       toast({
         title: 'Tạo công ty thành công',
         description: `${tenant.name} đã được tạo`,

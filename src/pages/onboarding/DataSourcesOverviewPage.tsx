@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Check, ShoppingCart, CreditCard, BarChart3, FileSpreadsheet, Calculator, Boxes } from 'lucide-react';
+import { ArrowRight, Check, ShoppingCart, CreditCard, BarChart3, FileSpreadsheet, Calculator, Boxes, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingLayout } from '@/components/onboarding';
 import { useOnboardingFlow } from '@/hooks/useOnboardingFlow';
@@ -82,7 +82,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string }> = {
 
 export default function DataSourcesOverviewPage() {
   const { goToNextStep, isUpdating } = useOnboardingFlow();
-  const { data: onboardingData } = useOnboardingStatus();
+  const { data: onboardingData, isLoading: isLoadingOnboarding } = useOnboardingStatus();
   const updateTenant = useUpdateTenantOnboarding();
   const updateProfile = useUpdateProfileOnboarding();
 
@@ -120,6 +120,17 @@ export default function DataSourcesOverviewPage() {
   };
 
   const isLoading = isUpdating || updateTenant.isPending || updateProfile.isPending;
+
+  // Show loading while fetching tenant data
+  if (isLoadingOnboarding) {
+    return (
+      <OnboardingLayout stepId="sources" title="Đang tải..." showBack={false} showSkip={false}>
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </OnboardingLayout>
+    );
+  }
 
   return (
     <OnboardingLayout
