@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 export interface TeamMember {
   id: string;
@@ -31,18 +30,23 @@ interface TeamMemberRow {
 }
 
 export function useTeamMembers() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['team-members', tenantId],
     queryFn: async (): Promise<TeamMember[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('team_members')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('name');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching team members:', error);
@@ -63,19 +67,19 @@ export function useTeamMembers() {
         avatarUrl: row.avatar_url,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useCreateTeamMember() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (member: Omit<TeamMember, 'id'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('team_members')
         .insert({
           tenant_id: tenantId,
@@ -104,11 +108,11 @@ export function useCreateTeamMember() {
 
 export function useUpdateTeamMember() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<TeamMember> & { id: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('team_members')
         .update({
           name: updates.name,
@@ -137,11 +141,11 @@ export function useUpdateTeamMember() {
 
 export function useDeleteTeamMember() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('team_members')
         .delete()
         .eq('id', id);

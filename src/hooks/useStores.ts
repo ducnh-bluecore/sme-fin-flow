@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 export type ChannelType = 'store' | 'shopee' | 'lazada' | 'tiktok' | 'website';
 
@@ -31,19 +30,24 @@ export interface StoreStats {
 }
 
 export function useStores() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['stores', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('alert_objects')
         .select('*')
-        .eq('tenant_id', tenantId)
         .in('object_type', ['store', 'shopee', 'lazada', 'tiktok', 'website'])
         .order('object_name', { ascending: true });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -76,7 +80,7 @@ export function useStores() {
         } as StoreData;
       });
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -112,7 +116,7 @@ export interface StoreInput {
 
 export function useCreateStore() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (store: StoreInput) => {
@@ -121,7 +125,7 @@ export function useCreateStore() {
       const alertStatus = store.status === 'closed' ? 'critical' : 
                           store.status === 'maintenance' ? 'warning' : 'normal';
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_objects')
         .insert({
           tenant_id: tenantId,
@@ -161,13 +165,14 @@ export function useCreateStore() {
 
 export function useUpdateStore() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ id, ...store }: StoreInput & { id: string }) => {
       const alertStatus = store.status === 'closed' ? 'critical' : 
                           store.status === 'maintenance' ? 'warning' : 'normal';
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('alert_objects')
         .update({
           object_name: store.name,
@@ -204,10 +209,11 @@ export function useUpdateStore() {
 
 export function useDeleteStore() {
   const queryClient = useQueryClient();
+  const { client } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('alert_objects')
         .delete()
         .eq('id', id);
