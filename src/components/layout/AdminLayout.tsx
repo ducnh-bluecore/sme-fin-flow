@@ -14,6 +14,7 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ import { ActivityTrackerProvider } from '@/components/providers/ActivityTrackerP
 
 const adminNavItems = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { label: 'CS Alerts', href: '/admin/cs-alerts', icon: Bell },
   { label: 'Quản lý Tenants', href: '/admin/tenants', icon: Building2 },
   { label: 'Quản lý Users', href: '/admin/users', icon: Users },
   { label: 'Cấu hình hệ thống', href: '/admin/settings', icon: Settings },

@@ -32883,6 +32883,10 @@ export type Database = {
         }[]
       }
       check_alert_escalations: { Args: { p_tenant_id: string }; Returns: Json }
+      check_and_create_cs_alerts: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       check_metric_consistency: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -33137,6 +33141,30 @@ export type Database = {
         Args: { p_days?: number; p_tenant_id: string }
         Returns: Json
       }
+      get_all_open_cs_alerts: {
+        Args: {
+          p_alert_type?: string
+          p_limit?: number
+          p_offset?: number
+          p_severity?: string
+        }
+        Returns: {
+          alert_type: string
+          assigned_to: string
+          created_at: string
+          description: string
+          id: string
+          metadata: Json
+          recommended_action: string
+          severity: string
+          status: string
+          tenant_email: string
+          tenant_id: string
+          tenant_name: string
+          title: string
+          updated_at: string
+        }[]
+      }
       get_audit_log_stats: {
         Args: { p_tenant_id?: string }
         Returns: {
@@ -33171,6 +33199,7 @@ export type Database = {
         Args: { p_config_key: string; p_tenant_id: string }
         Returns: Json
       }
+      get_cs_alerts_summary: { Args: never; Returns: Json }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_evidence: {
         Args: { p_decision_id: string }
@@ -33622,6 +33651,13 @@ export type Database = {
       reverse_journal_entry: {
         Args: { p_entry_id: string; p_reversal_date?: string }
         Returns: string
+      }
+      run_cs_alert_checks: {
+        Args: never
+        Returns: {
+          alerts_created: number
+          tenant_id: string
+        }[]
       }
       run_retention_cleanup: {
         Args: never
