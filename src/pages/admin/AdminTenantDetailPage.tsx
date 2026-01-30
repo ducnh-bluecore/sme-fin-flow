@@ -12,18 +12,21 @@ import {
   Building2, 
   Users, 
   Database, 
-  Settings, 
   Calendar,
   Loader2,
   CheckCircle2,
   Clock,
-  Shield
+  Shield,
+  BarChart3,
+  History
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantSchemaStatus } from '@/hooks/useTenantSchemaStatus';
 import { useTenantMembers } from '@/hooks/useTenant';
 import { TenantSchemaStatus } from '@/components/admin/TenantSchemaStatus';
 import { ProvisionSchemaButton } from '@/components/admin/ProvisionSchemaButton';
+import { TenantStatsCard } from '@/components/admin/TenantStatsCard';
+import { TenantAuditLog } from '@/components/admin/TenantAuditLog';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -128,6 +131,14 @@ export default function AdminTenantDetailPage() {
             <TabsTrigger value="schema" className="gap-2">
               <Database className="w-4 h-4" />
               Schema
+            </TabsTrigger>
+            <TabsTrigger value="usage" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Sử dụng
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="gap-2">
+              <History className="w-4 h-4" />
+              Lịch sử
             </TabsTrigger>
           </TabsList>
 
@@ -342,6 +353,20 @@ export default function AdminTenantDetailPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Usage Tab */}
+          <TabsContent value="usage">
+            <TenantStatsCard 
+              tenantId={tenant.id}
+              tenantSlug={tenant.slug}
+              isProvisioned={schemaInfo?.isProvisioned || false}
+            />
+          </TabsContent>
+
+          {/* Audit Log Tab */}
+          <TabsContent value="audit">
+            <TenantAuditLog tenantId={tenant.id} />
           </TabsContent>
         </Tabs>
       </div>
