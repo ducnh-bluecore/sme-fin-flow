@@ -1,8 +1,13 @@
+/**
+ * useReconciliation - Bank transaction reconciliation
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
-import { useActiveTenantId } from './useActiveTenantId';
 
 interface MatchResult {
   invoiceId: string;
@@ -25,53 +30,63 @@ interface ReconciliationStats {
 
 // Fetch invoices with customer info
 export function useInvoices() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['invoices-reconciliation', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('invoices')
         .select(`
           *,
           customers (name)
         `)
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch bank transactions
 export function useBankTransactions() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['bank-transactions-reconciliation', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('bank_transactions')
         .select(`
           *,
           bank_accounts (bank_name, account_number)
         `)
-        .eq('tenant_id', tenantId)
         .order('transaction_date', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data;
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -95,45 +110,38 @@ function findMatches(
       const invAmount = inv.total_amount - (inv.paid_amount || 0);
       const remaining = invAmount;
       
-      // Skip if invoice is fully paid
       if (remaining <= 0) continue;
 
       let confidence = 0;
       let matchType: 'exact' | 'partial' | 'suggested' = 'suggested';
       const reasons: string[] = [];
 
-      // 1. Exact amount match (high confidence)
       if (Math.abs(txnAmount - remaining) < 1) {
         confidence += 50;
         matchType = 'exact';
         reasons.push('Số tiền khớp chính xác');
       } 
-      // 2. Partial amount match
       else if (txnAmount <= remaining && txnAmount > 0) {
         confidence += 30;
         matchType = 'partial';
         reasons.push('Số tiền khớp một phần');
       }
-      // Skip if transaction amount is higher than remaining
       else if (txnAmount > remaining) {
         continue;
       }
 
-      // 3. Invoice number in description/reference
       const invNum = inv.invoice_number.toLowerCase();
       if (txnDesc.includes(invNum) || txnRef.includes(invNum)) {
         confidence += 40;
         reasons.push('Mã hóa đơn khớp');
       }
 
-      // 4. Customer name match
       const customerName = (inv.customers?.name || '').toLowerCase();
       if (customerName && (txnDesc.includes(customerName) || txnRef.includes(customerName.slice(0, 10)))) {
         confidence += 25;
         reasons.push('Tên khách hàng khớp');
       }
 
-      // 5. Date proximity (transaction within invoice period)
       const invDue = new Date(inv.due_date);
       const txnDate = new Date(txn.transaction_date);
       const daysDiff = Math.abs((txnDate.getTime() - invDue.getTime()) / (1000 * 60 * 60 * 24));
@@ -145,7 +153,6 @@ function findMatches(
         confidence += 5;
       }
 
-      // Only add if confidence is high enough
       if (confidence >= 40) {
         results.push({
           invoiceId: inv.id,
@@ -158,7 +165,6 @@ function findMatches(
     }
   }
 
-  // Sort by confidence and remove duplicates (keep highest confidence for each transaction)
   const uniqueResults = results
     .sort((a, b) => b.confidence - a.confidence)
     .reduce((acc, curr) => {
@@ -173,6 +179,7 @@ function findMatches(
 
 // Match mutation
 export function useMatchTransaction() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -185,8 +192,7 @@ export function useMatchTransaction() {
       transactionId: string;
       amount: number;
     }) => {
-      // Update bank transaction
-      const { error: txnError } = await supabase
+      const { error: txnError } = await client
         .from('bank_transactions')
         .update({
           match_status: 'matched',
@@ -196,8 +202,7 @@ export function useMatchTransaction() {
 
       if (txnError) throw txnError;
 
-      // Update invoice paid amount
-      const { data: invoice, error: invFetchError } = await supabase
+      const { data: invoice, error: invFetchError } = await client
         .from('invoices')
         .select('paid_amount, total_amount')
         .eq('id', invoiceId)
@@ -208,7 +213,7 @@ export function useMatchTransaction() {
       const newPaidAmount = (invoice.paid_amount || 0) + amount;
       const newStatus = newPaidAmount >= invoice.total_amount ? 'paid' : 'issued';
 
-      const { error: invError } = await supabase
+      const { error: invError } = await client
         .from('invoices')
         .update({
           paid_amount: newPaidAmount,
@@ -218,8 +223,7 @@ export function useMatchTransaction() {
 
       if (invError) throw invError;
 
-      // Create payment record
-      const { error: paymentError } = await supabase
+      const { error: paymentError } = await client
         .from('payments')
         .insert({
           invoice_id: invoiceId,
@@ -254,15 +258,8 @@ export function useAutoMatch() {
 
   /**
    * GOVERNANCE FIX (v3.1): Auto-match NO LONGER writes to ledger
-   * 
-   * High-confidence matches are SUGGESTED ONLY - ledger writes only via:
-   * 1. User explicitly confirms via applyMatch()
-   * 2. Guardrails auto-confirm path (with audit trail)
-   * 
-   * This ensures enterprise safety and prevents bypass of governance controls.
    */
   const runAutoMatch = useCallback(async (_autoApply: boolean = false) => {
-    // GOVERNANCE: autoApply parameter is now ignored - all matches are suggestions only
     if (!invoices || !transactions) {
       toast.error('Dữ liệu chưa sẵn sàng');
       return [];
@@ -277,7 +274,6 @@ export function useAutoMatch() {
       const highConfidenceCount = matches.filter(m => m.confidence >= 80).length;
 
       if (matches.length > 0) {
-        // GOVERNANCE: Never auto-apply - only suggest
         toast.info(
           `Tìm thấy ${matches.length} giao dịch có thể khớp` +
           (highConfidenceCount > 0 ? ` (${highConfidenceCount} độ tin cậy cao)` : '')
@@ -307,7 +303,6 @@ export function useAutoMatch() {
       amount: Math.abs(txn.amount)
     });
 
-    // Remove from results
     setMatchResults(prev => prev.filter(r => r.transactionId !== match.transactionId));
   }, [transactions, matchMutation]);
 

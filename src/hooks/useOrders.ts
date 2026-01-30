@@ -1,6 +1,11 @@
+/**
+ * useOrders - Order management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 export interface Order {
   id: string;
@@ -29,19 +34,22 @@ export interface AutoApprovalRule {
 
 // Fetch all orders
 export function useOrders(sourceFilter?: string, statusFilter?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['orders', tenantId, sourceFilter, statusFilter],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('orders')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('order_date', { ascending: false })
         .limit(50000);
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (sourceFilter && sourceFilter !== 'all') {
         query = query.eq('source', sourceFilter);
@@ -55,39 +63,45 @@ export function useOrders(sourceFilter?: string, statusFilter?: string) {
       if (error) throw error;
       return data as Order[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Fetch auto-approval rules
 export function useAutoApprovalRules() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['auto-approval-rules', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('order_auto_approval_rules')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('source');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as AutoApprovalRule[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Update auto-approval rule
 export function useUpdateAutoApprovalRule() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ source, is_enabled, max_amount }: { source: string; is_enabled: boolean; max_amount: number | null }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('order_auto_approval_rules')
         .update({ is_enabled, max_amount })
         .eq('source', source)
@@ -105,11 +119,12 @@ export function useUpdateAutoApprovalRule() {
 
 // Update order status
 export function useUpdateOrderStatus() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('orders')
         .update({ status })
         .eq('id', orderId)
@@ -127,11 +142,12 @@ export function useUpdateOrderStatus() {
 
 // Batch update order status
 export function useBatchUpdateOrderStatus() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ orderIds, status }: { orderIds: string[]; status: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('orders')
         .update({ status })
         .in('id', orderIds)
@@ -148,19 +164,22 @@ export function useBatchUpdateOrderStatus() {
 
 // Auto-approve orders by source
 export function useAutoApproveBySource() {
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
 
   return useMutation({
     mutationFn: async ({ source, maxAmount }: { source: string; maxAmount: number | null }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      let query = supabase
+      let query = client
         .from('orders')
         .update({ status: 'approved' })
-        .eq('tenant_id', tenantId)
         .eq('source', source)
         .eq('status', 'pending');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       if (maxAmount !== null) {
         query = query.lte('total_amount', maxAmount);

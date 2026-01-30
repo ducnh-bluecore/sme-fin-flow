@@ -1,6 +1,11 @@
+/**
+ * useBillsData - Bills and vendor payment management
+ * 
+ * Schema-per-Tenant Ready
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 import { getDateRangeFromFilter, formatDateForQuery } from '@/lib/dateUtils';
 
@@ -57,25 +62,26 @@ export interface VendorPayment {
 }
 
 export function useBills(dateRange?: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   const range = dateRange ? getDateRangeFromFilter(dateRange) : null;
   const startDateStr = range ? formatDateForQuery(range.startDate) : undefined;
   const endDateStr = range ? formatDateForQuery(range.endDate) : undefined;
 
   return useQuery({
-    // Include concrete bounds so `custom` ranges refetch correctly
     queryKey: ['bills', tenantId, dateRange, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = supabase
+      let query = client
         .from('bills')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
       
-      // Apply date filter if provided
       if (startDateStr && endDateStr) {
         query = query.gte('bill_date', startDateStr).lte('bill_date', endDateStr);
       }
@@ -85,25 +91,24 @@ export function useBills(dateRange?: string) {
       if (error) throw error;
       return data as Bill[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useBillDetail(billId: string | undefined) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['bill-detail', billId],
+    queryKey: ['bill-detail', tenantId, billId],
     queryFn: async () => {
       if (!billId) return null;
       
       const [billResult, itemsResult, paymentsResult] = await Promise.all([
-        supabase.from('bills').select('*').eq('id', billId).maybeSingle(),
-        supabase.from('bill_items').select('*').eq('bill_id', billId),
-        supabase.from('vendor_payments').select('*').eq('bill_id', billId),
+        client.from('bills').select('*').eq('id', billId).maybeSingle(),
+        client.from('bill_items').select('*').eq('bill_id', billId),
+        client.from('vendor_payments').select('*').eq('bill_id', billId),
       ]);
       
-      // Bill not found - return null instead of throwing
       if (billResult.error && billResult.error.code !== 'PGRST116') throw billResult.error;
       if (!billResult.data) return null;
       
@@ -113,13 +118,13 @@ export function useBillDetail(billId: string | undefined) {
         payments: (paymentsResult.data || []) as VendorPayment[],
       };
     },
-    enabled: !!billId && !!tenantId,
+    enabled: !!billId && !!tenantId && isReady,
   });
 }
 
 export function useCreateBill() {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
 
   return useMutation({
     mutationFn: async (input: Partial<Bill> & { items?: Partial<BillItem>[] }) => {
@@ -127,11 +132,10 @@ export function useCreateBill() {
 
       const { items, ...billData } = input;
 
-      // Generate bill number
-      const { data: billNumber } = await supabase
+      const { data: billNumber } = await client
         .rpc('generate_bill_number', { p_tenant_id: tenantId });
 
-      const { data: bill, error: billError } = await supabase
+      const { data: bill, error: billError } = await client
         .from('bills')
         .insert({
           bill_number: billNumber || `BILL-${Date.now()}`,
@@ -146,7 +150,7 @@ export function useCreateBill() {
       if (billError) throw billError;
 
       if (items && items.length > 0) {
-        const { error: itemsError } = await supabase
+        const { error: itemsError } = await client
           .from('bill_items')
           .insert(
             items.map(item => ({
@@ -178,11 +182,12 @@ export function useCreateBill() {
 }
 
 export function useUpdateBillStatus() {
+  const { client } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('bills')
         .update({ status })
         .eq('id', id)
@@ -204,17 +209,17 @@ export function useUpdateBillStatus() {
 }
 
 export function useCreateVendorPayment() {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
 
   return useMutation({
     mutationFn: async (input: Partial<VendorPayment>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data: paymentNumber } = await supabase
+      const { data: paymentNumber } = await client
         .rpc('generate_payment_number', { p_tenant_id: tenantId, p_type: 'payment' });
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('vendor_payments')
         .insert({
           payment_number: paymentNumber || `PC-${Date.now()}`,
@@ -246,42 +251,52 @@ export function useCreateVendorPayment() {
 }
 
 export function useVendors() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['vendors', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('vendors')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('name');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useAPAging() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['ap-aging', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('ap_aging')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
