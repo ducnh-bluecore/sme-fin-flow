@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -59,9 +59,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Building2, Search, MoreHorizontal, Eye, Edit, Users, Plus, Loader2, Trash2 } from 'lucide-react';
+import { Building2, Search, MoreHorizontal, Eye, Edit, Users, Plus, Loader2, Trash2, ExternalLink, Database } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useImpersonation } from '@/hooks/useImpersonation';
+import { useBatchTenantSchemaStatus } from '@/hooks/useTenantSchemaStatus';
+import { TenantSchemaStatus } from '@/components/admin/TenantSchemaStatus';
+import { ProvisionSchemaButton } from '@/components/admin/ProvisionSchemaButton';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -151,6 +154,10 @@ export default function AdminTenantsPage() {
       return data;
     },
   });
+
+  // Get all tenant IDs for batch schema status check
+  const tenantIds = useMemo(() => tenants?.map(t => t.id) || [], [tenants]);
+  const { data: schemaStatusMap, isLoading: schemaStatusLoading } = useBatchTenantSchemaStatus(tenantIds);
 
   const createTenantMutation = useMutation({
     mutationFn: async (values: CreateTenantFormData) => {
@@ -352,70 +359,117 @@ export default function AdminTenantsPage() {
                     <TableHead>{t('admin.tenants.slug')}</TableHead>
                     <TableHead>{t('admin.tenants.plan')}</TableHead>
                     <TableHead>{t('admin.tenants.status')}</TableHead>
+                    <TableHead>Schema</TableHead>
                     <TableHead>{t('admin.tenants.members')}</TableHead>
                     <TableHead>{t('admin.tenants.createdAt')}</TableHead>
-                    <TableHead className="w-[70px]"></TableHead>
+                    <TableHead className="w-[100px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTenants?.map((tenant) => (
-                    <TableRow key={tenant.id}>
-                      <TableCell className="font-medium">{tenant.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{tenant.slug}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {tenant.plan || 'free'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={tenant.is_active ? 'default' : 'secondary'}>
-                          {tenant.is_active ? t('admin.tenants.active') : t('admin.tenants.paused')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          <span>{(tenant.tenant_users as any)?.[0]?.count || 0}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {tenant.created_at
-                          ? format(new Date(tenant.created_at), 'dd/MM/yyyy', { locale: vi })
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleImpersonate(tenant.id, tenant.name)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              {t('admin.tenants.view')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditClick(tenant)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              {t('admin.tenants.edit')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Users className="w-4 h-4 mr-2" />
-                              {t('admin.tenants.viewMembers')}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteClick({ id: tenant.id, name: tenant.name })}
-                              className="text-destructive focus:text-destructive"
+                  {filteredTenants?.map((tenant) => {
+                    const schemaInfo = schemaStatusMap?.get(tenant.id);
+                    return (
+                      <TableRow key={tenant.id} className="group">
+                        <TableCell className="font-medium">
+                          <button
+                            onClick={() => navigate(`/admin/tenants/${tenant.id}`)}
+                            className="hover:text-primary hover:underline text-left"
+                          >
+                            {tenant.name}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{tenant.slug}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {tenant.plan || 'free'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={tenant.is_active ? 'default' : 'secondary'}>
+                            {tenant.is_active ? t('admin.tenants.active') : t('admin.tenants.paused')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {schemaInfo?.isProvisioned ? (
+                            <TenantSchemaStatus 
+                              status="provisioned" 
+                              isLoading={schemaStatusLoading} 
+                            />
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <TenantSchemaStatus 
+                                status="pending" 
+                                isLoading={schemaStatusLoading} 
+                              />
+                              <ProvisionSchemaButton
+                                tenantId={tenant.id}
+                                tenantName={tenant.name}
+                                slug={tenant.slug}
+                                size="sm"
+                                variant="ghost"
+                              />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Users className="w-4 h-4 text-muted-foreground" />
+                            <span>{(tenant.tenant_users as any)?.[0]?.count || 0}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {tenant.created_at
+                            ? format(new Date(tenant.created_at), 'dd/MM/yyyy', { locale: vi })
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => navigate(`/admin/tenants/${tenant.id}`)}
+                              title="Xem chi tiết"
                             >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {t('admin.tenants.delete')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => navigate(`/admin/tenants/${tenant.id}`)}>
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Xem chi tiết
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleImpersonate(tenant.id, tenant.name)}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  {t('admin.tenants.view')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEditClick(tenant)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  {t('admin.tenants.edit')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/admin/tenants/${tenant.id}`)}>
+                                  <Users className="w-4 h-4 mr-2" />
+                                  {t('admin.tenants.viewMembers')}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteClick({ id: tenant.id, name: tenant.name })}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  {t('admin.tenants.delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

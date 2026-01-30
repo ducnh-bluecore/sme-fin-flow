@@ -62,6 +62,7 @@ const TenantMembersPage = lazy(() => import("./pages/TenantMembersPage"));
 const TenantSettingsPage = lazy(() => import("./pages/TenantSettingsPage"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminTenantsPage = lazy(() => import("./pages/admin/AdminTenantsPage"));
+const AdminTenantDetailPage = lazy(() => import("./pages/admin/AdminTenantDetailPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 
@@ -475,6 +476,7 @@ const AppRoutes = () => {
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/tenants" element={<AdminTenantsPage />} />
+          <Route path="/admin/tenants/:tenantId" element={<AdminTenantDetailPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
