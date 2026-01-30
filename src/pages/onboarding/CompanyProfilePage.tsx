@@ -26,26 +26,27 @@ export default function CompanyProfilePage() {
   const [companyName, setCompanyName] = useState(onboardingData?.tenant?.name || '');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  const hasTenant = !!onboardingData?.tenant?.id;
+  const existingTenantName = onboardingData?.tenant?.name || '';
+  const isNewCompany = companyName.trim() !== existingTenantName;
 
   const handleContinue = async () => {
     if (!companyName.trim()) return;
 
-    if (hasTenant && onboardingData?.tenant?.id) {
-      // Update existing tenant
-      await updateTenant.mutateAsync({
-        tenantId: onboardingData.tenant.id,
-        data: { onboarding_status: 'in_progress' },
-      });
-    } else {
-      // Create new tenant
-      const newTenant = await createTenant.mutateAsync({ name: companyName });
+    if (isNewCompany || !onboardingData?.tenant?.id) {
+      // Create new tenant when name is different or no tenant exists
+      const newTenant = await createTenant.mutateAsync({ name: companyName.trim() });
       if (!newTenant) return;
       
       await switchTenant.mutateAsync(newTenant.id);
       
       // Force refetch onboarding status to ensure tenant data is available for next step
       await queryClient.refetchQueries({ queryKey: ['onboarding-status'] });
+    } else {
+      // Same tenant name - just update status
+      await updateTenant.mutateAsync({
+        tenantId: onboardingData.tenant.id,
+        data: { onboarding_status: 'in_progress' },
+      });
     }
 
     goToNextStep('company');
