@@ -3,11 +3,12 @@
  * 
  * Hook to manage segment LTV data from CDP for MDP budget allocation.
  * Part of Case 3: CDP → MDP flow.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -46,7 +47,7 @@ interface UseMDPSegmentLTVOptions {
  * Get segment LTV for MDP budget allocation
  */
 export function useMDPSegmentLTV(options: UseMDPSegmentLTVOptions = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const { segmentType } = options;
 
   return useQuery<CrossModuleData<SegmentLTV[]>>({
@@ -61,7 +62,7 @@ export function useMDPSegmentLTV(options: UseMDPSegmentLTVOptions = {}) {
         );
       }
 
-      const { data, error } = await supabase.rpc('mdp_get_segment_ltv' as any, {
+      const { data, error } = await client.rpc('mdp_get_segment_ltv' as any, {
         p_tenant_id: tenantId,
         p_segment_type: segmentType ?? null,
       });
@@ -111,7 +112,7 @@ export function useMDPSegmentLTV(options: UseMDPSegmentLTVOptions = {}) {
         results[0]?.is_cross_module ? 'CDP' : undefined
       );
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 15 * 60 * 1000,
   });
 }
@@ -120,14 +121,14 @@ export function useMDPSegmentLTV(options: UseMDPSegmentLTVOptions = {}) {
  * Push segment LTV from CDP to MDP
  */
 export function usePushSegmentLTVToMDP() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase.rpc('cdp_push_segment_ltv_to_mdp' as any, {
+      const { data, error } = await client.rpc('cdp_push_segment_ltv_to_mdp' as any, {
         p_tenant_id: tenantId,
       });
 
@@ -149,18 +150,23 @@ export function usePushSegmentLTVToMDP() {
  * Get all segment LTV records for management
  */
 export function useCDPAllSegmentLTV() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-all-segment-ltv', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('cdp_segment_ltv_for_mdp' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('priority_score', { ascending: false });
+
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching all segment LTV:', error);
@@ -180,6 +186,6 @@ export function useCDPAllSegmentLTV() {
         synced_at: string;
       }>;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }

@@ -3,11 +3,12 @@
  * 
  * Hook to fetch locked costs from FDP with 3-level fallback chain.
  * Used by MDP for Profit ROAS calculation.
+ * 
+ * Refactored to Schema-per-Tenant architecture.
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { 
   CrossModuleData, 
   FDPCostData, 
@@ -21,7 +22,7 @@ interface UseFDPLockedCostsOptions {
 }
 
 export function useFDPLockedCosts(options: UseFDPLockedCostsOptions = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   const year = options.year ?? new Date().getFullYear();
   const month = options.month ?? new Date().getMonth() + 1;
 
@@ -38,7 +39,7 @@ export function useFDPLockedCosts(options: UseFDPLockedCostsOptions = {}) {
         );
       }
 
-      const { data, error } = await supabase.rpc('mdp_get_costs_for_roas', {
+      const { data, error } = await client.rpc('mdp_get_costs_for_roas', {
         p_tenant_id: tenantId,
         p_year: year,
         p_month: month,
@@ -77,7 +78,7 @@ export function useFDPLockedCosts(options: UseFDPLockedCostsOptions = {}) {
         result.is_cross_module ? 'FDP' : undefined
       );
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

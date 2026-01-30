@@ -1,6 +1,12 @@
+/**
+ * useCDPScenarios - CDP LTV Scenario Comparison & Decay Detection
+ * 
+ * Refactored to Schema-per-Tenant architecture.
+ * Uses useTenantSupabaseCompat for tenant-aware queries.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 
 export interface Scenario {
@@ -56,14 +62,14 @@ export interface DecayAlert {
  * Hook to compare LTV scenarios
  */
 export function useLTVScenarioComparison(modelId: string | null, scenarios: Scenario[]) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-ltv-scenarios', tenantId, modelId, scenarios],
     queryFn: async () => {
       if (!tenantId || !modelId) return [];
 
-      const { data, error } = await supabase.rpc('cdp_compare_ltv_scenarios', {
+      const { data, error } = await client.rpc('cdp_compare_ltv_scenarios', {
         p_tenant_id: tenantId,
         p_base_model_id: modelId,
         p_scenarios: JSON.parse(JSON.stringify(scenarios)),
@@ -76,7 +82,7 @@ export function useLTVScenarioComparison(modelId: string | null, scenarios: Scen
 
       return (data || []) as ScenarioResult[];
     },
-    enabled: !!tenantId && !!modelId && scenarios.length > 0,
+    enabled: !!tenantId && !!modelId && scenarios.length > 0 && isReady,
     staleTime: 60000, // 1 minute
   });
 }
@@ -85,14 +91,14 @@ export function useLTVScenarioComparison(modelId: string | null, scenarios: Scen
  * Hook to detect LTV decay
  */
 export function useLTVDecayDetection(threshold: number = 10) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-ltv-decay', tenantId, threshold],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase.rpc('cdp_detect_ltv_decay', {
+      const { data, error } = await client.rpc('cdp_detect_ltv_decay', {
         p_tenant_id: tenantId,
         p_threshold_percent: threshold,
       });
@@ -104,7 +110,7 @@ export function useLTVDecayDetection(threshold: number = 10) {
 
       return (data || []) as DecayAlert[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60000, // 5 minutes
     refetchInterval: 10 * 60000, // Refetch every 10 minutes
   });
@@ -114,14 +120,14 @@ export function useLTVDecayDetection(threshold: number = 10) {
  * Hook to create a decision card from a decay alert
  */
 export function useCreateDecayDecisionCard() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (alert: DecayAlert) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('cdp_decision_cards')
         .insert({
           tenant_id: tenantId,

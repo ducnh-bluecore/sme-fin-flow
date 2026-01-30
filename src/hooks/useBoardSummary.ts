@@ -1,6 +1,12 @@
+/**
+ * useBoardSummary - Board Summary Data Hook
+ * 
+ * Refactored to Schema-per-Tenant architecture.
+ * Uses useTenantSupabaseCompat for tenant-aware queries.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 // Types matching edge function response
 export interface BoardSummary {
@@ -56,17 +62,17 @@ export interface BoardSummary {
 }
 
 export function useBoardSummary(period: '7d' | '30d' | '90d' = '30d') {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['board-summary', tenantId, period],
     queryFn: async (): Promise<BoardSummary | null> => {
       if (!tenantId) return null;
 
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await client.auth.getSession();
       if (!sessionData.session) return null;
 
-      const response = await supabase.functions.invoke('board-summary', {
+      const response = await client.functions.invoke('board-summary', {
         body: null,
         headers: {
           Authorization: `Bearer ${sessionData.session.access_token}`,
@@ -79,7 +85,7 @@ export function useBoardSummary(period: '7d' | '30d' | '90d' = '30d') {
 
       return response.data as BoardSummary;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes for board view
   });
