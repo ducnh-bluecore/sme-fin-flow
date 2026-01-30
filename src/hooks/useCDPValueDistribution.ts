@@ -1,9 +1,9 @@
 // CDP Value Distribution Hooks - DB-First compliant
 // Replaces useCDPData frontend calculations
+// Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenant } from '@/hooks/useTenant';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 
 // =====================================================
 // Types
@@ -65,18 +65,22 @@ export interface DataQualityMetrics {
 
 // Value Distribution Percentiles
 export function useCDPValueDistribution() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-value-distribution', tenantId],
     queryFn: async (): Promise<ValueDistribution | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_value_distribution')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching value distribution:', error);
@@ -113,25 +117,29 @@ export function useCDPValueDistribution() {
         returnRate: defaultDist,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Segment Summaries
 export function useCDPSegmentSummaries() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-segment-summaries', tenantId],
     queryFn: async (): Promise<SegmentSummary[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_segment_summaries')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching segment summaries:', error);
@@ -153,15 +161,14 @@ export function useCDPSegmentSummaries() {
         trendPercent: 0,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Summary Stats
 export function useCDPSummaryStats() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-summary-stats', tenantId],
@@ -178,11 +185,15 @@ export function useCDPSummaryStats() {
 
       if (!tenantId) return defaultStats;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_summary_stats')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching summary stats:', error);
@@ -205,15 +216,14 @@ export function useCDPSummaryStats() {
         top20Percent: 0, // Not available in simplified view
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Data Quality
 export function useCDPDataQuality() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-data-quality', tenantId],
@@ -229,11 +239,15 @@ export function useCDPDataQuality() {
 
       if (!tenantId) return defaultMetrics;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_data_quality')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching data quality:', error);
@@ -251,26 +265,29 @@ export function useCDPDataQuality() {
         isReliable: Boolean(data.is_reliable),
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 // Trend Insights (DB-computed)
 export function useCDPTrendData() {
-  const { data: activeTenant } = useActiveTenant();
-  const tenantId = activeTenant?.id;
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['cdp-trend-insights', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('v_cdp_trend_insights')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('Error fetching trend insights:', error);
@@ -279,7 +296,7 @@ export function useCDPTrendData() {
 
       return data;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
   });
 }

@@ -1,25 +1,20 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenantId } from "@/hooks/useActiveTenantId";
-import { format, subMonths } from "date-fns";
+import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useDateRangeForQuery } from "@/contexts/DateRangeContext";
 import { QuickDateSelector } from "@/components/filters/DateRangeFilter";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { DataSourceNotice } from "@/components/shared/DataSourceNotice";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useRevenuePageData } from "@/hooks/useRevenuePageData";
 import {
   TrendingUp,
   RefreshCw,
-  Calendar,
   Download,
   Search,
   Filter,
   ShoppingCart,
   Activity,
-  FileSpreadsheet,
   Link2,
   ArrowUpRight,
   ArrowDownRight,
@@ -62,21 +57,6 @@ import {
   Legend,
 } from 'recharts';
 
-interface Revenue {
-  id: string;
-  contract_name: string;
-  customer_id: string | null;
-  customer_name: string | null;
-  revenue_type: string;
-  source: string;
-  amount: number;
-  start_date: string;
-  end_date: string | null;
-  description: string | null;
-  is_active: boolean;
-  created_at: string;
-}
-
 interface ConnectorData {
   id: string;
   name: string;
@@ -100,91 +80,18 @@ const sourceColors: Record<string, string> = {
 
 export default function RevenuePage() {
   const { t } = useLanguage();
-  const { data: tenantId } = useActiveTenantId();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSource, setFilterSource] = useState<string>("all");
 
-  // Use global date range context
-  const { startDateStr: start, endDateStr: end } = useDateRangeForQuery();
-
-  // Fetch revenues from database
-  const { data: revenues = [], refetch } = useQuery({
-    queryKey: ["revenues-analytics", tenantId, start, end],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("revenues")
-        .select("*")
-        .eq('tenant_id', tenantId)
-        .gte('start_date', start)
-        .lte('start_date', end)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data as Revenue[];
-    },
-    enabled: !!tenantId,
-  });
-
-  // Fetch connector integrations from database
-  const { data: connectors = [], refetch: refetchConnectors } = useQuery({
-    queryKey: ["connector-integrations", tenantId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("connector_integrations")
-        .select("*")
-        .eq('tenant_id', tenantId)
-        .order("connector_name");
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId,
-  });
-
-  // Fetch external orders for integrated revenue
-  const { data: externalOrders = [] } = useQuery({
-    queryKey: ["cdp-orders-revenue", tenantId, start, end],
-    queryFn: async () => {
-      // Use cdp_orders (SSOT) instead of external_orders
-      const { data, error } = await supabase
-        .from("cdp_orders")
-        .select("channel, gross_revenue, order_at")
-        .eq('tenant_id', tenantId)
-        .gte('order_at', start)
-        .lte('order_at', end);
-
-      if (error) throw error;
-      // Map to legacy format
-      return (data || []).map(o => ({
-        integration_id: o.channel, // Use channel as pseudo-integration_id
-        total_amount: o.gross_revenue,
-        status: 'delivered',
-        channel: o.channel,
-        order_date: o.order_at,
-      }));
-    },
-    enabled: !!tenantId,
-  });
-
-  // Fetch previous period for comparison
-  const { data: prevRevenues = [] } = useQuery({
-    queryKey: ['revenues-prev', tenantId, start, end],
-    queryFn: async () => {
-      const prevStart = format(subMonths(new Date(start), 1), 'yyyy-MM-dd');
-      const prevEnd = format(subMonths(new Date(end), 1), 'yyyy-MM-dd');
-
-      const { data, error } = await supabase
-        .from('revenues')
-        .select('amount')
-        .eq('tenant_id', tenantId)
-        .gte('start_date', prevStart)
-        .lte('start_date', prevEnd);
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId,
-  });
+  // Use refactored hook for data fetching
+  const {
+    revenues,
+    connectors,
+    externalOrders,
+    prevRevenues,
+    refetchRevenues,
+    refetchConnectors,
+  } = useRevenuePageData();
 
   // Process connector data with order statistics
   const connectorData = useMemo<ConnectorData[]>(() => {
@@ -307,7 +214,7 @@ export default function RevenuePage() {
   }, [revenues]);
 
   const handleRefresh = () => {
-    refetch();
+    refetchRevenues();
     refetchConnectors();
   };
 
