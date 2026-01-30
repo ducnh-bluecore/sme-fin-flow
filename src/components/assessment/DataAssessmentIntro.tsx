@@ -76,21 +76,21 @@ export function DataAssessmentIntro({
           source="Đơn hàng"
           target="Doanh thu (AR)"
           example="Đơn Shopee 500k → AR 500k"
-          color="green"
+          color="emerald"
         />
         <MappingCard
           icon={Receipt}
           source="Phí sàn"
           target="Chi phí (AP)"
           example="Commission 10% → AP 50k"
-          color="red"
+          color="amber"
         />
         <MappingCard
           icon={Wallet}
           source="Đối soát"
           target="Tiền thực (Cash)"
           example="T+14 → Cash 450k"
-          color="blue"
+          color="violet"
         />
       </div>
 
@@ -115,13 +115,13 @@ interface MappingCardProps {
   source: string;
   target: string;
   example: string;
-  color: 'green' | 'red' | 'blue';
+  color: 'emerald' | 'amber' | 'violet';
 }
 
 const colorStyles = {
-  green: 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400',
-  red: 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400',
-  blue: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+  emerald: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+  amber: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
+  violet: 'bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400',
 };
 
 function MappingCard({ icon: Icon, source, target, example, color }: MappingCardProps) {
