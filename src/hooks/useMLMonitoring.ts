@@ -1,6 +1,11 @@
+/**
+ * useMLMonitoring - ML Monitoring hooks
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ */
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenant } from "@/hooks/useTenant";
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useToast } from "@/hooks/use-toast";
 
 export interface DriftSignal {
@@ -53,23 +58,23 @@ export interface DriftEvent {
 }
 
 export function useMLMonitoringSummary() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['ml-monitoring-summary', activeTenant?.id],
+    queryKey: ['ml-monitoring-summary', tenantId],
     queryFn: async (): Promise<MLMonitoringSummary> => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-monitoring/summary`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
         }
@@ -81,29 +86,29 @@ export function useMLMonitoringSummary() {
 
       return response.json();
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
     refetchInterval: 60000, // Refetch every minute
   });
 }
 
 export function useDriftEvents(limit = 50) {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['ml-drift-events', activeTenant?.id, limit],
+    queryKey: ['ml-drift-events', tenantId, limit],
     queryFn: async (): Promise<{ events: DriftEvent[]; total: number }> => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-monitoring/drift-events?limit=${limit}`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
         }
@@ -115,29 +120,29 @@ export function useDriftEvents(limit = 50) {
 
       return response.json();
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useRunDriftDetection() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async () => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-monitoring/detect`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
         }
@@ -194,24 +199,24 @@ export function useRunDriftDetection() {
 }
 
 export function useAcknowledgeDrift() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (signalId: string) => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-monitoring/acknowledge`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ signalId }),
@@ -243,24 +248,24 @@ export function useAcknowledgeDrift() {
 }
 
 export function useResetMLStatus() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (status: 'ACTIVE' | 'LIMITED') => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-monitoring/reset-status`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ status }),

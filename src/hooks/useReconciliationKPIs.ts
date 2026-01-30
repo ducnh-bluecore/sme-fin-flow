@@ -1,5 +1,11 @@
+/**
+ * useReconciliationKPIs - Reconciliation KPIs hook
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ */
+
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 
 export interface ReconciliationKPIs {
   period: string;
@@ -39,22 +45,23 @@ export interface ReconciliationKPIs {
 }
 
 export function useReconciliationKPIs(period: '7d' | '30d' | '90d' = '30d') {
-  return useQuery({
-    queryKey: ['reconciliation-kpis', period],
-    queryFn: async (): Promise<ReconciliationKPIs> => {
-      const { data, error } = await supabase.functions.invoke('reconciliation-kpis', {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: null,
-      });
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
-      // Handle the GET request with query params
+  return useQuery({
+    queryKey: ['reconciliation-kpis', tenantId, period],
+    queryFn: async (): Promise<ReconciliationKPIs> => {
+      if (!tenantId) {
+        throw new Error('No active tenant');
+      }
+
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reconciliation-kpis?period=${period}`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${session.data.session?.access_token}`,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
         }
@@ -66,6 +73,7 @@ export function useReconciliationKPIs(period: '7d' | '30d' | '90d' = '30d') {
 
       return response.json();
     },
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

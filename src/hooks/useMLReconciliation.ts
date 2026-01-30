@@ -1,6 +1,11 @@
+/**
+ * useMLReconciliation - ML Reconciliation hooks
+ * 
+ * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ */
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveTenant } from "@/hooks/useTenant";
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useToast } from "@/hooks/use-toast";
 
 export interface MLPrediction {
@@ -25,23 +30,23 @@ export interface MLSettings {
 }
 
 export function useMLPrediction(suggestionId: string | null) {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['ml-prediction', suggestionId, activeTenant?.id],
+    queryKey: ['ml-prediction', suggestionId, tenantId],
     queryFn: async (): Promise<MLPrediction> => {
-      if (!suggestionId || !activeTenant?.id) {
+      if (!suggestionId || !tenantId) {
         return { mlEnabled: false };
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-reconciliation/predict`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ suggestionId }),
@@ -64,29 +69,29 @@ export function useMLPrediction(suggestionId: string | null) {
 
       return response.json();
     },
-    enabled: !!suggestionId && !!activeTenant?.id,
+    enabled: !!suggestionId && !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
 export function useMLSettings() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
-    queryKey: ['ml-settings', activeTenant?.id],
+    queryKey: ['ml-settings', tenantId],
     queryFn: async (): Promise<MLSettings> => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-reconciliation/settings`,
         {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
         }
@@ -98,29 +103,29 @@ export function useMLSettings() {
 
       return response.json();
     },
-    enabled: !!activeTenant?.id,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useUpdateMLSettings() {
-  const { data: activeTenant } = useActiveTenant();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (settings: { mlEnabled: boolean; minConfidenceThreshold?: number }) => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
-      const session = await supabase.auth.getSession();
+      const session = await client.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ml-reconciliation/settings`,
         {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${session.data.session?.access_token}`,
-            'x-tenant-id': activeTenant.id,
+            'x-tenant-id': tenantId,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(settings),
