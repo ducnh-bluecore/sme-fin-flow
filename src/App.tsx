@@ -174,9 +174,10 @@ const MobileHomePage = lazy(() => import("./pages/mobile/MobileHomePage"));
 const MobileAlertsPage = lazy(() => import("./pages/mobile/MobileAlertsPage"));
 const MobileSettingsPage = lazy(() => import("./pages/mobile/MobileSettingsPage"));
 
+// Onboarding pages
+const DataAssessmentPage = lazy(() => import("./pages/onboarding/DataAssessmentPage"));
+
 // Docs Download page
-
-
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
 import { MDPLayout } from "@/components/layout/MDPLayout";
 
@@ -218,6 +219,18 @@ const AppRoutes = () => {
       } />
       {/* Redirect /formulas to /documentation since formulas are documented there */}
       <Route path="/formulas" element={<Navigate to="/documentation" replace />} />
+      
+      {/* Onboarding & Data Assessment Routes */}
+      <Route path="/onboarding/data-assessment/:moduleKey" element={
+        <ProtectedRoute>
+          <DataAssessmentPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/onboarding/data-assessment" element={
+        <ProtectedRoute>
+          <DataAssessmentPage />
+        </ProtectedRoute>
+      } />
       
       {/* CDP Routes - Restructured per spec v2 */}
       <Route path="/cdp" element={
