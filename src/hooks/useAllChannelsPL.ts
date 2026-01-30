@@ -10,8 +10,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface ChannelPLSummaryItem {
@@ -46,7 +45,7 @@ export interface AllChannelsPLData {
 }
 
 export function useAllChannelsPL() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -55,12 +54,17 @@ export function useAllChannelsPL() {
       if (!tenantId) return null;
 
       // Use pre-aggregated channel summary view with date filtering
-      const { data: rawData, error } = await supabase
+      let query = client
         .from('v_channel_pl_summary' as any)
         .select('*')
-        .eq('tenant_id', tenantId)
         .gte('period', startDateStr)
         .lte('period', endDateStr);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data: rawData, error } = await query;
 
       if (error) {
         console.error('Error fetching channel summary:', error);
@@ -218,7 +222,7 @@ export function useAllChannelsPL() {
         mostProfitableChannel,
       };
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 }

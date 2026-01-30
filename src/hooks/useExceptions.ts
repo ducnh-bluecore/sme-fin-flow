@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 
 // Types
 export interface Exception {
@@ -80,17 +79,20 @@ export interface ExceptionFilters {
 
 // Hook: Fetch exceptions list
 export function useExceptions(filters: ExceptionFilters = {}) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['exceptions', tenantId, filters],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = supabase
+      let query = client
         .from('exceptions_queue')
-        .select('*')
-        .eq('tenant_id', tenantId);
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
 
       // Apply filters
       if (filters.status && filters.status !== 'all') {
@@ -126,23 +128,28 @@ export function useExceptions(filters: ExceptionFilters = {}) {
       return data as Exception[];
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Hook: Fetch exception stats
 export function useExceptionStats() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['exception-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('exceptions_queue')
-        .select('status, severity, exception_type, impact_amount')
-        .eq('tenant_id', tenantId);
+        .select('status, severity, exception_type, impact_amount');
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -169,25 +176,29 @@ export function useExceptionStats() {
       return stats;
     },
     staleTime: 30000,
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 // Hook: Fetch single exception detail
 export function useExceptionDetail(exceptionId: string | null) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['exception-detail', tenantId, exceptionId],
     queryFn: async () => {
       if (!exceptionId || !tenantId) return null;
 
-      const { data: exception, error } = await supabase
+      let query = client
         .from('exceptions_queue')
         .select('*')
-        .eq('id', exceptionId)
-        .eq('tenant_id', tenantId)
-        .single();
+        .eq('id', exceptionId);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data: exception, error } = await query.single();
 
       if (error) throw error;
       if (!exception) return null;
@@ -195,21 +206,21 @@ export function useExceptionDetail(exceptionId: string | null) {
       // Get additional context based on ref_type
       let refData = null;
       if (exception.ref_type === 'invoice') {
-        const { data: invoice } = await supabase
+        let invoiceQuery = client
           .from('invoices')
           .select(`
             *,
             customers (name, email, phone)
           `)
-          .eq('id', exception.ref_id)
-          .single();
+          .eq('id', exception.ref_id);
+        const { data: invoice } = await invoiceQuery.single();
         refData = invoice;
       } else if (exception.ref_type === 'bank_transaction') {
-        const { data: txn } = await supabase
+        let txnQuery = client
           .from('bank_transactions')
           .select('*')
-          .eq('id', exception.ref_id)
-          .single();
+          .eq('id', exception.ref_id);
+        const { data: txn } = await txnQuery.single();
         refData = txn;
       }
 
@@ -241,14 +252,14 @@ export function useExceptionDetail(exceptionId: string | null) {
       return explanation;
     },
     staleTime: 30000,
-    enabled: !!exceptionId && !!tenantId,
+    enabled: !!exceptionId && !!tenantId && isReady,
   });
 }
 
 // Hook: Triage exception
 export function useTriageException() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ 
@@ -260,17 +271,20 @@ export function useTriageException() {
       assignedTo?: string; 
       triageNotes?: string;
     }) => {
-      const { data, error } = await supabase
+      let query = client
         .from('exceptions_queue')
         .update({
           status: 'triaged',
           assigned_to: assignedTo || null,
           triage_notes: triageNotes || null,
         })
-        .eq('id', exceptionId)
-        .eq('tenant_id', tenantId)
-        .select()
-        .single();
+        .eq('id', exceptionId);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.select().single();
 
       if (error) throw error;
       return data;
@@ -286,7 +300,7 @@ export function useTriageException() {
 // Hook: Snooze exception
 export function useSnoozeException() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ 
@@ -296,16 +310,19 @@ export function useSnoozeException() {
       exceptionId: string; 
       snoozedUntil: string;
     }) => {
-      const { data, error } = await supabase
+      let query = client
         .from('exceptions_queue')
         .update({
           status: 'snoozed',
           snoozed_until: snoozedUntil,
         })
-        .eq('id', exceptionId)
-        .eq('tenant_id', tenantId)
-        .select()
-        .single();
+        .eq('id', exceptionId);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.select().single();
 
       if (error) throw error;
       return data;
@@ -321,7 +338,7 @@ export function useSnoozeException() {
 // Hook: Resolve exception
 export function useResolveException() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useMutation({
     mutationFn: async ({ 
@@ -331,9 +348,9 @@ export function useResolveException() {
       exceptionId: string; 
       resolvedReason?: string;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
-      const { data, error } = await supabase
+      let query = client
         .from('exceptions_queue')
         .update({
           status: 'resolved',
@@ -341,10 +358,13 @@ export function useResolveException() {
           resolved_by: user?.id || null,
           triage_notes: resolvedReason ? `Resolved: ${resolvedReason}` : 'Manually resolved',
         })
-        .eq('id', exceptionId)
-        .eq('tenant_id', tenantId)
-        .select()
-        .single();
+        .eq('id', exceptionId);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.select().single();
 
       if (error) throw error;
       return data;

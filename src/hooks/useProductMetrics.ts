@@ -12,8 +12,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
 import { toast } from 'sonner';
 
 export interface ProductMetric {
@@ -52,18 +51,23 @@ export interface ProductMetricsSummary {
  * Fetch all product metrics (SSOT for SKU profitability)
  */
 export function useProductMetrics() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['product-metrics', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('product_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('gross_profit_30d', { ascending: true });
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -108,7 +112,7 @@ export function useProductMetrics() {
 
       return { metrics, summary };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000 // 2 minutes
   });
 }
@@ -117,7 +121,7 @@ export function useProductMetrics() {
  * Fetch problematic products (margin < 10% or loss-making)
  */
 export function useProblematicProducts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['problematic-products', tenantId],
@@ -125,13 +129,18 @@ export function useProblematicProducts() {
       if (!tenantId) return [];
 
       // profit_status: 'critical', 'warning', 'healthy'
-      const { data, error } = await supabase
+      let query = client
         .from('product_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
         .or('profit_status.eq.critical,profit_status.eq.warning')
         .order('gross_margin_percent', { ascending: true })
         .limit(50);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching problematic products:', error);
@@ -154,7 +163,7 @@ export function useProblematicProducts() {
         is_profitable: row.is_profitable,
       }));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000
   });
 }
@@ -163,14 +172,14 @@ export function useProblematicProducts() {
  * Recalculate product metrics using database function
  */
 export function useRecalculateProductMetrics() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (sku?: string) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { data, error } = await supabase.rpc('recalculate_product_metrics', {
+      const { data, error } = await client.rpc('recalculate_product_metrics', {
         p_tenant_id: tenantId,
         p_sku: sku || null
       });
@@ -194,19 +203,23 @@ export function useRecalculateProductMetrics() {
  * Get single product metric by SKU
  */
 export function useProductMetricBySKU(sku: string) {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['product-metric', tenantId, sku],
     queryFn: async () => {
       if (!tenantId || !sku) return null;
 
-      const { data, error } = await supabase
+      let query = client
         .from('product_metrics')
         .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('sku', sku)
-        .single();
+        .eq('sku', sku);
+      
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) {
         if (error.code === 'PGRST116') return null; // Not found
@@ -229,7 +242,7 @@ export function useProductMetricBySKU(sku: string) {
         profit_status: data.profit_status,
       } as ProductMetric;
     },
-    enabled: !!tenantId && !!sku,
+    enabled: !!tenantId && !!sku && isReady,
     staleTime: 2 * 60 * 1000
   });
 }
