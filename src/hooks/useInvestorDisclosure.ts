@@ -1,5 +1,12 @@
+/**
+ * useInvestorDisclosure - Investor disclosure management hooks
+ * 
+ * Refactored to use Schema-per-Tenant architecture.
+ * All API calls use tenant-aware Supabase client for auth.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/investor-disclosure`;
 
@@ -39,22 +46,21 @@ interface SavedDisclosure {
   created_at: string;
 }
 
-async function getAuthHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    'Authorization': `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 export function useGenerateDisclosure(period: string) {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+
   return useQuery({
-    queryKey: ['investor-disclosure', 'generate', period],
+    queryKey: ['investor-disclosure', 'generate', period, tenantId],
     queryFn: async (): Promise<GeneratedDisclosure> => {
-      const headers = await getAuthHeaders();
+      const { data: { session } } = await client.auth.getSession();
+      
       const response = await fetch(`${FUNCTION_URL}/generate?period=${encodeURIComponent(period)}`, {
         method: 'GET',
-        headers,
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId || '',
+        },
       });
 
       if (!response.ok) {
@@ -64,22 +70,29 @@ export function useGenerateDisclosure(period: string) {
 
       return response.json();
     },
-    enabled: !!period,
+    enabled: !!period && !!tenantId && isReady,
   });
 }
 
 export function useDisclosureList(status?: string) {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+
   return useQuery({
-    queryKey: ['investor-disclosure', 'list', status],
+    queryKey: ['investor-disclosure', 'list', status, tenantId],
     queryFn: async (): Promise<{ disclosures: SavedDisclosure[] }> => {
-      const headers = await getAuthHeaders();
+      const { data: { session } } = await client.auth.getSession();
+      
       const url = status 
         ? `${FUNCTION_URL}/list?status=${status}` 
         : `${FUNCTION_URL}/list`;
       
       const response = await fetch(url, {
         method: 'GET',
-        headers,
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId || '',
+        },
       });
 
       if (!response.ok) {
@@ -89,17 +102,25 @@ export function useDisclosureList(status?: string) {
 
       return response.json();
     },
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useDisclosure(id: string) {
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+
   return useQuery({
-    queryKey: ['investor-disclosure', id],
+    queryKey: ['investor-disclosure', id, tenantId],
     queryFn: async (): Promise<SavedDisclosure> => {
-      const headers = await getAuthHeaders();
+      const { data: { session } } = await client.auth.getSession();
+      
       const response = await fetch(`${FUNCTION_URL}/${id}`, {
         method: 'GET',
-        headers,
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId || '',
+        },
       });
 
       if (!response.ok) {
@@ -109,11 +130,12 @@ export function useDisclosure(id: string) {
 
       return response.json();
     },
-    enabled: !!id,
+    enabled: !!id && !!tenantId && isReady,
   });
 }
 
 export function useSaveDisclosure() {
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -126,10 +148,15 @@ export function useSaveDisclosure() {
       mitigations: string[];
       complianceStatement: string;
     }) => {
-      const headers = await getAuthHeaders();
+      const { data: { session } } = await client.auth.getSession();
+      
       const response = await fetch(`${FUNCTION_URL}/save`, {
         method: 'POST',
-        headers,
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId || '',
+        },
         body: JSON.stringify(data),
       });
 
@@ -147,14 +174,20 @@ export function useSaveDisclosure() {
 }
 
 export function useApproveDisclosure() {
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (disclosureId: string) => {
-      const headers = await getAuthHeaders();
+      const { data: { session } } = await client.auth.getSession();
+      
       const response = await fetch(`${FUNCTION_URL}/approve`, {
         method: 'POST',
-        headers,
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId || '',
+        },
         body: JSON.stringify({ disclosureId }),
       });
 
@@ -172,14 +205,20 @@ export function useApproveDisclosure() {
 }
 
 export function usePublishDisclosure() {
+  const { client, tenantId } = useTenantSupabaseCompat();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (disclosureId: string) => {
-      const headers = await getAuthHeaders();
+      const { data: { session } } = await client.auth.getSession();
+      
       const response = await fetch(`${FUNCTION_URL}/publish`, {
         method: 'POST',
-        headers,
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId || '',
+        },
         body: JSON.stringify({ disclosureId }),
       });
 

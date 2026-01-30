@@ -1,6 +1,11 @@
+/**
+ * useRollingForecast - Rolling forecast management hooks
+ * 
+ * Refactored to use Schema-per-Tenant architecture.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { toast } from 'sonner';
 import { addMonths, format, startOfMonth } from 'date-fns';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
@@ -37,40 +42,47 @@ export interface RollingForecastSummary {
 const FORECAST_MONTHS = 18;
 
 export function useRollingForecasts() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['rolling-forecasts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      const { data, error } = await supabase
+      let query = client
         .from('rolling_forecasts')
         .select('*')
-        .eq('tenant_id', tenantId)
         .order('forecast_month', { ascending: true });
       
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as RollingForecastItem[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useRollingForecastSummary() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   
   return useQuery({
     queryKey: ['rolling-forecast-summary', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
       
-      const { data, error } = await supabase
+      let query = client
         .from('v_rolling_forecast_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
       
+      if (shouldAddTenantFilter) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       
       // Thin wrapper - NO client-side calculations
@@ -98,13 +110,13 @@ export function useRollingForecastSummary() {
       
       return summary;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useSaveRollingForecast() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async (forecast: Partial<RollingForecastItem> & { 
@@ -113,7 +125,7 @@ export function useSaveRollingForecast() {
     }) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('rolling_forecasts')
         .upsert({
           ...forecast,
@@ -145,7 +157,7 @@ export function useSaveRollingForecast() {
  */
 export function useGenerateRollingForecast() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
   const { data: snapshot } = useFinanceTruthSnapshot();
   
   return useMutation({
@@ -153,11 +165,15 @@ export function useGenerateRollingForecast() {
       if (!tenantId) throw new Error('No tenant selected');
       
       // Delete existing forecasts for this tenant first to avoid duplicates
-      const { error: deleteError } = await supabase
+      let deleteQuery = client
         .from('rolling_forecasts')
-        .delete()
-        .eq('tenant_id', tenantId);
+        .delete();
       
+      if (shouldAddTenantFilter) {
+        deleteQuery = deleteQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { error: deleteError } = await deleteQuery;
       if (deleteError) throw deleteError;
       
       // Generate 18 months of forecasts based on SSOT data
@@ -209,7 +225,7 @@ export function useGenerateRollingForecast() {
         forecast_type: f.forecast_type as string,
       }));
       
-      const { error } = await supabase
+      const { error } = await client
         .from('rolling_forecasts')
         .insert(insertData);
       

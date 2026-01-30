@@ -1,6 +1,11 @@
+/**
+ * useWhatIfDefaults - What-If scenario defaults hook
+ * 
+ * Refactored to use Schema-per-Tenant architecture.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { WhatIfParams, RetailParams } from './useWhatIfScenarios';
 
 export interface WhatIfDefaultsData {
@@ -36,17 +41,21 @@ interface ChannelMetric {
 }
 
 export function useWhatIfDefaults() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['what-if-defaults', tenantId],
     queryFn: async (): Promise<WhatIfDefaultsData> => {
       // First, try to get cached metrics
-      const { data: cachedMetrics, error: cacheError } = await supabase
+      let cacheQuery = client
         .from('whatif_metrics_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        cacheQuery = cacheQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data: cachedMetrics, error: cacheError } = await cacheQuery.maybeSingle();
 
       // If cache exists and is recent (less than 1 hour old), use it
       if (cachedMetrics && !cacheError) {
@@ -63,14 +72,18 @@ export function useWhatIfDefaults() {
       console.log('🔄 Đang tính toán metrics...');
       
       // Call the refresh function via RPC
-      await supabase.rpc('refresh_whatif_metrics_cache', { p_tenant_id: tenantId });
+      await client.rpc('refresh_whatif_metrics_cache', { p_tenant_id: tenantId });
 
       // Fetch the freshly computed cache
-      const { data: freshCache } = await supabase
+      let freshQuery = client
         .from('whatif_metrics_cache')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+        .select('*');
+      
+      if (shouldAddTenantFilter) {
+        freshQuery = freshQuery.eq('tenant_id', tenantId);
+      }
+      
+      const { data: freshCache } = await freshQuery.maybeSingle();
 
       if (freshCache) {
         console.log(`✅ Đã tính xong metrics từ ${freshCache.order_count} đơn hàng`);
@@ -80,7 +93,7 @@ export function useWhatIfDefaults() {
       // Fallback to empty defaults if no data
       return getEmptyDefaults();
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
     staleTime: 300000, // 5 minutes
   });
 }
@@ -113,7 +126,7 @@ function buildDefaultsFromCache(cache: {
       revenue: channelData.revenue || 0,
       orders: channelData.orders || 0,
       share: channelData.share || 0,
-      growthRate: cache.monthly_growth_rate || 0, // Use overall growth for now
+      growthRate: cache.monthly_growth_rate || 0,
     };
     
     // Calculate commission rate from fees
