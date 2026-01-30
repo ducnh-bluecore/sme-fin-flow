@@ -18,10 +18,30 @@ export function useAuthRedirect() {
       if (adminRole) {
         // Super admin -> go to admin dashboard
         navigate('/admin', { replace: true });
-      } else {
-        // Regular tenant user -> go to portal hub
-        navigate('/portal', { replace: true });
+        return;
       }
+
+      // Check user's onboarding status
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_status')
+        .eq('id', userId)
+        .maybeSingle();
+
+      // If onboarding not completed, redirect to onboarding
+      if (!profile || profile.onboarding_status === 'pending') {
+        navigate('/onboarding/welcome', { replace: true });
+        return;
+      }
+
+      if (profile.onboarding_status === 'platform_done') {
+        // Platform done but tenant not complete -> go to company setup
+        navigate('/onboarding/company', { replace: true });
+        return;
+      }
+
+      // Onboarding complete (completed or skipped) -> go to portal
+      navigate('/portal', { replace: true });
     } catch (error) {
       console.error('Error checking user role:', error);
       // Default to portal on error
