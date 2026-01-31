@@ -2,6 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenant } from '@/hooks/useTenant';
 
+// Core module that is always available (base infrastructure)
+const CORE_MODULE = 'data_warehouse';
+
 export interface ModuleAccessResult {
   isLoading: boolean;
   enabledModules: string[];
@@ -20,7 +23,7 @@ export function useModuleAccess(): ModuleAccessResult {
   const { data: enabledModules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ['module-access', tenant?.id],
     queryFn: async () => {
-      if (!tenant?.id) return [];
+      if (!tenant?.id) return [CORE_MODULE];
 
       const { data, error } = await supabase
         .from('tenant_modules')
@@ -36,8 +39,8 @@ export function useModuleAccess(): ModuleAccessResult {
 
       if (error) {
         console.error('Error fetching tenant modules:', error);
-        // Fallback: return core modules on error
-        return ['fdp'];
+        // Fallback: return core module on error
+        return [CORE_MODULE];
       }
 
       // Extract module codes
@@ -45,9 +48,9 @@ export function useModuleAccess(): ModuleAccessResult {
         .filter(tm => tm.is_enabled && tm.module)
         .map(tm => (tm.module as any).code as string);
 
-      // Always include core modules
-      if (!codes.includes('fdp')) {
-        codes.push('fdp');
+      // Always include core module (data_warehouse)
+      if (!codes.includes(CORE_MODULE)) {
+        codes.push(CORE_MODULE);
       }
 
       return codes;
@@ -59,8 +62,8 @@ export function useModuleAccess(): ModuleAccessResult {
   const isLoading = tenantLoading || modulesLoading;
 
   const hasModule = (moduleCode: string): boolean => {
-    // Core modules are always available
-    if (moduleCode === 'fdp') return true;
+    // Core module is always available
+    if (moduleCode === CORE_MODULE) return true;
     return enabledModules.includes(moduleCode);
   };
 

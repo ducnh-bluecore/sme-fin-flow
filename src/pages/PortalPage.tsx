@@ -12,6 +12,7 @@ import {
   Settings,
   ChevronRight,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,7 @@ import { useCDPEquitySnapshot } from '@/hooks/useCDPOverview';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 // Format VND currency
 function formatVND(value: number | null | undefined): string {
@@ -37,6 +39,7 @@ function formatVND(value: number | null | undefined): string {
 
 interface AppModule {
   id: string;
+  code: string; // Module code for access check
   name: string;
   shortName: string;
   tagline: string;
@@ -45,7 +48,6 @@ interface AppModule {
   color: string;
   bgColor: string;
   borderColor: string;
-  status: 'active' | 'coming-soon';
   path?: string;
   metrics?: {
     label: string;
@@ -68,20 +70,20 @@ function CompactModuleCard({
   module, 
   onClick,
   isLoading = false,
+  isActive = true,
 }: { 
   module: AppModule; 
   onClick: (module: AppModule) => void;
   isLoading?: boolean;
+  isActive?: boolean;
 }) {
-  const isActive = module.status === 'active';
-  
   return (
     <Card 
       className={`
         relative overflow-hidden transition-all duration-300 h-full
         ${isActive 
           ? 'cursor-pointer hover:shadow-elevated hover:-translate-y-1' 
-          : 'opacity-60 cursor-not-allowed'}
+          : 'opacity-60 cursor-not-allowed bg-muted/30'}
       `}
       style={{
         borderTopWidth: '3px',
@@ -92,15 +94,15 @@ function CompactModuleCard({
       <CardHeader className="pb-2 pt-4">
         <div className="flex items-center justify-between">
           <div 
-            className="p-2 rounded-lg"
+            className={`p-2 rounded-lg ${!isActive ? 'grayscale' : ''}`}
             style={{ 
-              backgroundColor: module.bgColor,
-              border: `1px solid ${module.borderColor}`
+              backgroundColor: isActive ? module.bgColor : 'hsl(var(--muted))',
+              border: `1px solid ${isActive ? module.borderColor : 'hsl(var(--border))'}`
             }}
           >
             <module.icon 
               className="h-5 w-5" 
-              style={{ color: module.color }}
+              style={{ color: isActive ? module.color : 'hsl(var(--muted-foreground))' }}
             />
           </div>
           <Badge 
@@ -111,14 +113,19 @@ function CompactModuleCard({
               color: '#fff'
             } : undefined}
           >
-            {isActive ? module.shortName : 'Coming Soon'}
+            {isActive ? module.shortName : (
+              <span className="flex items-center gap-1">
+                <Lock className="h-3 w-3" />
+                Inactive
+              </span>
+            )}
           </Badge>
         </div>
         <div className="mt-2">
-          <CardTitle className="text-base font-semibold text-foreground">
+          <CardTitle className={`text-base font-semibold ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
             {module.name}
           </CardTitle>
-          <CardDescription className="text-[11px] mt-0.5" style={{ color: module.color }}>
+          <CardDescription className="text-[11px] mt-0.5" style={{ color: isActive ? module.color : 'hsl(var(--muted-foreground))' }}>
             {module.tagline}
           </CardDescription>
         </div>
@@ -146,10 +153,28 @@ function CompactModuleCard({
           </div>
         )}
         
-        {isActive && (
+        {!isActive && (
+          <div className="grid grid-cols-2 gap-1.5 mb-3">
+            <div className="bg-muted/30 rounded-md px-2 py-1.5">
+              <div className="text-[10px] text-muted-foreground">Status</div>
+              <div className="text-xs font-semibold text-muted-foreground">—</div>
+            </div>
+            <div className="bg-muted/30 rounded-md px-2 py-1.5">
+              <div className="text-[10px] text-muted-foreground">—</div>
+              <div className="text-xs font-semibold text-muted-foreground">—</div>
+            </div>
+          </div>
+        )}
+        
+        {isActive ? (
           <div className="flex items-center text-xs font-medium" style={{ color: module.color }}>
             <span>Open {module.shortName}</span>
             <ArrowRight className="h-3 w-3 ml-1" />
+          </div>
+        ) : (
+          <div className="flex items-center text-xs font-medium text-muted-foreground">
+            <Lock className="h-3 w-3 mr-1" />
+            <span>Upgrade to access</span>
           </div>
         )}
       </CardContent>
@@ -185,6 +210,7 @@ export default function PortalPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { data: tenantId } = useActiveTenantId();
+  const { hasModule, isLoading: moduleAccessLoading } = useModuleAccess();
 
   const debugEnabled = useMemo(() => {
     try {
@@ -284,6 +310,7 @@ export default function PortalPage() {
   const appModules: AppModule[] = [
     {
       id: 'fdp',
+      code: 'fdp',
       name: 'Finance Data Platform',
       shortName: 'FDP',
       tagline: 'Truth > Flexibility',
@@ -294,7 +321,6 @@ export default function PortalPage() {
       color: 'hsl(152, 60%, 36%)',
       bgColor: 'hsl(152, 60%, 95%)',
       borderColor: 'hsl(152, 60%, 85%)',
-      status: 'active',
       path: '/dashboard',
       metrics: [
         { label: 'Net Cash', value: formatVND(financeSnapshot?.cashToday) },
@@ -303,6 +329,7 @@ export default function PortalPage() {
     },
     {
       id: 'mdp',
+      code: 'mdp',
       name: 'Marketing Data Platform',
       shortName: 'MDP',
       tagline: 'Profit before Performance',
@@ -313,7 +340,6 @@ export default function PortalPage() {
       color: 'hsl(270, 55%, 55%)',
       bgColor: 'hsl(270, 55%, 95%)',
       borderColor: 'hsl(270, 55%, 85%)',
-      status: 'active',
       path: '/mdp',
       metrics: [
         { label: 'True ROAS', value: `${(financeSnapshot?.marketingRoas || 0).toFixed(1)}x` },
@@ -322,6 +348,7 @@ export default function PortalPage() {
     },
     {
       id: 'control-tower',
+      code: 'control_tower',
       name: 'Control Tower',
       shortName: 'OPS',
       tagline: 'Awareness before Analytics',
@@ -332,7 +359,6 @@ export default function PortalPage() {
       color: 'hsl(38, 92%, 50%)',
       bgColor: 'hsl(38, 92%, 95%)',
       borderColor: 'hsl(38, 92%, 80%)',
-      status: 'active',
       path: '/control-tower',
       metrics: [
         { label: 'Active Alerts', value: String(alertStats?.active || 0) },
@@ -341,6 +367,7 @@ export default function PortalPage() {
     },
     {
       id: 'cdp',
+      code: 'cdp',
       name: 'Customer Data Platform',
       shortName: 'CDP',
       tagline: 'Population > Individual',
@@ -351,7 +378,6 @@ export default function PortalPage() {
       color: 'hsl(270, 60%, 50%)',
       bgColor: 'hsl(270, 60%, 95%)',
       borderColor: 'hsl(270, 60%, 85%)',
-      status: 'active',
       path: '/cdp',
       metrics: [
         { label: 'Customer Equity', value: formatVND(cdpEquity?.totalEquity12M) },
@@ -379,7 +405,7 @@ export default function PortalPage() {
   ];
 
   const handleModuleClick = (module: AppModule) => {
-    if (module.status === 'active' && module.path) {
+    if (hasModule(module.code) && module.path) {
       navigate(module.path);
     }
   };
@@ -545,7 +571,8 @@ export default function PortalPage() {
                     <CompactModuleCard 
                       module={module} 
                       onClick={handleModuleClick}
-                      isLoading={isLoading}
+                      isLoading={isLoading || moduleAccessLoading}
+                      isActive={hasModule(module.code)}
                     />
                   </motion.div>
                 ))}
