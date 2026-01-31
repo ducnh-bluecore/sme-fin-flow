@@ -34,12 +34,13 @@ serve(async (req) => {
     const cronSecret = req.headers.get('x-cron-secret');
     const expectedCronSecret = Deno.env.get('CRON_SECRET') || 'scheduled-job-2024';
 
-    // Check auth: service role OR anon key with cron secret
+    // Check auth: service role OR cron secret (with or without auth header) OR internal (no auth)
     const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
     const isAnonWithSecret = authHeader === `Bearer ${supabaseAnonKey}` && cronSecret === expectedCronSecret;
+    const isCronSecretOnly = cronSecret === expectedCronSecret; // Allow cron secret without specific auth header
     const isInternalCall = !authHeader; // pg_cron internal calls may not have auth
 
-    if (!isServiceRole && !isAnonWithSecret && !isInternalCall) {
+    if (!isServiceRole && !isAnonWithSecret && !isCronSecretOnly && !isInternalCall) {
       console.error('Unauthorized: Invalid authentication for scheduled-detect-alerts');
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -47,7 +48,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('Auth method:', isServiceRole ? 'service_role' : isAnonWithSecret ? 'anon+secret' : 'internal');
+    console.log('Auth method:', isServiceRole ? 'service_role' : isAnonWithSecret ? 'anon+secret' : isCronSecretOnly ? 'cron_secret' : 'internal');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -71,30 +72,37 @@ serve(async (req) => {
       console.log(`\n📊 Processing tenant: ${tenant.name} (${tenant.id})`);
       
       try {
-        // Call detect-alerts for this tenant
-        const response = await supabase.functions.invoke('detect-alerts', {
-          body: { 
+        // Call detect-alerts for this tenant WITH service role auth
+        const response = await fetch(`${supabaseUrl}/functions/v1/detect-alerts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({ 
             tenant_id: tenant.id,
             use_precalculated: true 
-          }
+          }),
         });
+        
+        const responseData = await response.json();
 
-        if (response.error) {
-          console.error(`Error for tenant ${tenant.id}:`, response.error);
+        if (!response.ok || responseData.error) {
+          console.error(`Error for tenant ${tenant.id}:`, responseData.error || response.statusText);
           results.push({
             tenant_id: tenant.id,
             tenant_name: tenant.name,
             status: 'error',
-            error: response.error.message
+            error: responseData.error || response.statusText
           });
         } else {
-          console.log(`✅ Tenant ${tenant.name}: ${response.data?.triggered || 0} alerts triggered`);
+          console.log(`✅ Tenant ${tenant.name}: ${responseData.result?.triggered || 0} alerts triggered`);
           results.push({
             tenant_id: tenant.id,
             tenant_name: tenant.name,
             status: 'success',
-            triggered: response.data?.triggered || 0,
-            checked: response.data?.checked || 0
+            triggered: responseData.result?.triggered || 0,
+            checked: responseData.result?.checked || 0
           });
         }
       } catch (tenantError: any) {
@@ -112,10 +120,16 @@ serve(async (req) => {
     console.log('\n📬 Processing alert notifications...');
     
     try {
-      const notifResponse = await supabase.functions.invoke('process-alert-notifications', {
-        body: { process_all: true }
+      const notifResponse = await fetch(`${supabaseUrl}/functions/v1/process-alert-notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({ process_all: true }),
       });
-      console.log('Notification processing result:', notifResponse.data);
+      const notifData = await notifResponse.json();
+      console.log('Notification processing result:', notifData);
     } catch (notifError) {
       console.error('Error processing notifications:', notifError);
     }
