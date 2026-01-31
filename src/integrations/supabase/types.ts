@@ -33397,7 +33397,18 @@ export type Database = {
         Args: { p_config_key: string; p_tenant_id: string }
         Returns: Json
       }
-      get_cs_alerts_summary: { Args: never; Returns: Json }
+      get_cs_alerts_summary: {
+        Args: never
+        Returns: {
+          critical_count: number
+          info_count: number
+          oldest_unresolved: string
+          tenant_id: string
+          tenant_name: string
+          total_alerts: number
+          warning_count: number
+        }[]
+      }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_evidence: {
         Args: { p_decision_id: string }
