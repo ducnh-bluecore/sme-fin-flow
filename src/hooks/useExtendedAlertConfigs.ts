@@ -133,7 +133,7 @@ export const recipientRoleLabels: Record<string, string> = {
 };
 
 export function useExtendedAlertConfigs() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantSupabaseCompat();
 
   return useQuery({
     queryKey: ['extended-alert-configs', tenantId],
@@ -143,12 +143,12 @@ export function useExtendedAlertConfigs() {
       let query = client
         .from('extended_alert_configs')
         .select('*')
+        // Always scope by tenant. Without this, UI may read configs from other tenants
+        // (e.g., in environments where RLS is permissive or tenant filter is optional),
+        // which breaks the setup banner logic.
+        .eq('tenant_id', tenantId)
         .order('category', { ascending: true })
         .order('alert_type', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       const { data, error } = await query;
 
