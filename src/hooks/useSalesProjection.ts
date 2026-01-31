@@ -104,15 +104,25 @@ export function useSalesProjection() {
  * Helper to integrate sales projection into cashflow forecast
  * Returns expected cash inflows per day accounting for settlement delay
  */
+/**
+ * Helper to integrate sales projection into cashflow forecast
+ * Returns expected cash inflows per day accounting for settlement delay
+ * 
+ * UPDATED: Now includes ramp-up for days 0-13 to simulate historical order settlements
+ */
 export function calculateSalesInflowForDay(
   projection: SalesProjection,
   dayIndex: number
 ): number {
-  // No inflow until after settlement delay
+  // Days 0-13: Gradual settlement of past orders (ramp up)
+  // Orders placed before today are settling during these days
   if (dayIndex < projection.settlementDelay) {
-    return 0;
+    // Linear ramp from 0% to 100% over settlement delay period
+    // This represents historical orders completing their settlement cycle
+    const rampFactor = dayIndex / projection.settlementDelay;
+    return projection.dailyNetCashInflow * rampFactor;
   }
   
-  // After delay, expect daily net cash inflow
+  // After delay, full daily net cash inflow from new + historical orders
   return projection.dailyNetCashInflow;
 }
