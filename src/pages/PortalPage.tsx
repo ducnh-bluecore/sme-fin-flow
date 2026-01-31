@@ -26,6 +26,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
+import { useExtendedAlertConfigs, useInitializeDefaultAlerts } from '@/hooks/useExtendedAlertConfigs';
+import { AlertSetupBanner } from '@/components/portal/AlertSetupBanner';
 
 // Format VND currency
 function formatVND(value: number | null | undefined): string {
@@ -225,6 +227,13 @@ export default function PortalPage() {
   
   // Fetch alert stats
   const { stats: alertStats, isLoading: alertsLoading } = useNotificationCenter();
+  
+  // Fetch alert configs to check if setup is needed
+  const { data: alertConfigs, isLoading: configsLoading } = useExtendedAlertConfigs();
+  const initializeDefaults = useInitializeDefaultAlerts();
+  
+  // Check if tenant needs alert config setup
+  const needsAlertSetup = !configsLoading && (!alertConfigs || alertConfigs.length === 0);
   
   // Fetch CDP equity snapshot for CDP card stats
   const { data: cdpEquity, isLoading: cdpLoading } = useCDPEquitySnapshot();
@@ -464,6 +473,14 @@ export default function PortalPage() {
         </header>
 
         <main className="max-w-7xl mx-auto px-6 py-8">
+          {/* Alert Setup Banner - Show when tenant has no alert configs */}
+          {needsAlertSetup && (
+            <AlertSetupBanner 
+              onInitialize={() => initializeDefaults.mutate()} 
+              isLoading={initializeDefaults.isPending}
+            />
+          )}
+          
           {/* Hub and Spoke Layout */}
           <section className="mb-10">
             {/* Central Data Warehouse Hub */}
