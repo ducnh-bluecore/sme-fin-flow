@@ -50,6 +50,9 @@ export interface ForecastInputs {
   avgDailyOutflow: number;
   historicalDays: number;
   
+  // ✅ NEW: Average daily order revenue from cdp_orders (SSOT fallback)
+  avgDailyOrderRevenue: number;
+  
   // Data availability flags
   dataStatus: {
     hasBankData: boolean;
@@ -260,7 +263,11 @@ export function useForecastInputs() {
       .filter(o => o.delivered_at && new Date(o.delivered_at) > fourteenDaysAgo)
       .reduce((sum, o) => sum + (o.seller_income || 0), 0);
 
-    // Historical averages - now from RPC (DB-First)
+    // ✅ NEW: Calculate average daily order revenue from cdp_orders (90-day average)
+    const totalOrderRevenue = (orders || []).reduce((sum, o) => sum + (o.seller_income || 0), 0);
+    const avgDailyOrderRevenue = (orders || []).length > 0 ? totalOrderRevenue / 90 : 0;
+
+    // Historical averages - now from RPC (DB-First with cdp_orders fallback)
     const totalCredit = Number(historicalStats?.total_credit) || 0;
     const totalDebit = Number(historicalStats?.total_debit) || 0;
     const historicalDays = Number(historicalStats?.unique_days) || 1;
@@ -311,6 +318,7 @@ export function useForecastInputs() {
       avgDailyInflow: totalCredit / historicalDays,
       avgDailyOutflow: totalDebit / historicalDays,
       historicalDays,
+      avgDailyOrderRevenue, // ✅ NEW: From cdp_orders
       dataStatus: {
         hasBankData,
         hasInvoiceData,
