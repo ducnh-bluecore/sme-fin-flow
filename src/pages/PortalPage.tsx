@@ -28,6 +28,7 @@ import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useExtendedAlertConfigs, useInitializeDefaultAlerts } from '@/hooks/useExtendedAlertConfigs';
 import { AlertSetupBanner } from '@/components/portal/AlertSetupBanner';
+import { useIsSuperAdmin } from '@/hooks/useIsSuperAdmin';
 
 // Format VND currency
 function formatVND(value: number | null | undefined): string {
@@ -213,6 +214,7 @@ export default function PortalPage() {
   const { language } = useLanguage();
   const { data: tenantId } = useActiveTenantId();
   const { hasModule, isLoading: moduleAccessLoading } = useModuleAccess();
+  const { isSuperAdmin } = useIsSuperAdmin();
 
   const debugEnabled = useMemo(() => {
     try {
@@ -598,23 +600,25 @@ export default function PortalPage() {
           </section>
 
           {/* Bottom Section: Workspaces + System Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Workspaces */}
-            <section className="lg:col-span-1">
-              <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Workspaces</h2>
-              <div className="space-y-2">
-                {workspaces.map((workspace) => (
-                  <WorkspaceLink 
-                    key={workspace.id}
-                    workspace={workspace}
-                    onClick={() => handleWorkspaceClick(workspace)}
-                  />
-                ))}
-              </div>
-            </section>
+          <div className={`grid grid-cols-1 ${isSuperAdmin ? 'lg:grid-cols-3' : ''} gap-6`}>
+            {/* Workspaces - Only visible for Super Admins */}
+            {isSuperAdmin && (
+              <section className="lg:col-span-1">
+                <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Workspaces</h2>
+                <div className="space-y-2">
+                  {workspaces.map((workspace) => (
+                    <WorkspaceLink 
+                      key={workspace.id}
+                      workspace={workspace}
+                      onClick={() => handleWorkspaceClick(workspace)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* System Overview */}
-            <section className="lg:col-span-2">
+            <section className={isSuperAdmin ? "lg:col-span-2" : "lg:col-span-1"}>
               <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">System Overview</h2>
               <Card className="p-5">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
