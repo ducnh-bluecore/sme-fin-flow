@@ -248,9 +248,25 @@ export function useInitializeDefaultAlerts() {
         .upsert(dataToInsert, { onConflict: 'tenant_id,category,alert_type' });
 
       if (error) throw error;
+
+      // Immediately run detection so the Portal can show alert_instances (if any rules trigger)
+      try {
+        await client.functions.invoke('detect-alerts', {
+          body: { tenant_id: tenantId, use_precalculated: true },
+        });
+
+        await client.functions.invoke('process-alert-notifications', {
+          body: { tenant_id: tenantId },
+        });
+      } catch (triggerError) {
+        // Seeding should still succeed even if detection fails
+        console.warn('Failed to trigger alert processing after seeding defaults:', triggerError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['extended-alert-configs'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['alert-instances'] });
       toast.success('Đã khởi tạo cấu hình mặc định');
     },
     onError: (error) => {
