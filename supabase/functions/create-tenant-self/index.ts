@@ -17,6 +17,7 @@ import {
   errorResponse,
   unauthorizedResponse,
 } from '../_shared/auth.ts';
+import { seedDefaultAlertConfigs } from '../_shared/defaultAlertConfigs.ts';
 
 type CreateTenantSelfRequest = {
   name: string;
@@ -145,7 +146,17 @@ Deno.serve(async (req: Request) => {
       // Non-fatal - continue with tenant creation
     }
 
-    return jsonResponse({ success: true, tenant });
+    // Auto-seed default alert configurations
+    console.log(`[create-tenant-self] Seeding default alert configs for tenant ${tenant.id}`);
+    const seedResult = await seedDefaultAlertConfigs(serviceClient, tenant.id);
+    if (seedResult.success) {
+      console.log(`[create-tenant-self] Seeded ${seedResult.count} alert configs`);
+    } else {
+      console.error('[create-tenant-self] Error seeding alert configs:', seedResult.error);
+      // Non-fatal - configs can be initialized later via Portal
+    }
+
+    return jsonResponse({ success: true, tenant, alertConfigsSeeded: seedResult.count });
   } catch (err) {
     console.error('[create-tenant-self] Unexpected error:', err);
     return errorResponse(err instanceof Error ? err.message : 'Internal server error', 500);

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { seedDefaultAlertConfigs } from '../_shared/defaultAlertConfigs.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -291,6 +292,18 @@ Deno.serve(async (req) => {
       // Non-fatal - continue with tenant creation
     }
 
+    // Auto-seed default alert configurations
+    console.log(`[create-tenant-with-owner] Seeding default alert configs for tenant ${tenant.id}`)
+    let alertConfigsSeeded = 0
+    const seedResult = await seedDefaultAlertConfigs(supabaseAdmin, tenant.id)
+    if (seedResult.success) {
+      console.log(`[create-tenant-with-owner] Seeded ${seedResult.count} alert configs`)
+      alertConfigsSeeded = seedResult.count
+    } else {
+      console.error('[create-tenant-with-owner] Error seeding alert configs:', seedResult.error)
+      // Non-fatal - configs can be initialized later via Portal
+    }
+
     console.log('Successfully created tenant with owner')
 
     return new Response(
@@ -300,6 +313,7 @@ Deno.serve(async (req) => {
         ownerId: ownerId,
         isNewUser: isNewUser,
         schemaProvisioned: schemaProvisioned,
+        alertConfigsSeeded: alertConfigsSeeded,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
