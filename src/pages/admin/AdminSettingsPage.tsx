@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,89 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Settings, Globe, Mail, Shield, Database } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { PageHeader } from '@/components/shared/PageHeader';
+
+// Setting Section Component
+function SettingSection({
+  icon: Icon,
+  title,
+  description,
+  children,
+  delay = 0,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+    >
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-medium">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Icon className="w-4 h-4 text-primary" />
+            </div>
+            {title}
+          </CardTitle>
+          <CardDescription className="text-sm">{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">{children}</CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+// Toggle Setting Row
+function ToggleSetting({
+  label,
+  description,
+  defaultChecked = false,
+}: {
+  label: string;
+  description: string;
+  defaultChecked?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="space-y-0.5">
+        <Label className="text-sm font-medium">{label}</Label>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Switch defaultChecked={defaultChecked} />
+    </div>
+  );
+}
+
+// Button Setting Row
+function ButtonSetting({
+  label,
+  description,
+  buttonText,
+  onClick,
+}: {
+  label: string;
+  description: string;
+  buttonText: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <Label className="text-sm font-medium">{label}</Label>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <Button variant="outline" size="sm" onClick={onClick}>
+        {buttonText}
+      </Button>
+    </div>
+  );
+}
 
 export default function AdminSettingsPage() {
   const { t } = useLanguage();
@@ -18,22 +102,25 @@ export default function AdminSettingsPage() {
       </Helmet>
 
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">{t('admin.settings.title')}</h1>
-          <p className="text-muted-foreground">{t('admin.settings.subtitle')}</p>
-        </div>
+        {/* Header */}
+        <PageHeader
+          title={t('admin.settings.title')}
+          subtitle={t('admin.settings.subtitle')}
+          icon={<Settings className="w-5 h-5" />}
+          actions={
+            <Button>{t('admin.settings.saveChanges')}</Button>
+          }
+        />
 
-        <div className="grid gap-6">
+        <div className="grid gap-6 max-w-4xl">
           {/* General Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="w-5 h-5" />
-                {t('admin.settings.general')}
-              </CardTitle>
-              <CardDescription>{t('admin.settings.generalDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <SettingSection
+            icon={Globe}
+            title={t('admin.settings.general')}
+            description={t('admin.settings.generalDesc')}
+            delay={0}
+          >
+            <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="platform-name">{t('admin.settings.platformName')}</Label>
                 <Input id="platform-name" defaultValue="Bluecore Finance" />
@@ -42,108 +129,67 @@ export default function AdminSettingsPage() {
                 <Label htmlFor="support-email">{t('admin.settings.supportEmail')}</Label>
                 <Input id="support-email" type="email" defaultValue="support@bluecore.vn" />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </SettingSection>
 
           {/* Email Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                {t('admin.settings.emailConfig')}
-              </CardTitle>
-              <CardDescription>{t('admin.settings.emailConfigDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>{t('admin.settings.confirmEmail')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('admin.settings.confirmEmailDesc')}
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>{t('admin.settings.newTenantNotify')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('admin.settings.newTenantNotifyDesc')}
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
+          <SettingSection
+            icon={Mail}
+            title={t('admin.settings.emailConfig')}
+            description={t('admin.settings.emailConfigDesc')}
+            delay={0.1}
+          >
+            <ToggleSetting
+              label={t('admin.settings.confirmEmail')}
+              description={t('admin.settings.confirmEmailDesc')}
+              defaultChecked={true}
+            />
+            <Separator />
+            <ToggleSetting
+              label={t('admin.settings.newTenantNotify')}
+              description={t('admin.settings.newTenantNotifyDesc')}
+              defaultChecked={true}
+            />
+          </SettingSection>
 
           {/* Security Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                {t('admin.settings.security')}
-              </CardTitle>
-              <CardDescription>{t('admin.settings.securityDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>{t('admin.settings.require2FA')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('admin.settings.require2FADesc')}
-                  </p>
-                </div>
-                <Switch />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>{t('admin.settings.allowSignup')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('admin.settings.allowSignupDesc')}
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
+          <SettingSection
+            icon={Shield}
+            title={t('admin.settings.security')}
+            description={t('admin.settings.securityDesc')}
+            delay={0.2}
+          >
+            <ToggleSetting
+              label={t('admin.settings.require2FA')}
+              description={t('admin.settings.require2FADesc')}
+            />
+            <Separator />
+            <ToggleSetting
+              label={t('admin.settings.allowSignup')}
+              description={t('admin.settings.allowSignupDesc')}
+              defaultChecked={true}
+            />
+          </SettingSection>
 
           {/* Database Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="w-5 h-5" />
-                {t('admin.settings.database')}
-              </CardTitle>
-              <CardDescription>{t('admin.settings.databaseDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>{t('admin.settings.autoBackup')}</Label>
-                  <p className="text-sm text-muted-foreground">{t('admin.settings.autoBackupStatus')}</p>
-                </div>
-                <Button variant="outline" size="sm">
-                  {t('admin.settings.configure')}
-                </Button>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>{t('admin.settings.manualBackup')}</Label>
-                  <p className="text-sm text-muted-foreground">{t('admin.settings.manualBackupDesc')}</p>
-                </div>
-                <Button variant="outline" size="sm">
-                  {t('admin.settings.createBackup')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex justify-end">
-          <Button>{t('admin.settings.saveChanges')}</Button>
+          <SettingSection
+            icon={Database}
+            title={t('admin.settings.database')}
+            description={t('admin.settings.databaseDesc')}
+            delay={0.3}
+          >
+            <ButtonSetting
+              label={t('admin.settings.autoBackup')}
+              description={t('admin.settings.autoBackupStatus')}
+              buttonText={t('admin.settings.configure')}
+            />
+            <Separator />
+            <ButtonSetting
+              label={t('admin.settings.manualBackup')}
+              description={t('admin.settings.manualBackupDesc')}
+              buttonText={t('admin.settings.createBackup')}
+            />
+          </SettingSection>
         </div>
       </div>
     </>
