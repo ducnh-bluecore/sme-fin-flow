@@ -1,273 +1,133 @@
 
-# Kế hoạch: Hệ thống Quản lý Gói dịch vụ & Sản phẩm cho Admin
+# Plan: Auto-seed Alert Configs & Setup Guidance
 
-## Tổng quan
+## Tổng quan vấn đề
+Tenant mới được tạo nhưng **không có bất kỳ alert config nào** trong bảng `extended_alert_configs`. Điều này khiến:
+- Control Tower không có rules để detect alerts
+- Portal hiển thị `0 alerts`, `0 decisions` dù có dữ liệu tài chính
+- User không biết cần setup gì
 
-Xây dựng trang Admin để quản lý:
-1. **Gói dịch vụ (Plans)**: free, starter, professional, enterprise
-2. **Sản phẩm/Modules**: FDP, MDP, CDP, Control Tower, Data Warehouse
-3. **Cấu hình Tenant**: Chỉ định gói & modules được kích hoạt cho mỗi tenant
+## Giải pháp 3 phần
 
----
+### Phần 1: Auto-seed default alert configs khi tạo tenant mới
 
-## Thiết kế Database
+**Thay đổi Edge Functions:**
 
-### Bảng mới cần tạo
+1. **`create-tenant-self/index.ts`**
+   - Sau khi tạo tenant + provision schema thành công
+   - Insert 32 default alert configs từ `defaultExtendedAlerts` array
+   - Sử dụng service client để bypass RLS
 
-**1. `platform_plans` - Danh sách gói dịch vụ**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| code | text | Unique code (free, starter, professional, enterprise) |
-| name | text | Tên hiển thị |
-| description | text | Mô tả gói |
-| price_monthly | numeric | Giá tháng (VND) |
-| price_yearly | numeric | Giá năm (VND) |
-| max_users | integer | Giới hạn user (null = unlimited) |
-| is_active | boolean | Còn bán hay không |
-| sort_order | integer | Thứ tự hiển thị |
-| features | jsonb | Danh sách tính năng |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
+2. **`create-tenant-with-owner/index.ts`**
+   - Tương tự: thêm logic seed alerts sau schema provisioning
+   - Đảm bảo admin-created tenants cũng có configs mặc định
 
-**2. `platform_modules` - Danh sách sản phẩm/modules**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| code | text | Unique code (fdp, mdp, cdp, control_tower, data_warehouse) |
-| name | text | Tên hiển thị |
-| description | text | Mô tả module |
-| icon | text | Icon name (lucide) |
-| color | text | Brand color |
-| is_core | boolean | Module lõi (luôn bật) |
-| is_active | boolean | Có sẵn sàng triển khai |
-| sort_order | integer | Thứ tự hiển thị |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
-
-**3. `plan_modules` - Liên kết gói với modules mặc định**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| plan_id | uuid | FK -> platform_plans |
-| module_id | uuid | FK -> platform_modules |
-| is_included | boolean | Có bao gồm trong gói |
-
-**4. `tenant_modules` - Modules được kích hoạt cho từng tenant**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| tenant_id | uuid | FK -> tenants |
-| module_id | uuid | FK -> platform_modules |
-| is_enabled | boolean | Đang bật |
-| enabled_at | timestamptz | Ngày kích hoạt |
-| enabled_by | uuid | FK -> auth.users |
-| expires_at | timestamptz | Ngày hết hạn (null = vĩnh viễn) |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
-
----
-
-## Dữ liệu khởi tạo
-
-### Platform Plans
-```
-| Code | Name | Price Monthly | Max Users |
-|------|------|---------------|-----------|
-| free | Miễn phí | 0 | 2 |
-| starter | Starter | 2,000,000 | 5 |
-| professional | Professional | 5,000,000 | 15 |
-| enterprise | Enterprise | Custom | Unlimited |
-```
-
-### Platform Modules
-```
-| Code | Name | Description | Is Core |
-|------|------|-------------|---------|
-| fdp | FDP | Financial Data Platform - Nền tảng dữ liệu tài chính | true |
-| mdp | MDP | Marketing Data Platform - Đo lường giá trị tài chính của marketing | false |
-| cdp | CDP | Customer Data Platform - Phân tích hành vi khách hàng | false |
-| control_tower | Control Tower | Trung tâm điều hành & cảnh báo | false |
-| data_warehouse | Data Warehouse | Kho dữ liệu tập trung | false |
-```
-
-### Plan Modules (Mặc định)
-```
-| Plan | FDP | MDP | CDP | Control Tower | Data Warehouse |
-|------|-----|-----|-----|---------------|----------------|
-| free | ✓ | - | - | - | - |
-| starter | ✓ | ✓ | - | - | - |
-| professional | ✓ | ✓ | ✓ | ✓ | - |
-| enterprise | ✓ | ✓ | ✓ | ✓ | ✓ |
-```
-
----
-
-## Giao diện Admin
-
-### 1. Trang quản lý Gói dịch vụ (`/admin/plans`)
-
-```
-+--------------------------------------------------+
-| PageHeader                                        |
-| [Package] Quản lý Gói dịch vụ                     |
-| "Cấu hình các gói dịch vụ của platform"           |
-|                              [+ Thêm gói mới]     |
-+--------------------------------------------------+
-|                                                   |
-|  +----------+ +----------+ +----------+ +-------+ |
-|  | FREE     | | STARTER  | | PRO      | | ENT   | |
-|  | 0đ/th    | | 2M/th    | | 5M/th    | | Custom| |
-|  | 2 users  | | 5 users  | | 15 users | | ∞     | |
-|  |          | |          | |          | |       | |
-|  | [FDP]    | | [FDP]    | | [FDP]    | | [ALL] | |
-|  |          | | [MDP]    | | [MDP]    | |       | |
-|  |          | |          | | [CDP]    | |       | |
-|  |          | |          | | [CT]     | |       | |
-|  |          | |          | |          | |       | |
-|  | [Edit]   | | [Edit]   | | [Edit]   | | [Edit]| |
-|  +----------+ +----------+ +----------+ +-------+ |
-|                                                   |
-+--------------------------------------------------+
-```
-
-### 2. Trang quản lý Modules (`/admin/modules`)
-
-```
-+--------------------------------------------------+
-| PageHeader                                        |
-| [Layers] Quản lý Sản phẩm                         |
-| "Cấu hình các module của platform"                |
-+--------------------------------------------------+
-|                                                   |
-| +------------------------------------------------+|
-| | Module | Mô tả           | Core | Active | Edit||
-| |--------|-----------------|------|--------|-----||
-| | FDP    | Financial Data  | ✓    | ✓      | [.] ||
-| | MDP    | Marketing Data  | -    | ✓      | [.] ||
-| | CDP    | Customer Data   | -    | ✓      | [.] ||
-| | CT     | Control Tower   | -    | ✓      | [.] ||
-| | DW     | Data Warehouse  | -    | ✓      | [.] ||
-| +------------------------------------------------+|
-|                                                   |
-+--------------------------------------------------+
-```
-
-### 3. Tab mới trong Tenant Detail (`/admin/tenants/:id` - Tab "Gói & Modules")
-
-```
-+--------------------------------------------------+
-| [Overview] [Members] [Schema] [Gói & Modules] ... |
-+--------------------------------------------------+
-|                                                   |
-| +----------------------+ +-----------------------+|
-| | Gói hiện tại         | | Modules được bật      ||
-| | [Professional]   [▼] | |                       ||
-| |                      | | [✓] FDP               ||
-| | • 15 users max       | | [✓] MDP               ||
-| | • 5M VND/tháng       | | [✓] CDP               ||
-| |                      | | [✓] Control Tower     ||
-| | [Đổi gói]            | | [ ] Data Warehouse    ||
-| +----------------------+ |                       ||
-|                          | [Lưu thay đổi]        ||
-|                          +-----------------------+|
-+--------------------------------------------------+
-```
-
----
-
-## Luồng hoạt động
-
-### Khi tạo Tenant mới:
-1. Admin chọn gói dịch vụ (plan)
-2. Hệ thống tự động copy modules mặc định từ `plan_modules` vào `tenant_modules`
-3. Admin có thể override bật/tắt module theo ý
-
-### Khi đổi gói cho Tenant:
-1. Update `plan` trong bảng `tenants`
-2. Hiển thị cảnh báo nếu tenant đang dùng module không có trong gói mới
-3. Admin quyết định giữ hay tắt module đó
-
-### Frontend kiểm tra quyền truy cập module:
+**SQL Insert Logic:**
 ```typescript
-// Hook mới: useModuleAccess
-const { hasModule, enabledModules } = useModuleAccess();
+// Insert default alert configs
+const defaultAlerts = [
+  { category: 'cashflow', alert_type: 'cash_critical', severity: 'critical', ... },
+  { category: 'cashflow', alert_type: 'ar_overdue', severity: 'warning', ... },
+  // ... 32 alerts total
+];
 
-if (!hasModule('mdp')) {
-  // Redirect hoặc hiển thị upgrade prompt
-}
+await serviceClient
+  .from('extended_alert_configs')
+  .insert(defaultAlerts.map(a => ({ tenant_id: tenant.id, ...a })));
+```
+
+### Phần 2: Hiển thị setup prompt trên Portal
+
+**File: `src/pages/PortalPage.tsx`**
+
+1. **Thêm hook kiểm tra alert configs:**
+   - Gọi `useExtendedAlertConfigs()` để check số lượng configs
+   - Nếu `configs.length === 0` → hiển thị setup banner
+
+2. **UI Banner Component:**
+   - Vị trí: Phía trên "System Overview" section
+   - Nội dung: "Hệ thống chưa có cấu hình cảnh báo. Khởi tạo ngay để nhận thông báo kịp thời."
+   - Button: "Khởi tạo mặc định" → gọi `initializeDefaultAlerts()`
+
+**Mockup Banner:**
+```text
++------------------------------------------------------------------+
+| ⚠️ Control Tower chưa có cấu hình                                |
+|    Khởi tạo 32 alert rules mặc định để nhận cảnh báo kịp thời    |
+|                                      [Khởi tạo ngay →]           |
++------------------------------------------------------------------+
+```
+
+### Phần 3: Seed data ngay cho E2E Tenant
+
+**Migration SQL:**
+```sql
+INSERT INTO extended_alert_configs (tenant_id, category, alert_type, ...)
+SELECT 
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  category, alert_type, severity, ...
+FROM (VALUES
+  ('cashflow', 'cash_critical', 'critical', ...),
+  ('cashflow', 'ar_overdue', 'warning', ...),
+  -- ... 32 rows
+) AS defaults(category, alert_type, severity, ...)
+ON CONFLICT (tenant_id, category, alert_type) DO NOTHING;
 ```
 
 ---
 
-## Chi tiết triển khai
+## Chi tiết kỹ thuật
 
-### Files cần tạo mới
-
-| File | Mục đích |
-|------|----------|
-| `src/pages/admin/AdminPlansPage.tsx` | Trang quản lý gói dịch vụ |
-| `src/pages/admin/AdminModulesPage.tsx` | Trang quản lý modules |
-| `src/components/admin/PlanCard.tsx` | Card hiển thị thông tin gói |
-| `src/components/admin/TenantSubscriptionTab.tsx` | Tab gói & modules trong tenant detail |
-| `src/hooks/usePlatformPlans.ts` | Hook lấy danh sách gói |
-| `src/hooks/usePlatformModules.ts` | Hook lấy danh sách modules |
-| `src/hooks/useTenantModules.ts` | Hook quản lý modules của tenant |
-| `src/hooks/useModuleAccess.ts` | Hook kiểm tra quyền truy cập module |
-
-### Files cần cập nhật
+### Files cần thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/App.tsx` | Thêm routes mới `/admin/plans`, `/admin/modules` |
-| `src/pages/admin/AdminTenantsPage.tsx` | Thêm cột hiển thị modules đang bật |
-| `src/pages/admin/AdminTenantDetailPage.tsx` | Thêm tab "Gói & Modules" |
-| `src/pages/admin/AdminDashboard.tsx` | Thêm quick action đến trang Plans/Modules |
-| `src/components/layout/AdminLayout.tsx` | Thêm menu items mới |
-| `src/locales/*.json` | Thêm translations |
+| `supabase/functions/create-tenant-self/index.ts` | Thêm seed alerts logic sau schema provisioning |
+| `supabase/functions/create-tenant-with-owner/index.ts` | Thêm seed alerts logic tương tự |
+| `src/pages/PortalPage.tsx` | Thêm setup banner + hook integration |
+| `supabase/migrations/xxx_seed_e2e_alerts.sql` | Seed 32 alerts cho E2E tenant |
 
-### Database Migrations
+### Default Alerts (32 rules)
 
-1. Tạo bảng `platform_plans`
-2. Tạo bảng `platform_modules`
-3. Tạo bảng `plan_modules`
-4. Tạo bảng `tenant_modules`
-5. Insert dữ liệu khởi tạo
-6. Tạo RLS policies (chỉ admin được sửa, tất cả user đọc được)
+Sử dụng `defaultExtendedAlerts` array đã có sẵn trong `useExtendedAlertConfigs.ts`:
 
----
+| Category | Alert Types | Count |
+|----------|-------------|-------|
+| Product | inventory_low, inventory_expired, product_return_high, product_slow_moving | 4 |
+| Business | sales_target_miss, sales_drop, margin_low, promotion_ineffective | 4 |
+| Store | store_performance_low, store_no_sales, store_high_expense, store_staff_shortage | 4 |
+| Cashflow | cash_critical, ar_overdue, payment_due, reconciliation_pending | 4 |
+| KPI | kpi_warning, kpi_critical, kpi_achieved, conversion_drop | 4 |
+| Customer | negative_review, complaint, vip_order, churn_risk | 4 |
+| Fulfillment | order_delayed, delivery_failed, shipping_cost_high, picking_error | 4 |
+| Operations | system_error, data_quality, sync_failed, scheduled_task_failed | 4 |
 
-## RLS Policies
+### Portal Banner Logic
 
-```sql
--- platform_plans: Read all, Write admin only
-CREATE POLICY "Anyone can read plans" ON platform_plans FOR SELECT USING (true);
-CREATE POLICY "Admins can manage plans" ON platform_plans FOR ALL 
-  USING (public.has_role(auth.uid(), 'admin'));
+```typescript
+// In PortalPage.tsx
+const { data: alertConfigs, isLoading: configsLoading } = useExtendedAlertConfigs();
+const initDefaults = useInitializeDefaultAlerts();
 
--- platform_modules: Read all, Write admin only  
-CREATE POLICY "Anyone can read modules" ON platform_modules FOR SELECT USING (true);
-CREATE POLICY "Admins can manage modules" ON platform_modules FOR ALL 
-  USING (public.has_role(auth.uid(), 'admin'));
+const needsSetup = !configsLoading && (!alertConfigs || alertConfigs.length === 0);
 
--- tenant_modules: Read by tenant members, Write admin only
-CREATE POLICY "Tenant members can read their modules" ON tenant_modules FOR SELECT
-  USING (EXISTS (
-    SELECT 1 FROM tenant_users tu 
-    WHERE tu.tenant_id = tenant_modules.tenant_id 
-    AND tu.user_id = auth.uid() 
-    AND tu.is_active = true
-  ));
-CREATE POLICY "Admins can manage tenant modules" ON tenant_modules FOR ALL
-  USING (public.has_role(auth.uid(), 'admin'));
+// Render banner if needsSetup
+{needsSetup && (
+  <AlertSetupBanner onInitialize={() => initDefaults.mutate()} />
+)}
 ```
 
 ---
 
+## Thứ tự thực hiện
+
+1. **Migration**: Seed alerts cho E2E tenant (test ngay lập tức)
+2. **Edge Functions**: Update cả 2 functions để auto-seed cho tenant mới
+3. **Portal UI**: Thêm setup banner cho tenants hiện có chưa có configs
+4. **Test E2E**: Verify Portal hiển thị đúng sau khi có alert configs
+
 ## Kết quả mong đợi
 
-1. Admin có thể quản lý gói dịch vụ và sản phẩm từ một nơi tập trung
-2. Khi tạo tenant, hệ thống tự động assign modules theo gói
-3. Admin có thể override bật/tắt module riêng cho từng tenant
-4. Frontend có thể kiểm tra quyền truy cập module để hiển thị/ẩn chức năng
-5. Dữ liệu subscription được lưu trữ riêng, dễ dàng mở rộng thêm billing logic sau này
+- Tenant mới: Tự động có 32 alert configs → Control Tower hoạt động ngay
+- Tenant cũ chưa có configs: Thấy banner hướng dẫn → 1-click setup
+- E2E tenant: Có data ngay để test System Overview
