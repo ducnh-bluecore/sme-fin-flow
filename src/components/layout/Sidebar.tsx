@@ -71,7 +71,6 @@ const navItems: NavItem[] = [
     icon: Target,
     children: [
       { labelKey: 'nav.executiveSummary', href: '/executive-summary' },
-      { labelKey: 'nav.capitalAllocation', href: '/capital-allocation' },
       { labelKey: 'nav.riskDashboard', href: '/risk-dashboard' },
       { labelKey: 'nav.decisionSupport', href: '/decision-support' },
     ],
