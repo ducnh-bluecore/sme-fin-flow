@@ -18983,6 +18983,45 @@ export type Database = {
           },
         ]
       }
+      plan_modules: {
+        Row: {
+          created_at: string
+          id: string
+          is_included: boolean | null
+          module_id: string
+          plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_included?: boolean | null
+          module_id: string
+          plan_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_included?: boolean | null
+          module_id?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "platform_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_modules_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "platform_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_ads_daily: {
         Row: {
           acos: number | null
@@ -19110,6 +19149,93 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      platform_modules: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_core: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_core?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_core?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_plans: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          max_users: number | null
+          name: string
+          price_monthly: number | null
+          price_yearly: number | null
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_users?: number | null
+          name: string
+          price_monthly?: number | null
+          price_yearly?: number | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_users?: number | null
+          name?: string
+          price_monthly?: number | null
+          price_yearly?: number | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       platform_violations: {
         Row: {
@@ -24286,6 +24412,78 @@ export type Database = {
             foreignKeyName: "tenant_ml_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      tenant_modules: {
+        Row: {
+          created_at: string
+          enabled_at: string | null
+          enabled_by: string | null
+          expires_at: string | null
+          id: string
+          is_enabled: boolean | null
+          module_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          module_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled_at?: string | null
+          enabled_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          module_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "platform_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_modules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_modules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_modules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_modules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
             referencedColumns: ["tenant_id"]
           },
