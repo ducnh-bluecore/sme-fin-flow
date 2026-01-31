@@ -19,7 +19,8 @@ import {
   Shield,
   BarChart3,
   History,
-  HeartPulse
+  HeartPulse,
+  Package
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantSchemaStatus } from '@/hooks/useTenantSchemaStatus';
@@ -29,6 +30,7 @@ import { ProvisionSchemaButton } from '@/components/admin/ProvisionSchemaButton'
 import { TenantStatsCard } from '@/components/admin/TenantStatsCard';
 import { TenantHealthTab } from '@/components/admin/TenantHealthTab';
 import { TenantAuditLog } from '@/components/admin/TenantAuditLog';
+import { TenantSubscriptionTab } from '@/components/admin/TenantSubscriptionTab';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -137,6 +139,10 @@ export default function AdminTenantDetailPage() {
             <TabsTrigger value="usage" className="gap-2">
               <BarChart3 className="w-4 h-4" />
               Sử dụng
+            </TabsTrigger>
+            <TabsTrigger value="subscription" className="gap-2">
+              <Package className="w-4 h-4" />
+              Gói & Modules
             </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <History className="w-4 h-4" />
@@ -367,6 +373,14 @@ export default function AdminTenantDetailPage() {
               tenantId={tenant.id}
               tenantSlug={tenant.slug}
               isProvisioned={schemaInfo?.isProvisioned || false}
+            />
+          </TabsContent>
+
+          {/* Subscription Tab */}
+          <TabsContent value="subscription">
+            <TenantSubscriptionTab 
+              tenantId={tenant.id}
+              tenantPlan={tenant.plan || 'free'}
             />
           </TabsContent>
 

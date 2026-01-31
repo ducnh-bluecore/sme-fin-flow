@@ -66,6 +66,8 @@ const AdminTenantDetailPage = lazy(() => import("./pages/admin/AdminTenantDetail
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminCSAlertsPage = lazy(() => import("./pages/admin/AdminCSAlertsPage"));
+const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
+const AdminModulesPage = lazy(() => import("./pages/admin/AdminModulesPage"));
 
 // New merged pages
 const ReconciliationHubPage = lazy(() => import("./pages/ReconciliationHubPage"));
@@ -539,6 +541,8 @@ const AppRoutes = () => {
           <Route path="/admin/tenants" element={<AdminTenantsPage />} />
           <Route path="/admin/tenants/:tenantId" element={<AdminTenantDetailPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/plans" element={<AdminPlansPage />} />
+          <Route path="/admin/modules" element={<AdminModulesPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
       </Route>

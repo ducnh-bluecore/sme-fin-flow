@@ -27,6 +27,8 @@ const adminNavItems = [
   { label: 'CS Alerts', href: '/admin/cs-alerts', icon: Bell },
   { label: 'Quản lý Tenants', href: '/admin/tenants', icon: Building2 },
   { label: 'Quản lý Users', href: '/admin/users', icon: Users },
+  { label: 'Gói dịch vụ', href: '/admin/plans', icon: TrendingUp },
+  { label: 'Sản phẩm/Modules', href: '/admin/modules', icon: Shield },
   { label: 'Cấu hình hệ thống', href: '/admin/settings', icon: Settings },
 ];
 
