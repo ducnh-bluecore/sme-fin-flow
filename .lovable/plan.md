@@ -1,270 +1,273 @@
 
-# Tenant Health & Customer Success Tracking System
+# Kế hoạch: Hệ thống Quản lý Gói dịch vụ & Sản phẩm cho Admin
 
-## Mục tiêu
+## Tổng quan
 
-Xây dựng hệ thống theo dõi sức khỏe tenant để:
-1. **Đo lường hoạt động** - Tenant đang làm gì, tần suất ra sao
-2. **Theo dõi tiến độ** - Onboarding đến bước nào, feature adoption
-3. **Phát hiện rủi ro churn** - Dấu hiệu sớm của việc khách hàng bỏ
-4. **Cảnh báo proactive** - Đẩy alert cho CS team để can thiệp kịp thời
+Xây dựng trang Admin để quản lý:
+1. **Gói dịch vụ (Plans)**: free, starter, professional, enterprise
+2. **Sản phẩm/Modules**: FDP, MDP, CDP, Control Tower, Data Warehouse
+3. **Cấu hình Tenant**: Chỉ định gói & modules được kích hoạt cho mỗi tenant
 
-## Kiến trúc Hệ thống
+---
 
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                          User Actions (Frontend)                              │
-│   Page Views │ Feature Usage │ Decisions Made │ Time on Page                  │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      Event Tracking Hook (useActivityTracker)                 │
-│   - Auto track page views                                                     │
-│   - Manual track feature usage                                                │
-│   - Batch insert every 30s                                                    │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                         Database Tables                                       │
-│  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────────┐  │
-│  │ tenant_events      │  │ tenant_health      │  │ cs_alerts              │  │
-│  │ (raw events)       │  │ (daily aggregated) │  │ (proactive warnings)   │  │
-│  └────────────────────┘  └────────────────────┘  └────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                    Admin UI (AdminTenantDetailPage)                           │
-│  ┌──────────────────────────────────────────────────────────────────────┐    │
-│  │                     NEW TAB: "Sức khỏe Tenant"                       │    │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐   │    │
-│  │  │ Health Score    │  │ Engagement      │  │ Onboarding          │   │    │
-│  │  │ (0-100)         │  │ Metrics         │  │ Progress            │   │    │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────────┘   │    │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐   │    │
-│  │  │ Feature         │  │ Risk            │  │ CS                  │   │    │
-│  │  │ Adoption        │  │ Indicators      │  │ Recommendations     │   │    │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────────┘   │    │
-│  └──────────────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────────────┘
+## Thiết kế Database
+
+### Bảng mới cần tạo
+
+**1. `platform_plans` - Danh sách gói dịch vụ**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| code | text | Unique code (free, starter, professional, enterprise) |
+| name | text | Tên hiển thị |
+| description | text | Mô tả gói |
+| price_monthly | numeric | Giá tháng (VND) |
+| price_yearly | numeric | Giá năm (VND) |
+| max_users | integer | Giới hạn user (null = unlimited) |
+| is_active | boolean | Còn bán hay không |
+| sort_order | integer | Thứ tự hiển thị |
+| features | jsonb | Danh sách tính năng |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+**2. `platform_modules` - Danh sách sản phẩm/modules**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| code | text | Unique code (fdp, mdp, cdp, control_tower, data_warehouse) |
+| name | text | Tên hiển thị |
+| description | text | Mô tả module |
+| icon | text | Icon name (lucide) |
+| color | text | Brand color |
+| is_core | boolean | Module lõi (luôn bật) |
+| is_active | boolean | Có sẵn sàng triển khai |
+| sort_order | integer | Thứ tự hiển thị |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+**3. `plan_modules` - Liên kết gói với modules mặc định**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| plan_id | uuid | FK -> platform_plans |
+| module_id | uuid | FK -> platform_modules |
+| is_included | boolean | Có bao gồm trong gói |
+
+**4. `tenant_modules` - Modules được kích hoạt cho từng tenant**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| tenant_id | uuid | FK -> tenants |
+| module_id | uuid | FK -> platform_modules |
+| is_enabled | boolean | Đang bật |
+| enabled_at | timestamptz | Ngày kích hoạt |
+| enabled_by | uuid | FK -> auth.users |
+| expires_at | timestamptz | Ngày hết hạn (null = vĩnh viễn) |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+---
+
+## Dữ liệu khởi tạo
+
+### Platform Plans
+```
+| Code | Name | Price Monthly | Max Users |
+|------|------|---------------|-----------|
+| free | Miễn phí | 0 | 2 |
+| starter | Starter | 2,000,000 | 5 |
+| professional | Professional | 5,000,000 | 15 |
+| enterprise | Enterprise | Custom | Unlimited |
 ```
 
-## Database Schema
+### Platform Modules
+```
+| Code | Name | Description | Is Core |
+|------|------|-------------|---------|
+| fdp | FDP | Financial Data Platform - Nền tảng dữ liệu tài chính | true |
+| mdp | MDP | Marketing Data Platform - Đo lường giá trị tài chính của marketing | false |
+| cdp | CDP | Customer Data Platform - Phân tích hành vi khách hàng | false |
+| control_tower | Control Tower | Trung tâm điều hành & cảnh báo | false |
+| data_warehouse | Data Warehouse | Kho dữ liệu tập trung | false |
+```
 
-### 1. tenant_events (Raw Event Log)
+### Plan Modules (Mặc định)
+```
+| Plan | FDP | MDP | CDP | Control Tower | Data Warehouse |
+|------|-----|-----|-----|---------------|----------------|
+| free | ✓ | - | - | - | - |
+| starter | ✓ | ✓ | - | - | - |
+| professional | ✓ | ✓ | ✓ | ✓ | - |
+| enterprise | ✓ | ✓ | ✓ | ✓ | ✓ |
+```
 
-Lưu trữ mọi hoạt động của user thuộc tenant:
+---
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| tenant_id | uuid | FK to tenants |
-| user_id | uuid | FK to profiles |
-| event_type | text | 'page_view', 'feature_use', 'decision', 'export', 'error' |
-| event_name | text | Tên cụ thể: 'fdp.dashboard', 'cdp.insight.view' |
-| module | text | 'fdp', 'mdp', 'cdp', 'control_tower', 'settings' |
-| route | text | Full path: '/fdp/dashboard' |
-| metadata | jsonb | Chi tiết bổ sung |
-| session_id | text | Group events by session |
-| duration_ms | integer | Time spent (for page_view) |
-| created_at | timestamptz | Event timestamp |
+## Giao diện Admin
 
-### 2. tenant_health (Daily Aggregated Metrics)
+### 1. Trang quản lý Gói dịch vụ (`/admin/plans`)
 
-Tính toán hàng ngày bởi DB function hoặc cron:
+```
++--------------------------------------------------+
+| PageHeader                                        |
+| [Package] Quản lý Gói dịch vụ                     |
+| "Cấu hình các gói dịch vụ của platform"           |
+|                              [+ Thêm gói mới]     |
++--------------------------------------------------+
+|                                                   |
+|  +----------+ +----------+ +----------+ +-------+ |
+|  | FREE     | | STARTER  | | PRO      | | ENT   | |
+|  | 0đ/th    | | 2M/th    | | 5M/th    | | Custom| |
+|  | 2 users  | | 5 users  | | 15 users | | ∞     | |
+|  |          | |          | |          | |       | |
+|  | [FDP]    | | [FDP]    | | [FDP]    | | [ALL] | |
+|  |          | | [MDP]    | | [MDP]    | |       | |
+|  |          | |          | | [CDP]    | |       | |
+|  |          | |          | | [CT]     | |       | |
+|  |          | |          | |          | |       | |
+|  | [Edit]   | | [Edit]   | | [Edit]   | | [Edit]| |
+|  +----------+ +----------+ +----------+ +-------+ |
+|                                                   |
++--------------------------------------------------+
+```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| tenant_id | uuid | FK to tenants |
-| date | date | Ngày thống kê |
-| health_score | integer | 0-100, composite score |
-| daily_active_users | integer | DAU |
-| weekly_active_users | integer | WAU (rolling 7 days) |
-| total_page_views | integer | Số lượt xem trang |
-| total_decisions | integer | Số quyết định (actions taken) |
-| modules_used | text[] | Modules được sử dụng |
-| avg_session_duration_min | numeric | Thời gian sử dụng trung bình |
-| onboarding_step | text | Bước onboarding hiện tại |
-| data_freshness_days | integer | Số ngày kể từ lần import cuối |
-| churn_risk_score | integer | 0-100, risk level |
-| engagement_trend | text | 'increasing', 'stable', 'declining' |
+### 2. Trang quản lý Modules (`/admin/modules`)
 
-### 3. cs_alerts (Customer Success Alerts)
+```
++--------------------------------------------------+
+| PageHeader                                        |
+| [Layers] Quản lý Sản phẩm                         |
+| "Cấu hình các module của platform"                |
++--------------------------------------------------+
+|                                                   |
+| +------------------------------------------------+|
+| | Module | Mô tả           | Core | Active | Edit||
+| |--------|-----------------|------|--------|-----||
+| | FDP    | Financial Data  | ✓    | ✓      | [.] ||
+| | MDP    | Marketing Data  | -    | ✓      | [.] ||
+| | CDP    | Customer Data   | -    | ✓      | [.] ||
+| | CT     | Control Tower   | -    | ✓      | [.] ||
+| | DW     | Data Warehouse  | -    | ✓      | [.] ||
+| +------------------------------------------------+|
+|                                                   |
++--------------------------------------------------+
+```
 
-Cảnh báo cho team CS hành động:
+### 3. Tab mới trong Tenant Detail (`/admin/tenants/:id` - Tab "Gói & Modules")
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| tenant_id | uuid | FK to tenants |
-| alert_type | text | 'churn_risk', 'inactive', 'stuck_onboarding', 'engagement_drop' |
-| severity | text | 'low', 'medium', 'high', 'critical' |
-| title | text | Tiêu đề ngắn |
-| description | text | Chi tiết vấn đề |
-| recommended_action | text | Đề xuất hành động |
-| status | text | 'open', 'acknowledged', 'resolved', 'ignored' |
-| assigned_to | uuid | CS team member |
-| resolved_at | timestamptz | Thời điểm xử lý xong |
-| created_at | timestamptz | Thời điểm tạo |
+```
++--------------------------------------------------+
+| [Overview] [Members] [Schema] [Gói & Modules] ... |
++--------------------------------------------------+
+|                                                   |
+| +----------------------+ +-----------------------+|
+| | Gói hiện tại         | | Modules được bật      ||
+| | [Professional]   [▼] | |                       ||
+| |                      | | [✓] FDP               ||
+| | • 15 users max       | | [✓] MDP               ||
+| | • 5M VND/tháng       | | [✓] CDP               ||
+| |                      | | [✓] Control Tower     ||
+| | [Đổi gói]            | | [ ] Data Warehouse    ||
+| +----------------------+ |                       ||
+|                          | [Lưu thay đổi]        ||
+|                          +-----------------------+|
++--------------------------------------------------+
+```
 
-## Frontend Components
+---
 
-### 1. useActivityTracker Hook
+## Luồng hoạt động
 
-Global hook đặt trong App.tsx để tự động track:
+### Khi tạo Tenant mới:
+1. Admin chọn gói dịch vụ (plan)
+2. Hệ thống tự động copy modules mặc định từ `plan_modules` vào `tenant_modules`
+3. Admin có thể override bật/tắt module theo ý
 
+### Khi đổi gói cho Tenant:
+1. Update `plan` trong bảng `tenants`
+2. Hiển thị cảnh báo nếu tenant đang dùng module không có trong gói mới
+3. Admin quyết định giữ hay tắt module đó
+
+### Frontend kiểm tra quyền truy cập module:
 ```typescript
-// Auto-tracks:
-// - Page views (every route change)
-// - Time on page (before navigate away)
-// - Feature interactions (manual calls)
+// Hook mới: useModuleAccess
+const { hasModule, enabledModules } = useModuleAccess();
 
-export function useActivityTracker() {
-  // Batch events and insert every 30 seconds
-  // Uses navigator.sendBeacon for reliability
+if (!hasModule('mdp')) {
+  // Redirect hoặc hiển thị upgrade prompt
 }
 ```
 
-### 2. TenantHealthTab Component
+---
 
-Tab mới trong AdminTenantDetailPage:
+## Chi tiết triển khai
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ Health Score: 78/100                        [Trend: ↗ Improving] │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐        │
-│  │ 👥 DAU        │  │ 📊 Decisions  │  │ ⏱ Avg Session │        │
-│  │ 3             │  │ 12            │  │ 18 min        │        │
-│  └───────────────┘  └───────────────┘  └───────────────┘        │
-│                                                                  │
-│  ONBOARDING PROGRESS                                             │
-│  ═══════════════════════════════════════ 71%                    │
-│  ✓ Welcome → ✓ Role → ✓ Company → ✓ Industry → ○ Scale → ○ Sources │
-│                                                                  │
-│  MODULE ADOPTION                                                 │
-│  FDP ████████████████░░░░ 80%  (Last: 2h ago)                   │
-│  MDP ████████░░░░░░░░░░░░ 40%  (Last: 3d ago)                   │
-│  CDP ████░░░░░░░░░░░░░░░░ 20%  (Last: 7d ago)                   │
-│  CT  ░░░░░░░░░░░░░░░░░░░░  0%  (Never used)                     │
-│                                                                  │
-│  🚨 RISK INDICATORS                                              │
-│  ⚠️ MDP chưa được sử dụng 3 ngày                                 │
-│  ⚠️ Chưa import data mới trong 5 ngày                            │
-│                                                                  │
-│  💡 CS RECOMMENDATIONS                                           │
-│  1. Gửi email hướng dẫn sử dụng MDP                              │
-│  2. Schedule call giới thiệu Control Tower                       │
-└─────────────────────────────────────────────────────────────────┘
+### Files cần tạo mới
+
+| File | Mục đích |
+|------|----------|
+| `src/pages/admin/AdminPlansPage.tsx` | Trang quản lý gói dịch vụ |
+| `src/pages/admin/AdminModulesPage.tsx` | Trang quản lý modules |
+| `src/components/admin/PlanCard.tsx` | Card hiển thị thông tin gói |
+| `src/components/admin/TenantSubscriptionTab.tsx` | Tab gói & modules trong tenant detail |
+| `src/hooks/usePlatformPlans.ts` | Hook lấy danh sách gói |
+| `src/hooks/usePlatformModules.ts` | Hook lấy danh sách modules |
+| `src/hooks/useTenantModules.ts` | Hook quản lý modules của tenant |
+| `src/hooks/useModuleAccess.ts` | Hook kiểm tra quyền truy cập module |
+
+### Files cần cập nhật
+
+| File | Thay đổi |
+|------|----------|
+| `src/App.tsx` | Thêm routes mới `/admin/plans`, `/admin/modules` |
+| `src/pages/admin/AdminTenantsPage.tsx` | Thêm cột hiển thị modules đang bật |
+| `src/pages/admin/AdminTenantDetailPage.tsx` | Thêm tab "Gói & Modules" |
+| `src/pages/admin/AdminDashboard.tsx` | Thêm quick action đến trang Plans/Modules |
+| `src/components/layout/AdminLayout.tsx` | Thêm menu items mới |
+| `src/locales/*.json` | Thêm translations |
+
+### Database Migrations
+
+1. Tạo bảng `platform_plans`
+2. Tạo bảng `platform_modules`
+3. Tạo bảng `plan_modules`
+4. Tạo bảng `tenant_modules`
+5. Insert dữ liệu khởi tạo
+6. Tạo RLS policies (chỉ admin được sửa, tất cả user đọc được)
+
+---
+
+## RLS Policies
+
+```sql
+-- platform_plans: Read all, Write admin only
+CREATE POLICY "Anyone can read plans" ON platform_plans FOR SELECT USING (true);
+CREATE POLICY "Admins can manage plans" ON platform_plans FOR ALL 
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- platform_modules: Read all, Write admin only  
+CREATE POLICY "Anyone can read modules" ON platform_modules FOR SELECT USING (true);
+CREATE POLICY "Admins can manage modules" ON platform_modules FOR ALL 
+  USING (public.has_role(auth.uid(), 'admin'));
+
+-- tenant_modules: Read by tenant members, Write admin only
+CREATE POLICY "Tenant members can read their modules" ON tenant_modules FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM tenant_users tu 
+    WHERE tu.tenant_id = tenant_modules.tenant_id 
+    AND tu.user_id = auth.uid() 
+    AND tu.is_active = true
+  ));
+CREATE POLICY "Admins can manage tenant modules" ON tenant_modules FOR ALL
+  USING (public.has_role(auth.uid(), 'admin'));
 ```
 
-### 3. CSAlertsList Component
+---
 
-Hiển thị và quản lý alerts:
+## Kết quả mong đợi
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔔 Cảnh báo CS (2 open)                                         │
-├─────────────────────────────────────────────────────────────────┤
-│ 🔴 HIGH - Engagement giảm 50% trong 7 ngày                      │
-│    Tenant không đăng nhập từ 15/01/2026                         │
-│    [Gọi điện] [Gửi email] [Acknowledge]                         │
-├─────────────────────────────────────────────────────────────────┤
-│ 🟡 MEDIUM - Stuck ở bước onboarding "Sources"                   │
-│    Đã 5 ngày không tiến triển                                   │
-│    [Gửi hướng dẫn] [Schedule call] [Acknowledge]                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Health Score Calculation
-
-Công thức tính Health Score (0-100):
-
-| Factor | Weight | Criteria |
-|--------|--------|----------|
-| Engagement | 30% | DAU/total_users ratio, session duration |
-| Adoption | 25% | Number of modules actively used |
-| Data Activity | 20% | Data freshness, import frequency |
-| Onboarding | 15% | Completion percentage |
-| Growth | 10% | WAU trend (increasing/decreasing) |
-
-**Risk Thresholds:**
-- 80-100: Healthy (green)
-- 60-79: Monitor (yellow)  
-- 40-59: At Risk (orange)
-- 0-39: Critical (red)
-
-## Alert Triggers
-
-Tự động tạo CS alerts khi:
-
-| Trigger | Severity | Alert Type |
-|---------|----------|------------|
-| No login > 7 days | HIGH | inactive |
-| Health score drop > 20 points | HIGH | engagement_drop |
-| Stuck onboarding > 5 days | MEDIUM | stuck_onboarding |
-| No data import > 14 days | MEDIUM | data_stale |
-| DAU drop > 50% WoW | HIGH | churn_risk |
-| Only using 1 module | LOW | low_adoption |
-
-## Technical Implementation
-
-### Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/hooks/useActivityTracker.ts` | Global event tracking hook |
-| `src/hooks/useTenantHealth.ts` | Fetch tenant health metrics |
-| `src/hooks/useCSAlerts.ts` | Manage CS alerts |
-| `src/components/admin/TenantHealthTab.tsx` | Health visualization |
-| `src/components/admin/TenantHealthScore.tsx` | Score gauge component |
-| `src/components/admin/ModuleAdoptionChart.tsx` | Module usage bars |
-| `src/components/admin/OnboardingProgressTracker.tsx` | Step tracker |
-| `src/components/admin/CSAlertsList.tsx` | Alert management |
-| `src/components/admin/RiskIndicators.tsx` | Risk warnings |
-| Database migration | 3 new tables + RPC functions |
-
-### Database Functions (RPC)
-
-1. **calculate_tenant_health(tenant_id)** - Tính health score
-2. **aggregate_daily_metrics()** - Cron job chạy hàng ngày
-3. **check_alert_triggers()** - Kiểm tra và tạo alerts
-4. **get_tenant_activity_summary(tenant_id, days)** - Summary cho UI
-
-### Integration Points
-
-1. **useActivityTracker** đặt trong `AppLayout.tsx` wrapper
-2. **TenantHealthTab** thêm vào tabs trong `AdminTenantDetailPage.tsx`
-3. **Admin Dashboard** thêm overview alerts count
-4. (Future) Email/Slack notifications cho CS team
-
-## Implementation Phases
-
-### Phase 1 (MVP)
-- Database tables + basic migrations
-- useActivityTracker hook (page views only)
-- TenantHealthTab với basic metrics
-- Health score calculation (simplified)
-
-### Phase 2
-- Full event tracking (features, decisions)
-- CS Alerts system
-- Alert triggers automation
-- Recommendations engine
-
-### Phase 3
-- Historical trends charts
-- Cohort analysis
-- Predictive churn model
-- CS team assignment workflow
-
-## Considerations
-
-- **Privacy**: Chỉ track aggregate behavior, không log sensitive data
-- **Performance**: Batch inserts, không block UI
-- **Storage**: Auto-cleanup events older than 90 days
-- **Multi-tenant**: Track cross-tenant từ Admin level
+1. Admin có thể quản lý gói dịch vụ và sản phẩm từ một nơi tập trung
+2. Khi tạo tenant, hệ thống tự động assign modules theo gói
+3. Admin có thể override bật/tắt module riêng cho từng tenant
+4. Frontend có thể kiểm tra quyền truy cập module để hiển thị/ẩn chức năng
+5. Dữ liệu subscription được lưu trữ riêng, dễ dàng mở rộng thêm billing logic sau này
