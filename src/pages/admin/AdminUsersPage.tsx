@@ -45,6 +45,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Database } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -251,18 +252,17 @@ export default function AdminUsersPage() {
       </Helmet>
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{t('admin.users.title')}</h1>
-            <p className="text-muted-foreground">
-              {t('admin.users.subtitle')}
-            </p>
-          </div>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('admin.users.addAdmin')}
-          </Button>
-        </div>
+        <PageHeader
+          title={t('admin.users.title')}
+          subtitle={t('admin.users.subtitle')}
+          icon={<ShieldCheck className="w-5 h-5" />}
+          actions={
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('admin.users.addAdmin')}
+            </Button>
+          }
+        />
 
         <Card>
           <CardHeader>

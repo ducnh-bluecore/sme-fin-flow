@@ -65,6 +65,7 @@ import { useImpersonation } from '@/hooks/useImpersonation';
 import { useBatchTenantSchemaStatus } from '@/hooks/useTenantSchemaStatus';
 import { TenantSchemaStatus } from '@/components/admin/TenantSchemaStatus';
 import { ProvisionSchemaButton } from '@/components/admin/ProvisionSchemaButton';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -314,16 +315,17 @@ export default function AdminTenantsPage() {
       </Helmet>
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{t('admin.tenants.title')}</h1>
-            <p className="text-muted-foreground">{t('admin.tenants.subtitle')}</p>
-          </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('admin.tenants.createNew')}
-          </Button>
-        </div>
+        <PageHeader
+          title={t('admin.tenants.title')}
+          subtitle={t('admin.tenants.subtitle')}
+          icon={<Building2 className="w-5 h-5" />}
+          actions={
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('admin.tenants.createNew')}
+            </Button>
+          }
+        />
 
         <Card>
           <CardHeader>
