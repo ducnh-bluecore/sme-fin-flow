@@ -1,133 +1,184 @@
 
-# Plan: Auto-seed Alert Configs & Setup Guidance
+# Plan: Sửa logic tính dòng tiền vào (Cash Inflow) trong Cash Forecast
 
-## Tổng quan vấn đề
-Tenant mới được tạo nhưng **không có bất kỳ alert config nào** trong bảng `extended_alert_configs`. Điều này khiến:
-- Control Tower không có rules để detect alerts
-- Portal hiển thị `0 alerts`, `0 decisions` dù có dữ liệu tài chính
-- User không biết cần setup gì
+## Vấn đề hiện tại
 
-## Giải pháp 3 phần
+Chart "Dòng tiền vào/ra" hiển thị dòng tiền vào gần như = 0 trong khi hệ thống có đầy đủ dữ liệu revenue:
 
-### Phần 1: Auto-seed default alert configs khi tạo tenant mới
+| Nguồn dữ liệu | Giá trị | Tình trạng |
+|---------------|---------|------------|
+| cdp_orders (90 ngày) | 335M (~3.7M/ngày) | Co data - CHUA dung |
+| invoices AR | 186M (46M due 30d) | Co data - DANG dung |
+| bank_transactions | 0 | TRONG - gay loi |
+| pendingSettlements | 29M | Co data - chi dung ngay 7-21 |
 
-**Thay đổi Edge Functions:**
+### Nguyen nhan ky thuat
 
-1. **`create-tenant-self/index.ts`**
-   - Sau khi tạo tenant + provision schema thành công
-   - Insert 32 default alert configs từ `defaultExtendedAlerts` array
-   - Sử dụng service client để bypass RLS
+1. **RPC `get_forecast_historical_stats`** chi doc tu `bank_transactions` (bang trong) -> `avgDailyInflow = 0`
 
-2. **`create-tenant-with-owner/index.ts`**
-   - Tương tự: thêm logic seed alerts sau schema provisioning
-   - Đảm bảo admin-created tenants cũng có configs mặc định
+2. **`generateForecast()`** tinh inflow tu:
+   - AR invoices: 46M / 30 = 1.5M/ngay (chi trong 30 ngay dau)
+   - Overdue AR: 43M * 3% = 1.3M/ngay (giam dan theo probability)
+   - pendingSettlements: 29M / 14 = 2M/ngay (chi ngay 7-21)
+   - salesProjection: Chi add TU NGAY 14 tro di (T+14 delay)
 
-**SQL Insert Logic:**
-```typescript
-// Insert default alert configs
-const defaultAlerts = [
-  { category: 'cashflow', alert_type: 'cash_critical', severity: 'critical', ... },
-  { category: 'cashflow', alert_type: 'ar_overdue', severity: 'warning', ... },
-  // ... 32 alerts total
-];
+3. **Ngay 0-13**: Chi co AR collection (~1.5M + 1.3M = ~2.8M)
+   **Ngay 14+**: AR + pendingSettlements + salesProjection
 
-await serviceClient
-  .from('extended_alert_configs')
-  .insert(defaultAlerts.map(a => ({ tenant_id: tenant.id, ...a })));
-```
+## Giai phap
 
-### Phần 2: Hiển thị setup prompt trên Portal
+### Phan 1: Sua RPC `get_forecast_historical_stats` - Fallback sang cdp_orders
 
-**File: `src/pages/PortalPage.tsx`**
+Khi `bank_transactions` trong, su dung `cdp_orders` de tinh historical inflow:
 
-1. **Thêm hook kiểm tra alert configs:**
-   - Gọi `useExtendedAlertConfigs()` để check số lượng configs
-   - Nếu `configs.length === 0` → hiển thị setup banner
-
-2. **UI Banner Component:**
-   - Vị trí: Phía trên "System Overview" section
-   - Nội dung: "Hệ thống chưa có cấu hình cảnh báo. Khởi tạo ngay để nhận thông báo kịp thời."
-   - Button: "Khởi tạo mặc định" → gọi `initializeDefaultAlerts()`
-
-**Mockup Banner:**
-```text
-+------------------------------------------------------------------+
-| ⚠️ Control Tower chưa có cấu hình                                |
-|    Khởi tạo 32 alert rules mặc định để nhận cảnh báo kịp thời    |
-|                                      [Khởi tạo ngay →]           |
-+------------------------------------------------------------------+
-```
-
-### Phần 3: Seed data ngay cho E2E Tenant
-
-**Migration SQL:**
 ```sql
-INSERT INTO extended_alert_configs (tenant_id, category, alert_type, ...)
-SELECT 
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  category, alert_type, severity, ...
-FROM (VALUES
-  ('cashflow', 'cash_critical', 'critical', ...),
-  ('cashflow', 'ar_overdue', 'warning', ...),
-  -- ... 32 rows
-) AS defaults(category, alert_type, severity, ...)
-ON CONFLICT (tenant_id, category, alert_type) DO NOTHING;
+CREATE OR REPLACE FUNCTION get_forecast_historical_stats(
+  p_tenant_id UUID,
+  p_days INTEGER DEFAULT 90
+)
+RETURNS TABLE(...)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_bank_total_credit NUMERIC := 0;
+  v_bank_total_debit NUMERIC := 0;
+  v_bank_days INTEGER := 0;
+  v_order_total NUMERIC := 0;
+  v_order_days INTEGER := 0;
+BEGIN
+  -- Try bank_transactions first
+  SELECT 
+    COALESCE(SUM(CASE WHEN transaction_type = 'credit' THEN ABS(amount) ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN transaction_type = 'debit' THEN ABS(amount) ELSE 0 END), 0),
+    COALESCE(COUNT(DISTINCT transaction_date), 0)
+  INTO v_bank_total_credit, v_bank_total_debit, v_bank_days
+  FROM bank_transactions
+  WHERE tenant_id = p_tenant_id
+    AND transaction_date >= CURRENT_DATE - p_days;
+    
+  -- Fallback: If no bank data, use cdp_orders for inflow estimate
+  IF v_bank_total_credit = 0 THEN
+    SELECT 
+      COALESCE(SUM(net_revenue), 0),
+      COALESCE(COUNT(DISTINCT DATE(order_at)), 1)
+    INTO v_order_total, v_order_days
+    FROM cdp_orders
+    WHERE tenant_id = p_tenant_id
+      AND order_at >= CURRENT_DATE - p_days;
+      
+    v_bank_total_credit := v_order_total;
+    v_bank_days := GREATEST(v_order_days, 1);
+  END IF;
+  
+  RETURN QUERY SELECT
+    v_bank_total_credit,
+    v_bank_total_debit,
+    GREATEST(v_bank_days, 1)::INTEGER,
+    v_bank_total_credit / GREATEST(v_bank_days, 1),
+    v_bank_total_debit / GREATEST(v_bank_days, 1);
+END;
+$$;
 ```
 
----
+### Phan 2: Sua `generateForecast()` - Them base inflow tu cdp_orders
 
-## Chi tiết kỹ thuật
-
-### Files cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `supabase/functions/create-tenant-self/index.ts` | Thêm seed alerts logic sau schema provisioning |
-| `supabase/functions/create-tenant-with-owner/index.ts` | Thêm seed alerts logic tương tự |
-| `src/pages/PortalPage.tsx` | Thêm setup banner + hook integration |
-| `supabase/migrations/xxx_seed_e2e_alerts.sql` | Seed 32 alerts cho E2E tenant |
-
-### Default Alerts (32 rules)
-
-Sử dụng `defaultExtendedAlerts` array đã có sẵn trong `useExtendedAlertConfigs.ts`:
-
-| Category | Alert Types | Count |
-|----------|-------------|-------|
-| Product | inventory_low, inventory_expired, product_return_high, product_slow_moving | 4 |
-| Business | sales_target_miss, sales_drop, margin_low, promotion_ineffective | 4 |
-| Store | store_performance_low, store_no_sales, store_high_expense, store_staff_shortage | 4 |
-| Cashflow | cash_critical, ar_overdue, payment_due, reconciliation_pending | 4 |
-| KPI | kpi_warning, kpi_critical, kpi_achieved, conversion_drop | 4 |
-| Customer | negative_review, complaint, vip_order, churn_risk | 4 |
-| Fulfillment | order_delayed, delivery_failed, shipping_cost_high, picking_error | 4 |
-| Operations | system_error, data_quality, sync_failed, scheduled_task_failed | 4 |
-
-### Portal Banner Logic
+Cap nhat logic de luon tinh base revenue tu historical orders:
 
 ```typescript
-// In PortalPage.tsx
-const { data: alertConfigs, isLoading: configsLoading } = useExtendedAlertConfigs();
-const initDefaults = useInitializeDefaultAlerts();
+// src/hooks/useForecastInputs.ts
 
-const needsSetup = !configsLoading && (!alertConfigs || alertConfigs.length === 0);
+// THEM field moi vao ForecastInputs
+avgDailyOrderRevenue: number;  // Tu cdp_orders (SSOT)
 
-// Render banner if needsSetup
-{needsSetup && (
-  <AlertSetupBanner onInitialize={() => initDefaults.mutate()} />
-)}
+// Trong useForecastInputs, tinh avgDailyOrderRevenue:
+const avgDailyOrderRevenue = useMemo(() => {
+  if (!orders || orders.length === 0) return 0;
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.seller_income || 0), 0);
+  return totalRevenue / 90; // 90-day average
+}, [orders]);
+
+// Trong generateForecast(), THEM base inflow:
+// After AR + pendingSettlements, add base order revenue
+if (inputs.avgDailyOrderRevenue > 0 && !salesProjection) {
+  // Use historical order revenue as baseline (with settlement delay)
+  if (i >= 14) {
+    inflow += inputs.avgDailyOrderRevenue * 0.8; // 80% net after platform fees
+  }
+}
+```
+
+### Phan 3: Sua useSalesProjection - Bo T+14 delay cho historical data
+
+Hien tai `calculateSalesInflowForDay()` chi tra ve > 0 khi `dayIndex >= 14`. Dieu nay dung cho TUONG LAI nhung nen tinh ca historical backlog:
+
+```typescript
+export function calculateSalesInflowForDay(
+  projection: SalesProjection,
+  dayIndex: number
+): number {
+  // Days 0-13: Gradual settlement of past orders (ramp up)
+  if (dayIndex < projection.settlementDelay) {
+    // Assume 50% of historical daily revenue arrives in first 14 days
+    // (orders placed before today, settling now)
+    return projection.dailyNetCashInflow * (dayIndex / projection.settlementDelay) * 0.5;
+  }
+  
+  // After delay, full daily net cash inflow
+  return projection.dailyNetCashInflow;
+}
 ```
 
 ---
 
-## Thứ tự thực hiện
+## Chi tiet ky thuat
 
-1. **Migration**: Seed alerts cho E2E tenant (test ngay lập tức)
-2. **Edge Functions**: Update cả 2 functions để auto-seed cho tenant mới
-3. **Portal UI**: Thêm setup banner cho tenants hiện có chưa có configs
-4. **Test E2E**: Verify Portal hiển thị đúng sau khi có alert configs
+### Files can thay doi
 
-## Kết quả mong đợi
+| File | Thay doi |
+|------|----------|
+| `supabase/migrations/xxx.sql` | Sua RPC `get_forecast_historical_stats` de fallback sang cdp_orders |
+| `src/hooks/useForecastInputs.ts` | Them `avgDailyOrderRevenue`, tinh tu cdp_orders |
+| `src/hooks/useSalesProjection.ts` | Sua `calculateSalesInflowForDay` de ramp up ngay 0-13 |
 
-- Tenant mới: Tự động có 32 alert configs → Control Tower hoạt động ngay
-- Tenant cũ chưa có configs: Thấy banner hướng dẫn → 1-click setup
-- E2E tenant: Có data ngay để test System Overview
+### Logic moi
+
+```text
+Inflow Calculation (per day):
+
+Day 0-6:
+  + AR collections (probability-weighted)
+  + Overdue AR (3% * probability)
+  + Sales ramp-up (0% -> 50% of daily projection)
+
+Day 7-13:
+  + AR collections
+  + Overdue AR
+  + pendingSettlements / 14
+  + Sales ramp-up (50% -> 100%)
+
+Day 14-30:
+  + AR collections (decreasing as AR depletes)
+  + Overdue AR
+  + pendingSettlements / 14 (until day 21)
+  + Full daily sales projection (100%)
+
+Day 31+:
+  + AR collections (from later buckets)
+  + Full daily sales projection
+```
+
+### Ket qua mong doi
+
+| Metric | Hien tai | Sau khi sua |
+|--------|----------|-------------|
+| Avg Daily Inflow (ngay 0-13) | ~2M | ~5-8M |
+| Avg Daily Inflow (ngay 14+) | ~4M | ~10-12M |
+| Thu chi trung binh | 2M/22M | 10M/22M |
+| Chart "Thu vao" | Gan = 0 | Co bar xanh tuong xung |
+
+## Thu tu thuc hien
+
+1. **Migration SQL**: Sua RPC `get_forecast_historical_stats` (fallback cdp_orders)
+2. **useForecastInputs.ts**: Them `avgDailyOrderRevenue` field
+3. **useSalesProjection.ts**: Sua `calculateSalesInflowForDay()` ramp-up logic
+4. **Test**: Xac nhan chart hien thi dung
