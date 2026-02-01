@@ -193,41 +193,32 @@ const Slide02SilentFailure: React.FC = () => (
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="text-3xl md:text-4xl lg:text-5xl font-light text-amber-400 mb-12"
+      className="text-3xl md:text-4xl lg:text-5xl font-bold text-blue-400 mb-10"
     >
-      Nhưng dữ liệu chỉ kể lại quá khứ.
+      Financial Awareness sẽ là hạ tầng mặc định tiếp theo.
     </motion.h2>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.6 }}
-      className="max-w-3xl"
+      className="max-w-3xl space-y-8"
     >
-      <p className="text-xl md:text-2xl text-slate-300 mb-6 leading-relaxed">
-        Thập kỷ tiếp theo sẽ được định nghĩa bởi <span className="text-blue-400 font-semibold">Financial Awareness</span> —<br />
-        khả năng hiểu sự thật tài chính <span className="text-white font-medium">khi nó đang diễn ra.</span>
+      <p className="text-xl md:text-2xl text-slate-400 leading-relaxed">
+        Dữ liệu kể lại quá khứ.<br />
+        <span className="text-white font-medium">Financial Awareness cho biết bạn có đang an toàn — ngay lúc này.</span>
       </p>
+      
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="text-lg md:text-xl text-slate-400 mt-8"
+        transition={{ delay: 0.9 }}
+        className="text-xl md:text-2xl text-slate-500 pt-6 border-t border-slate-700/50"
       >
         Không phải công ty nhiều dữ liệu sẽ chiến thắng.<br />
-        <span className="text-white font-medium">Mà là công ty nhận thức sớm nhất.</span>
+        <span className="text-amber-400 font-semibold">Mà là công ty nhận thức sớm nhất.</span>
       </motion.p>
     </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.1 }}
-      className="mt-12 text-lg md:text-xl text-blue-400 font-medium border-t border-slate-700 pt-8 max-w-2xl"
-    >
-      Financial awareness will become default infrastructure —<br />
-      <span className="text-slate-400 italic">the same way ERP once did.</span>
-    </motion.p>
   </div>
 );
 
