@@ -19,24 +19,39 @@ const BORDER_WIDTH_KEYS = [
 ] as const;
 
 function ensureBorderWidths(style: Style): Style {
+  // React-PDF can crash if any border width key exists but is undefined.
+  // Normalize all border width keys to numbers.
+  let next: Style = style;
+  let mutated = false;
+  for (const key of BORDER_WIDTH_KEYS) {
+    if (next[key] === undefined || next[key] === null) {
+      if (!mutated) {
+        next = { ...next };
+        mutated = true;
+      }
+      // Default to 0 unless a border color is present (handled below)
+      next[key] = 0;
+    }
+  }
+
   const hasAnyBorderColor = BORDER_COLOR_KEYS.some((k) => style[k] != null);
-  if (!hasAnyBorderColor) return style;
+  if (!hasAnyBorderColor) return next;
 
   // If any border color is set but *no* width is specified, default to 1.
-  const hasAnyBorderWidth = BORDER_WIDTH_KEYS.some((k) => style[k] != null);
+  const hasAnyBorderWidth = BORDER_WIDTH_KEYS.some((k) => next[k] != null);
   if (!hasAnyBorderWidth) {
-    return { ...style, borderWidth: 1 };
+    return { ...next, borderWidth: 1 };
   }
 
   // If a side color is set but its width is missing, default that side width to 1.
-  const next: Style = { ...style };
-  if (next.borderTopColor != null && next.borderTopWidth == null) next.borderTopWidth = 1;
-  if (next.borderRightColor != null && next.borderRightWidth == null) next.borderRightWidth = 1;
-  if (next.borderBottomColor != null && next.borderBottomWidth == null) next.borderBottomWidth = 1;
-  if (next.borderLeftColor != null && next.borderLeftWidth == null) next.borderLeftWidth = 1;
-  if (next.borderColor != null && next.borderWidth == null) next.borderWidth = 1;
+  const withColorFix: Style = mutated ? next : { ...next };
+  if (withColorFix.borderTopColor != null && Number(withColorFix.borderTopWidth ?? 0) === 0) withColorFix.borderTopWidth = 1;
+  if (withColorFix.borderRightColor != null && Number(withColorFix.borderRightWidth ?? 0) === 0) withColorFix.borderRightWidth = 1;
+  if (withColorFix.borderBottomColor != null && Number(withColorFix.borderBottomWidth ?? 0) === 0) withColorFix.borderBottomWidth = 1;
+  if (withColorFix.borderLeftColor != null && Number(withColorFix.borderLeftWidth ?? 0) === 0) withColorFix.borderLeftWidth = 1;
+  if (withColorFix.borderColor != null && Number(withColorFix.borderWidth ?? 0) === 0) withColorFix.borderWidth = 1;
 
-  return next;
+  return withColorFix;
 }
 
 function sanitizeStyleProp(styleProp: unknown): unknown {
