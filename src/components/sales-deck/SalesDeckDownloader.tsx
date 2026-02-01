@@ -145,7 +145,12 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
         description: fileName,
       });
     } catch (error) {
-      console.error('PDF generation error:', error);
+      console.error('PDF generation error:', {
+        deckId: deck.id,
+        language,
+        fileName,
+        error,
+      });
       toast.error(language === 'vi' ? 'Lỗi tạo PDF' : 'PDF generation error', {
         description: language === 'vi' 
           ? 'Vui lòng thử lại sau' 
