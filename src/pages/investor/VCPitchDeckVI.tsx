@@ -132,8 +132,8 @@ const Slide01CategoryShock: React.FC = () => (
       transition={{ duration: 0.8 }}
       className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-10 leading-tight"
     >
-      CASH COLLAPSES<br />
-      <span className="text-red-500">QUIETLY.</span>
+      TIỀN SỤP ĐỔ<br />
+      <span className="text-red-500">ÂM THẦM.</span>
     </motion.h1>
     
     <motion.div 
@@ -143,10 +143,10 @@ const Slide01CategoryShock: React.FC = () => (
       className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full"
     >
       {[
-        { metric: "Margin erodes 6%.", consequence: "Detected week 4." },
-        { metric: "CAC spikes 35%.", consequence: "Visible after burn." },
-        { metric: "Inventory expands.", consequence: "Liquidity disappears." },
-        { metric: "Runway shrinks.", consequence: "CEO sees it last." }
+        { metric: "Margin giảm 6%.", consequence: "Phát hiện tuần 4." },
+        { metric: "CAC tăng 35%.", consequence: "Thấy sau khi đốt." },
+        { metric: "Tồn kho phình.", consequence: "Thanh khoản biến mất." },
+        { metric: "Runway thu hẹp.", consequence: "CEO thấy sau cùng." }
       ].map((item, i) => (
         <motion.div 
           key={i}
