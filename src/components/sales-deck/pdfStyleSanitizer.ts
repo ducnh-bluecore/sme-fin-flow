@@ -157,6 +157,32 @@ function sanitizeStyleProp(styleProp: unknown): unknown {
  * are present but border widths are missing/undefined.
  */
 export function sanitizePdfElement(element: React.ReactElement): React.ReactElement {
+  const materialize = (node: React.ReactNode): React.ReactNode => {
+    if (!React.isValidElement(node)) return node;
+
+    // Important: sanitize needs to see the actual <Document>/<Page>/<View> tree.
+    // When we pass a function component (e.g. <FullSystemSalesDeckPDF />), its
+    // children are not present until it is rendered.
+    // These deck components are intentionally hook-free, so we can safely
+    // evaluate them here.
+    if (typeof node.type === "function") {
+      try {
+        const rendered = (node.type as unknown as (p: any) => React.ReactNode)(node.props);
+        return materialize(rendered);
+      } catch {
+        // If a component uses hooks or throws, fall back to leaving it as-is.
+        // Better to keep behavior than crash in sanitizer.
+        return node;
+      }
+    }
+
+    const props: Record<string, unknown> = { ...(node.props as Record<string, unknown>) };
+    if (props.children) {
+      props.children = React.Children.map(props.children as React.ReactNode, materialize);
+    }
+    return React.cloneElement(node, props);
+  };
+
   const walk = (node: React.ReactNode): React.ReactNode => {
     if (!React.isValidElement(node)) return node;
 
@@ -209,5 +235,6 @@ export function sanitizePdfElement(element: React.ReactElement): React.ReactElem
     return React.cloneElement(node, props);
   };
 
-  return walk(element) as React.ReactElement;
+  const expanded = materialize(element) as React.ReactElement;
+  return walk(expanded) as React.ReactElement;
 }
