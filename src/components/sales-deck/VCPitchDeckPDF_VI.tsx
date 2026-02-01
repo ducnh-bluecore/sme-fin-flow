@@ -222,31 +222,46 @@ const Slide01 = () => (
 const Slide02 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Doanh nghiệp Hiếm khi Thất bại vì Thiếu Data.</Text>
-      <Text style={styles.headlineAmber}>Họ Thất bại vì Sự thật Tài chính Đến muộn.</Text>
-      <Text style={styles.subheadline}>Stack hiện đại được tối ưu cho: Ghi nhận, Báo cáo, Phân tích.{'\n'}Không phải quyết định.</Text>
-      <Text style={{ ...styles.body, textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
-        Lãnh đạo buộc phải vận hành theo kiểu phản ứng.
+      <Text style={styles.headline}>Ha tang du lieu da tro thanh tieu chuan.</Text>
+      <Text style={styles.headlineAccent}>Financial Awareness se la ha tang mac dinh tiep theo.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', marginTop: 24, marginBottom: 16 }}>
+        Du lieu ke lai qua khu.{'\n'}
+        Financial Awareness cho biet ban co dang an toan - ngay luc nay.
       </Text>
+      <View style={styles.highlight}>
+        <Text style={{ ...styles.highlightText, color: '#94a3b8' }}>Khong phai cong ty nhieu du lieu se chien thang.</Text>
+        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>Ma la cong ty nhan thuc som nhat.</Text>
+      </View>
     </View>
     <Text style={styles.slideNumber}>2 / {TOTAL_SLIDES}</Text>
-    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+    <Text style={styles.footer}>BLUECORE - VC Pitch Deck</Text>
   </Page>
 );
 
 const Slide03 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Hệ thống Ghi nhận → Hệ thống Quyết định</Text>
-      <View style={styles.diagramBox}>
-        <Text style={styles.diagramText}>ERP → ghi nhận quá khứ</Text>
-        <Text style={styles.diagramText}>BI → giải thích quá khứ</Text>
-        <Text style={{ ...styles.diagramText, color: '#60a5fa', fontWeight: 'bold', marginTop: 8 }}>Bluecore → dẫn dắt bước tiếp theo</Text>
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ ...styles.body, fontSize: 18, color: '#64748b', textAlign: 'center' }}>
+          <Text style={{ fontWeight: 'bold', color: '#94a3b8' }}>He thong Ghi nhan</Text> ghi lai qua khu.
+        </Text>
+        <Text style={{ ...styles.body, fontSize: 18, color: '#64748b', textAlign: 'center', marginTop: 8 }}>
+          <Text style={{ fontWeight: 'bold', color: '#94a3b8' }}>He thong Thong minh</Text> giai thich qua khu.
+        </Text>
+        <Text style={{ ...styles.body, fontSize: 18, color: '#ffffff', textAlign: 'center', marginTop: 8 }}>
+          <Text style={{ fontWeight: 'bold', color: '#60a5fa' }}>He thong Nhan thuc</Text> quyet dinh dieu gi xay ra tiep theo.
+        </Text>
       </View>
-      <Text style={styles.punchline}>Một tầng thực thi mới đang xuất hiện bên trong các công ty hiện đại.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', fontSize: 16, marginTop: 16 }}>
+        Bluecore dang xay dung <Text style={{ color: '#60a5fa', fontWeight: 'bold' }}>Tang Nhan thuc.</Text>
+      </Text>
+      <View style={{ ...styles.highlight, marginTop: 24 }}>
+        <Text style={{ ...styles.highlightText, color: '#64748b' }}>Van hanh khong co nhan thuc tai chinh</Text>
+        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>se som cam thay rui ro nhu van hanh khong co ke toan.</Text>
+      </View>
     </View>
     <Text style={styles.slideNumber}>3 / {TOTAL_SLIDES}</Text>
-    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+    <Text style={styles.footer}>BLUECORE - VC Pitch Deck</Text>
   </Page>
 );
 
