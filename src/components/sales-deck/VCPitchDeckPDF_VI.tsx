@@ -213,14 +213,14 @@ const TOTAL_SLIDES = 22;
 const Slide01 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>CASH COLLAPSES</Text>
-      <Text style={{ ...styles.headline, color: '#ef4444' }}>QUIETLY.</Text>
+      <Text style={styles.headline}>TIỀN SỤP ĐỔ</Text>
+      <Text style={{ ...styles.headline, color: '#ef4444' }}>ÂM THẦM.</Text>
       <View style={styles.gridContainer}>
         {[
-          { metric: 'Margin erodes 6%.', consequence: 'Detected week 4.' },
-          { metric: 'CAC spikes 35%.', consequence: 'Visible after burn.' },
-          { metric: 'Inventory expands.', consequence: 'Liquidity disappears.' },
-          { metric: 'Runway shrinks.', consequence: 'CEO sees it last.' }
+          { metric: 'Margin giảm 6%.', consequence: 'Phát hiện tuần 4.' },
+          { metric: 'CAC tăng 35%.', consequence: 'Thấy sau khi đốt.' },
+          { metric: 'Tồn kho phình.', consequence: 'Thanh khoản biến mất.' },
+          { metric: 'Runway thu hẹp.', consequence: 'CEO thấy sau cùng.' }
         ].map((item, i) => (
           <View key={i} style={{ ...styles.gridItem, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', borderWidth: 1 }}>
             <Text style={{ ...styles.gridTitle, color: '#f87171' }}>{item.metric}</Text>
