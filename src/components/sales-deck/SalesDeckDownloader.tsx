@@ -3,17 +3,19 @@
  * 
  * Provides UI for downloading PDF sales decks for different modules
  * Supports both Vietnamese and English versions
+ * Uses pdf() function for reliable PDF generation instead of PDFDownloadLink
  */
 
 import React, { useState } from 'react';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileDown, Loader2, Building2, TrendingUp, Users, AlertTriangle, Database, Layers, Globe } from 'lucide-react';
+import { toast } from 'sonner';
 
-// Vietnamese versions
+// Direct imports for PDF generation
 import FDPSalesDeckPDF from './FDPSalesDeckPDF';
 import MDPSalesDeckPDF from './MDPSalesDeckPDF';
 import CDPSalesDeckPDF from './CDPSalesDeckPDF';
@@ -21,7 +23,6 @@ import ControlTowerSalesDeckPDF from './ControlTowerSalesDeckPDF';
 import DataWarehouseSalesDeckPDF from './DataWarehouseSalesDeckPDF';
 import FullSystemSalesDeckPDF from './FullSystemSalesDeckPDF';
 
-// English versions
 import FDPSalesDeckPDF_EN from './FDPSalesDeckPDF_EN';
 import MDPSalesDeckPDF_EN from './MDPSalesDeckPDF_EN';
 import CDPSalesDeckPDF_EN from './CDPSalesDeckPDF_EN';
@@ -29,15 +30,15 @@ import ControlTowerSalesDeckPDF_EN from './ControlTowerSalesDeckPDF_EN';
 import DataWarehouseSalesDeckPDF_EN from './DataWarehouseSalesDeckPDF_EN';
 import FullSystemSalesDeckPDF_EN from './FullSystemSalesDeckPDF_EN';
 
+type DeckId = 'full-system' | 'fdp' | 'mdp' | 'cdp' | 'control-tower' | 'datawarehouse';
+
 interface DeckOption {
-  id: string;
+  id: DeckId;
   title: string;
   subtitle: string;
   icon: React.ReactNode;
   available: boolean;
   tagline: string;
-  componentVI?: React.ReactElement;
-  componentEN?: React.ReactElement;
   featured?: boolean;
 }
 
@@ -45,12 +46,10 @@ const deckOptions: DeckOption[] = [
   {
     id: 'full-system',
     title: 'Full System Overview',
-    subtitle: 'Complete Bluecore ecosystem (17 pages)',
+    subtitle: 'Complete Bluecore ecosystem (20 pages)',
     icon: <Layers className="h-6 w-6 text-indigo-600" />,
     available: true,
     tagline: 'Decision-First Platform',
-    componentVI: <FullSystemSalesDeckPDF />,
-    componentEN: <FullSystemSalesDeckPDF_EN />,
     featured: true,
   },
   {
@@ -60,8 +59,6 @@ const deckOptions: DeckOption[] = [
     icon: <TrendingUp className="h-6 w-6 text-blue-600" />,
     available: true,
     tagline: 'Truth > Flexibility',
-    componentVI: <FDPSalesDeckPDF />,
-    componentEN: <FDPSalesDeckPDF_EN />,
   },
   {
     id: 'mdp',
@@ -70,8 +67,6 @@ const deckOptions: DeckOption[] = [
     icon: <Building2 className="h-6 w-6 text-purple-600" />,
     available: true,
     tagline: 'Profit before Performance',
-    componentVI: <MDPSalesDeckPDF />,
-    componentEN: <MDPSalesDeckPDF_EN />,
   },
   {
     id: 'cdp',
@@ -80,8 +75,6 @@ const deckOptions: DeckOption[] = [
     icon: <Users className="h-6 w-6 text-green-600" />,
     available: true,
     tagline: 'Population > Individual',
-    componentVI: <CDPSalesDeckPDF />,
-    componentEN: <CDPSalesDeckPDF_EN />,
   },
   {
     id: 'control-tower',
@@ -90,8 +83,6 @@ const deckOptions: DeckOption[] = [
     icon: <AlertTriangle className="h-6 w-6 text-amber-600" />,
     available: true,
     tagline: 'Awareness before Analytics',
-    componentVI: <ControlTowerSalesDeckPDF />,
-    componentEN: <ControlTowerSalesDeckPDF_EN />,
   },
   {
     id: 'datawarehouse',
@@ -100,10 +91,21 @@ const deckOptions: DeckOption[] = [
     icon: <Database className="h-6 w-6 text-cyan-600" />,
     available: true,
     tagline: 'Single Source of Truth',
-    componentVI: <DataWarehouseSalesDeckPDF />,
-    componentEN: <DataWarehouseSalesDeckPDF_EN />,
   },
 ];
+
+// Get PDF component by deck ID and language
+const getPDFComponent = (deckId: DeckId, language: 'vi' | 'en'): React.ReactElement => {
+  const components = {
+    'full-system': { vi: <FullSystemSalesDeckPDF />, en: <FullSystemSalesDeckPDF_EN /> },
+    'fdp': { vi: <FDPSalesDeckPDF />, en: <FDPSalesDeckPDF_EN /> },
+    'mdp': { vi: <MDPSalesDeckPDF />, en: <MDPSalesDeckPDF_EN /> },
+    'cdp': { vi: <CDPSalesDeckPDF />, en: <CDPSalesDeckPDF_EN /> },
+    'control-tower': { vi: <ControlTowerSalesDeckPDF />, en: <ControlTowerSalesDeckPDF_EN /> },
+    'datawarehouse': { vi: <DataWarehouseSalesDeckPDF />, en: <DataWarehouseSalesDeckPDF_EN /> },
+  };
+  return components[deckId][language];
+};
 
 interface DeckCardProps {
   deck: DeckOption;
@@ -111,8 +113,45 @@ interface DeckCardProps {
 }
 
 const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
-  const component = language === 'vi' ? deck.componentVI : deck.componentEN;
+  const [isGenerating, setIsGenerating] = useState(false);
   const fileName = `Bluecore_${deck.id.toUpperCase()}_SalesDeck_${language.toUpperCase()}.pdf`;
+
+  const handleDownload = async () => {
+    if (!deck.available) return;
+    
+    setIsGenerating(true);
+    toast.info(language === 'vi' ? 'Đang tạo PDF...' : 'Generating PDF...', {
+      description: language === 'vi' ? 'Vui lòng đợi trong giây lát' : 'Please wait a moment',
+    });
+
+    try {
+      const pdfComponent = getPDFComponent(deck.id, language);
+      const blob = await pdf(pdfComponent).toBlob();
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(language === 'vi' ? 'Tải xuống thành công!' : 'Download complete!', {
+        description: fileName,
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error(language === 'vi' ? 'Lỗi tạo PDF' : 'PDF generation error', {
+        description: language === 'vi' 
+          ? 'Vui lòng thử lại sau' 
+          : 'Please try again later',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <Card className={`relative ${!deck.available ? 'opacity-60' : ''} ${deck.featured ? 'ring-2 ring-primary border-primary/30 bg-card' : ''}`}>
@@ -138,24 +177,20 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground italic">"{deck.tagline}"</span>
           
-          {deck.available && component ? (
-            <PDFDownloadLink document={component} fileName={fileName}>
-              {({ loading }) => (
-                <Button size="sm" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {language === 'vi' ? 'Đang tạo...' : 'Creating...'}
-                    </>
-                  ) : (
-                    <>
-                      <FileDown className="mr-2 h-4 w-4" />
-                      {language === 'vi' ? 'Tải PDF' : 'Download PDF'}
-                    </>
-                  )}
-                </Button>
+          {deck.available ? (
+            <Button size="sm" onClick={handleDownload} disabled={isGenerating}>
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {language === 'vi' ? 'Đang tạo...' : 'Creating...'}
+                </>
+              ) : (
+                <>
+                  <FileDown className="mr-2 h-4 w-4" />
+                  {language === 'vi' ? 'Tải PDF' : 'Download PDF'}
+                </>
               )}
-            </PDFDownloadLink>
+            </Button>
           ) : (
             <Button size="sm" disabled variant="secondary">
               <FileDown className="mr-2 h-4 w-4" />
