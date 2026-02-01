@@ -230,9 +230,9 @@ const Slide03PlatformShift: React.FC = () => (
       className="flex flex-col gap-6 max-w-4xl w-full mb-12"
     >
       {[
-        { system: "Systems of Record", action: "captured the past.", color: "slate" },
-        { system: "Systems of Intelligence", action: "explained the past.", color: "slate" },
-        { system: "Systems of Awareness", action: "decide what happens next.", color: "blue" }
+        { system: "Hệ thống Ghi nhận", action: "ghi lại quá khứ.", color: "slate" },
+        { system: "Hệ thống Thông minh", action: "giải thích quá khứ.", color: "slate" },
+        { system: "Hệ thống Nhận thức", action: "quyết định điều gì xảy ra tiếp theo.", color: "blue" }
       ].map((item, i) => (
         <motion.div 
           key={i}
@@ -263,7 +263,7 @@ const Slide03PlatformShift: React.FC = () => (
       transition={{ delay: 0.9 }}
       className="text-2xl md:text-3xl text-white font-medium mb-12"
     >
-      Bluecore is building the <span className="text-blue-400 font-bold">Awareness Layer.</span>
+      Bluecore đang xây dựng <span className="text-blue-400 font-bold">Tầng Nhận thức.</span>
     </motion.h2>
     
     <motion.p 
@@ -272,8 +272,8 @@ const Slide03PlatformShift: React.FC = () => (
       transition={{ delay: 1.2 }}
       className="text-lg md:text-xl text-slate-500 italic max-w-2xl border-t border-slate-700/50 pt-8"
     >
-      Operating without financial awareness<br />
-      <span className="text-amber-400 not-italic font-medium">will soon feel as risky as operating without accounting.</span>
+      Vận hành không có nhận thức tài chính<br />
+      <span className="text-amber-400 not-italic font-medium">sẽ sớm cảm thấy rủi ro như vận hành không có kế toán.</span>
     </motion.p>
   </div>
 );
