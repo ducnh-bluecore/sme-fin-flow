@@ -7,7 +7,22 @@
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+
+// Get base URL dynamically for font loading
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+};
+
+// Register Noto Sans font (supports all characters properly)
+Font.register({
+  family: 'NotoSans',
+  fonts: [
+    { src: `${getBaseUrl()}/fonts/NotoSans-Regular.ttf`, fontWeight: 400 },
+    { src: `${getBaseUrl()}/fonts/NotoSans-Bold.ttf`, fontWeight: 700 },
+  ],
+});
 
 // Create styles
 const styles = StyleSheet.create({
@@ -16,6 +31,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     padding: 60,
     justifyContent: 'center',
+    fontFamily: 'NotoSans',
   },
   slideNumber: {
     position: 'absolute',
@@ -222,12 +238,16 @@ const Slide01 = () => (
 const Slide02 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Companies Rarely Fail from Lack of Data.</Text>
-      <Text style={styles.headlineAmber}>They Fail from Delayed Financial Truth.</Text>
-      <Text style={styles.subheadline}>Modern stacks optimized for: Recording, Reporting, Analyzing.{'\n'}Not deciding.</Text>
-      <Text style={{ ...styles.body, textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
-        Leadership is forced to operate reactively.
+      <Text style={styles.headline}>Data infrastructure has become standard.</Text>
+      <Text style={styles.headlineAccent}>Financial Awareness will be the next default infrastructure.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', marginTop: 24, marginBottom: 16 }}>
+        Data tells you what happened.{'\n'}
+        Financial Awareness tells you if you are safe — right now.
       </Text>
+      <View style={styles.highlight}>
+        <Text style={{ ...styles.highlightText, color: '#94a3b8' }}>The company with the most data will not win.</Text>
+        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>The company with the earliest awareness will.</Text>
+      </View>
     </View>
     <Text style={styles.slideNumber}>2 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -237,13 +257,24 @@ const Slide02 = () => (
 const Slide03 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>System of Record → System of Decision</Text>
-      <View style={styles.diagramBox}>
-        <Text style={styles.diagramText}>ERP → records the past</Text>
-        <Text style={styles.diagramText}>BI → explains the past</Text>
-        <Text style={{ ...styles.diagramText, color: '#60a5fa', fontWeight: 'bold', marginTop: 8 }}>Bluecore → drives the next move</Text>
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ ...styles.body, fontSize: 18, color: '#94a3b8', textAlign: 'center' }}>
+          <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Systems of Record</Text> captured the past.
+        </Text>
+        <Text style={{ ...styles.body, fontSize: 18, color: '#94a3b8', textAlign: 'center', marginTop: 8 }}>
+          <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Systems of Intelligence</Text> explained the past.
+        </Text>
+        <Text style={{ ...styles.body, fontSize: 18, color: '#ffffff', textAlign: 'center', marginTop: 8 }}>
+          <Text style={{ fontWeight: 'bold', color: '#60a5fa' }}>Systems of Awareness</Text> decide what happens next.
+        </Text>
       </View>
-      <Text style={styles.punchline}>A new execution layer is emerging inside modern companies.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', fontSize: 16, marginTop: 16 }}>
+        Bluecore is building the <Text style={{ color: '#60a5fa', fontWeight: 'bold' }}>Awareness Layer.</Text>
+      </Text>
+      <View style={{ ...styles.highlight, marginTop: 24 }}>
+        <Text style={{ ...styles.highlightText, color: '#64748b' }}>Operating without financial awareness</Text>
+        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>will soon feel as risky as operating without accounting.</Text>
+      </View>
     </View>
     <Text style={styles.slideNumber}>3 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
