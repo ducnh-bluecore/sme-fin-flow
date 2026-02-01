@@ -152,6 +152,20 @@ function sanitizeStyleProp(styleProp: unknown): unknown {
   return styleProp;
 }
 
+function stripAllBorderStyles(style: Style): Style {
+  let mutated = false;
+  let next: Style = style;
+  for (const key of Object.keys(style)) {
+    if (!key.startsWith("border")) continue;
+    if (!mutated) {
+      next = { ...next };
+      mutated = true;
+    }
+    delete next[key];
+  }
+  return next;
+}
+
 /**
  * Sanitizes a React-PDF element tree to avoid runtime crashes when border colors
  * are present but border widths are missing/undefined.
@@ -237,4 +251,35 @@ export function sanitizePdfElement(element: React.ReactElement): React.ReactElem
 
   const expanded = materialize(element) as React.ReactElement;
   return walk(expanded) as React.ReactElement;
+}
+
+/**
+ * Last-resort sanitizer: removes all border-related style keys.
+ * Use only as a fallback to avoid React-PDF crashes.
+ */
+export function sanitizePdfElementHard(element: React.ReactElement): React.ReactElement {
+  const walk = (node: React.ReactNode): React.ReactNode => {
+    if (!React.isValidElement(node)) return node;
+
+    const props: Record<string, unknown> = { ...(node.props as Record<string, unknown>) };
+
+    if ("style" in props) {
+      const sanitized = sanitizeStyleProp(props.style);
+      if (Array.isArray(sanitized)) {
+        props.style = sanitized.map((s) => (s && typeof s === "object" && !Array.isArray(s) ? stripAllBorderStyles(s as Style) : s));
+      } else if (sanitized && typeof sanitized === "object") {
+        props.style = stripAllBorderStyles(sanitized as Style);
+      } else {
+        props.style = sanitized;
+      }
+    }
+
+    if (props.children) {
+      props.children = React.Children.map(props.children as React.ReactNode, walk);
+    }
+
+    return React.cloneElement(node, props);
+  };
+
+  return walk(element) as React.ReactElement;
 }

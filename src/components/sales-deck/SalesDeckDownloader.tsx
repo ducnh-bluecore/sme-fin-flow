@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileDown, Loader2, Building2, TrendingUp, Users, AlertTriangle, Database, Layers, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { sanitizePdfElement } from './pdfStyleSanitizer';
+import { sanitizePdfElement, sanitizePdfElementHard } from './pdfStyleSanitizer';
 
 // Direct imports for PDF generation
 import FDPSalesDeckPDF from './FDPSalesDeckPDF';
@@ -131,7 +131,24 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
 
     try {
       const pdfComponent = getPDFComponent(deck.id, language);
-      const blob = await pdf(sanitizePdfElement(pdfComponent)).toBlob();
+      let blob: Blob;
+      try {
+        blob = await pdf(sanitizePdfElement(pdfComponent)).toBlob();
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        const isBorderCrash = /Invalid border width/i.test(err.message);
+        if (!isBorderCrash) throw e;
+
+        // eslint-disable-next-line no-console
+        console.warn('[SalesDeckDownloader] Retrying PDF generation with border-stripped sanitizer', {
+          deckId: deck.id,
+          language,
+          fileName,
+          message: err.message,
+        });
+
+        blob = await pdf(sanitizePdfElementHard(sanitizePdfElement(pdfComponent))).toBlob();
+      }
       
       // Create download link
       const url = URL.createObjectURL(blob);
