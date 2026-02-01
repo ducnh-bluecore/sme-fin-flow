@@ -32,6 +32,9 @@ import FullSystemSalesDeckPDF_EN from './FullSystemSalesDeckPDF_EN';
 
 type DeckId = 'full-system' | 'fdp' | 'mdp' | 'cdp' | 'control-tower' | 'datawarehouse';
 
+// Bump this when deck content changes to avoid users opening an older cached PDF with the same filename
+const DECK_BUILD_TAG = 'v20260201';
+
 interface DeckOption {
   id: DeckId;
   title: string;
@@ -114,7 +117,7 @@ interface DeckCardProps {
 
 const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const fileName = `Bluecore_${deck.id.toUpperCase()}_SalesDeck_${language.toUpperCase()}.pdf`;
+  const fileName = `Bluecore_${deck.id.toUpperCase()}_SalesDeck_${language.toUpperCase()}_${DECK_BUILD_TAG}.pdf`;
 
   const handleDownload = async () => {
     if (!deck.available) return;
