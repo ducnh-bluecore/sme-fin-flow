@@ -1,9 +1,9 @@
 /**
  * VC Pitch Deck - Vietnamese Version
  * 
- * 18-slide interactive presentation for Series A investors
+ * 22-slide interactive presentation for Series A investors
  * Focus: Category claim - Financial Decision Infrastructure
- * Structure: 7 Acts
+ * Structure: 7 Acts - Psychological sequence addressing investor risks
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { sanitizePdfElement, sanitizePdfElementHard } from '@/components/sales-deck/pdfStyleSanitizer';
 import VCPitchDeckPDF_VI from '@/components/sales-deck/VCPitchDeckPDF_VI';
 
-// Presenter notes for each slide (Vietnamese)
+// Presenter notes for each slide (Vietnamese - 22 slides)
 const presenterNotes: Record<number, { tip: string; action: string }> = {
   1: {
     tip: "Partner ngay lập tức cảm nhận vấn đề mang tính hệ thống, không phải thiếu tính năng. Startup tốt sửa vấn đề. Startup vĩ đại sửa structural shifts.",
@@ -42,68 +42,84 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Cho thấy sự chuyển đổi: Ghi nhận → Quyết định. Đơn giản."
   },
   4: {
+    tip: "Slide này loại bỏ rủi ro 'quá sớm'. Mọi lực lượng cấu trúc trong commerce đang nén thời gian quyết định.",
+    action: "Dừng. Để macro shift thấm. Partner nghĩ: 'Đây là làn sóng, không phải tính năng.'"
+  },
+  5: {
     tip: "Infrastructure = kết quả lớn. Không phải dashboards. Không phải analytics.",
     action: "Để định nghĩa thấm. Đừng giải thích quá nhiều."
   },
-  5: {
+  6: {
+    tip: "Hầu hết công ty xây dashboards. Chúng tôi xây tầng sự thật tài chính mà những dashboards đó phụ thuộc vào.",
+    action: "Cho thấy kiến trúc 5 tầng. Loại bỏ nỗi sợ 'AI wrapper'."
+  },
+  7: {
+    tip: "Phần mềm mở rộng. Decision intelligence cộng hưởng. Đây là nơi bạn chuyển từ software company sang data compounding company.",
+    action: "Loại bỏ nỗi sợ commoditization. Partner nghĩ: 'Tiềm năng category leader.'"
+  },
+  8: {
     tip: "Hầu hết founders underplay timing. ĐỪNG. Timing bán được công ty.",
     action: "Tín hiệu tài chính cuối cùng đã có thể kết nối."
   },
-  6: {
+  9: {
     tip: "Đây là slide 'macro shift' của bạn. VC đầu tư vào shifts, không phải tools.",
     action: "Kill line: Vận hành không có real-time awareness = vận hành không có kế toán."
   },
-  7: {
+  10: {
     tip: "Infra founders oversell features — sai lầm. Giữ nó TIGHT.",
     action: "Chỉ 3 vai trò: CFO, COO, CEO. Không có screenshots UI."
   },
-  8: {
+  11: {
+    tip: "CEOs không mở Bluecore hàng tháng. Họ mở hàng ngày. Công ty không thay thế hệ thống họ tin tưởng.",
+    action: "Đây là nơi bạn ngừng nghe thông minh và bắt đầu nghe fundable."
+  },
+  12: {
     tip: "Đây không phải phần mềm lắp ráp. Đây là cơ sở hạ tầng được thiết kế.",
     action: "Partner nghĩ: Khó sao chép. Tốt."
   },
-  9: {
+  13: {
     tip: "Infra investors YÊU slide này. Trust compounds.",
     action: "Doanh nghiệp không thay thế hệ thống họ tin tưởng."
   },
-  10: {
-    tip: "Đây là nơi bạn ngừng nghe thông minh và bắt đầu nghe fundable.",
-    action: "Partner nghiêng về phía trước ở đây. Cho thấy số thật."
-  },
-  11: {
+  14: {
     tip: "Slide này giảm mạnh nhận thức rủi ro.",
     action: "Thái Lan bây giờ là beachhead thứ hai đã được xác thực — không phải cược tương lai."
   },
-  12: {
+  15: {
     tip: "Triển khai có thể lặp lại. Tín hiệu rất investable.",
     action: "Bluecore mở rộng với localization tối thiểu."
   },
-  13: {
+  16: {
     tip: "Không TAM thổi phồng. Partners ngửi được số giả ngay.",
     action: "Bắt đầu với operators nhạy cảm margin cảm nhận decision latency đầu tiên."
   },
-  14: {
+  17: {
     tip: "Không cần hype. Số đã mạnh sẵn.",
     action: "Cho thấy wedge kết hợp: $1.4B-$2.3B"
   },
-  15: {
+  18: {
     tip: "Sau commerce: consumer brands, distribution, pharmacy, F&B.",
     action: "Partner bây giờ thấy venture scale."
   },
-  16: {
+  19: {
     tip: "Nhiều deck quên điều này. Partners đầu tư vào execution clarity.",
     action: "Expansion là có chủ đích — không phải cơ hội."
   },
-  17: {
+  20: {
     tip: "3+ năm warehouse maturity. ~99.8% data accuracy.",
     action: "Founder signal trở nên RẤT mạnh ở đây."
   },
-  18: {
+  21: {
     tip: "Không bao giờ bỏ qua điều này trong infra decks. Nghe bình tĩnh — gần như hiển nhiên.",
+    action: "Để tính tất yếu thấm. ERP = bắt buộc. Decision infra = tiếp theo."
+  },
+  22: {
+    tip: "Kết thúc với niềm tin. Đây là hệ thống doanh nghiệp dựa vào để tồn tại.",
     action: "Kết thúc deck. Để im lặng làm việc. KHÔNG thêm fluff."
   }
 };
 
-// ACT 1 — MỞ CATEGORY (Slides 1–4)
+// ACT 1 — MỞ CATEGORY (Slides 1–3)
 const Slide01CategoryShock: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
@@ -265,7 +281,69 @@ const Slide03PlatformShift: React.FC = () => (
   </div>
 );
 
-const Slide04DefineCategory: React.FC = () => (
+// NEW SLIDE 4 — INEVITABILITY (Rủi ro timing thị trường)
+const Slide04Inevitability: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6"
+    >
+      Nhận thức Tài chính<br />
+      <span className="text-amber-400">Không Còn Là Tùy chọn.</span>
+    </motion.h1>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="text-xl text-slate-300 mb-8 max-w-2xl"
+    >
+      Mọi lực lượng cấu trúc trong thương mại đang nén thời gian quyết định:
+    </motion.p>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.5 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mb-10"
+    >
+      {[
+        "Nén margin là cấu trúc, không phải chu kỳ",
+        "Biến động CAC phá hủy độ tin cậy dự báo",
+        "Doanh thu đa kênh phân mảnh sự thật tài chính",
+        "Thanh toán real-time tăng tốc rủi ro tiền mặt",
+        "Operators di chuyển nhanh hơn finance có thể đóng sổ"
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 + i * 0.1 }}
+          className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-left"
+        >
+          <span className="text-amber-400 text-lg">→</span>
+          <span className="text-slate-300 text-sm">{item}</span>
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.2 }}
+      className="p-6 rounded-xl bg-blue-500/10 border border-blue-500/30 max-w-2xl"
+    >
+      <p className="text-lg text-slate-300 italic">
+        Thị trường không đòi hỏi báo cáo tốt hơn.<br />
+        <span className="text-white font-medium">Nó đòi hỏi nhận thức tài chính thời gian thực.</span>
+      </p>
+    </motion.div>
+  </div>
+);
+
+// Slide 5 — Define Category
+const Slide05DefineCategory: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -310,8 +388,149 @@ const Slide04DefineCategory: React.FC = () => (
   </div>
 );
 
-// ACT 2 — TẠI SAO BÂY GIỜ (Slides 5–6)
-const Slide05WhyImpossibleBefore: React.FC = () => (
+// NEW SLIDE 6 — ARCHITECTURE MOAT
+const Slide06ArchitectureMoat: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Đây Không Phải Phần mềm.
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-10"
+    >
+      Đây Là Hạ tầng Tài chính.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="flex flex-col gap-2 max-w-xl w-full mb-8"
+    >
+      {[
+        { layer: "Tín hiệu Tài chính Phân mảnh", sub: "(POS / Marketplaces / Payments / ERP)", action: "chuẩn hóa" },
+        { layer: "Tầng Ngữ nghĩa Tài chính", sub: "(một ngôn ngữ của margin, cash, liability)", action: "đối soát" },
+        { layer: "Truth Engine", sub: "(xác minh xuyên kênh)", action: "tính toán" },
+        { layer: "Decision Dataset", sub: "(patterns trích xuất từ vận hành)", action: "kích hoạt" },
+        { layer: "Tầng Nhận thức Điều hành", sub: "(tín hiệu sống còn thời gian thực)", action: null }
+      ].map((item, i) => (
+        <React.Fragment key={i}>
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 + i * 0.1 }}
+            className="p-3 rounded-lg bg-slate-800/50 border border-blue-500/30"
+          >
+            <div className="text-white font-medium text-sm">{item.layer}</div>
+            <div className="text-slate-500 text-xs">{item.sub}</div>
+          </motion.div>
+          {item.action && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.55 + i * 0.1 }}
+              className="text-blue-400 text-sm"
+            >
+              ↓ {item.action}
+            </motion.div>
+          )}
+        </React.Fragment>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.2 }}
+      className="text-lg text-slate-300 italic border-l-4 border-blue-500 pl-6"
+    >
+      Hầu hết công ty xây dashboards.<br />
+      <span className="text-white font-medium">Chúng tôi xây tầng sự thật tài chính mà những dashboards đó phụ thuộc vào.</span>
+    </motion.p>
+  </div>
+);
+
+// NEW SLIDE 7 — DECISION DATASET
+const Slide07DecisionDataset: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6"
+    >
+      Moat<br />
+      <span className="text-emerald-400">Cộng hưởng.</span>
+    </motion.h1>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="text-xl text-slate-300 mb-8"
+    >
+      Mỗi quyết định làm mạnh thêm hệ thống.
+    </motion.p>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.5 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full mb-8"
+    >
+      {[
+        "Ngôn ngữ tài chính được chuẩn hóa",
+        "Patterns quyết định được cấu trúc hóa",
+        "Chữ ký rủi ro trở nên dự đoán được",
+        "Phản hồi vận hành trở nên đo lường được"
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 + i * 0.1 }}
+          className="flex items-center gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-left"
+        >
+          <span className="text-emerald-400 text-lg">✓</span>
+          <span className="text-slate-300">{item}</span>
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 max-w-xl mb-6"
+    >
+      <p className="text-slate-400 text-sm mb-2">Điều này tạo ra decision dataset độc quyền:</p>
+      <div className="flex justify-center gap-4 text-sm">
+        <span className="text-emerald-400">phát hiện gì</span>
+        <span className="text-slate-500">→</span>
+        <span className="text-blue-400">quyết định gì</span>
+        <span className="text-slate-500">→</span>
+        <span className="text-amber-400">kết quả gì</span>
+      </div>
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.3 }}
+      className="text-xl text-slate-300"
+    >
+      Phần mềm mở rộng. <span className="text-white font-medium">Decision intelligence cộng hưởng.</span>
+    </motion.p>
+  </div>
+);
+
+// Slide 8 — Why Impossible Before
+const Slide08WhyImpossibleBefore: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -364,7 +583,8 @@ const Slide05WhyImpossibleBefore: React.FC = () => (
   </div>
 );
 
-const Slide06WhyMandatory: React.FC = () => (
+// Slide 9 — Why Mandatory
+const Slide09WhyMandatory: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -426,8 +646,8 @@ const Slide06WhyMandatory: React.FC = () => (
   </div>
 );
 
-// ACT 3 — SẢN PHẨM (Slides 7–9)
-const Slide07ProductOneSentence: React.FC = () => (
+// Slide 10 — Product One Sentence
+const Slide10ProductOneSentence: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -473,7 +693,73 @@ const Slide07ProductOneSentence: React.FC = () => (
   </div>
 );
 
-const Slide08ArchitectureAdvantage: React.FC = () => (
+// NEW SLIDE 11 — VELOCITY
+const Slide11Velocity: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Khi Nhận thức Tài chính Trở thành
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-emerald-400 mb-12"
+    >
+      Sống còn.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
+    >
+      {[
+        { label: "Retention", value: "95%+" },
+        { label: "Sử dụng", value: "Hàng ngày" },
+        { label: "Phụ thuộc", value: "Điều hành" },
+        { label: "Mở rộng", value: "Liên tục" }
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 + i * 0.1 }}
+          className="p-4 rounded-lg bg-slate-800/50 border border-emerald-500/30"
+        >
+          <div className="text-slate-400 text-sm mb-1">{item.label}</div>
+          <div className="text-emerald-400 text-2xl font-bold">{item.value}</div>
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.9 }}
+      className="text-xl text-slate-300 mb-6"
+    >
+      CEOs không mở Bluecore hàng tháng.<br />
+      <span className="text-white font-medium">Họ mở hàng ngày.</span>
+    </motion.p>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.1 }}
+      className="text-lg text-slate-400 italic border-l-4 border-emerald-500 pl-6"
+    >
+      Công ty không thay thế hệ thống họ tin tưởng để nói sự thật.
+    </motion.p>
+  </div>
+);
+
+// Slide 12 — Architecture Advantage
+const Slide12ArchitectureAdvantage: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -491,10 +777,10 @@ const Slide08ArchitectureAdvantage: React.FC = () => (
       className="flex flex-col items-center gap-3 max-w-md"
     >
       {[
-        "Nguồn dữ liệu",
+        "Nguồn",
         "Chuẩn hóa ngữ nghĩa",
         "Đối soát",
-        "Dataset quyết định",
+        "Decision dataset",
         "Cảnh báo"
       ].map((item, i) => (
         <React.Fragment key={i}>
@@ -536,7 +822,8 @@ const Slide08ArchitectureAdvantage: React.FC = () => (
   </div>
 );
 
-const Slide09SwitchingCost: React.FC = () => (
+// Slide 13 — Switching Cost
+const Slide13SwitchingCost: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -571,63 +858,8 @@ const Slide09SwitchingCost: React.FC = () => (
   </div>
 );
 
-// ACT 4 — TRACTION (Slides 10–12)
-const Slide10MissionCritical: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-4"
-    >
-      Đã Đang Trở thành
-    </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-4xl md:text-5xl font-bold text-emerald-400 mb-12"
-    >
-      Thiết yếu cho Vận hành.
-    </motion.h2>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
-    >
-      {[
-        { label: "ARR", value: "~$200K" },
-        { label: "Retention", value: "90-95%" },
-        { label: "Sử dụng", value: "Hàng ngày" },
-        { label: "Workflows", value: "Phụ thuộc tài chính" }
-      ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 + i * 0.1 }}
-          className="p-4 rounded-lg bg-slate-800/50 border border-emerald-500/30"
-        >
-          <div className="text-slate-400 text-sm mb-1">{item.label}</div>
-          <div className="text-emerald-400 text-xl font-bold">{item.value}</div>
-        </motion.div>
-      ))}
-    </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="text-xl text-slate-300 italic border-l-4 border-emerald-500 pl-6"
-    >
-      Executives mở Bluecore hàng ngày — không phải hàng tháng.<br />
-      <span className="text-white font-medium">Đó là hành vi infrastructure.</span>
-    </motion.p>
-  </div>
-);
-
-const Slide11CrossBorder: React.FC = () => (
+// Slide 14 — Cross-Border
+const Slide14CrossBorder: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -675,7 +907,8 @@ const Slide11CrossBorder: React.FC = () => (
   </div>
 );
 
-const Slide12ArchitectureTravels: React.FC = () => (
+// Slide 15 — Architecture Travels
+const Slide15ArchitectureTravels: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -728,8 +961,8 @@ const Slide12ArchitectureTravels: React.FC = () => (
   </div>
 );
 
-// ACT 5 — THỊ TRƯỜNG (Slides 13–15)
-const Slide13InitialWedge: React.FC = () => (
+// Slide 16 — Initial Wedge
+const Slide16InitialWedge: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -766,7 +999,8 @@ const Slide13InitialWedge: React.FC = () => (
   </div>
 );
 
-const Slide14SEAMarket: React.FC = () => (
+// Slide 17 — SEA Market
+const Slide17SEAMarket: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -819,7 +1053,8 @@ const Slide14SEAMarket: React.FC = () => (
   </div>
 );
 
-const Slide15ExpansionUnlocks: React.FC = () => (
+// Slide 18 — Expansion Unlocks
+const Slide18ExpansionUnlocks: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -879,8 +1114,8 @@ const Slide15ExpansionUnlocks: React.FC = () => (
   </div>
 );
 
-// ACT 6 — CHIẾN LƯỢC (Slides 16–17)
-const Slide16RegionalExpansion: React.FC = () => (
+// Slide 19 — Regional Expansion
+const Slide19RegionalExpansion: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -946,7 +1181,8 @@ const Slide16RegionalExpansion: React.FC = () => (
   </div>
 );
 
-const Slide17WhyBluecoreWins: React.FC = () => (
+// Slide 20 — Why Bluecore Wins
+const Slide20WhyBluecoreWins: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1008,8 +1244,8 @@ const Slide17WhyBluecoreWins: React.FC = () => (
   </div>
 );
 
-// ACT 7 — TẦM NHÌN (Slide 18)
-const Slide18Inevitability: React.FC = () => (
+// Slide 21 — Inevitability Vision
+const Slide21InevitabilityVision: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1037,19 +1273,45 @@ const Slide18Inevitability: React.FC = () => (
       liệu họ có cần hệ thống quyết định tài chính.<br />
       <span className="text-white font-medium">Chỉ là tin tưởng hệ thống nào.</span>
     </motion.p>
-    
+  </div>
+);
+
+// Slide 22 — Closing
+const Slide22Closing: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.9 }}
-      className="p-8 rounded-xl bg-blue-500/10 border border-blue-500/30 max-w-2xl"
+      transition={{ duration: 0.8 }}
+      className="p-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 max-w-3xl"
     >
-      <p className="text-2xl text-slate-300 font-light mb-2">
+      <motion.p 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="text-3xl md:text-4xl text-slate-300 font-light mb-4"
+      >
         Chúng tôi Không Xây dựng Phần mềm.
-      </p>
-      <p className="text-2xl text-white font-medium">
-        Chúng tôi Xây dựng Hệ thống Doanh nghiệp Dựa vào Để Tồn tại.
-      </p>
+      </motion.p>
+      <motion.p 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6 }}
+        className="text-3xl md:text-4xl text-white font-medium"
+      >
+        Chúng tôi Xây dựng Hệ thống<br />
+        Doanh nghiệp Dựa vào Để Tồn tại.
+      </motion.p>
+    </motion.div>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="mt-16"
+    >
+      <div className="text-blue-400 text-2xl font-bold">BLUECORE</div>
+      <div className="text-slate-500 text-sm mt-2">Cơ sở Hạ tầng Quyết định Tài chính</div>
     </motion.div>
   </div>
 );
@@ -1058,21 +1320,25 @@ const slides = [
   Slide01CategoryShock,
   Slide02SilentFailure,
   Slide03PlatformShift,
-  Slide04DefineCategory,
-  Slide05WhyImpossibleBefore,
-  Slide06WhyMandatory,
-  Slide07ProductOneSentence,
-  Slide08ArchitectureAdvantage,
-  Slide09SwitchingCost,
-  Slide10MissionCritical,
-  Slide11CrossBorder,
-  Slide12ArchitectureTravels,
-  Slide13InitialWedge,
-  Slide14SEAMarket,
-  Slide15ExpansionUnlocks,
-  Slide16RegionalExpansion,
-  Slide17WhyBluecoreWins,
-  Slide18Inevitability
+  Slide04Inevitability,           // NEW
+  Slide05DefineCategory,          // was 04
+  Slide06ArchitectureMoat,        // NEW
+  Slide07DecisionDataset,         // NEW
+  Slide08WhyImpossibleBefore,     // was 05
+  Slide09WhyMandatory,            // was 06
+  Slide10ProductOneSentence,      // was 07
+  Slide11Velocity,                // NEW
+  Slide12ArchitectureAdvantage,   // was 08
+  Slide13SwitchingCost,           // was 09
+  Slide14CrossBorder,             // was 11
+  Slide15ArchitectureTravels,     // was 12
+  Slide16InitialWedge,            // was 13
+  Slide17SEAMarket,               // was 14
+  Slide18ExpansionUnlocks,        // was 15
+  Slide19RegionalExpansion,       // was 16
+  Slide20WhyBluecoreWins,         // was 17
+  Slide21InevitabilityVision,     // was 18
+  Slide22Closing                  // NEW
 ];
 
 const VCPitchDeckVI: React.FC = () => {

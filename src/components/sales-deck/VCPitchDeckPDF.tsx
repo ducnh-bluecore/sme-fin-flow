@@ -1,9 +1,9 @@
 /**
  * VC Pitch Deck PDF - English Version
  * 
- * 18-slide Series A presentation for international VCs
+ * 22-slide Series A presentation for international VCs
  * Focus on Category Claim: Financial Decision Infrastructure
- * Structure: 7 Acts
+ * Structure: 7 Acts - Psychological sequence addressing investor risks
  */
 
 import React from 'react';
@@ -173,9 +173,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 4,
   },
+  architectureLayer: {
+    backgroundColor: '#1e293b',
+    borderRadius: 4,
+    padding: 10,
+    marginVertical: 3,
+  },
+  architectureText: {
+    fontSize: 10,
+    color: '#e2e8f0',
+    textAlign: 'center',
+  },
+  architectureSub: {
+    fontSize: 8,
+    color: '#64748b',
+    textAlign: 'center',
+  },
 });
 
-const TOTAL_SLIDES = 18;
+const TOTAL_SLIDES = 22;
 
 // ACT 1 — OPEN THE CATEGORY
 const Slide01 = () => (
@@ -234,7 +250,39 @@ const Slide03 = () => (
   </Page>
 );
 
+// NEW SLIDE 4 — INEVITABILITY
 const Slide04 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>Financial Awareness Is</Text>
+      <Text style={styles.headlineAmber}>Not Optional Anymore.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', marginBottom: 16 }}>Every structural force in commerce is compressing decision time:</Text>
+      <View style={{ marginVertical: 12 }}>
+        {[
+          'Margin compression is structural, not cyclical',
+          'CAC volatility destroys forecast reliability',
+          'Multi-channel revenue fragments financial truth',
+          'Real-time payments accelerate cash risk',
+          'Operators move faster than finance can close books'
+        ].map((item, i) => (
+          <View key={i} style={styles.listItem}>
+            <Text style={styles.bullet}>→</Text>
+            <Text style={styles.listText}>{item}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.highlight}>
+        <Text style={styles.highlightText}>The market is not asking for better reports.</Text>
+        <Text style={{ ...styles.highlightText, fontWeight: 'bold', marginTop: 4 }}>It is demanding real-time financial awareness.</Text>
+      </View>
+    </View>
+    <Text style={styles.slideNumber}>4 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// Slide 5 — Define Category
+const Slide05 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.tag}>Introducing</Text>
@@ -248,13 +296,82 @@ const Slide04 = () => (
       </View>
       <Text style={{ ...styles.body, textAlign: 'center' }}>Not dashboards. Not analytics. Infrastructure.</Text>
     </View>
-    <Text style={styles.slideNumber}>4 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>5 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-// ACT 2 — WHY NOW
-const Slide05 = () => (
+// NEW SLIDE 6 — ARCHITECTURE MOAT
+const Slide06 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>This Is Not Software.</Text>
+      <Text style={styles.headlineAccent}>This Is Financial Infrastructure.</Text>
+      <View style={{ marginVertical: 12 }}>
+        <View style={styles.architectureLayer}>
+          <Text style={styles.architectureText}>Fragmented Financial Signals</Text>
+          <Text style={styles.architectureSub}>(POS / Marketplaces / Payments / ERP)</Text>
+        </View>
+        <Text style={styles.arrow}>↓ normalize</Text>
+        <View style={styles.architectureLayer}>
+          <Text style={styles.architectureText}>Financial Semantics Layer</Text>
+          <Text style={styles.architectureSub}>(one language of margin, cash, liability)</Text>
+        </View>
+        <Text style={styles.arrow}>↓ reconcile</Text>
+        <View style={styles.architectureLayer}>
+          <Text style={styles.architectureText}>Truth Engine</Text>
+          <Text style={styles.architectureSub}>(cross-channel verification)</Text>
+        </View>
+        <Text style={styles.arrow}>↓ compute</Text>
+        <View style={styles.architectureLayer}>
+          <Text style={styles.architectureText}>Decision Dataset</Text>
+          <Text style={styles.architectureSub}>(patterns extracted from operations)</Text>
+        </View>
+        <Text style={styles.arrow}>↓ activate</Text>
+        <View style={styles.architectureLayer}>
+          <Text style={styles.architectureText}>Executive Awareness Layer</Text>
+          <Text style={styles.architectureSub}>(real-time survivability signals)</Text>
+        </View>
+      </View>
+      <Text style={styles.punchline}>Most companies build dashboards.{'\n'}We built the financial truth layer those dashboards depend on.</Text>
+    </View>
+    <Text style={styles.slideNumber}>6 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// NEW SLIDE 7 — DECISION DATASET
+const Slide07 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>The Moat That</Text>
+      <Text style={styles.headlineEmerald}>Compounds.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>Every decision strengthens the system.</Text>
+      <View style={styles.gridContainer}>
+        {[
+          'Financial language becomes standardized',
+          'Decision patterns become structured',
+          'Risk signatures become predictable',
+          'Operational responses become measurable'
+        ].map((item, i) => (
+          <View key={i} style={{ ...styles.gridItem, backgroundColor: '#064e3b' }}>
+            <Text style={{ ...styles.gridBody, color: '#6ee7b7' }}>✓ {item}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={styles.diagramBox}>
+        <Text style={styles.diagramText}>Proprietary decision dataset:</Text>
+        <Text style={{ ...styles.diagramText, color: '#34d399' }}>what was detected → what decision was made → what outcome followed</Text>
+      </View>
+      <Text style={{ ...styles.body, textAlign: 'center', fontWeight: 'bold' }}>Software scales. Decision intelligence compounds.</Text>
+    </View>
+    <Text style={styles.slideNumber}>7 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// Slide 8 — Why Impossible Before
+const Slide08 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Only Now Is Decision Infrastructure</Text>
@@ -268,12 +385,13 @@ const Slide05 = () => (
       </View>
       <Text style={{ ...styles.highlightText, color: '#34d399', marginTop: 16 }}>Financial signals are finally connectable.</Text>
     </View>
-    <Text style={styles.slideNumber}>5 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>8 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide06 = () => (
+// Slide 9 — Why Mandatory
+const Slide09 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Decision Speed Is Becoming</Text>
@@ -285,13 +403,13 @@ const Slide06 = () => (
       </View>
       <Text style={styles.punchline}>Soon, operating without real-time financial awareness{'\n'}will feel like operating without accounting.</Text>
     </View>
-    <Text style={styles.slideNumber}>6 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>9 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-// ACT 3 — THE PRODUCT
-const Slide07 = () => (
+// Slide 10 — Product One Sentence
+const Slide10 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>A Single Financial Reality —</Text>
@@ -306,12 +424,40 @@ const Slide07 = () => (
         ))}
       </View>
     </View>
-    <Text style={styles.slideNumber}>7 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>10 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide08 = () => (
+// NEW SLIDE 11 — VELOCITY
+const Slide11 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>When Financial Awareness Becomes</Text>
+      <Text style={styles.headlineEmerald}>Mission-Critical.</Text>
+      <View style={styles.gridContainer}>
+        {[
+          { label: 'Retention', value: '95%+' },
+          { label: 'Usage', value: 'Daily' },
+          { label: 'Dependency', value: 'Executive' },
+          { label: 'Expansion', value: 'Continuous' }
+        ].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={styles.metricLabel}>{item.label}</Text>
+            <Text style={styles.metricValue}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>CEOs don't open Bluecore monthly. They open it daily.</Text>
+      <Text style={styles.punchline}>Companies don't replace systems they trust to tell them the truth.</Text>
+    </View>
+    <Text style={styles.slideNumber}>11 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// Slide 12 — Architecture Advantage
+const Slide12 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Financial Truth Is an</Text>
@@ -329,12 +475,13 @@ const Slide08 = () => (
       </View>
       <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>This is not assembled software. It is engineered infrastructure.</Text>
     </View>
-    <Text style={styles.slideNumber}>8 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>12 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide09 = () => (
+// Slide 13 — Switching Cost
+const Slide13 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Companies Do Not Replace Systems</Text>
@@ -344,33 +491,13 @@ const Slide09 = () => (
         <Text style={{ ...styles.highlightText, marginTop: 8 }}>Once embedded in decision workflows,{'\n'}replacement risk drops dramatically.</Text>
       </View>
     </View>
-    <Text style={styles.slideNumber}>9 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>13 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-// ACT 4 — TRACTION
-const Slide10 = () => (
-  <Page size="A4" orientation="landscape" style={styles.page}>
-    <View>
-      <Text style={styles.headline}>Already Becoming</Text>
-      <Text style={styles.headlineEmerald}>Operationally Essential.</Text>
-      <View style={styles.gridContainer}>
-        {[{ label: 'ARR', value: '~$200K' }, { label: 'Retention', value: '90-95%' }, { label: 'Usage', value: 'Daily' }, { label: 'Workflows', value: 'Finance-dep.' }].map((item, i) => (
-          <View key={i} style={styles.gridItem}>
-            <Text style={styles.metricLabel}>{item.label}</Text>
-            <Text style={styles.metricValue}>{item.value}</Text>
-          </View>
-        ))}
-      </View>
-      <Text style={styles.punchline}>Executives open Bluecore daily — not monthly.{'\n'}That is infrastructure behavior.</Text>
-    </View>
-    <Text style={styles.slideNumber}>10 / {TOTAL_SLIDES}</Text>
-    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
-  </Page>
-);
-
-const Slide11 = () => (
+// Slide 14 — Cross-Border
+const Slide14 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Proven Beyond</Text>
@@ -389,12 +516,13 @@ const Slide11 = () => (
       </View>
       <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Thailand is now a validated second beachhead.</Text>
     </View>
-    <Text style={styles.slideNumber}>11 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>14 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide12 = () => (
+// Slide 15 — Architecture Travels
+const Slide15 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Financial Complexity Is Structurally Similar</Text>
@@ -408,13 +536,13 @@ const Slide12 = () => (
       </View>
       <Text style={{ ...styles.highlightText, color: '#34d399', marginTop: 16 }}>Bluecore scales with minimal localization.</Text>
     </View>
-    <Text style={styles.slideNumber}>12 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>15 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-// ACT 5 — MARKET
-const Slide13 = () => (
+// Slide 16 — Initial Wedge
+const Slide16 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>We Start with</Text>
@@ -427,12 +555,13 @@ const Slide13 = () => (
       </View>
       <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>These companies feel decision latency first.</Text>
     </View>
-    <Text style={styles.slideNumber}>13 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>16 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide14 = () => (
+// Slide 17 — SEA Market
+const Slide17 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>A $1B+ Wedge</Text>
@@ -449,12 +578,13 @@ const Slide14 = () => (
         <Text style={{ ...styles.highlightText, color: '#34d399' }}>Combined wedge: $1.4B–$2.3B</Text>
       </View>
     </View>
-    <Text style={styles.slideNumber}>14 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>17 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide15 = () => (
+// Slide 18 — Expansion Unlocks
+const Slide18 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Expansion Unlocks a</Text>
@@ -463,13 +593,13 @@ const Slide15 = () => (
       <Text style={styles.body}>Decision infrastructure becomes horizontal.</Text>
       <Text style={{ ...styles.highlightText, color: '#34d399', marginTop: 16 }}>Category potential exceeds $5B in Southeast Asia alone.</Text>
     </View>
-    <Text style={styles.slideNumber}>15 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>18 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-// ACT 6 — STRATEGY
-const Slide16 = () => (
+// Slide 19 — Regional Expansion
+const Slide19 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Built in Vietnam.</Text>
@@ -481,12 +611,13 @@ const Slide16 = () => (
       </View>
       <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Expansion is deliberate — not opportunistic.</Text>
     </View>
-    <Text style={styles.slideNumber}>16 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>19 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-const Slide17 = () => (
+// Slide 20 — Why Bluecore Wins
+const Slide20 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>Built the Financial Truth Layer</Text>
@@ -501,13 +632,13 @@ const Slide17 = () => (
       <Text style={styles.body}>Most companies start with dashboards.</Text>
       <Text style={{ ...styles.body, color: '#ffffff', fontWeight: 'bold' }}>We started with truth.</Text>
     </View>
-    <Text style={styles.slideNumber}>17 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>20 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
-// ACT 7 — VISION
-const Slide18 = () => (
+// Slide 21 — Inevitability Vision
+const Slide21 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <Text style={styles.headline}>ERP Became Mandatory.</Text>
@@ -517,14 +648,28 @@ const Slide18 = () => (
         whether they need financial decision systems.{'\n'}
         Only which one they trust.
       </Text>
-      <View style={{ ...styles.highlight, marginTop: 24 }}>
-        <Text style={{ ...styles.highlightText, fontSize: 14 }}>We Are Not Building Software.</Text>
-        <Text style={{ ...styles.highlightText, fontWeight: 'bold', fontSize: 16, marginTop: 8 }}>
-          We Are Building the System Companies Rely on to Survive.
+    </View>
+    <Text style={styles.slideNumber}>21 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// Slide 22 — Closing
+const Slide22 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <View style={{ ...styles.highlight, marginTop: 24, padding: 32 }}>
+        <Text style={{ ...styles.highlightText, fontSize: 18 }}>We Are Not Building Software.</Text>
+        <Text style={{ ...styles.highlightText, fontWeight: 'bold', fontSize: 22, marginTop: 12 }}>
+          We Are Building the System{'\n'}Companies Rely on to Survive.
         </Text>
       </View>
+      <View style={{ marginTop: 40, alignItems: 'center' }}>
+        <Text style={{ ...styles.headlineAccent, fontSize: 20 }}>BLUECORE</Text>
+        <Text style={{ ...styles.body, color: '#64748b', fontSize: 10 }}>Financial Decision Infrastructure</Text>
+      </View>
     </View>
-    <Text style={styles.slideNumber}>18 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.slideNumber}>22 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -549,6 +694,10 @@ const VCPitchDeckPDF: React.FC = () => (
     <Slide16 />
     <Slide17 />
     <Slide18 />
+    <Slide19 />
+    <Slide20 />
+    <Slide21 />
+    <Slide22 />
   </Document>
 );
 
