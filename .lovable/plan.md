@@ -1,246 +1,302 @@
 
+# VC Pitch Deck - 12 Slides Tương tác (Song ngữ Việt-Anh)
 
-# Kế hoạch: Bổ sung Nội dung Sales Deck theo Tài liệu Mới
+## Tổng quan
 
-## Tình trạng hiện tại
+Tạo **2 trang presentation tương tác** cho VC Pitch Deck:
+1. **Tiếng Anh**: `/investor/vc-pitch` - Dành cho pitch với VC quốc tế
+2. **Tiếng Việt**: `/investor/vc-pitch-vi` - Dành cho pitch với VC Việt Nam
 
-Sau khi rà soát toàn bộ `FullSystemSalesDeckPDF.tsx` (1628 dòng, 17 slides), tôi xác định các phần CẦN BỔ SUNG:
-
-| Nội dung | Hiện tại | Tài liệu mới | Trạng thái |
-|----------|----------|--------------|------------|
-| 3 Con số cốt lõi | Co nhung chua co cong thuc | Cong thuc minh bach | CAN THEM |
-| ROAS Illusion (4.0x → 0.9x) | CHUA CO | Co trong tai lieu | CAN THEM |
-| So sanh Elton Data + PangoCDP | So sanh Excel/PowerBI/Custom | 5-layer comparison | CAN CAP NHAT |
-| Pricing (1.5-4tr/thang) | CHUA CO | Co chi tiet | CAN THEM |
-| ROI Guarantee (3 ty VND) | CHUA CO | Co cam ket | CAN THEM |
-| Market Size TAM (30 nghin ty) | CHUA CO | 3 ICP segments | CAN THEM |
-| Trial 14 ngay mien phi | CHUA CO | CTA moi | CAN THEM vao CTA |
+Deck này được thiết kế để pitch với nhà đầu tư Series A, tập trung vào **category claim** thay vì product demo.
 
 ---
 
-## Cac thay doi chi tiet
+## Cấu trúc 12 Slides
 
-### 1. SLIDE MOI: ROAS Illusion (sau MDP, truoc CDP)
+| # | Slide | Headline (EN) | Headline (VI) | Mục tiêu |
+|---|-------|---------------|---------------|----------|
+| 1 | Category Claim | The Financial Awareness Layer for Modern Commerce | Tầng Nhận thức Tài chính cho Thương mại Hiện đại | Claim category trong 5 giây |
+| 2 | Inevitable Shift | Companies Don't Fail From Lack of Data. They Fail From Delayed Financial Truth | Doanh nghiệp không thất bại vì thiếu data. Họ thất bại vì sự thật tài chính đến muộn | Định vị macro shift |
+| 3 | Broken Stack | The Modern Data Stack Was Not Built for Decision Makers | Data Stack hiện đại không được xây cho người ra quyết định | Chỉ ra missing layer |
+| 4 | Introducing Category | Bluecore is the Financial Decision OS | Bluecore là Hệ điều hành Quyết định Tài chính | Define category |
+| 5 | Why Now | The Awareness Era Has Begun | Kỷ nguyên Nhận thức đã bắt đầu | 3 forces driving change |
+| 6 | Product as Infrastructure | The Control Layer for Financial Reality | Tầng kiểm soát cho Sự thật Tài chính | Architecture story |
+| 7 | What Makes This Hard | Financial Awareness Is a Deep Systems Problem | Nhận thức Tài chính là bài toán hệ thống phức tạp | Defensibility |
+| 8 | Early Signal | Once Leadership Trusts the System - It Becomes Mission Critical | Khi lãnh đạo tin tưởng hệ thống - Nó trở thành sống còn | Traction signal |
+| 9 | Market | Every Margin-Sensitive Company Will Need a Financial Awareness Layer | Mọi doanh nghiệp nhạy cảm với margin sẽ cần một Tầng Nhận thức Tài chính | TAM/SAM story |
+| 10 | Moat | Awareness Compounds | Nhận thức cộng hưởng | 4 moat layers |
+| 11 | Vision Scale | Financial Awareness Will Become Default Infrastructure | Nhận thức Tài chính sẽ trở thành hạ tầng mặc định | Big vision |
+| 12 | Company Building | Bluecore Is Building the Financial Control Plane for Commerce | Bluecore đang xây dựng Tầng kiểm soát Tài chính cho Thương mại | Closing |
 
-Slide minh hoa su khac biet giua ROAS bao cao vs Profit ROAS thuc:
+---
 
-```
-+------------------------------------------+
-|  REALITY CHECK                            |
-|  "Marketing thang, Finance lo"            |
-|                                           |
-|  +-- Reported ROAS --+  +-- Reality --+   |
-|  |    4.0x           |  |   0.9x      |   |
-|  |    (Shopee Ads)   |  |   LO TIEN   |   |
-|  +-------------------+  +-------------+   |
-|                                           |
-|  Breakdown:                               |
-|  - Gross Revenue:   100%                  |
-|  - Platform fee:    -12%                  |
-|  - COGS:            -45%                  |
-|  - Shipping:        -8%                   |
-|  - Returns:         -12%                  |
-|  - Payment fee:     -3%                   |
-|  = Profit:          20% → ROAS 0.9x       |
-|                                           |
-|  "2.4 ty VND/nam mat trong im lang"       |
-+------------------------------------------+
-```
+## Design System
 
-### 2. CAP NHAT: Competitive Comparison (Elton + Pango)
+### Visual Style
+- **Background**: Slate-950 (dark mode premium)
+- **Accent Colors**: 
+  - Blue-400/500 cho category language
+  - Emerald-400 cho positive signals
+  - Amber-400 cho caution/old world
+- **Typography**:
+  - Headlines: text-5xl to text-6xl, font-bold
+  - Sub-headlines: text-2xl to text-3xl, font-light
+  - Body: text-lg to text-xl
+  - Punchlines: italic, slate-400, border-l-4 style
 
-Thay bang so sanh hien tai (Excel/PowerBI/Custom) bang:
+### Presenter Notes Panel
+- Toggle với icon MessageSquareText hoặc keyboard shortcut (N)
+- Hiển thị "Founder Tip" và talking points cho mỗi slide
+- Slide 1 có note đặc biệt: "Pause. Let it land."
 
-| Layer | Bluecore | Elton Data | PangoCDP |
-|-------|----------|------------|----------|
-| Data Ingestion | 35 native VN connectors tu tao Data Warehouse | Can Data Warehouse rieng (BigQuery) + data engineer | Can tracking setup (pixel/API) |
-| Data Model | Financial Truth dong goi san (Net Revenue, Real Cash, Profit ROAS) | Raw data sach, tu build business logic (SQL/dbt) | Customer Truth: 360 profile + segments |
-| Output | Control Tower: Alert co Owner/Deadline/Impact VND | Dataset sach, tu build dashboard BI | Segments + automation campaigns |
-| Deployment | 1-2 tuan live | 3-6 thang (warehouse + pipeline) | 2-3 thang (tracking + identity) |
-| Chi phi | Co dinh 1.5-4tr/thang | Data eng 40tr/thang + BigQuery 20tr/nam | Vai ngan USD/thang |
+### Navigation
+- Arrow keys (← →) để chuyển slide
+- Progress indicator dots ở bottom
+- Slide counter (e.g., "3 / 12")
+- Click vào slide để next
 
-### 3. SLIDE MOI: Pricing & ROI Guarantee
+---
 
-```
-+------------------------------------------+
-|  CHI PHI & ROI                            |
-|                                           |
-|  PRICING (co dinh, khong tinh volume):    |
-|  +------------------+---------------------+
-|  | Marketing Plan   | 1.5 trieu/thang    |
-|  | Ecommerce Plan   | 3 trieu/thang      |
-|  | Combo CEO        | 4 trieu/thang      |
-|  +------------------+---------------------+
-|  | Setup BigQuery   | 40 trieu (1 lan)   |
-|  +------------------+---------------------+
-|                                           |
-|  ROI BAO DAM:                             |
-|  +---------------------------------------+
-|  | Toi thieu 3 TY VND gia tri            |
-|  | trong thang dau tien                  |
-|  |                                       |
-|  | Khong tim thay gia tri?               |
-|  | → HOAN TIEN 100%                      |
-|  +---------------------------------------+
-|                                           |
-|  Trial 14 ngay mien phi                   |
-+------------------------------------------+
+## Files sẽ tạo
+
+```text
+src/pages/investor/
+├── VCPitchDeck.tsx          # English version
+└── VCPitchDeckVI.tsx        # Vietnamese version
 ```
 
-### 4. BO SUNG: Cong thuc FDP minh bach
+---
 
-Them vao slide FDP:
+## Component Structure
 
+```text
+VCPitchDeck / VCPitchDeckVI
+├── Navigation (back to portal, language switch)
+├── SlideContainer
+│   ├── Slide01CategoryClaim
+│   ├── Slide02InevitableShift
+│   ├── Slide03BrokenStack (với ASCII diagram)
+│   ├── Slide04IntroducingCategory
+│   ├── Slide05WhyNow (3 forces grid)
+│   ├── Slide06ProductInfrastructure (architecture flow)
+│   ├── Slide07WhatMakesHard
+│   ├── Slide08EarlySignal (metrics)
+│   ├── Slide09Market (wedge → horizontal diagram)
+│   ├── Slide10Moat (4 layers)
+│   ├── Slide11VisionScale
+│   └── Slide12CompanyBuilding
+├── PresenterNotesPanel (collapsible)
+└── SlideNavigation (dots + arrows + keyboard)
+```
+
+---
+
+## Diagrams đặc biệt
+
+### Slide 3 - Broken Stack (ASCII/Visual)
+```text
+┌─────────────────────────────────────────────┐
+│     ERP  →  CRM  →  BI  →  Analytics        │
+│                    ↓                         │
+│              Operators                       │
+│              Analysts                        │
+│                                              │
+│     ═══════════════════════════════════     │
+│            MISSING LAYER                     │
+│       EXECUTIVE AWARENESS                    │
+│     ═══════════════════════════════════     │
+└─────────────────────────────────────────────┘
+```
+
+### Slide 6 - Architecture Flow
+```text
+┌────────────────────┐
+│   Data sources     │
+└─────────┬──────────┘
+          ↓
+┌────────────────────┐
+│ Unified financial  │
+│      truth         │
+└─────────┬──────────┘
+          ↓
+┌────────────────────┐
+│  Decision engine   │
+└─────────┬──────────┘
+          ↓
+┌────────────────────┐
+│  Executive alerts  │
+└────────────────────┘
+```
+
+### Slide 9 - Market Wedge
+```text
+Start narrow:  [Retail / Ecommerce]
+        ↓
+Expand:        [Multi-brand] [Consumer] [Marketplaces]
+        ↓
+Mid-market:    [All Margin-Sensitive Companies]
+```
+
+### Slide 10 - 4 Moat Layers
+```text
+┌─────────────────────────────────────────────┐
+│  1. Semantic Standard                        │
+├─────────────────────────────────────────────┤
+│  2. Decision Dataset                         │
+├─────────────────────────────────────────────┤
+│  3. Organizational Trust                     │
+├─────────────────────────────────────────────┤
+│  4. Executive Workflow Lock-in               │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## Presenter Notes Data
+
+### English Version
 ```typescript
-// 3 cong thuc cot loi
-Net Revenue = Gross Revenue - Returns - Discounts - Platform Fees
-Contribution Margin = Net Revenue - COGS - Variable Costs  
-Real Cash = Bank Balance - Pending Payables - Locked Inventory + Confirmed AR
-```
-
-### 5. CAP NHAT: CTA Page
-
-Them cac thong tin:
-- Trial 14 ngay mien phi
-- Demo voi data that: hellobluecore.vn
-- ROI guarantee: 3 ty VND hoac hoan tien
-
----
-
-## Cau truc slide sau update (17 → 20 slides)
-
-| # | Slide | Trang thai |
-|---|-------|------------|
-| 1 | Cover | Giu nguyen |
-| 2 | 3 Pillars | Giu nguyen |
-| 3 | Hidden Cost | Giu nguyen |
-| 4 | Ecosystem Overview | Giu nguyen |
-| 5 | FDP Detail | CAP NHAT: Them cong thuc |
-| 6 | MDP Detail (3 screenshots) | Giu nguyen |
-| 7 | ROAS Illusion | MOI |
-| 8 | CDP + Control Tower | Giu nguyen |
-| 9 | Financial Spine | Giu nguyen |
-| 10 | Competitor vs Elton/Pango | CAP NHAT |
-| 11-14 | Use Cases 1-4 | Giu nguyen |
-| 15 | Why Bluecore | Giu nguyen |
-| 16 | Pricing & ROI | MOI |
-| 17 | Manifesto | Giu nguyen |
-| 18 | Architecture | Giu nguyen |
-| 19 | CTA | CAP NHAT |
-
----
-
-## Phan ky thuat
-
-### Files can thay doi
-
-| File | Thay doi |
-|------|----------|
-| `src/components/sales-deck/FullSystemSalesDeckPDF.tsx` | Them 2 pages moi, cap nhat 3 pages |
-| `src/components/sales-deck/FullSystemSalesDeckPDF_EN.tsx` | Tuong tu voi English |
-
-### Code changes
-
-#### 1. Them data constant moi
-
-```typescript
-// ROAS Illusion breakdown
-const roasBreakdown = [
-  { label: 'Gross Revenue', value: '100%', color: 'primary' },
-  { label: 'Platform fee (san)', value: '-12%', color: 'danger' },
-  { label: 'COGS (gia von)', value: '-45%', color: 'danger' },
-  { label: 'Shipping', value: '-8%', color: 'danger' },
-  { label: 'Returns', value: '-12%', color: 'danger' },
-  { label: 'Payment fee', value: '-3%', color: 'danger' },
-  { label: 'Profit', value: '20%', color: 'accent' },
-];
-
-// Competitor comparison moi
-const newCompetitiveComparison = [
-  {
-    layer: 'Data Ingestion',
-    bluecore: '35 native VN connectors, tu tao Data Warehouse',
-    elton: 'Can Data Warehouse rieng (BigQuery) + data engineer',
-    pango: 'Can tracking setup (pixel/API) + identity resolution',
+const presenterNotes = {
+  1: {
+    tip: "We are not building a better dashboard. We are building the system CEOs rely on to understand financial reality — every morning.",
+    action: "Pause. Let it land."
   },
-  // ... 4 layers khac
-];
-
-// Pricing
-const pricingPlans = [
-  { name: 'Marketing Plan', price: '1.5 trieu', desc: 'MDP focus' },
-  { name: 'Ecommerce Plan', price: '3 trieu', desc: 'FDP + MDP' },
-  { name: 'Combo CEO', price: '4 trieu', desc: 'Full 5 modules' },
-];
+  2: {
+    tip: "VC invest vào shifts. Không invest vào tools.",
+    action: "Frame Bluecore as response to a macro shift."
+  },
+  3: {
+    tip: "Leadership teams still operate without a system designed to answer: 'Are we financially safe right now?'",
+    action: "Point to the missing layer."
+  },
+  // ... slides 4-12
+  12: {
+    tip: "We are not building a tool. We are building the system companies rely on to stay alive.",
+    action: "Pause. End deck. Let silence work."
+  }
+};
 ```
 
-#### 2. Them page components moi
-
+### Vietnamese Version
 ```typescript
-// ROASIllusionPage - Minh hoa 4.0x → 0.9x
-const ROASIllusionPage = () => (
-  <Page size="A4" style={styles.page}>
-    {/* ROAS comparison + breakdown table */}
-  </Page>
-);
-
-// PricingROIPage - Chi phi va cam ket
-const PricingROIPage = () => (
-  <Page size="A4" style={styles.pageAlt}>
-    {/* Pricing table + ROI guarantee box */}
-  </Page>
-);
-```
-
-#### 3. Cap nhat Document component
-
-```typescript
-<Document>
-  <CoverPage />
-  <PillarsPage />
-  <HiddenCostPage />
-  <EcosystemOverviewPage />
-  <FDPDetailPage />     {/* Updated with formulas */}
-  <MDPDetailPage />
-  <ROASIllusionPage />  {/* NEW */}
-  <CDPControlTowerPage />
-  <DataWarehousePage />
-  <CompetitiveAdvantagesPage />  {/* Updated: Elton + Pango */}
-  <UseCasePage1 />
-  <UseCasePage2 />
-  <UseCasePage3 />
-  <UseCasePage4 />
-  <WhyBluecorePage />
-  <PricingROIPage />    {/* NEW */}
-  <ManifestoPage />
-  <ArchitecturePage />
-  <CTAPage />           {/* Updated with trial */}
-</Document>
+const presenterNotesVI = {
+  1: {
+    tip: "Chúng tôi không xây dashboard tốt hơn. Chúng tôi xây hệ thống mà CEO dựa vào để hiểu sự thật tài chính — mỗi sáng.",
+    action: "Dừng. Để câu nói thấm."
+  },
+  // ... tương tự cho các slides khác
+};
 ```
 
 ---
 
-## Uoc tinh thoi gian
+## Routing (App.tsx updates)
 
-| Task | Thoi gian |
-|------|-----------|
-| Them ROASIllusionPage | 20 phut |
-| Them PricingROIPage | 15 phut |
-| Cap nhat CompetitiveAdvantagesPage | 25 phut |
-| Bo sung formulas vao FDPDetailPage | 10 phut |
-| Cap nhat CTAPage | 10 phut |
-| Cap nhat page numbers | 5 phut |
-| Update English version | 40 phut |
-| **Tong** | **~2 gio** |
+```typescript
+// Lazy load new pages
+const VCPitchDeck = lazy(() => import("./pages/investor/VCPitchDeck"));
+const VCPitchDeckVI = lazy(() => import("./pages/investor/VCPitchDeckVI"));
+
+// Add routes
+<Route path="/investor/vc-pitch" element={
+  <ProtectedRoute>
+    <VCPitchDeck />
+  </ProtectedRoute>
+} />
+<Route path="/investor/vc-pitch-vi" element={
+  <ProtectedRoute>
+    <VCPitchDeckVI />
+  </ProtectedRoute>
+} />
+```
 
 ---
 
-## Ket qua mong doi
+## Sales Deck Library Page Updates
 
-Sau khi hoan thanh, Sales Deck se co:
-- 20 slides (them 3 slides moi)
-- ROAS Illusion de thuyet phuc CMO
-- Bang so sanh Elton Data + PangoCDP de dinh vi ro rang
-- Pricing minh bach voi ROI guarantee 3 ty VND
-- Cong thuc FDP de CEO/CFO hieu logic
+Thêm mục mới trong phần "Phiên bản Tương tác":
 
+```tsx
+{/* VC Pitch Decks */}
+<Button asChild variant="outline" className="...">
+  <Link to="/investor/vc-pitch">
+    <div className="text-left">
+      <div className="font-semibold text-white">VC Pitch Deck (EN)</div>
+      <div className="text-xs text-slate-400">Series A presentation - 12 slides</div>
+    </div>
+  </Link>
+</Button>
+
+<Button asChild variant="outline" className="...">
+  <Link to="/investor/vc-pitch-vi">
+    <div className="text-left">
+      <div className="font-semibold text-white">VC Pitch Deck (VI)</div>
+      <div className="text-xs text-slate-400">Bản trình bày Series A - 12 slides</div>
+    </div>
+  </Link>
+</Button>
+```
+
+---
+
+## Key Features của mỗi phiên bản
+
+### Cả 2 phiên bản đều có:
+- Fullscreen slide view với dark premium design
+- Keyboard navigation (← → N)
+- Progress dots ở bottom
+- Presenter notes toggle panel
+- Language switcher button (EN ↔ VI)
+- Print/Export PDF button
+- Back to Portal navigation
+
+### Điểm khác biệt:
+| Feature | English | Vietnamese |
+|---------|---------|------------|
+| Headlines | English | Tiếng Việt |
+| Sub-headlines | English | Tiếng Việt |
+| Presenter notes | English | Tiếng Việt |
+| Punchlines | English | Tiếng Việt |
+| Navigation labels | "Back to Portal" | "Quay lại Portal" |
+
+---
+
+## Phần kỹ thuật
+
+### Dependencies sử dụng (đã có sẵn)
+- `react-router-dom` cho navigation
+- `lucide-react` cho icons
+- `framer-motion` cho slide transitions (optional)
+- `react-helmet-async` cho SEO
+
+### Keyboard Handlers
+```typescript
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowRight') nextSlide();
+    if (e.key === 'ArrowLeft') prevSlide();
+    if (e.key === 'n' || e.key === 'N') toggleNotes();
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, [currentSlide]);
+```
+
+---
+
+## Deliverables
+
+1. **VCPitchDeck.tsx** - English version (12 slides)
+2. **VCPitchDeckVI.tsx** - Vietnamese version (12 slides)
+3. **App.tsx updates** - 2 new routes
+4. **SalesDeckLibraryPage.tsx updates** - Links to both versions
+
+---
+
+## Estimated Time
+
+- VCPitchDeck.tsx (EN): ~25 phút
+- VCPitchDeckVI.tsx (VI): ~20 phút (copy + translate)
+- App.tsx routing: ~5 phút
+- SalesDeckLibraryPage updates: ~5 phút
+- **Tổng: ~55 phút**
