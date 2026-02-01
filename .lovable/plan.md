@@ -1,302 +1,258 @@
 
-# VC Pitch Deck - 12 Slides Tương tác (Song ngữ Việt-Anh)
 
-## Tổng quan
+# Cập nhật VC Pitch Deck - Thêm 4 Slides Mới & Sắp xếp lại
 
-Tạo **2 trang presentation tương tác** cho VC Pitch Deck:
-1. **Tiếng Anh**: `/investor/vc-pitch` - Dành cho pitch với VC quốc tế
-2. **Tiếng Việt**: `/investor/vc-pitch-vi` - Dành cho pitch với VC Việt Nam
+## Tổng quan thay đổi
 
-Deck này được thiết kế để pitch với nhà đầu tư Series A, tập trung vào **category claim** thay vì product demo.
-
----
-
-## Cấu trúc 12 Slides
-
-| # | Slide | Headline (EN) | Headline (VI) | Mục tiêu |
-|---|-------|---------------|---------------|----------|
-| 1 | Category Claim | The Financial Awareness Layer for Modern Commerce | Tầng Nhận thức Tài chính cho Thương mại Hiện đại | Claim category trong 5 giây |
-| 2 | Inevitable Shift | Companies Don't Fail From Lack of Data. They Fail From Delayed Financial Truth | Doanh nghiệp không thất bại vì thiếu data. Họ thất bại vì sự thật tài chính đến muộn | Định vị macro shift |
-| 3 | Broken Stack | The Modern Data Stack Was Not Built for Decision Makers | Data Stack hiện đại không được xây cho người ra quyết định | Chỉ ra missing layer |
-| 4 | Introducing Category | Bluecore is the Financial Decision OS | Bluecore là Hệ điều hành Quyết định Tài chính | Define category |
-| 5 | Why Now | The Awareness Era Has Begun | Kỷ nguyên Nhận thức đã bắt đầu | 3 forces driving change |
-| 6 | Product as Infrastructure | The Control Layer for Financial Reality | Tầng kiểm soát cho Sự thật Tài chính | Architecture story |
-| 7 | What Makes This Hard | Financial Awareness Is a Deep Systems Problem | Nhận thức Tài chính là bài toán hệ thống phức tạp | Defensibility |
-| 8 | Early Signal | Once Leadership Trusts the System - It Becomes Mission Critical | Khi lãnh đạo tin tưởng hệ thống - Nó trở thành sống còn | Traction signal |
-| 9 | Market | Every Margin-Sensitive Company Will Need a Financial Awareness Layer | Mọi doanh nghiệp nhạy cảm với margin sẽ cần một Tầng Nhận thức Tài chính | TAM/SAM story |
-| 10 | Moat | Awareness Compounds | Nhận thức cộng hưởng | 4 moat layers |
-| 11 | Vision Scale | Financial Awareness Will Become Default Infrastructure | Nhận thức Tài chính sẽ trở thành hạ tầng mặc định | Big vision |
-| 12 | Company Building | Bluecore Is Building the Financial Control Plane for Commerce | Bluecore đang xây dựng Tầng kiểm soát Tài chính cho Thương mại | Closing |
+Thêm **4 slides mới** và sắp xếp lại theo **psychological sequence** để address 4 investor risks theo thứ tự:
+1. Market risk
+2. Product risk  
+3. Moat risk
+4. Execution risk
 
 ---
 
-## Design System
+## 4 Slides Mới
 
-### Visual Style
-- **Background**: Slate-950 (dark mode premium)
-- **Accent Colors**: 
-  - Blue-400/500 cho category language
-  - Emerald-400 cho positive signals
-  - Amber-400 cho caution/old world
-- **Typography**:
-  - Headlines: text-5xl to text-6xl, font-bold
-  - Sub-headlines: text-2xl to text-3xl, font-light
-  - Body: text-lg to text-xl
-  - Punchlines: italic, slate-400, border-l-4 style
+### Slide NEW-1: INEVITABILITY (chèn vào vị trí 4)
+**Headline (EN):** Financial Awareness Is Not Optional Anymore  
+**Headline (VI):** Nhận thức Tài chính Không Còn Là Tùy chọn
 
-### Presenter Notes Panel
-- Toggle với icon MessageSquareText hoặc keyboard shortcut (N)
-- Hiển thị "Founder Tip" và talking points cho mỗi slide
-- Slide 1 có note đặc biệt: "Pause. Let it land."
+**Nội dung:**
+- 5 structural forces đang nén decision time
+- Margin compression is structural, not cyclical
+- CAC volatility destroys forecast reliability
+- Multi-channel revenue fragments financial truth
+- Real-time payments accelerate cash risk
+- Operators move faster than finance can close books
 
-### Navigation
-- Arrow keys (← →) để chuyển slide
-- Progress indicator dots ở bottom
-- Slide counter (e.g., "3 / 12")
-- Click vào slide để next
+**Killer line:** The market is not asking for better reports. It is demanding real-time financial awareness.
+
+**Investor brain:** Removes "too early" risk
 
 ---
 
-## Files sẽ tạo
+### Slide NEW-2: ARCHITECTURE MOAT (chèn vào vị trí 6)
+**Headline (EN):** This Is Not Software. This Is Financial Infrastructure.  
+**Headline (VI):** Đây Không Phải Phần mềm. Đây Là Hạ tầng Tài chính.
 
+**Visual Architecture Diagram:**
 ```text
-src/pages/investor/
-├── VCPitchDeck.tsx          # English version
-└── VCPitchDeckVI.tsx        # Vietnamese version
+Fragmented Financial Signals
+(POS / Marketplaces / Payments / ERP)
+              ↓ normalize
+Financial Semantics Layer
+(one language of margin, cash, liability)
+              ↓ reconcile
+Truth Engine
+(cross-channel verification)
+              ↓ compute
+Decision Dataset
+(patterns extracted from operations)
+              ↓ activate
+Executive Awareness Layer
+(real-time survivability signals)
 ```
+
+**Killer line:** Most companies build dashboards. We built the financial truth layer those dashboards depend on.
+
+**Investor brain:** Removes "AI wrapper" fear
 
 ---
 
-## Component Structure
+### Slide NEW-3: DECISION DATASET ADVANTAGE (chèn vào vị trí 7)
+**Headline (EN):** The Moat That Compounds  
+**Headline (VI):** Moat Cộng hưởng
 
-```text
-VCPitchDeck / VCPitchDeckVI
-├── Navigation (back to portal, language switch)
-├── SlideContainer
-│   ├── Slide01CategoryClaim
-│   ├── Slide02InevitableShift
-│   ├── Slide03BrokenStack (với ASCII diagram)
-│   ├── Slide04IntroducingCategory
-│   ├── Slide05WhyNow (3 forces grid)
-│   ├── Slide06ProductInfrastructure (architecture flow)
-│   ├── Slide07WhatMakesHard
-│   ├── Slide08EarlySignal (metrics)
-│   ├── Slide09Market (wedge → horizontal diagram)
-│   ├── Slide10Moat (4 layers)
-│   ├── Slide11VisionScale
-│   └── Slide12CompanyBuilding
-├── PresenterNotesPanel (collapsible)
-└── SlideNavigation (dots + arrows + keyboard)
-```
+**Nội dung:**
+- Financial language becomes standardized
+- Decision patterns become structured
+- Risk signatures become predictable
+- Operational responses become measurable
+- Creates proprietary decision dataset:
+  - what was detected
+  - what decision was made
+  - what outcome followed
+
+**Nuclear Line:** Software scales. Decision intelligence compounds.
+
+**Investor brain:** Removes commoditization fear
 
 ---
 
-## Diagrams đặc biệt
+### Slide NEW-4: VELOCITY (chèn vào vị trí 11 hoặc 12)
+**Headline (EN):** When Financial Awareness Becomes Mission-Critical  
+**Headline (VI):** Khi Nhận thức Tài chính Trở thành Sống còn
 
-### Slide 3 - Broken Stack (ASCII/Visual)
-```text
-┌─────────────────────────────────────────────┐
-│     ERP  →  CRM  →  BI  →  Analytics        │
-│                    ↓                         │
-│              Operators                       │
-│              Analysts                        │
-│                                              │
-│     ═══════════════════════════════════     │
-│            MISSING LAYER                     │
-│       EXECUTIVE AWARENESS                    │
-│     ═══════════════════════════════════     │
-└─────────────────────────────────────────────┘
-```
+**Metrics:**
+- 95%+ retention
+- Executives rely on daily decisions
+- Depth of usage continues to expand
+- CEOs open Bluecore daily, not monthly
 
-### Slide 6 - Architecture Flow
-```text
-┌────────────────────┐
-│   Data sources     │
-└─────────┬──────────┘
-          ↓
-┌────────────────────┐
-│ Unified financial  │
-│      truth         │
-└─────────┬──────────┘
-          ↓
-┌────────────────────┐
-│  Decision engine   │
-└─────────┬──────────┘
-          ↓
-┌────────────────────┐
-│  Executive alerts  │
-└────────────────────┘
-```
+**Killer line:** Companies don't replace systems they trust to tell them the truth.
 
-### Slide 9 - Market Wedge
-```text
-Start narrow:  [Retail / Ecommerce]
-        ↓
-Expand:        [Multi-brand] [Consumer] [Marketplaces]
-        ↓
-Mid-market:    [All Margin-Sensitive Companies]
-```
-
-### Slide 10 - 4 Moat Layers
-```text
-┌─────────────────────────────────────────────┐
-│  1. Semantic Standard                        │
-├─────────────────────────────────────────────┤
-│  2. Decision Dataset                         │
-├─────────────────────────────────────────────┤
-│  3. Organizational Trust                     │
-├─────────────────────────────────────────────┤
-│  4. Executive Workflow Lock-in               │
-└─────────────────────────────────────────────┘
-```
+**Investor brain:** Removes execution risk
 
 ---
 
-## Presenter Notes Data
+## Flow Mới (22 Slides)
 
-### English Version
+| # | Slide | Mục tiêu Risk |
+|---|-------|---------------|
+| 1 | Category Shock | Open |
+| 2 | Silent Failure | Problem |
+| 3 | Platform Shift | Missing layer |
+| **4** | **INEVITABILITY (NEW)** | **Market timing risk** |
+| 5 | Define Category (Bluecore reveal) | Introduce solution |
+| **6** | **ARCHITECTURE MOAT (NEW)** | **Build risk** |
+| **7** | **DECISION DATASET (NEW)** | **Moat/commoditization risk** |
+| 8 | Why Impossible Before | Why now - tech feasibility |
+| 9 | Why Mandatory | Why now - business necessity |
+| 10 | Product One Sentence | Product summary |
+| **11** | **VELOCITY (NEW)** | **Execution risk** |
+| 12 | Architecture Advantage | (cũ slide 8) |
+| 13 | Switching Cost | (cũ slide 9) |
+| 14 | Cross-Border | Traction - Thailand |
+| 15 | Architecture Travels | Scalability |
+| 16 | Initial Wedge | Market - ICP |
+| 17 | SEA Market | Market - TAM |
+| 18 | Expansion Unlocks | Market - potential |
+| 19 | Regional Expansion | Strategy |
+| 20 | Why Bluecore Wins | Defensibility |
+| 21 | Inevitability Vision | Vision |
+| 22 | Closing | Final |
+
+---
+
+## Files cần cập nhật
+
+### 1. `src/pages/investor/VCPitchDeck.tsx`
+- Thêm 4 slide components mới (EN)
+- Cập nhật slides array với thứ tự mới
+- Cập nhật presenterNotes cho 22 slides
+
+### 2. `src/pages/investor/VCPitchDeckVI.tsx`
+- Thêm 4 slide components mới (VI)
+- Cập nhật slides array với thứ tự mới
+- Cập nhật presenterNotes cho 22 slides
+
+### 3. `src/components/sales-deck/VCPitchDeckPDF.tsx`
+- Thêm 4 slides PDF mới (EN)
+- Cập nhật TOTAL_SLIDES = 22
+- Sắp xếp lại thứ tự trong Document
+
+### 4. `src/components/sales-deck/VCPitchDeckPDF_VI.tsx`
+- Thêm 4 slides PDF mới (VI)
+- Cập nhật TOTAL_SLIDES = 22
+- Sắp xếp lại thứ tự trong Document
+
+---
+
+## Presenter Notes Mới
+
+### Slide 4 - Inevitability
 ```typescript
-const presenterNotes = {
-  1: {
-    tip: "We are not building a better dashboard. We are building the system CEOs rely on to understand financial reality — every morning.",
-    action: "Pause. Let it land."
-  },
-  2: {
-    tip: "VC invest vào shifts. Không invest vào tools.",
-    action: "Frame Bluecore as response to a macro shift."
-  },
-  3: {
-    tip: "Leadership teams still operate without a system designed to answer: 'Are we financially safe right now?'",
-    action: "Point to the missing layer."
-  },
-  // ... slides 4-12
-  12: {
-    tip: "We are not building a tool. We are building the system companies rely on to stay alive.",
-    action: "Pause. End deck. Let silence work."
-  }
-};
+{
+  tip: "This slide removes 'too early' risk. Every structural force in commerce is compressing decision time.",
+  action: "Pause. Let macro shift land. Partner thinks: 'This is a wave, not a feature.'"
+}
 ```
 
-### Vietnamese Version
+### Slide 6 - Architecture Moat
 ```typescript
-const presenterNotesVI = {
-  1: {
-    tip: "Chúng tôi không xây dashboard tốt hơn. Chúng tôi xây hệ thống mà CEO dựa vào để hiểu sự thật tài chính — mỗi sáng.",
-    action: "Dừng. Để câu nói thấm."
-  },
-  // ... tương tự cho các slides khác
-};
+{
+  tip: "Most companies build dashboards. We built the financial truth layer those dashboards depend on.",
+  action: "Show the 5-layer architecture. Removes 'AI wrapper' fear."
+}
 ```
 
----
-
-## Routing (App.tsx updates)
-
+### Slide 7 - Decision Dataset
 ```typescript
-// Lazy load new pages
-const VCPitchDeck = lazy(() => import("./pages/investor/VCPitchDeck"));
-const VCPitchDeckVI = lazy(() => import("./pages/investor/VCPitchDeckVI"));
+{
+  tip: "Software scales. Decision intelligence compounds. This is where you shift from software company to data compounding company.",
+  action: "Removes commoditization fear. Partner thinks: 'Category leader potential.'"
+}
+```
 
-// Add routes
-<Route path="/investor/vc-pitch" element={
-  <ProtectedRoute>
-    <VCPitchDeck />
-  </ProtectedRoute>
-} />
-<Route path="/investor/vc-pitch-vi" element={
-  <ProtectedRoute>
-    <VCPitchDeckVI />
-  </ProtectedRoute>
-} />
+### Slide 11 - Velocity
+```typescript
+{
+  tip: "CEOs don't open Bluecore monthly. They open it daily. Companies don't replace systems they trust.",
+  action: "This is where you stop sounding smart and start sounding fundable."
+}
 ```
 
 ---
 
-## Sales Deck Library Page Updates
+## Visual Diagrams
 
-Thêm mục mới trong phần "Phiên bản Tương tác":
-
-```tsx
-{/* VC Pitch Decks */}
-<Button asChild variant="outline" className="...">
-  <Link to="/investor/vc-pitch">
-    <div className="text-left">
-      <div className="font-semibold text-white">VC Pitch Deck (EN)</div>
-      <div className="text-xs text-slate-400">Series A presentation - 12 slides</div>
-    </div>
-  </Link>
-</Button>
-
-<Button asChild variant="outline" className="...">
-  <Link to="/investor/vc-pitch-vi">
-    <div className="text-left">
-      <div className="font-semibold text-white">VC Pitch Deck (VI)</div>
-      <div className="text-xs text-slate-400">Bản trình bày Series A - 12 slides</div>
-    </div>
-  </Link>
-</Button>
+### Architecture Moat - 5 Layer Visual
+```text
+┌────────────────────────────────────────────┐
+│  Fragmented Financial Signals              │
+│  (POS / Marketplaces / Payments / ERP)     │
+└────────────────────┬───────────────────────┘
+                     ↓ normalize
+┌────────────────────────────────────────────┐
+│  Financial Semantics Layer                 │
+│  (one language of margin, cash, liability) │
+└────────────────────┬───────────────────────┘
+                     ↓ reconcile
+┌────────────────────────────────────────────┐
+│  Truth Engine                              │
+│  (cross-channel verification)              │
+└────────────────────┬───────────────────────┘
+                     ↓ compute
+┌────────────────────────────────────────────┐
+│  Decision Dataset                          │
+│  (patterns extracted from operations)      │
+└────────────────────┬───────────────────────┘
+                     ↓ activate
+┌────────────────────────────────────────────┐
+│  Executive Awareness Layer                 │
+│  (real-time survivability signals)         │
+└────────────────────────────────────────────┘
 ```
-
----
-
-## Key Features của mỗi phiên bản
-
-### Cả 2 phiên bản đều có:
-- Fullscreen slide view với dark premium design
-- Keyboard navigation (← → N)
-- Progress dots ở bottom
-- Presenter notes toggle panel
-- Language switcher button (EN ↔ VI)
-- Print/Export PDF button
-- Back to Portal navigation
-
-### Điểm khác biệt:
-| Feature | English | Vietnamese |
-|---------|---------|------------|
-| Headlines | English | Tiếng Việt |
-| Sub-headlines | English | Tiếng Việt |
-| Presenter notes | English | Tiếng Việt |
-| Punchlines | English | Tiếng Việt |
-| Navigation labels | "Back to Portal" | "Quay lại Portal" |
 
 ---
 
 ## Phần kỹ thuật
 
-### Dependencies sử dụng (đã có sẵn)
-- `react-router-dom` cho navigation
-- `lucide-react` cho icons
-- `framer-motion` cho slide transitions (optional)
-- `react-helmet-async` cho SEO
-
-### Keyboard Handlers
+### Thứ tự slides mới
 ```typescript
-useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'ArrowRight') nextSlide();
-    if (e.key === 'ArrowLeft') prevSlide();
-    if (e.key === 'n' || e.key === 'N') toggleNotes();
-  };
-  window.addEventListener('keydown', handleKeyDown);
-  return () => window.removeEventListener('keydown', handleKeyDown);
-}, [currentSlide]);
+const slides = [
+  Slide01CategoryShock,
+  Slide02SilentFailure,
+  Slide03PlatformShift,
+  Slide04Inevitability,           // NEW
+  Slide05DefineCategory,          // was 04
+  Slide06ArchitectureMoat,        // NEW
+  Slide07DecisionDataset,         // NEW
+  Slide08WhyImpossibleBefore,     // was 05
+  Slide09WhyMandatory,            // was 06
+  Slide10ProductOneSentence,      // was 07
+  Slide11Velocity,                // NEW
+  Slide12ArchitectureAdvantage,   // was 08
+  Slide13SwitchingCost,           // was 09
+  Slide14CrossBorder,             // was 11
+  Slide15ArchitectureTravels,     // was 12
+  Slide16InitialWedge,            // was 13
+  Slide17SEAMarket,               // was 14
+  Slide18ExpansionUnlocks,        // was 15
+  Slide19RegionalExpansion,       // was 16
+  Slide20WhyBluecoreWins,         // was 17
+  Slide21InevitabilityVision,     // was 18
+  Slide22Closing                  // NEW closing slide
+];
 ```
 
 ---
 
-## Deliverables
-
-1. **VCPitchDeck.tsx** - English version (12 slides)
-2. **VCPitchDeckVI.tsx** - Vietnamese version (12 slides)
-3. **App.tsx updates** - 2 new routes
-4. **SalesDeckLibraryPage.tsx updates** - Links to both versions
-
----
-
 ## Estimated Time
+- VCPitchDeck.tsx: ~30 phút (4 slides mới + reorder)
+- VCPitchDeckVI.tsx: ~25 phút (4 slides mới + reorder)
+- VCPitchDeckPDF.tsx: ~20 phút
+- VCPitchDeckPDF_VI.tsx: ~15 phút
+- **Tổng: ~90 phút**
 
-- VCPitchDeck.tsx (EN): ~25 phút
-- VCPitchDeckVI.tsx (VI): ~20 phút (copy + translate)
-- App.tsx routing: ~5 phút
-- SalesDeckLibraryPage updates: ~5 phút
-- **Tổng: ~55 phút**
