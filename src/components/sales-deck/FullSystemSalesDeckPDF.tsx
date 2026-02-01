@@ -19,6 +19,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from '@react-pdf/renderer';
 
 // Get base URL dynamically for font loading
@@ -457,6 +458,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 1.4,
   },
+  
+  // Screenshot styles
+  screenshotContainer: {
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  screenshot: {
+    width: '100%',
+    maxHeight: 200,
+    objectFit: 'contain',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  screenshotHalf: {
+    width: '100%',
+    maxHeight: 140,
+    objectFit: 'contain',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  screenshotCaption: {
+    fontSize: 8,
+    color: '#64748b',
+    marginTop: 4,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 1.4,
+  },
 });
 
 // ============= DATA CONSTANTS =============
@@ -836,42 +867,30 @@ const FDPDetailPage = () => (
       Nền tảng tài chính cho CEO/CFO — Single Source of Truth cho mọi quyết định kinh doanh.
     </Text>
     
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>CFO Dashboard</Text>
-        <Text style={styles.cardText}>Net Revenue, Contribution Margin, Cash Position — tất cả trong 1 màn hình. Không cần đợi kế toán.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Real Cash Breakdown</Text>
-        <Text style={styles.cardText}>Tiền đã về vs. sẽ về vs. có nguy cơ không về vs. đang bị khóa. Biết chính xác khả năng thanh toán.</Text>
-      </View>
+    {/* Screenshot: CFO Dashboard */}
+    <View style={styles.screenshotContainer}>
+      <Image 
+        src={`${getBaseUrl()}/screenshots/cfo-dashboard.png`}
+        style={styles.screenshot}
+      />
+      <Text style={styles.screenshotCaption}>
+        CFO Dashboard - Thanh khoản & Vị thế tiền mặt thời gian thực
+      </Text>
     </View>
     
     <View style={styles.cardRow}>
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Real Cash Breakdown</Text>
+        <Text style={styles.cardText}>Tiền đã về vs. sẽ về vs. có nguy cơ không về vs. đang bị khóa.</Text>
+      </View>
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>Unit Economics</Text>
-        <Text style={styles.cardText}>Contribution Margin per SKU/Channel. Biết ngay sản phẩm nào đang lỗ, kênh nào đang "đốt tiền".</Text>
+        <Text style={styles.cardText}>Contribution Margin per SKU/Channel. Biết ngay sản phẩm nào đang lỗ.</Text>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Working Capital</Text>
-        <Text style={styles.cardText}>DSO, DIO, DPO, Cash Conversion Cycle. Hiểu rõ tiền đang kẹt ở đâu trong chuỗi vận hành.</Text>
+        <Text style={styles.cardText}>DSO, DIO, DPO, Cash Conversion Cycle tự động.</Text>
       </View>
-    </View>
-    
-    <View style={{ 
-      backgroundColor: colors.primaryDark, 
-      borderRadius: 12, 
-      padding: 20,
-      marginTop: 16,
-    }}>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, marginBottom: 8 }}>
-        Công thức cốt lõi:
-      </Text>
-      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', lineHeight: 1.6 }}>
-        Net Revenue = Gross Revenue - Returns - Discounts - Platform Fees{'\n'}
-        Contribution Margin = Net Revenue - COGS - Variable Costs{'\n'}
-        Real Cash = Bank Balance - Pending Payables - Locked Inventory + Confirmed AR
-      </Text>
     </View>
     
     <View style={styles.footer}>
@@ -889,42 +908,30 @@ const MDPDetailPage = () => (
       Đo lường giá trị tài chính thật của Marketing — Profit ROAS, không phải Click ROAS.
     </Text>
     
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Profit Attribution</Text>
-        <Text style={styles.cardText}>Quy về lợi nhuận thật cho từng campaign. ROAS sau khi trừ COGS, phí sàn, shipping, và return.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Cash Impact</Text>
-        <Text style={styles.cardText}>Marketing tốn tiền trước, thu tiền sau. MDP theo dõi Days to Cash và Cash Conversion của từng kênh.</Text>
-      </View>
+    {/* Screenshot: Profit Attribution */}
+    <View style={styles.screenshotContainer}>
+      <Image 
+        src={`${getBaseUrl()}/screenshots/mdp-profit-attribution.png`}
+        style={styles.screenshot}
+      />
+      <Text style={styles.screenshotCaption}>
+        Profit Attribution - P&L thật cho từng campaign (sau COGS, phí sàn, return)
+      </Text>
     </View>
     
     <View style={styles.cardRow}>
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Cash Impact</Text>
+        <Text style={styles.cardText}>Marketing tốn tiền trước, thu tiền sau. Theo dõi Days to Cash của từng kênh.</Text>
+      </View>
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>Decision Panel</Text>
-        <Text style={styles.cardText}>3 quyết định đơn giản: SCALE (tăng ngân sách), HOLD (giữ nguyên), hoặc KILL (dừng ngay).</Text>
+        <Text style={styles.cardText}>3 quyết định: SCALE (tăng), HOLD (giữ), hoặc KILL (dừng ngay).</Text>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Risk Alerts</Text>
-        <Text style={styles.cardText}>Cảnh báo khi CAC Payback &gt; 6 tháng, khi Burn Rate vượt ngưỡng, khi campaign "đốt tiền" mà không có profit.</Text>
+        <Text style={styles.cardText}>Cảnh báo CAC Payback &gt; 6 tháng, Burn Rate vượt ngưỡng.</Text>
       </View>
-    </View>
-    
-    <View style={{ 
-      backgroundColor: '#fef3c7', 
-      borderRadius: 12, 
-      padding: 16,
-      borderWidth: 1,
-      borderColor: '#fcd34d',
-      marginTop: 16,
-    }}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>
-        Vấn đề MDP giải quyết:
-      </Text>
-      <Text style={{ fontSize: 10, color: '#92400e', lineHeight: 1.5 }}>
-        "Marketing báo ROAS 4.0x nhưng không hiểu sao lợi nhuận không tăng?" — Vì ROAS chưa tính phí sàn 15%, shipping 8%, return 12%. Profit ROAS thực tế chỉ còn 0.9x.
-      </Text>
     </View>
     
     <View style={styles.footer}>
@@ -936,52 +943,58 @@ const MDPDetailPage = () => (
 
 const CDPControlTowerPage = () => (
   <Page size="A4" style={styles.pageAlt}>
+    {/* Two screenshots side by side */}
+    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/cdp-customer-verification.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          CDP - Customer Profile 360° với RFM & LTV
+        </Text>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/control-tower.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          Control Tower - Decision Cards & Bluecore Scores
+        </Text>
+      </View>
+    </View>
+    
     <View style={{ flexDirection: 'row', gap: 16 }}>
       {/* CDP Column */}
       <View style={{ flex: 1 }}>
         <Text style={styles.eyebrowLabel}>MODULE 3: CDP</Text>
-        <Text style={{ fontSize: 16, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>Customer Data Platform</Text>
-        <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 16, lineHeight: 1.5 }}>
-          Khách hàng là tài sản tài chính. CDP theo dõi sức khỏe tập khách hàng, không phải CRM từng người.
-        </Text>
+        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>Customer Data Platform</Text>
         
-        <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 4 }}>Customer Equity</Text>
-          <Text style={{ fontSize: 9, color: colors.textLight, lineHeight: 1.4 }}>Giá trị tài sản khách hàng: LTV 12M, 24M Forecast, At-Risk Value.</Text>
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Customer Equity</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>LTV 12M, 24M Forecast, At-Risk Value</Text>
         </View>
         
-        <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 4 }}>LTV Decay Analysis</Text>
-          <Text style={{ fontSize: 9, color: colors.textLight, lineHeight: 1.4 }}>Phát hiện cohort nào đang "chết" nhanh hơn bình thường.</Text>
-        </View>
-        
-        <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 4 }}>At-Risk Revenue</Text>
-          <Text style={{ fontSize: 9, color: colors.textLight, lineHeight: 1.4 }}>Bao nhiêu doanh thu đang có nguy cơ mất nếu không hành động?</Text>
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>LTV Decay Analysis</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Phát hiện cohort "chết" nhanh hơn bình thường</Text>
         </View>
       </View>
       
       {/* Control Tower Column */}
       <View style={{ flex: 1 }}>
         <Text style={[styles.eyebrowLabel, { color: colors.warning }]}>MODULE 4: CONTROL TOWER</Text>
-        <Text style={{ fontSize: 16, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>Trung Tâm Điều Hành</Text>
-        <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 16, lineHeight: 1.5 }}>
-          Control Tower không phải Dashboard. Chỉ quan tâm "điều gì sai" và yêu cầu hành động ngay.
-        </Text>
+        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>Trung Tâm Điều Hành</Text>
         
-        <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 4 }}>Max 7 Alerts</Text>
-          <Text style={{ fontSize: 9, color: colors.textLight, lineHeight: 1.4 }}>Ít nhưng chí mạng. Mỗi alert phải có Impact (VND) + Deadline + Owner.</Text>
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Max 7 Alerts</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Impact (VND) + Deadline + Owner</Text>
         </View>
         
-        <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 4 }}>Auto-Escalation</Text>
-          <Text style={{ fontSize: 9, color: colors.textLight, lineHeight: 1.4 }}>Nếu chưa xử lý trong thời gian quy định → tự động leo thang lên cấp trên.</Text>
-        </View>
-        
-        <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 4 }}>Cross-Module Sync</Text>
-          <Text style={{ fontSize: 9, color: colors.textLight, lineHeight: 1.4 }}>Phát hiện cascade: CDP churn → MDP CAC tăng → FDP cash giảm.</Text>
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Auto-Escalation</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Tự động leo thang lên cấp trên</Text>
         </View>
       </View>
     </View>

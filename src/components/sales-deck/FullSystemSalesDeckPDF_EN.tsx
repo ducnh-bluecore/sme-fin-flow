@@ -13,6 +13,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from '@react-pdf/renderer';
 
 // Get base URL dynamically for font loading
@@ -115,6 +116,12 @@ const styles = StyleSheet.create({
   footerTextWhite: { fontSize: 8, color: 'rgba(255,255,255,0.6)' },
   pageNumber: { fontSize: 9, color: colors.textLight },
   pageNumberWhite: { fontSize: 9, color: 'rgba(255,255,255,0.6)' },
+  
+  // Screenshot styles
+  screenshotContainer: { marginVertical: 12, alignItems: 'center' },
+  screenshot: { width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' },
+  screenshotHalf: { width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' },
+  screenshotCaption: { fontSize: 8, color: '#64748b', marginTop: 4, textAlign: 'center', fontStyle: 'italic' },
 });
 
 // ============= DATA CONSTANTS =============
@@ -284,34 +291,33 @@ const FDPDetailPage = () => (
     <Text style={styles.eyebrowLabel}>MODULE 1: FDP</Text>
     <Text style={styles.sectionTitle}>Financial Data Platform</Text>
     <Text style={styles.sectionSubtitle}>Financial foundation for CEO/CFO — Single Source of Truth for all business decisions.</Text>
+    
+    {/* Screenshot: CFO Dashboard */}
+    <View style={styles.screenshotContainer}>
+      <Image 
+        src={`${getBaseUrl()}/screenshots/cfo-dashboard.png`}
+        style={styles.screenshot}
+      />
+      <Text style={styles.screenshotCaption}>
+        CFO Dashboard - Real-time Liquidity & Cash Position
+      </Text>
+    </View>
+    
     <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>CFO Dashboard</Text>
-        <Text style={styles.cardText}>Net Revenue, Contribution Margin, Cash Position — all in 1 screen. No waiting for accounting.</Text>
-      </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Real Cash Breakdown</Text>
-        <Text style={styles.cardText}>Cash received vs. expected vs. at risk vs. locked. Know exact payment capacity.</Text>
+        <Text style={styles.cardText}>Cash received vs. expected vs. at risk vs. locked.</Text>
       </View>
-    </View>
-    <View style={styles.cardRow}>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Unit Economics</Text>
-        <Text style={styles.cardText}>Contribution Margin per SKU/Channel. Know instantly which products are losing, which channels are "burning money".</Text>
+        <Text style={styles.cardText}>Contribution Margin per SKU/Channel. Know instantly which products are losing.</Text>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Working Capital</Text>
-        <Text style={styles.cardText}>DSO, DIO, DPO, Cash Conversion Cycle. Understand where money is stuck in operations.</Text>
+        <Text style={styles.cardText}>DSO, DIO, DPO, Cash Conversion Cycle automated.</Text>
       </View>
     </View>
-    <View style={{ backgroundColor: colors.primaryDark, borderRadius: 12, padding: 20, marginTop: 16 }}>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, marginBottom: 8 }}>Core Formulas:</Text>
-      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', lineHeight: 1.6 }}>
-        Net Revenue = Gross Revenue - Returns - Discounts - Platform Fees{'\n'}
-        Contribution Margin = Net Revenue - COGS - Variable Costs{'\n'}
-        Real Cash = Bank Balance - Pending Payables - Locked Inventory + Confirmed AR
-      </Text>
-    </View>
+    
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
       <Text style={styles.pageNumber}>5 / 17</Text>
@@ -324,32 +330,33 @@ const MDPDetailPage = () => (
     <Text style={styles.eyebrowLabel}>MODULE 2: MDP</Text>
     <Text style={styles.sectionTitle}>Marketing Data Platform</Text>
     <Text style={styles.sectionSubtitle}>Measure true financial value of Marketing — Profit ROAS, not Click ROAS.</Text>
+    
+    {/* Screenshot: Profit Attribution */}
+    <View style={styles.screenshotContainer}>
+      <Image 
+        src={`${getBaseUrl()}/screenshots/mdp-profit-attribution.png`}
+        style={styles.screenshot}
+      />
+      <Text style={styles.screenshotCaption}>
+        Profit Attribution - True P&L for each campaign (after COGS, platform fees, returns)
+      </Text>
+    </View>
+    
     <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Profit Attribution</Text>
-        <Text style={styles.cardText}>Attribute real profit to each campaign. ROAS after deducting COGS, platform fees, shipping, and returns.</Text>
-      </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Cash Impact</Text>
-        <Text style={styles.cardText}>Marketing spends money first, collects later. MDP tracks Days to Cash and Cash Conversion per channel.</Text>
+        <Text style={styles.cardText}>Marketing spends first, collects later. Track Days to Cash per channel.</Text>
       </View>
-    </View>
-    <View style={styles.cardRow}>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Decision Panel</Text>
-        <Text style={styles.cardText}>3 simple decisions: SCALE (increase budget), HOLD (maintain), or KILL (stop immediately).</Text>
+        <Text style={styles.cardText}>3 decisions: SCALE (increase), HOLD (maintain), or KILL (stop now).</Text>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Risk Alerts</Text>
-        <Text style={styles.cardText}>Warnings when CAC Payback &gt; 6 months, Burn Rate exceeds threshold, campaigns "burn money" without profit.</Text>
+        <Text style={styles.cardText}>Warnings when CAC Payback &gt; 6 months, Burn Rate exceeds threshold.</Text>
       </View>
     </View>
-    <View style={{ backgroundColor: '#fef3c7', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#fcd34d', marginTop: 16 }}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>Problem MDP Solves:</Text>
-      <Text style={{ fontSize: 10, color: '#92400e', lineHeight: 1.5 }}>
-        "Marketing reports 4.0x ROAS but why isn't profit growing?" — Because ROAS doesn't include 15% platform fees, 8% shipping, 12% returns. Real Profit ROAS is only 0.9x.
-      </Text>
-    </View>
+    
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
       <Text style={styles.pageNumber}>6 / 17</Text>
@@ -357,78 +364,67 @@ const MDPDetailPage = () => (
   </Page>
 );
 
-const CDPDetailPage = () => (
+const CDPControlTowerPage = () => (
   <Page size="A4" style={styles.pageAlt}>
-    <Text style={styles.eyebrowLabel}>MODULE 3: CDP</Text>
-    <Text style={styles.sectionTitle}>Customer Data Platform</Text>
-    <Text style={styles.sectionSubtitle}>Track customer portfolio health from a financial perspective — not individual CRM.</Text>
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Customer Equity</Text>
-        <Text style={styles.cardText}>Total customer portfolio value measured by Expected LTV - Acquisition Cost.</Text>
+    {/* Two screenshots side by side */}
+    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/cdp-customer-verification.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          CDP - Customer Profile 360° with RFM & LTV
+        </Text>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>LTV Decay Tracking</Text>
-        <Text style={styles.cardText}>Early detection when customer groups are decaying, calculating at-risk revenue to intervene in time.</Text>
-      </View>
-    </View>
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Cohort Financial View</Text>
-        <Text style={styles.cardText}>Compare financial value between customer cohorts: which month's customers have highest LTV?</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Revenue at Risk</Text>
-        <Text style={styles.cardText}>Calculate potential revenue loss from churning customers. Prioritize retention by value.</Text>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/control-tower.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          Control Tower - Decision Cards & Bluecore Scores
+        </Text>
       </View>
     </View>
-    <View style={{ backgroundColor: '#ecfdf5', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#a7f3d0', marginTop: 16 }}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.accentDark, marginBottom: 6 }}>Population &gt; Individual:</Text>
-      <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5 }}>
-        Traditional CDP focuses on individual personalization. Bluecore CDP focuses on FINANCIAL HEALTH of customer groups — because that's what impacts profit and cash.
-      </Text>
+    
+    <View style={{ flexDirection: 'row', gap: 16 }}>
+      {/* CDP Column */}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.eyebrowLabel}>MODULE 3: CDP</Text>
+        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>Customer Data Platform</Text>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Customer Equity</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>LTV 12M, 24M Forecast, At-Risk Value</Text>
+        </View>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>LTV Decay Analysis</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Detect cohorts decaying faster than normal</Text>
+        </View>
+      </View>
+      
+      {/* Control Tower Column */}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.eyebrowLabel, { color: colors.warning }]}>MODULE 4: CONTROL TOWER</Text>
+        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>Command Center</Text>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Max 7 Alerts</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Impact (USD) + Deadline + Owner</Text>
+        </View>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Auto-Escalation</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Auto-escalate to leadership if unresolved</Text>
+        </View>
+      </View>
     </View>
+    
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
       <Text style={styles.pageNumber}>7 / 17</Text>
-    </View>
-  </Page>
-);
-
-const ControlTowerDetailPage = () => (
-  <Page size="A4" style={styles.page}>
-    <Text style={styles.eyebrowLabel}>MODULE 4: CONTROL TOWER</Text>
-    <Text style={styles.sectionTitle}>Command Center</Text>
-    <Text style={styles.sectionSubtitle}>Control Tower doesn't show all data — only shows what's WRONG and needs immediate action.</Text>
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Max 7 Alerts</Text>
-        <Text style={styles.cardText}>Not 50 notifications. Only 5-7 most dangerous alerts at any time. Prioritized by financial impact.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Impact + Deadline + Owner</Text>
-        <Text style={styles.cardText}>Each alert must answer: How much money lost? How long to act? Who is responsible?</Text>
-      </View>
-    </View>
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Cross-module Alert</Text>
-        <Text style={styles.cardText}>Combine signals from FDP + MDP + CDP to provide complete picture. Cash Gap = AR overdue + Marketing overspend + Inventory locked.</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Resolution Tracking</Text>
-        <Text style={styles.cardText}>Track each alert to resolution. What action was taken? What was the outcome? Learn from every incident.</Text>
-      </View>
-    </View>
-    <View style={{ backgroundColor: colors.primaryDark, borderRadius: 12, padding: 16, marginTop: 16 }}>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, textAlign: 'center', marginBottom: 8 }}>Control Tower Core Principle:</Text>
-      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', textAlign: 'center', lineHeight: 1.5 }}>
-        "If there's no problem → Control Tower stays silent. If there's a problem → Control Tower demands action."
-      </Text>
-    </View>
-    <View style={styles.footer}>
-      <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>8 / 17</Text>
     </View>
   </Page>
 );
@@ -747,8 +743,7 @@ const FullSystemSalesDeckPDF_EN: React.FC = () => (
     <EcosystemOverviewPage />
     <FDPDetailPage />
     <MDPDetailPage />
-    <CDPDetailPage />
-    <ControlTowerDetailPage />
+    <CDPControlTowerPage />
     <ComparisonPage />
     <UseCasePage1 />
     <UseCasePage2 />
