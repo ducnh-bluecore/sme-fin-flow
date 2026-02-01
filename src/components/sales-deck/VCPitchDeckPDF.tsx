@@ -1,8 +1,9 @@
 /**
  * VC Pitch Deck PDF - English Version
  * 
- * 12-slide Series A presentation for international VCs
- * Focus on Category Claim: Financial Awareness Layer
+ * 18-slide Series A presentation for international VCs
+ * Focus on Category Claim: Financial Decision Infrastructure
+ * Structure: 7 Acts
  */
 
 import React from 'react';
@@ -12,7 +13,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
-    backgroundColor: '#0f172a', // slate-900
+    backgroundColor: '#0f172a',
     padding: 60,
     justifyContent: 'center',
   },
@@ -24,123 +25,124 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   headline: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     lineHeight: 1.2,
   },
   headlineAccent: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#60a5fa', // blue-400
+    color: '#60a5fa',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
+    lineHeight: 1.2,
+  },
+  headlineAmber: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fbbf24',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 1.2,
+  },
+  headlineEmerald: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#34d399',
+    textAlign: 'center',
+    marginBottom: 16,
     lineHeight: 1.2,
   },
   subheadline: {
-    fontSize: 18,
-    color: '#94a3b8', // slate-400
+    fontSize: 16,
+    color: '#94a3b8',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
     lineHeight: 1.6,
   },
   body: {
-    fontSize: 14,
-    color: '#cbd5e1', // slate-300
+    fontSize: 13,
+    color: '#cbd5e1',
     lineHeight: 1.8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   punchline: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#60a5fa',
     fontStyle: 'italic',
     textAlign: 'center',
-    marginTop: 32,
-    paddingLeft: 24,
+    marginTop: 24,
+    paddingLeft: 16,
     borderLeftWidth: 3,
     borderLeftColor: '#3b82f6',
   },
   diagramBox: {
     backgroundColor: '#1e293b',
     borderRadius: 8,
-    padding: 24,
-    marginVertical: 16,
+    padding: 20,
+    marginVertical: 12,
   },
   diagramText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#e2e8f0',
     textAlign: 'center',
     marginVertical: 4,
   },
   arrow: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#60a5fa',
     textAlign: 'center',
-    marginVertical: 8,
+    marginVertical: 6,
   },
   gridContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 24,
+    marginVertical: 16,
   },
   gridItem: {
     flex: 1,
     backgroundColor: '#1e293b',
     borderRadius: 8,
-    padding: 16,
-    marginHorizontal: 8,
+    padding: 14,
+    marginHorizontal: 6,
   },
   gridTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#f8fafc',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   gridBody: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94a3b8',
     lineHeight: 1.5,
   },
   listItem: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   bullet: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#60a5fa',
     marginRight: 8,
   },
   listText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#cbd5e1',
     flex: 1,
     lineHeight: 1.5,
   },
-  moatLayer: {
-    backgroundColor: '#1e293b',
-    borderRadius: 4,
-    padding: 12,
-    marginVertical: 4,
-  },
-  moatNumber: {
-    fontSize: 12,
-    color: '#60a5fa',
-    fontWeight: 'bold',
-  },
-  moatText: {
-    fontSize: 13,
-    color: '#e2e8f0',
-  },
   highlight: {
     backgroundColor: '#1e3a5f',
-    padding: 16,
+    padding: 14,
     borderRadius: 8,
-    marginVertical: 16,
+    marginVertical: 12,
   },
   highlightText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#93c5fd',
     textAlign: 'center',
   },
@@ -148,23 +150,55 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 30,
     left: 40,
-    fontSize: 10,
+    fontSize: 9,
     color: '#475569',
+  },
+  tag: {
+    fontSize: 10,
+    color: '#60a5fa',
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  metricValue: {
+    fontSize: 20,
+    color: '#34d399',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  metricLabel: {
+    fontSize: 10,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginBottom: 4,
   },
 });
 
-// Slide Components
+const TOTAL_SLIDES = 18;
+
+// ACT 1 — OPEN THE CATEGORY
 const Slide01 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headlineAccent}>The Financial Awareness Layer</Text>
-      <Text style={styles.headline}>for Modern Commerce.</Text>
+      <Text style={styles.headline}>Financial Decisions Are Still Running</Text>
+      <Text style={styles.headlineAmber}>on Lagging Systems.</Text>
       <Text style={styles.subheadline}>
-        Every company runs on systems of record.{'\n'}
-        The next generation will run on systems of awareness.
+        Commerce now moves in real time.{'\n'}
+        Financial truth still arrives weeks later.
+      </Text>
+      <View style={styles.gridContainer}>
+        {['CAC shifts daily', 'Margins compress instantly', 'Inventory risk compounds', 'Cash exposure escalates'].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={styles.gridBody}>{item}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={{ ...styles.highlightText, color: '#f87171', marginTop: 16 }}>
+        Decision latency is becoming an existential risk.
       </Text>
     </View>
-    <Text style={styles.slideNumber}>1 / 12</Text>
+    <Text style={styles.slideNumber}>1 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -172,21 +206,14 @@ const Slide01 = () => (
 const Slide02 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Companies Don't Fail From Lack of Data.</Text>
-      <Text style={styles.headlineAccent}>They Fail From Delayed Financial Truth.</Text>
-      <View style={styles.gridContainer}>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>Old World</Text>
-          <Text style={styles.gridBody}>• Monthly close{'\n'}• Quarterly review{'\n'}• Reactive decisions</Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>New World</Text>
-          <Text style={styles.gridBody}>• Compressed margins{'\n'}• Volatile demand{'\n'}• Rising CAC</Text>
-        </View>
-      </View>
-      <Text style={styles.punchline}>Decision latency = Existential risk.</Text>
+      <Text style={styles.headline}>Companies Rarely Fail from Lack of Data.</Text>
+      <Text style={styles.headlineAmber}>They Fail from Delayed Financial Truth.</Text>
+      <Text style={styles.subheadline}>Modern stacks optimized for: Recording, Reporting, Analyzing.{'\n'}Not deciding.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+        Leadership is forced to operate reactively.
+      </Text>
     </View>
-    <Text style={styles.slideNumber}>2 / 12</Text>
+    <Text style={styles.slideNumber}>2 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -194,21 +221,15 @@ const Slide02 = () => (
 const Slide03 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>The Modern Data Stack Was Not Built</Text>
-      <Text style={styles.headlineAccent}>for Decision Makers.</Text>
+      <Text style={styles.headline}>System of Record → System of Decision</Text>
       <View style={styles.diagramBox}>
-        <Text style={styles.diagramText}>ERP → CRM → BI → Analytics</Text>
-        <Text style={styles.arrow}>↓</Text>
-        <Text style={styles.diagramText}>Operators & Analysts</Text>
-        <Text style={{ ...styles.arrow, marginTop: 16 }}>═══════════════════════</Text>
-        <Text style={{ ...styles.highlightText, marginTop: 8 }}>MISSING LAYER: EXECUTIVE AWARENESS</Text>
+        <Text style={styles.diagramText}>ERP → records the past</Text>
+        <Text style={styles.diagramText}>BI → explains the past</Text>
+        <Text style={{ ...styles.diagramText, color: '#60a5fa', fontWeight: 'bold', marginTop: 8 }}>Bluecore → drives the next move</Text>
       </View>
-      <Text style={styles.punchline}>
-        Leadership teams still operate without a system designed to answer:{'\n'}
-        "Are we financially safe right now?"
-      </Text>
+      <Text style={styles.punchline}>A new execution layer is emerging inside modern companies.</Text>
     </View>
-    <Text style={styles.slideNumber}>3 / 12</Text>
+    <Text style={styles.slideNumber}>3 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -216,50 +237,38 @@ const Slide03 = () => (
 const Slide04 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Bluecore is the</Text>
-      <Text style={styles.headlineAccent}>Financial Decision OS.</Text>
-      <View style={styles.highlight}>
-        <Text style={styles.highlightText}>
-          A system that converts fragmented financial signals{'\n'}
-          into real-time executive awareness —{'\n'}
-          enabling faster, safer decisions.
-        </Text>
+      <Text style={styles.tag}>Introducing</Text>
+      <Text style={styles.headline}>Financial Decision</Text>
+      <Text style={styles.headlineAccent}>Infrastructure.</Text>
+      <View style={{ marginVertical: 16 }}>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>unifies financial reality</Text></View>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>models operational exposure</Text></View>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>detects risk in real time</Text></View>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>guides leadership action</Text></View>
       </View>
-      <Text style={styles.punchline}>
-        Financial awareness is not a feature.{'\n'}
-        It is an architectural layer.
-      </Text>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>Not dashboards. Not analytics. Infrastructure.</Text>
     </View>
-    <Text style={styles.slideNumber}>4 / 12</Text>
+    <Text style={styles.slideNumber}>4 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
+// ACT 2 — WHY NOW
 const Slide05 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>The Awareness Era</Text>
-      <Text style={styles.headlineAccent}>Has Begun.</Text>
+      <Text style={styles.headline}>Only Now Is Decision Infrastructure</Text>
+      <Text style={styles.headlineEmerald}>Technically Feasible.</Text>
       <View style={styles.gridContainer}>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>1. Data is Accessible</Text>
-          <Text style={styles.gridBody}>APIs, marketplaces, payments — financial data is finally connected</Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>2. Windows Collapsing</Text>
-          <Text style={styles.gridBody}>Decision windows are weeks, not quarters</Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>3. Zero Margin for Error</Text>
-          <Text style={styles.gridBody}>The margin for error is disappearing</Text>
-        </View>
+        {['API-first commerce ecosystems', 'Payment digitization', 'Warehouse maturity', 'Real-time data pipelines'].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={styles.gridBody}>{item}</Text>
+          </View>
+        ))}
       </View>
-      <Text style={styles.punchline}>
-        The winners of the next decade will not be data-rich.{'\n'}
-        They will be awareness-rich.
-      </Text>
+      <Text style={{ ...styles.highlightText, color: '#34d399', marginTop: 16 }}>Financial signals are finally connectable.</Text>
     </View>
-    <Text style={styles.slideNumber}>5 / 12</Text>
+    <Text style={styles.slideNumber}>5 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -267,55 +276,37 @@ const Slide05 = () => (
 const Slide06 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>The Control Layer</Text>
-      <Text style={styles.headlineAccent}>for Financial Reality.</Text>
-      <View style={styles.diagramBox}>
-        <Text style={styles.diagramText}>Data Sources</Text>
-        <Text style={styles.arrow}>↓</Text>
-        <Text style={styles.diagramText}>Unified Financial Truth</Text>
-        <Text style={styles.arrow}>↓</Text>
-        <Text style={styles.diagramText}>Decision Engine</Text>
-        <Text style={styles.arrow}>↓</Text>
-        <Text style={styles.diagramText}>Executive Alerts</Text>
+      <Text style={styles.headline}>Decision Speed Is Becoming</Text>
+      <Text style={styles.headlineAccent}>a Competitive Advantage.</Text>
+      <View style={{ marginVertical: 16 }}>
+        <Text style={styles.body}>• Margin compression.</Text>
+        <Text style={styles.body}>• Capital is expensive.</Text>
+        <Text style={styles.body}>• Operational volatility is rising.</Text>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', marginTop: 16, color: '#94a3b8' }}>
-        Series A = Architecture Story, Not UI Demo
-      </Text>
+      <Text style={styles.punchline}>Soon, operating without real-time financial awareness{'\n'}will feel like operating without accounting.</Text>
     </View>
-    <Text style={styles.slideNumber}>6 / 12</Text>
+    <Text style={styles.slideNumber}>6 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
+// ACT 3 — THE PRODUCT
 const Slide07 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Financial Awareness Is a</Text>
-      <Text style={styles.headlineAccent}>Deep Systems Problem.</Text>
-      <View style={{ marginVertical: 24 }}>
-        <View style={styles.listItem}>
-          <Text style={styles.bullet}>→</Text>
-          <Text style={styles.listText}>Financial semantics across platforms</Text>
-        </View>
-        <View style={styles.listItem}>
-          <Text style={styles.bullet}>→</Text>
-          <Text style={styles.listText}>Reconciliation logic at scale</Text>
-        </View>
-        <View style={styles.listItem}>
-          <Text style={styles.bullet}>→</Text>
-          <Text style={styles.listText}>Profit normalization across channels</Text>
-        </View>
-        <View style={styles.listItem}>
-          <Text style={styles.bullet}>→</Text>
-          <Text style={styles.listText}>Decision modeling for executives</Text>
-        </View>
+      <Text style={styles.headline}>A Single Financial Reality —</Text>
+      <Text style={styles.headlineAccent}>Trusted in Real Time.</Text>
+      <Text style={styles.subheadline}>When leadership trusts the system, it becomes operational infrastructure.</Text>
+      <View style={styles.gridContainer}>
+        {[{ role: 'CFO', focus: 'Cash Exposure' }, { role: 'COO', focus: 'Operational Leakage' }, { role: 'CEO', focus: 'Margin Risk' }].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={{ ...styles.gridTitle, color: '#60a5fa' }}>{item.role}</Text>
+            <Text style={styles.gridBody}>{item.focus}</Text>
+          </View>
+        ))}
       </View>
-      <Text style={styles.punchline}>
-        This is not software you assemble.{'\n'}
-        It is software you architect.
-      </Text>
     </View>
-    <Text style={styles.slideNumber}>7 / 12</Text>
+    <Text style={styles.slideNumber}>7 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -323,28 +314,22 @@ const Slide07 = () => (
 const Slide08 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Once Leadership Trusts the System —</Text>
-      <Text style={styles.headlineAccent}>It Becomes Mission Critical.</Text>
-      <View style={styles.gridContainer}>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>Retention</Text>
-          <Text style={{ ...styles.gridBody, fontSize: 24, color: '#34d399' }}>95%+</Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>Usage Depth</Text>
-          <Text style={{ ...styles.gridBody, fontSize: 24, color: '#34d399' }}>Daily</Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>Decision Reliance</Text>
-          <Text style={{ ...styles.gridBody, fontSize: 24, color: '#34d399' }}>Primary</Text>
-        </View>
+      <Text style={styles.headline}>Financial Truth Is an</Text>
+      <Text style={styles.headlineAmber}>Architecture Problem.</Text>
+      <View style={styles.diagramBox}>
+        <Text style={styles.diagramText}>Sources</Text>
+        <Text style={styles.arrow}>→</Text>
+        <Text style={styles.diagramText}>Semantic normalization</Text>
+        <Text style={styles.arrow}>→</Text>
+        <Text style={styles.diagramText}>Reconciliation</Text>
+        <Text style={styles.arrow}>→</Text>
+        <Text style={styles.diagramText}>Decision dataset</Text>
+        <Text style={styles.arrow}>→</Text>
+        <Text style={styles.diagramText}>Alerts</Text>
       </View>
-      <Text style={styles.punchline}>
-        CEOs open Bluecore daily.{'\n'}
-        Not monthly.
-      </Text>
+      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>This is not assembled software. It is engineered infrastructure.</Text>
     </View>
-    <Text style={styles.slideNumber}>8 / 12</Text>
+    <Text style={styles.slideNumber}>8 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -352,54 +337,35 @@ const Slide08 = () => (
 const Slide09 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Every Margin-Sensitive Company</Text>
-      <Text style={styles.headlineAccent}>Will Need a Financial Awareness Layer.</Text>
-      <View style={styles.diagramBox}>
-        <Text style={styles.diagramText}>Start Narrow: Retail / Ecommerce</Text>
-        <Text style={styles.arrow}>↓</Text>
-        <Text style={styles.diagramText}>Expand: Multi-brand · Consumer · Marketplaces</Text>
-        <Text style={styles.arrow}>↓</Text>
-        <Text style={styles.diagramText}>Mid-market: All Margin-Sensitive Companies</Text>
+      <Text style={styles.headline}>Companies Do Not Replace Systems</Text>
+      <Text style={styles.headlineAccent}>They Trust to Tell the Truth.</Text>
+      <View style={styles.highlight}>
+        <Text style={{ ...styles.highlightText, fontSize: 16 }}>Trust compounds.</Text>
+        <Text style={{ ...styles.highlightText, marginTop: 8 }}>Once embedded in decision workflows,{'\n'}replacement risk drops dramatically.</Text>
       </View>
-      <Text style={styles.punchline}>
-        We are entering a horizontal control-layer market —{'\n'}
-        starting with a vertical wedge.
-      </Text>
     </View>
-    <Text style={styles.slideNumber}>9 / 12</Text>
+    <Text style={styles.slideNumber}>9 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
+// ACT 4 — TRACTION
 const Slide10 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Awareness</Text>
-      <Text style={styles.headlineAccent}>Compounds.</Text>
-      <View style={{ marginVertical: 16 }}>
-        <View style={styles.moatLayer}>
-          <Text style={styles.moatNumber}>1. Semantic Standard</Text>
-          <Text style={styles.moatText}>Unified financial language across systems</Text>
-        </View>
-        <View style={styles.moatLayer}>
-          <Text style={styles.moatNumber}>2. Decision Dataset</Text>
-          <Text style={styles.moatText}>Proprietary patterns from executive decisions</Text>
-        </View>
-        <View style={styles.moatLayer}>
-          <Text style={styles.moatNumber}>3. Organizational Trust</Text>
-          <Text style={styles.moatText}>Leadership confidence built over time</Text>
-        </View>
-        <View style={styles.moatLayer}>
-          <Text style={styles.moatNumber}>4. Executive Workflow Lock-in</Text>
-          <Text style={styles.moatText}>Daily habits are hard to break</Text>
-        </View>
+      <Text style={styles.headline}>Already Becoming</Text>
+      <Text style={styles.headlineEmerald}>Operationally Essential.</Text>
+      <View style={styles.gridContainer}>
+        {[{ label: 'ARR', value: '~$200K' }, { label: 'Retention', value: '90-95%' }, { label: 'Usage', value: 'Daily' }, { label: 'Workflows', value: 'Finance-dep.' }].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={styles.metricLabel}>{item.label}</Text>
+            <Text style={styles.metricValue}>{item.value}</Text>
+          </View>
+        ))}
       </View>
-      <Text style={styles.punchline}>
-        Companies don't switch the system{'\n'}
-        they trust to tell them the truth.
-      </Text>
+      <Text style={styles.punchline}>Executives open Bluecore daily — not monthly.{'\n'}That is infrastructure behavior.</Text>
     </View>
-    <Text style={styles.slideNumber}>10 / 12</Text>
+    <Text style={styles.slideNumber}>10 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -407,24 +373,23 @@ const Slide10 = () => (
 const Slide11 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>We Believe Financial Awareness</Text>
-      <Text style={styles.headlineAccent}>Will Become Default Infrastructure.</Text>
+      <Text style={styles.headline}>Proven Beyond</Text>
+      <Text style={styles.headlineAccent}>Our Home Market.</Text>
       <View style={styles.gridContainer}>
         <View style={styles.gridItem}>
-          <Text style={styles.gridTitle}>Today</Text>
-          <Text style={styles.gridBody}>ERP is required</Text>
+          <Text style={styles.metricLabel}>Built in</Text>
+          <Text style={{ ...styles.gridTitle, fontSize: 18 }}>Vietnam</Text>
         </View>
         <View style={{ ...styles.gridItem, backgroundColor: '#1e3a5f' }}>
-          <Text style={styles.gridTitle}>Tomorrow</Text>
-          <Text style={{ ...styles.gridBody, color: '#93c5fd' }}>Awareness is required</Text>
+          <Text style={styles.metricLabel}>Deployed in</Text>
+          <Text style={{ ...styles.gridTitle, fontSize: 18 }}>Thailand</Text>
+          <Text style={{ ...styles.gridBody, marginTop: 4 }}>Leading retail operator</Text>
+          <Text style={{ ...styles.metricValue, fontSize: 14, marginTop: 4 }}>~$3K MRR</Text>
         </View>
       </View>
-      <Text style={styles.punchline}>
-        Running a company without financial awareness{'\n'}
-        will soon feel as reckless as running one without accounting.
-      </Text>
+      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Thailand is now a validated second beachhead.</Text>
     </View>
-    <Text style={styles.slideNumber}>11 / 12</Text>
+    <Text style={styles.slideNumber}>11 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -432,24 +397,134 @@ const Slide11 = () => (
 const Slide12 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Bluecore Is Building the</Text>
-      <Text style={styles.headlineAccent}>Financial Control Plane for Commerce.</Text>
-      <View style={{ marginVertical: 24 }}>
-        <Text style={{ ...styles.body, textAlign: 'center' }}>When Bluecore wins:</Text>
-        <View style={{ marginTop: 16 }}>
-          <Text style={{ ...styles.diagramText }}>CEOs run mornings on it</Text>
-          <Text style={{ ...styles.diagramText }}>Boards trust it</Text>
-          <Text style={{ ...styles.diagramText }}>Operators align to it</Text>
-        </View>
+      <Text style={styles.headline}>Financial Complexity Is Structurally Similar</Text>
+      <Text style={styles.headlineAccent}>Across Southeast Asia.</Text>
+      <View style={styles.gridContainer}>
+        {['Multi-channel fragmentation', 'Cash pressure', 'Inventory exposure', 'Marketing volatility'].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={styles.gridBody}>{item}</Text>
+          </View>
+        ))}
       </View>
-      <View style={{ ...styles.highlight, marginTop: 32 }}>
-        <Text style={{ ...styles.highlightText, fontWeight: 'bold', fontSize: 16 }}>
-          We are not building a tool.{'\n'}
-          We are building the system companies rely on to stay alive.
+      <Text style={{ ...styles.highlightText, color: '#34d399', marginTop: 16 }}>Bluecore scales with minimal localization.</Text>
+    </View>
+    <Text style={styles.slideNumber}>12 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// ACT 5 — MARKET
+const Slide13 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>We Start with</Text>
+      <Text style={styles.headlineAccent}>Margin-Sensitive Commerce Operators.</Text>
+      <View style={{ marginVertical: 16 }}>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>Mid-market retailers & ecommerce companies</Text></View>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>Revenue: $2M–$50M</Text></View>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>High operational complexity</Text></View>
+        <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>Decision-sensitive economics</Text></View>
+      </View>
+      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>These companies feel decision latency first.</Text>
+    </View>
+    <Text style={styles.slideNumber}>13 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+const Slide14 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>A $1B+ Wedge</Text>
+      <Text style={styles.headlineAccent}>Across Southeast Asia.</Text>
+      <View style={styles.gridContainer}>
+        {[{ country: 'Vietnam', range: '$150–250M' }, { country: 'Thailand', range: '$350–500M' }, { country: 'Indonesia', range: '$900M–1.6B' }].map((item, i) => (
+          <View key={i} style={styles.gridItem}>
+            <Text style={styles.metricLabel}>{item.country}</Text>
+            <Text style={styles.gridTitle}>{item.range}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={{ ...styles.highlight, marginTop: 16 }}>
+        <Text style={{ ...styles.highlightText, color: '#34d399' }}>Combined wedge: $1.4B–$2.3B</Text>
+      </View>
+    </View>
+    <Text style={styles.slideNumber}>14 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+const Slide15 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>Expansion Unlocks a</Text>
+      <Text style={styles.headlineAccent}>Multi-Billion Category.</Text>
+      <Text style={styles.subheadline}>After commerce: Consumer brands, Distribution, Pharmacy chains, F&B groups</Text>
+      <Text style={styles.body}>Decision infrastructure becomes horizontal.</Text>
+      <Text style={{ ...styles.highlightText, color: '#34d399', marginTop: 16 }}>Category potential exceeds $5B in Southeast Asia alone.</Text>
+    </View>
+    <Text style={styles.slideNumber}>15 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// ACT 6 — STRATEGY
+const Slide16 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>Built in Vietnam.</Text>
+      <Text style={styles.headlineAccent}>Scaling Across Southeast Asia.</Text>
+      <View style={styles.diagramBox}>
+        <Text style={styles.diagramText}>Vietnam → Primary build market</Text>
+        <Text style={{ ...styles.diagramText, color: '#60a5fa' }}>Thailand → Second beachhead (live revenue)</Text>
+        <Text style={{ ...styles.diagramText, color: '#34d399' }}>Indonesia → Category-scale expansion</Text>
+      </View>
+      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Expansion is deliberate — not opportunistic.</Text>
+    </View>
+    <Text style={styles.slideNumber}>16 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+const Slide17 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>Built the Financial Truth Layer</Text>
+      <Text style={styles.headlineAccent}>Before the Category Existed.</Text>
+      <View style={styles.gridContainer}>
+        {['3+ years warehouse maturity', '~99.8% data accuracy', 'Deep financial semantics'].map((item, i) => (
+          <View key={i} style={{ ...styles.gridItem, backgroundColor: '#1e3a5f' }}>
+            <Text style={{ ...styles.gridBody, color: '#93c5fd' }}>{item}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.body}>Most companies start with dashboards.</Text>
+      <Text style={{ ...styles.body, color: '#ffffff', fontWeight: 'bold' }}>We started with truth.</Text>
+    </View>
+    <Text style={styles.slideNumber}>17 / {TOTAL_SLIDES}</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
+  </Page>
+);
+
+// ACT 7 — VISION
+const Slide18 = () => (
+  <Page size="A4" orientation="landscape" style={styles.page}>
+    <View>
+      <Text style={styles.headline}>ERP Became Mandatory.</Text>
+      <Text style={styles.headlineAccent}>Decision Infrastructure Will Too.</Text>
+      <Text style={styles.subheadline}>
+        Soon, companies will not debate{'\n'}
+        whether they need financial decision systems.{'\n'}
+        Only which one they trust.
+      </Text>
+      <View style={{ ...styles.highlight, marginTop: 24 }}>
+        <Text style={{ ...styles.highlightText, fontSize: 14 }}>We Are Not Building Software.</Text>
+        <Text style={{ ...styles.highlightText, fontWeight: 'bold', fontSize: 16, marginTop: 8 }}>
+          We Are Building the System Companies Rely on to Survive.
         </Text>
       </View>
     </View>
-    <Text style={styles.slideNumber}>12 / 12</Text>
+    <Text style={styles.slideNumber}>18 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
@@ -468,6 +543,12 @@ const VCPitchDeckPDF: React.FC = () => (
     <Slide10 />
     <Slide11 />
     <Slide12 />
+    <Slide13 />
+    <Slide14 />
+    <Slide15 />
+    <Slide16 />
+    <Slide17 />
+    <Slide18 />
   </Document>
 );
 

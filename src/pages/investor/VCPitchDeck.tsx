@@ -1,8 +1,9 @@
 /**
  * VC Pitch Deck - English Version
  * 
- * 12-slide interactive presentation for Series A investors
- * Focus: Category claim, not product demo
+ * 18-slide interactive presentation for Series A investors
+ * Focus: Category claim - Financial Decision Infrastructure
+ * Structure: 7 Acts
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
-  ArrowRight, 
   ChevronLeft, 
   ChevronRight,
   MessageSquareText,
@@ -30,91 +30,148 @@ import VCPitchDeckPDF from '@/components/sales-deck/VCPitchDeckPDF';
 // Presenter notes for each slide
 const presenterNotes: Record<number, { tip: string; action: string }> = {
   1: {
-    tip: "We are not building a better dashboard. We are building the system CEOs rely on to understand financial reality — every morning.",
-    action: "Pause. Let it land."
+    tip: "Partner immediately senses systemic problem, not feature gap. Good startups fix problems. Great startups fix structural shifts.",
+    action: "Pause. Let it land. Sound inevitable, not excited."
   },
   2: {
-    tip: "VCs invest in shifts. They don't invest in tools. Frame Bluecore as a response to a macro shift, not a feature improvement.",
-    action: "Emphasize: decision latency = existential risk."
+    tip: "This is ELITE positioning. Keep this slide. It frames everything.",
+    action: "Partner thinks: 'This sounds big.'"
   },
   3: {
-    tip: "Leadership teams still operate without a system designed to answer: 'Are we financially safe right now?'",
-    action: "Point to the missing layer in the diagram."
+    tip: "This is the slide where category is born. Do NOT clutter it.",
+    action: "Show the shift: Record → Decision. Simple."
   },
   4: {
-    tip: "Financial awareness is not a feature. It is an architectural layer.",
-    action: "Let this definition sink in. Don't over-explain."
+    tip: "Infrastructure = big outcomes. Not dashboards. Not analytics.",
+    action: "Let the definition sink in. Don't over-explain."
   },
   5: {
-    tip: "The winners of the next decade will not be data-rich. They will be awareness-rich.",
-    action: "This is VC language. Use it."
+    tip: "Most founders underplay timing. Do NOT. Timing sells companies.",
+    action: "Financial signals are finally connectable."
   },
   6: {
-    tip: "Series A = architecture story, not UI demo. Show the control layer, not the buttons.",
-    action: "Walk through the flow from data to alerts."
+    tip: "This is your 'macro shift' slide. VCs invest in shifts, not tools.",
+    action: "Kill line: Operating without real-time awareness = operating without accounting."
   },
   7: {
-    tip: "Answer 'Why can't this be copied?' before they ask. This is a deep systems problem.",
-    action: "Emphasize: This is not software you assemble. It is software you architect."
+    tip: "Infra founders oversell features — mistake. Keep this TIGHT.",
+    action: "Show 3 roles only: CFO, COO, CEO. No UI screenshots."
   },
   8: {
-    tip: "You don't need massive ARR. You need the right signal: retention, usage depth, decision reliance.",
-    action: "CEOs open Bluecore daily. Not monthly."
+    tip: "This is not assembled software. It is engineered infrastructure.",
+    action: "Partner thought: Hard to replicate. Good."
   },
   9: {
-    tip: "Don't pitch retail analytics. Pitch a horizontal control-layer market starting with a vertical wedge.",
-    action: "Start narrow, expand horizontal."
+    tip: "Infra investors LOVE this slide. Trust compounds.",
+    action: "Companies don't replace systems they trust."
   },
   10: {
-    tip: "Companies don't switch the system they trust to tell them the truth.",
-    action: "Walk through all 4 moat layers."
+    tip: "This is where you stop sounding smart and start sounding fundable.",
+    action: "Partner leans forward here. Show real numbers."
   },
   11: {
-    tip: "Running a company without financial awareness will soon feel as reckless as running one without accounting.",
-    action: "Paint the future. Make it inevitable."
+    tip: "This slide massively reduces risk perception.",
+    action: "Thailand is now a validated second beachhead — not a future bet."
   },
   12: {
-    tip: "We are not building a tool. We are building the system companies rely on to stay alive.",
-    action: "Pause. End deck. Let silence work."
+    tip: "Repeatable deployment. Very investable signal.",
+    action: "Bluecore scales with minimal localization."
+  },
+  13: {
+    tip: "No inflated TAM. Partners smell fake numbers instantly.",
+    action: "Start with margin-sensitive operators who feel decision latency first."
+  },
+  14: {
+    tip: "No hype needed. Numbers already strong.",
+    action: "Show the combined wedge: $1.4B-$2.3B"
+  },
+  15: {
+    tip: "After commerce: consumer brands, distribution, pharmacy, F&B.",
+    action: "Partner now sees venture scale."
+  },
+  16: {
+    tip: "Many decks forget this. Partners invest in execution clarity.",
+    action: "Expansion is deliberate — not opportunistic."
+  },
+  17: {
+    tip: "3+ years warehouse maturity. ~99.8% data accuracy.",
+    action: "Founder signal becomes VERY strong here."
+  },
+  18: {
+    tip: "Never skip this in infra decks. Sound calm — almost obvious.",
+    action: "End deck. Let silence work. Do NOT add fluff."
   }
 };
 
-// Slide components
-const Slide01CategoryClaim: React.FC = () => (
+// ACT 1 — OPEN THE CATEGORY (Slides 1–4)
+const Slide01CategoryShock: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
-      className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-8 leading-tight"
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
     >
-      The Financial Awareness Layer<br />
-      <span className="text-blue-400">for Modern Commerce.</span>
+      Financial Decisions Are Still Running<br />
+      <span className="text-amber-400">on Lagging Systems.</span>
     </motion.h1>
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.5, duration: 0.8 }}
-      className="max-w-3xl"
+      transition={{ delay: 0.4, duration: 0.8 }}
+      className="max-w-3xl mb-8"
     >
-      <p className="text-2xl md:text-3xl font-light text-slate-300 mb-4">
-        Every company runs on systems of record.
+      <p className="text-xl md:text-2xl font-light text-slate-300 mb-2">
+        Commerce now moves in real time.
       </p>
-      <p className="text-2xl md:text-3xl font-light text-slate-300">
-        The next generation will run on <span className="text-blue-400 font-medium">systems of awareness.</span>
+      <p className="text-xl md:text-2xl font-light text-slate-400">
+        Financial truth still arrives weeks later.
       </p>
     </motion.div>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.7 }}
+      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
+    >
+      {[
+        "CAC shifts daily",
+        "Margins compress instantly",
+        "Inventory risk compounds",
+        "Cash exposure escalates"
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 + i * 0.1 }}
+          className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-300 text-sm"
+        >
+          {item}
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.2 }}
+      className="text-xl text-red-400 font-medium"
+    >
+      Decision latency is becoming an existential risk.
+    </motion.p>
   </div>
 );
 
-const Slide02InevitableShift: React.FC = () => (
+const Slide02SilentFailure: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight"
     >
-      Companies Don't Fail From Lack of Data.
+      Companies Rarely Fail from Lack of Data.
     </motion.h1>
     <motion.h2
       initial={{ opacity: 0, y: 20 }}
@@ -122,172 +179,77 @@ const Slide02InevitableShift: React.FC = () => (
       transition={{ delay: 0.3 }}
       className="text-4xl md:text-5xl lg:text-6xl font-bold text-amber-400 mb-12"
     >
-      They Fail From Delayed Financial Truth.
+      They Fail from Delayed Financial Truth.
     </motion.h2>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.6 }}
-      className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl"
+      className="max-w-2xl"
     >
-      <div className="text-left p-6 rounded-xl bg-slate-800/50 border border-slate-700">
-        <h3 className="text-amber-400 text-xl font-semibold mb-4">Old World</h3>
-        <ul className="space-y-3 text-slate-300 text-lg">
-          <li>• Monthly close</li>
-          <li>• Quarterly review</li>
-          <li>• Reactive decisions</li>
-        </ul>
+      <p className="text-xl text-slate-300 mb-6">Modern stacks optimized for:</p>
+      <div className="flex justify-center gap-4 mb-8">
+        {["Recording", "Reporting", "Analyzing"].map((item, i) => (
+          <span key={i} className="px-4 py-2 bg-slate-800 rounded-lg text-slate-400">{item}</span>
+        ))}
       </div>
-      <div className="text-left p-6 rounded-xl bg-slate-800/50 border border-blue-500/30">
-        <h3 className="text-blue-400 text-xl font-semibold mb-4">New World</h3>
-        <ul className="space-y-3 text-slate-300 text-lg">
-          <li>• Compressed margins</li>
-          <li>• Volatile demand</li>
-          <li>• Rising CAC</li>
-        </ul>
-      </div>
+      <p className="text-xl text-slate-400">
+        Not <span className="text-white font-medium">deciding.</span>
+      </p>
     </motion.div>
     
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.9 }}
-      className="mt-12 text-xl md:text-2xl text-slate-400 italic border-l-4 border-blue-500 pl-6"
+      className="mt-10 text-lg text-slate-500 italic"
     >
-      Decision latency = existential risk.
+      Leadership is forced to operate reactively.
     </motion.p>
   </div>
 );
 
-const Slide03BrokenStack: React.FC = () => (
+const Slide03PlatformShift: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-12"
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-12"
     >
-      The Modern Data Stack Was Not Built<br />
-      <span className="text-amber-400">for Decision Makers.</span>
+      System of Record → <span className="text-blue-400">System of Decision</span>
     </motion.h1>
-    
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.3 }}
-      className="font-mono text-sm md:text-base bg-slate-900 border border-slate-700 rounded-xl p-8 max-w-3xl w-full"
-    >
-      <div className="flex items-center justify-center gap-4 text-slate-300 mb-6">
-        <span className="px-4 py-2 bg-slate-800 rounded">ERP</span>
-        <span className="text-slate-500">→</span>
-        <span className="px-4 py-2 bg-slate-800 rounded">CRM</span>
-        <span className="text-slate-500">→</span>
-        <span className="px-4 py-2 bg-slate-800 rounded">BI</span>
-        <span className="text-slate-500">→</span>
-        <span className="px-4 py-2 bg-slate-800 rounded">Analytics</span>
-      </div>
-      <div className="text-slate-500 text-2xl mb-4">↓</div>
-      <div className="text-slate-400 mb-8">
-        <div>Operators</div>
-        <div>Analysts</div>
-      </div>
-      <div className="border-t-4 border-b-4 border-blue-500 py-4 my-4">
-        <div className="text-blue-400 font-bold text-lg">MISSING LAYER</div>
-        <div className="text-white font-bold text-xl mt-2">EXECUTIVE AWARENESS</div>
-      </div>
-    </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.6 }}
-      className="mt-10 text-xl text-slate-400 italic border-l-4 border-blue-500 pl-6 max-w-2xl"
-    >
-      Leadership teams still operate without a system designed to answer:<br />
-      <span className="text-white font-medium">"Are we financially safe right now?"</span>
-    </motion.p>
-  </div>
-);
-
-const Slide04IntroducingCategory: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="mb-8"
-    >
-      <span className="text-blue-400 text-xl font-medium tracking-wider uppercase">Introducing</span>
-    </motion.div>
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-8"
-    >
-      Bluecore is the<br />
-      <span className="text-blue-400">Financial Decision OS.</span>
-    </motion.h1>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.5 }}
-      className="text-xl md:text-2xl text-slate-300 max-w-3xl font-light"
-    >
-      A system that converts fragmented financial signals into real-time executive awareness — enabling faster, safer decisions.
-    </motion.p>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.8 }}
-      className="mt-12 text-xl text-slate-400 italic border-l-4 border-blue-500 pl-6"
-    >
-      Financial awareness is not a feature.<br />
-      <span className="text-white">It is an architectural layer.</span>
-    </motion.p>
-  </div>
-);
-
-const Slide05WhyNow: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-5xl md:text-6xl font-bold text-white mb-4"
-    >
-      The Awareness Era
-    </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-4xl md:text-5xl font-bold text-emerald-400 mb-12"
-    >
-      Has Begun.
-    </motion.h2>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.4 }}
-      className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full"
+      className="flex flex-col gap-4 max-w-lg w-full"
     >
       {[
-        { num: "1", title: "Financial data is finally accessible", desc: "APIs, marketplaces, payments" },
-        { num: "2", title: "Decision windows are collapsing", desc: "Weeks, not quarters" },
-        { num: "3", title: "Margin for error is disappearing", desc: "Every decision counts" }
+        { label: "ERP", desc: "records the past", color: "slate" },
+        { label: "BI", desc: "explains the past", color: "slate" },
+        { label: "Bluecore", desc: "drives the next move", color: "blue" }
       ].map((item, i) => (
         <motion.div 
           key={i}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 + i * 0.15 }}
-          className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 text-left"
+          className={cn(
+            "flex items-center justify-between p-4 rounded-lg",
+            item.color === "slate" && "bg-slate-800/50 border border-slate-700",
+            item.color === "blue" && "bg-blue-500/20 border border-blue-500/40"
+          )}
         >
-          <div className="text-blue-400 text-4xl font-bold mb-4">{item.num}</div>
-          <h3 className="text-white text-lg font-semibold mb-2">{item.title}</h3>
-          <p className="text-slate-400">{item.desc}</p>
+          <span className={cn(
+            "font-bold text-xl",
+            item.color === "slate" ? "text-slate-300" : "text-blue-400"
+          )}>{item.label}</span>
+          <span className={cn(
+            "text-lg",
+            item.color === "slate" ? "text-slate-500" : "text-blue-300"
+          )}>{item.desc}</span>
         </motion.div>
       ))}
     </motion.div>
@@ -296,59 +258,267 @@ const Slide05WhyNow: React.FC = () => (
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 1 }}
-      className="mt-12 text-xl text-slate-400 italic border-l-4 border-emerald-500 pl-6"
+      className="mt-12 text-xl text-slate-400 italic border-l-4 border-blue-500 pl-6"
     >
-      The winners of the next decade will not be data-rich.<br />
-      <span className="text-white">They will be awareness-rich.</span>
+      A new execution layer is emerging inside modern companies.
     </motion.p>
   </div>
 );
 
-const Slide06ProductInfrastructure: React.FC = () => (
+const Slide04DefineCategory: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="mb-6"
+    >
+      <span className="text-blue-400 text-xl font-medium tracking-wider uppercase">Introducing</span>
+    </motion.div>
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-10"
+    >
+      Financial Decision<br />
+      <span className="text-blue-400">Infrastructure.</span>
+    </motion.h1>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.5 }}
+      className="max-w-2xl text-left mb-8"
+    >
+      <p className="text-lg text-slate-300 mb-4">A new operational layer that:</p>
+      <ul className="space-y-2 text-slate-400">
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> unifies financial reality</li>
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> models operational exposure</li>
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> detects risk in real time</li>
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> guides leadership action</li>
+      </ul>
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="text-xl text-slate-500"
+    >
+      Not dashboards. Not analytics. <span className="text-white font-medium">Infrastructure.</span>
+    </motion.p>
+  </div>
+);
+
+// ACT 2 — WHY NOW (Slides 5–6)
+const Slide05WhyImpossibleBefore: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Only Now Is Decision Infrastructure
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-emerald-400 mb-12"
+    >
+      Technically Feasible.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full"
+    >
+      {[
+        "API-first commerce ecosystems",
+        "Payment digitization",
+        "Warehouse maturity",
+        "Real-time data pipelines"
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 + i * 0.1 }}
+          className="p-4 rounded-lg bg-slate-800/50 border border-emerald-500/30 text-slate-300"
+        >
+          {item}
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="mt-12 text-xl text-emerald-400 font-medium"
+    >
+      Financial signals are finally connectable.
+    </motion.p>
+  </div>
+);
+
+const Slide06WhyMandatory: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Decision Speed Is Becoming
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      a Competitive Advantage.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="flex flex-col gap-3 max-w-lg mb-10"
+    >
+      {[
+        "Margin compression.",
+        "Capital is expensive.",
+        "Operational volatility is rising."
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 + i * 0.15 }}
+          className="text-xl text-slate-300"
+        >
+          {item}
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.9 }}
+      className="text-lg text-slate-400 mb-10"
+    >
+      Companies can no longer wait for month-end truth.
+    </motion.p>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.1 }}
+      className="text-xl text-slate-300 italic border-l-4 border-blue-500 pl-6 max-w-2xl"
+    >
+      Soon, operating without real-time financial awareness<br />
+      <span className="text-white font-medium">will feel like operating without accounting.</span>
+    </motion.p>
+  </div>
+);
+
+// ACT 3 — THE PRODUCT (Slides 7–9)
+const Slide07ProductOneSentence: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-8"
+    >
+      A Single Financial Reality —<br />
+      <span className="text-blue-400">Trusted in Real Time.</span>
+    </motion.h1>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="text-xl text-slate-300 mb-10"
+    >
+      When leadership trusts the system, it becomes operational infrastructure.
+    </motion.p>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full"
+    >
+      {[
+        { role: "CFO", focus: "Cash Exposure" },
+        { role: "COO", focus: "Operational Leakage" },
+        { role: "CEO", focus: "Margin Risk" }
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 + i * 0.15 }}
+          className="p-6 rounded-xl bg-slate-800/50 border border-blue-500/30"
+        >
+          <div className="text-blue-400 text-2xl font-bold mb-2">{item.role}</div>
+          <div className="text-slate-300">{item.focus}</div>
+        </motion.div>
+      ))}
+    </motion.div>
+  </div>
+);
+
+const Slide08ArchitectureAdvantage: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="text-4xl md:text-5xl font-bold text-white mb-12"
     >
-      The Control Layer for<br />
-      <span className="text-blue-400">Financial Reality.</span>
+      Financial Truth Is an<br />
+      <span className="text-amber-400">Architecture Problem.</span>
     </motion.h1>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.3 }}
-      className="flex flex-col items-center gap-4 max-w-md"
+      className="flex flex-col items-center gap-3 max-w-md"
     >
       {[
-        { label: "Data sources", color: "slate" },
-        { label: "Unified financial truth", color: "blue" },
-        { label: "Decision engine", color: "blue" },
-        { label: "Executive alerts", color: "emerald" }
+        "Sources",
+        "Semantic normalization",
+        "Reconciliation",
+        "Decision dataset",
+        "Alerts"
       ].map((item, i) => (
         <React.Fragment key={i}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 + i * 0.15 }}
+            transition={{ delay: 0.4 + i * 0.1 }}
             className={cn(
-              "w-full py-4 px-8 rounded-lg text-center font-medium text-lg",
-              item.color === "slate" && "bg-slate-700 text-slate-200",
-              item.color === "blue" && "bg-blue-500/20 text-blue-400 border border-blue-500/40",
-              item.color === "emerald" && "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+              "w-full py-3 px-6 rounded-lg text-center font-medium",
+              i === 0 ? "bg-slate-700 text-slate-200" :
+              i === 4 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" :
+              "bg-blue-500/20 text-blue-400 border border-blue-500/40"
             )}
           >
-            {item.label}
+            {item}
           </motion.div>
-          {i < 3 && (
+          {i < 4 && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 + i * 0.15 }}
-              className="text-slate-500 text-2xl"
+              transition={{ delay: 0.5 + i * 0.1 }}
+              className="text-slate-500 text-xl"
             >
-              ↓
+              →
             </motion.div>
           )}
         </React.Fragment>
@@ -359,77 +529,57 @@ const Slide06ProductInfrastructure: React.FC = () => (
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 1.2 }}
-      className="mt-12 text-lg text-slate-500 italic"
+      className="mt-10 text-lg text-slate-400 italic"
     >
-      Series A = Architecture story. Not UI demo.
+      This is not assembled software. <span className="text-white">It is engineered infrastructure.</span>
     </motion.p>
   </div>
 );
 
-const Slide07WhatMakesHard: React.FC = () => (
+const Slide09SwitchingCost: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-12"
+      className="text-4xl md:text-5xl font-bold text-white mb-8"
     >
-      Financial Awareness Is a<br />
-      <span className="text-amber-400">Deep Systems Problem.</span>
+      Companies Do Not Replace Systems<br />
+      <span className="text-blue-400">They Trust to Tell the Truth.</span>
     </motion.h1>
     
     <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.3 }}
-      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.4 }}
+      className="p-8 rounded-xl bg-blue-500/10 border border-blue-500/30 max-w-xl"
     >
-      {[
-        "Financial semantics",
-        "Reconciliation logic",
-        "Profit normalization",
-        "Decision modeling"
-      ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 + i * 0.1 }}
-          className="p-4 rounded-lg bg-slate-800/50 border border-slate-700"
-        >
-          <span className="text-slate-300 font-medium">{item}</span>
-        </motion.div>
-      ))}
-    </motion.div>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.8 }}
-      className="mt-8 text-slate-500 text-lg"
-    >
-      👉 Not dashboards.
+      <p className="text-2xl text-blue-300 font-medium mb-4">Trust compounds.</p>
+      <p className="text-lg text-slate-300">
+        Once embedded in decision workflows,<br />
+        replacement risk drops dramatically.
+      </p>
     </motion.div>
     
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="mt-10 text-xl text-slate-400 italic border-l-4 border-amber-500 pl-6"
+      transition={{ delay: 0.8 }}
+      className="mt-10 text-lg text-slate-500 italic"
     >
-      This is not software you assemble.<br />
-      <span className="text-white">It is software you architect.</span>
+      Infra investors understand this.
     </motion.p>
   </div>
 );
 
-const Slide08EarlySignal: React.FC = () => (
+// ACT 4 — TRACTION (Slides 10–12)
+const Slide10MissionCritical: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="text-4xl md:text-5xl font-bold text-white mb-4"
     >
-      Once Leadership Trusts the System —
+      Already Becoming
     </motion.h1>
     <motion.h2
       initial={{ opacity: 0, y: 20 }}
@@ -437,29 +587,30 @@ const Slide08EarlySignal: React.FC = () => (
       transition={{ delay: 0.2 }}
       className="text-4xl md:text-5xl font-bold text-emerald-400 mb-12"
     >
-      It Becomes Mission Critical.
+      Operationally Essential.
     </motion.h2>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.4 }}
-      className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full"
+      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
     >
       {[
-        { metric: "Retention", signal: "High" },
-        { metric: "Usage depth", signal: "Daily" },
-        { metric: "Decision reliance", signal: "Critical" }
+        { label: "ARR", value: "~$200K" },
+        { label: "Retention", value: "90-95%" },
+        { label: "Usage", value: "Daily" },
+        { label: "Workflows", value: "Finance-dependent" }
       ].map((item, i) => (
         <motion.div 
           key={i}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 + i * 0.15 }}
-          className="p-6 rounded-xl bg-slate-800/50 border border-emerald-500/30"
+          transition={{ delay: 0.5 + i * 0.1 }}
+          className="p-4 rounded-lg bg-slate-800/50 border border-emerald-500/30"
         >
-          <div className="text-slate-400 text-sm uppercase tracking-wider mb-2">{item.metric}</div>
-          <div className="text-emerald-400 text-2xl font-bold">{item.signal}</div>
+          <div className="text-slate-400 text-sm mb-1">{item.label}</div>
+          <div className="text-emerald-400 text-xl font-bold">{item.value}</div>
         </motion.div>
       ))}
     </motion.div>
@@ -468,135 +619,22 @@ const Slide08EarlySignal: React.FC = () => (
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 1 }}
-      className="mt-12 text-xl text-slate-400 italic border-l-4 border-emerald-500 pl-6"
+      className="text-xl text-slate-300 italic border-l-4 border-emerald-500 pl-6"
     >
-      CEOs open Bluecore daily.<br />
-      <span className="text-white">Not monthly.</span>
+      Executives open Bluecore daily — not monthly.<br />
+      <span className="text-white font-medium">That is infrastructure behavior.</span>
     </motion.p>
   </div>
 );
 
-const Slide09Market: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-12"
-    >
-      Every Margin-Sensitive Company Will Need<br />
-      <span className="text-blue-400">a Financial Awareness Layer.</span>
-    </motion.h1>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.3 }}
-      className="flex flex-col items-center gap-6 max-w-2xl w-full"
-    >
-      <div className="w-full">
-        <div className="text-slate-500 text-sm uppercase tracking-wider mb-2">Start narrow</div>
-        <div className="bg-blue-500/20 border border-blue-500/40 rounded-lg py-3 px-6 text-blue-400 font-medium">
-          Retail / Ecommerce
-        </div>
-      </div>
-      <div className="text-slate-500 text-2xl">↓</div>
-      <div className="w-full">
-        <div className="text-slate-500 text-sm uppercase tracking-wider mb-2">Expand</div>
-        <div className="grid grid-cols-3 gap-3">
-          {["Multi-brand", "Consumer", "Marketplaces"].map((item, i) => (
-            <div key={i} className="bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-slate-300 text-sm">
-              {item}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="text-slate-500 text-2xl">↓</div>
-      <div className="w-full">
-        <div className="text-slate-500 text-sm uppercase tracking-wider mb-2">Mid-market</div>
-        <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-lg py-3 px-6 text-emerald-400 font-medium">
-          All Margin-Sensitive Companies
-        </div>
-      </div>
-    </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.8 }}
-      className="mt-10 text-lg text-slate-400 italic border-l-4 border-blue-500 pl-6"
-    >
-      We are entering a horizontal control-layer market —<br />
-      <span className="text-white">starting with a vertical wedge.</span>
-    </motion.p>
-  </div>
-);
-
-const Slide10Moat: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-5xl md:text-6xl font-bold text-white mb-4"
-    >
-      Awareness
-    </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-5xl md:text-6xl font-bold text-blue-400 mb-12"
-    >
-      Compounds.
-    </motion.h2>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="flex flex-col gap-2 max-w-xl w-full"
-    >
-      {[
-        { num: 1, label: "Semantic Standard", desc: "Unified financial language" },
-        { num: 2, label: "Decision Dataset", desc: "Historical patterns" },
-        { num: 3, label: "Organizational Trust", desc: "Single source of truth" },
-        { num: 4, label: "Executive Workflow Lock-in", desc: "Daily habit" }
-      ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 + i * 0.15 }}
-          className="flex items-center gap-4 p-4 rounded-lg bg-slate-800/50 border border-slate-700 text-left"
-        >
-          <div className="text-blue-400 text-2xl font-bold w-8">{item.num}</div>
-          <div>
-            <div className="text-white font-medium">{item.label}</div>
-            <div className="text-slate-500 text-sm">{item.desc}</div>
-          </div>
-        </motion.div>
-      ))}
-    </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.2 }}
-      className="mt-10 text-xl text-slate-400 italic border-l-4 border-blue-500 pl-6"
-    >
-      Companies don't switch the system<br />
-      <span className="text-white">they trust to tell them the truth.</span>
-    </motion.p>
-  </div>
-);
-
-const Slide11VisionScale: React.FC = () => (
+const Slide11CrossBorder: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="text-4xl md:text-5xl font-bold text-white mb-4"
     >
-      We Believe Financial Awareness
+      Proven Beyond
     </motion.h1>
     <motion.h2
       initial={{ opacity: 0, y: 20 }}
@@ -604,24 +642,24 @@ const Slide11VisionScale: React.FC = () => (
       transition={{ delay: 0.2 }}
       className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
     >
-      Will Become Default Infrastructure.
+      Our Home Market.
     </motion.h2>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.4 }}
-      className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl w-full"
+      className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full mb-8"
     >
       <div className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 text-left">
-        <div className="text-amber-400 text-sm uppercase tracking-wider mb-3">Today</div>
-        <div className="text-white text-xl font-medium">ERP required</div>
-        <div className="text-slate-500 mt-2">Every company has one</div>
+        <div className="text-slate-400 text-sm uppercase tracking-wider mb-2">Built in</div>
+        <div className="text-white text-2xl font-bold">Vietnam</div>
       </div>
       <div className="p-6 rounded-xl bg-blue-500/10 border border-blue-500/40 text-left">
-        <div className="text-blue-400 text-sm uppercase tracking-wider mb-3">Tomorrow</div>
-        <div className="text-white text-xl font-medium">Awareness required</div>
-        <div className="text-slate-400 mt-2">Every company will need one</div>
+        <div className="text-blue-400 text-sm uppercase tracking-wider mb-2">Deployed in</div>
+        <div className="text-white text-2xl font-bold">Thailand</div>
+        <div className="text-slate-400 mt-2">Leading retail operator</div>
+        <div className="text-emerald-400 font-medium">~$3K MRR (~$36K ARR)</div>
       </div>
     </motion.div>
     
@@ -629,48 +667,194 @@ const Slide11VisionScale: React.FC = () => (
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.8 }}
-      className="mt-12 text-xl text-slate-400 italic border-l-4 border-blue-500 pl-6 max-w-2xl"
+      className="text-lg text-slate-300 italic"
     >
-      Running a company without financial awareness will soon feel as reckless<br />
-      <span className="text-white">as running one without accounting.</span>
+      Thailand is now a validated second beachhead —<br />
+      <span className="text-white">not a future expansion bet.</span>
     </motion.p>
   </div>
 );
 
-const Slide12CompanyBuilding: React.FC = () => (
+const Slide12ArchitectureTravels: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-8"
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
     >
-      Bluecore Is Building<br />
-      <span className="text-blue-400">the Financial Control Plane</span><br />
-      for Commerce.
+      Financial Complexity Is Structurally Similar
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      Across Southeast Asia.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
+    >
+      {[
+        "Multi-channel fragmentation",
+        "Cash pressure",
+        "Inventory exposure",
+        "Marketing volatility"
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 + i * 0.1 }}
+          className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-300 text-sm"
+        >
+          {item}
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="text-xl text-emerald-400 font-medium"
+    >
+      Bluecore scales with minimal localization.
+    </motion.p>
+  </div>
+);
+
+// ACT 5 — MARKET (Slides 13–15)
+const Slide13InitialWedge: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-12"
+    >
+      We Start with<br />
+      <span className="text-blue-400">Margin-Sensitive Commerce Operators.</span>
     </motion.h1>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.4 }}
-      className="max-w-2xl"
+      className="max-w-xl text-left"
     >
-      <p className="text-xl text-slate-300 mb-8">When Bluecore wins:</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          "CEOs run mornings on it",
-          "Boards trust it",
-          "Operators align to it"
-        ].map((item, i) => (
-          <motion.div 
+      <p className="text-lg text-slate-300 mb-6">Target profile:</p>
+      <ul className="space-y-3 text-slate-400">
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> Mid-market retailers & ecommerce companies</li>
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> Revenue: $2M–$50M</li>
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> High operational complexity</li>
+        <li className="flex items-center gap-2"><span className="text-blue-400">→</span> Decision-sensitive economics</li>
+      </ul>
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="mt-10 text-lg text-slate-500 italic"
+    >
+      These companies feel decision latency first.
+    </motion.p>
+  </div>
+);
+
+const Slide14SEAMarket: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      A <span className="text-emerald-400">$1B+</span> Wedge
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      Across Southeast Asia.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full mb-8"
+    >
+      {[
+        { country: "Vietnam", range: "$150–250M" },
+        { country: "Thailand", range: "$350–500M" },
+        { country: "Indonesia", range: "$900M–1.6B" }
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 + i * 0.15 }}
+          className="p-6 rounded-xl bg-slate-800/50 border border-slate-700"
+        >
+          <div className="text-slate-400 text-sm mb-2">{item.country}</div>
+          <div className="text-white text-2xl font-bold">{item.range}</div>
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.9 }}
+      className="p-4 rounded-lg bg-emerald-500/20 border border-emerald-500/40"
+    >
+      <span className="text-emerald-400 font-medium">Combined wedge: $1.4B–$2.3B</span>
+    </motion.div>
+  </div>
+);
+
+const Slide15ExpansionUnlocks: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Expansion Unlocks a
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      Multi-Billion Category.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="mb-8"
+    >
+      <p className="text-lg text-slate-300 mb-6">After commerce:</p>
+      <div className="flex flex-wrap justify-center gap-3">
+        {["Consumer brands", "Distribution", "Pharmacy chains", "F&B groups"].map((item, i) => (
+          <motion.span 
             key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 + i * 0.15 }}
-            className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 + i * 0.1 }}
+            className="px-4 py-2 bg-slate-800 rounded-lg text-slate-300"
           >
             {item}
-          </motion.div>
+          </motion.span>
         ))}
       </div>
     </motion.div>
@@ -678,35 +862,217 @@ const Slide12CompanyBuilding: React.FC = () => (
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="mt-12 text-2xl text-slate-300 font-light"
+      transition={{ delay: 0.9 }}
+      className="text-lg text-slate-400 mb-6"
     >
-      We are not building a tool.
+      Decision infrastructure becomes horizontal.
     </motion.p>
+    
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1.3 }}
-      className="mt-2 text-2xl text-white font-medium"
+      transition={{ delay: 1.1 }}
+      className="text-xl text-emerald-400 font-medium"
     >
-      We are building the system companies rely on to stay alive.
+      Category potential exceeds $5B in Southeast Asia alone.
     </motion.p>
   </div>
 );
 
+// ACT 6 — STRATEGY (Slides 16–17)
+const Slide16RegionalExpansion: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Built in Vietnam.
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      Scaling Across Southeast Asia.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="flex flex-col gap-4 max-w-lg w-full"
+    >
+      {[
+        { market: "Vietnam", status: "Primary build market", color: "slate" },
+        { market: "Thailand", status: "Second beachhead (live revenue)", color: "blue" },
+        { market: "Indonesia", status: "Category-scale expansion", color: "emerald" }
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 + i * 0.15 }}
+          className={cn(
+            "flex items-center justify-between p-4 rounded-lg",
+            item.color === "slate" && "bg-slate-800/50 border border-slate-700",
+            item.color === "blue" && "bg-blue-500/20 border border-blue-500/40",
+            item.color === "emerald" && "bg-emerald-500/20 border border-emerald-500/40"
+          )}
+        >
+          <span className={cn(
+            "font-bold text-xl",
+            item.color === "slate" ? "text-slate-300" :
+            item.color === "blue" ? "text-blue-400" : "text-emerald-400"
+          )}>{item.market}</span>
+          <span className={cn(
+            "text-sm",
+            item.color === "slate" ? "text-slate-500" :
+            item.color === "blue" ? "text-blue-300" : "text-emerald-300"
+          )}>{item.status}</span>
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="mt-10 text-lg text-slate-500 italic"
+    >
+      Expansion is deliberate — not opportunistic.
+    </motion.p>
+  </div>
+);
+
+const Slide17WhyBluecoreWins: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Built the Financial Truth Layer
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      Before the Category Existed.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl w-full mb-10"
+    >
+      {[
+        "3+ years warehouse maturity",
+        "~99.8% data accuracy",
+        "Deep financial semantics",
+        "Reconciliation logic",
+        "Multi-source ingestion"
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 + i * 0.1 }}
+          className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm"
+        >
+          {item}
+        </motion.div>
+      ))}
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="text-lg text-slate-400"
+    >
+      Most companies start with dashboards.
+    </motion.p>
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.2 }}
+      className="text-xl text-white font-medium"
+    >
+      We started with truth.
+    </motion.p>
+  </div>
+);
+
+// ACT 7 — VISION (Slide 18)
+const Slide18Inevitability: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4"
+    >
+      ERP Became Mandatory.
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-blue-400 mb-12"
+    >
+      Decision Infrastructure Will Too.
+    </motion.h2>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="text-xl text-slate-300 mb-12 max-w-2xl"
+    >
+      Soon, companies will not debate<br />
+      whether they need financial decision systems.<br />
+      <span className="text-white font-medium">Only which one they trust.</span>
+    </motion.p>
+    
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.9 }}
+      className="p-8 rounded-xl bg-blue-500/10 border border-blue-500/30 max-w-2xl"
+    >
+      <p className="text-2xl text-slate-300 font-light mb-2">
+        We Are Not Building Software.
+      </p>
+      <p className="text-2xl text-white font-medium">
+        We Are Building the System Companies Rely on to Survive.
+      </p>
+    </motion.div>
+  </div>
+);
+
 const slides = [
-  Slide01CategoryClaim,
-  Slide02InevitableShift,
-  Slide03BrokenStack,
-  Slide04IntroducingCategory,
-  Slide05WhyNow,
-  Slide06ProductInfrastructure,
-  Slide07WhatMakesHard,
-  Slide08EarlySignal,
-  Slide09Market,
-  Slide10Moat,
-  Slide11VisionScale,
-  Slide12CompanyBuilding
+  Slide01CategoryShock,
+  Slide02SilentFailure,
+  Slide03PlatformShift,
+  Slide04DefineCategory,
+  Slide05WhyImpossibleBefore,
+  Slide06WhyMandatory,
+  Slide07ProductOneSentence,
+  Slide08ArchitectureAdvantage,
+  Slide09SwitchingCost,
+  Slide10MissionCritical,
+  Slide11CrossBorder,
+  Slide12ArchitectureTravels,
+  Slide13InitialWedge,
+  Slide14SEAMarket,
+  Slide15ExpansionUnlocks,
+  Slide16RegionalExpansion,
+  Slide17WhyBluecoreWins,
+  Slide18Inevitability
 ];
 
 const VCPitchDeck: React.FC = () => {
@@ -885,14 +1251,14 @@ const VCPitchDeck: React.FC = () => {
         </div>
         
         {/* Progress Dots */}
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex gap-2">
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex gap-1.5">
           {slides.map((_, i) => (
             <button
               key={i}
               onClick={(e) => { e.stopPropagation(); setCurrentSlide(i); }}
               className={cn(
                 "w-2 h-2 rounded-full transition-all",
-                i === currentSlide ? "bg-blue-400 w-6" : "bg-slate-600 hover:bg-slate-500"
+                i === currentSlide ? "bg-blue-400 w-4" : "bg-slate-600 hover:bg-slate-500"
               )}
             />
           ))}
