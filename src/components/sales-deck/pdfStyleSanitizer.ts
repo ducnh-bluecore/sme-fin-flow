@@ -18,7 +18,42 @@ const BORDER_WIDTH_KEYS = [
   "borderLeftWidth",
 ] as const;
 
+const BORDER_SHORTHAND_KEYS = [
+  "border",
+  "borderTop",
+  "borderRight",
+  "borderBottom",
+  "borderLeft",
+] as const;
+
+const BORDER_SHORTHAND_REGEX = /(-?\d+(?:\.\d+)?(?:in|mm|cm|pt|vw|vh|px|rem)?)\s(\S+)\s(.+)/;
+
 function ensureBorderWidths(style: Style): Style {
+  // React-PDF v4.3.x bug: numeric border shorthands (e.g. `border: 0`) can crash
+  // inside resolveBorderShorthand. Strip invalid shorthand values.
+  {
+    let mutated = false;
+    let next: Style = style;
+
+    for (const key of BORDER_SHORTHAND_KEYS) {
+      const v = next[key];
+      if (v == null) continue;
+
+      const isValidString = typeof v === "string" && BORDER_SHORTHAND_REGEX.test(v.trim());
+      const isInvalid = typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && !isValidString);
+
+      if (isInvalid) {
+        if (!mutated) {
+          next = { ...next };
+          mutated = true;
+        }
+        delete next[key];
+      }
+    }
+
+    style = next;
+  }
+
   // React-PDF can crash if any border width key exists but is undefined.
   // Normalize all border width keys to numbers.
   let next: Style = style;
