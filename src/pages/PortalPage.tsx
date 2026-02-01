@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Loader2,
   Lock,
+  Presentation,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -405,6 +406,13 @@ export default function PortalPage() {
       description: 'Product scoping & governance',
       icon: FileText,
       path: '/review-hub',
+    },
+    {
+      id: 'sales-deck',
+      name: 'Sales Deck Library',
+      description: 'PDF Sales Decks & Tài liệu',
+      icon: Presentation,
+      path: '/sales-deck-library',
     },
     {
       id: 'settings',
