@@ -1,253 +1,112 @@
 
-# Kế hoạch Nâng cấp VC Pitch Deck: Từ 8.6 lên TOP-TIER
 
-## Mục tiêu
-Thêm **FEAR**, **PRODUCT REALITY**, và **FLYWHEEL LOGIC** — biến deck từ "thông minh" thành "fundable"
+# Chỉnh sửa Slide 01 — From Descriptive to Lethal
 
----
-
-## 5 Thay đổi Chiến lược
-
-### 1. SLIDE 01 — Thêm FEAR/DANGER
-**Vấn đề:** Deck hiện tại quá "calm" - thiếu cảm giác nguy hiểm
-
-**Cải tiến:**
-- Thay headline abstract bằng **"CASH COLLAPSES QUIETLY"** 
-- Thêm các metrics cụ thể gây shock:
-  - Margin giảm 6% → phát hiện sau 4 tuần
-  - CAC tăng 35% → finance thấy khi đã burn
-  - Inventory phình → cash locked
-  - Runway biến mất trước khi CEO nhận ra
-- VC phải cảm thấy: **"holy sh*t this is real"**
-
-**Áp dụng cho:** VCPitchDeck.tsx (EN), VCPitchDeckVI.tsx (VI), cả 2 PDF files
-
----
-
-### 2. THÊM SLIDE MỚI — PRODUCT REALITY
-**Vấn đề:** Product gần như invisible trong deck hiện tại
-
-**Giải pháp:** Chèn slide mới "WHAT A DECISION LOOKS LIKE" sau Slide 10 (Product One Sentence)
-
-**Nội dung:**
-```text
-┌─────────────────────────────────────────┐
-│  CASH RISK DETECTED                     │
-│  ────────────────────                   │
-│  Sell-through ↓ 23%                     │
-│  Inventory turn ↓ 18%                   │
-│  Payment terms: extended                │
-│                                         │
-│  → Recommend: Slow purchase orders      │
-│  → Result: Preserved $480K liquidity    │
-└─────────────────────────────────────────┘
+## Vấn đề Hiện tại
+Slide 01 đang viết theo tone mô tả:
+```
+Margin ↓ 6% → Phát hiện sau 4 tuần
+CAC ↑ 35% → Finance thấy khi đã burn
+Inventory phình → Cash bị khóa
+Runway → Biến mất trước khi CEO nhận ra
 ```
 
-- Không cần UI screenshot
-- Chỉ cần **1 example thật** 
-- Believability tăng gấp đôi
-
-**Cập nhật:** TOTAL_SLIDES từ 22 → 23
-
----
-
-### 3. DI CHUYỂN TRACTION LÊN SỚM HƠN
-**Vấn đề:** Thailand $3K MRR nằm slide 14, quá muộn
-
-**Cải tiến:** 
-- Move Cross-Border (slide 14) lên **ngay sau Velocity (slide 11)**
-- Thứ tự mới:
-  - Slide 11: Velocity (95%+ retention)
-  - Slide 12: **Cross-Border Traction** (Thailand $3K MRR) ← moved up
-  - Slide 13+: Architecture, Switching Cost, etc.
-
-**Lý do:** VC brain hoạt động: Revenue sớm → "How big?" | Không có → "Is it real?"
-
----
-
-### 4. THÊM FLYWHEEL vào MOAT SLIDE (Slide 07)
-**Vấn đề:** Moat slide vẫn hơi "triết học" - thiếu mechanism
-
-**Cải tiến:** Thay thế grid bằng visual flywheel:
-```text
-┌─────────────────────────────────────────┐
-│         More customers                  │
-│              ↓                          │
-│     More financial patterns             │
-│              ↓                          │
-│      Better risk detection              │
-│              ↓                          │
-│       Better decisions                  │
-│              ↓                          │
-│         Deeper trust                    │
-│              ↓                          │
-│       Harder to replace                 │
-│              ↓                          │
-│         (loop back)                     │
-└─────────────────────────────────────────┘
+Và closing statement emotional:
+```
+"Doanh nghiệp không chết vì thiếu dữ liệu.
+Họ chết vì sự thật đến quá muộn."
 ```
 
-**Nuclear Line:** "Moat becomes logical, not philosophical."
+## Nguyên tắc
+**Founder junior cố chứng minh. Founder senior tuyên bố.**
+Infrastructure companies state reality — không storytelling, không emotional.
 
 ---
 
-### 5. THÊM UNFAIR ADVANTAGE vào SLIDE 20 (Why Bluecore Wins)
-**Vấn đề:** Founder đang "giấu" unfair advantage
+## Thay đổi 1: Metrics Boxes → Lethal Format
 
-**Cải tiến:** Amplify metrics:
-- **3+ năm warehouse maturity**
-- **~99.8% data accuracy**
-- Visual highlight cho "Decision AI có thể copy. Financial data history thì không."
+| Hiện tại (Descriptive) | Mới (Lethal) |
+|------------------------|--------------|
+| Margin ↓ 6% → Phát hiện sau 4 tuần | Margin erodes 6%. Detected week 4. |
+| CAC ↑ 35% → Finance thấy khi đã burn | CAC spikes 35%. Visible after burn. |
+| Inventory phình → Cash bị khóa | Inventory expands. Liquidity disappears. |
+| Runway → Biến mất trước khi CEO nhận ra | Runway shrinks. CEO sees it last. |
+
+**Tone:** Cold. Clinical. Almost medical.
+**Xóa:** Emoji icons (📉🔥📦⏳) — không cần.
 
 ---
 
-## Files cần cập nhật
+## Thay đổi 2: Closing Statement → State Reality
+
+**Option A (Tốt nhất - Xóa hoàn toàn):**
+Không cần closing. Headline đã đủ mạnh.
+
+**Option B (Clinical alternative nếu giữ):**
+```
+Financial blindness is not a gap.
+It's a countdown.
+```
+
+**Lựa chọn:** Option A — xóa closing box hoàn toàn.
+
+---
+
+## Files Cần Cập nhật
 
 | File | Thay đổi |
 |------|----------|
-| `src/pages/investor/VCPitchDeckVI.tsx` | Slide 01 FEAR, Slide 07 Flywheel, Slide mới Product Reality, Reorder traction |
-| `src/pages/investor/VCPitchDeck.tsx` | Tương tự (English version) |
-| `src/components/sales-deck/VCPitchDeckPDF_VI.tsx` | Sync tất cả changes, TOTAL_SLIDES = 23 |
-| `src/components/sales-deck/VCPitchDeckPDF.tsx` | Sync tất cả changes, TOTAL_SLIDES = 23 |
+| `VCPitchDeckVI.tsx` | Slide 01 metrics + xóa closing |
+| `VCPitchDeck.tsx` | Sync English version |
+| `VCPitchDeckPDF_VI.tsx` | Sync PDF Vietnamese |
+| `VCPitchDeckPDF.tsx` | Sync PDF English |
 
 ---
 
-## Thứ tự Slides Mới (23 slides)
+## Code Mới — Slide 01
 
-| # | Slide | Mục tiêu |
-|---|-------|----------|
-| 1 | **Category Shock + FEAR** | CASH COLLAPSES QUIETLY |
-| 2 | Silent Failure | Data vs Awareness |
-| 3 | Platform Shift | Systems of Awareness |
-| 4 | Inevitability | Market timing risk |
-| 5 | Define Category | Infrastructure reveal |
-| 6 | Architecture Moat | 5-layer stack |
-| 7 | **Decision Dataset + FLYWHEEL** | Moat mechanism |
-| 8 | Why Impossible Before | Tech timing |
-| 9 | Why Mandatory | Business timing |
-| 10 | Product One Sentence | CFO/COO/CEO |
-| 11 | Velocity | 95%+ retention |
-| **12** | **Cross-Border** ← MOVED UP | Thailand $3K MRR |
-| **13** | **PRODUCT REALITY** ← NEW | Decision example |
-| 14 | Architecture Advantage | was 12 |
-| 15 | Switching Cost | was 13 |
-| 16 | Architecture Travels | was 15 |
-| 17 | Initial Wedge | was 16 |
-| 18 | SEA Market | was 17 |
-| 19 | Expansion Unlocks | was 18 |
-| 20 | Regional Expansion | was 19 |
-| 21 | **Why Bluecore Wins + AMPLIFY** | was 20 |
-| 22 | Inevitability Vision | was 21 |
-| 23 | Closing | was 22 |
-
----
-
-## Presenter Notes Cập nhật
-
-**Slide 01 (FEAR):**
-```typescript
-{
-  tip: "VC phải cảm thấy DANGER, không chỉ opportunity. Financial blindness kills companies - làm nó violent.",
-  action: "Đợi phản ứng. Nếu partner gật đầu mạnh → hook đã land."
-}
-```
-
-**Slide 07 (Flywheel):**
-```typescript
-{
-  tip: "Flywheel khiến moat trở nên logical. VC muốn thấy mechanism, không phải philosophy.",
-  action: "Chỉ vào từng bước. Để compounding effect thấm."
-}
-```
-
-**Slide 13 NEW (Product Reality):**
-```typescript
-{
-  tip: "Đây là slide believability. Một example thật = worth 100 slides concept.",
-  action: "Partner nghĩ: 'This is real. This works.'"
-}
-```
-
----
-
-## Chi tiết Kỹ thuật
-
-### Slide 01 - FEAR Version
 ```tsx
 const Slide01CategoryShock: React.FC = () => (
-  <div className="...">
-    <motion.h1>
-      CASH COLLAPSES <span className="text-red-500">QUIETLY</span>
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-10 leading-tight"
+    >
+      CASH COLLAPSES<br />
+      <span className="text-red-500">QUIETLY.</span>
     </motion.h1>
     
-    <div className="grid grid-cols-2 gap-4">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full"
+    >
       {[
-        { metric: "Margin ↓ 6%", delay: "4 tuần" },
-        { metric: "CAC ↑ 35%", delay: "Đã burn" },
-        { metric: "Inventory phình", delay: "Cash locked" },
-        { metric: "Runway", delay: "Biến mất trước khi nhận ra" }
-      ].map(...)}
-    </div>
+        { metric: "Margin erodes 6%.", consequence: "Detected week 4." },
+        { metric: "CAC spikes 35%.", consequence: "Visible after burn." },
+        { metric: "Inventory expands.", consequence: "Liquidity disappears." },
+        { metric: "Runway shrinks.", consequence: "CEO sees it last." }
+      ].map((item, i) => (
+        <motion.div 
+          key={i}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 + i * 0.15 }}
+          className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-left"
+        >
+          <span className="text-red-400 font-bold text-lg block">{item.metric}</span>
+          <span className="text-slate-500 text-sm">{item.consequence}</span>
+        </motion.div>
+      ))}
+    </motion.div>
     
-    <motion.p className="text-red-400 font-bold">
-      Doanh nghiệp không chết vì thiếu dữ liệu.
-      Họ chết vì sự thật đến quá muộn.
-    </motion.p>
+    {/* Không còn closing statement — headline đã đủ mạnh */}
   </div>
 );
 ```
-
-### Slide 07 - Flywheel Version
-```tsx
-const Slide07DecisionDataset: React.FC = () => (
-  <div>
-    <h1>Moat <span className="text-emerald-400">Cộng hưởng.</span></h1>
-    
-    {/* Flywheel visual */}
-    <div className="flex flex-col items-center gap-2">
-      {["More customers", "→ More patterns", "→ Better detection", 
-        "→ Better decisions", "→ Deeper trust", "→ Harder to replace"].map(...)}
-    </div>
-    
-    <p>Software scales. Decision intelligence compounds.</p>
-  </div>
-);
-```
-
-### Slide 13 NEW - Product Reality
-```tsx
-const Slide13ProductReality: React.FC = () => (
-  <div>
-    <h1>WHAT A DECISION <span className="text-blue-400">LOOKS LIKE</span></h1>
-    
-    <div className="p-8 bg-slate-800/80 border border-red-500/50 rounded-xl">
-      <div className="text-red-400 text-xl font-bold mb-4">⚠ CASH RISK DETECTED</div>
-      
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div>Sell-through <span className="text-red-400">↓ 23%</span></div>
-        <div>Inventory <span className="text-red-400">↑ 18%</span></div>
-        <div>Payment terms <span className="text-amber-400">extended</span></div>
-      </div>
-      
-      <div className="border-t border-slate-700 pt-4">
-        <div className="text-slate-400">→ Recommend: Slow purchase orders</div>
-        <div className="text-emerald-400 text-2xl font-bold mt-2">
-          → Preserved $480K liquidity
-        </div>
-      </div>
-    </div>
-  </div>
-);
-```
-
----
-
-## Thời gian Ước tính
-- VCPitchDeckVI.tsx: ~40 phút
-- VCPitchDeck.tsx: ~35 phút  
-- VCPitchDeckPDF_VI.tsx: ~25 phút
-- VCPitchDeckPDF.tsx: ~20 phút
-- **Tổng: ~2 giờ**
 
 ---
 
@@ -255,10 +114,10 @@ const Slide13ProductReality: React.FC = () => (
 
 | Metric | Trước | Sau |
 |--------|-------|-----|
-| FEAR level | ❌ Quá calm | ✅ Violent |
-| Product clarity | ❌ 6/10 | ✅ 9/10 |
-| Moat believability | ❌ 7.5/10 | ✅ 9/10 |
-| Traction timing | ❌ Quá muộn | ✅ Ngay sau velocity |
-| Overall score | 8.6-8.8 | **9.2-9.5** |
+| Tone | Descriptive, emotional | Clinical, lethal |
+| Emoji | Có | Xóa |
+| Closing | 2 dòng storytelling | Xóa hoàn toàn |
+| Power level | 7/10 | 9/10 |
 
-**Target:** Partner-level deck. Institutional tone. Fundable signal.
+**Result:** Founder senior energy. Infrastructure companies state reality.
+
