@@ -224,55 +224,56 @@ const Slide02SilentFailure: React.FC = () => (
 
 const Slide03PlatformShift: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-12"
-    >
-      Hệ thống Ghi nhận → <span className="text-blue-400">Hệ thống Quyết định</span>
-    </motion.h1>
-    
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="flex flex-col gap-4 max-w-lg w-full"
+      className="flex flex-col gap-6 max-w-4xl w-full mb-12"
     >
       {[
-        { label: "ERP", desc: "ghi nhận quá khứ", color: "slate" },
-        { label: "BI", desc: "giải thích quá khứ", color: "slate" },
-        { label: "Bluecore", desc: "dẫn dắt bước tiếp theo", color: "blue" }
+        { system: "Systems of Record", action: "captured the past.", color: "slate" },
+        { system: "Systems of Intelligence", action: "explained the past.", color: "slate" },
+        { system: "Systems of Awareness", action: "decide what happens next.", color: "blue" }
       ].map((item, i) => (
         <motion.div 
           key={i}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 + i * 0.15 }}
-          className={cn(
-            "flex items-center justify-between p-4 rounded-lg",
-            item.color === "slate" && "bg-slate-800/50 border border-slate-700",
-            item.color === "blue" && "bg-blue-500/20 border border-blue-500/40"
-          )}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 + i * 0.2 }}
+          className="text-center"
         >
           <span className={cn(
-            "font-bold text-xl",
-            item.color === "slate" ? "text-slate-300" : "text-blue-400"
-          )}>{item.label}</span>
+            "text-3xl md:text-4xl lg:text-5xl font-bold",
+            item.color === "slate" ? "text-slate-400" : "text-blue-400"
+          )}>
+            {item.system}
+          </span>
           <span className={cn(
-            "text-lg",
-            item.color === "slate" ? "text-slate-500" : "text-blue-300"
-          )}>{item.desc}</span>
+            "text-3xl md:text-4xl lg:text-5xl font-light ml-3",
+            item.color === "slate" ? "text-slate-500" : "text-white"
+          )}>
+            {item.action}
+          </span>
         </motion.div>
       ))}
     </motion.div>
     
+    <motion.h2 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.9 }}
+      className="text-2xl md:text-3xl text-white font-medium mb-12"
+    >
+      Bluecore is building the <span className="text-blue-400 font-bold">Awareness Layer.</span>
+    </motion.h2>
+    
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="mt-12 text-xl text-slate-400 italic border-l-4 border-blue-500 pl-6"
+      transition={{ delay: 1.2 }}
+      className="text-lg md:text-xl text-slate-500 italic max-w-2xl border-t border-slate-700/50 pt-8"
     >
-      Một tầng thực thi mới đang xuất hiện bên trong các công ty hiện đại.
+      Operating without financial awareness<br />
+      <span className="text-amber-400 not-italic font-medium">will soon feel as risky as operating without accounting.</span>
     </motion.p>
   </div>
 );
