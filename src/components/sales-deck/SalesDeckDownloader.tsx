@@ -193,7 +193,7 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
               {language === 'vi' ? 'Đề xuất' : 'Recommended'}
             </Badge>
           ) : deck.available ? (
-            <Badge variant="default" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+            <Badge variant="outline" className="bg-white text-slate-600 border-slate-300">
               {language === 'vi' ? 'Sẵn sàng' : 'Ready'}
             </Badge>
           ) : (
