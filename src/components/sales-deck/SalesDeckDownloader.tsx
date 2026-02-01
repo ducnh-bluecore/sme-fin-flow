@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileDown, Loader2, Building2, TrendingUp, Users, AlertTriangle, Database, Layers, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { sanitizePdfElement } from './pdfStyleSanitizer';
+
 // Direct imports for PDF generation
 import FDPSalesDeckPDF from './FDPSalesDeckPDF';
 import MDPSalesDeckPDF from './MDPSalesDeckPDF';
@@ -129,7 +131,7 @@ const DeckCard: React.FC<DeckCardProps> = ({ deck, language }) => {
 
     try {
       const pdfComponent = getPDFComponent(deck.id, language);
-      const blob = await pdf(pdfComponent).toBlob();
+      const blob = await pdf(sanitizePdfElement(pdfComponent)).toBlob();
       
       // Create download link
       const url = URL.createObjectURL(blob);
