@@ -187,41 +187,46 @@ const Slide02SilentFailure: React.FC = () => (
       animate={{ opacity: 1, y: 0 }}
       className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight"
     >
-      Doanh nghiệp Hiếm khi Thất bại vì Thiếu Data.
+      Hạ tầng dữ liệu đã trở thành tiêu chuẩn.
     </motion.h1>
     <motion.h2
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-amber-400 mb-12"
+      className="text-3xl md:text-4xl lg:text-5xl font-light text-amber-400 mb-12"
     >
-      Họ Thất bại vì Sự thật Tài chính Đến muộn.
+      Nhưng dữ liệu chỉ kể lại quá khứ.
     </motion.h2>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.6 }}
-      className="max-w-2xl"
+      className="max-w-3xl"
     >
-      <p className="text-xl text-slate-300 mb-6">Stack hiện đại được tối ưu cho:</p>
-      <div className="flex justify-center gap-4 mb-8">
-        {["Ghi nhận", "Báo cáo", "Phân tích"].map((item, i) => (
-          <span key={i} className="px-4 py-2 bg-slate-800 rounded-lg text-slate-400">{item}</span>
-        ))}
-      </div>
-      <p className="text-xl text-slate-400">
-        Không phải <span className="text-white font-medium">quyết định.</span>
+      <p className="text-xl md:text-2xl text-slate-300 mb-6 leading-relaxed">
+        Thập kỷ tiếp theo sẽ được định nghĩa bởi <span className="text-blue-400 font-semibold">Financial Awareness</span> —<br />
+        khả năng hiểu sự thật tài chính <span className="text-white font-medium">khi nó đang diễn ra.</span>
       </p>
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="text-lg md:text-xl text-slate-400 mt-8"
+      >
+        Không phải công ty nhiều dữ liệu sẽ chiến thắng.<br />
+        <span className="text-white font-medium">Mà là công ty nhận thức sớm nhất.</span>
+      </motion.p>
     </motion.div>
     
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.9 }}
-      className="mt-10 text-lg text-slate-500 italic"
+      transition={{ delay: 1.1 }}
+      className="mt-12 text-lg md:text-xl text-blue-400 font-medium border-t border-slate-700 pt-8 max-w-2xl"
     >
-      Lãnh đạo buộc phải vận hành theo kiểu phản ứng.
+      Financial awareness will become default infrastructure —<br />
+      <span className="text-slate-400 italic">the same way ERP once did.</span>
     </motion.p>
   </div>
 );
