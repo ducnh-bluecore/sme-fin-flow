@@ -485,7 +485,6 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 4,
     textAlign: 'center',
-    fontStyle: 'italic',
     lineHeight: 1.4,
   },
 });
