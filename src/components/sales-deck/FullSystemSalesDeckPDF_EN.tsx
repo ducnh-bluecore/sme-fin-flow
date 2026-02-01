@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   screenshotContainer: { marginVertical: 12, alignItems: 'center' },
   screenshot: { width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' },
   screenshotHalf: { width: '100%', maxHeight: 140, objectFit: 'contain', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0' },
-  screenshotCaption: { fontSize: 8, color: '#64748b', marginTop: 4, textAlign: 'center', fontStyle: 'italic' },
+  screenshotCaption: { fontSize: 8, color: '#64748b', marginTop: 4, textAlign: 'center' },
 });
 
 // ============= DATA CONSTANTS =============
