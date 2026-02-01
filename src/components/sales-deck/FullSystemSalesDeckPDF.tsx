@@ -589,49 +589,63 @@ const connectorStats = {
   banking: 'Techcombank, VietinBank, MB Bank',
 };
 
-const competitiveComparison = [
+// ROAS Illusion breakdown - 4.0x → 0.9x
+const roasBreakdown = [
+  { label: 'Gross Revenue (Doanh thu gộp)', value: '100%', isPositive: true },
+  { label: 'Platform fee (Phí sàn TMĐT)', value: '-12%', isPositive: false },
+  { label: 'COGS (Giá vốn)', value: '-45%', isPositive: false },
+  { label: 'Shipping (Vận chuyển)', value: '-8%', isPositive: false },
+  { label: 'Returns (Hàng trả)', value: '-12%', isPositive: false },
+  { label: 'Payment fee (Phí thanh toán)', value: '-3%', isPositive: false },
+  { label: 'Profit (Lợi nhuận)', value: '20%', isPositive: true, isTotal: true },
+];
+
+// Competitor comparison mới - Elton Data + PangoCDP
+const competitiveComparisonNew = [
   {
-    criteria: 'Thời gian triển khai',
-    excel: '0 (nhưng chaos)',
-    powerbi: '3-6 tháng',
-    custom: '6-12 tháng',
-    bluecore: '1-2 tuần',
+    layer: 'Data Ingestion',
+    bluecore: '35 native VN connectors, tự tạo Data Warehouse',
+    elton: 'Cần Data Warehouse riêng (BigQuery) + data engineer',
+    pango: 'Cần tracking setup (pixel/API)',
   },
   {
-    criteria: 'Tích hợp sàn VN',
-    excel: 'Thủ công 100%',
-    powerbi: 'Tự code API',
-    custom: 'Tự xây dựng',
-    bluecore: '35+ native',
+    layer: 'Data Model',
+    bluecore: 'Financial Truth đóng gói sẵn (Net Revenue, Real Cash, Profit ROAS)',
+    elton: 'Raw data sạch, tự build business logic (SQL/dbt)',
+    pango: 'Customer Truth: 360° profile + segments',
   },
   {
-    criteria: 'Unit Economics',
-    excel: 'Không có',
-    powerbi: 'Tự tính',
-    custom: 'Tùy thuộc dev',
-    bluecore: 'Có sẵn',
+    layer: 'Output',
+    bluecore: 'Control Tower: Alert có Owner/Deadline/Impact VND',
+    elton: 'Dataset sạch → tự build dashboard BI',
+    pango: 'Segments + automation campaigns',
   },
   {
-    criteria: 'Real Cash Tracking',
-    excel: 'Không',
-    powerbi: 'Không',
-    custom: 'Có thể',
-    bluecore: 'Có sẵn',
+    layer: 'Deployment',
+    bluecore: '1-2 tuần live',
+    elton: '3-6 tháng (warehouse + pipeline)',
+    pango: '2-3 tháng (tracking + identity)',
   },
   {
-    criteria: 'Alert System',
-    excel: 'Không',
-    powerbi: 'Basic',
-    custom: 'Tùy thuộc',
-    bluecore: 'Financial-first',
+    layer: 'Chi phí',
+    bluecore: 'Cố định 1.5-4 triệu/tháng',
+    elton: 'Data eng 40tr/tháng + BigQuery 20tr/năm',
+    pango: 'Vài ngàn USD/tháng',
   },
-  {
-    criteria: 'Chi phí duy trì',
-    excel: 'Thấp',
-    powerbi: 'Trung bình',
-    custom: 'Rất cao',
-    bluecore: 'Cố định',
-  },
+];
+
+// Pricing Plans
+const pricingPlans = [
+  { name: 'Marketing Plan', price: '1.5 triệu', period: '/tháng', desc: 'MDP focus - Profit ROAS', color: colors.purple },
+  { name: 'Ecommerce Plan', price: '3 triệu', period: '/tháng', desc: 'FDP + MDP - Full Financial', color: colors.primary },
+  { name: 'Combo CEO', price: '4 triệu', period: '/tháng', desc: 'Full 5 modules', color: colors.accent, featured: true },
+];
+
+// FDP Core Formulas
+const fdpFormulas = [
+  { name: 'Net Revenue', formula: 'Gross Revenue - Returns - Discounts - Platform Fees' },
+  { name: 'Contribution Margin', formula: 'Net Revenue - COGS - Variable Costs' },
+  { name: 'Real Cash', formula: 'Bank Balance - Pending Payables - Locked Inventory + Confirmed AR' },
 ];
 
 const useCases = [
@@ -761,7 +775,7 @@ const PillarsPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>2 / 17</Text>
+      <Text style={styles.pageNumberWhite}>2 / 20</Text>
     </View>
   </Page>
 );
@@ -825,7 +839,7 @@ const HiddenCostPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>3 / 17</Text>
+      <Text style={styles.pageNumber}>3 / 20</Text>
     </View>
   </Page>
 );
@@ -853,7 +867,7 @@ const EcosystemOverviewPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>4 / 17</Text>
+      <Text style={styles.pageNumber}>4 / 20</Text>
     </View>
   </Page>
 );
@@ -877,6 +891,26 @@ const FDPDetailPage = () => (
       </Text>
     </View>
     
+    {/* Core Formulas Box */}
+    <View style={{ 
+      backgroundColor: '#f0f9ff', 
+      borderRadius: 8, 
+      padding: 12, 
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: '#bae6fd',
+    }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>
+        3 Công thức Cốt lõi
+      </Text>
+      {fdpFormulas.map((item, index) => (
+        <View key={index} style={{ flexDirection: 'row', marginBottom: 4 }}>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: colors.primary, width: 100 }}>{item.name}:</Text>
+          <Text style={{ fontSize: 8, color: colors.text, flex: 1 }}>{item.formula}</Text>
+        </View>
+      ))}
+    </View>
+    
     <View style={styles.cardRow}>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Real Cash Breakdown</Text>
@@ -894,7 +928,7 @@ const FDPDetailPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>5 / 17</Text>
+      <Text style={styles.pageNumber}>5 / 20</Text>
     </View>
   </Page>
 );
@@ -942,7 +976,80 @@ const MDPDetailPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>6 / 17</Text>
+      <Text style={styles.pageNumber}>6 / 20</Text>
+    </View>
+  </Page>
+);
+
+// NEW SLIDE: ROAS Illusion - 4.0x → 0.9x breakdown
+const ROASIllusionPage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>REALITY CHECK</Text>
+    <Text style={styles.sectionTitle}>"Marketing Thắng, Finance Lỗ"</Text>
+    <Text style={styles.sectionSubtitle}>
+      Tại sao ROAS 4.0x trên Shopee Ads thực tế có thể là LỖ TIỀN?
+    </Text>
+    
+    {/* ROAS Comparison */}
+    <View style={{ flexDirection: 'row', gap: 24, marginBottom: 20 }}>
+      <View style={{ flex: 1, backgroundColor: '#dcfce7', borderRadius: 12, padding: 20, alignItems: 'center' }}>
+        <Text style={{ fontSize: 10, color: colors.textLight, marginBottom: 4 }}>Reported ROAS</Text>
+        <Text style={{ fontSize: 36, fontWeight: 700, color: colors.accent }}>4.0x</Text>
+        <Text style={{ fontSize: 9, color: colors.textLight }}>(Shopee Ads Dashboard)</Text>
+      </View>
+      <View style={{ justifyContent: 'center' }}>
+        <Text style={{ fontSize: 24, color: colors.textLight }}>→</Text>
+      </View>
+      <View style={{ flex: 1, backgroundColor: '#fef2f2', borderRadius: 12, padding: 20, alignItems: 'center' }}>
+        <Text style={{ fontSize: 10, color: colors.textLight, marginBottom: 4 }}>Profit ROAS</Text>
+        <Text style={{ fontSize: 36, fontWeight: 700, color: colors.danger }}>0.9x</Text>
+        <Text style={{ fontSize: 9, color: colors.danger, fontWeight: 700 }}>LỖ TIỀN!</Text>
+      </View>
+    </View>
+    
+    {/* Breakdown Table */}
+    <View style={{ backgroundColor: colors.white, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' }}>
+      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 12 }}>Chi tiết phân tích (mỗi 100đ doanh thu)</Text>
+      {roasBreakdown.map((item, index) => (
+        <View key={index} style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'space-between', 
+          paddingVertical: 6,
+          borderBottomWidth: item.isTotal ? 0 : 1,
+          borderBottomColor: '#f1f5f9',
+          borderTopWidth: item.isTotal ? 2 : 0,
+          borderTopColor: colors.primaryDark,
+          marginTop: item.isTotal ? 4 : 0,
+        }}>
+          <Text style={{ fontSize: 10, color: item.isTotal ? colors.primaryDark : colors.text, fontWeight: item.isTotal ? 700 : 400 }}>
+            {item.label}
+          </Text>
+          <Text style={{ 
+            fontSize: 10, 
+            fontWeight: 700, 
+            color: item.isPositive ? (item.isTotal ? colors.accent : colors.text) : colors.danger,
+          }}>
+            {item.value}
+          </Text>
+        </View>
+      ))}
+    </View>
+    
+    {/* Impact Box */}
+    <View style={{ 
+      marginTop: 16, 
+      backgroundColor: colors.danger,
+      borderRadius: 12,
+      padding: 16,
+    }}>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
+        2.4 tỷ VND/năm mất trong im lặng — chỉ vì không phân biệt ROAS báo cáo vs Profit ROAS thật.
+      </Text>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>7 / 20</Text>
     </View>
   </Page>
 );
@@ -1007,7 +1114,7 @@ const CDPControlTowerPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>7 / 17</Text>
+      <Text style={styles.pageNumber}>8 / 20</Text>
     </View>
   </Page>
 );
@@ -1091,72 +1198,69 @@ const DataWarehousePage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>8 / 17</Text>
+      <Text style={styles.pageNumber}>9 / 20</Text>
     </View>
   </Page>
 );
 
 const CompetitiveAdvantagesPage = () => (
   <Page size="A4" style={styles.pageAlt}>
-    <Text style={styles.eyebrowLabel}>LỢI THẾ CẠNH TRANH</Text>
-    <Text style={styles.sectionTitle}>Bluecore vs. Các Giải Pháp Khác</Text>
+    <Text style={styles.eyebrowLabel}>SO SÁNH ĐỐI THỦ</Text>
+    <Text style={styles.sectionTitle}>Bluecore vs. Elton Data vs. PangoCDP</Text>
+    <Text style={styles.sectionSubtitle}>
+      So sánh 5 layers giữa các giải pháp data phổ biến tại Việt Nam.
+    </Text>
     
-    <View style={{ borderRadius: 12, overflow: 'hidden', marginTop: 16 }}>
+    <View style={{ borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
       {/* Header */}
       <View style={styles.tableRow}>
-        <View style={[styles.tableHeader, { flex: 1.5 }]}>
-          <Text style={styles.tableHeaderText}>Tiêu chí</Text>
+        <View style={[styles.tableHeader, { flex: 1.2 }]}>
+          <Text style={styles.tableHeaderText}>Layer</Text>
         </View>
-        <View style={styles.tableHeader}>
-          <Text style={styles.tableHeaderText}>Excel/Sheets</Text>
-        </View>
-        <View style={styles.tableHeader}>
-          <Text style={styles.tableHeaderText}>Power BI</Text>
-        </View>
-        <View style={styles.tableHeader}>
-          <Text style={styles.tableHeaderText}>Tự xây</Text>
-        </View>
-        <View style={[styles.tableHeader, { backgroundColor: colors.accentDark }]}>
+        <View style={[styles.tableHeader, { backgroundColor: colors.accentDark, flex: 1.5 }]}>
           <Text style={styles.tableHeaderText}>Bluecore</Text>
+        </View>
+        <View style={[styles.tableHeader, { flex: 1.5 }]}>
+          <Text style={styles.tableHeaderText}>Elton Data</Text>
+        </View>
+        <View style={[styles.tableHeader, { flex: 1.5 }]}>
+          <Text style={styles.tableHeaderText}>PangoCDP</Text>
         </View>
       </View>
       
       {/* Rows */}
-      {competitiveComparison.map((row, index) => (
+      {competitiveComparisonNew.map((row, index) => (
         <View key={index} style={styles.tableRow}>
+          <View style={[styles.tableCell, { flex: 1.2 }]}>
+            <Text style={[styles.tableCellText, { fontWeight: 700 }]}>{row.layer}</Text>
+          </View>
+          <View style={[styles.tableCellHighlight, { flex: 1.5 }]}>
+            <Text style={[styles.tableCellTextBold, { textAlign: 'left' }]}>{row.bluecore}</Text>
+          </View>
           <View style={[styles.tableCell, { flex: 1.5 }]}>
-            <Text style={styles.tableCellText}>{row.criteria}</Text>
+            <Text style={[styles.tableCellText, { textAlign: 'left' }]}>{row.elton}</Text>
           </View>
-          <View style={styles.tableCell}>
-            <Text style={styles.tableCellText}>{row.excel}</Text>
-          </View>
-          <View style={styles.tableCell}>
-            <Text style={styles.tableCellText}>{row.powerbi}</Text>
-          </View>
-          <View style={styles.tableCell}>
-            <Text style={styles.tableCellText}>{row.custom}</Text>
-          </View>
-          <View style={styles.tableCellHighlight}>
-            <Text style={styles.tableCellTextBold}>{row.bluecore}</Text>
+          <View style={[styles.tableCell, { flex: 1.5 }]}>
+            <Text style={[styles.tableCellText, { textAlign: 'left' }]}>{row.pango}</Text>
           </View>
         </View>
       ))}
     </View>
     
     <View style={{ 
-      marginTop: 20, 
+      marginTop: 16, 
       backgroundColor: colors.primaryDark,
       borderRadius: 12,
-      padding: 16,
+      padding: 14,
     }}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
-        Bluecore được thiết kế đặc biệt cho Retail & E-commerce Việt Nam — không cần tuỳ biến, sẵn sàng sử dụng ngay.
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
+        Bluecore: Financial Truth đóng gói sẵn, không cần data engineer, không cần 6 tháng build. 1-2 tuần live.
       </Text>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>9 / 17</Text>
+      <Text style={styles.pageNumber}>10 / 20</Text>
     </View>
   </Page>
 );
@@ -1209,7 +1313,7 @@ const UseCasePage1 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>10 / 17</Text>
+      <Text style={styles.pageNumber}>11 / 20</Text>
     </View>
   </Page>
 );
@@ -1264,7 +1368,7 @@ const UseCasePage2 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>11 / 17</Text>
+      <Text style={styles.pageNumber}>12 / 20</Text>
     </View>
   </Page>
 );
@@ -1317,7 +1421,7 @@ const UseCasePage3 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>12 / 17</Text>
+      <Text style={styles.pageNumber}>13 / 20</Text>
     </View>
   </Page>
 );
@@ -1372,7 +1476,7 @@ const UseCasePage4 = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>13 / 17</Text>
+      <Text style={styles.pageNumber}>14 / 20</Text>
     </View>
   </Page>
 );
@@ -1416,7 +1520,106 @@ const WhyBluecorePage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>14 / 17</Text>
+      <Text style={styles.pageNumberWhite}>15 / 20</Text>
+    </View>
+  </Page>
+);
+
+// NEW SLIDE: Pricing & ROI Guarantee
+const PricingROIPage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={styles.eyebrowLabel}>CHI PHÍ & ROI</Text>
+    <Text style={styles.sectionTitle}>Giá Minh Bạch, ROI Bảo Đảm</Text>
+    <Text style={styles.sectionSubtitle}>
+      Chi phí cố định, không charge theo volume. Không hiệu quả = Hoàn tiền.
+    </Text>
+    
+    {/* Pricing Cards */}
+    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+      {pricingPlans.map((plan, index) => (
+        <View key={index} style={{ 
+          flex: 1, 
+          backgroundColor: plan.featured ? plan.color : colors.white, 
+          borderRadius: 12, 
+          padding: 16,
+          borderWidth: plan.featured ? 0 : 1,
+          borderColor: '#e2e8f0',
+          alignItems: 'center',
+        }}>
+          <Text style={{ fontSize: 10, color: plan.featured ? 'rgba(255,255,255,0.8)' : colors.textLight, marginBottom: 4 }}>
+            {plan.name}
+          </Text>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: plan.featured ? colors.white : colors.primaryDark }}>
+            {plan.price}
+          </Text>
+          <Text style={{ fontSize: 10, color: plan.featured ? 'rgba(255,255,255,0.8)' : colors.textLight }}>
+            {plan.period}
+          </Text>
+          <Text style={{ fontSize: 8, color: plan.featured ? 'rgba(255,255,255,0.7)' : colors.textLight, marginTop: 8, textAlign: 'center' }}>
+            {plan.desc}
+          </Text>
+        </View>
+      ))}
+    </View>
+    
+    {/* Setup Fee */}
+    <View style={{ 
+      backgroundColor: colors.backgroundAlt, 
+      borderRadius: 8, 
+      padding: 12, 
+      marginBottom: 20,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    }}>
+      <Text style={{ fontSize: 10, color: colors.text }}>Setup BigQuery Data Warehouse (1 lần)</Text>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.primaryDark }}>40 triệu VND</Text>
+    </View>
+    
+    {/* ROI Guarantee Box */}
+    <View style={{ 
+      backgroundColor: '#ecfdf5',
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 2,
+      borderColor: colors.accent,
+      marginBottom: 16,
+    }}>
+      <Text style={{ fontSize: 14, fontWeight: 700, color: colors.accentDark, textAlign: 'center', marginBottom: 8 }}>
+        ROI BẢO ĐẢM
+      </Text>
+      <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, textAlign: 'center', marginBottom: 8 }}>
+        Tối thiểu 3 TỶ VND giá trị
+      </Text>
+      <Text style={{ fontSize: 11, color: colors.text, textAlign: 'center', marginBottom: 12 }}>
+        trong tháng đầu tiên sử dụng
+      </Text>
+      <View style={{ 
+        backgroundColor: colors.white, 
+        borderRadius: 8, 
+        padding: 12,
+      }}>
+        <Text style={{ fontSize: 10, fontWeight: 700, color: colors.danger, textAlign: 'center' }}>
+          Không tìm thấy giá trị? → HOÀN TIỀN 100%
+        </Text>
+      </View>
+    </View>
+    
+    {/* Trial Badge */}
+    <View style={{ 
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      padding: 14,
+      alignItems: 'center',
+    }}>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white }}>
+        ⚡ Trial 14 ngày miễn phí — Không cần thẻ tín dụng
+      </Text>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>16 / 20</Text>
     </View>
   </Page>
 );
@@ -1441,7 +1644,7 @@ const ManifestoPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>15 / 17</Text>
+      <Text style={styles.pageNumber}>17 / 20</Text>
     </View>
   </Page>
 );
@@ -1536,7 +1739,7 @@ const ArchitecturePage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>16 / 17</Text>
+      <Text style={styles.pageNumber}>18 / 20</Text>
     </View>
   </Page>
 );
@@ -1548,26 +1751,58 @@ const CTAPage = () => (
     
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <Text style={{ fontSize: 14, fontWeight: 700, color: colors.accent, letterSpacing: 2, marginBottom: 16 }}>
-        TIẾP THEO
+        BẮT ĐẦU NGAY
       </Text>
       
       <Text style={{ fontSize: 32, fontWeight: 700, color: colors.white, textAlign: 'center', marginBottom: 24 }}>
         Sẵn sàng để{'\n'}Ra Quyết định Tốt hơn?
       </Text>
       
-      <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', maxWidth: 400, lineHeight: 1.6, marginBottom: 40 }}>
-        Đặt lịch demo 30 phút để xem Bluecore hoạt động với dữ liệu thực của doanh nghiệp bạn.
+      <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', maxWidth: 400, lineHeight: 1.6, marginBottom: 24 }}>
+        Demo 30 phút với dữ liệu thực của doanh nghiệp bạn.
       </Text>
+      
+      {/* Trial Badge */}
+      <View style={{ 
+        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        borderWidth: 1,
+        borderColor: colors.accent,
+        borderRadius: 8,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        marginBottom: 24,
+      }}>
+        <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>
+          ⚡ Trial 14 ngày miễn phí
+        </Text>
+      </View>
       
       <View style={{ 
         backgroundColor: colors.accent,
         paddingHorizontal: 32,
         paddingVertical: 16,
         borderRadius: 8,
-        marginBottom: 32,
+        marginBottom: 16,
       }}>
         <Text style={{ fontSize: 14, fontWeight: 700, color: colors.white }}>
-          hello@bluecore.vn | bluecore.vn
+          hellobluecore.vn
+        </Text>
+      </View>
+      
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 32 }}>
+        hello@bluecore.vn | +84 xxx xxx xxx
+      </Text>
+      
+      {/* ROI Guarantee Badge */}
+      <View style={{ 
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        marginBottom: 24,
+      }}>
+        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', textAlign: 'center' }}>
+          💰 ROI Guarantee: 3 tỷ VND giá trị hoặc hoàn tiền 100%
         </Text>
       </View>
       
@@ -1589,7 +1824,7 @@ const CTAPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>© 2025 Bluecore</Text>
-      <Text style={styles.pageNumberWhite}>17 / 17</Text>
+      <Text style={styles.pageNumberWhite}>20 / 20</Text>
     </View>
   </Page>
 );
@@ -1610,6 +1845,7 @@ const FullSystemSalesDeckPDF: React.FC = () => {
       <EcosystemOverviewPage />
       <FDPDetailPage />
       <MDPDetailPage />
+      <ROASIllusionPage />
       <CDPControlTowerPage />
       <DataWarehousePage />
       <CompetitiveAdvantagesPage />
@@ -1618,6 +1854,7 @@ const FullSystemSalesDeckPDF: React.FC = () => {
       <UseCasePage3 />
       <UseCasePage4 />
       <WhyBluecorePage />
+      <PricingROIPage />
       <ManifestoPage />
       <ArchitecturePage />
       <CTAPage />
