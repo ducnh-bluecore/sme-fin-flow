@@ -126,57 +126,36 @@ const Slide01CategoryShock: React.FC = () => (
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-10 leading-tight"
     >
-      Financial Decisions Are Still Running<br />
-      <span className="text-amber-400">on Lagging Systems.</span>
+      CASH COLLAPSES<br />
+      <span className="text-red-500">QUIETLY.</span>
     </motion.h1>
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4, duration: 0.8 }}
-      className="max-w-3xl mb-8"
-    >
-      <p className="text-xl md:text-2xl font-light text-slate-300 mb-2">
-        Commerce now moves in real time.
-      </p>
-      <p className="text-xl md:text-2xl font-light text-slate-400">
-        Financial truth still arrives weeks later.
-      </p>
-    </motion.div>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.7 }}
-      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full"
     >
       {[
-        "CAC shifts daily",
-        "Margins compress instantly",
-        "Inventory risk compounds",
-        "Cash exposure escalates"
+        { metric: "Margin erodes 6%.", consequence: "Detected week 4." },
+        { metric: "CAC spikes 35%.", consequence: "Visible after burn." },
+        { metric: "Inventory expands.", consequence: "Liquidity disappears." },
+        { metric: "Runway shrinks.", consequence: "CEO sees it last." }
       ].map((item, i) => (
         <motion.div 
           key={i}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 + i * 0.1 }}
-          className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-300 text-sm"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 + i * 0.15 }}
+          className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-left"
         >
-          {item}
+          <span className="text-red-400 font-bold text-lg block">{item.metric}</span>
+          <span className="text-slate-500 text-sm">{item.consequence}</span>
         </motion.div>
       ))}
     </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.2 }}
-      className="text-xl text-red-400 font-medium"
-    >
-      Decision latency is becoming an existential risk.
-    </motion.p>
   </div>
 );
 

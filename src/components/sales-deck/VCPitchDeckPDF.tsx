@@ -213,22 +213,21 @@ const TOTAL_SLIDES = 22;
 const Slide01 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Financial Decisions Are Still Running</Text>
-      <Text style={styles.headlineAmber}>on Lagging Systems.</Text>
-      <Text style={styles.subheadline}>
-        Commerce now moves in real time.{'\n'}
-        Financial truth still arrives weeks later.
-      </Text>
+      <Text style={styles.headline}>CASH COLLAPSES</Text>
+      <Text style={{ ...styles.headline, color: '#ef4444' }}>QUIETLY.</Text>
       <View style={styles.gridContainer}>
-        {['CAC shifts daily', 'Margins compress instantly', 'Inventory risk compounds', 'Cash exposure escalates'].map((item, i) => (
-          <View key={i} style={styles.gridItem}>
-            <Text style={styles.gridBody}>{item}</Text>
+        {[
+          { metric: 'Margin erodes 6%.', consequence: 'Detected week 4.' },
+          { metric: 'CAC spikes 35%.', consequence: 'Visible after burn.' },
+          { metric: 'Inventory expands.', consequence: 'Liquidity disappears.' },
+          { metric: 'Runway shrinks.', consequence: 'CEO sees it last.' }
+        ].map((item, i) => (
+          <View key={i} style={{ ...styles.gridItem, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', borderWidth: 1 }}>
+            <Text style={{ ...styles.gridTitle, color: '#f87171' }}>{item.metric}</Text>
+            <Text style={{ ...styles.gridBody, color: '#64748b' }}>{item.consequence}</Text>
           </View>
         ))}
       </View>
-      <Text style={{ ...styles.highlightText, color: '#f87171', marginTop: 16 }}>
-        Decision latency is becoming an existential risk.
-      </Text>
     </View>
     <Text style={styles.slideNumber}>1 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
