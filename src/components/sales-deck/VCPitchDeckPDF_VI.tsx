@@ -7,7 +7,22 @@
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+
+// Get base URL dynamically for font loading (ensures diacritics render correctly in PDF viewers)
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+};
+
+// Register Noto Sans (supports Vietnamese) and embed into PDF
+Font.register({
+  family: 'NotoSans',
+  fonts: [
+    { src: `${getBaseUrl()}/fonts/NotoSans-Regular.ttf`, fontWeight: 400 },
+    { src: `${getBaseUrl()}/fonts/NotoSans-Bold.ttf`, fontWeight: 700 },
+  ],
+});
 
 // Create styles
 const styles = StyleSheet.create({
@@ -16,6 +31,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     padding: 60,
     justifyContent: 'center',
+    fontFamily: 'NotoSans',
   },
   slideNumber: {
     position: 'absolute',
@@ -72,7 +88,7 @@ const styles = StyleSheet.create({
   punchline: {
     fontSize: 14,
     color: '#60a5fa',
-    fontStyle: 'italic',
+    // NOTE: avoid italic in react-pdf unless you register an italic font variant
     textAlign: 'center',
     marginTop: 24,
     paddingLeft: 16,
@@ -222,19 +238,19 @@ const Slide01 = () => (
 const Slide02 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
-      <Text style={styles.headline}>Ha tang du lieu da tro thanh tieu chuan.</Text>
-      <Text style={styles.headlineAccent}>Financial Awareness se la ha tang mac dinh tiep theo.</Text>
+      <Text style={styles.headline}>Hạ tầng dữ liệu đã trở thành tiêu chuẩn.</Text>
+      <Text style={styles.headlineAccent}>Financial Awareness sẽ là hạ tầng mặc định tiếp theo.</Text>
       <Text style={{ ...styles.body, textAlign: 'center', marginTop: 24, marginBottom: 16 }}>
-        Du lieu ke lai qua khu.{'\n'}
-        Financial Awareness cho biet ban co dang an toan - ngay luc nay.
+        Dữ liệu kể lại quá khứ.{'\n'}
+        Financial Awareness cho biết bạn có đang an toàn — ngay lúc này.
       </Text>
       <View style={styles.highlight}>
-        <Text style={{ ...styles.highlightText, color: '#94a3b8' }}>Khong phai cong ty nhieu du lieu se chien thang.</Text>
-        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>Ma la cong ty nhan thuc som nhat.</Text>
+        <Text style={{ ...styles.highlightText, color: '#94a3b8' }}>Không phải công ty nhiều dữ liệu sẽ chiến thắng.</Text>
+        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>Mà là công ty nhận thức sớm nhất.</Text>
       </View>
     </View>
     <Text style={styles.slideNumber}>2 / {TOTAL_SLIDES}</Text>
-    <Text style={styles.footer}>BLUECORE - VC Pitch Deck</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
@@ -242,26 +258,26 @@ const Slide03 = () => (
   <Page size="A4" orientation="landscape" style={styles.page}>
     <View>
       <View style={{ marginBottom: 20 }}>
-        <Text style={{ ...styles.body, fontSize: 18, color: '#64748b', textAlign: 'center' }}>
-          <Text style={{ fontWeight: 'bold', color: '#94a3b8' }}>He thong Ghi nhan</Text> ghi lai qua khu.
+        <Text style={{ ...styles.body, fontSize: 18, color: '#94a3b8', textAlign: 'center' }}>
+          <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Hệ thống Ghi nhận</Text> ghi lại quá khứ.
         </Text>
-        <Text style={{ ...styles.body, fontSize: 18, color: '#64748b', textAlign: 'center', marginTop: 8 }}>
-          <Text style={{ fontWeight: 'bold', color: '#94a3b8' }}>He thong Thong minh</Text> giai thich qua khu.
+        <Text style={{ ...styles.body, fontSize: 18, color: '#94a3b8', textAlign: 'center', marginTop: 8 }}>
+          <Text style={{ fontWeight: 'bold', color: '#cbd5e1' }}>Hệ thống Thông minh</Text> giải thích quá khứ.
         </Text>
         <Text style={{ ...styles.body, fontSize: 18, color: '#ffffff', textAlign: 'center', marginTop: 8 }}>
-          <Text style={{ fontWeight: 'bold', color: '#60a5fa' }}>He thong Nhan thuc</Text> quyet dinh dieu gi xay ra tiep theo.
+          <Text style={{ fontWeight: 'bold', color: '#60a5fa' }}>Hệ thống Nhận thức</Text> quyết định điều gì xảy ra tiếp theo.
         </Text>
       </View>
       <Text style={{ ...styles.body, textAlign: 'center', fontSize: 16, marginTop: 16 }}>
-        Bluecore dang xay dung <Text style={{ color: '#60a5fa', fontWeight: 'bold' }}>Tang Nhan thuc.</Text>
+        Bluecore đang xây dựng <Text style={{ color: '#60a5fa', fontWeight: 'bold' }}>Tầng Nhận thức.</Text>
       </Text>
       <View style={{ ...styles.highlight, marginTop: 24 }}>
-        <Text style={{ ...styles.highlightText, color: '#64748b' }}>Van hanh khong co nhan thuc tai chinh</Text>
-        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>se som cam thay rui ro nhu van hanh khong co ke toan.</Text>
+        <Text style={{ ...styles.highlightText, color: '#64748b' }}>Vận hành không có nhận thức tài chính</Text>
+        <Text style={{ ...styles.highlightText, color: '#fbbf24', fontWeight: 'bold', marginTop: 4 }}>sẽ sớm cảm thấy rủi ro như vận hành không có kế toán.</Text>
       </View>
     </View>
     <Text style={styles.slideNumber}>3 / {TOTAL_SLIDES}</Text>
-    <Text style={styles.footer}>BLUECORE - VC Pitch Deck</Text>
+    <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
   </Page>
 );
 
@@ -488,7 +504,7 @@ const Slide12 = () => (
         <Text style={styles.arrow}>→</Text>
         <Text style={styles.diagramText}>Cảnh báo</Text>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Đây không phải phần mềm lắp ráp. Đây là cơ sở hạ tầng được thiết kế.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', color: '#94a3b8' }}>Đây không phải phần mềm lắp ráp. Đây là cơ sở hạ tầng được thiết kế.</Text>
     </View>
     <Text style={styles.slideNumber}>12 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -529,7 +545,7 @@ const Slide14 = () => (
           <Text style={{ ...styles.metricValue, fontSize: 14, marginTop: 4 }}>~$3K MRR</Text>
         </View>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Thái Lan bây giờ là beachhead thứ hai đã được xác thực.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', color: '#94a3b8' }}>Thái Lan bây giờ là beachhead thứ hai đã được xác thực.</Text>
     </View>
     <Text style={styles.slideNumber}>14 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -568,7 +584,7 @@ const Slide16 = () => (
         <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>Độ phức tạp vận hành cao</Text></View>
         <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>Kinh tế nhạy cảm quyết định</Text></View>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Những công ty này cảm nhận độ trễ quyết định đầu tiên.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', color: '#94a3b8' }}>Những công ty này cảm nhận độ trễ quyết định đầu tiên.</Text>
     </View>
     <Text style={styles.slideNumber}>16 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -624,7 +640,7 @@ const Slide19 = () => (
         <Text style={{ ...styles.diagramText, color: '#60a5fa' }}>Thái Lan → Beachhead thứ hai (doanh thu live)</Text>
         <Text style={{ ...styles.diagramText, color: '#34d399' }}>Indonesia → Expansion quy mô category</Text>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Expansion có chủ đích — không phải cơ hội.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center', color: '#94a3b8' }}>Expansion có chủ đích — không phải cơ hội.</Text>
     </View>
     <Text style={styles.slideNumber}>19 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
