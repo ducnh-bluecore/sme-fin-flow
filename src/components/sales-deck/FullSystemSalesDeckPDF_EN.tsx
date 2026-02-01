@@ -156,6 +156,65 @@ const competitiveComparison = [
   { criteria: 'Maintenance Cost', excel: 'Low', powerbi: 'Medium', custom: 'Very High', bluecore: 'Fixed' },
 ];
 
+// ROAS Illusion breakdown - 4.0x → 0.9x
+const roasBreakdown = [
+  { label: 'Gross Revenue', value: '100%', isPositive: true },
+  { label: 'Platform fee (Marketplace)', value: '-12%', isPositive: false },
+  { label: 'COGS', value: '-45%', isPositive: false },
+  { label: 'Shipping', value: '-8%', isPositive: false },
+  { label: 'Returns', value: '-12%', isPositive: false },
+  { label: 'Payment fee', value: '-3%', isPositive: false },
+  { label: 'Profit', value: '20%', isPositive: true, isTotal: true },
+];
+
+// Competitor comparison - Elton Data + PangoCDP
+const competitiveComparisonNew = [
+  {
+    layer: 'Data Ingestion',
+    bluecore: '35 native VN connectors, auto-creates Data Warehouse',
+    elton: 'Requires own Data Warehouse (BigQuery) + data engineer',
+    pango: 'Requires tracking setup (pixel/API)',
+  },
+  {
+    layer: 'Data Model',
+    bluecore: 'Financial Truth pre-packaged (Net Revenue, Real Cash, Profit ROAS)',
+    elton: 'Clean raw data, self-build business logic (SQL/dbt)',
+    pango: 'Customer Truth: 360° profile + segments',
+  },
+  {
+    layer: 'Output',
+    bluecore: 'Control Tower: Alerts with Owner/Deadline/Impact USD',
+    elton: 'Clean dataset → self-build BI dashboard',
+    pango: 'Segments + automation campaigns',
+  },
+  {
+    layer: 'Deployment',
+    bluecore: '1-2 weeks live',
+    elton: '3-6 months (warehouse + pipeline)',
+    pango: '2-3 months (tracking + identity)',
+  },
+  {
+    layer: 'Cost',
+    bluecore: 'Fixed $60-160/month',
+    elton: 'Data eng $1,600/month + BigQuery $800/year',
+    pango: 'Several thousand USD/month',
+  },
+];
+
+// Pricing Plans
+const pricingPlans = [
+  { name: 'Marketing Plan', price: '$60', period: '/month', desc: 'MDP focus - Profit ROAS', color: colors.purple },
+  { name: 'Ecommerce Plan', price: '$120', period: '/month', desc: 'FDP + MDP - Full Financial', color: colors.primary },
+  { name: 'CEO Combo', price: '$160', period: '/month', desc: 'Full 5 modules', color: colors.accent, featured: true },
+];
+
+// FDP Core Formulas
+const fdpFormulas = [
+  { name: 'Net Revenue', formula: 'Gross Revenue - Returns - Discounts - Platform Fees' },
+  { name: 'Contribution Margin', formula: 'Net Revenue - COGS - Variable Costs' },
+  { name: 'Real Cash', formula: 'Bank Balance - Pending Payables - Locked Inventory + Confirmed AR' },
+];
+
 const useCases = [
   { id: '1', title: 'Daily Financial Health Check', persona: 'CEO Retail', story: 'Every morning, Mike - CEO of a fashion chain - opens Bluecore instead of calling accounting. In 30 seconds, he sees: Available cash $50K, 3 large unpaid orders $15K, and 1 SKU losing 15% margin.', modules: ['FDP', 'Control Tower'], results: [{ label: 'Check time', before: '2 hours', after: '30 seconds' }, { label: 'Decision making', before: 'Month-end', after: 'Real-time' }] },
   { id: '2', title: 'Marketing Budget Allocation', persona: 'CMO E-commerce', story: 'Lisa runs marketing for a cosmetics brand. Previously, she chased 3.5x ROAS but couldn\'t understand why profit didn\'t increase. MDP revealed: Shopee Ads has Profit ROAS of only 0.8x after deducting platform fees, shipping, and returns.', modules: ['MDP', 'FDP'], results: [{ label: 'Profit ROAS visibility', before: '0%', after: '100%' }, { label: 'Budget efficiency', before: '50%', after: '85%' }] },
@@ -303,6 +362,26 @@ const FDPDetailPage = () => (
       </Text>
     </View>
     
+    {/* Core Formulas Box */}
+    <View style={{ 
+      backgroundColor: '#f0f9ff', 
+      borderRadius: 8, 
+      padding: 12, 
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: '#bae6fd',
+    }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>
+        3 Core Formulas
+      </Text>
+      {fdpFormulas.map((item, index) => (
+        <View key={index} style={{ flexDirection: 'row', marginBottom: 4 }}>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: colors.primary, width: 100 }}>{item.name}:</Text>
+          <Text style={{ fontSize: 8, color: colors.text, flex: 1 }}>{item.formula}</Text>
+        </View>
+      ))}
+    </View>
+    
     <View style={styles.cardRow}>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Real Cash Breakdown</Text>
@@ -320,7 +399,7 @@ const FDPDetailPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>5 / 17</Text>
+      <Text style={styles.pageNumber}>5 / 20</Text>
     </View>
   </Page>
 );
@@ -366,7 +445,80 @@ const MDPDetailPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>6 / 17</Text>
+      <Text style={styles.pageNumber}>6 / 20</Text>
+    </View>
+  </Page>
+);
+
+// NEW SLIDE: ROAS Illusion - 4.0x → 0.9x breakdown
+const ROASIllusionPage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>REALITY CHECK</Text>
+    <Text style={styles.sectionTitle}>"Marketing Wins, Finance Loses"</Text>
+    <Text style={styles.sectionSubtitle}>
+      Why a 4.0x ROAS on Shopee Ads might actually be LOSING money?
+    </Text>
+    
+    {/* ROAS Comparison */}
+    <View style={{ flexDirection: 'row', gap: 24, marginBottom: 20 }}>
+      <View style={{ flex: 1, backgroundColor: '#dcfce7', borderRadius: 12, padding: 20, alignItems: 'center' }}>
+        <Text style={{ fontSize: 10, color: colors.textLight, marginBottom: 4 }}>Reported ROAS</Text>
+        <Text style={{ fontSize: 36, fontWeight: 700, color: colors.accent }}>4.0x</Text>
+        <Text style={{ fontSize: 9, color: colors.textLight }}>(Shopee Ads Dashboard)</Text>
+      </View>
+      <View style={{ justifyContent: 'center' }}>
+        <Text style={{ fontSize: 24, color: colors.textLight }}>→</Text>
+      </View>
+      <View style={{ flex: 1, backgroundColor: '#fef2f2', borderRadius: 12, padding: 20, alignItems: 'center' }}>
+        <Text style={{ fontSize: 10, color: colors.textLight, marginBottom: 4 }}>Profit ROAS</Text>
+        <Text style={{ fontSize: 36, fontWeight: 700, color: colors.danger }}>0.9x</Text>
+        <Text style={{ fontSize: 9, color: colors.danger, fontWeight: 700 }}>LOSING MONEY!</Text>
+      </View>
+    </View>
+    
+    {/* Breakdown Table */}
+    <View style={{ backgroundColor: colors.white, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' }}>
+      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 12 }}>Breakdown Analysis (per $100 revenue)</Text>
+      {roasBreakdown.map((item, index) => (
+        <View key={index} style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'space-between', 
+          paddingVertical: 6,
+          borderBottomWidth: item.isTotal ? 0 : 1,
+          borderBottomColor: '#f1f5f9',
+          borderTopWidth: item.isTotal ? 2 : 0,
+          borderTopColor: colors.primaryDark,
+          marginTop: item.isTotal ? 4 : 0,
+        }}>
+          <Text style={{ fontSize: 10, color: item.isTotal ? colors.primaryDark : colors.text, fontWeight: item.isTotal ? 700 : 400 }}>
+            {item.label}
+          </Text>
+          <Text style={{ 
+            fontSize: 10, 
+            fontWeight: 700, 
+            color: item.isPositive ? (item.isTotal ? colors.accent : colors.text) : colors.danger,
+          }}>
+            {item.value}
+          </Text>
+        </View>
+      ))}
+    </View>
+    
+    {/* Impact Box */}
+    <View style={{ 
+      marginTop: 16, 
+      backgroundColor: colors.danger,
+      borderRadius: 12,
+      padding: 16,
+    }}>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
+        $96,000/year lost silently — just because of not distinguishing Reported ROAS vs Profit ROAS.
+      </Text>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>7 / 20</Text>
     </View>
   </Page>
 );
@@ -431,7 +583,7 @@ const CDPControlTowerPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>7 / 17</Text>
+      <Text style={styles.pageNumber}>8 / 20</Text>
     </View>
   </Page>
 );
@@ -750,6 +902,7 @@ const FullSystemSalesDeckPDF_EN: React.FC = () => (
     <EcosystemOverviewPage />
     <FDPDetailPage />
     <MDPDetailPage />
+    <ROASIllusionPage />
     <CDPControlTowerPage />
     <ComparisonPage />
     <UseCasePage1 />
