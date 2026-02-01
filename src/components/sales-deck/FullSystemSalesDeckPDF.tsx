@@ -1011,16 +1011,16 @@ const ROASIllusionPage = () => (
     <View style={{ backgroundColor: colors.white, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' }}>
       <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 12 }}>Chi tiết phân tích (mỗi 100đ doanh thu)</Text>
       {roasBreakdown.map((item, index) => (
-        <View key={index} style={{ 
-          flexDirection: 'row', 
-          justifyContent: 'space-between', 
-          paddingVertical: 6,
-          borderBottomWidth: item.isTotal ? 0 : 1,
-          borderBottomColor: '#f1f5f9',
-          borderTopWidth: item.isTotal ? 2 : 0,
-          borderTopColor: colors.primaryDark,
-          marginTop: item.isTotal ? 4 : 0,
-        }}>
+        <View key={index} style={[
+          { 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            paddingVertical: 6,
+            marginTop: item.isTotal ? 4 : 0,
+          },
+          !item.isTotal && { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+          item.isTotal && { borderTopWidth: 2, borderTopColor: colors.primaryDark },
+        ]}>
           <Text style={{ fontSize: 10, color: item.isTotal ? colors.primaryDark : colors.text, fontWeight: item.isTotal ? 700 : 400 }}>
             {item.label}
           </Text>
