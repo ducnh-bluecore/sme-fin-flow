@@ -2,6 +2,9 @@ import React from "react";
 
 type Style = Record<string, unknown>;
 
+let invalidBorderDebugCount = 0;
+const MAX_INVALID_BORDER_DEBUG = 10;
+
 const BORDER_COLOR_KEYS = [
   "borderColor",
   "borderTopColor",
@@ -106,6 +109,13 @@ function ensureBorderWidths(style: Style): Style {
   return withColorFix;
 }
 
+function hasInvalidBorderWidth(style: Style): boolean {
+  return BORDER_WIDTH_KEYS.some((k) => {
+    const v = style[k];
+    return v === undefined || v === null || typeof v !== "number" || !Number.isFinite(v);
+  });
+}
+
 function sanitizeStyleProp(styleProp: unknown): unknown {
   if (!styleProp) return styleProp;
 
@@ -135,6 +145,42 @@ export function sanitizePdfElement(element: React.ReactElement): React.ReactElem
 
     if ("style" in props) {
       props.style = sanitizeStyleProp(props.style);
+
+      // If we still have invalid border widths after sanitization, log the element
+      // so we can fix it at the source.
+      if (invalidBorderDebugCount < MAX_INVALID_BORDER_DEBUG) {
+        const styleProp = props.style;
+        const stylesToCheck: Style[] = [];
+
+        if (styleProp && typeof styleProp === "object") {
+          if (Array.isArray(styleProp)) {
+            for (const s of styleProp) {
+              if (s && typeof s === "object" && !Array.isArray(s)) stylesToCheck.push(s as Style);
+            }
+          } else if (!Array.isArray(styleProp)) {
+            stylesToCheck.push(styleProp as Style);
+          }
+        }
+
+        for (const s of stylesToCheck) {
+          if (hasInvalidBorderWidth(s)) {
+            invalidBorderDebugCount += 1;
+            const typeLabel =
+              typeof node.type === "string"
+                ? node.type
+                : (node.type as { displayName?: string; name?: string }).displayName ||
+                  (node.type as { displayName?: string; name?: string }).name ||
+                  "Anonymous";
+
+            // eslint-disable-next-line no-console
+            console.error("[pdfStyleSanitizer] Invalid border width after sanitize", {
+              type: typeLabel,
+              style: s,
+            });
+            break;
+          }
+        }
+      }
     }
 
     if (props.children) {
