@@ -1018,8 +1018,8 @@ const ROASIllusionPage = () => (
             paddingVertical: 6,
             marginTop: item.isTotal ? 4 : 0,
           },
-          !item.isTotal && { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-          item.isTotal && { borderTopWidth: 2, borderTopColor: colors.primaryDark },
+          !item.isTotal ? { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' } : {},
+          item.isTotal ? { borderTopWidth: 2, borderTopColor: colors.primaryDark } : {},
         ]}>
           <Text style={{ fontSize: 10, color: item.isTotal ? colors.primaryDark : colors.text, fontWeight: item.isTotal ? 700 : 400 }}>
             {item.label}
