@@ -908,29 +908,36 @@ const MDPDetailPage = () => (
       Đo lường giá trị tài chính thật của Marketing — Profit ROAS, không phải Click ROAS.
     </Text>
     
-    {/* Screenshot: Profit Attribution */}
+    {/* Screenshot: Campaigns với Financial Truth */}
     <View style={styles.screenshotContainer}>
       <Image 
-        src={`${getBaseUrl()}/screenshots/mdp-profit-attribution.png`}
+        src={`${getBaseUrl()}/screenshots/mdp-campaigns.png`}
         style={styles.screenshot}
       />
       <Text style={styles.screenshotCaption}>
-        Profit Attribution - P&L thật cho từng campaign (sau COGS, phí sàn, return)
+        Campaigns Performance - Financial Truth với Profit ROAS thật (sau COGS, phí sàn, return)
       </Text>
     </View>
     
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Cash Impact</Text>
-        <Text style={styles.cardText}>Marketing tốn tiền trước, thu tiền sau. Theo dõi Days to Cash của từng kênh.</Text>
+    {/* Two screenshots side by side: Channels + Audience */}
+    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/mdp-channels.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          Channel Health Matrix - Scale/Stop
+        </Text>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Decision Panel</Text>
-        <Text style={styles.cardText}>3 quyết định: SCALE (tăng), HOLD (giữ), hoặc KILL (dừng ngay).</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Risk Alerts</Text>
-        <Text style={styles.cardText}>Cảnh báo CAC Payback &gt; 6 tháng, Burn Rate vượt ngưỡng.</Text>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/mdp-audience.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          Audience Insights - RFM Analysis
+        </Text>
       </View>
     </View>
     

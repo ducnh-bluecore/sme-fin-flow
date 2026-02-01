@@ -331,29 +331,36 @@ const MDPDetailPage = () => (
     <Text style={styles.sectionTitle}>Marketing Data Platform</Text>
     <Text style={styles.sectionSubtitle}>Measure true financial value of Marketing — Profit ROAS, not Click ROAS.</Text>
     
-    {/* Screenshot: Profit Attribution */}
+    {/* Screenshot: Campaigns với Financial Truth */}
     <View style={styles.screenshotContainer}>
       <Image 
-        src={`${getBaseUrl()}/screenshots/mdp-profit-attribution.png`}
+        src={`${getBaseUrl()}/screenshots/mdp-campaigns.png`}
         style={styles.screenshot}
       />
       <Text style={styles.screenshotCaption}>
-        Profit Attribution - True P&L for each campaign (after COGS, platform fees, returns)
+        Campaigns Performance - Financial Truth with real Profit ROAS (after COGS, fees, returns)
       </Text>
     </View>
     
-    <View style={styles.cardRow}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Cash Impact</Text>
-        <Text style={styles.cardText}>Marketing spends first, collects later. Track Days to Cash per channel.</Text>
+    {/* Two screenshots side by side: Channels + Audience */}
+    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/mdp-channels.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          Channel Health Matrix - Scale/Stop
+        </Text>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Decision Panel</Text>
-        <Text style={styles.cardText}>3 decisions: SCALE (increase), HOLD (maintain), or KILL (stop now).</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Risk Alerts</Text>
-        <Text style={styles.cardText}>Warnings when CAC Payback &gt; 6 months, Burn Rate exceeds threshold.</Text>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image 
+          src={`${getBaseUrl()}/screenshots/mdp-audience.png`}
+          style={styles.screenshotHalf}
+        />
+        <Text style={styles.screenshotCaption}>
+          Audience Insights - RFM Analysis
+        </Text>
       </View>
     </View>
     
