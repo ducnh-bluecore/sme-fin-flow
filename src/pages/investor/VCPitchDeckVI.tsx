@@ -27,11 +27,11 @@ import { toast } from 'sonner';
 import { sanitizePdfElement, sanitizePdfElementHard } from '@/components/sales-deck/pdfStyleSanitizer';
 import VCPitchDeckPDF_VI from '@/components/sales-deck/VCPitchDeckPDF_VI';
 
-// Presenter notes for each slide (Vietnamese - 22 slides)
+// Presenter notes for each slide (Vietnamese - 23 slides)
 const presenterNotes: Record<number, { tip: string; action: string }> = {
   1: {
-    tip: "Partner ngay lập tức cảm nhận vấn đề mang tính hệ thống, không phải thiếu tính năng. Startup tốt sửa vấn đề. Startup vĩ đại sửa structural shifts.",
-    action: "Dừng. Để nó thấm. Nghe tất yếu, không phải hào hứng."
+    tip: "VC phải cảm thấy DANGER, không chỉ opportunity. Financial blindness kills companies - làm nó violent.",
+    action: "Đợi phản ứng. Nếu partner gật đầu mạnh → hook đã land."
   },
   2: {
     tip: "Đây là positioning ELITE. Giữ slide này. Nó đóng khung mọi thứ.",
@@ -54,8 +54,8 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Cho thấy kiến trúc 5 tầng. Loại bỏ nỗi sợ 'AI wrapper'."
   },
   7: {
-    tip: "Phần mềm mở rộng. Decision intelligence cộng hưởng. Đây là nơi bạn chuyển từ software company sang data compounding company.",
-    action: "Loại bỏ nỗi sợ commoditization. Partner nghĩ: 'Tiềm năng category leader.'"
+    tip: "Flywheel khiến moat trở nên logical. VC muốn thấy mechanism, không phải philosophy.",
+    action: "Chỉ vào từng bước. Để compounding effect thấm."
   },
   8: {
     tip: "Hầu hết founders underplay timing. ĐỪNG. Timing bán được công ty.",
@@ -74,52 +74,56 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Đây là nơi bạn ngừng nghe thông minh và bắt đầu nghe fundable."
   },
   12: {
+    tip: "Slide này giảm mạnh nhận thức rủi ro. Thailand $3K MRR đặt ngay sau velocity.",
+    action: "Thái Lan bây giờ là beachhead thứ hai đã được xác thực — không phải cược tương lai."
+  },
+  13: {
+    tip: "Đây là slide believability. Một example thật = worth 100 slides concept.",
+    action: "Partner nghĩ: 'This is real. This works.'"
+  },
+  14: {
     tip: "Đây không phải phần mềm lắp ráp. Đây là cơ sở hạ tầng được thiết kế.",
     action: "Partner nghĩ: Khó sao chép. Tốt."
   },
-  13: {
+  15: {
     tip: "Infra investors YÊU slide này. Trust compounds.",
     action: "Doanh nghiệp không thay thế hệ thống họ tin tưởng."
   },
-  14: {
-    tip: "Slide này giảm mạnh nhận thức rủi ro.",
-    action: "Thái Lan bây giờ là beachhead thứ hai đã được xác thực — không phải cược tương lai."
-  },
-  15: {
+  16: {
     tip: "Triển khai có thể lặp lại. Tín hiệu rất investable.",
     action: "Bluecore mở rộng với localization tối thiểu."
   },
-  16: {
+  17: {
     tip: "Không TAM thổi phồng. Partners ngửi được số giả ngay.",
     action: "Bắt đầu với operators nhạy cảm margin cảm nhận decision latency đầu tiên."
   },
-  17: {
+  18: {
     tip: "Không cần hype. Số đã mạnh sẵn.",
     action: "Cho thấy wedge kết hợp: $1.4B-$2.3B"
   },
-  18: {
+  19: {
     tip: "Sau commerce: consumer brands, distribution, pharmacy, F&B.",
     action: "Partner bây giờ thấy venture scale."
   },
-  19: {
+  20: {
     tip: "Nhiều deck quên điều này. Partners đầu tư vào execution clarity.",
     action: "Expansion là có chủ đích — không phải cơ hội."
   },
-  20: {
-    tip: "3+ năm warehouse maturity. ~99.8% data accuracy.",
-    action: "Founder signal trở nên RẤT mạnh ở đây."
-  },
   21: {
+    tip: "3+ năm warehouse maturity. ~99.8% data accuracy. Decision AI có thể copy. Financial data history thì không.",
+    action: "Founder signal trở nên RẤT mạnh ở đây. Amplify unfair advantage."
+  },
+  22: {
     tip: "Không bao giờ bỏ qua điều này trong infra decks. Nghe bình tĩnh — gần như hiển nhiên.",
     action: "Để tính tất yếu thấm. ERP = bắt buộc. Decision infra = tiếp theo."
   },
-  22: {
+  23: {
     tip: "Kết thúc với niềm tin. Đây là hệ thống doanh nghiệp dựa vào để tồn tại.",
     action: "Kết thúc deck. Để im lặng làm việc. KHÔNG thêm fluff."
   }
 };
 
-// ACT 1 — MỞ CATEGORY (Slides 1–3)
+// ACT 1 — MỞ CATEGORY (Slides 1–3) - FEAR VERSION
 const Slide01CategoryShock: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
@@ -128,55 +132,51 @@ const Slide01CategoryShock: React.FC = () => (
       transition={{ duration: 0.8 }}
       className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
     >
-      Quyết định Tài chính Vẫn Chạy<br />
-      <span className="text-amber-400">Trên Hệ thống Chậm trễ.</span>
+      CASH COLLAPSES<br />
+      <span className="text-red-500">QUIETLY.</span>
     </motion.h1>
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4, duration: 0.8 }}
-      className="max-w-3xl mb-8"
-    >
-      <p className="text-xl md:text-2xl font-light text-slate-300 mb-2">
-        Thương mại giờ di chuyển theo thời gian thực.
-      </p>
-      <p className="text-xl md:text-2xl font-light text-slate-400">
-        Sự thật tài chính vẫn đến muộn hàng tuần.
-      </p>
-    </motion.div>
     
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.7 }}
-      className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl w-full mb-10"
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full mb-10"
     >
       {[
-        "CAC thay đổi hàng ngày",
-        "Margin bị nén tức thì",
-        "Rủi ro tồn kho cộng dồn",
-        "Rủi ro tiền mặt leo thang"
+        { metric: "Margin ↓ 6%", delay: "Phát hiện sau 4 tuần", icon: "📉" },
+        { metric: "CAC ↑ 35%", delay: "Finance thấy khi đã burn", icon: "🔥" },
+        { metric: "Inventory phình", delay: "Cash bị khóa", icon: "📦" },
+        { metric: "Runway", delay: "Biến mất trước khi CEO nhận ra", icon: "⏳" }
       ].map((item, i) => (
         <motion.div 
           key={i}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 + i * 0.1 }}
-          className="p-3 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-300 text-sm"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 + i * 0.15 }}
+          className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-left"
         >
-          {item}
+          <div className="flex items-center gap-2 mb-1">
+            <span>{item.icon}</span>
+            <span className="text-red-400 font-bold text-lg">{item.metric}</span>
+          </div>
+          <span className="text-slate-400 text-sm">→ {item.delay}</span>
         </motion.div>
       ))}
     </motion.div>
     
-    <motion.p 
+    <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 1.2 }}
-      className="text-xl text-red-400 font-medium"
+      className="p-6 rounded-xl bg-red-500/5 border border-red-500/20 max-w-2xl"
     >
-      Độ trễ quyết định đang trở thành rủi ro sống còn.
-    </motion.p>
+      <p className="text-xl text-slate-300 mb-2">
+        Doanh nghiệp không chết vì thiếu dữ liệu.
+      </p>
+      <p className="text-xl text-red-400 font-bold">
+        Họ chết vì sự thật đến quá muộn.
+      </p>
+    </motion.div>
   </div>
 );
 
@@ -453,72 +453,81 @@ const Slide06ArchitectureMoat: React.FC = () => (
   </div>
 );
 
-// NEW SLIDE 7 — DECISION DATASET
+// NEW SLIDE 7 — DECISION DATASET + FLYWHEEL
 const Slide07DecisionDataset: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6"
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4"
     >
-      Moat<br />
-      <span className="text-emerald-400">Cộng hưởng.</span>
+      Moat <span className="text-emerald-400">Cộng hưởng.</span>
     </motion.h1>
     
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.3 }}
-      className="text-xl text-slate-300 mb-8"
+      className="text-lg text-slate-400 mb-8"
     >
       Mỗi quyết định làm mạnh thêm hệ thống.
     </motion.p>
     
+    {/* Flywheel Visual */}
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.5 }}
-      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full mb-8"
+      className="flex flex-col items-center gap-2 max-w-md w-full mb-8"
     >
       {[
-        "Ngôn ngữ tài chính được chuẩn hóa",
-        "Patterns quyết định được cấu trúc hóa",
-        "Chữ ký rủi ro trở nên dự đoán được",
-        "Phản hồi vận hành trở nên đo lường được"
+        { text: "More customers", color: "emerald" },
+        { text: "More financial patterns", color: "emerald" },
+        { text: "Better risk detection", color: "blue" },
+        { text: "Better decisions", color: "blue" },
+        { text: "Deeper trust", color: "amber" },
+        { text: "Harder to replace", color: "amber" }
       ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.6 + i * 0.1 }}
-          className="flex items-center gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-left"
-        >
-          <span className="text-emerald-400 text-lg">✓</span>
-          <span className="text-slate-300">{item}</span>
-        </motion.div>
+        <React.Fragment key={i}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.6 + i * 0.1 }}
+            className={cn(
+              "w-full py-3 px-6 rounded-lg text-center font-medium",
+              item.color === "emerald" && "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+              item.color === "blue" && "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+              item.color === "amber" && "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+            )}
+          >
+            {item.text}
+          </motion.div>
+          {i < 5 && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.65 + i * 0.1 }}
+              className="text-slate-500 text-lg"
+            >
+              ↓
+            </motion.div>
+          )}
+        </React.Fragment>
       ))}
-    </motion.div>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 max-w-xl mb-6"
-    >
-      <p className="text-slate-400 text-sm mb-2">Điều này tạo ra decision dataset độc quyền:</p>
-      <div className="flex justify-center gap-4 text-sm">
-        <span className="text-emerald-400">phát hiện gì</span>
-        <span className="text-slate-500">→</span>
-        <span className="text-blue-400">quyết định gì</span>
-        <span className="text-slate-500">→</span>
-        <span className="text-amber-400">kết quả gì</span>
-      </div>
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.3 }}
+        className="text-emerald-400 text-lg mt-2"
+      >
+        ↻ loop back
+      </motion.div>
     </motion.div>
     
     <motion.p 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1.3 }}
+      transition={{ delay: 1.5 }}
       className="text-xl text-slate-300"
     >
       Phần mềm mở rộng. <span className="text-white font-medium">Decision intelligence cộng hưởng.</span>
@@ -755,8 +764,125 @@ const Slide11Velocity: React.FC = () => (
   </div>
 );
 
-// Slide 12 — Architecture Advantage
-const Slide12ArchitectureAdvantage: React.FC = () => (
+// Slide 12 — Cross-Border (MOVED UP from 14)
+const Slide12CrossBorder: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      Đã Được Chứng minh Ngoài
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
+    >
+      Thị trường Gốc.
+    </motion.h2>
+    
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full mb-8"
+    >
+      <div className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 text-left">
+        <div className="text-slate-400 text-sm uppercase tracking-wider mb-2">Xây dựng tại</div>
+        <div className="text-white text-2xl font-bold">Việt Nam</div>
+      </div>
+      <div className="p-6 rounded-xl bg-blue-500/10 border border-blue-500/40 text-left">
+        <div className="text-blue-400 text-sm uppercase tracking-wider mb-2">Triển khai tại</div>
+        <div className="text-white text-2xl font-bold">Thái Lan</div>
+        <div className="text-slate-400 mt-2">Nhà bán lẻ hàng đầu</div>
+        <div className="text-emerald-400 font-medium">~$3K MRR (~$36K ARR)</div>
+      </div>
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="text-lg text-slate-300 italic"
+    >
+      Thái Lan bây giờ là beachhead thứ hai đã được xác thực —<br />
+      <span className="text-white">không phải cược mở rộng tương lai.</span>
+    </motion.p>
+  </div>
+);
+
+// NEW SLIDE 13 — PRODUCT REALITY
+const Slide13ProductReality: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl font-bold text-white mb-4"
+    >
+      QUYẾT ĐỊNH <span className="text-blue-400">TRÔNG NHƯ THẾ NÀY</span>
+    </motion.h1>
+    
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.4 }}
+      className="p-8 rounded-xl bg-slate-800/80 border border-red-500/50 max-w-2xl w-full"
+    >
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6 }}
+        className="text-red-400 text-xl font-bold mb-6 flex items-center gap-2"
+      >
+        <span className="text-2xl">⚠</span> CASH RISK DETECTED
+      </motion.div>
+      
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="grid grid-cols-3 gap-4 mb-8"
+      >
+        <div className="p-4 rounded-lg bg-slate-900/50">
+          <div className="text-slate-400 text-sm mb-1">Sell-through</div>
+          <div className="text-red-400 text-2xl font-bold">↓ 23%</div>
+        </div>
+        <div className="p-4 rounded-lg bg-slate-900/50">
+          <div className="text-slate-400 text-sm mb-1">Inventory turn</div>
+          <div className="text-red-400 text-2xl font-bold">↓ 18%</div>
+        </div>
+        <div className="p-4 rounded-lg bg-slate-900/50">
+          <div className="text-slate-400 text-sm mb-1">Payment terms</div>
+          <div className="text-amber-400 text-2xl font-bold">Extended</div>
+        </div>
+      </motion.div>
+      
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="border-t border-slate-700 pt-6"
+      >
+        <div className="text-slate-400 text-lg mb-2">→ Khuyến nghị: Giảm tốc độ đơn hàng mua</div>
+        <div className="text-emerald-400 text-3xl font-bold">→ Bảo toàn $480K thanh khoản</div>
+      </motion.div>
+    </motion.div>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.3 }}
+      className="mt-8 text-lg text-slate-500 italic"
+    >
+      Một example thật = 100 slides concept.
+    </motion.p>
+  </div>
+);
+
+// Slide 14 — Architecture Advantage (was 12)
+const Slide14ArchitectureAdvantage: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -819,8 +945,8 @@ const Slide12ArchitectureAdvantage: React.FC = () => (
   </div>
 );
 
-// Slide 13 — Switching Cost
-const Slide13SwitchingCost: React.FC = () => (
+// Slide 15 — Switching Cost (was 13)
+const Slide15SwitchingCost: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -855,57 +981,8 @@ const Slide13SwitchingCost: React.FC = () => (
   </div>
 );
 
-// Slide 14 — Cross-Border
-const Slide14CrossBorder: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-4"
-    >
-      Đã Được Chứng minh Ngoài
-    </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
-    >
-      Thị trường Gốc.
-    </motion.h2>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full mb-8"
-    >
-      <div className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 text-left">
-        <div className="text-slate-400 text-sm uppercase tracking-wider mb-2">Xây dựng tại</div>
-        <div className="text-white text-2xl font-bold">Việt Nam</div>
-      </div>
-      <div className="p-6 rounded-xl bg-blue-500/10 border border-blue-500/40 text-left">
-        <div className="text-blue-400 text-sm uppercase tracking-wider mb-2">Triển khai tại</div>
-        <div className="text-white text-2xl font-bold">Thái Lan</div>
-        <div className="text-slate-400 mt-2">Nhà bán lẻ hàng đầu</div>
-        <div className="text-emerald-400 font-medium">~$3K MRR (~$36K ARR)</div>
-      </div>
-    </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.8 }}
-      className="text-lg text-slate-300 italic"
-    >
-      Thái Lan bây giờ là beachhead thứ hai đã được xác thực —<br />
-      <span className="text-white">không phải cược mở rộng tương lai.</span>
-    </motion.p>
-  </div>
-);
-
-// Slide 15 — Architecture Travels
-const Slide15ArchitectureTravels: React.FC = () => (
+// Slide 16 — Architecture Travels (was 15)
+const Slide16ArchitectureTravels: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1314,28 +1391,29 @@ const Slide22Closing: React.FC = () => (
 );
 
 const slides = [
-  Slide01CategoryShock,
-  Slide02SilentFailure,
-  Slide03PlatformShift,
-  Slide04Inevitability,           // NEW
-  Slide05DefineCategory,          // was 04
-  Slide06ArchitectureMoat,        // NEW
-  Slide07DecisionDataset,         // NEW
-  Slide08WhyImpossibleBefore,     // was 05
-  Slide09WhyMandatory,            // was 06
-  Slide10ProductOneSentence,      // was 07
-  Slide11Velocity,                // NEW
-  Slide12ArchitectureAdvantage,   // was 08
-  Slide13SwitchingCost,           // was 09
-  Slide14CrossBorder,             // was 11
-  Slide15ArchitectureTravels,     // was 12
-  Slide16InitialWedge,            // was 13
-  Slide17SEAMarket,               // was 14
-  Slide18ExpansionUnlocks,        // was 15
-  Slide19RegionalExpansion,       // was 16
-  Slide20WhyBluecoreWins,         // was 17
-  Slide21InevitabilityVision,     // was 18
-  Slide22Closing                  // NEW
+  Slide01CategoryShock,           // 1 - FEAR version
+  Slide02SilentFailure,           // 2
+  Slide03PlatformShift,           // 3
+  Slide04Inevitability,           // 4
+  Slide05DefineCategory,          // 5
+  Slide06ArchitectureMoat,        // 6
+  Slide07DecisionDataset,         // 7 - FLYWHEEL version
+  Slide08WhyImpossibleBefore,     // 8
+  Slide09WhyMandatory,            // 9
+  Slide10ProductOneSentence,      // 10
+  Slide11Velocity,                // 11
+  Slide12CrossBorder,             // 12 - MOVED UP (traction early)
+  Slide13ProductReality,          // 13 - NEW Product Reality
+  Slide14ArchitectureAdvantage,   // 14
+  Slide15SwitchingCost,           // 15
+  Slide16ArchitectureTravels,     // 16
+  Slide16InitialWedge,            // 17
+  Slide17SEAMarket,               // 18
+  Slide18ExpansionUnlocks,        // 19
+  Slide19RegionalExpansion,       // 20
+  Slide20WhyBluecoreWins,         // 21 - AMPLIFIED
+  Slide21InevitabilityVision,     // 22
+  Slide22Closing                  // 23
 ];
 
 const VCPitchDeckVI: React.FC = () => {
