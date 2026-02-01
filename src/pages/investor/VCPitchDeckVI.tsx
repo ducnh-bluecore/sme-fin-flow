@@ -130,7 +130,7 @@ const Slide01CategoryShock: React.FC = () => (
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight"
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-10 leading-tight"
     >
       CASH COLLAPSES<br />
       <span className="text-red-500">QUIETLY.</span>
@@ -140,13 +140,13 @@ const Slide01CategoryShock: React.FC = () => (
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.4 }}
-      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full mb-10"
+      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full"
     >
       {[
-        { metric: "Margin ↓ 6%", delay: "Phát hiện sau 4 tuần", icon: "📉" },
-        { metric: "CAC ↑ 35%", delay: "Finance thấy khi đã burn", icon: "🔥" },
-        { metric: "Inventory phình", delay: "Cash bị khóa", icon: "📦" },
-        { metric: "Runway", delay: "Biến mất trước khi CEO nhận ra", icon: "⏳" }
+        { metric: "Margin erodes 6%.", consequence: "Detected week 4." },
+        { metric: "CAC spikes 35%.", consequence: "Visible after burn." },
+        { metric: "Inventory expands.", consequence: "Liquidity disappears." },
+        { metric: "Runway shrinks.", consequence: "CEO sees it last." }
       ].map((item, i) => (
         <motion.div 
           key={i}
@@ -155,27 +155,10 @@ const Slide01CategoryShock: React.FC = () => (
           transition={{ delay: 0.5 + i * 0.15 }}
           className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-left"
         >
-          <div className="flex items-center gap-2 mb-1">
-            <span>{item.icon}</span>
-            <span className="text-red-400 font-bold text-lg">{item.metric}</span>
-          </div>
-          <span className="text-slate-400 text-sm">→ {item.delay}</span>
+          <span className="text-red-400 font-bold text-lg block">{item.metric}</span>
+          <span className="text-slate-500 text-sm">{item.consequence}</span>
         </motion.div>
       ))}
-    </motion.div>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.2 }}
-      className="p-6 rounded-xl bg-red-500/5 border border-red-500/20 max-w-2xl"
-    >
-      <p className="text-xl text-slate-300 mb-2">
-        Doanh nghiệp không chết vì thiếu dữ liệu.
-      </p>
-      <p className="text-xl text-red-400 font-bold">
-        Họ chết vì sự thật đến quá muộn.
-      </p>
     </motion.div>
   </div>
 );
