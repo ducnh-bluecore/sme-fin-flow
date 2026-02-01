@@ -55,17 +55,34 @@ function ensureBorderWidths(style: Style): Style {
   }
 
   // React-PDF can crash if any border width key exists but is undefined.
-  // Normalize all border width keys to numbers.
+  // Normalize all border width keys to finite numbers.
   let next: Style = style;
   let mutated = false;
   for (const key of BORDER_WIDTH_KEYS) {
-    if (next[key] === undefined || next[key] === null) {
+    const v = next[key];
+
+    // React-PDF expects numeric border widths. In real-world JSX styles we can
+    // accidentally end up with `false` (e.g. condition && 1), strings, NaN, etc.
+    // Any of these can crash style resolution.
+    let normalized: number;
+    if (v === undefined || v === null) {
+      normalized = 0;
+    } else if (typeof v === "number") {
+      normalized = Number.isFinite(v) ? v : 0;
+    } else if (typeof v === "string") {
+      const n = Number(v);
+      normalized = Number.isFinite(n) ? n : 0;
+    } else {
+      // boolean, object, etc.
+      normalized = 0;
+    }
+
+    if (next[key] !== normalized) {
       if (!mutated) {
         next = { ...next };
         mutated = true;
       }
-      // Default to 0 unless a border color is present (handled below)
-      next[key] = 0;
+      next[key] = normalized;
     }
   }
 
