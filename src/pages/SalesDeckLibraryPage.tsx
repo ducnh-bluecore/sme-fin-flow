@@ -135,6 +135,29 @@ const SalesDeckLibraryPage: React.FC = () => {
                   </span>
                 </Button>
               </div>
+              
+              {/* VC Pitch Decks */}
+              <div className="mt-6 pt-6 border-t border-slate-700">
+                <h4 className="text-sm font-medium text-slate-400 mb-4">VC Pitch Deck - Nhà đầu tư</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button asChild variant="outline" className="justify-start h-auto py-4 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500/50">
+                    <Link to="/investor/vc-pitch">
+                      <div className="text-left">
+                        <div className="font-semibold text-white">VC Pitch Deck (EN)</div>
+                        <div className="text-xs text-slate-400">Series A presentation - 12 slides</div>
+                      </div>
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="justify-start h-auto py-4 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500/50">
+                    <Link to="/investor/vc-pitch-vi">
+                      <div className="text-left">
+                        <div className="font-semibold text-white">VC Pitch Deck (VI)</div>
+                        <div className="text-xs text-slate-400">Bản trình bày Series A - 12 slides</div>
+                      </div>
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
