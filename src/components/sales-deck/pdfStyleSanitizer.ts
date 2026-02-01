@@ -27,6 +27,12 @@ const BORDER_SHORTHAND_KEYS = [
   "borderRight",
   "borderBottom",
   "borderLeft",
+  // These keys are also handled by resolveBorderShorthand inside @react-pdf/stylesheet
+  // and can crash if their value is `undefined`.
+  "borderWidth",
+  "borderColor",
+  "borderStyle",
+  "borderRadius",
 ] as const;
 
 const BORDER_SHORTHAND_REGEX = /(-?\d+(?:\.\d+)?(?:in|mm|cm|pt|vw|vh|px|rem)?)\s(\S+)\s(.+)/;
@@ -40,7 +46,20 @@ function ensureBorderWidths(style: Style): Style {
 
     for (const key of BORDER_SHORTHAND_KEYS) {
       const v = next[key];
-      if (v == null) continue;
+
+      // Important: @react-pdf/stylesheet has a bug where `resolveBorderShorthand`
+      // treats a non-matching regex result as truthy (it returns `[]`).
+      // If the key exists with `undefined`, it can throw: "Invalid border width: undefined".
+      if (v == null) {
+        if (Object.prototype.hasOwnProperty.call(next, key)) {
+          if (!mutated) {
+            next = { ...next };
+            mutated = true;
+          }
+          delete next[key];
+        }
+        continue;
+      }
 
       const isValidString = typeof v === "string" && BORDER_SHORTHAND_REGEX.test(v.trim());
       const isInvalid = typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && !isValidString);
