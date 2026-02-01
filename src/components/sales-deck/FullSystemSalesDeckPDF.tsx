@@ -34,10 +34,31 @@ const getBaseUrl = () => {
 
 // Screenshot URLs (using public folder for PDF compatibility)
 const screenshotUrls = {
+  // FDP Module
   fdpDashboard: `${getBaseUrl()}/screenshots/cfo-dashboard.png`,
-  fdpDecisionCard: `${getBaseUrl()}/screenshots/control-tower.png`,
-  fdpScenario: `${getBaseUrl()}/screenshots/control-tower.png`,
-  dwConnectors: `${getBaseUrl()}/screenshots/control-tower.png`,
+  fdpDecisionCard: `${getBaseUrl()}/screenshots/decision-detail.png`,
+  fdpScenario: `${getBaseUrl()}/screenshots/scenario-planning.png`,
+  fdpCashPosition: `${getBaseUrl()}/screenshots/cash-position.png`,
+  fdpUnitEconomics: `${getBaseUrl()}/screenshots/unit-economics.png`,
+  
+  // MDP Module
+  mdpProfitAttribution: `${getBaseUrl()}/screenshots/mdp-profit-attribution.png`,
+  mdpCashImpact: `${getBaseUrl()}/screenshots/mdp-cash-impact.png`,
+  mdpRiskAlerts: `${getBaseUrl()}/screenshots/mdp-risk-alerts.png`,
+  mdpChannels: `${getBaseUrl()}/screenshots/mdp-channels.png`,
+  
+  // CDP Module
+  cdpInsights: `${getBaseUrl()}/screenshots/cdp-insights.png`,
+  cdpVerification: `${getBaseUrl()}/screenshots/cdp-customer-verification.png`,
+  
+  // Control Tower
+  controlTower: `${getBaseUrl()}/screenshots/control-tower.png`,
+  riskDashboard: `${getBaseUrl()}/screenshots/risk-dashboard.png`,
+  
+  // Data Warehouse
+  dwConnectors: `${getBaseUrl()}/screenshots/working-capital.png`,
+  cashForecast: `${getBaseUrl()}/screenshots/cash-forecast.png`,
+  whatIfSimulation: `${getBaseUrl()}/screenshots/what-if-simulation.png`,
 };
 
 // Register Noto Sans font (supports Vietnamese characters)
@@ -1015,6 +1036,18 @@ const MDPROASPage = () => (
       ))}
     </View>
     
+    {/* MDP Screenshot */}
+    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image src={screenshotUrls.mdpProfitAttribution} style={styles.screenshotHalf} />
+        <Text style={styles.screenshotCaption}>Profit Attribution theo Campaign</Text>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image src={screenshotUrls.mdpCashImpact} style={styles.screenshotHalf} />
+        <Text style={styles.screenshotCaption}>Cash Impact Analysis</Text>
+      </View>
+    </View>
+    
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
       <Text style={styles.pageNumber}>8 / 20</Text>
@@ -1078,6 +1111,18 @@ const CDPControlTowerPage = () => (
             Không xử lý kịp? Tự động leo thang lên cấp trên. Không ai "quên" alert.
           </Text>
         </View>
+      </View>
+    </View>
+    
+    {/* CDP & Control Tower Screenshots */}
+    <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image src={screenshotUrls.cdpInsights} style={styles.screenshotHalf} />
+        <Text style={styles.screenshotCaption}>CDP Customer Insights</Text>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image src={screenshotUrls.controlTower} style={styles.screenshotHalf} />
+        <Text style={styles.screenshotCaption}>Control Tower Dashboard</Text>
       </View>
     </View>
     
