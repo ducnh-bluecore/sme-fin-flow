@@ -24,22 +24,20 @@ import {
   Image,
 } from '@react-pdf/renderer';
 
-// Import screenshots from assets
-import fdpDashboard from '@/assets/sales-kit/fdp-dashboard.png';
-import fdpDecisionCard from '@/assets/sales-kit/fdp-decision-card.png';
-import fdpMeasurement from '@/assets/sales-kit/fdp-measurement.png';
-import fdpPnlReport from '@/assets/sales-kit/fdp-pnl-report.png';
-import fdpScenario from '@/assets/sales-kit/fdp-scenario.png';
-import dwConnectors from '@/assets/sales-kit/dw-connectors.jpg';
-import dwDashboard from '@/assets/sales-kit/dw-dashboard.jpg';
-import dwRealtime from '@/assets/sales-kit/dw-realtime.jpg';
-
-// Get base URL dynamically for font loading
+// Get base URL dynamically for font and image loading
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
   return '';
+};
+
+// Screenshot URLs (using public folder for PDF compatibility)
+const screenshotUrls = {
+  fdpDashboard: `${getBaseUrl()}/screenshots/cfo-dashboard.png`,
+  fdpDecisionCard: `${getBaseUrl()}/screenshots/control-tower.png`,
+  fdpScenario: `${getBaseUrl()}/screenshots/control-tower.png`,
+  dwConnectors: `${getBaseUrl()}/screenshots/control-tower.png`,
 };
 
 // Register Noto Sans font (supports Vietnamese characters)
@@ -248,7 +246,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.text,
     lineHeight: 1.7,
-    fontStyle: 'italic',
   },
   storyQuote: {
     fontSize: 13,
@@ -905,7 +902,7 @@ const FDPDetailPage = () => (
     
     {/* Screenshot */}
     <View style={styles.screenshotContainer}>
-      <Image src={fdpDashboard} style={styles.screenshot} />
+      <Image src={screenshotUrls.fdpDashboard} style={styles.screenshot} />
       <Text style={styles.screenshotCaption}>CFO Dashboard - Thanh khoản & Vị thế tiền mặt thời gian thực</Text>
     </View>
     
@@ -946,11 +943,11 @@ const FDPDecisionPage = () => (
     
     <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
       <View style={{ flex: 1, alignItems: 'center' }}>
-        <Image src={fdpDecisionCard} style={styles.screenshotHalf} />
+        <Image src={screenshotUrls.fdpDecisionCard} style={styles.screenshotHalf} />
         <Text style={styles.screenshotCaption}>Decision Card - Quyết định có Impact VND rõ ràng</Text>
       </View>
       <View style={{ flex: 1, alignItems: 'center' }}>
-        <Image src={fdpScenario} style={styles.screenshotHalf} />
+        <Image src={screenshotUrls.fdpScenario} style={styles.screenshotHalf} />
         <Text style={styles.screenshotCaption}>Scenario Planning - Mô phỏng các kịch bản</Text>
       </View>
     </View>
@@ -1098,7 +1095,7 @@ const FinancialSpinePage = () => (
     <Text style={styles.sectionTitle}>Xương Sống Tài Chính</Text>
     
     <View style={styles.screenshotContainer}>
-      <Image src={dwConnectors} style={styles.screenshot} />
+      <Image src={screenshotUrls.dwConnectors} style={styles.screenshot} />
       <Text style={styles.screenshotCaption}>35+ Native Connectors cho thị trường Việt Nam</Text>
     </View>
     
