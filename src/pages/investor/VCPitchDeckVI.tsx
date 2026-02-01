@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import { pdf } from '@react-pdf/renderer';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -16,9 +17,14 @@ import {
   ChevronRight,
   MessageSquareText,
   Globe,
-  X
+  X,
+  FileDown,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { sanitizePdfElement, sanitizePdfElementHard } from '@/components/sales-deck/pdfStyleSanitizer';
+import VCPitchDeckPDF_VI from '@/components/sales-deck/VCPitchDeckPDF_VI';
 
 // Presenter notes for each slide (Vietnamese)
 const presenterNotes: Record<number, { tip: string; action: string }> = {
@@ -705,6 +711,7 @@ const slides = [
 const VCPitchDeckVI: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showNotes, setShowNotes] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   const nextSlide = useCallback(() => {
     setCurrentSlide(prev => Math.min(prev + 1, slides.length - 1));
@@ -717,6 +724,47 @@ const VCPitchDeckVI: React.FC = () => {
   const toggleNotes = useCallback(() => {
     setShowNotes(prev => !prev);
   }, []);
+
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    toast.info('Đang tạo PDF...', {
+      description: 'Vui lòng đợi trong giây lát',
+    });
+
+    try {
+      const pdfComponent = <VCPitchDeckPDF_VI />;
+      let blob: Blob;
+      try {
+        blob = await pdf(sanitizePdfElement(pdfComponent)).toBlob();
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        const isBorderCrash = /Invalid border width/i.test(err.message);
+        if (!isBorderCrash) throw e;
+        console.warn('[VCPitchDeckVI] Retrying PDF generation with border-stripped sanitizer');
+        blob = await pdf(sanitizePdfElementHard(sanitizePdfElement(pdfComponent))).toBlob();
+      }
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Bluecore_VC_Pitch_Deck_VI.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Tải xuống thành công!', {
+        description: 'Bluecore_VC_Pitch_Deck_VI.pdf',
+      });
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Lỗi tạo PDF', {
+        description: 'Vui lòng thử lại sau',
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -759,6 +807,19 @@ const VCPitchDeckVI: React.FC = () => {
             <span className="text-slate-500 text-sm">
               {currentSlide + 1} / {slides.length}
             </span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPDF}
+              className="text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              {isGeneratingPDF ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+            </Button>
             <Button asChild variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-800">
               <Link to="/investor/vc-pitch">
                 <Globe className="mr-2 h-4 w-4" />
