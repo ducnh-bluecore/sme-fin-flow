@@ -1,14 +1,16 @@
 /**
  * Full System Overview Sales Deck PDF Generator
  * 
- * 16-slide comprehensive deck showcasing the entire Bluecore ecosystem:
- * - Value Proposition
- * - Platform Capabilities (FDP, MDP, CDP, Control Tower, Data Warehouse)
- * - Competitive Advantages
- * - Complete Use Cases
- * - Why Bluecore?
+ * STORYTELLING VERSION - 20 slides with narrative arc:
+ * 1. Hook (The CEO's Morning Problem)
+ * 2. Pain Amplification (Hidden Costs)
+ * 3. Solution Introduction (Bluecore Ecosystem)
+ * 4. Deep Dive (5 Modules with real screenshots)
+ * 5. Proof (Use Cases as stories)
+ * 6. Differentiation (vs. Competitors)
+ * 7. Call to Action (ROI Guarantee)
  * 
- * Vietnamese content with proper diacritics (tiếng Việt có dấu đầy đủ)
+ * Vietnamese content with proper diacritics
  */
 
 import React from 'react';
@@ -21,6 +23,16 @@ import {
   Font,
   Image,
 } from '@react-pdf/renderer';
+
+// Import screenshots from assets
+import fdpDashboard from '@/assets/sales-kit/fdp-dashboard.png';
+import fdpDecisionCard from '@/assets/sales-kit/fdp-decision-card.png';
+import fdpMeasurement from '@/assets/sales-kit/fdp-measurement.png';
+import fdpPnlReport from '@/assets/sales-kit/fdp-pnl-report.png';
+import fdpScenario from '@/assets/sales-kit/fdp-scenario.png';
+import dwConnectors from '@/assets/sales-kit/dw-connectors.jpg';
+import dwDashboard from '@/assets/sales-kit/dw-dashboard.jpg';
+import dwRealtime from '@/assets/sales-kit/dw-realtime.jpg';
 
 // Get base URL dynamically for font loading
 const getBaseUrl = () => {
@@ -100,13 +112,13 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   coverSubtitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 400,
     color: colors.white,
     opacity: 0.9,
     textAlign: 'center',
-    maxWidth: 500,
-    lineHeight: 1.6,
+    maxWidth: 480,
+    lineHeight: 1.7,
     marginBottom: 32,
   },
   coverBadge: {
@@ -151,13 +163,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 700,
     color: colors.primaryDark,
     marginBottom: 12,
   },
   sectionTitleWhite: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 700,
     color: colors.white,
     marginBottom: 12,
@@ -167,7 +179,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 400,
     color: colors.textLight,
-    marginBottom: 24,
+    marginBottom: 20,
     maxWidth: 500,
     lineHeight: 1.6,
   },
@@ -175,21 +187,21 @@ const styles = StyleSheet.create({
   // Cards & Containers
   cardRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 12,
   },
   card: {
     flex: 1,
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 10,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
   cardDark: {
     backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     flexDirection: 'column',
@@ -197,20 +209,20 @@ const styles = StyleSheet.create({
   cardHighlight: {
     flex: 1,
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 10,
+    padding: 16,
   },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: colors.primaryDark,
-    marginBottom: 8,
-  },
-  cardTitleWhite: {
     fontSize: 12,
     fontWeight: 700,
-    color: colors.white,
+    color: colors.primaryDark,
     marginBottom: 6,
+  },
+  cardTitleWhite: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: colors.white,
+    marginBottom: 4,
   },
   cardText: {
     fontSize: 10,
@@ -223,38 +235,61 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
   
+  // Narrative Story block
+  storyBlock: {
+    backgroundColor: '#fffbeb',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+  },
+  storyText: {
+    fontSize: 11,
+    color: colors.text,
+    lineHeight: 1.7,
+    fontStyle: 'italic',
+  },
+  storyQuote: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: colors.primaryDark,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  
   // Modules grid
   moduleCard: {
     width: '48%',
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
   moduleIcon: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   moduleTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 700,
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   moduleTagline: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 700,
     color: colors.primary,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   moduleDesc: {
-    fontSize: 9,
+    fontSize: 8,
     color: colors.textLight,
     lineHeight: 1.4,
   },
@@ -265,23 +300,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statNumber: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 700,
     color: colors.primary,
   },
   statNumberWhite: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 700,
     color: colors.white,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: colors.textLight,
     textAlign: 'center',
     marginTop: 4,
   },
   statLabelWhite: {
-    fontSize: 10,
+    fontSize: 9,
     color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
     marginTop: 4,
@@ -295,65 +330,67 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flex: 1,
-    padding: 10,
+    padding: 8,
     backgroundColor: colors.primaryDark,
   },
   tableHeaderText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 700,
     color: colors.white,
     textAlign: 'center',
   },
   tableCell: {
     flex: 1,
-    padding: 10,
+    padding: 8,
     backgroundColor: colors.white,
   },
   tableCellHighlight: {
     flex: 1,
-    padding: 10,
+    padding: 8,
     backgroundColor: '#ecfdf5',
   },
   tableCellText: {
-    fontSize: 9,
+    fontSize: 8,
     color: colors.text,
-    textAlign: 'center',
+    textAlign: 'left',
+    lineHeight: 1.3,
   },
   tableCellTextBold: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 700,
     color: colors.accentDark,
-    textAlign: 'center',
+    textAlign: 'left',
+    lineHeight: 1.3,
   },
   
   // Use case
   useCaseContainer: {
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
   useCaseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   useCaseBadge: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 12,
+    borderRadius: 10,
+    marginRight: 10,
   },
   useCaseBadgeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: 700,
     color: colors.white,
   },
   useCaseTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.text,
   },
@@ -361,17 +398,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textLight,
     lineHeight: 1.6,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   useCaseResult: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   useCaseResultItem: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 6,
+    padding: 10,
     alignItems: 'center',
   },
   
@@ -406,26 +443,26 @@ const styles = StyleSheet.create({
   manifestoItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 8,
     paddingLeft: 4,
   },
   manifestoNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   manifestoNumberText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 700,
     color: colors.white,
   },
   manifestoText: {
     flex: 1,
-    fontSize: 10,
+    fontSize: 9,
     color: colors.text,
     lineHeight: 1.5,
   },
@@ -438,35 +475,35 @@ const styles = StyleSheet.create({
   pillarCard: {
     flex: 1,
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
   pillarTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 700,
     color: colors.white,
-    marginTop: 8,
+    marginTop: 6,
     textAlign: 'center',
   },
   pillarDesc: {
-    fontSize: 9,
+    fontSize: 8,
     color: 'rgba(255,255,255,0.7)',
-    marginTop: 6,
+    marginTop: 4,
     textAlign: 'center',
     lineHeight: 1.4,
   },
   
   // Screenshot styles
   screenshotContainer: {
-    marginVertical: 12,
+    marginVertical: 10,
     alignItems: 'center',
   },
   screenshot: {
     width: '100%',
-    maxHeight: 200,
+    maxHeight: 180,
     objectFit: 'contain',
     borderRadius: 6,
     borderWidth: 1,
@@ -474,7 +511,7 @@ const styles = StyleSheet.create({
   },
   screenshotHalf: {
     width: '100%',
-    maxHeight: 140,
+    maxHeight: 130,
     objectFit: 'contain',
     borderRadius: 6,
     borderWidth: 1,
@@ -495,17 +532,17 @@ const threePillars = [
   {
     title: 'REAL CASH',
     desc: 'Tiền thật đã về tài khoản, không phải doanh thu trên giấy',
-    icon: 'VND',
+    icon: '₫',
   },
   {
     title: 'TRUTH FIRST',
     desc: 'Sự thật tài chính, không làm đẹp số để báo cáo',
-    icon: 'TRUE',
+    icon: '✓',
   },
   {
     title: 'ACTION NOW',
     desc: 'Quyết định hôm nay, không đợi báo cáo cuối tháng',
-    icon: 'NOW',
+    icon: '→',
   },
 ];
 
@@ -516,8 +553,8 @@ const platformModules = [
     fullName: 'Financial Data Platform',
     tagline: 'Truth > Flexibility',
     color: colors.primary,
-    description: 'Nền tảng tài chính - Single Source of Truth cho Net Revenue, Contribution Margin, và Real Cash Position.',
-    features: ['CFO Dashboard', 'Unit Economics', 'Cash Flow Direct', 'Working Capital', 'AR/AP Operations'],
+    description: 'Single Source of Truth cho Net Revenue, Contribution Margin, Real Cash.',
+    features: ['CFO Dashboard', 'Unit Economics', 'Cash Flow', 'Working Capital'],
   },
   {
     id: 'mdp',
@@ -525,8 +562,8 @@ const platformModules = [
     fullName: 'Marketing Data Platform',
     tagline: 'Profit before Performance',
     color: colors.purple,
-    description: 'Đo lường giá trị tài chính thật của Marketing - Profit ROAS thay vì Click ROAS.',
-    features: ['Profit Attribution', 'Cash Impact', 'CAC Payback', 'Channel P&L', 'Scale/Kill Decisions'],
+    description: 'Profit ROAS thay vì Click ROAS. Đo lường giá trị tài chính thật của Marketing.',
+    features: ['Profit Attribution', 'Cash Impact', 'CAC Payback', 'Scale/Kill'],
   },
   {
     id: 'cdp',
@@ -534,8 +571,8 @@ const platformModules = [
     fullName: 'Customer Data Platform',
     tagline: 'Population > Individual',
     color: colors.accent,
-    description: 'Theo dõi sức khỏe tài chính của tập khách hàng - LTV Decay, Cohort Shift, Revenue at Risk.',
-    features: ['Customer Equity', 'LTV Forecast', 'Cohort Analysis', 'Churn Prediction', 'At-Risk Revenue'],
+    description: 'Sức khỏe tài chính của tập khách hàng - LTV Decay, Revenue at Risk.',
+    features: ['Customer Equity', 'LTV Forecast', 'Cohort Analysis', 'At-Risk'],
   },
   {
     id: 'ct',
@@ -543,178 +580,99 @@ const platformModules = [
     fullName: 'Trung Tâm Điều Hành',
     tagline: 'Awareness before Analytics',
     color: colors.warning,
-    description: 'Báo động và hành động - Chỉ quan tâm "điều gì sai" với Impact, Deadline, và Owner.',
-    features: ['Max 7 Alerts', 'Impact Calculation', 'Auto-Escalation', 'Resolution Tracking', 'Cross-module Sync'],
+    description: 'Chỉ quan tâm "điều gì sai" với Impact VND, Deadline, Owner.',
+    features: ['Max 7 Alerts', 'Impact VND', 'Auto-Escalation', 'Resolution'],
   },
   {
     id: 'dw',
     name: 'Financial Spine',
     fullName: 'Xương Sống Tài Chính',
-    tagline: 'Không có Spine = Mỗi phòng 1 con số',
+    tagline: 'Không có Spine = Mỗi phòng 1 số',
     color: colors.cyan,
-    description: 'Nền tảng dữ liệu tập trung với 35+ connectors cho thị trường Việt Nam. Không có Financial Spine, Control Tower vô nghĩa.',
-    features: ['35+ Connectors', 'Single Source of Truth', 'Real-time Sync', '1-2 Weeks Deploy', 'Zero Reconcile'],
+    description: '35+ connectors Việt Nam. Tất cả module đọc từ 1 nguồn duy nhất.',
+    features: ['35+ Connectors', 'Real-time Sync', '1-2 Weeks Deploy'],
   },
 ];
 
-// Hidden cost data - kích hoạt nỗi sợ
-const hiddenCosts = [
-  {
-    title: 'Sai lệch 2-3% Net Revenue',
-    pain: 'Lệch quyết định tồn kho, mua thừa 500 triệu hàng không bán được',
-    cost: '500 triệu VND',
-  },
-  {
-    title: 'ROAS dương nhưng Profit âm',
-    pain: 'Marketing báo "đang thắng" trong khi thực tế đốt 200 triệu/tháng trong im lặng',
-    cost: '2.4 tỷ VND/năm',
-  },
-  {
-    title: 'Không thấy Cash Gap sớm',
-    pain: 'Phát hiện thiếu tiền khi đã muộn, vay nóng lãi suất 18-24%/năm',
-    cost: 'Lãi vay + Mất uy tín',
-  },
-  {
-    title: 'AR quá hạn không ai biết',
-    pain: '800 triệu nợ xấu âm thầm tích lũy, chỉ phát hiện khi kiểm toán cuối năm',
-    cost: '800 triệu VND bad debt',
-  },
-];
-
-const connectorStats = {
-  total: '35+',
-  ecommerce: 'Shopee, Lazada, TikTok Shop, Tiki',
-  erp: 'Haravan, Sapo, KiotViet, MISA, Suno',
-  marketing: 'Google Ads, Meta Ads, TikTok Ads',
-  banking: 'Techcombank, VietinBank, MB Bank',
-};
-
-// ROAS Illusion breakdown - 4.0x → 0.9x
+// ROAS Illusion breakdown
 const roasBreakdown = [
-  { label: 'Gross Revenue (Doanh thu gộp)', value: '100%', isPositive: true },
-  { label: 'Platform fee (Phí sàn TMĐT)', value: '-12%', isPositive: false },
-  { label: 'COGS (Giá vốn)', value: '-45%', isPositive: false },
-  { label: 'Shipping (Vận chuyển)', value: '-8%', isPositive: false },
-  { label: 'Returns (Hàng trả)', value: '-12%', isPositive: false },
-  { label: 'Payment fee (Phí thanh toán)', value: '-3%', isPositive: false },
-  { label: 'Profit (Lợi nhuận)', value: '20%', isPositive: true, isTotal: true },
+  { label: 'Gross Revenue', value: '100%', isPositive: true },
+  { label: 'Platform fee (12%)', value: '-12%', isPositive: false },
+  { label: 'COGS (45%)', value: '-45%', isPositive: false },
+  { label: 'Shipping (8%)', value: '-8%', isPositive: false },
+  { label: 'Returns (12%)', value: '-12%', isPositive: false },
+  { label: 'Payment fee (3%)', value: '-3%', isPositive: false },
+  { label: 'Profit', value: '20%', isPositive: true, isTotal: true },
 ];
 
-// Competitor comparison mới - Elton Data + PangoCDP
+// Competitor comparison
 const competitiveComparisonNew = [
   {
     layer: 'Data Ingestion',
     bluecore: '35 native VN connectors, tự tạo Data Warehouse',
-    elton: 'Cần Data Warehouse riêng (BigQuery) + data engineer',
+    elton: 'Cần Data Warehouse riêng + data engineer',
     pango: 'Cần tracking setup (pixel/API)',
   },
   {
     layer: 'Data Model',
-    bluecore: 'Financial Truth đóng gói sẵn (Net Revenue, Real Cash, Profit ROAS)',
-    elton: 'Raw data sạch, tự build business logic (SQL/dbt)',
-    pango: 'Customer Truth: 360° profile + segments',
+    bluecore: 'Financial Truth đóng gói sẵn',
+    elton: 'Raw data sạch, tự build logic (SQL)',
+    pango: 'Customer Truth: 360° profile',
   },
   {
     layer: 'Output',
-    bluecore: 'Control Tower: Alert có Owner/Deadline/Impact VND',
-    elton: 'Dataset sạch → tự build dashboard BI',
-    pango: 'Segments + automation campaigns',
+    bluecore: 'Alert có Owner/Deadline/Impact VND',
+    elton: 'Dataset sạch → tự build BI',
+    pango: 'Segments + automation',
   },
   {
     layer: 'Deployment',
     bluecore: '1-2 tuần live',
-    elton: '3-6 tháng (warehouse + pipeline)',
-    pango: '2-3 tháng (tracking + identity)',
+    elton: '3-6 tháng',
+    pango: '2-3 tháng',
   },
   {
     layer: 'Chi phí',
-    bluecore: 'Cố định 1.5-4 triệu/tháng',
-    elton: 'Data eng 40tr/tháng + BigQuery 20tr/năm',
+    bluecore: '1.5-4 triệu/tháng',
+    elton: '40tr/tháng + BigQuery',
     pango: 'Vài ngàn USD/tháng',
   },
 ];
 
 // Pricing Plans
 const pricingPlans = [
-  { name: 'Marketing Plan', price: '1.5 triệu', period: '/tháng', desc: 'MDP focus - Profit ROAS', color: colors.purple },
-  { name: 'Ecommerce Plan', price: '3 triệu', period: '/tháng', desc: 'FDP + MDP - Full Financial', color: colors.primary },
+  { name: 'Marketing Plan', price: '1.5 triệu', period: '/tháng', desc: 'MDP focus', color: colors.purple },
+  { name: 'Ecommerce Plan', price: '3 triệu', period: '/tháng', desc: 'FDP + MDP', color: colors.primary },
   { name: 'Combo CEO', price: '4 triệu', period: '/tháng', desc: 'Full 5 modules', color: colors.accent, featured: true },
 ];
 
 // FDP Core Formulas
 const fdpFormulas = [
-  { name: 'Net Revenue', formula: 'Gross Revenue - Returns - Discounts - Platform Fees' },
+  { name: 'Net Revenue', formula: 'Gross - Returns - Discounts - Platform Fees' },
   { name: 'Contribution Margin', formula: 'Net Revenue - COGS - Variable Costs' },
-  { name: 'Real Cash', formula: 'Bank Balance - Pending Payables - Locked Inventory + Confirmed AR' },
-];
-
-const useCases = [
-  {
-    id: '1',
-    title: 'Kiểm tra sức khỏe tài chính mỗi sáng',
-    persona: 'CEO Retail',
-    story: 'Mỗi sáng, Anh Minh - CEO chuỗi thời trang - mở Bluecore thay vì gọi kế toán. Trong 30 giây, anh thấy: Cash khả dụng 1.2 tỷ, 3 đơn hàng lớn chưa thanh toán 400 triệu, và 1 SKU đang lỗ 15% margin.',
-    modules: ['FDP', 'Control Tower'],
-    results: [
-      { label: 'Thời gian kiểm tra', before: '2 tiếng', after: '30 giây' },
-      { label: 'Ra quyết định', before: 'Cuối tháng', after: 'Real-time' },
-    ],
-  },
-  {
-    id: '2',
-    title: 'Marketing budget allocation',
-    persona: 'CMO E-commerce',
-    story: 'Chị Lan điều hành marketing cho brand mỹ phẩm. Trước đây, chị chạy theo ROAS 3.5x nhưng không hiểu sao profit không tăng. MDP cho thấy: Shopee Ads có Profit ROAS chỉ 0.8x sau khi trừ phí sàn, shipping, và return.',
-    modules: ['MDP', 'FDP'],
-    results: [
-      { label: 'Profit ROAS visibility', before: '0%', after: '100%' },
-      { label: 'Budget hiệu quả', before: '50%', after: '85%' },
-    ],
-  },
-  {
-    id: '3',
-    title: 'Cảnh báo khủng hoảng cash flow',
-    persona: 'CFO FMCG',
-    story: 'Anh Hùng quản lý tài chính công ty thực phẩm. Control Tower phát hiện: Settlement từ Shopee chậm 5 ngày + 3 đơn B2B 800 triệu quá hạn = Cash gap 1.1 tỷ trong 7 ngày tới. Anh có thời gian xử lý trước khi khủng hoảng.',
-    modules: ['Control Tower', 'FDP'],
-    results: [
-      { label: 'Phát hiện risk', before: 'Khi xảy ra', after: '7 ngày trước' },
-      { label: 'Cash gap avoided', before: '-', after: '1.1 tỷ VND' },
-    ],
-  },
-  {
-    id: '4',
-    title: 'Theo dõi sức khỏe khách hàng',
-    persona: 'Founder D2C',
-    story: 'Tuấn sáng lập startup D2C. CDP cho thấy: Cohort Q1/2024 có LTV decay 40% sau 6 tháng - nhanh hơn 2x so với cohort cũ. At-risk revenue: 2 tỷ. Anh điều chỉnh retention campaign trước khi mất khách.',
-    modules: ['CDP', 'MDP'],
-    results: [
-      { label: 'Churn visibility', before: 'Quarterly', after: 'Weekly' },
-      { label: 'Revenue bảo vệ', before: '-', after: '1.2 tỷ VND' },
-    ],
-  },
+  { name: 'Real Cash', formula: 'Bank Balance - Payables - Locked + AR' },
 ];
 
 const manifesto = [
-  { title: 'SINGLE SOURCE OF TRUTH', desc: '1 Net Revenue, 1 Contribution Margin, 1 Cash Position. Không có phiên bản khác.' },
-  { title: 'REAL CASH', desc: 'Phân biệt: Tiền đã về / sẽ về / có nguy cơ không về / đang bị khóa.' },
-  { title: 'REVENUE ↔ COST', desc: 'Mọi doanh thu đều đi kèm chi phí. Không có doanh thu "đứng một mình".' },
-  { title: 'UNIT ECONOMICS → ACTION', desc: 'SKU lỗ + khóa cash + tăng risk → phải nói STOP.' },
-  { title: 'TODAY\'S DECISION', desc: 'Phục vụ quyết định hôm nay, không phải báo cáo cuối tháng.' },
-  { title: 'SURFACE PROBLEMS', desc: 'Không làm đẹp số, không che anomaly, chỉ ra vấn đề sớm.' },
-  { title: 'AWARENESS BEFORE ANALYTICS', desc: 'Biết điều gì sai trước khi phân tích chi tiết.' },
-  { title: 'PROFIT BEFORE PERFORMANCE', desc: 'Lợi nhuận thật trước hiệu suất marketing trên giấy.' },
-  { title: 'POPULATION > INDIVIDUAL', desc: 'Sức khỏe tập khách hàng quan trọng hơn CRM từng người.' },
-  { title: 'FINAL TEST', desc: 'Nếu không khiến quyết định rõ ràng hơn → Bluecore đã thất bại.' },
+  { title: 'SINGLE SOURCE OF TRUTH', desc: '1 Net Revenue, 1 Cash Position. Không có phiên bản khác.' },
+  { title: 'REAL CASH', desc: 'Phân biệt: Tiền đã về / sẽ về / có nguy cơ không về.' },
+  { title: 'REVENUE ↔ COST', desc: 'Mọi doanh thu đều đi kèm chi phí.' },
+  { title: 'UNIT ECONOMICS → ACTION', desc: 'SKU lỗ + khóa cash → phải nói STOP.' },
+  { title: 'TODAY\'S DECISION', desc: 'Phục vụ quyết định hôm nay.' },
+  { title: 'SURFACE PROBLEMS', desc: 'Không làm đẹp số, chỉ ra vấn đề sớm.' },
+  { title: 'AWARENESS BEFORE ANALYTICS', desc: 'Biết điều gì sai trước.' },
+  { title: 'PROFIT BEFORE PERFORMANCE', desc: 'Lợi nhuận thật > metrics trên giấy.' },
+  { title: 'POPULATION > INDIVIDUAL', desc: 'Sức khỏe tập khách hàng > CRM từng người.' },
+  { title: 'FINAL TEST', desc: 'Không rõ ràng hơn = Bluecore thất bại.' },
 ];
 
 // ============= PAGE COMPONENTS =============
 
+// SLIDE 1: COVER - Hook with CEO story
 const CoverPage = () => (
   <Page size="A4" style={styles.coverPage}>
     <View style={[styles.coverOrnament, { width: 600, height: 600, top: -200, right: -250 }]} />
     <View style={[styles.coverOrnament, { width: 700, height: 700, bottom: -300, left: -350, opacity: 0.05 }]} />
-    <View style={[styles.coverOrnament, { width: 200, height: 200, bottom: 150, right: 100, opacity: 0.06 }]} />
     
     <View style={styles.coverBadge}>
       <Text style={styles.coverBadgeText}>EXECUTIVE DECISION OS</Text>
@@ -722,119 +680,121 @@ const CoverPage = () => (
     
     <Text style={styles.coverTitle}>BLUECORE</Text>
     <Text style={styles.coverSubtitle}>
-      Nền tảng Ra Quyết định Tài chính cho CEO/CFO Retail & E-commerce Việt Nam
+      Mỗi sáng, CEO phải hỏi: "Tiền thật còn bao nhiêu? Marketing đang lãi hay lỗ? 
+      Khách hàng có đang rời đi?" — Bluecore trả lời trong 30 giây.
     </Text>
     <Text style={styles.coverTagline}>Truth &gt; Flexibility</Text>
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>Full System Overview 2025</Text>
+      <Text style={styles.pageNumberWhite}>1 / 20</Text>
     </View>
   </Page>
 );
 
-const PillarsPage = () => (
-  <Page size="A4" style={styles.pageDark}>
-    <Text style={styles.eyebrowLabelWhite}>GIÁ TRỊ CỐT LÕI</Text>
-    <Text style={styles.sectionTitleWhite}>3 Trụ Cột Của Bluecore</Text>
+// SLIDE 2: THE CEO'S MORNING - Narrative story
+const CEOMorningPage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>VẤN ĐỀ</Text>
+    <Text style={styles.sectionTitle}>7:30 Sáng — Một Ngày Của CEO</Text>
     
-    <View style={{ flexDirection: 'row', gap: 16, marginTop: 40 }}>
-      {threePillars.map((pillar, index) => (
-        <View key={index} style={styles.pillarCard}>
-          <View style={{ 
-            width: 48, 
-            height: 48, 
-            borderRadius: 24, 
-            backgroundColor: colors.accent,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white }}>{pillar.icon}</Text>
-          </View>
-          <Text style={styles.pillarTitle}>{pillar.title}</Text>
-          <Text style={styles.pillarDesc}>{pillar.desc}</Text>
+    <View style={styles.storyBlock}>
+      <Text style={styles.storyQuote}>"Tôi biết công ty tôi kiếm tiền, nhưng tôi không biết tiền ở đâu."</Text>
+      <Text style={styles.storyText}>
+        Anh Minh - CEO chuỗi thời trang 50 tỷ/năm - thức dậy và mở điện thoại. 
+        CMO báo cáo ROAS 3.5x "thắng lớn". CFO nói margin đang giảm. 
+        Kế toán chưa có số mới nhất. Anh có cuộc họp chiều nay để quyết định: 
+        scale budget lên 2x hay dừng lại?
+      </Text>
+    </View>
+    
+    <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>
+      Những câu hỏi không ai trả lời được:
+    </Text>
+    
+    <View style={{ gap: 8 }}>
+      {[
+        'Tiền THẬT còn bao nhiêu? (không phải revenue, mà cash đã về)',
+        'Marketing đang tạo PROFIT hay đốt tiền trong im lặng?',
+        'Có bao nhiêu khách hàng đang rời đi mà chưa ai biết?',
+        'SKU nào đang lỗ nhưng vẫn đang chạy quảng cáo?',
+      ].map((q, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+          <Text style={{ fontSize: 12, color: colors.danger, marginRight: 8 }}>?</Text>
+          <Text style={{ fontSize: 10, color: colors.text, flex: 1, lineHeight: 1.5 }}>{q}</Text>
         </View>
       ))}
     </View>
     
     <View style={{ 
-      marginTop: 40, 
-      padding: 24, 
-      backgroundColor: 'rgba(16, 185, 129, 0.15)',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(16, 185, 129, 0.3)',
+      marginTop: 16, 
+      backgroundColor: colors.danger,
+      borderRadius: 10,
+      padding: 14,
     }}>
-      <Text style={{ fontSize: 16, fontWeight: 700, color: colors.white, textAlign: 'center', marginBottom: 12 }}>
-        "Bluecore không phải BI — không phải ERP"
-      </Text>
-      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 1.6 }}>
-        BI cho bạn biểu đồ. ERP cho bạn quy trình. Bluecore cho bạn QUYẾT ĐỊNH — với dữ liệu tài chính thật, ngay lập tức.
+      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
+        Doanh nghiệp không chết vì thiếu tiền. 
+        Doanh nghiệp chết vì KHÔNG BIẾT mình sắp hết tiền.
       </Text>
     </View>
     
     <View style={styles.footer}>
-      <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>2 / 20</Text>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>2 / 20</Text>
     </View>
   </Page>
 );
 
-// NEW SLIDE: The Hidden Cost of Not Knowing - kích hoạt nỗi sợ
+// SLIDE 3: HIDDEN COSTS - Pain amplification with numbers
 const HiddenCostPage = () => (
-  <Page size="A4" style={styles.page}>
-    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>CẢNH BÁO</Text>
-    <Text style={styles.sectionTitle}>Cái Giá Của "Không Biết"</Text>
-    <Text style={styles.sectionSubtitle}>
-      Những thiệt hại âm thầm xảy ra mỗi ngày khi doanh nghiệp không có nguồn sự thật tài chính đáng tin cậy.
-    </Text>
+  <Page size="A4" style={styles.pageAlt}>
+    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>CÁI GIÁ CỦA "KHÔNG BIẾT"</Text>
+    <Text style={styles.sectionTitle}>Những Thiệt Hại Im Lặng</Text>
     
-    <View style={{ gap: 12 }}>
-      {hiddenCosts.map((item, index) => (
-        <View key={index} style={{ 
-          backgroundColor: index === 0 ? '#fef2f2' : colors.white, 
-          borderRadius: 12, 
-          padding: 16,
-          borderWidth: 1,
-          borderColor: index === 0 ? '#fecaca' : '#e2e8f0',
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-        }}>
-          <View style={{ 
-            width: 32, 
-            height: 32, 
-            borderRadius: 16, 
-            backgroundColor: colors.danger,
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginRight: 14,
-          }}>
-            <Text style={{ fontSize: 14, fontWeight: 700, color: colors.white }}>!</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: colors.danger, marginBottom: 4 }}>
-              {item.title}
-            </Text>
-            <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5, marginBottom: 6 }}>
-              {item.pain}
-            </Text>
-            <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark }}>
-              Thiệt hại: {item.cost}
-            </Text>
-          </View>
+    <View style={{ gap: 10 }}>
+      <View style={{ backgroundColor: '#fef2f2', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#fecaca' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.danger, marginRight: 10 }}>2.4 tỷ</Text>
+          <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700 }}>VND/năm</Text>
         </View>
-      ))}
-    </View>
-    
-    <View style={{ 
-      marginTop: 20, 
-      backgroundColor: colors.danger,
-      borderRadius: 12,
-      padding: 16,
-    }}>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
-        Doanh nghiệp không chết vì thiếu tiền. Doanh nghiệp chết vì KHÔNG BIẾT mình sắp hết tiền.
-      </Text>
+        <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5 }}>
+          Marketing báo "đang thắng" với ROAS 4.0x. Nhưng sau khi trừ phí sàn, COGS, shipping, returns — 
+          Profit ROAS chỉ còn 0.9x. Mỗi đồng quảng cáo thực ra đang LỖ 10%.
+        </Text>
+      </View>
+      
+      <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.warning, marginRight: 10 }}>800 triệu</Text>
+          <Text style={{ fontSize: 10, color: colors.text, fontWeight: 700 }}>bad debt</Text>
+        </View>
+        <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5 }}>
+          AR quá hạn âm thầm tích lũy. Không ai theo dõi. Chỉ phát hiện khi kiểm toán cuối năm — 
+          khách hàng đã phá sản, không thu hồi được.
+        </Text>
+      </View>
+      
+      <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.primaryDark, marginRight: 10 }}>500 triệu</Text>
+          <Text style={{ fontSize: 10, color: colors.text, fontWeight: 700 }}>hàng tồn</Text>
+        </View>
+        <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5 }}>
+          Sai lệch 2-3% Net Revenue → lệch quyết định tồn kho → mua thừa hàng không bán được. 
+          Tiền bị "khóa" trong kho 6-12 tháng.
+        </Text>
+      </View>
+      
+      <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.purple, marginRight: 10 }}>18-24%</Text>
+          <Text style={{ fontSize: 10, color: colors.text, fontWeight: 700 }}>lãi vay nóng</Text>
+        </View>
+        <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5 }}>
+          Không thấy Cash Gap sớm → phát hiện thiếu tiền khi đã muộn → vay nóng với lãi suất cao. 
+          Mất uy tín với nhà cung cấp.
+        </Text>
+      </View>
     </View>
     
     <View style={styles.footer}>
@@ -844,19 +804,84 @@ const HiddenCostPage = () => (
   </Page>
 );
 
+// SLIDE 4: THE SOLUTION - Bluecore introduction
+const SolutionIntroPage = () => (
+  <Page size="A4" style={styles.pageDark}>
+    <Text style={styles.eyebrowLabelWhite}>GIẢI PHÁP</Text>
+    <Text style={styles.sectionTitleWhite}>Bluecore — Executive Decision OS</Text>
+    
+    <View style={{ flexDirection: 'row', gap: 14, marginTop: 24 }}>
+      {threePillars.map((pillar, index) => (
+        <View key={index} style={styles.pillarCard}>
+          <View style={{ 
+            width: 44, 
+            height: 44, 
+            borderRadius: 22, 
+            backgroundColor: colors.accent,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <Text style={{ fontSize: 16, fontWeight: 700, color: colors.white }}>{pillar.icon}</Text>
+          </View>
+          <Text style={styles.pillarTitle}>{pillar.title}</Text>
+          <Text style={styles.pillarDesc}>{pillar.desc}</Text>
+        </View>
+      ))}
+    </View>
+    
+    <View style={{ 
+      marginTop: 24, 
+      padding: 20, 
+      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(16, 185, 129, 0.3)',
+    }}>
+      <Text style={{ fontSize: 14, fontWeight: 700, color: colors.white, textAlign: 'center', marginBottom: 10 }}>
+        "Bluecore không phải BI — không phải ERP"
+      </Text>
+      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 1.6 }}>
+        BI cho bạn biểu đồ. ERP cho bạn quy trình. 
+        Bluecore cho bạn QUYẾT ĐỊNH — với dữ liệu tài chính thật, ngay lập tức.
+      </Text>
+    </View>
+    
+    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 40, marginTop: 24 }}>
+      <View style={{ alignItems: 'center' }}>
+        <Text style={styles.statNumberWhite}>5</Text>
+        <Text style={styles.statLabelWhite}>Modules</Text>
+      </View>
+      <View style={{ alignItems: 'center' }}>
+        <Text style={styles.statNumberWhite}>35+</Text>
+        <Text style={styles.statLabelWhite}>Connectors VN</Text>
+      </View>
+      <View style={{ alignItems: 'center' }}>
+        <Text style={styles.statNumberWhite}>1-2</Text>
+        <Text style={styles.statLabelWhite}>Tuần triển khai</Text>
+      </View>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerTextWhite}>bluecore.vn</Text>
+      <Text style={styles.pageNumberWhite}>4 / 20</Text>
+    </View>
+  </Page>
+);
+
+// SLIDE 5: ECOSYSTEM OVERVIEW
 const EcosystemOverviewPage = () => (
   <Page size="A4" style={styles.page}>
     <Text style={styles.eyebrowLabel}>HỆ SINH THÁI</Text>
     <Text style={styles.sectionTitle}>5 Modules — 1 Sự Thật Tài Chính</Text>
     <Text style={styles.sectionSubtitle}>
-      Mỗi module giải quyết một góc nhìn khác nhau, nhưng tất cả đều chia sẻ cùng một nguồn sự thật tài chính.
+      Mỗi module giải quyết một câu hỏi khác nhau, nhưng tất cả đều đọc từ cùng một nguồn sự thật.
     </Text>
     
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
       {platformModules.map((module) => (
         <View key={module.id} style={styles.moduleCard}>
           <View style={[styles.moduleIcon, { backgroundColor: `${module.color}20` }]}>
-            <Text style={{ fontSize: 12, fontWeight: 700, color: module.color }}>{module.name}</Text>
+            <Text style={{ fontSize: 10, fontWeight: 700, color: module.color }}>{module.name}</Text>
           </View>
           <Text style={styles.moduleTitle}>{module.fullName}</Text>
           <Text style={styles.moduleTagline}>{module.tagline}</Text>
@@ -867,45 +892,29 @@ const EcosystemOverviewPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>4 / 20</Text>
+      <Text style={styles.pageNumber}>5 / 20</Text>
     </View>
   </Page>
 );
 
+// SLIDE 6: FDP DETAIL with screenshot
 const FDPDetailPage = () => (
   <Page size="A4" style={styles.pageAlt}>
     <Text style={styles.eyebrowLabel}>MODULE 1: FDP</Text>
     <Text style={styles.sectionTitle}>Financial Data Platform</Text>
-    <Text style={styles.sectionSubtitle}>
-      Nền tảng tài chính cho CEO/CFO — Single Source of Truth cho mọi quyết định kinh doanh.
-    </Text>
     
-    {/* Screenshot: CFO Dashboard */}
+    {/* Screenshot */}
     <View style={styles.screenshotContainer}>
-      <Image 
-        src={`${getBaseUrl()}/screenshots/cfo-dashboard.png`}
-        style={styles.screenshot}
-      />
-      <Text style={styles.screenshotCaption}>
-        CFO Dashboard - Thanh khoản & Vị thế tiền mặt thời gian thực
-      </Text>
+      <Image src={fdpDashboard} style={styles.screenshot} />
+      <Text style={styles.screenshotCaption}>CFO Dashboard - Thanh khoản & Vị thế tiền mặt thời gian thực</Text>
     </View>
     
-    {/* Core Formulas Box */}
-    <View style={{ 
-      backgroundColor: '#f0f9ff', 
-      borderRadius: 8, 
-      padding: 12, 
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: '#bae6fd',
-    }}>
-      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>
-        3 Công thức Cốt lõi
-      </Text>
+    {/* Core Formulas */}
+    <View style={{ backgroundColor: '#f0f9ff', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#bae6fd' }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>3 Công thức Cốt lõi</Text>
       {fdpFormulas.map((item, index) => (
-        <View key={index} style={{ flexDirection: 'row', marginBottom: 4 }}>
-          <Text style={{ fontSize: 8, fontWeight: 700, color: colors.primary, width: 100 }}>{item.name}:</Text>
+        <View key={index} style={{ flexDirection: 'row', marginBottom: 3 }}>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: colors.primary, width: 90 }}>{item.name}:</Text>
           <Text style={{ fontSize: 8, color: colors.text, flex: 1 }}>{item.formula}</Text>
         </View>
       ))}
@@ -920,58 +929,6 @@ const FDPDetailPage = () => (
         <Text style={styles.cardTitle}>Unit Economics</Text>
         <Text style={styles.cardText}>Contribution Margin per SKU/Channel. Biết ngay sản phẩm nào đang lỗ.</Text>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Working Capital</Text>
-        <Text style={styles.cardText}>DSO, DIO, DPO, Cash Conversion Cycle tự động.</Text>
-      </View>
-    </View>
-    
-    <View style={styles.footer}>
-      <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>5 / 20</Text>
-    </View>
-  </Page>
-);
-
-const MDPDetailPage = () => (
-  <Page size="A4" style={styles.page}>
-    <Text style={styles.eyebrowLabel}>MODULE 2: MDP</Text>
-    <Text style={styles.sectionTitle}>Marketing Data Platform</Text>
-    <Text style={styles.sectionSubtitle}>
-      Đo lường giá trị tài chính thật của Marketing — Profit ROAS, không phải Click ROAS.
-    </Text>
-    
-    {/* Screenshot: Campaigns với Financial Truth */}
-    <View style={styles.screenshotContainer}>
-      <Image 
-        src={`${getBaseUrl()}/screenshots/mdp-campaigns.png`}
-        style={styles.screenshot}
-      />
-      <Text style={styles.screenshotCaption}>
-        Campaigns Performance - Financial Truth với Profit ROAS thật (sau COGS, phí sàn, return)
-      </Text>
-    </View>
-    
-    {/* Two screenshots side by side: Channels + Audience */}
-    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Image 
-          src={`${getBaseUrl()}/screenshots/mdp-channels.png`}
-          style={styles.screenshotHalf}
-        />
-        <Text style={styles.screenshotCaption}>
-          Channel Health Matrix - Scale/Stop
-        </Text>
-      </View>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Image 
-          src={`${getBaseUrl()}/screenshots/mdp-audience.png`}
-          style={styles.screenshotHalf}
-        />
-        <Text style={styles.screenshotCaption}>
-          Audience Insights - RFM Analysis
-        </Text>
-      </View>
     </View>
     
     <View style={styles.footer}>
@@ -981,69 +938,28 @@ const MDPDetailPage = () => (
   </Page>
 );
 
-// NEW SLIDE: ROAS Illusion - 4.0x → 0.9x breakdown
-const ROASIllusionPage = () => (
+// SLIDE 7: FDP DECISION CARDS
+const FDPDecisionPage = () => (
   <Page size="A4" style={styles.page}>
-    <Text style={[styles.eyebrowLabel, { color: colors.danger }]}>REALITY CHECK</Text>
-    <Text style={styles.sectionTitle}>"Marketing Thắng, Finance Lỗ"</Text>
-    <Text style={styles.sectionSubtitle}>
-      Tại sao ROAS 4.0x trên Shopee Ads thực tế có thể là LỖ TIỀN?
-    </Text>
+    <Text style={styles.eyebrowLabel}>FDP TRONG HÀNH ĐỘNG</Text>
+    <Text style={styles.sectionTitle}>Decision Cards & Scenario Planning</Text>
     
-    {/* ROAS Comparison */}
-    <View style={{ flexDirection: 'row', gap: 24, marginBottom: 20 }}>
-      <View style={{ flex: 1, backgroundColor: '#dcfce7', borderRadius: 12, padding: 20, alignItems: 'center' }}>
-        <Text style={{ fontSize: 10, color: colors.textLight, marginBottom: 4 }}>Reported ROAS</Text>
-        <Text style={{ fontSize: 36, fontWeight: 700, color: colors.accent }}>4.0x</Text>
-        <Text style={{ fontSize: 9, color: colors.textLight }}>(Shopee Ads Dashboard)</Text>
+    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image src={fdpDecisionCard} style={styles.screenshotHalf} />
+        <Text style={styles.screenshotCaption}>Decision Card - Quyết định có Impact VND rõ ràng</Text>
       </View>
-      <View style={{ justifyContent: 'center' }}>
-        <Text style={{ fontSize: 24, color: colors.textLight }}>→</Text>
-      </View>
-      <View style={{ flex: 1, backgroundColor: '#fef2f2', borderRadius: 12, padding: 20, alignItems: 'center' }}>
-        <Text style={{ fontSize: 10, color: colors.textLight, marginBottom: 4 }}>Profit ROAS</Text>
-        <Text style={{ fontSize: 36, fontWeight: 700, color: colors.danger }}>0.9x</Text>
-        <Text style={{ fontSize: 9, color: colors.danger, fontWeight: 700 }}>LỖ TIỀN!</Text>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Image src={fdpScenario} style={styles.screenshotHalf} />
+        <Text style={styles.screenshotCaption}>Scenario Planning - Mô phỏng các kịch bản</Text>
       </View>
     </View>
     
-    {/* Breakdown Table */}
-    <View style={{ backgroundColor: colors.white, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' }}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 12 }}>Chi tiết phân tích (mỗi 100đ doanh thu)</Text>
-      {roasBreakdown.map((item, index) => (
-        <View key={index} style={[
-          { 
-            flexDirection: 'row', 
-            justifyContent: 'space-between', 
-            paddingVertical: 6,
-            marginTop: item.isTotal ? 4 : 0,
-          },
-          !item.isTotal ? { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' } : {},
-          item.isTotal ? { borderTopWidth: 2, borderTopColor: colors.primaryDark } : {},
-        ]}>
-          <Text style={{ fontSize: 10, color: item.isTotal ? colors.primaryDark : colors.text, fontWeight: item.isTotal ? 700 : 400 }}>
-            {item.label}
-          </Text>
-          <Text style={{ 
-            fontSize: 10, 
-            fontWeight: 700, 
-            color: item.isPositive ? (item.isTotal ? colors.accent : colors.text) : colors.danger,
-          }}>
-            {item.value}
-          </Text>
-        </View>
-      ))}
-    </View>
-    
-    {/* Impact Box */}
-    <View style={{ 
-      marginTop: 16, 
-      backgroundColor: colors.danger,
-      borderRadius: 12,
-      padding: 16,
-    }}>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
-        2.4 tỷ VND/năm mất trong im lặng — chỉ vì không phân biệt ROAS báo cáo vs Profit ROAS thật.
+    <View style={styles.storyBlock}>
+      <Text style={styles.storyQuote}>"Thay vì đọc 10 trang báo cáo, tôi chỉ cần 1 Decision Card"</Text>
+      <Text style={styles.storyText}>
+        Decision Card cho bạn biết: Vấn đề gì? Mất bao nhiêu tiền? Ai chịu trách nhiệm? 
+        Deadline xử lý? Không có thông tin thừa — chỉ có thông tin để hành động.
       </Text>
     </View>
     
@@ -1054,62 +970,52 @@ const ROASIllusionPage = () => (
   </Page>
 );
 
-const CDPControlTowerPage = () => (
-  <Page size="A4" style={styles.pageAlt}>
-    {/* Two screenshots side by side */}
-    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Image 
-          src={`${getBaseUrl()}/screenshots/cdp-customer-verification.png`}
-          style={styles.screenshotHalf}
-        />
-        <Text style={styles.screenshotCaption}>
-          CDP - Customer Profile 360° với RFM & LTV
-        </Text>
+// SLIDE 8: MDP & ROAS ILLUSION
+const MDPROASPage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={[styles.eyebrowLabel, { color: colors.purple }]}>MODULE 2: MDP</Text>
+    <Text style={styles.sectionTitle}>The ROAS Illusion</Text>
+    <Text style={styles.sectionSubtitle}>
+      Marketing báo cáo ROAS 4.0x — nhưng thực tế đang LỖ TIỀN. Đây là lý do.
+    </Text>
+    
+    {/* ROAS Comparison */}
+    <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16, alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#ecfdf5', borderRadius: 10, padding: 16, alignItems: 'center' }}>
+        <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 4 }}>Reported ROAS</Text>
+        <Text style={{ fontSize: 32, fontWeight: 700, color: colors.accent }}>4.0x</Text>
+        <Text style={{ fontSize: 8, color: colors.textLight }}>Marketing "thắng lớn"</Text>
       </View>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <Image 
-          src={`${getBaseUrl()}/screenshots/control-tower.png`}
-          style={styles.screenshotHalf}
-        />
-        <Text style={styles.screenshotCaption}>
-          Control Tower - Decision Cards & Bluecore Scores
-        </Text>
+      <View style={{ justifyContent: 'center' }}>
+        <Text style={{ fontSize: 20, color: colors.textLight }}>→</Text>
+      </View>
+      <View style={{ flex: 1, backgroundColor: '#fef2f2', borderRadius: 10, padding: 16, alignItems: 'center' }}>
+        <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 4 }}>Profit ROAS</Text>
+        <Text style={{ fontSize: 32, fontWeight: 700, color: colors.danger }}>0.9x</Text>
+        <Text style={{ fontSize: 8, color: colors.danger, fontWeight: 700 }}>LỖ TIỀN!</Text>
       </View>
     </View>
     
-    <View style={{ flexDirection: 'row', gap: 16 }}>
-      {/* CDP Column */}
-      <View style={{ flex: 1 }}>
-        <Text style={styles.eyebrowLabel}>MODULE 3: CDP</Text>
-        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>Customer Data Platform</Text>
-        
-        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Customer Equity</Text>
-          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>LTV 12M, 24M Forecast, At-Risk Value</Text>
+    {/* Breakdown */}
+    <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#e2e8f0' }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Chi tiết (mỗi 100đ doanh thu)</Text>
+      {roasBreakdown.map((item, index) => (
+        <View key={index} style={[
+          { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
+          !item.isTotal ? { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' } : {},
+          item.isTotal ? { borderTopWidth: 2, borderTopColor: colors.primaryDark, marginTop: 4 } : {},
+        ]}>
+          <Text style={{ fontSize: 9, color: item.isTotal ? colors.primaryDark : colors.text, fontWeight: item.isTotal ? 700 : 400 }}>
+            {item.label}
+          </Text>
+          <Text style={{ 
+            fontSize: 9, fontWeight: 700, 
+            color: item.isPositive ? (item.isTotal ? colors.accent : colors.text) : colors.danger,
+          }}>
+            {item.value}
+          </Text>
         </View>
-        
-        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>LTV Decay Analysis</Text>
-          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Phát hiện cohort "chết" nhanh hơn bình thường</Text>
-        </View>
-      </View>
-      
-      {/* Control Tower Column */}
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.eyebrowLabel, { color: colors.warning }]}>MODULE 4: CONTROL TOWER</Text>
-        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.primaryDark, marginBottom: 6 }}>Trung Tâm Điều Hành</Text>
-        
-        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Max 7 Alerts</Text>
-          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Impact (VND) + Deadline + Owner</Text>
-        </View>
-        
-        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
-          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 2 }}>Auto-Escalation</Text>
-          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.3 }}>Tự động leo thang lên cấp trên</Text>
-        </View>
-      </View>
+      ))}
     </View>
     
     <View style={styles.footer}>
@@ -1119,13 +1025,82 @@ const CDPControlTowerPage = () => (
   </Page>
 );
 
-const DataWarehousePage = () => (
+// SLIDE 9: CDP & CONTROL TOWER
+const CDPControlTowerPage = () => (
+  <Page size="A4" style={styles.pageAlt}>
+    <View style={{ flexDirection: 'row', gap: 16 }}>
+      {/* CDP Column */}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.eyebrowLabel, { color: colors.accent }]}>MODULE 3: CDP</Text>
+        <Text style={{ fontSize: 12, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>Customer Data Platform</Text>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 3 }}>Customer Equity</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.4 }}>
+            LTV 12M, 24M Forecast. Tổng giá trị tài chính của tập khách hàng.
+          </Text>
+        </View>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 3 }}>LTV Decay Analysis</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.4 }}>
+            Phát hiện cohort "chết" nhanh hơn bình thường. Báo động At-Risk Revenue.
+          </Text>
+        </View>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 3 }}>Revenue at Risk</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.4 }}>
+            Bao nhiêu doanh thu có nguy cơ mất? Ai đang rời đi? Hành động gì?
+          </Text>
+        </View>
+      </View>
+      
+      {/* Control Tower Column */}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.eyebrowLabel, { color: colors.warning }]}>MODULE 4: CONTROL TOWER</Text>
+        <Text style={{ fontSize: 12, fontWeight: 700, color: colors.primaryDark, marginBottom: 8 }}>Trung Tâm Điều Hành</Text>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 3 }}>Max 7 Alerts</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.4 }}>
+            Tại mọi thời điểm, chỉ hiển thị 7 vấn đề nguy hiểm nhất. Không spam.
+          </Text>
+        </View>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 3 }}>Impact + Deadline + Owner</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.4 }}>
+            Mỗi alert phải trả lời: Mất bao nhiêu tiền? Ai xử lý? Còn bao lâu?
+          </Text>
+        </View>
+        
+        <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
+          <Text style={{ fontSize: 10, fontWeight: 700, color: colors.text, marginBottom: 3 }}>Auto-Escalation</Text>
+          <Text style={{ fontSize: 8, color: colors.textLight, lineHeight: 1.4 }}>
+            Không xử lý kịp? Tự động leo thang lên cấp trên. Không ai "quên" alert.
+          </Text>
+        </View>
+      </View>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>9 / 20</Text>
+    </View>
+  </Page>
+);
+
+// SLIDE 10: FINANCIAL SPINE with screenshot
+const FinancialSpinePage = () => (
   <Page size="A4" style={styles.page}>
-    <Text style={[styles.eyebrowLabel, { color: colors.cyan }]}>FINANCIAL SPINE</Text>
+    <Text style={[styles.eyebrowLabel, { color: colors.cyan }]}>MODULE 5: FINANCIAL SPINE</Text>
     <Text style={styles.sectionTitle}>Xương Sống Tài Chính</Text>
-    <Text style={styles.sectionSubtitle}>
-      Không có Financial Spine, mỗi phòng một con số. Không có Financial Spine, Control Tower vô nghĩa.
-    </Text>
+    
+    <View style={styles.screenshotContainer}>
+      <Image src={dwConnectors} style={styles.screenshot} />
+      <Text style={styles.screenshotCaption}>35+ Native Connectors cho thị trường Việt Nam</Text>
+    </View>
     
     <View style={styles.cardRow}>
       <View style={styles.statBox}>
@@ -1142,119 +1117,9 @@ const DataWarehousePage = () => (
       </View>
     </View>
     
-    <View style={{ marginTop: 20 }}>
-      <View style={{ 
-        backgroundColor: colors.backgroundAlt, 
-        borderRadius: 12, 
-        padding: 16, 
-        marginBottom: 12,
-      }}>
-        <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 8 }}>Sàn TMĐT</Text>
-        <Text style={{ fontSize: 10, color: colors.textLight }}>{connectorStats.ecommerce}</Text>
-      </View>
-      
-      <View style={{ 
-        backgroundColor: colors.backgroundAlt, 
-        borderRadius: 12, 
-        padding: 16, 
-        marginBottom: 12,
-      }}>
-        <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 8 }}>ERP & POS</Text>
-        <Text style={{ fontSize: 10, color: colors.textLight }}>{connectorStats.erp}</Text>
-      </View>
-      
-      <View style={{ 
-        backgroundColor: colors.backgroundAlt, 
-        borderRadius: 12, 
-        padding: 16, 
-        marginBottom: 12,
-      }}>
-        <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 8 }}>Marketing Platforms</Text>
-        <Text style={{ fontSize: 10, color: colors.textLight }}>{connectorStats.marketing}</Text>
-      </View>
-      
-      <View style={{ 
-        backgroundColor: colors.backgroundAlt, 
-        borderRadius: 12, 
-        padding: 16,
-      }}>
-        <Text style={{ fontSize: 11, fontWeight: 700, color: colors.text, marginBottom: 8 }}>Ngân hàng</Text>
-        <Text style={{ fontSize: 10, color: colors.textLight }}>{connectorStats.banking}</Text>
-      </View>
-    </View>
-    
-    <View style={{ 
-      marginTop: 16, 
-      backgroundColor: '#fef3c7',
-      borderRadius: 12,
-      padding: 14,
-      borderWidth: 1,
-      borderColor: '#fcd34d',
-    }}>
+    <View style={{ marginTop: 12, backgroundColor: '#fef3c7', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#fcd34d' }}>
       <Text style={{ fontSize: 10, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
-        Tại sao gọi là "Financial Spine"? Vì nếu thiếu nó, toàn bộ hệ thống Bluecore không đứng vững — như cơ thể không có xương sống.
-      </Text>
-    </View>
-    
-    <View style={styles.footer}>
-      <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>9 / 20</Text>
-    </View>
-  </Page>
-);
-
-const CompetitiveAdvantagesPage = () => (
-  <Page size="A4" style={styles.pageAlt}>
-    <Text style={styles.eyebrowLabel}>SO SÁNH ĐỐI THỦ</Text>
-    <Text style={styles.sectionTitle}>Bluecore vs. Elton Data vs. PangoCDP</Text>
-    <Text style={styles.sectionSubtitle}>
-      So sánh 5 layers giữa các giải pháp data phổ biến tại Việt Nam.
-    </Text>
-    
-    <View style={{ borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
-      {/* Header */}
-      <View style={styles.tableRow}>
-        <View style={[styles.tableHeader, { flex: 1.2 }]}>
-          <Text style={styles.tableHeaderText}>Layer</Text>
-        </View>
-        <View style={[styles.tableHeader, { backgroundColor: colors.accentDark, flex: 1.5 }]}>
-          <Text style={styles.tableHeaderText}>Bluecore</Text>
-        </View>
-        <View style={[styles.tableHeader, { flex: 1.5 }]}>
-          <Text style={styles.tableHeaderText}>Elton Data</Text>
-        </View>
-        <View style={[styles.tableHeader, { flex: 1.5 }]}>
-          <Text style={styles.tableHeaderText}>PangoCDP</Text>
-        </View>
-      </View>
-      
-      {/* Rows */}
-      {competitiveComparisonNew.map((row, index) => (
-        <View key={index} style={styles.tableRow}>
-          <View style={[styles.tableCell, { flex: 1.2 }]}>
-            <Text style={[styles.tableCellText, { fontWeight: 700 }]}>{row.layer}</Text>
-          </View>
-          <View style={[styles.tableCellHighlight, { flex: 1.5 }]}>
-            <Text style={[styles.tableCellTextBold, { textAlign: 'left' }]}>{row.bluecore}</Text>
-          </View>
-          <View style={[styles.tableCell, { flex: 1.5 }]}>
-            <Text style={[styles.tableCellText, { textAlign: 'left' }]}>{row.elton}</Text>
-          </View>
-          <View style={[styles.tableCell, { flex: 1.5 }]}>
-            <Text style={[styles.tableCellText, { textAlign: 'left' }]}>{row.pango}</Text>
-          </View>
-        </View>
-      ))}
-    </View>
-    
-    <View style={{ 
-      marginTop: 16, 
-      backgroundColor: colors.primaryDark,
-      borderRadius: 12,
-      padding: 14,
-    }}>
-      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
-        Bluecore: Financial Truth đóng gói sẵn, không cần data engineer, không cần 6 tháng build. 1-2 tuần live.
+        Không có Financial Spine, mỗi phòng một con số. CFO và CMO tranh cãi vì nhìn số khác nhau.
       </Text>
     </View>
     
@@ -1265,49 +1130,46 @@ const CompetitiveAdvantagesPage = () => (
   </Page>
 );
 
-const UseCasePage1 = () => (
+// SLIDE 11: USE CASE 1 - CEO Morning
+const UseCase1Page = () => (
   <Page size="A4" style={styles.page}>
-    <Text style={styles.eyebrowLabel}>USE CASE 1</Text>
-    <Text style={styles.sectionTitle}>{useCases[0].title}</Text>
+    <Text style={styles.eyebrowLabel}>CÂU CHUYỆN 1</Text>
+    <Text style={styles.sectionTitle}>30 Giây Thay Vì 2 Tiếng</Text>
     
-    <View style={{ 
-      backgroundColor: colors.backgroundAlt, 
-      borderRadius: 12, 
-      padding: 16, 
-      marginBottom: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-    }}>
-      <View style={{ 
-        backgroundColor: colors.primary, 
-        paddingHorizontal: 12, 
-        paddingVertical: 6, 
-        borderRadius: 16, 
-        marginRight: 12,
-      }}>
-        <Text style={{ fontSize: 9, fontWeight: 700, color: colors.white }}>{useCases[0].persona}</Text>
+    <View style={{ backgroundColor: colors.backgroundAlt, borderRadius: 10, padding: 14, marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, marginRight: 10 }}>
+        <Text style={{ fontSize: 8, fontWeight: 700, color: colors.white }}>CEO Retail</Text>
       </View>
-      <Text style={{ fontSize: 9, color: colors.textLight }}>
-        Modules: {useCases[0].modules.join(' + ')}
-      </Text>
+      <Text style={{ fontSize: 9, color: colors.textLight }}>Anh Minh - Chuỗi thời trang 50 tỷ/năm</Text>
     </View>
     
-    <View style={styles.useCaseContainer}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Câu chuyện</Text>
-      <Text style={styles.useCaseStory}>{useCases[0].story}</Text>
-      
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Kết quả</Text>
-      <View style={styles.useCaseResult}>
-        {useCases[0].results.map((result, index) => (
-          <View key={index} style={styles.useCaseResultItem}>
-            <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 4 }}>{result.label}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 10, color: colors.danger }}>{result.before}</Text>
-              <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>{result.after}</Text>
-            </View>
-          </View>
-        ))}
+    <View style={styles.storyBlock}>
+      <Text style={styles.storyText}>
+        Mỗi sáng, Anh Minh mở Bluecore thay vì gọi kế toán. Trong 30 giây, anh thấy:
+      </Text>
+      <View style={{ marginTop: 10 }}>
+        <Text style={{ fontSize: 10, color: colors.text, marginBottom: 4 }}>• Cash khả dụng: 1.2 tỷ VND</Text>
+        <Text style={{ fontSize: 10, color: colors.text, marginBottom: 4 }}>• 3 đơn hàng lớn chưa thanh toán: 400 triệu</Text>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700 }}>• 1 SKU đang lỗ 15% margin — cần dừng ngay</Text>
+      </View>
+    </View>
+    
+    <View style={styles.useCaseResult}>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Thời gian kiểm tra</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 10, color: colors.danger }}>2 tiếng</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>30 giây</Text>
+        </View>
+      </View>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Ra quyết định</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 10, color: colors.danger }}>Cuối tháng</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>Real-time</Text>
+        </View>
       </View>
     </View>
     
@@ -1318,51 +1180,53 @@ const UseCasePage1 = () => (
   </Page>
 );
 
-const UseCasePage2 = () => (
+// SLIDE 12: USE CASE 2 - CMO Budget
+const UseCase2Page = () => (
   <Page size="A4" style={styles.pageAlt}>
-    <Text style={styles.eyebrowLabel}>USE CASE 2</Text>
-    <Text style={styles.sectionTitle}>{useCases[1].title}</Text>
+    <Text style={styles.eyebrowLabel}>CÂU CHUYỆN 2</Text>
+    <Text style={styles.sectionTitle}>Ngừng Đốt Tiền Trong Im Lặng</Text>
     
-    <View style={{ 
-      backgroundColor: colors.white, 
-      borderRadius: 12, 
-      padding: 16, 
-      marginBottom: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: '#e2e8f0',
-    }}>
-      <View style={{ 
-        backgroundColor: colors.purple, 
-        paddingHorizontal: 12, 
-        paddingVertical: 6, 
-        borderRadius: 16, 
-        marginRight: 12,
-      }}>
-        <Text style={{ fontSize: 9, fontWeight: 700, color: colors.white }}>{useCases[1].persona}</Text>
+    <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' }}>
+      <View style={{ backgroundColor: colors.purple, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, marginRight: 10 }}>
+        <Text style={{ fontSize: 8, fontWeight: 700, color: colors.white }}>CMO E-commerce</Text>
       </View>
-      <Text style={{ fontSize: 9, color: colors.textLight }}>
-        Modules: {useCases[1].modules.join(' + ')}
-      </Text>
+      <Text style={{ fontSize: 9, color: colors.textLight }}>Chị Lan - Brand mỹ phẩm</Text>
     </View>
     
-    <View style={[styles.useCaseContainer, { backgroundColor: colors.white }]}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Câu chuyện</Text>
-      <Text style={styles.useCaseStory}>{useCases[1].story}</Text>
-      
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Kết quả</Text>
-      <View style={styles.useCaseResult}>
-        {useCases[1].results.map((result, index) => (
-          <View key={index} style={styles.useCaseResultItem}>
-            <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 4 }}>{result.label}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 10, color: colors.danger }}>{result.before}</Text>
-              <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>{result.after}</Text>
-            </View>
-          </View>
-        ))}
+    <View style={styles.storyBlock}>
+      <Text style={styles.storyText}>
+        Chị Lan điều hành marketing với budget 500 triệu/tháng. Trước đây, chị chạy theo ROAS 3.5x 
+        và nghĩ "đang thắng". MDP tiết lộ sự thật:
+      </Text>
+      <View style={{ marginTop: 10 }}>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700, marginBottom: 4 }}>
+          • Shopee Ads: Profit ROAS chỉ 0.8x (LỖ sau khi trừ phí sàn, shipping, return)
+        </Text>
+        <Text style={{ fontSize: 10, color: colors.accent, fontWeight: 700, marginBottom: 4 }}>
+          • Meta Ads: Profit ROAS 2.1x (LÃI thật)
+        </Text>
+        <Text style={{ fontSize: 10, color: colors.accent, fontWeight: 700 }}>
+          • Google Ads: Profit ROAS 1.8x (LÃI vừa)
+        </Text>
+      </View>
+    </View>
+    
+    <View style={styles.useCaseResult}>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Profit ROAS visibility</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 10, color: colors.danger }}>0%</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>100%</Text>
+        </View>
+      </View>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Budget hiệu quả</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 10, color: colors.danger }}>50%</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>85%</Text>
+        </View>
       </View>
     </View>
     
@@ -1373,49 +1237,54 @@ const UseCasePage2 = () => (
   </Page>
 );
 
-const UseCasePage3 = () => (
+// SLIDE 13: USE CASE 3 - CFO Cash Gap
+const UseCase3Page = () => (
   <Page size="A4" style={styles.page}>
-    <Text style={styles.eyebrowLabel}>USE CASE 3</Text>
-    <Text style={styles.sectionTitle}>{useCases[2].title}</Text>
+    <Text style={styles.eyebrowLabel}>CÂU CHUYỆN 3</Text>
+    <Text style={styles.sectionTitle}>Cảnh Báo 7 Ngày Trước Khủng Hoảng</Text>
     
-    <View style={{ 
-      backgroundColor: colors.backgroundAlt, 
-      borderRadius: 12, 
-      padding: 16, 
-      marginBottom: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-    }}>
-      <View style={{ 
-        backgroundColor: colors.warning, 
-        paddingHorizontal: 12, 
-        paddingVertical: 6, 
-        borderRadius: 16, 
-        marginRight: 12,
-      }}>
-        <Text style={{ fontSize: 9, fontWeight: 700, color: colors.white }}>{useCases[2].persona}</Text>
+    <View style={{ backgroundColor: colors.backgroundAlt, borderRadius: 10, padding: 14, marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ backgroundColor: colors.warning, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, marginRight: 10 }}>
+        <Text style={{ fontSize: 8, fontWeight: 700, color: colors.white }}>CFO FMCG</Text>
       </View>
-      <Text style={{ fontSize: 9, color: colors.textLight }}>
-        Modules: {useCases[2].modules.join(' + ')}
+      <Text style={{ fontSize: 9, color: colors.textLight }}>Anh Hùng - Công ty thực phẩm</Text>
+    </View>
+    
+    <View style={styles.storyBlock}>
+      <Text style={styles.storyText}>
+        Control Tower phát hiện 3 tín hiệu cùng lúc:
+      </Text>
+      <View style={{ marginTop: 10 }}>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700, marginBottom: 4 }}>
+          • Settlement từ Shopee chậm 5 ngày so với bình thường
+        </Text>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700, marginBottom: 4 }}>
+          • 3 đơn B2B tổng 800 triệu quá hạn thanh toán
+        </Text>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700 }}>
+          • Dự báo Cash Gap: 1.1 tỷ VND trong 7 ngày tới
+        </Text>
+      </View>
+      <Text style={{ fontSize: 10, color: colors.text, marginTop: 10, lineHeight: 1.5 }}>
+        Anh Hùng có 7 ngày để xử lý: gọi nhắc nợ, đàm phán với nhà cung cấp, hoặc chuẩn bị vay bridge.
+        Thay vì phát hiện khi đã muộn.
       </Text>
     </View>
     
-    <View style={styles.useCaseContainer}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Câu chuyện</Text>
-      <Text style={styles.useCaseStory}>{useCases[2].story}</Text>
-      
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Kết quả</Text>
-      <View style={styles.useCaseResult}>
-        {useCases[2].results.map((result, index) => (
-          <View key={index} style={styles.useCaseResultItem}>
-            <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 4 }}>{result.label}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 10, color: colors.danger }}>{result.before}</Text>
-              <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>{result.after}</Text>
-            </View>
-          </View>
-        ))}
+    <View style={styles.useCaseResult}>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Phát hiện risk</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 10, color: colors.danger }}>Khi xảy ra</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>7 ngày trước</Text>
+        </View>
+      </View>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Cash gap avoided</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>1.1 tỷ VND</Text>
+        </View>
       </View>
     </View>
     
@@ -1426,51 +1295,53 @@ const UseCasePage3 = () => (
   </Page>
 );
 
-const UseCasePage4 = () => (
+// SLIDE 14: USE CASE 4 - Customer Health
+const UseCase4Page = () => (
   <Page size="A4" style={styles.pageAlt}>
-    <Text style={styles.eyebrowLabel}>USE CASE 4</Text>
-    <Text style={styles.sectionTitle}>{useCases[3].title}</Text>
+    <Text style={styles.eyebrowLabel}>CÂU CHUYỆN 4</Text>
+    <Text style={styles.sectionTitle}>Bảo Vệ 2 Tỷ Revenue At Risk</Text>
     
-    <View style={{ 
-      backgroundColor: colors.white, 
-      borderRadius: 12, 
-      padding: 16, 
-      marginBottom: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: '#e2e8f0',
-    }}>
-      <View style={{ 
-        backgroundColor: colors.accent, 
-        paddingHorizontal: 12, 
-        paddingVertical: 6, 
-        borderRadius: 16, 
-        marginRight: 12,
-      }}>
-        <Text style={{ fontSize: 9, fontWeight: 700, color: colors.white }}>{useCases[3].persona}</Text>
+    <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 14, marginBottom: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' }}>
+      <View style={{ backgroundColor: colors.accent, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, marginRight: 10 }}>
+        <Text style={{ fontSize: 8, fontWeight: 700, color: colors.white }}>Founder D2C</Text>
       </View>
-      <Text style={{ fontSize: 9, color: colors.textLight }}>
-        Modules: {useCases[3].modules.join(' + ')}
+      <Text style={{ fontSize: 9, color: colors.textLight }}>Tuấn - Startup D2C beauty</Text>
+    </View>
+    
+    <View style={styles.storyBlock}>
+      <Text style={styles.storyText}>
+        CDP phát hiện vấn đề nghiêm trọng:
+      </Text>
+      <View style={{ marginTop: 10 }}>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700, marginBottom: 4 }}>
+          • Cohort Q1/2024 có LTV decay 40% sau 6 tháng — nhanh 2x so với cohort cũ
+        </Text>
+        <Text style={{ fontSize: 10, color: colors.danger, fontWeight: 700, marginBottom: 4 }}>
+          • At-Risk Revenue: 2 tỷ VND
+        </Text>
+        <Text style={{ fontSize: 10, color: colors.accent, fontWeight: 700 }}>
+          • Root cause: Sản phẩm mới không match với kỳ vọng từ quảng cáo
+        </Text>
+      </View>
+      <Text style={{ fontSize: 10, color: colors.text, marginTop: 10, lineHeight: 1.5 }}>
+        Tuấn điều chỉnh message quảng cáo và retention campaign. Kết quả: giữ lại 1.2 tỷ revenue.
       </Text>
     </View>
     
-    <View style={[styles.useCaseContainer, { backgroundColor: colors.white }]}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Câu chuyện</Text>
-      <Text style={styles.useCaseStory}>{useCases[3].story}</Text>
-      
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark, marginBottom: 10 }}>Kết quả</Text>
-      <View style={styles.useCaseResult}>
-        {useCases[3].results.map((result, index) => (
-          <View key={index} style={styles.useCaseResultItem}>
-            <Text style={{ fontSize: 9, color: colors.textLight, marginBottom: 4 }}>{result.label}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 10, color: colors.danger }}>{result.before}</Text>
-              <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>{result.after}</Text>
-            </View>
-          </View>
-        ))}
+    <View style={styles.useCaseResult}>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Churn visibility</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 10, color: colors.danger }}>Quarterly</Text>
+          <Text style={{ fontSize: 10, color: colors.textLight }}>→</Text>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>Weekly</Text>
+        </View>
+      </View>
+      <View style={styles.useCaseResultItem}>
+        <Text style={{ fontSize: 8, color: colors.textLight, marginBottom: 4 }}>Revenue bảo vệ</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>1.2 tỷ VND</Text>
+        </View>
       </View>
     </View>
     
@@ -1481,81 +1352,134 @@ const UseCasePage4 = () => (
   </Page>
 );
 
+// SLIDE 15: COMPETITIVE COMPARISON
+const CompetitivePage = () => (
+  <Page size="A4" style={styles.page}>
+    <Text style={styles.eyebrowLabel}>SO SÁNH</Text>
+    <Text style={styles.sectionTitle}>Bluecore vs. Elton Data vs. PangoCDP</Text>
+    
+    <View style={{ borderRadius: 10, overflow: 'hidden', marginTop: 8 }}>
+      {/* Header */}
+      <View style={styles.tableRow}>
+        <View style={[styles.tableHeader, { flex: 1 }]}>
+          <Text style={styles.tableHeaderText}>Layer</Text>
+        </View>
+        <View style={[styles.tableHeader, { backgroundColor: colors.accentDark, flex: 1.5 }]}>
+          <Text style={styles.tableHeaderText}>Bluecore</Text>
+        </View>
+        <View style={[styles.tableHeader, { flex: 1.3 }]}>
+          <Text style={styles.tableHeaderText}>Elton Data</Text>
+        </View>
+        <View style={[styles.tableHeader, { flex: 1.3 }]}>
+          <Text style={styles.tableHeaderText}>PangoCDP</Text>
+        </View>
+      </View>
+      
+      {/* Rows */}
+      {competitiveComparisonNew.map((row, index) => (
+        <View key={index} style={styles.tableRow}>
+          <View style={[styles.tableCell, { flex: 1 }]}>
+            <Text style={[styles.tableCellText, { fontWeight: 700 }]}>{row.layer}</Text>
+          </View>
+          <View style={[styles.tableCellHighlight, { flex: 1.5 }]}>
+            <Text style={styles.tableCellTextBold}>{row.bluecore}</Text>
+          </View>
+          <View style={[styles.tableCell, { flex: 1.3 }]}>
+            <Text style={styles.tableCellText}>{row.elton}</Text>
+          </View>
+          <View style={[styles.tableCell, { flex: 1.3 }]}>
+            <Text style={styles.tableCellText}>{row.pango}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+    
+    <View style={{ marginTop: 14, backgroundColor: colors.primaryDark, borderRadius: 10, padding: 12 }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.white, textAlign: 'center' }}>
+        Bluecore: Financial Truth đóng gói sẵn — không cần data engineer, không cần 6 tháng build.
+      </Text>
+    </View>
+    
+    <View style={styles.footer}>
+      <Text style={styles.footerText}>bluecore.vn</Text>
+      <Text style={styles.pageNumber}>15 / 20</Text>
+    </View>
+  </Page>
+);
+
+// SLIDE 16: WHY BLUECORE
 const WhyBluecorePage = () => (
   <Page size="A4" style={styles.pageDark}>
-    <Text style={styles.eyebrowLabelWhite}>TẠI SAO BLUECORE?</Text>
-    <Text style={styles.sectionTitleWhite}>6 Lý Do Chọn Bluecore</Text>
+    <Text style={styles.eyebrowLabelWhite}>TẠI SAO CHỌN BLUECORE?</Text>
+    <Text style={styles.sectionTitleWhite}>6 Lý Do</Text>
     
-    <View style={{ marginTop: 16 }}>
-      <View style={[styles.cardDark, { marginBottom: 8 }]}>
-        <View><Text style={styles.cardTitleWhite}>1. Thiết kế cho CEO/CFO, không phải Analyst</Text></View>
-        <View><Text style={styles.cardTextWhite}>Không cần biết SQL. Không cần đợi report. Mở Bluecore = thấy ngay quyết định cần làm hôm nay.</Text></View>
+    <View style={{ gap: 8, marginTop: 16 }}>
+      <View style={styles.cardDark}>
+        <Text style={styles.cardTitleWhite}>1. Financial Truth, không phải Performance Metrics</Text>
+        <Text style={styles.cardTextWhite}>Profit ROAS thay vì Click ROAS. Real Cash thay vì Revenue on paper.</Text>
       </View>
       
-      <View style={[styles.cardDark, { marginBottom: 8 }]}>
-        <View><Text style={styles.cardTitleWhite}>2. Native cho thị trường Việt Nam</Text></View>
-        <View><Text style={styles.cardTextWhite}>35+ connectors có sẵn: Shopee, Lazada, TikTok, Haravan, Sapo, KiotViet. Không cần code, không cần IT.</Text></View>
+      <View style={styles.cardDark}>
+        <Text style={styles.cardTitleWhite}>2. Decisions, không phải Dashboards</Text>
+        <Text style={styles.cardTextWhite}>Mỗi alert đều có Impact VND, Owner, Deadline. Không có thông tin thừa.</Text>
       </View>
       
-      <View style={[styles.cardDark, { marginBottom: 8 }]}>
-        <View><Text style={styles.cardTitleWhite}>3. Financial Truth, không phải Performance Metrics</Text></View>
-        <View><Text style={styles.cardTextWhite}>Profit ROAS thay vì Click ROAS. Real Cash thay vì Revenue on paper. Contribution Margin thay vì Gross Sales.</Text></View>
+      <View style={styles.cardDark}>
+        <Text style={styles.cardTitleWhite}>3. 1-2 tuần triển khai, không phải 6 tháng</Text>
+        <Text style={styles.cardTextWhite}>35+ connectors có sẵn. Bluecore team lo toàn bộ integration.</Text>
       </View>
       
-      <View style={[styles.cardDark, { marginBottom: 8 }]}>
-        <View><Text style={styles.cardTitleWhite}>4. Triển khai trong 1-2 tuần, không phải 6 tháng</Text></View>
-        <View><Text style={styles.cardTextWhite}>Không cần project team riêng. Không cần thuê consultant. Bluecore team lo toàn bộ integration.</Text></View>
+      <View style={styles.cardDark}>
+        <Text style={styles.cardTitleWhite}>4. Chi phí cố định, không "bất ngờ"</Text>
+        <Text style={styles.cardTextWhite}>Không phí ẩn. Không charge theo user/data volume.</Text>
       </View>
       
-      <View style={[styles.cardDark, { marginBottom: 8 }]}>
-        <View><Text style={styles.cardTitleWhite}>5. Chi phí cố định, không "bất ngờ"</Text></View>
-        <View><Text style={styles.cardTextWhite}>Không phí ẩn. Không charge theo user/data volume. Một giá — tất cả tính năng.</Text></View>
+      <View style={styles.cardDark}>
+        <Text style={styles.cardTitleWhite}>5. Made for Vietnam</Text>
+        <Text style={styles.cardTextWhite}>Shopee, Lazada, TikTok Shop, MISA, Haravan — đều có connector sẵn.</Text>
       </View>
       
       <View style={[styles.cardDark, { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.4)' }]}>
-        <View><Text style={[styles.cardTitleWhite, { color: '#fca5a5' }]}>6. Không dùng Bluecore = Quyết định trong bóng tối</Text></View>
-        <View><Text style={styles.cardTextWhite}>Không biết tiền thật còn bao nhiêu. Không biết marketing đang lãi hay lỗ. Không biết khách hàng đang rời đi. Chờ cuối tháng mới biết — đã quá muộn.</Text></View>
+        <Text style={[styles.cardTitleWhite, { color: '#fca5a5' }]}>6. Không dùng = Quyết định trong bóng tối</Text>
+        <Text style={styles.cardTextWhite}>Không biết tiền thật, marketing lãi/lỗ, khách hàng rời đi. Chờ cuối tháng — đã quá muộn.</Text>
       </View>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerTextWhite}>bluecore.vn</Text>
-      <Text style={styles.pageNumberWhite}>15 / 20</Text>
+      <Text style={styles.pageNumberWhite}>16 / 20</Text>
     </View>
   </Page>
 );
 
-// NEW SLIDE: Pricing & ROI Guarantee
+// SLIDE 17: PRICING & ROI
 const PricingROIPage = () => (
   <Page size="A4" style={styles.page}>
     <Text style={styles.eyebrowLabel}>CHI PHÍ & ROI</Text>
     <Text style={styles.sectionTitle}>Giá Minh Bạch, ROI Bảo Đảm</Text>
-    <Text style={styles.sectionSubtitle}>
-      Chi phí cố định, không charge theo volume. Không hiệu quả = Hoàn tiền.
-    </Text>
     
     {/* Pricing Cards */}
-    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
       {pricingPlans.map((plan, index) => (
         <View key={index} style={{ 
           flex: 1, 
           backgroundColor: plan.featured ? plan.color : colors.white, 
-          borderRadius: 12, 
-          padding: 16,
+          borderRadius: 10, 
+          padding: 14,
           borderWidth: plan.featured ? 0 : 1,
           borderColor: '#e2e8f0',
           alignItems: 'center',
         }}>
-          <Text style={{ fontSize: 10, color: plan.featured ? 'rgba(255,255,255,0.8)' : colors.textLight, marginBottom: 4 }}>
+          <Text style={{ fontSize: 9, color: plan.featured ? 'rgba(255,255,255,0.8)' : colors.textLight, marginBottom: 4 }}>
             {plan.name}
           </Text>
-          <Text style={{ fontSize: 20, fontWeight: 700, color: plan.featured ? colors.white : colors.primaryDark }}>
+          <Text style={{ fontSize: 18, fontWeight: 700, color: plan.featured ? colors.white : colors.primaryDark }}>
             {plan.price}
           </Text>
-          <Text style={{ fontSize: 10, color: plan.featured ? 'rgba(255,255,255,0.8)' : colors.textLight }}>
+          <Text style={{ fontSize: 9, color: plan.featured ? 'rgba(255,255,255,0.8)' : colors.textLight }}>
             {plan.period}
           </Text>
-          <Text style={{ fontSize: 8, color: plan.featured ? 'rgba(255,255,255,0.7)' : colors.textLight, marginTop: 8, textAlign: 'center' }}>
+          <Text style={{ fontSize: 8, color: plan.featured ? 'rgba(255,255,255,0.7)' : colors.textLight, marginTop: 6, textAlign: 'center' }}>
             {plan.desc}
           </Text>
         </View>
@@ -1563,42 +1487,23 @@ const PricingROIPage = () => (
     </View>
     
     {/* Setup Fee */}
-    <View style={{ 
-      backgroundColor: colors.backgroundAlt, 
-      borderRadius: 8, 
-      padding: 12, 
-      marginBottom: 20,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    }}>
-      <Text style={{ fontSize: 10, color: colors.text }}>Setup BigQuery Data Warehouse (1 lần)</Text>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.primaryDark }}>40 triệu VND</Text>
+    <View style={{ backgroundColor: colors.backgroundAlt, borderRadius: 8, padding: 10, marginBottom: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Text style={{ fontSize: 9, color: colors.text }}>Setup BigQuery Data Warehouse (1 lần)</Text>
+      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.primaryDark }}>40 triệu VND</Text>
     </View>
     
-    {/* ROI Guarantee Box */}
-    <View style={{ 
-      backgroundColor: '#ecfdf5',
-      borderRadius: 12,
-      padding: 20,
-      borderWidth: 2,
-      borderColor: colors.accent,
-      marginBottom: 16,
-    }}>
-      <Text style={{ fontSize: 14, fontWeight: 700, color: colors.accentDark, textAlign: 'center', marginBottom: 8 }}>
+    {/* ROI Guarantee */}
+    <View style={{ backgroundColor: '#ecfdf5', borderRadius: 10, padding: 16, borderWidth: 2, borderColor: colors.accent, marginBottom: 12 }}>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accentDark, textAlign: 'center', marginBottom: 6 }}>
         ROI BẢO ĐẢM
       </Text>
-      <Text style={{ fontSize: 24, fontWeight: 700, color: colors.accent, textAlign: 'center', marginBottom: 8 }}>
+      <Text style={{ fontSize: 20, fontWeight: 700, color: colors.accent, textAlign: 'center', marginBottom: 6 }}>
         Tối thiểu 3 TỶ VND giá trị
       </Text>
-      <Text style={{ fontSize: 11, color: colors.text, textAlign: 'center', marginBottom: 12 }}>
+      <Text style={{ fontSize: 10, color: colors.text, textAlign: 'center', marginBottom: 10 }}>
         trong tháng đầu tiên sử dụng
       </Text>
-      <View style={{ 
-        backgroundColor: colors.white, 
-        borderRadius: 8, 
-        padding: 12,
-      }}>
+      <View style={{ backgroundColor: colors.white, borderRadius: 6, padding: 10 }}>
         <Text style={{ fontSize: 10, fontWeight: 700, color: colors.danger, textAlign: 'center' }}>
           Không tìm thấy giá trị? → HOÀN TIỀN 100%
         </Text>
@@ -1606,30 +1511,26 @@ const PricingROIPage = () => (
     </View>
     
     {/* Trial Badge */}
-    <View style={{ 
-      backgroundColor: colors.primary,
-      borderRadius: 8,
-      padding: 14,
-      alignItems: 'center',
-    }}>
-      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white }}>
+    <View style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 12, alignItems: 'center' }}>
+      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.white }}>
         ⚡ Trial 14 ngày miễn phí — Không cần thẻ tín dụng
       </Text>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>16 / 20</Text>
+      <Text style={styles.pageNumber}>17 / 20</Text>
     </View>
   </Page>
 );
 
+// SLIDE 18: MANIFESTO
 const ManifestoPage = () => (
-  <Page size="A4" style={styles.page}>
+  <Page size="A4" style={styles.pageAlt}>
     <Text style={styles.eyebrowLabel}>BLUECORE MANIFESTO</Text>
     <Text style={styles.sectionTitle}>10 Nguyên Tắc Bất Biến</Text>
     
-    <View style={{ marginTop: 16 }}>
+    <View style={{ marginTop: 12 }}>
       {manifesto.map((item, index) => (
         <View key={index} style={styles.manifestoItem}>
           <View style={styles.manifestoNumber}>
@@ -1644,180 +1545,131 @@ const ManifestoPage = () => (
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>17 / 20</Text>
+      <Text style={styles.pageNumber}>18 / 20</Text>
     </View>
   </Page>
 );
 
+// SLIDE 19: ARCHITECTURE
 const ArchitecturePage = () => (
-  <Page size="A4" style={styles.pageAlt}>
-    <Text style={styles.eyebrowLabel}>KIẾN TRÚC HỆ THỐNG</Text>
+  <Page size="A4" style={styles.page}>
+    <Text style={styles.eyebrowLabel}>KIẾN TRÚC</Text>
     <Text style={styles.sectionTitle}>Data Flow Architecture</Text>
     
-    {/* Architecture Diagram */}
-    <View style={{ 
-      backgroundColor: colors.white, 
-      borderRadius: 12, 
-      padding: 24, 
-      marginTop: 16,
-      borderWidth: 1,
-      borderColor: '#e2e8f0',
-    }}>
+    <View style={{ backgroundColor: colors.white, borderRadius: 10, padding: 20, marginTop: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
       {/* Data Sources Row */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
         {['Shopee', 'Lazada', 'TikTok', 'ERP', 'Bank'].map((source, index) => (
-          <View key={index} style={{ 
-            backgroundColor: colors.backgroundAlt, 
-            paddingHorizontal: 12, 
-            paddingVertical: 8, 
-            borderRadius: 8,
-          }}>
-            <Text style={{ fontSize: 9, color: colors.text }}>{source}</Text>
+          <View key={index} style={{ backgroundColor: colors.backgroundAlt, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}>
+            <Text style={{ fontSize: 8, color: colors.text }}>{source}</Text>
           </View>
         ))}
       </View>
       
       {/* Arrow */}
-      <View style={{ alignItems: 'center', marginBottom: 16 }}>
-        <Text style={{ fontSize: 20, color: colors.textLight }}>↓</Text>
-        <Text style={{ fontSize: 9, color: colors.textLight }}>ETL Pipeline</Text>
+      <View style={{ alignItems: 'center', marginBottom: 14 }}>
+        <Text style={{ fontSize: 18, color: colors.textLight }}>↓</Text>
+        <Text style={{ fontSize: 8, color: colors.textLight }}>ETL Pipeline (35+ Connectors)</Text>
       </View>
       
       {/* Data Warehouse */}
-      <View style={{ 
-        backgroundColor: colors.cyan, 
-        borderRadius: 8, 
-        padding: 16, 
-        marginBottom: 16,
-        alignItems: 'center',
-      }}>
-        <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white }}>DATA WAREHOUSE</Text>
-        <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>Single Source of Truth</Text>
+      <View style={{ backgroundColor: colors.cyan, borderRadius: 8, padding: 14, marginBottom: 14, alignItems: 'center' }}>
+        <Text style={{ fontSize: 11, fontWeight: 700, color: colors.white }}>DATA WAREHOUSE</Text>
+        <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>Single Source of Truth</Text>
       </View>
       
       {/* Arrow */}
-      <View style={{ alignItems: 'center', marginBottom: 16 }}>
-        <Text style={{ fontSize: 20, color: colors.textLight }}>↓</Text>
+      <View style={{ alignItems: 'center', marginBottom: 14 }}>
+        <Text style={{ fontSize: 18, color: colors.textLight }}>↓</Text>
       </View>
       
       {/* Modules Row */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
         {[
           { name: 'FDP', color: colors.primary },
           { name: 'MDP', color: colors.purple },
           { name: 'CDP', color: colors.accent },
           { name: 'Control Tower', color: colors.warning },
         ].map((module, index) => (
-          <View key={index} style={{ 
-            flex: 1,
-            backgroundColor: module.color, 
-            borderRadius: 8, 
-            padding: 12,
-            alignItems: 'center',
-          }}>
-            <Text style={{ fontSize: 10, fontWeight: 700, color: colors.white }}>{module.name}</Text>
+          <View key={index} style={{ flex: 1, backgroundColor: module.color, borderRadius: 6, padding: 10, alignItems: 'center' }}>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: colors.white }}>{module.name}</Text>
           </View>
         ))}
       </View>
     </View>
     
-    <View style={{ 
-      marginTop: 16, 
-      backgroundColor: '#ecfdf5',
-      borderRadius: 12,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: '#a7f3d0',
-    }}>
-      <Text style={{ fontSize: 11, fontWeight: 700, color: colors.accentDark, marginBottom: 8 }}>
+    <View style={{ marginTop: 14, backgroundColor: '#ecfdf5', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#a7f3d0' }}>
+      <Text style={{ fontSize: 10, fontWeight: 700, color: colors.accentDark, marginBottom: 4 }}>
         Tại sao kiến trúc này quan trọng?
       </Text>
-      <Text style={{ fontSize: 10, color: colors.text, lineHeight: 1.5 }}>
-        Tất cả các module (FDP, MDP, CDP, Control Tower) đều đọc từ cùng một Data Warehouse. Không có "phiên bản khác" của dữ liệu. CFO và CMO nhìn cùng một con số — không tranh cãi, không reconcile.
+      <Text style={{ fontSize: 9, color: colors.text, lineHeight: 1.5 }}>
+        Tất cả các module đều đọc từ cùng một Data Warehouse. CFO và CMO nhìn cùng một con số — 
+        không tranh cãi, không reconcile.
       </Text>
     </View>
     
     <View style={styles.footer}>
       <Text style={styles.footerText}>bluecore.vn</Text>
-      <Text style={styles.pageNumber}>18 / 20</Text>
+      <Text style={styles.pageNumber}>19 / 20</Text>
     </View>
   </Page>
 );
 
+// SLIDE 20: CTA
 const CTAPage = () => (
   <Page size="A4" style={styles.pageAccent}>
     <View style={[styles.coverOrnament, { width: 400, height: 400, top: -100, right: -150, opacity: 0.1 }]} />
     <View style={[styles.coverOrnament, { width: 500, height: 500, bottom: -200, left: -200, opacity: 0.05 }]} />
     
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 14, fontWeight: 700, color: colors.accent, letterSpacing: 2, marginBottom: 16 }}>
+      <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent, letterSpacing: 2, marginBottom: 14 }}>
         BẮT ĐẦU NGAY
       </Text>
       
-      <Text style={{ fontSize: 32, fontWeight: 700, color: colors.white, textAlign: 'center', marginBottom: 24 }}>
+      <Text style={{ fontSize: 28, fontWeight: 700, color: colors.white, textAlign: 'center', marginBottom: 20 }}>
         Sẵn sàng để{'\n'}Ra Quyết định Tốt hơn?
       </Text>
       
-      <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center', maxWidth: 400, lineHeight: 1.6, marginBottom: 24 }}>
+      <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', textAlign: 'center', maxWidth: 400, lineHeight: 1.6, marginBottom: 20 }}>
         Demo 30 phút với dữ liệu thực của doanh nghiệp bạn.
       </Text>
       
       {/* Trial Badge */}
-      <View style={{ 
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
-        borderWidth: 1,
-        borderColor: colors.accent,
-        borderRadius: 8,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        marginBottom: 24,
-      }}>
-        <Text style={{ fontSize: 12, fontWeight: 700, color: colors.accent }}>
+      <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', borderWidth: 1, borderColor: colors.accent, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 8, marginBottom: 20 }}>
+        <Text style={{ fontSize: 11, fontWeight: 700, color: colors.accent }}>
           ⚡ Trial 14 ngày miễn phí
         </Text>
       </View>
       
-      <View style={{ 
-        backgroundColor: colors.accent,
-        paddingHorizontal: 32,
-        paddingVertical: 16,
-        borderRadius: 8,
-        marginBottom: 16,
-      }}>
-        <Text style={{ fontSize: 14, fontWeight: 700, color: colors.white }}>
+      <View style={{ backgroundColor: colors.accent, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 8, marginBottom: 14 }}>
+        <Text style={{ fontSize: 12, fontWeight: 700, color: colors.white }}>
           hellobluecore.vn
         </Text>
       </View>
       
-      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 32 }}>
+      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginBottom: 24 }}>
         hello@bluecore.vn | +84 xxx xxx xxx
       </Text>
       
       {/* ROI Guarantee Badge */}
-      <View style={{ 
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        marginBottom: 24,
-      }}>
-        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.9)', textAlign: 'center' }}>
+      <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 20 }}>
+        <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.9)', textAlign: 'center' }}>
           💰 ROI Guarantee: 3 tỷ VND giá trị hoặc hoàn tiền 100%
         </Text>
       </View>
       
-      <View style={{ flexDirection: 'row', gap: 40 }}>
+      <View style={{ flexDirection: 'row', gap: 32 }}>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.white }}>5</Text>
-          <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>Modules</Text>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.white }}>5</Text>
+          <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)' }}>Modules</Text>
         </View>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.white }}>35+</Text>
-          <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>Connectors</Text>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.white }}>35+</Text>
+          <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)' }}>Connectors</Text>
         </View>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 24, fontWeight: 700, color: colors.white }}>1-2</Text>
-          <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>Tuần triển khai</Text>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: colors.white }}>1-2</Text>
+          <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)' }}>Tuần deploy</Text>
         </View>
       </View>
     </View>
@@ -1834,25 +1686,26 @@ const CTAPage = () => (
 const FullSystemSalesDeckPDF: React.FC = () => {
   return (
     <Document
-      title="Bluecore Full System Overview"
+      title="Bluecore Full System Overview - Storytelling Edition"
       author="Bluecore Vietnam"
       subject="Executive Decision Operating System for Retail & E-commerce"
       keywords="Bluecore, FDP, MDP, CDP, Control Tower, Data Warehouse, Retail, E-commerce, Vietnam"
     >
       <CoverPage />
-      <PillarsPage />
+      <CEOMorningPage />
       <HiddenCostPage />
+      <SolutionIntroPage />
       <EcosystemOverviewPage />
       <FDPDetailPage />
-      <MDPDetailPage />
-      <ROASIllusionPage />
+      <FDPDecisionPage />
+      <MDPROASPage />
       <CDPControlTowerPage />
-      <DataWarehousePage />
-      <CompetitiveAdvantagesPage />
-      <UseCasePage1 />
-      <UseCasePage2 />
-      <UseCasePage3 />
-      <UseCasePage4 />
+      <FinancialSpinePage />
+      <UseCase1Page />
+      <UseCase2Page />
+      <UseCase3Page />
+      <UseCase4Page />
+      <CompetitivePage />
       <WhyBluecorePage />
       <PricingROIPage />
       <ManifestoPage />
