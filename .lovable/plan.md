@@ -1,123 +1,179 @@
 
 
-# Chỉnh sửa Slide 01 — From Descriptive to Lethal
+# Kế hoạch: Thêm Script Panel cho VC Pitch Deck
 
-## Vấn đề Hiện tại
-Slide 01 đang viết theo tone mô tả:
-```
-Margin ↓ 6% → Phát hiện sau 4 tuần
-CAC ↑ 35% → Finance thấy khi đã burn
-Inventory phình → Cash bị khóa
-Runway → Biến mất trước khi CEO nhận ra
-```
-
-Và closing statement emotional:
-```
-"Doanh nghiệp không chết vì thiếu dữ liệu.
-Họ chết vì sự thật đến quá muộn."
-```
-
-## Nguyên tắc
-**Founder junior cố chứng minh. Founder senior tuyên bố.**
-Infrastructure companies state reality — không storytelling, không emotional.
+## Tình trạng Hiện tại
+- Đã có **Presenter Notes panel** (phím tắt N) với 2 mục: "Founder Tip" + "Action"
+- Panel này ở bên phải slide, width 320px
+- Nội dung ngắn gọn (2-3 dòng mỗi mục)
 
 ---
 
-## Thay đổi 1: Metrics Boxes → Lethal Format
+## 2 Phương án Đề xuất
 
-| Hiện tại (Descriptive) | Mới (Lethal) |
-|------------------------|--------------|
-| Margin ↓ 6% → Phát hiện sau 4 tuần | Margin erodes 6%. Detected week 4. |
-| CAC ↑ 35% → Finance thấy khi đã burn | CAC spikes 35%. Visible after burn. |
-| Inventory phình → Cash bị khóa | Inventory expands. Liquidity disappears. |
-| Runway → Biến mất trước khi CEO nhận ra | Runway shrinks. CEO sees it last. |
+### Phương án A: Mở rộng Panel hiện có (Đề xuất ✅)
+Thêm mục **"Script"** vào panel Presenter Notes hiện tại, hiển thị đầy đủ script cho từng slide.
 
-**Tone:** Cold. Clinical. Almost medical.
-**Xóa:** Emoji icons (📉🔥📦⏳) — không cần.
+**Ưu điểm:**
+- Giữ nguyên UX hiện tại
+- Không làm thay đổi layout slide
+- Toggle bằng phím N như cũ
+- Scrollable cho script dài
+
+**Cấu trúc panel mới:**
+```
+┌─────────────────────────────────┐
+│ Presenter Notes            [X] │
+├─────────────────────────────────┤
+│ 📜 SCRIPT                       │
+│ "Cash rarely collapses in a    │
+│ dramatic moment. It erodes     │
+│ quietly — inside operations..."│
+│ (scrollable)                    │
+├─────────────────────────────────┤
+│ 💡 Founder Tip                  │
+│ "Partner cảm thấy DANGER..."   │
+├─────────────────────────────────┤
+│ ⚡ Action                       │
+│ "Đợi phản ứng. Pause 1.5s."    │
+└─────────────────────────────────┘
+```
 
 ---
 
-## Thay đổi 2: Closing Statement → State Reality
+### Phương án B: Split View (Alternative)
+Chia màn hình 70/30 khi bật presenter mode - slide bên trái, script bên phải.
 
-**Option A (Tốt nhất - Xóa hoàn toàn):**
-Không cần closing. Headline đã đủ mạnh.
+**Ưu điểm:**
+- Nhìn thấy cả slide lẫn script cùng lúc
+- Tiện khi present
 
-**Option B (Clinical alternative nếu giữ):**
-```
-Financial blindness is not a gap.
-It's a countdown.
-```
-
-**Lựa chọn:** Option A — xóa closing box hoàn toàn.
+**Nhược điểm:**
+- Thu nhỏ slide khi hiển thị script
+- Phức tạp hơn về responsive
 
 ---
 
-## Files Cần Cập nhật
+## Đề xuất: Phương án A (Mở rộng Panel)
+
+### Thay đổi Chi tiết
+
+**1. Thêm data script cho 23 slides (Vietnamese + English)**
+
+Tạo object mới `presenterScripts` với full script cho từng slide:
+
+```typescript
+const presenterScripts: Record<number, string> = {
+  1: `Cash rarely collapses in a dramatic moment.
+It erodes quietly — inside operations.
+
+Margin slips a few points.
+Customer acquisition costs spike.
+Inventory expands faster than liquidity.
+
+By the time it shows up in financial statements —
+the damage is already structural.
+
+And in most companies…
+the CEO is the last to know.
+
+👉 Pause 1.5s
+
+Bluecore exists to make sure leadership never discovers financial risk too late again.`,
+  
+  2: `Over the past decade, companies invested heavily in data infrastructure.
+
+Today — having dashboards is normal.
+
+But dashboards describe the past.
+
+What leadership actually needs…
+is awareness of financial risk while it is forming.
+
+Because the company with the most data will not win.
+
+The company with the earliest awareness will.
+
+👉 Look at investors.
+Do not rush this line.`,
+  
+  // ... tương tự cho 23 slides
+};
+```
+
+**2. Cập nhật Presenter Notes Panel**
+
+Mở rộng width panel từ 320px → 400px và thêm section Script:
+
+```tsx
+{/* Script Section */}
+<div className="mb-6">
+  <div className="text-amber-400 text-sm font-medium mb-2 flex items-center gap-2">
+    <span>📜</span> Script
+  </div>
+  <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line max-h-64 overflow-y-auto pr-2">
+    {presenterScripts[currentSlide + 1]}
+  </div>
+</div>
+
+{/* Existing: Founder Tip */}
+{/* Existing: Action */}
+```
+
+**3. Files cần cập nhật**
 
 | File | Thay đổi |
 |------|----------|
-| `VCPitchDeckVI.tsx` | Slide 01 metrics + xóa closing |
-| `VCPitchDeck.tsx` | Sync English version |
-| `VCPitchDeckPDF_VI.tsx` | Sync PDF Vietnamese |
-| `VCPitchDeckPDF.tsx` | Sync PDF English |
+| `VCPitchDeck.tsx` | Thêm `presenterScripts` EN, cập nhật panel |
+| `VCPitchDeckVI.tsx` | Thêm `presenterScripts` VI, cập nhật panel |
 
 ---
 
-## Code Mới — Slide 01
+## Chi tiết Kỹ thuật
 
-```tsx
-const Slide01CategoryShock: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-10 leading-tight"
-    >
-      CASH COLLAPSES<br />
-      <span className="text-red-500">QUIETLY.</span>
-    </motion.h1>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl w-full"
-    >
-      {[
-        { metric: "Margin erodes 6%.", consequence: "Detected week 4." },
-        { metric: "CAC spikes 35%.", consequence: "Visible after burn." },
-        { metric: "Inventory expands.", consequence: "Liquidity disappears." },
-        { metric: "Runway shrinks.", consequence: "CEO sees it last." }
-      ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 + i * 0.15 }}
-          className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-left"
-        >
-          <span className="text-red-400 font-bold text-lg block">{item.metric}</span>
-          <span className="text-slate-500 text-sm">{item.consequence}</span>
-        </motion.div>
-      ))}
-    </motion.div>
-    
-    {/* Không còn closing statement — headline đã đủ mạnh */}
-  </div>
-);
+### Data Structure
+
+```typescript
+// presenterScripts cho English
+const presenterScripts: Record<number, string> = {
+  1: `Cash rarely collapses...`,
+  2: `Over the past decade...`,
+  // ... 22 slides
+};
+
+// presenterNotes giữ nguyên
+const presenterNotes: Record<number, { tip: string; action: string }> = {
+  1: { tip: "...", action: "..." },
+  // ...
+};
 ```
+
+### Panel UI Update
+
+- Width: 320px → 400px
+- Script section: với `whitespace-pre-line` để giữ line breaks
+- Max height cho script: 256px với scroll
+- Thứ tự: Script → Tip → Action (quan trọng nhất lên trên)
+
+### Highlight Instructions trong Script
+
+Các dòng bắt đầu bằng `👉` hoặc `🔥` hoặc `⚠️` sẽ được highlight màu khác (amber) để dễ nhận biết.
 
 ---
 
 ## Kết quả Mong đợi
 
-| Metric | Trước | Sau |
-|--------|-------|-----|
-| Tone | Descriptive, emotional | Clinical, lethal |
-| Emoji | Có | Xóa |
-| Closing | 2 dòng storytelling | Xóa hoàn toàn |
-| Power level | 7/10 | 9/10 |
+| Trước | Sau |
+|-------|-----|
+| Panel chỉ có Tip + Action (ngắn) | Panel có Script + Tip + Action (đầy đủ) |
+| Presenter phải nhớ script | Presenter đọc được script ngay |
+| Width 320px | Width 400px |
 
-**Result:** Founder senior energy. Infrastructure companies state reality.
+---
+
+## Lưu ý
+
+- Script EN và VI sẽ khác nhau (EN cho `/investor/vc-pitch`, VI cho `/investor/vc-pitch-vi`)
+- Script bạn cung cấp là bản EN — cần dịch sang VI cho version tiếng Việt
+- Có thể thêm toggle riêng cho Script nếu muốn ẩn/hiện độc lập
 
