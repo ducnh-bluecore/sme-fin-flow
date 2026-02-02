@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { sanitizePdfElement, sanitizePdfElementHard } from '@/components/sales-deck/pdfStyleSanitizer';
 import VCPitchDeckPDF_VI from '@/components/sales-deck/VCPitchDeckPDF_VI';
+import { presenterScriptsVI, parseScriptLines } from '@/data/presenterScripts';
 
 // Presenter notes for each slide (Vietnamese - 23 slides)
 const presenterNotes: Record<number, { tip: string; action: string }> = {
@@ -1595,7 +1596,7 @@ const VCPitchDeckVI: React.FC = () => {
               initial={{ opacity: 0, x: 300 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 300 }}
-              className="fixed top-0 right-0 bottom-0 w-80 bg-slate-900 border-l border-slate-700 p-6 overflow-y-auto z-40"
+              className="fixed top-0 right-0 bottom-0 w-[400px] bg-slate-900 border-l border-slate-700 p-6 overflow-y-auto z-40"
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-white">Ghi chú Trình bày</h3>
@@ -1605,14 +1606,38 @@ const VCPitchDeckVI: React.FC = () => {
               </div>
               
               <div className="space-y-6">
+                {/* Script Section */}
+                {presenterScriptsVI[currentSlide + 1] && (
+                  <div>
+                    <div className="text-amber-400 text-sm font-medium mb-2 flex items-center gap-2">
+                      <span>📜</span> Script
+                    </div>
+                    <div className="text-sm leading-relaxed whitespace-pre-line max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
+                      {parseScriptLines(presenterScriptsVI[currentSlide + 1]).map((line, i) => (
+                        <span 
+                          key={i} 
+                          className={line.isInstruction ? 'text-amber-400 font-medium' : 'text-slate-300'}
+                        >
+                          {line.text}
+                          {'\n'}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div>
-                  <div className="text-blue-400 text-sm font-medium mb-2">Mẹo cho Founder</div>
+                  <div className="text-blue-400 text-sm font-medium mb-2 flex items-center gap-2">
+                    <span>💡</span> Mẹo cho Founder
+                  </div>
                   <p className="text-slate-300 text-sm leading-relaxed">
                     {presenterNotes[currentSlide + 1]?.tip}
                   </p>
                 </div>
                 <div>
-                  <div className="text-emerald-400 text-sm font-medium mb-2">Hành động</div>
+                  <div className="text-emerald-400 text-sm font-medium mb-2 flex items-center gap-2">
+                    <span>⚡</span> Hành động
+                  </div>
                   <p className="text-slate-300 text-sm leading-relaxed">
                     {presenterNotes[currentSlide + 1]?.action}
                   </p>
