@@ -502,7 +502,7 @@ const Slide12 = () => (
         <Text style={styles.arrow}>→</Text>
         <Text style={styles.diagramText}>Alerts</Text>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>This is not assembled software. It is engineered infrastructure.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>This is not assembled software. It is engineered infrastructure.</Text>
     </View>
     <Text style={styles.slideNumber}>12 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -543,7 +543,7 @@ const Slide14 = () => (
           <Text style={{ ...styles.metricValue, fontSize: 14, marginTop: 4 }}>~$3K MRR</Text>
         </View>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Thailand is now a validated second beachhead.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>Thailand is now a validated second beachhead.</Text>
     </View>
     <Text style={styles.slideNumber}>14 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -582,7 +582,7 @@ const Slide16 = () => (
         <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>High operational complexity</Text></View>
         <View style={styles.listItem}><Text style={styles.bullet}>→</Text><Text style={styles.listText}>Decision-sensitive economics</Text></View>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>These companies feel decision latency first.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>These companies feel decision latency first.</Text>
     </View>
     <Text style={styles.slideNumber}>16 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
@@ -638,7 +638,7 @@ const Slide19 = () => (
         <Text style={{ ...styles.diagramText, color: '#60a5fa' }}>Thailand → Second beachhead (live revenue)</Text>
         <Text style={{ ...styles.diagramText, color: '#34d399' }}>Indonesia → Category-scale expansion</Text>
       </View>
-      <Text style={{ ...styles.body, textAlign: 'center', fontStyle: 'italic' }}>Expansion is deliberate — not opportunistic.</Text>
+      <Text style={{ ...styles.body, textAlign: 'center' }}>Expansion is deliberate — not opportunistic.</Text>
     </View>
     <Text style={styles.slideNumber}>19 / {TOTAL_SLIDES}</Text>
     <Text style={styles.footer}>BLUECORE · VC Pitch Deck</Text>
