@@ -88,7 +88,6 @@ const styles = StyleSheet.create({
   punchline: {
     fontSize: 14,
     color: '#60a5fa',
-    fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 24,
     paddingLeft: 16,
