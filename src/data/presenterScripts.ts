@@ -331,21 +331,44 @@ We are following structural demand.
 
 Very strong institutional tone.`,
 
-  22: `Bluecore spent over three years building the financial truth layer —
+  22: `Financial awareness is becoming inevitable.
 
-reaching approximately 99.8% data accuracy.
-
-Most companies start with dashboards.
-
-We started with truth.
-
-Decision AI can be copied.
-Financial data history cannot.
+Bluecore is unusually positioned to define it.
 
 👉 Pause.
-Let that land.
 
-This is one of your strongest slides.`,
+Four things make this structural:
+
+One — we built before the category was obvious.
+Over three years engineering the financial truth layer.
+That level of accuracy required years of semantic modeling
+that cannot be shortcut.
+
+Two — truth, not dashboards, as foundation.
+Most companies start with analytics.
+We started with reconciliation-grade data.
+99.8% accuracy created the trust required
+for executive-level dependency.
+
+Three — embedded where replacement is risky.
+Bluecore sits in the financial decision path.
+Once leadership relies on a system to detect risk,
+removal becomes operationally dangerous.
+
+Four — compounding decision intelligence.
+Every decision enriches a proprietary dataset
+linking signal to decision to outcome.
+The system becomes smarter as customers scale.
+
+👉 Pause.
+
+Lower voice.
+
+Categories tend to consolidate around trusted infrastructure.
+
+Bluecore is being built to become that trust layer.
+
+🔥 Stop. Let silence close.`,
 
   23: `ERP became mandatory.
 
@@ -722,18 +745,44 @@ Chúng tôi theo structural demand.
 
 Tone rất institutional.`,
 
-  22: `Bluecore dành hơn ba năm xây tầng sự thật tài chính —
+  22: `Nhận thức tài chính đang trở thành tất yếu.
 
-đạt khoảng 99.8% data accuracy.
-
-Hầu hết công ty bắt đầu với dashboards.
-
-Chúng tôi bắt đầu với sự thật.
+Bluecore có vị thế đặc biệt để định nghĩa nó.
 
 👉 Pause.
-Để nó land.
 
-Đây là một trong những slides mạnh nhất của bạn.`,
+Bốn điều khiến điều này mang tính cấu trúc:
+
+Một — chúng tôi xây dựng trước khi category rõ ràng.
+Hơn ba năm xây dựng tầng sự thật tài chính.
+Độ chính xác đó đòi hỏi nhiều năm semantic modeling
+không thể rút ngắn.
+
+Hai — sự thật, không phải dashboards, là nền tảng.
+Hầu hết công ty bắt đầu với analytics.
+Chúng tôi bắt đầu với dữ liệu reconciliation-grade.
+99.8% accuracy tạo ra sự tin tưởng cần thiết
+cho sự phụ thuộc cấp lãnh đạo.
+
+Ba — nhúng sâu nơi thay thế là rủi ro.
+Bluecore nằm trong đường dẫn quyết định tài chính.
+Khi lãnh đạo dựa vào hệ thống để phát hiện rủi ro,
+việc gỡ bỏ trở nên nguy hiểm về vận hành.
+
+Bốn — trí tuệ quyết định cộng hưởng.
+Mỗi quyết định làm giàu bộ dữ liệu độc quyền
+kết nối tín hiệu đến quyết định đến kết quả.
+Hệ thống trở nên thông minh hơn khi khách hàng mở rộng.
+
+👉 Pause.
+
+Hạ giọng.
+
+Category có xu hướng hợp nhất xung quanh hạ tầng được tin tưởng.
+
+Bluecore đang được xây dựng để trở thành tầng tin tưởng đó.
+
+🔥 Dừng. Để im lặng đóng.`,
 
   23: `ERP trở thành bắt buộc.
 

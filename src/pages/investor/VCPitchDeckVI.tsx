@@ -115,8 +115,8 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Expansion là có chủ đích — không phải cơ hội."
   },
   22: {
-    tip: "3+ năm warehouse maturity. ~99.8% data accuracy. Decision AI có thể copy. Financial data history thì không.",
-    action: "Founder signal trở nên RẤT mạnh ở đây. Amplify unfair advantage."
+    tip: "Đây là slide Partner-Conviction. Nghe như investor memo, không phải pitch. Calm inevitability. Không hype words.",
+    action: "Pause sau 'tầng tin tưởng'. Để im lặng làm việc. Partner nghĩ: 'Sẽ lạ nếu họ thua.'"
   },
   23: {
     tip: "Không bao giờ bỏ qua điều này trong infra decks. Nghe bình tĩnh — gần như hiển nhiên.",
@@ -1333,66 +1333,88 @@ const Slide20CategoryForming: React.FC = () => (
   </div>
 );
 
-// Slide 21 — Why Bluecore Wins (was 20)
+// Slide 21 — Partner Conviction: Tại Sao Bây Giờ — Và Tại Sao Bluecore
 const Slide21WhyBluecoreWins: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+  <div className="flex flex-col items-center justify-center h-full px-8 py-6">
+    {/* Title */}
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-4"
+      className="text-4xl md:text-5xl font-bold text-white mb-6 text-center"
     >
-      Xây dựng Financial Truth Layer
+      Tại Sao Bây Giờ — Và Tại Sao Bluecore
     </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
-    >
-      Trước khi Category Tồn tại.
-    </motion.h2>
     
+    {/* Opening Line */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="text-lg md:text-xl text-slate-300 text-center max-w-3xl mb-10"
+    >
+      Nhận thức tài chính đang trở thành tất yếu.<br />
+      <span className="text-white font-medium">Bluecore có vị thế đặc biệt để định nghĩa nó.</span>
+    </motion.p>
+    
+    {/* 4 Conviction Pillars */}
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl w-full mb-10"
+      transition={{ delay: 0.5 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl w-full mb-10"
     >
-      {[
-        "3+ năm warehouse maturity",
-        "~99.8% data accuracy",
-        "Deep financial semantics",
-        "Reconciliation logic",
-        "Multi-source ingestion"
-      ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 + i * 0.1 }}
-          className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm"
-        >
-          {item}
-        </motion.div>
-      ))}
+      {/* Pillar 1 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">1. Xây dựng Trước Khi Category Rõ ràng</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Chúng tôi dành hơn ba năm xây dựng tầng sự thật tài chính
+          trước khi thị trường nhận ra nhu cầu về hạ tầng nhận thức.
+        </p>
+      </div>
+      
+      {/* Pillar 2 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">2. Sự Thật — Không Phải Dashboards — Là Nền Tảng</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Trong khi hầu hết công ty bắt đầu với analytics, Bluecore bắt đầu với 
+          dữ liệu tài chính reconciliation-grade. ~99.8% accuracy tạo ra sự tin tưởng
+          cần thiết cho sự phụ thuộc cấp lãnh đạo.
+        </p>
+      </div>
+      
+      {/* Pillar 3 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">3. Nhúng Sâu Nơi Thay Thế Là Rủi Ro</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Bluecore nằm trực tiếp trong đường dẫn quyết định tài chính. Khi lãnh đạo
+          dựa vào hệ thống để phát hiện rủi ro, việc gỡ bỏ trở nên nguy hiểm về vận hành.
+        </p>
+      </div>
+      
+      {/* Pillar 4 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">4. Trí Tuệ Quyết Định Cộng Hưởng</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Mỗi quyết định tài chính làm giàu bộ dữ liệu độc quyền kết nối 
+          tín hiệu → quyết định → kết quả. Hệ thống trở nên thông minh hơn khi khách hàng mở rộng.
+        </p>
+      </div>
     </motion.div>
     
-    <motion.p 
+    {/* Closing Weapon */}
+    <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="text-lg text-slate-400"
+      transition={{ delay: 0.8 }}
+      className="border-t border-slate-700/50 pt-8 text-center max-w-3xl"
     >
-      Hầu hết công ty bắt đầu với dashboards.
-    </motion.p>
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.2 }}
-      className="text-xl text-white font-medium"
-    >
-      Chúng tôi bắt đầu với sự thật.
-    </motion.p>
+      <p className="text-slate-500 text-base mb-3">
+        Category có xu hướng hợp nhất xung quanh hạ tầng được tin tưởng.
+      </p>
+      <p className="text-white text-lg font-medium">
+        Bluecore đang được xây dựng để trở thành tầng tin tưởng đó.
+      </p>
+    </motion.div>
   </div>
 );
 
