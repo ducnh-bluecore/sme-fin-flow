@@ -28,7 +28,7 @@ import { sanitizePdfElement, sanitizePdfElementHard } from '@/components/sales-d
 import VCPitchDeckPDF from '@/components/sales-deck/VCPitchDeckPDF';
 import { presenterScriptsEN, parseScriptLines } from '@/data/presenterScripts';
 
-// Presenter notes for each slide (23 slides - synced with VI)
+// Presenter notes for each slide (24 slides - with FOMO slide)
 const presenterNotes: Record<number, { tip: string; action: string }> = {
   1: {
     tip: "VC must feel DANGER, not just opportunity. Financial blindness kills companies - make it violent.",
@@ -107,18 +107,22 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Partner now sees venture scale."
   },
   20: {
+    tip: "This is your FOMO slide. Speak with calm inevitability — not excitement. McKinsey tone, not startup.",
+    action: "Pause after 'They will become infrastructure.' Let investor brain activate: 'If we miss this... it's expensive.'"
+  },
+  21: {
     tip: "Many decks forget this. Partners invest in execution clarity.",
     action: "Expansion is deliberate — not opportunistic."
   },
-  21: {
+  22: {
     tip: "3+ years warehouse maturity. ~99.8% data accuracy. Decision AI can be copied. Financial data history cannot.",
     action: "Founder signal becomes VERY strong here. Amplify unfair advantage."
   },
-  22: {
+  23: {
     tip: "Never skip this in infra decks. Sound calm — almost obvious.",
     action: "Let the inevitability sink in. ERP = mandatory. Decision infra = next."
   },
-  23: {
+  24: {
     tip: "End with conviction. This is the system companies rely on to survive.",
     action: "End deck. Let silence work. Do NOT add fluff."
   }
@@ -1173,8 +1177,8 @@ const Slide19ExpansionUnlocks: React.FC = () => (
   </div>
 );
 
-// Slide 20 — Regional Expansion
-const Slide20RegionalExpansion: React.FC = () => (
+// Slide 21 — Regional Expansion (was 20)
+const Slide21RegionalExpansion: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1240,8 +1244,98 @@ const Slide20RegionalExpansion: React.FC = () => (
   </div>
 );
 
-// Slide 21 — Why Bluecore Wins
-const Slide21WhyBluecoreWins: React.FC = () => (
+// Slide 20 — FOMO: Category Is Forming
+const Slide20CategoryForming: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2 leading-tight"
+    >
+      The Financial Awareness Category Is Forming
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-2xl md:text-3xl font-bold text-slate-500 mb-10"
+    >
+      — With or Without You.
+    </motion.h2>
+    
+    {/* Thesis */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="text-lg md:text-xl text-slate-300 max-w-3xl mb-8"
+    >
+      Every commerce company is moving toward real-time financial awareness.<br />
+      <span className="text-white font-medium">The only question is — which system becomes the default.</span>
+    </motion.p>
+    
+    {/* Inevitability Stack */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="max-w-2xl space-y-2 text-slate-400 text-base md:text-lg mb-8"
+    >
+      <p>Decision speed is becoming a survival variable.</p>
+      <p>Financial signals are finally connectable.</p>
+      <p>Leadership behavior is shifting from reporting → awareness.</p>
+      <p>Trusted financial infrastructure compounds and rarely gets replaced.</p>
+    </motion.div>
+    
+    {/* Category Signals */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 max-w-xl w-full mb-8"
+    >
+      <div className="text-slate-500 text-sm font-medium mb-3 text-left">Category Formation Signals</div>
+      <div className="space-y-2 text-slate-300 text-sm text-left">
+        <p>• Companies already run daily decisions on Bluecore</p>
+        <p>• Financial truth is becoming operational infrastructure</p>
+        <p>• Replacement risk drops once embedded</p>
+        <p>• Regional expansion follows structural similarity</p>
+      </div>
+    </motion.div>
+    
+    {/* Weapon Line */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="max-w-2xl"
+    >
+      <p className="text-slate-500 text-base mb-2">
+        The next generation of enduring software companies<br />
+        will not sell tools.
+      </p>
+      <p className="text-white text-lg font-medium mb-4">
+        They will become infrastructure.
+      </p>
+      <p className="text-blue-400 text-lg font-semibold">
+        Bluecore is on that path.
+      </p>
+    </motion.div>
+    
+    {/* Trust Footer */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.3 }}
+      className="mt-8 text-sm text-slate-600 italic"
+    >
+      Financial systems that reach trust rarely get displaced.
+    </motion.p>
+  </div>
+);
+
+// Slide 22 — Why Bluecore Wins (was 21)
+const Slide22WhyBluecoreWins: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1303,8 +1397,9 @@ const Slide21WhyBluecoreWins: React.FC = () => (
   </div>
 );
 
-// Slide 22 — Inevitability Vision
-const Slide22InevitabilityVision: React.FC = () => (
+
+// Slide 23 — Inevitability Vision (continued)
+const Slide23InevitabilityVision: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1335,8 +1430,8 @@ const Slide22InevitabilityVision: React.FC = () => (
   </div>
 );
 
-// Slide 23 — Closing
-const Slide23Closing: React.FC = () => (
+// Slide 24 — Closing
+const Slide24Closing: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
@@ -1377,28 +1472,29 @@ const Slide23Closing: React.FC = () => (
 
 const slides = [
   Slide01CategoryShock,           // 1
-  Slide02SilentFailure,           // 2 - UPDATED messaging
-  Slide03PlatformShift,           // 3 - UPDATED format
+  Slide02SilentFailure,           // 2
+  Slide03PlatformShift,           // 3
   Slide04Inevitability,           // 4
   Slide05DefineCategory,          // 5
   Slide06ArchitectureMoat,        // 6
-  Slide07DecisionDataset,         // 7 - UPDATED Flywheel
+  Slide07DecisionDataset,         // 7 - Flywheel
   Slide08WhyImpossibleBefore,     // 8
   Slide09WhyMandatory,            // 9
   Slide10ProductOneSentence,      // 10
   Slide11Velocity,                // 11
-  Slide12CrossBorder,             // 12 - MOVED UP
-  Slide13ProductReality,          // 13 - NEW
+  Slide12CrossBorder,             // 12
+  Slide13ProductReality,          // 13
   Slide14ArchitectureAdvantage,   // 14
   Slide15SwitchingCost,           // 15
   Slide16ArchitectureTravels,     // 16
   Slide17InitialWedge,            // 17
   Slide18SEAMarket,               // 18
   Slide19ExpansionUnlocks,        // 19
-  Slide20RegionalExpansion,       // 20
-  Slide21WhyBluecoreWins,         // 21
-  Slide22InevitabilityVision,     // 22
-  Slide23Closing                  // 23
+  Slide20CategoryForming,         // 20 ← NEW FOMO SLIDE
+  Slide21RegionalExpansion,       // 21 (was 20)
+  Slide22WhyBluecoreWins,         // 22 (was 21)
+  Slide23InevitabilityVision,     // 23 (was 22)
+  Slide24Closing                  // 24 (was 23)
 ];
 
 const VCPitchDeck: React.FC = () => {
