@@ -3,7 +3,7 @@
  * Full speaking scripts for each slide
  */
 
-// English scripts for 23 slides (synced with VI)
+// English scripts for 24 slides (with FOMO slide at 20)
 export const presenterScriptsEN: Record<number, string> = {
   1: `Cash rarely collapses in a dramatic moment.
 It erodes quietly — inside operations.
@@ -292,7 +292,34 @@ Category potential exceeds five billion dollars in Southeast Asia alone.
 
 🔥 Now investors see venture scale.`,
 
-  20: `Our expansion is deliberate — not opportunistic.
+  20: `The Financial Awareness category is forming.
+
+Every commerce company is moving toward real-time awareness.
+The only question is... which system becomes the default.
+
+Decision speed is becoming a survival variable.
+Financial signals are finally connectable.
+Leadership is shifting from reporting... to awareness.
+Trusted financial infrastructure compounds.
+
+And rarely gets replaced.
+
+👉 Pause.
+
+Look at investors.
+
+The next generation of enduring software companies
+will not sell tools.
+
+They will become infrastructure.
+
+👉 Lower voice.
+
+Bluecore is on that path.
+
+🔥 Stop. Let silence work.`,
+
+  21: `Our expansion is deliberate — not opportunistic.
 
 Vietnam is our primary build market.
 Thailand validates regional portability.
@@ -304,7 +331,7 @@ We are following structural demand.
 
 Very strong institutional tone.`,
 
-  21: `Bluecore spent over three years building the financial truth layer —
+  22: `Bluecore spent over three years building the financial truth layer —
 
 reaching approximately 99.8% data accuracy.
 
@@ -320,7 +347,7 @@ Let that land.
 
 This is one of your strongest slides.`,
 
-  22: `ERP became mandatory.
+  23: `ERP became mandatory.
 
 Financial decision infrastructure will too.
 
@@ -331,7 +358,7 @@ Only which system they trust.
 Classic venture framing.
 Excellent slide.`,
 
-  23: `We are not building software.
+  24: `We are not building software.
 
 We are building the system companies rely on to survive.
 
@@ -366,7 +393,7 @@ Investors fund inevitability.
 Not enthusiasm.`
 };
 
-// Vietnamese scripts for 23 slides  
+// Vietnamese scripts for 24 slides (with FOMO slide at 20)
 export const presenterScriptsVI: Record<number, string> = {
   1: `Tiền hiếm khi sụp đổ trong khoảnh khắc kịch tính.
 Nó bào mòn âm thầm — bên trong vận hành.
@@ -656,7 +683,34 @@ Tiềm năng category vượt năm tỷ đô la riêng Đông Nam Á.
 
 🔥 Bây giờ investors thấy venture scale.`,
 
-  20: `Expansion của chúng tôi có chủ đích — không phải cơ hội.
+  20: `Category Financial Awareness đang hình thành.
+
+Mọi công ty thương mại đang hướng tới nhận thức thời gian thực.
+Câu hỏi duy nhất là... hệ thống nào trở thành mặc định.
+
+Tốc độ quyết định đang trở thành biến số sống còn.
+Tín hiệu tài chính cuối cùng có thể kết nối.
+Lãnh đạo đang chuyển từ báo cáo... sang nhận thức.
+Hạ tầng tài chính được tin tưởng cộng hưởng.
+
+Và hiếm khi bị thay thế.
+
+👉 Pause.
+
+Nhìn vào investors.
+
+Thế hệ tiếp theo của công ty phần mềm bền vững
+sẽ không bán công cụ.
+
+Họ sẽ trở thành hạ tầng.
+
+👉 Hạ giọng.
+
+Bluecore đang trên con đường đó.
+
+🔥 Dừng. Để im lặng làm việc.`,
+
+  21: `Expansion của chúng tôi có chủ đích — không phải cơ hội.
 
 Việt Nam là thị trường build chính.
 Thái Lan xác thực portability khu vực.
@@ -668,7 +722,7 @@ Chúng tôi theo structural demand.
 
 Tone rất institutional.`,
 
-  21: `Bluecore dành hơn ba năm xây tầng sự thật tài chính —
+  22: `Bluecore dành hơn ba năm xây tầng sự thật tài chính —
 
 đạt khoảng 99.8% data accuracy.
 
@@ -681,7 +735,7 @@ Chúng tôi bắt đầu với sự thật.
 
 Đây là một trong những slides mạnh nhất của bạn.`,
 
-  22: `ERP trở thành bắt buộc.
+  23: `ERP trở thành bắt buộc.
 
 Cơ sở hạ tầng quyết định tài chính cũng sẽ như vậy.
 
@@ -692,7 +746,7 @@ Chỉ hệ thống nào họ tin tưởng.
 Classic venture framing.
 Slide xuất sắc.`,
 
-  23: `Chúng tôi không xây phần mềm.
+  24: `Chúng tôi không xây phần mềm.
 
 Chúng tôi xây hệ thống mà công ty dựa vào để tồn tại.
 

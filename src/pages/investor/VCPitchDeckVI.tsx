@@ -28,7 +28,7 @@ import { sanitizePdfElement, sanitizePdfElementHard } from '@/components/sales-d
 import VCPitchDeckPDF_VI from '@/components/sales-deck/VCPitchDeckPDF_VI';
 import { presenterScriptsVI, parseScriptLines } from '@/data/presenterScripts';
 
-// Presenter notes for each slide (Vietnamese - 23 slides)
+// Presenter notes for each slide (Vietnamese - 24 slides with FOMO)
 const presenterNotes: Record<number, { tip: string; action: string }> = {
   1: {
     tip: "VC phải cảm thấy DANGER, không chỉ opportunity. Financial blindness kills companies - làm nó violent.",
@@ -107,18 +107,22 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Partner bây giờ thấy venture scale."
   },
   20: {
+    tip: "Đây là slide FOMO. Nói với calm inevitability — không phải excitement. McKinsey tone, không phải startup.",
+    action: "Pause sau 'Họ sẽ trở thành hạ tầng.' Để investor brain kích hoạt: 'Nếu mình bỏ lỡ này... sẽ đắt.'"
+  },
+  21: {
     tip: "Nhiều deck quên điều này. Partners đầu tư vào execution clarity.",
     action: "Expansion là có chủ đích — không phải cơ hội."
   },
-  21: {
+  22: {
     tip: "3+ năm warehouse maturity. ~99.8% data accuracy. Decision AI có thể copy. Financial data history thì không.",
     action: "Founder signal trở nên RẤT mạnh ở đây. Amplify unfair advantage."
   },
-  22: {
+  23: {
     tip: "Không bao giờ bỏ qua điều này trong infra decks. Nghe bình tĩnh — gần như hiển nhiên.",
     action: "Để tính tất yếu thấm. ERP = bắt buộc. Decision infra = tiếp theo."
   },
-  23: {
+  24: {
     tip: "Kết thúc với niềm tin. Đây là hệ thống doanh nghiệp dựa vào để tồn tại.",
     action: "Kết thúc deck. Để im lặng làm việc. KHÔNG thêm fluff."
   }
@@ -1239,8 +1243,98 @@ const Slide19RegionalExpansion: React.FC = () => (
   </div>
 );
 
-// Slide 20 — Why Bluecore Wins
-const Slide20WhyBluecoreWins: React.FC = () => (
+// Slide 20 — FOMO: Category Is Forming
+const Slide20CategoryForming: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2 leading-tight"
+    >
+      Category Financial Awareness Đang Hình Thành
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-2xl md:text-3xl font-bold text-slate-500 mb-10"
+    >
+      — Có Bạn Hay Không.
+    </motion.h2>
+    
+    {/* Thesis */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="text-lg md:text-xl text-slate-300 max-w-3xl mb-8"
+    >
+      Mọi công ty thương mại đang hướng tới nhận thức tài chính thời gian thực.<br />
+      <span className="text-white font-medium">Câu hỏi duy nhất là — hệ thống nào sẽ trở thành mặc định.</span>
+    </motion.p>
+    
+    {/* Inevitability Stack */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="max-w-2xl space-y-2 text-slate-400 text-base md:text-lg mb-8"
+    >
+      <p>Tốc độ quyết định đang trở thành biến số sống còn.</p>
+      <p>Tín hiệu tài chính cuối cùng đã có thể kết nối.</p>
+      <p>Hành vi lãnh đạo đang chuyển từ báo cáo → nhận thức.</p>
+      <p>Hạ tầng tài chính được tin tưởng cộng hưởng và hiếm khi bị thay thế.</p>
+    </motion.div>
+    
+    {/* Category Signals */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 max-w-xl w-full mb-8"
+    >
+      <div className="text-slate-500 text-sm font-medium mb-3 text-left">Tín hiệu Hình thành Category</div>
+      <div className="space-y-2 text-slate-300 text-sm text-left">
+        <p>• Doanh nghiệp đã chạy quyết định hàng ngày trên Bluecore</p>
+        <p>• Sự thật tài chính đang trở thành hạ tầng vận hành</p>
+        <p>• Rủi ro thay thế giảm khi đã nhúng sâu</p>
+        <p>• Expansion khu vực theo tương đồng cấu trúc</p>
+      </div>
+    </motion.div>
+    
+    {/* Weapon Line */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="max-w-2xl"
+    >
+      <p className="text-slate-500 text-base mb-2">
+        Thế hệ tiếp theo của công ty phần mềm bền vững<br />
+        sẽ không bán công cụ.
+      </p>
+      <p className="text-white text-lg font-medium mb-4">
+        Họ sẽ trở thành hạ tầng.
+      </p>
+      <p className="text-blue-400 text-lg font-semibold">
+        Bluecore đang trên con đường đó.
+      </p>
+    </motion.div>
+    
+    {/* Trust Footer */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.3 }}
+      className="mt-8 text-sm text-slate-600 italic"
+    >
+      Hệ thống tài chính đạt được sự tin tưởng hiếm khi bị thay thế.
+    </motion.p>
+  </div>
+);
+
+// Slide 21 — Why Bluecore Wins (was 20)
+const Slide21WhyBluecoreWins: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1302,8 +1396,8 @@ const Slide20WhyBluecoreWins: React.FC = () => (
   </div>
 );
 
-// Slide 21 — Inevitability Vision
-const Slide21InevitabilityVision: React.FC = () => (
+// Slide 22 — Inevitability Vision (was 21)
+const Slide22InevitabilityVision: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
@@ -1334,8 +1428,40 @@ const Slide21InevitabilityVision: React.FC = () => (
   </div>
 );
 
-// Slide 22 — Closing
-const Slide22Closing: React.FC = () => (
+// Slide 23 — Inevitability Vision (continued)
+const Slide23InevitabilityVision: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4"
+    >
+      ERP Đã Trở thành Bắt buộc.
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="text-4xl md:text-5xl lg:text-6xl font-bold text-blue-400 mb-12"
+    >
+      Decision Infrastructure Cũng Sẽ Vậy.
+    </motion.h2>
+    
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="text-xl text-slate-300 mb-12 max-w-2xl"
+    >
+      Sắp tới, doanh nghiệp sẽ không tranh luận<br />
+      liệu họ có cần hệ thống quyết định tài chính.<br />
+      <span className="text-white font-medium">Chỉ là tin tưởng hệ thống nào.</span>
+    </motion.p>
+  </div>
+);
+
+// Slide 24 — Closing (was 22)
+const Slide24Closing: React.FC = () => (
   <div className="flex flex-col items-center justify-center h-full text-center px-8">
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
@@ -1386,18 +1512,19 @@ const slides = [
   Slide09WhyMandatory,            // 9
   Slide10ProductOneSentence,      // 10
   Slide11Velocity,                // 11
-  Slide12CrossBorder,             // 12 - MOVED UP (traction early)
-  Slide13ProductReality,          // 13 - NEW Product Reality
+  Slide12CrossBorder,             // 12
+  Slide13ProductReality,          // 13
   Slide14ArchitectureAdvantage,   // 14
   Slide15SwitchingCost,           // 15
   Slide16ArchitectureTravels,     // 16
   Slide16InitialWedge,            // 17
   Slide17SEAMarket,               // 18
   Slide18ExpansionUnlocks,        // 19
-  Slide19RegionalExpansion,       // 20
-  Slide20WhyBluecoreWins,         // 21 - AMPLIFIED
-  Slide21InevitabilityVision,     // 22
-  Slide22Closing                  // 23
+  Slide20CategoryForming,         // 20 ← NEW FOMO SLIDE
+  Slide19RegionalExpansion,       // 21 (was 20)
+  Slide21WhyBluecoreWins,         // 22 (was 21)
+  Slide23InevitabilityVision,     // 23 (was 22)
+  Slide24Closing                  // 24 (was 23)
 ];
 
 const VCPitchDeckVI: React.FC = () => {
