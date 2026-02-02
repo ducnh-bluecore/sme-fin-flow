@@ -1,115 +1,272 @@
 
-# Kế hoạch: Đồng bộ EN với VI (Dịch từ VI sang EN)
 
-## Phạm vi Công việc
+# Kế hoạch: Thêm FOMO Slide - "Category Is Forming"
 
-Cập nhật bản **English** (`VCPitchDeck.tsx`) để khớp hoàn toàn với bản **Vietnamese** (`VCPitchDeckVI.tsx`) đã được tối ưu - chỉ dịch nội dung, giữ nguyên cấu trúc.
+## Mục tiêu
+
+Thêm slide chiến lược để kích hoạt **FOMO của investor** theo nguyên tắc:
+- **Không pitch**: "Invest in us"  
+- **Mà nói**: "A new infrastructure layer is emerging. You can either be early... or pay 10x later."
 
 ---
 
-## Thay đổi Chính
+## Vị trí Chèn
 
-### 1. Slide 2 — Thay đổi hoàn toàn messaging
-**Từ (EN cũ):**
+**Flow hiện tại:**
 ```
-"Companies Rarely Fail from Lack of Data."
-"They Fail from Delayed Financial Truth."
-+ Recording/Reporting/Analyzing tags
-```
-
-**Sang (dịch từ VI):**
-```
-"Data infrastructure has become standard."
-"Financial Awareness will be the next default infrastructure."
-
-"Data tells the past.
-Financial Awareness tells you if you're safe — right now."
-
-"Not the company with the most data will win.
-But the company with the earliest awareness."
+17: Initial Wedge (ICP)
+18: SEA Market ($1B+ Wedge)
+19: Expansion Unlocks (Multi-Billion)
+20: Regional Expansion
+21: Why Bluecore Wins
+22: Inevitability Vision
+23: Closing
 ```
 
-### 2. Slide 3 — Thay đổi format
-**Từ (EN cũ):**
+**Flow mới (sau khi thêm FOMO slide):**
 ```
-ERP → BI → Bluecore (horizontal boxes)
-"A new execution layer is emerging"
-```
-
-**Sang (dịch từ VI):**
-```
-"Systems of Record — record the past."
-"Systems of Intelligence — explain the past."  
-"Systems of Awareness — decide what happens next."
-
-"Bluecore is building the Awareness Layer."
-
-Quote: "Operating without financial awareness
-will soon feel as risky as operating without accounting."
+17: Initial Wedge (ICP)
+18: SEA Market ($1B+ Wedge)
+19: Expansion Unlocks (Multi-Billion)
+20: FOMO SLIDE (NEW)               ← Đây
+21: Regional Expansion
+22: Why Bluecore Wins
+23: Inevitability Vision
+24: Closing
 ```
 
-### 3. Slide 7 — Thêm Flywheel Visual
-**Từ (EN cũ):** Grid format với 4 bullets
+Lý do: Sau TAM, investor nghĩ "If this works... it's big."
+Slide FOMO chuyển thành: "If we miss this... it's expensive."
 
-**Sang (dịch từ VI):** Flywheel visual với 6 bước:
-- More customers → More financial patterns → Better risk detection → Better decisions → Deeper trust → Harder to replace → (loop back)
+---
 
-### 4. Thứ tự Slides — Đổi theo VI
+## Nội dung Slide (EN)
 
-| Slot | VI Content | EN Content Mới |
-|------|------------|----------------|
-| 12 | Cross-Border (moved up) | Cross-Border (moved up) |
-| 13 | **Product Reality** (NEW) | **Product Reality** (ADD) |
-| 14 | Architecture Advantage | Architecture Advantage |
-| 15 | Switching Cost | Switching Cost |
-| 16 | Architecture Travels | Architecture Travels |
-
-### 5. Thêm Slide 13 — Product Reality (MISSING)
-Thêm slide mới với example thực tế:
+### Title
 ```
-"THIS IS WHAT A DECISION LOOKS LIKE"
-
-⚠ CASH RISK DETECTED
-- Sell-through: ↓ 23%
-- Inventory turn: ↓ 18%  
-- Payment terms: Extended
-
-→ Recommendation: Slow down purchase orders
-→ Preserve $480K in liquidity
-
-"One real example = 100 concept slides."
+The Financial Awareness Category Is Forming — With or Without You.
 ```
 
-### 6. Cập nhật Presenter Notes (EN)
-Đồng bộ với VI — hiện tại EN có 22 notes, cần thêm note cho slide 13 và điều chỉnh các slide khác.
+### TOP — One Sentence Thesis
+```
+Every commerce company is moving toward real-time financial awareness.
+The only question is — which system becomes the default.
+```
 
-### 7. Cập nhật slides array
+### CENTER — The Inevitability Stack (4 dòng, không bullet)
+```
+Decision speed is becoming a survival variable.
+Financial signals are finally connectable.
+Leadership behavior is shifting from reporting → awareness.
+Trusted financial infrastructure compounds and rarely gets replaced.
+```
+
+### Category Formation Signals
+```
+• Companies already run daily decisions on Bluecore
+• Financial truth is becoming operational infrastructure
+• Replacement risk drops once embedded
+• Regional expansion follows structural similarity
+```
+
+### THE WEAPON LINE (Bottom)
+```
+The next generation of enduring software companies
+will not sell tools.
+
+They will become infrastructure.
+
+Bluecore is on that path.
+```
+
+### Optional Power Line (nếu đủ authority)
+```
+We believe Financial Awareness will become as standard as ERP.
+```
+
+---
+
+## Layout Design
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   The Financial Awareness Category Is Forming                      │
+│   — With or Without You.                           (Title - White) │
+│                                                                     │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   Every commerce company is moving toward                           │
+│   real-time financial awareness.                                    │
+│   The only question is — which system becomes the default.         │
+│                                              (Thesis - slate-300)  │
+│                                                                     │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   Decision speed is becoming a survival variable.                   │
+│   Financial signals are finally connectable.        (Inevitability │
+│   Leadership: reporting → awareness.                    Stack -    │
+│   Trusted financial infra compounds.                   slate-400)  │
+│                                                                     │
+├────────────────────────────────────────────────────────────────────┤
+│   Category Formation Signals                                        │
+│   ┌──────────────────────────────────────────────────────────┐     │
+│   │ • Daily decisions on Bluecore                             │     │
+│   │ • Truth = operational infrastructure                      │     │
+│   │ • Replacement risk drops once embedded                    │     │
+│   │ • Regional expansion follows structural similarity        │     │
+│   └──────────────────────────────────────────────────────────┘     │
+│                                                                     │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   The next generation of enduring software companies               │
+│   will not sell tools.                               (Weapon Line  │
+│   They will become infrastructure.                    - slate-500  │
+│                                                       → white)     │
+│   Bluecore is on that path.                          (blue-400)    │
+│                                                                     │
+│   ─────────────────────────────────────────────────────────        │
+│   "Financial systems that reach trust rarely get displaced."       │
+│                                              (Small italic footer) │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Chi tiết Kỹ thuật
+
+### Slide Component Code
+
+```tsx
+// Slide 20 — FOMO: Category Is Forming
+const Slide20CategoryForming: React.FC = () => (
+  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+    <motion.h1 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2 leading-tight"
+    >
+      The Financial Awareness Category Is Forming
+    </motion.h1>
+    <motion.h2
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="text-2xl md:text-3xl font-bold text-slate-500 mb-10"
+    >
+      — With or Without You.
+    </motion.h2>
+    
+    {/* Thesis */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4 }}
+      className="text-lg md:text-xl text-slate-300 max-w-3xl mb-8"
+    >
+      Every commerce company is moving toward real-time financial awareness.<br />
+      <span className="text-white font-medium">The only question is — which system becomes the default.</span>
+    </motion.p>
+    
+    {/* Inevitability Stack */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6 }}
+      className="max-w-2xl space-y-2 text-slate-400 text-base md:text-lg mb-8"
+    >
+      <p>Decision speed is becoming a survival variable.</p>
+      <p>Financial signals are finally connectable.</p>
+      <p>Leadership behavior is shifting from reporting → awareness.</p>
+      <p>Trusted financial infrastructure compounds and rarely gets replaced.</p>
+    </motion.div>
+    
+    {/* Category Signals */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="p-6 rounded-xl bg-slate-800/50 border border-slate-700 max-w-xl w-full mb-8"
+    >
+      <div className="text-slate-500 text-sm font-medium mb-3 text-left">Category Formation Signals</div>
+      <div className="space-y-2 text-slate-300 text-sm text-left">
+        <p>• Companies already run daily decisions on Bluecore</p>
+        <p>• Financial truth is becoming operational infrastructure</p>
+        <p>• Replacement risk drops once embedded</p>
+        <p>• Regional expansion follows structural similarity</p>
+      </div>
+    </motion.div>
+    
+    {/* Weapon Line */}
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+      className="max-w-2xl"
+    >
+      <p className="text-slate-500 text-base mb-2">
+        The next generation of enduring software companies<br />
+        will not sell tools.
+      </p>
+      <p className="text-white text-lg font-medium mb-4">
+        They will become infrastructure.
+      </p>
+      <p className="text-blue-400 text-lg font-semibold">
+        Bluecore is on that path.
+      </p>
+    </motion.div>
+    
+    {/* Trust Footer */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.3 }}
+      className="mt-8 text-sm text-slate-600 italic"
+    >
+      Financial systems that reach trust rarely get displaced.
+    </motion.p>
+  </div>
+);
+```
+
+### Presenter Notes
+
 ```typescript
-const slides = [
-  Slide01CategoryShock,           // 1
-  Slide02SilentFailure,           // 2 - UPDATED messaging
-  Slide03PlatformShift,           // 3 - UPDATED format
-  Slide04Inevitability,           // 4
-  Slide05DefineCategory,          // 5
-  Slide06ArchitectureMoat,        // 6
-  Slide07DecisionDataset,         // 7 - UPDATED Flywheel
-  Slide08WhyImpossibleBefore,     // 8
-  Slide09WhyMandatory,            // 9
-  Slide10ProductOneSentence,      // 10
-  Slide11Velocity,                // 11
-  Slide12CrossBorder,             // 12 - MOVED UP
-  Slide13ProductReality,          // 13 - NEW
-  Slide14ArchitectureAdvantage,   // 14
-  Slide15SwitchingCost,           // 15
-  Slide16ArchitectureTravels,     // 16
-  Slide17InitialWedge,            // 17
-  Slide18SEAMarket,               // 18
-  Slide19ExpansionUnlocks,        // 19
-  Slide20RegionalExpansion,       // 20
-  Slide21WhyBluecoreWins,         // 21
-  Slide22InevitabilityVision,     // 22
-  Slide23Closing                  // 23
-];
+20: {
+  tip: "This is your FOMO slide. Speak with calm inevitability — not excitement. McKinsey tone, not startup.",
+  action: "Pause after 'They will become infrastructure.' Let investor brain activate: 'If we miss this... it's expensive.'"
+}
+```
+
+### Presenter Script
+
+```
+The Financial Awareness category is forming.
+
+Every commerce company is moving toward real-time awareness.
+The only question is... which system becomes the default.
+
+Decision speed is becoming a survival variable.
+Financial signals are finally connectable.
+Leadership is shifting from reporting... to awareness.
+Trusted financial infrastructure compounds.
+
+And rarely gets replaced.
+
+👉 Pause.
+
+Look at investors.
+
+The next generation of enduring software companies
+will not sell tools.
+
+They will become infrastructure.
+
+👉 Lower voice.
+
+Bluecore is on that path.
+
+🔥 Stop. Let silence work.
 ```
 
 ---
@@ -118,145 +275,64 @@ const slides = [
 
 | File | Thay đổi |
 |------|----------|
-| `src/pages/investor/VCPitchDeck.tsx` | Cập nhật slides 2, 3, 7; Thêm slide 13; Đổi thứ tự; Update notes |
-| `src/data/presenterScripts.ts` | Cập nhật `presenterScriptsEN` để khớp với 23 slides mới |
+| `VCPitchDeck.tsx` | Thêm `Slide20CategoryForming`; Đổi tên slides 20-23 → 21-24; Update notes |
+| `VCPitchDeckVI.tsx` | Thêm slide tương ứng (bản VI) |
+| `presenterScripts.ts` | Thêm script cho slide 20 (EN + VI); Shift scripts 20-23 → 21-24 |
 
 ---
 
-## Chi tiết Kỹ thuật
+## Slides Array Mới (24 slides)
 
-### Slide02SilentFailure — Code mới
-```tsx
-const Slide02SilentFailure: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight"
-    >
-      Data infrastructure has become standard.
-    </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="text-3xl md:text-4xl lg:text-5xl font-bold text-blue-400 mb-10"
-    >
-      Financial Awareness will be the next default infrastructure.
-    </motion.h2>
-    
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.6 }}
-      className="max-w-3xl space-y-8"
-    >
-      <p className="text-xl md:text-2xl text-slate-400 leading-relaxed">
-        Data tells the past.<br />
-        <span className="text-white font-medium">Financial Awareness tells you if you're safe — right now.</span>
-      </p>
-      
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.9 }}
-        className="text-xl md:text-2xl text-slate-500 pt-6 border-t border-slate-700/50"
-      >
-        Not the company with the most data will win.<br />
-        <span className="text-amber-400 font-semibold">But the company with the earliest awareness.</span>
-      </motion.p>
-    </motion.div>
-  </div>
-);
-```
-
-### Slide13ProductReality — Code mới (THÊM)
-```tsx
-const Slide13ProductReality: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
-    <motion.h1 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-4"
-    >
-      THIS IS WHAT A <span className="text-blue-400">DECISION LOOKS LIKE</span>
-    </motion.h1>
-    
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.4 }}
-      className="p-8 rounded-xl bg-slate-800/80 border border-red-500/50 max-w-2xl w-full"
-    >
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-        className="text-red-400 text-xl font-bold mb-6 flex items-center gap-2"
-      >
-        <span className="text-2xl">⚠</span> CASH RISK DETECTED
-      </motion.div>
-      
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="grid grid-cols-3 gap-4 mb-8"
-      >
-        <div className="p-4 rounded-lg bg-slate-900/50">
-          <div className="text-slate-400 text-sm mb-1">Sell-through</div>
-          <div className="text-red-400 text-2xl font-bold">↓ 23%</div>
-        </div>
-        <div className="p-4 rounded-lg bg-slate-900/50">
-          <div className="text-slate-400 text-sm mb-1">Inventory turn</div>
-          <div className="text-red-400 text-2xl font-bold">↓ 18%</div>
-        </div>
-        <div className="p-4 rounded-lg bg-slate-900/50">
-          <div className="text-slate-400 text-sm mb-1">Payment terms</div>
-          <div className="text-amber-400 text-2xl font-bold">Extended</div>
-        </div>
-      </motion.div>
-      
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
-        className="border-t border-slate-700 pt-6"
-      >
-        <div className="text-slate-400 text-lg mb-2">→ Recommendation: Slow down purchase orders</div>
-        <div className="text-emerald-400 text-3xl font-bold">→ Preserve $480K in liquidity</div>
-      </motion.div>
-    </motion.div>
-    
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.3 }}
-      className="mt-8 text-lg text-slate-500 italic"
-    >
-      One real example = 100 concept slides.
-    </motion.p>
-  </div>
-);
+```typescript
+const slides = [
+  Slide01CategoryShock,           // 1
+  Slide02SilentFailure,           // 2
+  Slide03PlatformShift,           // 3
+  Slide04Inevitability,           // 4
+  Slide05DefineCategory,          // 5
+  Slide06ArchitectureMoat,        // 6
+  Slide07DecisionDataset,         // 7
+  Slide08WhyImpossibleBefore,     // 8
+  Slide09WhyMandatory,            // 9
+  Slide10ProductOneSentence,      // 10
+  Slide11Velocity,                // 11
+  Slide12CrossBorder,             // 12
+  Slide13ProductReality,          // 13
+  Slide14ArchitectureAdvantage,   // 14
+  Slide15SwitchingCost,           // 15
+  Slide16ArchitectureTravels,     // 16
+  Slide17InitialWedge,            // 17
+  Slide18SEAMarket,               // 18
+  Slide19ExpansionUnlocks,        // 19
+  Slide20CategoryForming,         // 20 ← NEW FOMO SLIDE
+  Slide21RegionalExpansion,       // 21 (was 20)
+  Slide22WhyBluecoreWins,         // 22 (was 21)
+  Slide23InevitabilityVision,     // 23 (was 22)
+  Slide24Closing                  // 24 (was 23)
+];
 ```
 
 ---
 
 ## Kết quả Mong đợi
 
-| Trước | Sau |
-|-------|-----|
-| EN có 22 slides | EN có 23 slides (khớp VI) |
-| Slide 2 messaging khác | Slide 2 messaging giống VI |
-| Slide 3 format khác | Slide 3 format giống VI |
-| Slide 7 không có flywheel | Slide 7 có flywheel visual |
-| Thiếu Product Reality slide | Có Product Reality slide ($480K example) |
-| Thứ tự slides khác | Thứ tự slides khớp VI |
+| Metric | Trước | Sau |
+|--------|-------|-----|
+| Số slides | 23 | 24 |
+| FOMO trigger | Không có | Slide 20 kích hoạt "miss = expensive" |
+| Narrative flow | Market → Expansion → Why We Win | Market → Expansion → **FOMO** → Why We Win |
+| Investor psychology | "This could be big" | "If we miss this..." |
 
 ---
 
-## Ước tính
+## Tone Quan trọng
 
-- **Độ phức tạp**: Trung bình (nhiều thay đổi nhưng chủ yếu là dịch)
-- **Thời gian**: ~15-20 phút
-- **Rủi ro**: Thấp (copy structure từ VI, chỉ dịch text)
+Slide này phải có:
+
+- **Calm inevitability** — Không excitement
+- **McKinsey tone** — Structural observation, không pitch
+- **No over-claim** — Không "category king", không "winner takes all"
+- **Silence after weapon line** — Authority đến từ im lặng
+
+Nguyên tắc: **Investor dịch trong đầu → "multi-decade company"**
+
