@@ -15,6 +15,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
 } from '@react-pdf/renderer';
 
 // Get base URL dynamically for font loading
@@ -24,6 +25,18 @@ const getBaseUrl = () => {
   }
   return '';
 };
+
+// FDP Screenshot URLs
+const getFdpImages = () => ({
+  dashboard: `${getBaseUrl()}/screenshots/cfo-dashboard.png`,
+  unitEconomics: `${getBaseUrl()}/screenshots/unit-economics.png`,
+  cashPosition: `${getBaseUrl()}/screenshots/cash-position.png`,
+  decisionDetail: `${getBaseUrl()}/screenshots/decision-detail.png`,
+  riskDashboard: `${getBaseUrl()}/screenshots/risk-dashboard.png`,
+  workingCapital: `${getBaseUrl()}/screenshots/working-capital.png`,
+  skuCost: `${getBaseUrl()}/screenshots/sku-cost-breakdown.png`,
+  scenarioPlanning: `${getBaseUrl()}/screenshots/scenario-planning.png`,
+});
 
 // Register Noto Sans font (supports Vietnamese characters) with absolute URLs
 Font.register({
@@ -884,6 +897,31 @@ const styles = StyleSheet.create({
     color: colors.white,
     opacity: 0.6,
   },
+  // Screenshot styles
+  screenshotContainer: {
+    marginVertical: 12,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  screenshotImage: {
+    width: '100%',
+    height: 180,
+    objectFit: 'cover' as const,
+  },
+  screenshotLabel: {
+    fontSize: 8,
+    fontWeight: 400,
+    color: colors.textLight,
+    textAlign: 'center' as const,
+    marginTop: 4,
+  },
+  screenshotFullWidth: {
+    width: '100%',
+    height: 220,
+    objectFit: 'contain' as const,
+  },
 });
 
 // ============== CONTENT DATA ==============
@@ -1206,15 +1244,20 @@ const FDPSalesDeckPDF: React.FC = () => {
         </View>
       </Page>
 
-      {/* ========== Page 5: Bluecore FDP là gì? (Enhanced with Positioning) ========== */}
+      {/* ========== Page 5: Bluecore FDP là gì? (Enhanced with Positioning + Screenshot) ========== */}
       <Page size="A4" style={styles.pageGradient}>
         <Text style={styles.eyebrowLabel}>Định vị</Text>
         <Text style={styles.sectionTitle}>Bluecore FDP không phải BI — không phải ERP</Text>
         
+        {/* CFO Dashboard Screenshot */}
+        <View style={styles.screenshotContainer}>
+          <Image src={getFdpImages().dashboard} style={styles.screenshotImage} />
+        </View>
+        
         {/* Positioning Statement */}
         <View style={styles.positioningStatement}>
           <Text style={styles.positioningText}>
-            Bluecore FDP là nền tảng dữ liệu tài chính duy nhất được thiết kế cho CEO và CFO SME Retail Việt Nam. Không phải công cụ báo cáo — mà là hệ thống hỗ trợ quyết định dựa trên dòng tiền thật.
+            Nền tảng dữ liệu tài chính duy nhất cho CEO và CFO SME Retail Việt Nam. Không phải công cụ báo cáo — mà là hệ thống hỗ trợ quyết định dựa trên dòng tiền thật.
           </Text>
         </View>
         
@@ -1334,41 +1377,11 @@ const FDPSalesDeckPDF: React.FC = () => {
           <Text style={styles.storyResult}>{useCaseStories.cashCheck.result}</Text>
         </View>
         
-        {/* Stylized Mockup */}
-        <View style={styles.mockupContainer}>
-          <View style={styles.mockupHeader}>
-            <Text style={styles.mockupTitle}>Cash Position Dashboard</Text>
-            <View style={styles.mockupLive}>
-              <Text style={styles.mockupLiveText}>LIVE</Text>
-            </View>
-          </View>
-          
-          <View style={styles.mockupKPIRow}>
-            <View style={styles.mockupKPICardHighlight}>
-              <Text style={styles.mockupKPILabel}>Tiền thật trong tài khoản</Text>
-              <Text style={styles.mockupKPIValueGreen}>2.4 Tỷ</Text>
-            </View>
-            <View style={styles.mockupKPICard}>
-              <Text style={styles.mockupKPILabel}>Tiền đang bị Hold</Text>
-              <Text style={styles.mockupKPIValue}>1.2 Tỷ</Text>
-            </View>
-            <View style={styles.mockupKPICard}>
-              <Text style={styles.mockupKPILabel}>Tiền sẽ về (7 ngày)</Text>
-              <Text style={styles.mockupKPIValue}>800 Tr</Text>
-            </View>
-          </View>
-          
-          <View style={styles.mockupKPIRow}>
-            <View style={styles.mockupKPICard}>
-              <Text style={styles.mockupKPILabel}>Cash Runway</Text>
-              <Text style={styles.mockupKPIValue}>4.2 tháng</Text>
-            </View>
-            <View style={styles.mockupKPICardDanger}>
-              <Text style={styles.mockupKPILabel}>Cần thanh toán hôm nay</Text>
-              <Text style={styles.mockupKPIValueRed}>650 Tr</Text>
-            </View>
-          </View>
+        {/* Real Screenshot - Cash Position */}
+        <View style={styles.screenshotContainer}>
+          <Image src={getFdpImages().cashPosition} style={styles.screenshotImage} />
         </View>
+        <Text style={styles.screenshotLabel}>Cash Position Dashboard — Tiền thật vs tiền sổ sách</Text>
         
         <View style={styles.benefitRow}>
           <View style={styles.benefitCard}>
@@ -1407,53 +1420,11 @@ const FDPSalesDeckPDF: React.FC = () => {
           <Text style={styles.storyResult}>{useCaseStories.skuProfit.result}</Text>
         </View>
         
-        {/* Stylized Mockup - SKU Table */}
-        <View style={styles.mockupContainer}>
-          <View style={styles.mockupHeader}>
-            <Text style={styles.mockupTitle}>Unit Economics by SKU</Text>
-            <View style={[styles.mockupLive, { backgroundColor: colors.warning }]}>
-              <Text style={styles.mockupLiveText}>3 SKU LỖ</Text>
-            </View>
-          </View>
-          
-          <View style={styles.mockupTable}>
-            <View style={styles.mockupTableHeader}>
-              <Text style={[styles.mockupTableCellHeader, { flex: 2 }]}>SKU</Text>
-              <Text style={styles.mockupTableCellHeader}>Revenue</Text>
-              <Text style={styles.mockupTableCellHeader}>COGS</Text>
-              <Text style={styles.mockupTableCellHeader}>Logistics</Text>
-              <Text style={styles.mockupTableCellHeader}>CM%</Text>
-            </View>
-            <View style={styles.mockupTableRow}>
-              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Áo polo nam premium</Text>
-              <Text style={styles.mockupTableCell}>120tr</Text>
-              <Text style={styles.mockupTableCell}>60tr</Text>
-              <Text style={styles.mockupTableCell}>12tr</Text>
-              <Text style={styles.mockupTableCellHighlight}>40%</Text>
-            </View>
-            <View style={styles.mockupTableRow}>
-              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Quần jean slim fit</Text>
-              <Text style={styles.mockupTableCell}>85tr</Text>
-              <Text style={styles.mockupTableCell}>55tr</Text>
-              <Text style={styles.mockupTableCell}>15tr</Text>
-              <Text style={styles.mockupTableCellHighlight}>18%</Text>
-            </View>
-            <View style={styles.mockupTableRow}>
-              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Váy đầm nữ sale</Text>
-              <Text style={styles.mockupTableCell}>200tr</Text>
-              <Text style={styles.mockupTableCell}>180tr</Text>
-              <Text style={styles.mockupTableCell}>35tr</Text>
-              <Text style={styles.mockupTableCellDanger}>-7.5%</Text>
-            </View>
-            <View style={styles.mockupTableRow}>
-              <Text style={[styles.mockupTableCell, { flex: 2 }]}>Phụ kiện combo</Text>
-              <Text style={styles.mockupTableCell}>45tr</Text>
-              <Text style={styles.mockupTableCell}>42tr</Text>
-              <Text style={styles.mockupTableCell}>8tr</Text>
-              <Text style={styles.mockupTableCellDanger}>-11%</Text>
-            </View>
-          </View>
+        {/* Real Screenshot - Unit Economics */}
+        <View style={styles.screenshotContainer}>
+          <Image src={getFdpImages().unitEconomics} style={styles.screenshotImage} />
         </View>
+        <Text style={styles.screenshotLabel}>Unit Economics by SKU — Contribution Margin thật</Text>
         
         <View style={styles.benefitRow}>
           <View style={styles.benefitCard}>
