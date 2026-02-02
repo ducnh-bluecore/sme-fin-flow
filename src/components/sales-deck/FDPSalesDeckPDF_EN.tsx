@@ -6,12 +6,22 @@
  */
 
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
 
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') return window.location.origin;
   return '';
 };
+
+// FDP Screenshot URLs (from assets)
+const getFdpImages = () => ({
+  dashboard: `${getBaseUrl()}/screenshots/cfo-dashboard.png`,
+  unitEconomics: `${getBaseUrl()}/screenshots/unit-economics.png`,
+  cashPosition: `${getBaseUrl()}/screenshots/cash-position.png`,
+  decisionDetail: `${getBaseUrl()}/screenshots/decision-detail.png`,
+  riskDashboard: `${getBaseUrl()}/screenshots/risk-dashboard.png`,
+  workingCapital: `${getBaseUrl()}/screenshots/working-capital.png`,
+});
 
 Font.register({
   family: 'NotoSans',
@@ -53,6 +63,13 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 8, color: colors.textLight },
   footerTextWhite: { fontSize: 8, color: 'rgba(255,255,255,0.6)' },
   pageNumber: { fontSize: 9, color: colors.textLight },
+  // Screenshot styles
+  screenshotContainer: { marginVertical: 16, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
+  screenshotImage: { width: '100%', height: 180, objectFit: 'cover' },
+  screenshotLabel: { fontSize: 8, color: colors.textLight, textAlign: 'center', marginTop: 6 },
+  screenshotFullWidth: { width: '100%', height: 220, objectFit: 'contain' },
+  twoColumnRow: { flexDirection: 'row', gap: 12 },
+  halfColumn: { flex: 1 },
 });
 
 const painPoints = [
@@ -102,17 +119,36 @@ const FDPSalesDeckPDF_EN: React.FC = () => (
       <View style={styles.footer}><Text style={styles.footerText}>bluecore.vn</Text><Text style={styles.pageNumber}>2 / 12</Text></View>
     </Page>
 
-    {/* Solution */}
+    {/* Solution with Dashboard Screenshot */}
     <Page size="A4" style={styles.page}>
       <Text style={styles.eyebrowLabel}>THE SOLUTION</Text>
       <Text style={styles.sectionTitle}>FDP — Financial Data Platform</Text>
       <Text style={styles.sectionSubtitle}>One platform, one truth, immediate decisions.</Text>
-      {solutions.map((s, i) => (
-        <View key={i} style={styles.card}>
-          <Text style={styles.cardTitle}>{s.title}</Text>
-          <Text style={styles.cardText}>{s.desc}</Text>
+      
+      {/* CFO Dashboard Screenshot */}
+      <View style={styles.screenshotContainer}>
+        <Image src={getFdpImages().dashboard} style={styles.screenshotImage} />
+      </View>
+      <Text style={styles.screenshotLabel}>CFO Dashboard — Real-time financial visibility</Text>
+      
+      <View style={styles.twoColumnRow}>
+        <View style={styles.halfColumn}>
+          {solutions.slice(0, 2).map((s, i) => (
+            <View key={i} style={styles.card}>
+              <Text style={styles.cardTitle}>{s.title}</Text>
+              <Text style={styles.cardText}>{s.desc}</Text>
+            </View>
+          ))}
         </View>
-      ))}
+        <View style={styles.halfColumn}>
+          {solutions.slice(2, 4).map((s, i) => (
+            <View key={i} style={styles.card}>
+              <Text style={styles.cardTitle}>{s.title}</Text>
+              <Text style={styles.cardText}>{s.desc}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
       <View style={styles.footer}><Text style={styles.footerText}>bluecore.vn</Text><Text style={styles.pageNumber}>3 / 12</Text></View>
     </Page>
 
@@ -135,20 +171,33 @@ const FDPSalesDeckPDF_EN: React.FC = () => (
       <View style={styles.footer}><Text style={styles.footerTextWhite}>bluecore.vn</Text><Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.6)' }}>4 / 12</Text></View>
     </Page>
 
-    {/* Use Cases */}
+    {/* Use Cases with Screenshots */}
     <Page size="A4" style={styles.page}>
       <Text style={styles.eyebrowLabel}>USE CASES</Text>
       <Text style={styles.sectionTitle}>Daily CEO Morning Routine</Text>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Before FDP</Text>
-        <Text style={styles.cardText}>Call accounting → Wait 2 hours → Get Excel file → Try to understand → Still confused → Call again → End of day = no decision made</Text>
+      
+      <View style={styles.twoColumnRow}>
+        <View style={styles.halfColumn}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Before FDP</Text>
+            <Text style={styles.cardText}>Call accounting → Wait 2 hours → Get Excel file → Still confused → End of day = no decision</Text>
+          </View>
+          <View style={[styles.card, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+            <Text style={[styles.cardTitle, { color: colors.accent }]}>With FDP</Text>
+            <Text style={styles.cardText}>Open app → 30 seconds → See cash position → Make 3 decisions → Move on</Text>
+          </View>
+        </View>
+        <View style={styles.halfColumn}>
+          {/* Cash Position Screenshot */}
+          <View style={styles.screenshotContainer}>
+            <Image src={getFdpImages().cashPosition} style={styles.screenshotImage} />
+          </View>
+          <Text style={styles.screenshotLabel}>Cash Position Dashboard</Text>
+        </View>
       </View>
-      <View style={[styles.card, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
-        <Text style={[styles.cardTitle, { color: colors.accent }]}>With FDP</Text>
-        <Text style={styles.cardText}>Open app → 30 seconds → See cash position, at-risk AR, losing SKUs → Make 3 decisions → Move on with the day</Text>
-      </View>
-      <View style={{ marginTop: 20, padding: 16, backgroundColor: colors.primaryDark, borderRadius: 10 }}>
-        <Text style={{ fontSize: 11, color: colors.white, textAlign: 'center' }}>
+      
+      <View style={{ marginTop: 12, padding: 14, backgroundColor: colors.primaryDark, borderRadius: 10 }}>
+        <Text style={{ fontSize: 10, color: colors.white, textAlign: 'center' }}>
           Time saved per day: 2 hours → Decisions made: 3x more → Cash saved: thousands per month
         </Text>
       </View>
