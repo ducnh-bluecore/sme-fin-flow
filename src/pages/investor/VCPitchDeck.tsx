@@ -115,8 +115,8 @@ const presenterNotes: Record<number, { tip: string; action: string }> = {
     action: "Expansion is deliberate — not opportunistic."
   },
   22: {
-    tip: "3+ years warehouse maturity. ~99.8% data accuracy. Decision AI can be copied. Financial data history cannot.",
-    action: "Founder signal becomes VERY strong here. Amplify unfair advantage."
+    tip: "This is your Partner-Conviction slide. Sound like investor memo, not pitch. Calm inevitability. No hype words.",
+    action: "Pause after 'trust layer'. Let silence work. Partner thinks: 'It would be weird if they lost.'"
   },
   23: {
     tip: "Never skip this in infra decks. Sound calm — almost obvious.",
@@ -1334,66 +1334,88 @@ const Slide20CategoryForming: React.FC = () => (
   </div>
 );
 
-// Slide 22 — Why Bluecore Wins (was 21)
+// Slide 22 — Partner Conviction: Why Now — And Why Bluecore
 const Slide22WhyBluecoreWins: React.FC = () => (
-  <div className="flex flex-col items-center justify-center h-full text-center px-8">
+  <div className="flex flex-col items-center justify-center h-full px-8 py-6">
+    {/* Title */}
     <motion.h1 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="text-4xl md:text-5xl font-bold text-white mb-4"
+      className="text-4xl md:text-5xl font-bold text-white mb-6 text-center"
     >
-      Built the Financial Truth Layer
+      Why Now — And Why Bluecore
     </motion.h1>
-    <motion.h2
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="text-4xl md:text-5xl font-bold text-blue-400 mb-12"
-    >
-      Before the Category Existed.
-    </motion.h2>
     
+    {/* Opening Line */}
+    <motion.p 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+      className="text-lg md:text-xl text-slate-300 text-center max-w-3xl mb-10"
+    >
+      Financial awareness is becoming inevitable.<br />
+      <span className="text-white font-medium">Bluecore is unusually positioned to define it.</span>
+    </motion.p>
+    
+    {/* 4 Conviction Pillars */}
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 0.4 }}
-      className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl w-full mb-10"
+      transition={{ delay: 0.5 }}
+      className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl w-full mb-10"
     >
-      {[
-        "3+ years warehouse maturity",
-        "~99.8% data accuracy",
-        "Deep financial semantics",
-        "Reconciliation logic",
-        "Multi-source ingestion"
-      ].map((item, i) => (
-        <motion.div 
-          key={i}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 + i * 0.1 }}
-          className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm"
-        >
-          {item}
-        </motion.div>
-      ))}
+      {/* Pillar 1 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">1. Built Before the Category Was Obvious</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          We spent over three years engineering the financial truth layer
+          before the market recognized the need for awareness infrastructure.
+        </p>
+      </div>
+      
+      {/* Pillar 2 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">2. Truth — Not Dashboards — As Foundation</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          While most companies start with analytics, Bluecore started with 
+          reconciliation-grade financial data. ~99.8% accuracy created the trust
+          required for executive-level dependency.
+        </p>
+      </div>
+      
+      {/* Pillar 3 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">3. Embedded Where Replacement Is Risky</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Bluecore sits directly in the financial decision path. Once leadership
+          relies on a system to detect risk, removal becomes operationally dangerous.
+        </p>
+      </div>
+      
+      {/* Pillar 4 */}
+      <div className="text-left">
+        <div className="text-white font-semibold mb-2">4. Compounding Decision Intelligence</div>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Every financial decision enriches a proprietary dataset linking 
+          signal → decision → outcome. The system becomes smarter as customers scale.
+        </p>
+      </div>
     </motion.div>
     
-    <motion.p 
+    {/* Closing Weapon */}
+    <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1 }}
-      className="text-lg text-slate-400"
+      transition={{ delay: 0.8 }}
+      className="border-t border-slate-700/50 pt-8 text-center max-w-3xl"
     >
-      Most companies start with dashboards.
-    </motion.p>
-    <motion.p 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 1.2 }}
-      className="text-xl text-white font-medium"
-    >
-      We started with truth.
-    </motion.p>
+      <p className="text-slate-500 text-base mb-3">
+        Categories tend to consolidate around trusted infrastructure.
+      </p>
+      <p className="text-white text-lg font-medium">
+        Bluecore is being built to become that trust layer.
+      </p>
+    </motion.div>
   </div>
 );
 
