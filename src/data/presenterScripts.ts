@@ -3,7 +3,7 @@
  * Full speaking scripts for each slide
  */
 
-// English scripts for 22 slides
+// English scripts for 23 slides (synced with VI)
 export const presenterScriptsEN: Record<number, string> = {
   1: `Cash rarely collapses in a dramatic moment.
 It erodes quietly — inside operations.
@@ -192,7 +192,36 @@ And companies rarely replace systems they trust to tell them the truth.
 
 👉 Investors mentally mark this as product-market fit.`,
 
-  12: `Financial truth cannot be assembled from tools.
+  12: `Bluecore was built in Vietnam —
+one of the most operationally complex retail markets in Southeast Asia.
+
+Today we are live in Thailand…
+
+with a leading retail operator generating roughly $3K MRR.
+
+Thailand is now a validated second beachhead.
+
+⚠️ Deliver calmly.
+No hype.
+Proof > excitement.`,
+
+  13: `This is what a decision actually looks like inside Bluecore.
+
+We detected a cash risk forming:
+— Sell-through dropped 23%
+— Inventory turn slowed 18%
+— Payment terms extended
+
+The system recommended: slow down purchase orders.
+
+Result: preserved $480K in liquidity.
+
+One real example is worth a hundred concept slides.
+
+👉 Let this sink in.
+This is believability, not theory.`,
+
+  14: `Financial truth cannot be assembled from tools.
 
 It must be engineered.
 
@@ -204,7 +233,7 @@ to alerts.
 
 This is infrastructure — not software aggregation.`,
 
-  13: `Once embedded in decision workflows…
+  15: `Once embedded in decision workflows…
 
 trust compounds.
 
@@ -219,20 +248,7 @@ It becomes extremely durable.
 👉 low churn
 👉 pricing power`,
 
-  14: `Bluecore was built in Vietnam —
-one of the most operationally complex retail markets in Southeast Asia.
-
-Today we are live in Thailand…
-
-with a leading retail operator generating roughly $3K MRR.
-
-Thailand is now a validated second beachhead.
-
-⚠️ Deliver calmly.
-No hype.
-Proof > excitement.`,
-
-  15: `Commerce complexity across Southeast Asia is structurally similar.
+  16: `Commerce complexity across Southeast Asia is structurally similar.
 
 Multi-channel fragmentation.
 Cash pressure.
@@ -244,7 +260,7 @@ Which allows Bluecore to scale with minimal localization.
 Investors translate this to:
 👉 efficient expansion.`,
 
-  16: `We start with margin-sensitive operators.
+  17: `We start with margin-sensitive operators.
 
 Mid-market retailers and ecommerce companies…
 
@@ -256,7 +272,7 @@ These companies feel decision latency first —
 
 and adopt awareness infrastructure fastest.`,
 
-  17: `Our initial wedge across Southeast Asia exceeds one billion dollars.
+  18: `Our initial wedge across Southeast Asia exceeds one billion dollars.
 
 With Vietnam, Thailand, and Indonesia forming the core expansion corridor.
 
@@ -265,7 +281,7 @@ But this is only the starting point.
 Keep tempo steady.
 Do not rush TAM slides.`,
 
-  18: `Once established in commerce…
+  19: `Once established in commerce…
 
 decision infrastructure expands horizontally —
 
@@ -276,7 +292,7 @@ Category potential exceeds five billion dollars in Southeast Asia alone.
 
 🔥 Now investors see venture scale.`,
 
-  19: `Our expansion is deliberate — not opportunistic.
+  20: `Our expansion is deliberate — not opportunistic.
 
 Vietnam is our primary build market.
 Thailand validates regional portability.
@@ -288,7 +304,7 @@ We are following structural demand.
 
 Very strong institutional tone.`,
 
-  20: `Bluecore spent over three years building the financial truth layer —
+  21: `Bluecore spent over three years building the financial truth layer —
 
 reaching approximately 99.8% data accuracy.
 
@@ -296,12 +312,15 @@ Most companies start with dashboards.
 
 We started with truth.
 
+Decision AI can be copied.
+Financial data history cannot.
+
 👉 Pause.
 Let that land.
 
 This is one of your strongest slides.`,
 
-  21: `ERP became mandatory.
+  22: `ERP became mandatory.
 
 Financial decision infrastructure will too.
 
@@ -312,7 +331,7 @@ Only which system they trust.
 Classic venture framing.
 Excellent slide.`,
 
-  22: `We are not building software.
+  23: `We are not building software.
 
 We are building the system companies rely on to survive.
 
