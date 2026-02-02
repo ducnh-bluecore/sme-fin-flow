@@ -144,7 +144,7 @@ const SalesDeckLibraryPage: React.FC = () => {
                     <Link to="/investor/vc-pitch">
                       <div className="text-left">
                         <div className="font-semibold text-white">VC Pitch Deck (EN)</div>
-                        <div className="text-xs text-slate-400">Series A presentation - 12 slides</div>
+                        <div className="text-xs text-slate-400">Series A presentation - 23 slides</div>
                       </div>
                     </Link>
                   </Button>
@@ -152,7 +152,7 @@ const SalesDeckLibraryPage: React.FC = () => {
                     <Link to="/investor/vc-pitch-vi">
                       <div className="text-left">
                         <div className="font-semibold text-white">VC Pitch Deck (VI)</div>
-                        <div className="text-xs text-slate-400">Bản trình bày Series A - 12 slides</div>
+                        <div className="text-xs text-slate-400">Bản trình bày Series A - 23 slides</div>
                       </div>
                     </Link>
                   </Button>
