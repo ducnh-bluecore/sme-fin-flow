@@ -1,12 +1,12 @@
 /**
  * useScheduledNotifications - Scheduled notifications management
  * 
- * @architecture Schema-per-Tenant
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain Notifications
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -44,26 +44,20 @@ export interface ScheduledNotificationInput {
 
 // Fetch scheduled notifications
 export function useScheduledNotifications() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['scheduled-notifications', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('scheduled_notifications')
-        .select('*')
+      const query = buildSelectQuery('scheduled_notifications', '*')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as ScheduledNotification[];
+      return (data as unknown) as ScheduledNotification[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -72,7 +66,7 @@ export function useScheduledNotifications() {
 // Create scheduled notification
 export function useCreateScheduledNotification() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildInsertQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: ScheduledNotificationInput) => {
@@ -80,24 +74,19 @@ export function useCreateScheduledNotification() {
 
       const nextRunAt = calculateNextRun(input);
 
-      const { data, error } = await client
-        .from('scheduled_notifications')
-        .insert(
-          {
-            tenant_id: tenantId,
-            title: input.title,
-            message: input.message,
-            type: input.type || 'reminder',
-            target_users: input.target_users || [],
-            schedule_type: input.schedule_type,
-            schedule_time: input.schedule_time,
-            schedule_day_of_week: input.schedule_day_of_week,
-            schedule_day_of_month: input.schedule_day_of_month,
-            next_run_at: nextRunAt,
-            is_active: input.is_active ?? true,
-            metadata: input.metadata,
-          }
-        )
+      const { data, error } = await buildInsertQuery('scheduled_notifications', {
+        title: input.title,
+        message: input.message,
+        type: input.type || 'reminder',
+        target_users: input.target_users || [],
+        schedule_type: input.schedule_type,
+        schedule_time: input.schedule_time,
+        schedule_day_of_week: input.schedule_day_of_week,
+        schedule_day_of_month: input.schedule_day_of_month,
+        next_run_at: nextRunAt,
+        is_active: input.is_active ?? true,
+        metadata: input.metadata,
+      })
         .select()
         .single();
 
@@ -117,27 +106,25 @@ export function useCreateScheduledNotification() {
 // Update scheduled notification
 export function useUpdateScheduledNotification() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: ScheduledNotificationInput & { id: string }) => {
       const nextRunAt = calculateNextRun(input);
 
-      const { data, error } = await client
-        .from('scheduled_notifications')
-        .update({
-          title: input.title,
-          message: input.message,
-          type: input.type,
-          target_users: input.target_users,
-          schedule_type: input.schedule_type,
-          schedule_time: input.schedule_time,
-          schedule_day_of_week: input.schedule_day_of_week,
-          schedule_day_of_month: input.schedule_day_of_month,
-          next_run_at: nextRunAt,
-          is_active: input.is_active,
-          metadata: input.metadata,
-        })
+      const { data, error } = await buildUpdateQuery('scheduled_notifications', {
+        title: input.title,
+        message: input.message,
+        type: input.type,
+        target_users: input.target_users,
+        schedule_type: input.schedule_type,
+        schedule_time: input.schedule_time,
+        schedule_day_of_week: input.schedule_day_of_week,
+        schedule_day_of_month: input.schedule_day_of_month,
+        next_run_at: nextRunAt,
+        is_active: input.is_active,
+        metadata: input.metadata,
+      })
         .eq('id', id)
         .select()
         .single();
@@ -158,13 +145,11 @@ export function useUpdateScheduledNotification() {
 // Delete scheduled notification
 export function useDeleteScheduledNotification() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('scheduled_notifications')
-        .delete()
+      const { error } = await buildDeleteQuery('scheduled_notifications')
         .eq('id', id);
 
       if (error) throw error;
@@ -182,13 +167,11 @@ export function useDeleteScheduledNotification() {
 // Toggle active status
 export function useToggleScheduledNotification() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await client
-        .from('scheduled_notifications')
-        .update({ is_active })
+      const { error } = await buildUpdateQuery('scheduled_notifications', { is_active })
         .eq('id', id);
 
       if (error) throw error;

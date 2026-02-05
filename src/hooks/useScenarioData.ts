@@ -1,5 +1,12 @@
+/**
+ * useScenarioData - Scenario planning hooks
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Scenarios
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface Scenario {
@@ -19,26 +26,20 @@ export interface Scenario {
 
 // Fetch all scenarios
 export function useScenarios() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['scenarios', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('scenarios')
-        .select('*')
+      const query = buildSelectQuery('scenarios', '*')
         .order('created_at', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Scenario[];
+      return (data as unknown) as Scenario[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -47,15 +48,13 @@ export function useScenarios() {
 // Create scenario
 export function useCreateScenario() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildInsertQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (scenario: Omit<Scenario, 'id' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('scenarios')
-        .insert({ ...scenario, tenant_id: tenantId })
+      const { data, error } = await buildInsertQuery('scenarios', scenario)
         .select()
         .single();
 
@@ -75,13 +74,11 @@ export function useCreateScenario() {
 // Update scenario
 export function useUpdateScenario() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Scenario> }) => {
-      const { error } = await client
-        .from('scenarios')
-        .update(updates)
+      const { error } = await buildUpdateQuery('scenarios', updates)
         .eq('id', id);
 
       if (error) throw error;
@@ -100,13 +97,11 @@ export function useUpdateScenario() {
 // Delete scenario
 export function useDeleteScenario() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('scenarios')
-        .delete()
+      const { error } = await buildDeleteQuery('scenarios')
         .eq('id', id);
 
       if (error) throw error;
@@ -125,13 +120,11 @@ export function useDeleteScenario() {
 // Set primary scenario
 export function useSetPrimaryScenario() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('scenarios')
-        .update({ is_primary: true })
+      const { error } = await buildUpdateQuery('scenarios', { is_primary: true })
         .eq('id', id);
 
       if (error) throw error;
@@ -150,13 +143,11 @@ export function useSetPrimaryScenario() {
 // Unset primary scenario
 export function useUnsetPrimaryScenario() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('scenarios')
-        .update({ is_primary: false })
+      const { error } = await buildUpdateQuery('scenarios', { is_primary: false })
         .eq('id', id);
 
       if (error) throw error;
@@ -175,26 +166,20 @@ export function useUnsetPrimaryScenario() {
 
 // Get primary scenario
 export function usePrimaryScenario() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['primary-scenario', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('scenarios')
-        .select('*')
+      const query = buildSelectQuery('scenarios', '*')
         .eq('is_primary', true);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
-      return data as Scenario | null;
+      return (data as unknown) as Scenario | null;
     },
     enabled: !!tenantId && isReady,
   });
