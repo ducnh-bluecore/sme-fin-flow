@@ -4,10 +4,13 @@
  * Fetches configurable collection rates from formula_settings.
  * These rates are used in cashflow forecasting to estimate
  * how much of each AR aging bucket will be collected.
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/AR
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // =============================================================
 // TYPES
@@ -42,7 +45,7 @@ const DEFAULT_RATES: Omit<CollectionRates, 'source'> = {
 // =============================================================
 
 export function useCollectionRates() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   const query = useQuery({
     queryKey: ['collection-rates', tenantId],
@@ -51,13 +54,7 @@ export function useCollectionRates() {
         return { ...DEFAULT_RATES, source: 'default' };
       }
 
-      let dbQuery = client
-        .from('formula_settings')
-        .select('collection_rate_current, collection_rate_30d, collection_rate_60d, collection_rate_90d, collection_rate_over90');
-
-      if (shouldAddTenantFilter) {
-        dbQuery = dbQuery.eq('tenant_id', tenantId);
-      }
+      const dbQuery = buildSelectQuery('formula_settings', 'collection_rate_current, collection_rate_30d, collection_rate_60d, collection_rate_90d, collection_rate_over90');
 
       const { data, error } = await dbQuery.maybeSingle();
 
@@ -71,20 +68,22 @@ export function useCollectionRates() {
         return { ...DEFAULT_RATES, source: 'default' };
       }
 
+      const row = data as unknown as Record<string, unknown>;
+
       // Check if any rate is configured (not null)
       const hasDbRates = 
-        data.collection_rate_current !== null ||
-        data.collection_rate_30d !== null ||
-        data.collection_rate_60d !== null ||
-        data.collection_rate_90d !== null ||
-        data.collection_rate_over90 !== null;
+        row.collection_rate_current !== null ||
+        row.collection_rate_30d !== null ||
+        row.collection_rate_60d !== null ||
+        row.collection_rate_90d !== null ||
+        row.collection_rate_over90 !== null;
 
       return {
-        current: data.collection_rate_current ?? DEFAULT_RATES.current,
-        days30: data.collection_rate_30d ?? DEFAULT_RATES.days30,
-        days60: data.collection_rate_60d ?? DEFAULT_RATES.days60,
-        days90: data.collection_rate_90d ?? DEFAULT_RATES.days90,
-        over90: data.collection_rate_over90 ?? DEFAULT_RATES.over90,
+        current: (row.collection_rate_current as number) ?? DEFAULT_RATES.current,
+        days30: (row.collection_rate_30d as number) ?? DEFAULT_RATES.days30,
+        days60: (row.collection_rate_60d as number) ?? DEFAULT_RATES.days60,
+        days90: (row.collection_rate_90d as number) ?? DEFAULT_RATES.days90,
+        over90: (row.collection_rate_over90 as number) ?? DEFAULT_RATES.over90,
         source: hasDbRates ? 'db' : 'default',
       };
     },
