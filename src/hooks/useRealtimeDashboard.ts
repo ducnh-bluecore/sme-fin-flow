@@ -1,18 +1,21 @@
-import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
-
 /**
- * Hook để lắng nghe realtime updates từ các bảng quan trọng
- * và tự động invalidate queries khi dữ liệu thay đổi
+ * useRealtimeDashboard - Realtime subscription hook
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for client access
  * 
  * Note: Realtime subscriptions use the tenant-aware client but listen
  * to schema-level changes (public schema for now, will need adjustment
  * when tenant schemas are fully deployed)
  */
+
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+
 export function useRealtimeDashboard() {
   const queryClient = useQueryClient();
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   useEffect(() => {
     if (!isReady) return;

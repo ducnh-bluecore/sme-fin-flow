@@ -1,11 +1,12 @@
 /**
  * useAudit - Audit event hooks
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware operations
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useToast } from "@/hooks/use-toast";
 
 export interface AuditEvent {
@@ -84,7 +85,7 @@ export interface AuditFilters {
 }
 
 export function useAuditEvents(filters: AuditFilters = {}) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['audit-events', tenantId, filters],
@@ -125,7 +126,7 @@ export function useAuditEvents(filters: AuditFilters = {}) {
 }
 
 export function useAuditSummary(days = 30) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['audit-summary', tenantId, days],
@@ -157,7 +158,7 @@ export function useAuditSummary(days = 30) {
 }
 
 export function useSOCControls() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['soc-controls', tenantId],
@@ -190,7 +191,7 @@ export function useSOCControls() {
 }
 
 export function useExportAudit() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const { toast } = useToast();
 
   return useMutation({
@@ -258,7 +259,7 @@ export function useExportAudit() {
 }
 
 export function useEvidencePack() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const { toast } = useToast();
 
   return useMutation({

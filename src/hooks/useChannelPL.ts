@@ -10,13 +10,16 @@
  * - Margin thresholds use INDUSTRY_BENCHMARKS from financial-constants.ts
  * - For total revenue/margin comparisons, use useCentralFinancialMetrics
  * 
- * Data Source: external_orders (per-channel) + expenses (marketing)
+ * Data Source: cdp_orders (per-channel) + expenses (marketing)
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { startOfMonth, endOfMonth, subMonths, format, parseISO, eachMonthOfInterval } from 'date-fns';
 import { INDUSTRY_BENCHMARKS, getMetricStatus, MetricStatus } from '@/lib/financial-constants';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface ChannelPLData {
   channel: string;
@@ -70,7 +73,7 @@ export interface ChannelPLSummary {
 }
 
 export function useChannelPL(channelName: string, months: number = 12) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['channel-pl', tenantId, channelName, months],
@@ -84,18 +87,13 @@ export function useChannelPL(channelName: string, months: number = 12) {
       const normalizedChannel = channelName.toLowerCase();
 
       // Fetch orders for this channel from cdp_orders (SSOT)
-      let ordersQuery = client
-        .from('cdp_orders')
-        .select('id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
+      const { data: orders, error: ordersError } = await buildSelectQuery(
+        'cdp_orders',
+        'id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin'
+      )
         .ilike('channel', `%${normalizedChannel}%`)
         .gte('order_at', startDate.toISOString())
         .lte('order_at', endDate.toISOString());
-      
-      if (shouldAddTenantFilter) {
-        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: orders, error: ordersError } = await ordersQuery;
 
       if (ordersError) {
         console.error('Error fetching channel orders:', ordersError);
@@ -103,22 +101,37 @@ export function useChannelPL(channelName: string, months: number = 12) {
       }
 
       // Fetch ads expenses for this channel
-      let expQuery = client
-        .from('expenses')
-        .select('*')
+      const { data: expenses } = await buildSelectQuery('expenses', '*')
         .eq('category', 'marketing')
         .gte('expense_date', startDate.toISOString())
         .lte('expense_date', endDate.toISOString());
-      
-      if (shouldAddTenantFilter) {
-        expQuery = expQuery.eq('tenant_id', tenantId);
+
+      // Type for expense rows
+      interface ExpenseRow {
+        id: string;
+        description?: string | null;
+        subcategory?: string | null;
+        expense_date: string;
+        amount?: number | null;
       }
       
-      const { data: expenses } = await expQuery;
+      // Type for order rows
+      interface OrderRow {
+        id: string;
+        channel: string | null;
+        order_at: string;
+        gross_revenue: number | null;
+        net_revenue: number | null;
+        cogs: number | null;
+        gross_margin: number | null;
+      }
+
+      const expenseRows = (expenses || []) as unknown as ExpenseRow[];
+      const orderRows = (orders || []) as unknown as OrderRow[];
 
       // Filter ads related to this channel
-      const channelAds = (expenses || []).filter(exp => {
-        const desc = (exp.description || exp.subcategory || '').toLowerCase();
+      const channelAds = expenseRows.filter(exp => {
+        const desc = ((exp.description || exp.subcategory) ?? '').toLowerCase();
         return desc.includes(normalizedChannel) || 
                desc.includes(`${normalizedChannel} ads`) ||
                desc.includes(`${normalizedChannel}ads`);
@@ -133,14 +146,13 @@ export function useChannelPL(channelName: string, months: number = 12) {
         const period = format(monthStart, 'yyyy-MM');
 
         // Filter orders for this month
-        const monthOrders = (orders || []).filter(o => {
+        const monthOrders = orderRows.filter(o => {
           const orderDate = parseISO(o.order_at);
           return orderDate >= monthStart && orderDate <= monthEnd;
         });
 
         // cdp_orders only contains completed orders (no status filter needed)
         const completedOrders = monthOrders;
-        const cancelledOrders: typeof monthOrders = []; // cdp_orders doesn't have cancelled orders
 
         // Map to cdp_orders column names
         const grossRevenue = completedOrders.reduce((sum, o) => sum + (o.gross_revenue || 0), 0);
@@ -266,7 +278,7 @@ export function useChannelPL(channelName: string, months: number = 12) {
 }
 
 export function useAvailableChannels() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['available-channels', tenantId],
@@ -274,16 +286,8 @@ export function useAvailableChannels() {
       if (!tenantId) return [];
 
       // Use cdp_orders (SSOT) for channel discovery
-      let query = client
-        .from('cdp_orders')
-        .select('channel')
+      const { data, error } = await buildSelectQuery('cdp_orders', 'channel')
         .not('channel', 'is', null);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching channels:', error);
@@ -291,8 +295,9 @@ export function useAvailableChannels() {
       }
 
       // Get unique channels
-      const channels = [...new Set(data.map(d => d.channel?.toUpperCase()).filter(Boolean))];
-      return channels.sort();
+      const dataRows = (data || []) as unknown as Array<{ channel: string | null }>;
+      const channels = [...new Set(dataRows.map(d => d.channel?.toUpperCase()).filter(Boolean))];
+      return channels.sort() as string[];
     },
     enabled: !!tenantId && isReady,
     staleTime: 10 * 60 * 1000,
