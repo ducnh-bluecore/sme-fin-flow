@@ -114,7 +114,7 @@ export default function AlertsPage() {
     isLoading, 
     acknowledgeAlert,
     resolveAlert,
-    refetchInstances
+    refetch: refetchInstances
   } = useNotificationCenter();
 
   // Calculate date range based on preset

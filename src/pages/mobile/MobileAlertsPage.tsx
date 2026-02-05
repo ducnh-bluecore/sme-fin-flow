@@ -20,7 +20,7 @@ export default function MobileAlertsPage() {
     isLoading, 
     acknowledgeAlert,
     resolveAlert,
-    refetchInstances 
+    refetch: refetchInstances 
   } = useNotificationCenter();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);

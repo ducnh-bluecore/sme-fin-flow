@@ -1,22 +1,22 @@
 /**
  * Unified Notification Center Hook
  * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ * 
  * This hook provides a centralized way to manage all notification-related data:
  * - Alert configs (rules)
  * - Alert instances (active alerts)
  * - Notification recipients
  * - Alert statistics
  * - Realtime updates
- * 
- * Schema-per-Tenant Ready
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useEffect, useCallback, useMemo } from 'react';
-import { useActiveTenantId } from './useActiveTenantId';
+import { supabase } from '@/integrations/supabase/client';
 
 // ============= Types =============
 
@@ -83,13 +83,11 @@ export interface AlertInstance {
   metadata: Record<string, any>;
   calculation_details: Record<string, any> | null;
   suggested_action: string | null;
-  // Impact fields
   impact_amount: number | null;
   impact_currency: string | null;
   impact_description: string | null;
   deadline_at: string | null;
   time_to_resolve_hours: number | null;
-  // Owner assignment - Control Tower Manifesto #5
   assigned_to: string | null;
   assigned_at: string | null;
   created_at: string;
@@ -115,11 +113,7 @@ export interface AlertStats {
   acknowledged: number;
   resolved: number;
   snoozed: number;
-  bySeverity: {
-    critical: number;
-    warning: number;
-    info: number;
-  };
+  bySeverity: { critical: number; warning: number; info: number };
   byCategory: Record<string, number>;
   todayCount: number;
   unresolvedCritical: number;
@@ -185,7 +179,7 @@ const QUERY_KEYS = {
 // ============= Main Hook =============
 
 export function useNotificationCenter(filters?: AlertFilters) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, buildInsertQuery, buildUpdateQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   // ============= Alert Configs (Rules) =============
@@ -194,23 +188,15 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('extended_alert_configs')
-        .select('*')
+      const { data, error } = await buildSelectQuery('extended_alert_configs', '*')
         .order('category', { ascending: true })
         .order('alert_type', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as AlertConfig[];
+      return (data || []) as unknown as AlertConfig[];
     },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   // ============= Alert Instances =============
@@ -219,13 +205,7 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('alert_instances')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
+      let query = buildSelectQuery('alert_instances', '*');
 
       if (filters?.status) query = query.eq('status', filters.status);
       if (filters?.severity) query = query.eq('severity', filters.severity);
@@ -238,10 +218,10 @@ export function useNotificationCenter(filters?: AlertFilters) {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as AlertInstance[];
+      return (data || []) as unknown as AlertInstance[];
     },
-    enabled: !!tenantId && isReady,
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: isReady,
+    staleTime: 30 * 1000,
   });
 
   // ============= Active Alerts Only =============
@@ -250,24 +230,16 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('alert_instances')
-        .select('*')
+      const { data, error } = await buildSelectQuery('alert_instances', '*')
         .eq('status', 'active')
         .order('priority', { ascending: true })
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as AlertInstance[];
+      return (data || []) as unknown as AlertInstance[];
     },
-    enabled: !!tenantId && isReady,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: isReady,
+    refetchInterval: 30000,
     staleTime: 15 * 1000,
   });
 
@@ -277,22 +249,14 @@ export function useNotificationCenter(filters?: AlertFilters) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('notification_recipients')
-        .select('*')
+      const { data, error } = await buildSelectQuery('notification_recipients', '*')
         .order('role', { ascending: true })
         .order('name', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as NotificationRecipient[];
+      return (data || []) as unknown as NotificationRecipient[];
     },
-    enabled: !!tenantId && isReady,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -314,26 +278,11 @@ export function useNotificationCenter(filters?: AlertFilters) {
     };
 
     instances.forEach(alert => {
-      // By status
       stats[alert.status as keyof Pick<AlertStats, 'active' | 'acknowledged' | 'resolved' | 'snoozed'>]++;
-      
-      // By severity
-      if (alert.severity in stats.bySeverity) {
-        stats.bySeverity[alert.severity]++;
-      }
-      
-      // By category
+      if (alert.severity in stats.bySeverity) stats.bySeverity[alert.severity]++;
       stats.byCategory[alert.category] = (stats.byCategory[alert.category] || 0) + 1;
-      
-      // Today's count
-      if (alert.created_at.startsWith(today)) {
-        stats.todayCount++;
-      }
-      
-      // Unresolved critical
-      if (alert.severity === 'critical' && alert.status !== 'resolved') {
-        stats.unresolvedCritical++;
-      }
+      if (alert.created_at.startsWith(today)) stats.todayCount++;
+      if (alert.severity === 'critical' && alert.status !== 'resolved') stats.unresolvedCritical++;
     });
 
     return stats;
@@ -353,21 +302,12 @@ export function useNotificationCenter(filters?: AlertFilters) {
     mutationFn: async (config: Partial<AlertConfig> & { category: AlertCategory; alert_type: string }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      // Check if config exists
-      let existingQuery = client
-        .from('extended_alert_configs')
-        .select('id')
+      const { data: existing } = await buildSelectQuery('extended_alert_configs', 'id')
         .eq('category', config.category)
-        .eq('alert_type', config.alert_type);
-
-      if (shouldAddTenantFilter) {
-        existingQuery = existingQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: existing } = await existingQuery.maybeSingle();
+        .eq('alert_type', config.alert_type)
+        .maybeSingle();
 
       const dataToSave = {
-        tenant_id: tenantId,
         category: config.category,
         alert_type: config.alert_type,
         severity: config.severity || 'info',
@@ -387,22 +327,16 @@ export function useNotificationCenter(filters?: AlertFilters) {
       };
 
       if (existing?.id) {
-        const { data, error } = await client
-          .from('extended_alert_configs')
-          .update(dataToSave)
-          .eq('id', existing.id)
+        const { data, error } = await buildUpdateQuery('extended_alert_configs', dataToSave)
+          .eq('id', (existing as any).id)
           .select()
           .single();
-
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await client
-          .from('extended_alert_configs')
-          .insert(dataToSave)
+        const { data, error } = await buildInsertQuery('extended_alert_configs', dataToSave)
           .select()
           .single();
-
         if (error) throw error;
         return data;
       }
@@ -419,13 +353,10 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Toggle Alert Config
   const toggleConfig = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { data, error } = await client
-        .from('extended_alert_configs')
-        .update({ enabled })
+      const { data, error } = await buildUpdateQuery('extended_alert_configs', { enabled })
         .eq('id', id)
         .select()
         .single();
-
       if (error) throw error;
       return data;
     },
@@ -441,15 +372,13 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Acknowledge Alert
   const acknowledgeAlert = useMutation({
     mutationFn: async (id: string) => {
-      const { data: { user } } = await client.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      const { data, error } = await client
-        .from('alert_instances')
-        .update({
-          status: 'acknowledged',
-          acknowledged_by: user?.id,
-          acknowledged_at: new Date().toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('alert_instances', {
+        status: 'acknowledged',
+        acknowledged_by: user?.id,
+        acknowledged_at: new Date().toISOString(),
+      })
         .eq('id', id)
         .select()
         .single();
@@ -469,16 +398,14 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Resolve Alert
   const resolveAlert = useMutation({
     mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
-      const { data: { user } } = await client.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      const { data, error } = await client
-        .from('alert_instances')
-        .update({
-          status: 'resolved',
-          resolved_by: user?.id,
-          resolved_at: new Date().toISOString(),
-          resolution_notes: notes,
-        })
+      const { data, error } = await buildUpdateQuery('alert_instances', {
+        status: 'resolved',
+        resolved_by: user?.id,
+        resolved_at: new Date().toISOString(),
+        resolution_notes: notes,
+      })
         .eq('id', id)
         .select()
         .single();
@@ -498,12 +425,10 @@ export function useNotificationCenter(filters?: AlertFilters) {
   // Snooze Alert
   const snoozeAlert = useMutation({
     mutationFn: async ({ id, until }: { id: string; until: Date }) => {
-      const { data, error } = await client
-        .from('alert_instances')
-        .update({
-          status: 'snoozed',
-          snoozed_until: until.toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('alert_instances', {
+        status: 'snoozed',
+        snoozed_until: until.toISOString(),
+      })
         .eq('id', id)
         .select()
         .single();
@@ -520,15 +445,13 @@ export function useNotificationCenter(filters?: AlertFilters) {
     },
   });
 
-  // Assign Alert to Owner - Control Tower Manifesto #5
+  // Assign Alert
   const assignAlert = useMutation({
-    mutationFn: async ({ id, assignedTo }: { id: string; assignedTo: string | null }) => {
-      const { data, error } = await client
-        .from('alert_instances')
-        .update({
-          assigned_to: assignedTo,
-          assigned_at: assignedTo ? new Date().toISOString() : null,
-        })
+    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
+      const { data, error } = await buildUpdateQuery('alert_instances', {
+        assigned_to: userId,
+        assigned_at: new Date().toISOString(),
+      })
         .eq('id', id)
         .select()
         .single();
@@ -536,93 +459,9 @@ export function useNotificationCenter(filters?: AlertFilters) {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_, variables) => {
-      invalidateAll();
-      toast.success(variables.assignedTo ? 'Đã giao việc cho người phụ trách' : 'Đã hủy giao việc');
-    },
-    onError: (error) => {
-      toast.error('Lỗi: ' + error.message);
-    },
-  });
-
-  // Bulk Update Alerts
-  const bulkUpdateAlerts = useMutation({
-    mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<AlertInstance> }) => {
-      const { error } = await client
-        .from('alert_instances')
-        .update(updates)
-        .in('id', ids);
-
-      if (error) throw error;
-      return ids;
-    },
     onSuccess: () => {
       invalidateAll();
-      toast.success('Đã cập nhật các cảnh báo');
-    },
-    onError: (error) => {
-      toast.error('Lỗi: ' + error.message);
-    },
-  });
-
-  // Save Recipient
-  const saveRecipient = useMutation({
-    mutationFn: async (recipient: Partial<NotificationRecipient> & { name: string; role: string }) => {
-      if (!tenantId) throw new Error('No tenant selected');
-
-      const dataToSave = {
-        tenant_id: tenantId,
-        name: recipient.name,
-        email: recipient.email || null,
-        phone: recipient.phone || null,
-        slack_user_id: recipient.slack_user_id || null,
-        role: recipient.role,
-        is_active: recipient.is_active ?? true,
-      };
-
-      if (recipient.id) {
-        const { data, error } = await client
-          .from('notification_recipients')
-          .update(dataToSave)
-          .eq('id', recipient.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await client
-          .from('notification_recipients')
-          .insert(dataToSave)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.recipients] });
-      toast.success('Đã lưu thông tin người nhận');
-    },
-    onError: (error) => {
-      toast.error('Lỗi: ' + error.message);
-    },
-  });
-
-  // Delete Recipient
-  const deleteRecipient = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('notification_recipients')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.recipients] });
-      toast.success('Đã xóa người nhận');
+      toast.success('Đã phân công xử lý');
     },
     onError: (error) => {
       toast.error('Lỗi: ' + error.message);
@@ -631,36 +470,16 @@ export function useNotificationCenter(filters?: AlertFilters) {
 
   // ============= Realtime Subscription =============
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || !isReady) return;
 
-    // Use global supabase for realtime (schema routing not needed for subscriptions)
     const channel = supabase
-      .channel('notification-center-realtime')
+      .channel(`alerts-${tenantId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'alert_instances',
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          console.log('Alert change:', payload);
-          invalidateAll();
-
-          if (payload.eventType === 'INSERT') {
-            const newAlert = payload.new as AlertInstance;
-            if (newAlert.severity === 'critical') {
-              toast.error(`🚨 ${newAlert.title}`, {
-                description: newAlert.message || undefined,
-                duration: 10000,
-              });
-            } else if (newAlert.severity === 'warning') {
-              toast.warning(`⚠️ ${newAlert.title}`, {
-                description: newAlert.message || undefined,
-              });
-            }
-          }
+        { event: '*', schema: 'public', table: 'alert_instances' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.instances] });
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.activeAlerts] });
         }
       )
       .subscribe();
@@ -668,45 +487,26 @@ export function useNotificationCenter(filters?: AlertFilters) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, invalidateAll]);
+  }, [tenantId, isReady, queryClient]);
 
-  // ============= Helpers =============
-  const getConfigsByCategory = useCallback((category: AlertCategory) => {
-    return (configsQuery.data || []).filter(c => c.category === category);
-  }, [configsQuery.data]);
-
-  const getEnabledConfigs = useCallback(() => {
-    return (configsQuery.data || []).filter(c => c.enabled);
-  }, [configsQuery.data]);
-
-  const getActiveRecipients = useCallback(() => {
-    return (recipientsQuery.data || []).filter(r => r.is_active);
-  }, [recipientsQuery.data]);
-
-  const getRecipientsByRole = useCallback((role: string) => {
-    return (recipientsQuery.data || []).filter(r => r.role === role && r.is_active);
-  }, [recipientsQuery.data]);
-
-  // ============= Return =============
   return {
-    // Loading states
-    isLoading: !isReady || configsQuery.isLoading || instancesQuery.isLoading,
-    isConfigsLoading: configsQuery.isLoading,
-    isInstancesLoading: instancesQuery.isLoading,
-    isRecipientsLoading: recipientsQuery.isLoading,
-
     // Data
     configs: configsQuery.data || [],
     instances: instancesQuery.data || [],
     activeAlerts: activeAlertsQuery.data || [],
     recipients: recipientsQuery.data || [],
     stats,
-
+    
+    // Loading states
+    isLoading: configsQuery.isLoading || instancesQuery.isLoading,
+    isLoadingConfigs: configsQuery.isLoading,
+    isLoadingInstances: instancesQuery.isLoading,
+    isLoadingActiveAlerts: activeAlertsQuery.isLoading,
+    isLoadingRecipients: recipientsQuery.isLoading,
+    
     // Errors
-    configsError: configsQuery.error,
-    instancesError: instancesQuery.error,
-    recipientsError: recipientsQuery.error,
-
+    error: configsQuery.error || instancesQuery.error,
+    
     // Mutations
     saveConfig,
     toggleConfig,
@@ -714,107 +514,55 @@ export function useNotificationCenter(filters?: AlertFilters) {
     resolveAlert,
     snoozeAlert,
     assignAlert,
-    bulkUpdateAlerts,
-    saveRecipient,
-    deleteRecipient,
-
-    // Helpers
-    getConfigsByCategory,
-    getEnabledConfigs,
-    getActiveRecipients,
-    getRecipientsByRole,
-
-    // Refetch
-    refetchConfigs: configsQuery.refetch,
-    refetchInstances: instancesQuery.refetch,
-    refetchRecipients: recipientsQuery.refetch,
-    refetchAll: () => {
+    
+    // Utils
+    invalidateAll,
+    refetch: () => {
       configsQuery.refetch();
       instancesQuery.refetch();
       activeAlertsQuery.refetch();
       recipientsQuery.refetch();
     },
-
-    // Constants
-    categoryLabels,
-    severityConfig,
-    statusLabels,
-    recipientRoleLabels,
   };
 }
 
-// ============= Lightweight Hooks for Specific Use Cases =============
+// ============= Helper Hooks =============
 
-/**
- * Hook for dashboard badge - only fetches active alerts count
- */
 export function useActiveAlertsCount() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: [QUERY_KEYS.activeAlerts, 'count', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return { total: 0, critical: 0 };
+    queryKey: ['active-alerts-count', tenantId],
+    queryFn: async (): Promise<number> => {
+      if (!tenantId) return 0;
 
-      let query = client
-        .from('alert_instances')
-        .select('severity')
+      const { data, error } = await buildSelectQuery('alert_instances', 'id')
         .eq('status', 'active');
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-
-      return {
-        total: data.length,
-        critical: data.filter(a => a.severity === 'critical').length,
-      };
+      return data?.length || 0;
     },
-    enabled: !!tenantId && isReady,
-    refetchInterval: 60000, // 1 minute
-    staleTime: 30 * 1000,
+    enabled: isReady,
+    refetchInterval: 30000,
   });
 }
 
-/**
- * Hook for quick stats panel
- */
-export function useAlertQuickStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+export function useUnresolvedCriticalCount() {
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: [QUERY_KEYS.stats, 'quick', tenantId],
+    queryKey: ['unresolved-critical-count', tenantId],
     queryFn: async () => {
-      if (!tenantId) return null;
+      if (!tenantId) return 0;
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      let query = client
-        .from('alert_instances')
-        .select('status, severity, created_at')
-        .gte('created_at', today.toISOString());
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('alert_instances', 'id')
+        .eq('severity', 'critical')
+        .neq('status', 'resolved');
 
       if (error) throw error;
-
-      return {
-        todayTotal: data.length,
-        todayActive: data.filter(a => a.status === 'active').length,
-        todayCritical: data.filter(a => a.severity === 'critical').length,
-        todayResolved: data.filter(a => a.status === 'resolved').length,
-      };
+      return data?.length || 0;
     },
-    enabled: !!tenantId && isReady,
-    staleTime: 60 * 1000,
+    enabled: isReady,
+    refetchInterval: 30000,
   });
 }

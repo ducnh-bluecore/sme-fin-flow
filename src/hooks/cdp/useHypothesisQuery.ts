@@ -2,13 +2,13 @@
  * Hook: useHypothesisQuery
  * Query real customer data from v_cdp_customer_research based on hypothesis conditions
  * 
- * @architecture DB-First - No client-side calculations
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  * @domain CDP Explore
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantContext } from '@/contexts/TenantContext';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface HypothesisCondition {
@@ -59,7 +59,6 @@ function buildFilters(
 
     // Handle percentage-based operators (change_up, change_down)
     if (operator === 'change_up' || operator === 'change_down') {
-      // These need trend filtering, handle via trend column
       if (operator === 'change_down') {
         filteredQuery = filteredQuery.eq('trend', 'down');
       } else {
@@ -83,7 +82,6 @@ function buildFilters(
 
     const sqlOp = mapOperator(operator);
     
-    // Apply filter based on operator
     switch (sqlOp) {
       case '>':
         filteredQuery = filteredQuery.gt(column, numValue);
@@ -123,8 +121,7 @@ function generateSuggestion(
 }
 
 export function useHypothesisQuery(conditions: HypothesisCondition[]) {
-  const { activeTenant } = useTenantContext();
-  const tenantId = activeTenant?.id;
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-hypothesis-query', tenantId, JSON.stringify(conditions)],
@@ -133,27 +130,18 @@ export function useHypothesisQuery(conditions: HypothesisCondition[]) {
 
       try {
         // Get total customer count for percentage calculation
-        const { count: totalCount } = await supabase
-          .from('v_cdp_customer_research' as any)
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', tenantId);
+        const { data: totalData } = await buildSelectQuery('v_cdp_customer_research', 'id');
+        const totalCount = totalData?.length || 0;
 
         // Get tenant average AOV for delta calculation
-        const { data: avgData } = await supabase
-          .from('v_cdp_customer_research' as any)
-          .select('aov')
-          .eq('tenant_id', tenantId);
-
-        const tenantAvgAOV = avgData && avgData.length > 0
-          ? avgData.reduce((sum: number, r: any) => sum + (Number(r.aov) || 0), 0) / avgData.length
+        const { data: avgData } = await buildSelectQuery('v_cdp_customer_research', 'aov');
+        const avgDataRows = (avgData || []) as unknown as Array<{ aov: number }>;
+        const tenantAvgAOV = avgDataRows.length > 0
+          ? avgDataRows.reduce((sum, r) => sum + (Number(r.aov) || 0), 0) / avgDataRows.length
           : 0;
 
         // Build filtered query
-        let query = supabase
-          .from('v_cdp_customer_research' as any)
-          .select('*')
-          .eq('tenant_id', tenantId);
-
+        let query = buildSelectQuery('v_cdp_customer_research', '*');
         query = buildFilters(query, conditions);
 
         const { data, error } = await query;
@@ -163,7 +151,9 @@ export function useHypothesisQuery(conditions: HypothesisCondition[]) {
           return null;
         }
 
-        if (!data || data.length === 0) {
+        const dataRows = (data || []) as unknown as Array<Record<string, unknown>>;
+
+        if (dataRows.length === 0) {
           return {
             customerCount: 0,
             percentOfTotal: 0,
@@ -180,13 +170,13 @@ export function useHypothesisQuery(conditions: HypothesisCondition[]) {
         }
 
         // Calculate aggregates
-        const customerCount = data.length;
+        const customerCount = dataRows.length;
         const percentOfTotal = totalCount ? Math.round((customerCount / totalCount) * 100 * 10) / 10 : 0;
-        const totalSpend = data.reduce((sum: number, r: any) => sum + (Number(r.total_spend) || 0), 0);
-        const avgAOV = data.reduce((sum: number, r: any) => sum + (Number(r.aov) || 0), 0) / customerCount;
+        const totalSpend = dataRows.reduce((sum, r) => sum + (Number(r.total_spend) || 0), 0);
+        const avgAOV = dataRows.reduce((sum, r) => sum + (Number(r.aov) || 0), 0) / customerCount;
         const avgAOVDelta = tenantAvgAOV > 0 ? ((avgAOV - tenantAvgAOV) / tenantAvgAOV) * 100 : 0;
-        const returnRate = data.reduce((sum: number, r: any) => sum + (Number(r.return_rate) || 0), 0) / customerCount;
-        const marginContribution = data.reduce((sum: number, r: any) => sum + (Number(r.margin_contribution) || 0), 0);
+        const returnRate = dataRows.reduce((sum, r) => sum + (Number(r.return_rate) || 0), 0) / customerCount;
+        const marginContribution = dataRows.reduce((sum, r) => sum + (Number(r.margin_contribution) || 0), 0);
 
         // Calculate return rate delta (assume 10% baseline)
         const baselineReturnRate = 10;
@@ -212,15 +202,14 @@ export function useHypothesisQuery(conditions: HypothesisCondition[]) {
         return null;
       }
     },
-    enabled: !!tenantId && conditions.length > 0,
-    staleTime: 30 * 1000, // 30 seconds - fresher data for exploration
+    enabled: isReady && conditions.length > 0,
+    staleTime: 30 * 1000,
   });
 }
 
 // Mutation to save hypothesis as a new segment
 export function useSaveAsSegment() {
-  const { activeTenant } = useTenantContext();
-  const tenantId = activeTenant?.id;
+  const { buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -243,16 +232,13 @@ export function useSaveAsSegment() {
         timeframe: c.timeframe,
       }));
 
-      const { data, error } = await supabase
-        .from('cdp_segments')
-        .insert({
-          tenant_id: tenantId,
-          name,
-          description,
-          definition_json: { rules },
-          status: 'active',
-          owner_role: 'user',
-        })
+      const { data, error } = await buildInsertQuery('cdp_segments', {
+        name,
+        description,
+        definition_json: { rules },
+        status: 'active',
+        owner_role: 'user',
+      })
         .select()
         .single();
 

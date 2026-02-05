@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { useActiveAlertsCount } from '@/hooks/useNotificationCenter';
+import { useActiveAlertsCount, useUnresolvedCriticalCount } from '@/hooks/useNotificationCenter';
 import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -21,9 +21,8 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
-  const { data, isLoading } = useActiveAlertsCount();
-  const activeCount = data?.total || 0;
-  const criticalCount = data?.critical || 0;
+  const { data: activeCount = 0, isLoading } = useActiveAlertsCount();
+  const { data: criticalCount = 0 } = useUnresolvedCriticalCount();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
