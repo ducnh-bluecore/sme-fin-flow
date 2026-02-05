@@ -5,7 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { BaselineCategory } from './useExpenseBaselines';
 
 // =============================================================
@@ -31,30 +31,22 @@ export interface UpcomingPaymentAlert {
 // =============================================================
 
 export function useUpcomingPaymentAlerts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['upcoming-payment-alerts', tenantId],
     queryFn: async (): Promise<UpcomingPaymentAlert[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_upcoming_payment_alerts')
-        .select('*')
+      const { data, error } = await buildSelectQuery('v_upcoming_payment_alerts', '*')
         .order('days_until_due', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('[useUpcomingPaymentAlerts] Error:', error);
         throw error;
       }
 
-      return (data || []).map((row) => ({
+      return ((data || []) as any[]).map((row) => ({
         id: String(row.id),
         tenantId: String(row.tenant_id),
         category: row.category as BaselineCategory,
