@@ -8,11 +8,11 @@
  * 
  * Performance: Uses pre-aggregated data instead of 100k+ order items
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * @architecture Schema-per-Tenant v1.4.1
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { toast } from 'sonner';
 
@@ -45,25 +45,17 @@ export interface SKUProfitabilitySummary {
  * Fetch SKU profitability from pre-aggregated view (fast, all-time data)
  */
 export function useSKUProfitabilityFromView() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['sku-profitability-view', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Use pre-aggregated SKU summary view (cast to any since views not in types)
-      let query = client
-        .from('fdp_sku_summary' as any)
-        .select('*')
+      // Use pre-aggregated SKU summary view
+      const { data, error } = await buildSelectQuery('fdp_sku_summary', '*')
         .order('total_revenue', { ascending: false })
         .limit(500); // Top 500 SKUs
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -132,7 +124,7 @@ export function useSKUProfitabilityFromView() {
  * Uses database RPC for proper date filtering (DB-First architecture)
  */
 export function useCachedSKUProfitability() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -141,8 +133,7 @@ export function useCachedSKUProfitability() {
       if (!tenantId) return null;
 
       // Use RPC to get SKU profitability filtered by date range
-      // Always pass p_limit explicitly to avoid function overload ambiguity
-      const { data: rpcData, error: rpcError } = await client.rpc(
+      const { data: rpcData, error: rpcError } = await callRpc(
         'get_sku_profitability_by_date_range',
         {
           p_tenant_id: tenantId,
@@ -238,7 +229,7 @@ export function useCachedSKUProfitability() {
  * This is now only needed for historical period-specific analysis
  */
 export function useRecalculateSKUProfitability() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, buildSelectQuery, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const queryClient = useQueryClient();
 
@@ -247,15 +238,7 @@ export function useRecalculateSKUProfitability() {
       if (!tenantId) throw new Error('No tenant');
 
       // Use fdp_sku_summary view data to populate cache
-      let query = client
-        .from('fdp_sku_summary' as any)
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data: rawSkuData, error: skuError } = await query;
+      const { data: rawSkuData, error: skuError } = await buildSelectQuery('fdp_sku_summary', '*');
 
       if (skuError) throw skuError;
 
@@ -302,7 +285,7 @@ export function useRecalculateSKUProfitability() {
         .eq('period_start', startDateStr)
         .eq('period_end', endDateStr);
       
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         deleteQuery = deleteQuery.eq('tenant_id', tenantId);
       }
       

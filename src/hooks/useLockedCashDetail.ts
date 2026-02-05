@@ -7,10 +7,12 @@
  * - Ads: Recent marketing spend not yet converted
  * - Ops: Pending logistics/shipping bills
  * - Platform: eCommerce pending settlement (T+14)
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export type LockType = 'inventory' | 'ads' | 'ops' | 'platform';
 export type LockStatus = 'active' | 'slow_moving' | 'pending' | 'settled' | 'pending_settlement';
@@ -40,22 +42,14 @@ export interface LockedCashSummary {
 }
 
 export function useLockedCashDetail() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['locked-cash-detail', tenantId],
     queryFn: async (): Promise<LockedCashSummary | null> => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('v_locked_cash_detail')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_locked_cash_detail', '*');
       
       if (error) {
         console.error('[useLockedCashDetail] Fetch error:', error);
@@ -83,15 +77,15 @@ export function useLockedCashDetail() {
       let totalOps = 0;
       let totalPlatform = 0;
       
-      for (const row of data) {
+      for (const row of data as unknown as Array<Record<string, unknown>>) {
         const item: LockedCashItem = {
           lockType: row.lock_type as LockType,
-          sku: row.sku,
-          productName: row.product_name,
+          sku: row.sku as string | null,
+          productName: row.product_name as string | null,
           lockedAmount: Number(row.locked_amount) || 0,
           quantity: row.quantity ? Number(row.quantity) : null,
           status: row.status as LockStatus,
-          referenceDate: row.reference_date,
+          referenceDate: row.reference_date as string | null,
         };
         
         switch (row.lock_type) {

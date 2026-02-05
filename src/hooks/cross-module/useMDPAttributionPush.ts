@@ -4,11 +4,11 @@
  * Hook to push MDP attribution data to CDP for CAC calculation.
  * Part of Case 5: MDP → CDP flow.
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * @architecture Schema-per-Tenant v1.4.1
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 interface AttributionData {
@@ -19,14 +19,14 @@ interface AttributionData {
 }
 
 export function usePushAttributionToCDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: AttributionData) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data: result, error } = await client.rpc('mdp_push_attribution_to_cdp' as any, {
+      const { data: result, error } = await callRpc('mdp_push_attribution_to_cdp', {
         p_tenant_id: tenantId,
         p_cohort_month: data.cohortMonth,
         p_source_channel: data.sourceChannel,
@@ -53,7 +53,7 @@ export function usePushAttributionToCDP() {
  * Batch push multiple attribution records
  */
 export function useBatchPushAttributionToCDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -62,7 +62,7 @@ export function useBatchPushAttributionToCDP() {
 
       const results = await Promise.all(
         records.map((data) =>
-          client.rpc('mdp_push_attribution_to_cdp' as any, {
+          callRpc('mdp_push_attribution_to_cdp', {
             p_tenant_id: tenantId,
             p_cohort_month: data.cohortMonth,
             p_source_channel: data.sourceChannel,

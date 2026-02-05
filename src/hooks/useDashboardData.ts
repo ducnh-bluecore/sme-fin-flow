@@ -6,10 +6,12 @@
  * - useDashboardKPIs: Now thin wrapper over useFinanceTruthSnapshot
  * - useARAgingData: Uses precomputed AR aging from snapshot
  * - useOverdueInvoices: Kept for UI list but should migrate to precomputed
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 
@@ -110,28 +112,20 @@ export function useDashboardKPIs() {
   };
 }
 
-// Fetch Cash Forecasts - Still uses direct query (acceptable for operational data)
+// Fetch Cash Forecasts - Uses tenant query builder
 export function useCashForecasts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cash-forecasts', tenantId],
     queryFn: async (): Promise<CashForecast[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('cash_forecasts')
-        .select('*')
+      const { data, error } = await buildSelectQuery('cash_forecasts', '*')
         .order('forecast_date', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
-      const { data, error } = await query;
-      
       if (error) throw error;
-      return data || [];
+      return (data as unknown as CashForecast[]) || [];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -146,7 +140,7 @@ export { useActiveAlertsCount as useAlerts } from './useNotificationCenter';
  * Note: This still uses direct query but is for operational list, not metrics
  */
 export function useOverdueInvoices(limit?: number) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const today = new Date().toISOString().split('T')[0];
 
   return useQuery({
@@ -171,7 +165,7 @@ export function useOverdueInvoices(limit?: number) {
         .or(`status.eq.overdue,due_date.lt.${today}`)
         .order('due_date', { ascending: true });
       
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       
@@ -182,7 +176,7 @@ export function useOverdueInvoices(limit?: number) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data as unknown as InvoiceWithCustomer[]) || [];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -211,26 +205,18 @@ export function useARAgingData() {
   };
 }
 
-// Fetch Scenarios - Kept as-is (not a metrics hook)
+// Fetch Scenarios - Uses tenant query builder
 export function useScenarios() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['scenarios', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('scenarios')
-        .select('*')
+      const { data, error } = await buildSelectQuery('scenarios', '*')
         .order('created_at', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
-      const { data, error } = await query;
-      
       if (error) throw error;
       return data || [];
     },

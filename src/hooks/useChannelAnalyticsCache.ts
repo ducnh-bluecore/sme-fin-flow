@@ -3,11 +3,11 @@
  * 
  * Uses pre-computed cache table for fast channel analytics.
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * @architecture Schema-per-Tenant v1.4.1
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { ChannelPerformance, OrderStatusSummary, FeeSummary } from './useChannelAnalytics';
 
 export interface ChannelAnalyticsCache {
@@ -41,7 +41,7 @@ export interface ChannelAnalyticsCache {
 const CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
 export function useChannelAnalyticsCache() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, buildSelectQuery, callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -49,15 +49,8 @@ export function useChannelAnalyticsCache() {
     queryFn: async (): Promise<ChannelAnalyticsCache | null> => {
       if (!tenantId) return null;
 
-      let dbQuery = client
-        .from('channel_analytics_cache')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        dbQuery = dbQuery.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await dbQuery.maybeSingle();
+      const { data, error } = await buildSelectQuery('channel_analytics_cache', '*')
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching channel analytics cache:', error);
@@ -66,10 +59,11 @@ export function useChannelAnalyticsCache() {
 
       // Check if cache is stale and needs refresh
       if (data) {
-        const cacheAge = Date.now() - new Date(data.calculated_at).getTime();
+        const typedData = data as unknown as Record<string, unknown>;
+        const cacheAge = Date.now() - new Date(typedData.calculated_at as string).getTime();
         if (cacheAge > CACHE_MAX_AGE_MS) {
           // Trigger background refresh using tenant-aware client
-          client.rpc('refresh_channel_analytics_cache', { 
+          callRpc('refresh_channel_analytics_cache', { 
             p_tenant_id: tenantId 
           }).then(() => {
             queryClient.invalidateQueries({ queryKey: ['channel-analytics-cache', tenantId] });
@@ -77,7 +71,7 @@ export function useChannelAnalyticsCache() {
         }
       } else {
         // No cache exists, create it
-        client.rpc('refresh_channel_analytics_cache', { 
+        callRpc('refresh_channel_analytics_cache', { 
           p_tenant_id: tenantId 
         }).then(() => {
           queryClient.invalidateQueries({ queryKey: ['channel-analytics-cache', tenantId] });
@@ -86,12 +80,26 @@ export function useChannelAnalyticsCache() {
 
       // Parse JSON fields
       if (data) {
+        const typedData = data as unknown as Record<string, unknown>;
         return {
-          ...data,
-          channel_metrics: (data.channel_metrics || {}) as ChannelAnalyticsCache['channel_metrics'],
-          fee_breakdown: (data.fee_breakdown || {}) as Record<string, number>,
-          status_breakdown: (data.status_breakdown || {}) as Record<string, { count: number; amount: number }>,
-        } as ChannelAnalyticsCache;
+          id: typedData.id as string,
+          tenant_id: typedData.tenant_id as string,
+          total_orders: typedData.total_orders as number,
+          gross_revenue: typedData.gross_revenue as number,
+          net_revenue: typedData.net_revenue as number,
+          total_fees: typedData.total_fees as number,
+          total_cogs: typedData.total_cogs as number,
+          gross_profit: typedData.gross_profit as number,
+          avg_order_value: typedData.avg_order_value as number,
+          cancelled_orders: typedData.cancelled_orders as number,
+          returned_orders: typedData.returned_orders as number,
+          channel_metrics: (typedData.channel_metrics || {}) as ChannelAnalyticsCache['channel_metrics'],
+          fee_breakdown: (typedData.fee_breakdown || {}) as Record<string, number>,
+          status_breakdown: (typedData.status_breakdown || {}) as Record<string, { count: number; amount: number }>,
+          data_start_date: typedData.data_start_date as string | null,
+          data_end_date: typedData.data_end_date as string | null,
+          calculated_at: typedData.calculated_at as string,
+        };
       }
       return null;
     },
@@ -159,13 +167,13 @@ export function useChannelAnalyticsCache() {
 
 export function useRefreshChannelAnalyticsCache() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { error } = await client.rpc('refresh_channel_analytics_cache', {
+      const { error } = await callRpc('refresh_channel_analytics_cache', {
         p_tenant_id: tenantId,
       });
 
