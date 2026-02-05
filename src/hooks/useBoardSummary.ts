@@ -1,12 +1,11 @@
 /**
  * useBoardSummary - Board Summary Data Hook
  * 
- * Refactored to Schema-per-Tenant architecture.
- * Uses useTenantSupabaseCompat for tenant-aware queries.
+ * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 // Types matching edge function response
 export interface BoardSummary {
@@ -62,7 +61,7 @@ export interface BoardSummary {
 }
 
 export function useBoardSummary(period: '7d' | '30d' | '90d' = '30d') {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['board-summary', tenantId, period],

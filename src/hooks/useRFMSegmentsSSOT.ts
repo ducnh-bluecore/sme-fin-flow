@@ -3,10 +3,12 @@
  * 
  * Phase 7.3: Fetches pre-computed RFM segments from v_cdp_rfm_segment_summary
  * ALL business logic is in the database - this hook ONLY fetches.
+ * 
+ * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface RFMSegment {
   name: string;
@@ -25,29 +27,26 @@ export interface RFMSegment {
 }
 
 export function useRFMSegmentsSSOT() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data: segments, isLoading, error } = useQuery({
     queryKey: ['cdp-rfm-segments-ssot', tenantId],
     queryFn: async (): Promise<RFMSegment[]> => {
       if (!tenantId) return getDefaultSegments();
 
-      let query = client.from('v_cdp_rfm_segment_summary').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_rfm_segment_summary', '*');
 
       if (error) {
         console.error('[useRFMSegmentsSSOT] Query error:', error);
         throw error;
       }
 
-      if (!data || data.length === 0) {
+      const rows = (data as unknown as any[]) || [];
+      if (rows.length === 0) {
         return getDefaultSegments();
       }
 
-      return data.map(row => ({
+      return rows.map(row => ({
         name: row.segment_name || 'Unknown',
         description: row.description || '',
         recommendedAction: row.recommended_action || '',

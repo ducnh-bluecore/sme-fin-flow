@@ -1,11 +1,11 @@
 /**
  * usePromotions - Hook for promotion campaigns management
  * 
- * Schema-per-Tenant Ready
+ * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 // Updated interface to match promotion_campaigns table (SSOT)
@@ -66,26 +66,18 @@ export interface PromotionSummary {
 
 // Main hook - now queries promotion_campaigns (SSOT)
 export const usePromotions = () => {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['promotion-campaigns', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('promotion_campaigns')
-        .select('*')
+      const { data, error } = await buildSelectQuery('promotion_campaigns', '*')
         .order('start_date', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return (data || []) as PromotionCampaign[];
+      return ((data as unknown as any[]) || []) as PromotionCampaign[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -184,15 +176,13 @@ export const usePromotionsByChannel = () => {
 // Mutation hooks for CRUD operations
 export const useCreatePromotion = () => {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (campaign: Omit<PromotionCampaign, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('promotion_campaigns')
-        .insert({ ...campaign, tenant_id: tenantId })
+      const { data, error } = await buildInsertQuery('promotion_campaigns', campaign)
         .select()
         .single();
 
@@ -211,13 +201,13 @@ export const useCreatePromotion = () => {
 
 export const useUpdatePromotion = () => {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<PromotionCampaign> & { id: string }) => {
-      const { data, error } = await client
-        .from('promotion_campaigns')
-        .update(updates)
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { data, error } = await buildUpdateQuery('promotion_campaigns', updates)
         .eq('id', id)
         .select()
         .single();
@@ -237,13 +227,13 @@ export const useUpdatePromotion = () => {
 
 export const useDeletePromotion = () => {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('promotion_campaigns')
-        .delete()
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { error } = await buildDeleteQuery('promotion_campaigns')
         .eq('id', id);
 
       if (error) throw error;

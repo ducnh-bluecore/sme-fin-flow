@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+
 // Types matching v_cdp_demand_insights view
 export type DemandCategory = 'demand_shift' | 'substitution' | 'basket_structure' | 'product_customer' | 'product_risk';
 
@@ -29,25 +30,22 @@ export interface DemandCategoryCount {
 
 // Hook for demand insights list
 export function useCDPDemandInsights() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-demand-insights', tenantId],
     queryFn: async (): Promise<DemandInsight[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_demand_insights').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.order('detected_at', { ascending: false });
+      const { data, error } = await buildSelectQuery('v_cdp_demand_insights', '*')
+        .order('detected_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching demand insights:', error);
         return [];
       }
 
-      return (data || []).map(row => ({
+      return ((data as unknown as any[]) || []).map(row => ({
         event_id: row.event_id,
         code: row.code,
         category: row.category as DemandCategory,
@@ -72,7 +70,7 @@ export function useCDPDemandInsights() {
 
 // Hook for demand category counts
 export function useCDPDemandCategoryCounts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-demand-category-counts', tenantId],
@@ -87,11 +85,7 @@ export function useCDPDemandCategoryCounts() {
 
       if (!tenantId) return defaultCounts;
 
-      let query = client.from('v_cdp_demand_category_counts').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_demand_category_counts', '*');
 
       if (error) {
         console.error('Error fetching demand category counts:', error);
@@ -99,7 +93,7 @@ export function useCDPDemandCategoryCounts() {
       }
 
       const counts = { ...defaultCounts };
-      (data || []).forEach(row => {
+      ((data as unknown as any[]) || []).forEach(row => {
         const category = row.category as DemandCategory;
         if (counts[category]) {
           counts[category] = {
