@@ -62,8 +62,7 @@ export function ControlTowerLayout() {
   const { activeTenant } = useTenantContext();
 
   // Fetch alert count for badge
-  const { data: alertsData } = useActiveAlertsCount();
-  const activeAlertsCount = alertsData?.total ?? 0;
+  const { data: activeAlertsCount = 0 } = useActiveAlertsCount();
 
   // Add badge to Command nav item
   const navItemsWithBadge = useMemo(() => {

@@ -6,6 +6,9 @@
  * REFACTORED: Now uses database RPCs for ALL calculations.
  * This hook is a THIN WRAPPER - NO CLIENT-SIDE CALCULATIONS.
  * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ * 
  * Uses:
  * - get_pl_aggregated RPC for aggregations
  * - get_pl_comparison RPC for YoY changes
@@ -13,8 +16,7 @@
  * - v_pl_monthly_summary view for monthly trends
  */
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export type OpexDataSource = Record<string, 'actual' | 'estimate'>;
@@ -92,7 +94,7 @@ export interface RevenueBreakdown {
  * All calculations are performed in database RPCs/Views
  */
 export function usePLData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -117,54 +119,38 @@ export function usePLData() {
         revenueBreakdownResult,
       ] = await Promise.all([
         // 1. Get aggregated P&L data from RPC
-        client.rpc('get_pl_aggregated', {
+        callRpc('get_pl_aggregated', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
 
         // 2. Get YoY comparison from RPC
-        client.rpc('get_pl_comparison', {
+        callRpc('get_pl_comparison', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
 
         // 3. Get category data from RPC
-        client.rpc('get_category_pl_aggregated', {
+        callRpc('get_category_pl_aggregated', {
           p_tenant_id: tenantId,
           p_start_date: startDateStr,
           p_end_date: endDateStr,
         }),
 
-        // 4. Get monthly data from view (with tenant filter if needed)
-        (async () => {
-          let query = client
-            .from('v_pl_monthly_summary')
-            .select('*');
-          if (shouldAddTenantFilter) {
-            query = query.eq('tenant_id', tenantId);
-          }
-          return query
-            .gte('year_month', startDateStr.slice(0, 7))
-            .lte('year_month', endDateStr.slice(0, 7))
-            .order('period_year', { ascending: true })
-            .order('period_month', { ascending: true });
-        })(),
+        // 4. Get monthly data from view
+        buildSelectQuery('v_pl_monthly_summary', '*')
+          .gte('year_month', startDateStr.slice(0, 7))
+          .lte('year_month', endDateStr.slice(0, 7))
+          .order('period_year', { ascending: true })
+          .order('period_month', { ascending: true }),
 
-        // 5. Get revenue breakdown from cache (with tenant filter if needed)
-        (async () => {
-          let query = client
-            .from('pl_report_cache')
-            .select('invoice_revenue, contract_revenue, integrated_revenue, net_sales, opex_salaries, opex_rent, opex_utilities, opex_marketing, opex_depreciation, opex_insurance, opex_supplies, opex_maintenance, opex_professional, opex_other, sales_returns, sales_discounts, other_income, interest_expense, income_before_tax, income_tax');
-          if (shouldAddTenantFilter) {
-            query = query.eq('tenant_id', tenantId);
-          }
-          return query
-            .not('period_month', 'is', null)
-            .gte('period_year', parseInt(startDateStr.slice(0, 4)))
-            .lte('period_year', parseInt(endDateStr.slice(0, 4)));
-        })(),
+        // 5. Get revenue breakdown from cache
+        buildSelectQuery('pl_report_cache', 'invoice_revenue, contract_revenue, integrated_revenue, net_sales, opex_salaries, opex_rent, opex_utilities, opex_marketing, opex_depreciation, opex_insurance, opex_supplies, opex_maintenance, opex_professional, opex_other, sales_returns, sales_discounts, other_income, interest_expense, income_before_tax, income_tax')
+          .not('period_month', 'is', null)
+          .gte('period_year', parseInt(startDateStr.slice(0, 4)))
+          .lte('period_year', parseInt(endDateStr.slice(0, 4))),
       ]);
 
       // Handle errors
@@ -182,107 +168,110 @@ export function usePLData() {
       }
 
       // Parse aggregated P&L - DIRECT MAPPING, NO CALCULATIONS
-      const plAgg = plAggResult.data?.[0] || null;
+      const plAggData = plAggResult.data as unknown[];
+      const plAgg = (plAggData && plAggData.length > 0 ? plAggData[0] : null) as Record<string, unknown> | null;
       
       // Sum up revenue breakdown and opex from cache rows
-      const cacheRows = revenueBreakdownResult.data || [];
+      const cacheRows = (revenueBreakdownResult.data || []) as unknown as Array<Record<string, unknown>>;
       const revenueBreakdown: RevenueBreakdown = {
-        invoiceRevenue: cacheRows.reduce((sum, r) => sum + (r.invoice_revenue || 0), 0),
-        contractRevenue: cacheRows.reduce((sum, r) => sum + (r.contract_revenue || 0), 0),
-        integratedRevenue: cacheRows.reduce((sum, r) => sum + (r.integrated_revenue || 0), 0),
-        totalRevenue: plAgg?.net_sales || 0,
+        invoiceRevenue: cacheRows.reduce((sum, r) => sum + (Number(r.invoice_revenue) || 0), 0),
+        contractRevenue: cacheRows.reduce((sum, r) => sum + (Number(r.contract_revenue) || 0), 0),
+        integratedRevenue: cacheRows.reduce((sum, r) => sum + (Number(r.integrated_revenue) || 0), 0),
+        totalRevenue: Number(plAgg?.net_sales) || 0,
       };
 
       // Aggregate opex breakdown from cache
       const opexBreakdown = {
-        salaries: cacheRows.reduce((sum, r) => sum + (r.opex_salaries || 0), 0),
-        rent: cacheRows.reduce((sum, r) => sum + (r.opex_rent || 0), 0),
-        utilities: cacheRows.reduce((sum, r) => sum + (r.opex_utilities || 0), 0),
-        marketing: cacheRows.reduce((sum, r) => sum + (r.opex_marketing || 0), 0),
-        depreciation: cacheRows.reduce((sum, r) => sum + (r.opex_depreciation || 0), 0),
-        insurance: cacheRows.reduce((sum, r) => sum + (r.opex_insurance || 0), 0),
-        supplies: cacheRows.reduce((sum, r) => sum + (r.opex_supplies || 0), 0),
-        maintenance: cacheRows.reduce((sum, r) => sum + (r.opex_maintenance || 0), 0),
-        professional: cacheRows.reduce((sum, r) => sum + (r.opex_professional || 0), 0),
-        other: cacheRows.reduce((sum, r) => sum + (r.opex_other || 0), 0),
+        salaries: cacheRows.reduce((sum, r) => sum + (Number(r.opex_salaries) || 0), 0),
+        rent: cacheRows.reduce((sum, r) => sum + (Number(r.opex_rent) || 0), 0),
+        utilities: cacheRows.reduce((sum, r) => sum + (Number(r.opex_utilities) || 0), 0),
+        marketing: cacheRows.reduce((sum, r) => sum + (Number(r.opex_marketing) || 0), 0),
+        depreciation: cacheRows.reduce((sum, r) => sum + (Number(r.opex_depreciation) || 0), 0),
+        insurance: cacheRows.reduce((sum, r) => sum + (Number(r.opex_insurance) || 0), 0),
+        supplies: cacheRows.reduce((sum, r) => sum + (Number(r.opex_supplies) || 0), 0),
+        maintenance: cacheRows.reduce((sum, r) => sum + (Number(r.opex_maintenance) || 0), 0),
+        professional: cacheRows.reduce((sum, r) => sum + (Number(r.opex_professional) || 0), 0),
+        other: cacheRows.reduce((sum, r) => sum + (Number(r.opex_other) || 0), 0),
       };
 
-      const salesReturns = cacheRows.reduce((sum, r) => sum + (r.sales_returns || 0), 0);
-      const salesDiscounts = cacheRows.reduce((sum, r) => sum + (r.sales_discounts || 0), 0);
-      const otherIncome = cacheRows.reduce((sum, r) => sum + (r.other_income || 0), 0);
-      const interestExpense = cacheRows.reduce((sum, r) => sum + (r.interest_expense || 0), 0);
-      const incomeBeforeTax = cacheRows.reduce((sum, r) => sum + (r.income_before_tax || 0), 0);
-      const incomeTax = cacheRows.reduce((sum, r) => sum + (r.income_tax || 0), 0);
+      const salesReturns = cacheRows.reduce((sum, r) => sum + (Number(r.sales_returns) || 0), 0);
+      const salesDiscounts = cacheRows.reduce((sum, r) => sum + (Number(r.sales_discounts) || 0), 0);
+      const otherIncome = cacheRows.reduce((sum, r) => sum + (Number(r.other_income) || 0), 0);
+      const interestExpense = cacheRows.reduce((sum, r) => sum + (Number(r.interest_expense) || 0), 0);
+      const incomeBeforeTax = cacheRows.reduce((sum, r) => sum + (Number(r.income_before_tax) || 0), 0);
+      const incomeTax = cacheRows.reduce((sum, r) => sum + (Number(r.income_tax) || 0), 0);
 
       // Map to PLData - MARGINS ALREADY AS % FROM DB
       const plData: PLData = plAgg ? {
-        grossSales: plAgg.gross_sales || 0,
+        grossSales: Number(plAgg.gross_sales) || 0,
         salesReturns,
         salesDiscounts,
-        netSales: plAgg.net_sales || 0,
-        cogs: plAgg.cogs || 0,
-        grossProfit: plAgg.gross_profit || 0,
-        grossMargin: plAgg.gross_margin_pct || 0, // Already % from DB
+        netSales: Number(plAgg.net_sales) || 0,
+        cogs: Number(plAgg.cogs) || 0,
+        grossProfit: Number(plAgg.gross_profit) || 0,
+        grossMargin: Number(plAgg.gross_margin_pct) || 0, // Already % from DB
         operatingExpenses: {
           ...opexBreakdown,
           logistics: 0, // Will be added when column exists
         },
-        totalOperatingExpenses: plAgg.total_opex || 0,
-        operatingIncome: plAgg.operating_income || 0,
-        operatingMargin: plAgg.operating_margin_pct || 0, // Already % from DB
+        totalOperatingExpenses: Number(plAgg.total_opex) || 0,
+        operatingIncome: Number(plAgg.operating_income) || 0,
+        operatingMargin: Number(plAgg.operating_margin_pct) || 0, // Already % from DB
         otherIncome,
         interestExpense,
         incomeBeforeTax,
         incomeTax,
-        netIncome: plAgg.net_income || 0,
-        netMargin: plAgg.net_margin_pct || 0, // Already % from DB
+        netIncome: Number(plAgg.net_income) || 0,
+        netMargin: Number(plAgg.net_margin_pct) || 0, // Already % from DB
       } : getEmptyPLDataStruct().plData;
 
       // Map monthly data - DIRECT FROM VIEW, PRE-COMPUTED IN MILLIONS
-      const monthlyData: MonthlyPLData[] = (monthlyResult.data || []).map((m: any) => ({
+      const monthlyRows = (monthlyResult.data || []) as unknown as Array<Record<string, unknown>>;
+      const monthlyData: MonthlyPLData[] = monthlyRows.map((m) => ({
         month: `T${m.period_month}/${m.period_year}`,
-        netSales: m.net_sales_m || 0, // Already in millions from view
-        cogs: m.cogs_m || 0,
-        grossProfit: m.gross_profit_m || 0,
-        opex: m.opex_m || 0,
-        netIncome: m.net_income_m || 0,
+        netSales: Number(m.net_sales_m) || 0, // Already in millions from view
+        cogs: Number(m.cogs_m) || 0,
+        grossProfit: Number(m.gross_profit_m) || 0,
+        opex: Number(m.opex_m) || 0,
+        netIncome: Number(m.net_income_m) || 0,
       }));
 
       // Map comparison data - DIRECT FROM RPC, % ALREADY CALCULATED
-      const comparisonRows = comparisonResult.data || [];
+      const comparisonRows = (comparisonResult.data || []) as unknown as Array<Record<string, unknown>>;
       const getComparisonRow = (metric: string) => 
-        comparisonRows.find((r: any) => r.metric === metric) || { current_value: 0, previous_value: 0, change_pct: 0 };
+        comparisonRows.find((r) => r.metric === metric) || { current_value: 0, previous_value: 0, change_pct: 0 };
 
       const comparisonData: ComparisonData = {
         netSales: {
-          current: getComparisonRow('net_sales').current_value || 0,
-          previous: getComparisonRow('net_sales').previous_value || 0,
-          change: getComparisonRow('net_sales').change_pct || 0, // Already % from DB
+          current: Number(getComparisonRow('net_sales').current_value) || 0,
+          previous: Number(getComparisonRow('net_sales').previous_value) || 0,
+          change: Number(getComparisonRow('net_sales').change_pct) || 0, // Already % from DB
         },
         grossProfit: {
-          current: getComparisonRow('gross_profit').current_value || 0,
-          previous: getComparisonRow('gross_profit').previous_value || 0,
-          change: getComparisonRow('gross_profit').change_pct || 0,
+          current: Number(getComparisonRow('gross_profit').current_value) || 0,
+          previous: Number(getComparisonRow('gross_profit').previous_value) || 0,
+          change: Number(getComparisonRow('gross_profit').change_pct) || 0,
         },
         operatingIncome: {
-          current: getComparisonRow('operating_income').current_value || 0,
-          previous: getComparisonRow('operating_income').previous_value || 0,
-          change: getComparisonRow('operating_income').change_pct || 0,
+          current: Number(getComparisonRow('operating_income').current_value) || 0,
+          previous: Number(getComparisonRow('operating_income').previous_value) || 0,
+          change: Number(getComparisonRow('operating_income').change_pct) || 0,
         },
         netIncome: {
-          current: getComparisonRow('net_income').current_value || 0,
-          previous: getComparisonRow('net_income').previous_value || 0,
-          change: getComparisonRow('net_income').change_pct || 0,
+          current: Number(getComparisonRow('net_income').current_value) || 0,
+          previous: Number(getComparisonRow('net_income').previous_value) || 0,
+          change: Number(getComparisonRow('net_income').change_pct) || 0,
         },
       };
 
       // Map category data - DIRECT FROM RPC, ALL METRICS PRE-COMPUTED
-      const categoryData: CategoryPLData[] = (categoryResult.data || []).map((c: any) => ({
-        category: c.category || 'Không phân loại',
-        sales: c.revenue_m || 0, // Already in millions from DB
-        cogs: c.cogs_m || 0,
-        margin: c.margin_pct || 0, // Already % from DB
-        contribution: c.contribution_pct || 0, // Already % from DB
+      const categoryRows = (categoryResult.data || []) as unknown as Array<Record<string, unknown>>;
+      const categoryData: CategoryPLData[] = categoryRows.map((c) => ({
+        category: String(c.category || 'Không phân loại'),
+        sales: Number(c.revenue_m) || 0, // Already in millions from DB
+        cogs: Number(c.cogs_m) || 0,
+        margin: Number(c.margin_pct) || 0, // Already % from DB
+        contribution: Number(c.contribution_pct) || 0, // Already % from DB
       }));
 
       return {

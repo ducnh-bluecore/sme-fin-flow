@@ -18,7 +18,7 @@ import { MobileAlertItem } from '@/components/mobile/MobileAlertItem';
 
 export default function MobileHomePage() {
   const navigate = useNavigate();
-  const { instances, stats, isLoading, refetchInstances } = useNotificationCenter();
+  const { instances, stats, isLoading, refetch: refetchInstances } = useNotificationCenter();
 
   const activeAlerts = useMemo(() => 
     instances.filter(i => i.status === 'active').slice(0, 10),
