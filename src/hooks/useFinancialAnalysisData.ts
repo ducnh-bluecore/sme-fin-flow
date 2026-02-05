@@ -1,14 +1,14 @@
 /**
  * Financial Analysis Data Hook - REFACTORED FOR SSOT
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  * 
  * Uses useCentralFinancialMetrics for core financial metrics (DSO, DPO, gross margin, EBITDA, etc.)
  * Only calculates analysis-specific details (trends, breakdowns, YoY comparisons).
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { startOfYear, endOfYear, format, startOfMonth, endOfMonth, subMonths, subYears } from 'date-fns';
 import { useCentralFinancialMetrics } from './useCentralFinancialMetrics';
 import { INDUSTRY_BENCHMARKS, FALLBACK_RATIOS } from '@/lib/financial-constants';
@@ -175,7 +175,7 @@ const EXPENSE_LABELS: Record<string, string> = {
 };
 
 export function useFinancialAnalysisData(year: number = new Date().getFullYear()) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   
   // Use centralized financial metrics (SINGLE SOURCE OF TRUTH) for DSO, DPO, margins
   const { data: centralMetrics } = useCentralFinancialMetrics();
@@ -193,36 +193,25 @@ export function useFinancialAnalysisData(year: number = new Date().getFullYear()
       const lastYearEnd = format(endOfYear(new Date(year - 1, 0, 1)), 'yyyy-MM-dd');
       const today = new Date();
 
-      // Build queries with conditional tenant filtering
-      let invoicesQuery = client.from('invoices').select('*')
-        .gte('issue_date', yearStart).lte('issue_date', yearEnd);
-      let invoicesLastYearQuery = client.from('invoices').select('*')
-        .gte('issue_date', lastYearStart).lte('issue_date', lastYearEnd);
-      let expensesQuery = client.from('expenses').select('*')
-        .gte('expense_date', yearStart).lte('expense_date', yearEnd);
-      let expensesLastYearQuery = client.from('expenses').select('*')
-        .gte('expense_date', lastYearStart).lte('expense_date', lastYearEnd);
-      let revenuesQuery = client.from('revenues').select('*')
-        .gte('start_date', yearStart).lte('start_date', yearEnd);
-      let bankTransactionsQuery = client.from('bank_transactions').select('*')
-        .gte('transaction_date', yearStart).lte('transaction_date', yearEnd);
-      let customersQuery = client.from('customers').select('*').eq('status', 'active');
-      let cashForecastsQuery = client.from('cash_forecasts').select('*')
-        .gte('forecast_date', yearStart).lte('forecast_date', yearEnd);
-      let paymentsQuery = client.from('payments').select('*')
-        .gte('payment_date', yearStart).lte('payment_date', yearEnd);
-
-      if (shouldAddTenantFilter) {
-        invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
-        invoicesLastYearQuery = invoicesLastYearQuery.eq('tenant_id', tenantId);
-        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
-        expensesLastYearQuery = expensesLastYearQuery.eq('tenant_id', tenantId);
-        revenuesQuery = revenuesQuery.eq('tenant_id', tenantId);
-        bankTransactionsQuery = bankTransactionsQuery.eq('tenant_id', tenantId);
-        customersQuery = customersQuery.eq('tenant_id', tenantId);
-        cashForecastsQuery = cashForecastsQuery.eq('tenant_id', tenantId);
-        paymentsQuery = paymentsQuery.eq('tenant_id', tenantId);
-      }
+      // Build queries with tenant filtering (client already handles tenant context)
+      // For complex queries we use client directly with manual tenant filter
+      const invoicesQuery = client.from('invoices').select('*')
+        .gte('issue_date', yearStart).lte('issue_date', yearEnd).eq('tenant_id', tenantId);
+      const invoicesLastYearQuery = client.from('invoices').select('*')
+        .gte('issue_date', lastYearStart).lte('issue_date', lastYearEnd).eq('tenant_id', tenantId);
+      const expensesQuery = client.from('expenses').select('*')
+        .gte('expense_date', yearStart).lte('expense_date', yearEnd).eq('tenant_id', tenantId);
+      const expensesLastYearQuery = client.from('expenses').select('*')
+        .gte('expense_date', lastYearStart).lte('expense_date', lastYearEnd).eq('tenant_id', tenantId);
+      const revenuesQuery = client.from('revenues').select('*')
+        .gte('start_date', yearStart).lte('start_date', yearEnd).eq('tenant_id', tenantId);
+      const bankTransactionsQuery = client.from('bank_transactions').select('*')
+        .gte('transaction_date', yearStart).lte('transaction_date', yearEnd).eq('tenant_id', tenantId);
+      const customersQuery = client.from('customers').select('*').eq('status', 'active').eq('tenant_id', tenantId);
+      const cashForecastsQuery = client.from('cash_forecasts').select('*')
+        .gte('forecast_date', yearStart).lte('forecast_date', yearEnd).eq('tenant_id', tenantId);
+      const paymentsQuery = client.from('payments').select('*')
+        .gte('payment_date', yearStart).lte('payment_date', yearEnd).eq('tenant_id', tenantId);
 
       // Fetch all data in parallel
       const [
