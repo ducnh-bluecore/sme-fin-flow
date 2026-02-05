@@ -1,5 +1,11 @@
+/**
+ * useInventoryAging - Inventory aging analysis hooks
+ * 
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface InventoryItem {
@@ -40,26 +46,18 @@ const calculateAgeDays = (receivedDate: string): number => {
 };
 
 export const useInventoryItems = () => {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['inventory-items', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('inventory_items')
-        .select('*')
+      const { data, error } = await buildSelectQuery('inventory_items', '*')
         .order('received_date', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return (data || []) as InventoryItem[];
+      return (data as unknown as InventoryItem[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -123,15 +121,13 @@ export const useInventoryAging = () => {
 
 export const useCreateInventoryItem = () => {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (item: Omit<InventoryItem, 'id' | 'tenant_id' | 'total_value' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('inventory_items' as any)
-        .insert({ ...item, tenant_id: tenantId })
+      const { data, error } = await buildInsertQuery('inventory_items', item)
         .select()
         .single();
 
@@ -150,13 +146,13 @@ export const useCreateInventoryItem = () => {
 
 export const useUpdateInventoryItem = () => {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<InventoryItem> & { id: string }) => {
-      const { data, error } = await client
-        .from('inventory_items')
-        .update(updates)
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { data, error } = await buildUpdateQuery('inventory_items', updates)
         .eq('id', id)
         .select()
         .single();
@@ -176,13 +172,13 @@ export const useUpdateInventoryItem = () => {
 
 export const useDeleteInventoryItem = () => {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('inventory_items')
-        .delete()
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { error } = await buildDeleteQuery('inventory_items')
         .eq('id', id);
 
       if (error) throw error;

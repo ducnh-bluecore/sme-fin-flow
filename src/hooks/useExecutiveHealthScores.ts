@@ -1,11 +1,11 @@
 /**
  * useExecutiveHealthScores - SSOT Hook for Executive Health Radar
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface HealthDimension {
   dimension: string;
@@ -61,22 +61,15 @@ interface DBHealthScores {
 }
 
 export function useExecutiveHealthScores() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['executive-health-scores', tenantId],
     queryFn: async (): Promise<ExecutiveHealthData | null> => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('v_executive_health_scores')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_executive_health_scores', '*')
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching health scores:', error);
@@ -101,7 +94,7 @@ export function useExecutiveHealthScores() {
         };
       }
       
-      const dbData = data as DBHealthScores;
+      const dbData = data as unknown as DBHealthScores;
       
       const dimensions: HealthDimension[] = [
         {
@@ -170,7 +163,7 @@ export function useExecutiveHealthScores() {
         ebitdaMargin: dbData.ebitda_margin || 0,
       };
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
     staleTime: 5 * 60 * 1000,
   });
 }

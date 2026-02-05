@@ -1,8 +1,34 @@
 # Hooks Architecture Audit Report
 ## Schema-per-Tenant v1.4.1
 
-**Generated**: 2026-02-05  
-**Total Hooks**: ~180 files across 6 directories
+**Last Updated**: 2026-02-05  
+**Total Hooks**: ~180 files across 6 directories  
+**Migration Phase**: 1 Complete - 13 hooks migrated this session
+
+---
+
+## 📈 Latest Migration (2026-02-05)
+
+### ✅ Migrated to useTenantQueryBuilder (Phase 1)
+
+| Hook | Layer | Notes |
+|------|-------|-------|
+| `useTopCustomersAR.ts` | FDP | Cleanup - removed dual import |
+| `useExpensePlanSummary.ts` | FDP | Full migration |
+| `useExecutiveHealthScores.ts` | FDP | Full migration |
+| `useFDPLockedCosts.ts` | Cross-Module | Full migration |
+| `useInventoryAging.ts` | FDP | 4 hooks migrated |
+| `useTeamMembers.ts` | Settings | 4 hooks migrated |
+| `useUnifiedChannelMetrics.ts` | MDP | Full migration |
+| `usePushNotifications.ts` | Platform | Full migration |
+| `useMLMonitoring.ts` | ML | Client-only (Edge Functions) |
+| `useMDPChannelROI.ts` | Cross-Module | 4 hooks migrated |
+| `useCDPSegmentLTV.ts` | Cross-Module | 3 hooks migrated |
+| `useCDPEquity.ts` | CDP | 8 hooks migrated |
+| `useInvoiceData.ts` | FDP | 4 hooks migrated |
+
+### 📊 Remaining (~108 files)
+Files still importing `useTenantSupabaseCompat` require future migration batches.
 
 ---
 

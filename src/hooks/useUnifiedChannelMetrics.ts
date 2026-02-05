@@ -2,10 +2,11 @@
  * useUnifiedChannelMetrics - Unified channel metrics for MDP
  * 
  * Consolidates channel performance data for Budget Pacing and Channel Breakdown
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface ChannelMetric {
@@ -69,7 +70,7 @@ const getChannelDisplayName = (channel: string): string => {
 };
 
 export function useUnifiedChannelMetrics() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   const { data, isLoading, error } = useQuery({
@@ -78,15 +79,7 @@ export function useUnifiedChannelMetrics() {
       if (!tenantId) return null;
 
       // Fetch channel performance from v_channel_pl_summary
-      let query = client
-        .from('v_channel_pl_summary' as any)
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data: channelData, error: channelError } = await query;
+      const { data: channelData, error: channelError } = await buildSelectQuery('v_channel_pl_summary', '*');
 
       if (channelError) {
         console.error('[useUnifiedChannelMetrics] Error:', channelError);
@@ -94,9 +87,9 @@ export function useUnifiedChannelMetrics() {
       }
 
       // Aggregate totals
-      const totalRevenue = (channelData || []).reduce((sum: number, c: any) => 
+      const totalRevenue = ((channelData as unknown as Array<Record<string, unknown>>) || []).reduce((sum: number, c: Record<string, unknown>) => 
         sum + (Number(c.gross_revenue) || 0), 0);
-      const totalSpend = (channelData || []).reduce((sum: number, c: any) => 
+      const totalSpend = ((channelData as unknown as Array<Record<string, unknown>>) || []).reduce((sum: number, c: Record<string, unknown>) => 
         sum + (Number(c.total_fees) || 0), 0);
 
       // Calculate days elapsed in period
@@ -106,7 +99,7 @@ export function useUnifiedChannelMetrics() {
       const expectedPacing = (dayOfMonth / daysInMonth) * 100;
 
       // Map to channel metrics
-      const channelMetrics: ChannelMetric[] = (channelData || []).map((row: any) => {
+      const channelMetrics: ChannelMetric[] = ((channelData as unknown as Array<Record<string, unknown>>) || []).map((row: Record<string, unknown>) => {
         const revenue = Number(row.gross_revenue) || 0;
         const spend = Number(row.total_fees) || 0;
         const orders = Number(row.order_count) || 0;
@@ -115,8 +108,8 @@ export function useUnifiedChannelMetrics() {
         const cmPercent = revenue > 0 ? ((Number(row.gross_profit) || 0) / revenue) * 100 : 0;
         
         return {
-          channel: row.channel,
-          displayName: getChannelDisplayName(row.channel),
+          channel: row.channel as string,
+          displayName: getChannelDisplayName(row.channel as string),
           actualSpend: spend,
           revenue,
           orders,

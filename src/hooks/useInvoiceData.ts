@@ -1,11 +1,11 @@
 /**
  * useInvoiceData - Invoice management
  * 
- * Schema-per-Tenant Ready
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { getDateRangeFromFilter, formatDateForQuery } from '@/lib/dateUtils';
 
 export interface InvoiceWithCustomer {
@@ -61,7 +61,7 @@ export interface CollectionStats {
 
 // Fetch all invoices with customer info and date range filter
 export function useInvoices(dateRange?: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   const range = dateRange ? getDateRangeFromFilter(dateRange) : null;
   const startDateStr = range ? formatDateForQuery(range.startDate) : undefined;
@@ -100,7 +100,7 @@ export function useInvoices(dateRange?: string) {
 
 // Fetch single invoice with full details - OPTIMIZED with parallel queries
 export function useInvoiceDetail(invoiceId: string | undefined) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['invoice-detail', tenantId, invoiceId],

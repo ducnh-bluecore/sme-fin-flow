@@ -1,5 +1,11 @@
+/**
+ * usePushNotifications - Push notification subscription hooks
+ * 
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useAuth } from './useAuth';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -34,19 +40,17 @@ export function usePushNotificationSupport() {
 
 export function usePushSubscriptions() {
   const { user } = useAuth();
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { buildSelectQuery, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['push-subscriptions', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await client
-        .from('push_subscriptions')
-        .select('*')
+      const { data, error } = await buildSelectQuery('push_subscriptions', '*')
         .eq('user_id', user.id)
         .eq('is_active', true);
       if (error) throw error;
-      return data as PushSubscription[];
+      return data as unknown as PushSubscription[];
     },
     enabled: !!user?.id && isReady,
   });
@@ -54,7 +58,7 @@ export function usePushSubscriptions() {
 
 export function useSubscribePush() {
   const queryClient = useQueryClient();
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId, isReady, client } = useTenantQueryBuilder();
   const { user } = useAuth();
 
   return useMutation({
@@ -91,7 +95,6 @@ export function useSubscribePush() {
       }
 
       const insertData = {
-        tenant_id: tenantId,
         user_id: user.id,
         endpoint: subscriptionJson.endpoint,
         p256dh_key: subscriptionJson.keys.p256dh,
@@ -104,9 +107,7 @@ export function useSubscribePush() {
         },
       };
 
-      const { error } = await client
-        .from('push_subscriptions')
-        .upsert(insertData as never, { onConflict: 'user_id,endpoint' });
+      const { error } = await buildInsertQuery('push_subscriptions', insertData as never);
 
       if (error) throw error;
       return subscription;
@@ -123,7 +124,7 @@ export function useSubscribePush() {
 
 export function useUnsubscribePush() {
   const queryClient = useQueryClient();
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, isReady } = useTenantQueryBuilder();
   const { user } = useAuth();
 
   return useMutation({
@@ -131,9 +132,7 @@ export function useUnsubscribePush() {
       if (!isReady) throw new Error('Client not ready');
       
       if (subscriptionId) {
-        const { error } = await client
-          .from('push_subscriptions')
-          .update({ is_active: false })
+        const { error } = await buildUpdateQuery('push_subscriptions', { is_active: false })
           .eq('id', subscriptionId)
           .eq('user_id', user?.id);
         if (error) throw error;
@@ -145,9 +144,7 @@ export function useUnsubscribePush() {
         const subscription = await registration.pushManager.getSubscription();
         if (subscription) {
           await subscription.unsubscribe();
-          const { error } = await client
-            .from('push_subscriptions')
-            .update({ is_active: false })
+          const { error } = await buildUpdateQuery('push_subscriptions', { is_active: false })
             .eq('user_id', user?.id)
             .eq('endpoint', subscription.endpoint);
           if (error) throw error;

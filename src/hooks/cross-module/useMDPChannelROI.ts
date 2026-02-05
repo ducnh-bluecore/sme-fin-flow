@@ -8,7 +8,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   CrossModuleData,
@@ -52,8 +51,7 @@ interface UseBudgetRecommendationsOptions {
  * Get budget recommendations for FDP
  */
 export function useFDPBudgetRecommendations(options: UseBudgetRecommendationsOptions = {}) {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { lookbackDays = 30 } = options;
 
   return useQuery<CrossModuleData<BudgetRecommendation[]>>({
@@ -142,8 +140,7 @@ interface PushChannelROIParams {
  * Push channel ROI from MDP to FDP
  */
 export function usePushChannelROIToFDP() {
-  const { tenantId } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -182,8 +179,7 @@ export function usePushChannelROIToFDP() {
  * Get all channel ROI records for management
  */
 export function useMDPAllChannelROI(lookbackDays: number = 90) {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { buildSelectQuery } = useTenantQueryBuilder();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['mdp-channel-roi', tenantId, lookbackDays],
@@ -225,8 +221,7 @@ export function useMDPAllChannelROI(lookbackDays: number = 90) {
  * Batch push channel ROI data
  */
 export function useBatchPushChannelROI() {
-  const { tenantId } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({

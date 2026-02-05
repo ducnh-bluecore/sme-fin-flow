@@ -8,7 +8,6 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface CustomerARData {
@@ -26,8 +25,7 @@ export interface CustomerARData {
 }
 
 export function useTopCustomersAR(limit: number = 10) {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { buildSelectQuery } = useTenantQueryBuilder();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['top-customers-ar', tenantId, limit],
