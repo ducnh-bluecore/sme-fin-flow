@@ -208,7 +208,11 @@ async function fetchMetricsData(supabase: any, tenantId: string): Promise<Metric
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   
+  // Initialize tenant session for schema-per-tenant isolation
+  await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId });
+  
   // Fetch various metrics in parallel
+  // After init_tenant_session, search_path routes to tenant schema automatically
   const [
     ordersRecent,
     ordersPrevious,
@@ -217,19 +221,17 @@ async function fetchMetricsData(supabase: any, tenantId: string): Promise<Metric
     bankAccounts,
     arData
   ] = await Promise.all([
-    // Recent 7 days orders (SSOT: cdp_orders)
+    // Recent 7 days orders (SSOT: master_orders in tenant schema)
     supabase
-      .from('cdp_orders')
+      .from('master_orders')
       .select('gross_revenue, order_at')
-      .eq('tenant_id', tenantId)
       .gte('order_at', sevenDaysAgo.toISOString())
       .lt('order_at', now.toISOString()),
     
     // Previous 7 days orders (for comparison)
     supabase
-      .from('cdp_orders')
+      .from('master_orders')
       .select('gross_revenue, order_at')
-      .eq('tenant_id', tenantId)
       .gte('order_at', fourteenDaysAgo.toISOString())
       .lt('order_at', sevenDaysAgo.toISOString()),
     
@@ -237,7 +239,6 @@ async function fetchMetricsData(supabase: any, tenantId: string): Promise<Metric
     supabase
       .from('channel_pl_monthly')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('period', { ascending: false })
       .limit(2),
     
@@ -245,21 +246,18 @@ async function fetchMetricsData(supabase: any, tenantId: string): Promise<Metric
     supabase
       .from('alert_objects')
       .select('current_metrics, object_type')
-      .eq('tenant_id', tenantId)
       .eq('object_type', 'product'),
     
     // Cash position
     supabase
       .from('bank_accounts')
       .select('current_balance')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active'),
     
     // AR data
     supabase
-      .from('invoices')
+      .from('master_payments')
       .select('total_amount, status, due_date')
-      .eq('tenant_id', tenantId)
       .in('status', ['sent', 'overdue'])
   ]);
 

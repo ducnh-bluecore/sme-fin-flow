@@ -263,12 +263,17 @@ Deno.serve(async (req) => {
         (sum: number, bill: any) => sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 0
       );
 
-      // Estimate weekly sales from recent orders (SSOT: cdp_orders)
+      // Estimate weekly sales from recent orders
+      // Use init_tenant_session for schema-per-tenant isolation
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      // Initialize tenant session for proper schema routing
+      await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId });
+      
+      // Query master_orders (resolves via search_path to tenant schema)
       const { data: recentOrders, error: orderError } = await supabase
-        .from('cdp_orders')
+        .from('master_orders')
         .select('gross_revenue, order_at')
-        .eq('tenant_id', tenantId)
         .gte('order_at', sevenDaysAgo);
 
       if (orderError) throw orderError;
