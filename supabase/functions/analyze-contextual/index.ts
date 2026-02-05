@@ -311,31 +311,31 @@ serve(async (req) => {
     }
 
     if (context === 'budget_vs_actual') {
+      // Initialize tenant session for schema-per-tenant isolation
+      await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId });
+      
       // Fetch scenario monthly plans and actual data
+      // After init_tenant_session, queries use tenant schema automatically
       const currentYear = new Date().getFullYear();
       const [plansResult, ordersResult, expensesYearResult, scenariosResult] = await Promise.all([
         supabase
           .from('scenario_monthly_plans')
           .select('*, scenarios!inner(name, is_active)')
-          .eq('tenant_id', tenantId)
           .eq('year', currentYear),
-        // Use cdp_orders (SSOT) instead of external_orders
+        // Use master_orders (SSOT in tenant schema)
         supabase
-          .from('cdp_orders')
+          .from('master_orders')
           .select('order_at, gross_revenue')
-          .eq('tenant_id', tenantId)
           .gte('order_at', `${currentYear}-01-01`)
           .lte('order_at', `${currentYear}-12-31`),
         supabase
           .from('expenses')
           .select('expense_date, amount, category')
-          .eq('tenant_id', tenantId)
           .gte('expense_date', `${currentYear}-01-01`)
           .lte('expense_date', `${currentYear}-12-31`),
         supabase
           .from('scenarios')
           .select('id, name, is_active')
-          .eq('tenant_id', tenantId)
           .eq('is_active', true)
           .limit(1)
           .single(),
