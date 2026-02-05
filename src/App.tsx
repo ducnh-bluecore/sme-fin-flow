@@ -130,6 +130,7 @@ const FDPSalesDeckPage = lazy(() => import("./pages/fdp/FDPSalesDeckPage"));
 const FDPExecutiveDeck = lazy(() => import("./pages/fdp/FDPExecutiveDeck"));
 const MDPExecutiveDeck = lazy(() => import("./pages/mdp/MDPExecutiveDeck"));
 const SalesDeckLibraryPage = lazy(() => import("./pages/SalesDeckLibraryPage"));
+ const ThemeExportPage = lazy(() => import("./pages/ThemeExportPage"));
 
 // Investor/VC Pitch pages
 const VCPitchDeck = lazy(() => import("./pages/investor/VCPitchDeck"));
@@ -233,6 +234,11 @@ const AppRoutes = () => {
       } />
       {/* Redirect /formulas to /documentation since formulas are documented there */}
       <Route path="/formulas" element={<Navigate to="/documentation" replace />} />
+       <Route path="/theme-export" element={
+         <ProtectedRoute>
+           <ThemeExportPage />
+         </ProtectedRoute>
+       } />
       
       {/* Onboarding Routes - Platform Layer */}
       <Route path="/onboarding/welcome" element={
