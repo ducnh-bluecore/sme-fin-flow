@@ -1,9 +1,12 @@
-// CDP Value Distribution Hooks - DB-First compliant
-// Replaces useCDPData frontend calculations
-// Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+/**
+ * CDP Value Distribution Hooks - DB-First compliant
+ * Replaces useCDPData frontend calculations
+ * 
+ * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
+ */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 // =====================================================
 // Types
@@ -59,34 +62,37 @@ export interface DataQualityMetrics {
   isReliable: boolean;
 }
 
+export interface TrendInsightsData {
+  trend_type: string | null;
+  aov_change_percent: number | null;
+  current_aov: number | null;
+  previous_aov: number | null;
+  frequency_change_percent: number | null;
+  current_frequency: number | null;
+  previous_frequency: number | null;
+}
+
 // =====================================================
 // Hooks
 // =====================================================
 
 // Value Distribution Percentiles
 export function useCDPValueDistribution() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-value-distribution', tenantId],
     queryFn: async (): Promise<ValueDistribution | null> => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('v_cdp_value_distribution')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data: rawData, error } = await buildSelectQuery('v_cdp_value_distribution', '*');
 
       if (error) {
         console.error('Error fetching value distribution:', error);
         return null;
       }
 
+      const data = rawData as unknown as any[];
       if (!data || data.length === 0) return null;
 
       // The new view returns customer-level data with percentile columns
@@ -124,22 +130,14 @@ export function useCDPValueDistribution() {
 
 // Segment Summaries
 export function useCDPSegmentSummaries() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-segment-summaries', tenantId],
     queryFn: async (): Promise<SegmentSummary[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_cdp_segment_summaries')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_segment_summaries', '*');
 
       if (error) {
         console.error('Error fetching segment summaries:', error);
@@ -147,9 +145,9 @@ export function useCDPSegmentSummaries() {
       }
 
       // Map new view columns to SegmentSummary interface
-      const totalCustomers = (data || []).reduce((sum, r) => sum + Number(r.customer_count || 0), 0);
+      const totalCustomers = (data || []).reduce((sum: number, r: any) => sum + Number(r.customer_count || 0), 0);
       
-      return (data || []).map(row => ({
+      return (data || []).map((row: any) => ({
         name: row.segment || '',
         customerCount: Number(row.customer_count) || 0,
         percentOfTotal: totalCustomers > 0 ? (Number(row.customer_count) / totalCustomers) * 100 : 0,
@@ -168,7 +166,7 @@ export function useCDPSegmentSummaries() {
 
 // Summary Stats
 export function useCDPSummaryStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-summary-stats', tenantId],
@@ -185,21 +183,14 @@ export function useCDPSummaryStats() {
 
       if (!tenantId) return defaultStats;
 
-      let query = client
-        .from('v_cdp_summary_stats')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data: rawData, error } = await buildSelectQuery('v_cdp_summary_stats', '*').maybeSingle();
 
       if (error) {
         console.error('Error fetching summary stats:', error);
         return defaultStats;
       }
 
+      const data = rawData as unknown as any;
       if (!data) return defaultStats;
 
       // Map new view columns - calculate derived metrics
@@ -223,7 +214,7 @@ export function useCDPSummaryStats() {
 
 // Data Quality
 export function useCDPDataQuality() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-data-quality', tenantId],
@@ -239,21 +230,14 @@ export function useCDPDataQuality() {
 
       if (!tenantId) return defaultMetrics;
 
-      let query = client
-        .from('v_cdp_data_quality')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data: rawData, error } = await buildSelectQuery('v_cdp_data_quality', '*').maybeSingle();
 
       if (error) {
         console.error('Error fetching data quality:', error);
         return defaultMetrics;
       }
 
+      const data = rawData as unknown as any;
       if (!data) return defaultMetrics;
 
       return {
@@ -272,29 +256,21 @@ export function useCDPDataQuality() {
 
 // Trend Insights (DB-computed)
 export function useCDPTrendData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-trend-insights', tenantId],
-    queryFn: async () => {
+    queryFn: async (): Promise<TrendInsightsData | null> => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('v_cdp_trend_insights')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data: rawData, error } = await buildSelectQuery('v_cdp_trend_insights', '*').maybeSingle();
 
       if (error) {
         console.error('Error fetching trend insights:', error);
         return null;
       }
 
-      return data;
+      return rawData as unknown as TrendInsightsData | null;
     },
     enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,

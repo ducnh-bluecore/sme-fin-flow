@@ -1,12 +1,11 @@
 /**
  * useCashFlowDirect - Cash Flow Direct Method
  * 
- * Refactored to Schema-per-Tenant architecture.
- * Uses useTenantSupabaseCompat for tenant-aware queries.
+ * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useCashRunway } from './useCashRunway';
 
@@ -71,20 +70,14 @@ export interface CashFlowSummary {
 }
 
 export const useCashFlowDirect = (periodType?: string) => {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cash-flow-direct', tenantId, periodType],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('cash_flow_direct' as any)
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
+      let query = buildSelectQuery('cash_flow_direct', '*');
 
       if (periodType) {
         query = query.eq('period_type', periodType);
@@ -176,15 +169,13 @@ export const useCashFlowAnalysis = () => {
 
 export const useCreateCashFlowDirect = () => {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (cashFlow: Omit<CashFlowDirect, 'id' | 'tenant_id' | 'net_cash_operating' | 'net_cash_investing' | 'net_cash_financing' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('cash_flow_direct' as any)
-        .insert({ ...cashFlow, tenant_id: tenantId })
+      const { data, error } = await buildInsertQuery('cash_flow_direct', cashFlow)
         .select()
         .single();
 
@@ -203,20 +194,16 @@ export const useCreateCashFlowDirect = () => {
 
 export const useUpdateCashFlowDirect = () => {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<CashFlowDirect> & { id: string }) => {
-      let query = client
-        .from('cash_flow_direct')
-        .update(updates)
-        .eq('id', id);
+      if (!tenantId) throw new Error('No tenant selected');
 
-      if (shouldAddTenantFilter && tenantId) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.select().single();
+      const { data, error } = await buildUpdateQuery('cash_flow_direct', updates)
+        .eq('id', id)
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
@@ -233,20 +220,14 @@ export const useUpdateCashFlowDirect = () => {
 
 export const useDeleteCashFlowDirect = () => {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildDeleteQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      let query = client
-        .from('cash_flow_direct')
-        .delete()
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { error } = await buildDeleteQuery('cash_flow_direct')
         .eq('id', id);
-
-      if (shouldAddTenantFilter && tenantId) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { error } = await query;
 
       if (error) throw error;
     },
