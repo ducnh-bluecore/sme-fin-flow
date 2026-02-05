@@ -4,11 +4,11 @@
  * Hook to fetch customer credit risk data from FDP AR aging.
  * Part of Case 8: FDP → CDP flow.
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 interface CustomerCreditRisk {
@@ -54,23 +54,16 @@ function mapRowToRisk(row: CreditRiskRow): CustomerCreditRisk {
 }
 
 export function useCDPCreditRisk(customerId?: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery<CustomerCreditRisk | null>({
     queryKey: ['cdp-credit-risk', tenantId, customerId],
     queryFn: async () => {
       if (!tenantId || !customerId) return null;
 
-      let query = client
-        .from('cdp_customer_credit_risk' as any)
-        .select('*')
-        .eq('customer_id', customerId);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('cdp_customer_credit_risk', '*')
+        .eq('customer_id', customerId)
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching credit risk:', error);
@@ -89,24 +82,16 @@ export function useCDPCreditRisk(customerId?: string) {
  * Get all customers with credit risk issues
  */
 export function useCDPHighRiskCustomers() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery<CustomerCreditRisk[]>({
     queryKey: ['cdp-high-risk-customers', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('cdp_customer_credit_risk' as any)
-        .select('*')
+      const { data, error } = await buildSelectQuery('cdp_customer_credit_risk', '*')
         .in('risk_level', ['medium', 'high', 'critical'])
         .order('credit_score', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching high risk customers:', error);
@@ -123,14 +108,14 @@ export function useCDPHighRiskCustomers() {
  * Trigger sync of AR data from FDP to CDP
  */
 export function useSyncARToCDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('fdp_push_ar_to_cdp' as any, {
+      const { data, error } = await callRpc('fdp_push_ar_to_cdp', {
         p_tenant_id: tenantId,
       });
 

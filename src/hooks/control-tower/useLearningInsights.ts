@@ -1,3 +1,12 @@
+/**
+ * useLearningInsights
+ * 
+ * Hook to generate learning insights from decision effectiveness.
+ * Part of Control Tower - Learning Loop.
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
+ */
+
 import { useMemo } from 'react';
 import { useDecisionEffectiveness, EffectivenessByModule } from './useDecisionEffectiveness';
 

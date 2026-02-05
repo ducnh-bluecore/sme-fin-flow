@@ -3,10 +3,12 @@
  * 
  * Hook to fetch CAC data for LTV/CAC ratio calculation.
  * Uses 3-level fallback chain (Locked → Observed → Estimated).
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -30,7 +32,7 @@ interface CACRPCResult {
 }
 
 export function useCDPCohortCAC(options: UseCDPCACOptions = {}) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery<CrossModuleData<CACData>>({
     queryKey: ['cdp-cohort-cac', tenantId, options.cohortMonth, options.channel],
@@ -44,8 +46,7 @@ export function useCDPCohortCAC(options: UseCDPCACOptions = {}) {
         );
       }
 
-      // Use raw SQL call for new functions not in types yet
-      const { data, error } = await client.rpc('cdp_get_cac_for_ltv' as any, {
+      const { data, error } = await callRpc('cdp_get_cac_for_ltv', {
         p_tenant_id: tenantId,
         p_cohort_month: options.cohortMonth ?? null,
         p_channel: options.channel ?? null,
@@ -104,23 +105,15 @@ interface CohortCACRow {
  * Get all cohort CAC records
  */
 export function useCDPAllCohortCAC() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-all-cohort-cac', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('cdp_customer_cohort_cac' as any)
-        .select('*')
+      const { data, error } = await buildSelectQuery('cdp_customer_cohort_cac', '*')
         .order('cohort_month', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching all cohort CAC:', error);

@@ -3,10 +3,12 @@
  * 
  * Hook to manage churn signals from CDP for MDP consumption.
  * Part of Case 4: CDP → MDP flow.
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 interface ChurnSignal {
@@ -52,7 +54,7 @@ interface UseChurnSignalsOptions {
  * Get churn signals for MDP consumption
  */
 export function useMDPChurnSignals(options: UseChurnSignalsOptions = {}) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { minUrgency = 'low' } = options;
 
   return useQuery<ChurnSignal[]>({
@@ -60,7 +62,7 @@ export function useMDPChurnSignals(options: UseChurnSignalsOptions = {}) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await client.rpc('mdp_get_churn_signals' as any, {
+      const { data, error } = await callRpc('mdp_get_churn_signals', {
         p_tenant_id: tenantId,
         p_min_urgency: minUrgency,
       });
@@ -81,14 +83,14 @@ export function useMDPChurnSignals(options: UseChurnSignalsOptions = {}) {
  * Generate new churn signals from CDP data
  */
 export function useGenerateChurnSignals() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('cdp_generate_churn_signals' as any, {
+      const { data, error } = await callRpc('cdp_generate_churn_signals', {
         p_tenant_id: tenantId,
       });
 
@@ -112,23 +114,15 @@ export function useGenerateChurnSignals() {
  * Get churn signal statistics
  */
 export function useChurnSignalStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['churn-signal-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('cdp_churn_signals' as any)
-        .select('urgency_level, ltv_at_risk, consumed_by_mdp')
+      const { data, error } = await buildSelectQuery('cdp_churn_signals', 'urgency_level, ltv_at_risk, consumed_by_mdp')
         .eq('consumed_by_mdp', false);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching churn stats:', error);

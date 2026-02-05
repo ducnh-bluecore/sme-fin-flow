@@ -1,5 +1,14 @@
+/**
+ * useEstimatedActualImpact
+ * 
+ * Hook to compute estimated actual impact for decisions.
+ * Part of Control Tower - Decision Effectiveness.
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface EstimatedImpact {
   estimated_impact: number;
@@ -27,20 +36,19 @@ export function useEstimatedActualImpact({
   predictedImpact,
   enabled = true,
 }: UseEstimatedActualImpactParams) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['estimated-actual-impact', tenantId, decisionType, decisionDate, predictedImpact],
     queryFn: async (): Promise<EstimatedImpact | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await client
-        .rpc('compute_estimated_actual_impact', {
-          p_tenant_id: tenantId,
-          p_decision_type: decisionType,
-          p_decision_date: decisionDate,
-          p_predicted_impact: predictedImpact,
-        });
+      const { data, error } = await callRpc('compute_estimated_actual_impact', {
+        p_tenant_id: tenantId,
+        p_decision_type: decisionType,
+        p_decision_date: decisionDate,
+        p_predicted_impact: predictedImpact,
+      });
 
       if (error) {
         console.error('Error computing estimated actual impact:', error);

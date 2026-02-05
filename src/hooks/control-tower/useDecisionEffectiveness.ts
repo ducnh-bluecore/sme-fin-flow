@@ -1,5 +1,14 @@
+/**
+ * useDecisionEffectiveness
+ * 
+ * Hook to fetch decision effectiveness metrics.
+ * Part of Control Tower - Learning Loop.
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface EffectivenessByModule {
   decision_type: string;
@@ -25,7 +34,7 @@ export interface EffectivenessSummary {
 }
 
 export function useDecisionEffectiveness(period: '7d' | '30d' | '90d' = '30d') {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-effectiveness', tenantId, period],
@@ -34,16 +43,8 @@ export function useDecisionEffectiveness(period: '7d' | '30d' | '90d' = '30d') {
         return getEmptySummary();
       }
 
-      // Fetch from effectiveness view
-      let query = client
-        .from('v_decision_effectiveness')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      // Fetch from effectiveness view using buildSelectQuery (auto-translates table, auto-filters)
+      const { data, error } = await buildSelectQuery('v_decision_effectiveness', '*');
 
       if (error) {
         console.error('Error fetching effectiveness:', error);

@@ -3,10 +3,12 @@
  * 
  * Hook to manage customer acquisition source data.
  * Part of Case 6: MDP → CDP flow.
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -35,7 +37,7 @@ interface AcquisitionSourceRPC {
  * Get acquisition source for a specific customer
  */
 export function useCDPAcquisitionSource(customerId?: string) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery<CrossModuleData<AcquisitionSource>>({
     queryKey: ['cdp-acquisition-source', tenantId, customerId],
@@ -49,7 +51,7 @@ export function useCDPAcquisitionSource(customerId?: string) {
         );
       }
 
-      const { data, error } = await client.rpc('cdp_get_customer_acquisition_source' as any, {
+      const { data, error } = await callRpc('cdp_get_customer_acquisition_source', {
         p_tenant_id: tenantId,
         p_customer_id: customerId,
       });
@@ -106,14 +108,14 @@ interface PushAcquisitionParams {
  * Push acquisition source from MDP to CDP
  */
 export function usePushAcquisitionToCDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: PushAcquisitionParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('mdp_push_acquisition_to_cdp' as any, {
+      const { data, error } = await callRpc('mdp_push_acquisition_to_cdp', {
         p_tenant_id: tenantId,
         p_customer_id: params.customerId,
         p_channel: params.channel,
@@ -143,7 +145,7 @@ export function usePushAcquisitionToCDP() {
  * Batch push acquisition sources
  */
 export function useBatchPushAcquisitionToCDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -152,7 +154,7 @@ export function useBatchPushAcquisitionToCDP() {
 
       const results = await Promise.all(
         records.map((params) =>
-          client.rpc('mdp_push_acquisition_to_cdp' as any, {
+          callRpc('mdp_push_acquisition_to_cdp', {
             p_tenant_id: tenantId,
             p_customer_id: params.customerId,
             p_channel: params.channel,

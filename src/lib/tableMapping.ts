@@ -75,6 +75,27 @@ export const TABLE_MAP = {
   card_actions: 'card_actions',
   evidence_logs: 'evidence_logs',
   
+  // Decision views (Control Tower)
+  v_decision_pending_followup: 'v_decision_pending_followup',
+  v_decision_effectiveness: 'v_decision_effectiveness',
+  decision_outcome_records: 'decision_outcomes',
+  
+  // Control Tower queue
+  control_tower_priority_queue: 'priority_queue',
+  cross_domain_variance_alerts: 'variance_alerts',
+  
+  // CDP Decision Cards (legacy)
+  cdp_decision_cards: 'decision_cards',
+  v_cdp_decision_cards_detail: 'v_decision_cards_detail',
+  
+  // CDP signals & risk
+  cdp_churn_signals: 'churn_signals',
+  cdp_customer_cohort_cac: 'customer_cohort_cac',
+  cdp_customer_credit_risk: 'customer_credit_risk',
+  
+  // MDP patterns
+  mdp_seasonal_patterns: 'seasonal_patterns',
+  
   // ============ AI Query (Layer 5) ============
   ai_conversations: 'ai_conversations',
   ai_messages: 'ai_messages',
