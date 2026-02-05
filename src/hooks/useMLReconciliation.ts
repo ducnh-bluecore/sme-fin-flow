@@ -1,11 +1,12 @@
 /**
  * useMLReconciliation - ML Reconciliation hooks
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
+ * Note: Uses Edge Functions, only client accessor migrated
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useToast } from "@/hooks/use-toast";
 
 export interface MLPrediction {
@@ -30,7 +31,7 @@ export interface MLSettings {
 }
 
 export function useMLPrediction(suggestionId: string | null) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['ml-prediction', suggestionId, tenantId],
@@ -75,7 +76,7 @@ export function useMLPrediction(suggestionId: string | null) {
 }
 
 export function useMLSettings() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['ml-settings', tenantId],
@@ -108,7 +109,7 @@ export function useMLSettings() {
 }
 
 export function useUpdateMLSettings() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
