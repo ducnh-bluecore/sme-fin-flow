@@ -1,6 +1,12 @@
+/**
+ * useChannelBudgets - Channel budget management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain MDP/Marketing
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface ChannelBudget {
@@ -41,7 +47,7 @@ export interface ChannelBudgetInput {
 const DEFAULT_CHANNELS = ['shopee', 'lazada', 'tiktok', 'facebook', 'google', 'website', 'offline'];
 
 export function useChannelBudgets(year?: number, month?: number) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   
   const currentYear = year || new Date().getFullYear();
@@ -52,20 +58,13 @@ export function useChannelBudgets(year?: number, month?: number) {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let dbQuery = client
-        .from('channel_budgets')
-        .select('*')
+      const { data, error } = await buildSelectQuery('channel_budgets', '*')
         .eq('year', currentYear)
         .eq('month', currentMonth)
         .order('channel');
       
-      if (shouldAddTenantFilter) {
-        dbQuery = dbQuery.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await dbQuery;
       if (error) throw error;
-      return (data || []) as ChannelBudget[];
+      return ((data || []) as unknown) as ChannelBudget[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -90,7 +89,7 @@ export function useChannelBudgets(year?: number, month?: number) {
         notes: input.notes || null,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('channel_budgets')
         .upsert(budgetData, {
           onConflict: 'tenant_id,channel,year,month',
@@ -131,7 +130,7 @@ export function useChannelBudgets(year?: number, month?: number) {
         notes: input.notes || null,
       }));
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('channel_budgets')
         .upsert(budgetDataArray, {
           onConflict: 'tenant_id,channel,year,month',
@@ -153,7 +152,7 @@ export function useChannelBudgets(year?: number, month?: number) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await client
         .from('channel_budgets')
         .delete()
         .eq('id', id);
