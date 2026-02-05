@@ -1,11 +1,12 @@
 /**
  * useBigQueryRealtime - BigQuery realtime data hooks
  * 
- * Refactored to use Schema-per-Tenant architecture.
+ * @architecture Schema-per-Tenant Ready
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export type QueryType = 
@@ -36,8 +37,40 @@ interface BigQueryRealtimeResult {
   error?: string;
 }
 
+// Sync watermark type
+export interface SyncWatermark {
+  id: string;
+  tenant_id: string;
+  data_model: string;
+  last_sync_at: string | null;
+  total_records_synced: number;
+  sync_status: 'pending' | 'syncing' | 'completed' | 'error' | 'failed';
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// BigQuery data model type
+export interface BigQueryDataModel {
+  id: string;
+  tenant_id: string;
+  model_name: string;
+  model_label: string;
+  description: string | null;
+  bigquery_dataset: string;
+  bigquery_table: string;
+  primary_key_field: string;
+  timestamp_field: string | null;
+  mapping_config: Record<string, any> | null;
+  target_table: string | null;
+  is_enabled: boolean;
+  sync_frequency_hours: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export function useBigQueryRealtime(params: BigQueryRealtimeParams) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['bigquery-realtime', tenantId, params.queryType, params.startDate, params.endDate],
@@ -72,7 +105,7 @@ export function useBigQueryRealtime(params: BigQueryRealtimeParams) {
 
 // Hook for invalidating cache
 export function useInvalidateBigQueryCache() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -80,15 +113,7 @@ export function useInvalidateBigQueryCache() {
       if (!tenantId) throw new Error('No active tenant');
 
       // Invalidate cache in database
-      let query = client
-        .from('bigquery_query_cache')
-        .update({ is_valid: false });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { error } = await query;
+      const { error } = await buildUpdateQuery('bigquery_query_cache', { is_valid: false });
       if (error) throw error;
 
       // Also invalidate React Query cache
@@ -105,25 +130,18 @@ export function useInvalidateBigQueryCache() {
 
 // Hook for watermarks management
 export function useSyncWatermarks() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['sync-watermarks', tenantId],
     queryFn: async () => {
       if (!tenantId) throw new Error('No active tenant');
 
-      let query = client
-        .from('bigquery_sync_watermarks')
-        .select('*')
+      const { data, error } = await buildSelectQuery('bigquery_sync_watermarks', '*')
         .order('data_model', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data as unknown) as SyncWatermark[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -131,25 +149,18 @@ export function useSyncWatermarks() {
 
 // Hook for data model configurations
 export function useBigQueryDataModels() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['bigquery-data-models', tenantId],
     queryFn: async () => {
       if (!tenantId) throw new Error('No active tenant');
 
-      let query = client
-        .from('bigquery_data_models')
-        .select('*')
+      const { data, error } = await buildSelectQuery('bigquery_data_models', '*')
         .order('model_name', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return (data as unknown) as BigQueryDataModel[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -157,7 +168,7 @@ export function useBigQueryDataModels() {
 
 // Create/update data model configuration
 export function useUpsertDataModel() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, getActualTableName, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -176,8 +187,10 @@ export function useUpsertDataModel() {
     }) => {
       if (!tenantId) throw new Error('No active tenant');
 
+      const actualTable = getActualTableName('bigquery_data_models');
+      
       const { data, error } = await client
-        .from('bigquery_data_models')
+        .from(actualTable as any)
         .upsert({
           tenant_id: tenantId,
           ...model,
@@ -188,7 +201,7 @@ export function useUpsertDataModel() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as unknown as BigQueryDataModel;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bigquery-data-models', tenantId] });

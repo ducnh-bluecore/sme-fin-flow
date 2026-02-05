@@ -1,11 +1,12 @@
 /**
  * useAIInsights - Hook for AI financial analysis
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant Ready
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 interface FinancialSummary {
   totalCash: number;
@@ -28,7 +29,7 @@ interface AIInsightsResponse {
 }
 
 export function useAIInsights(enabled: boolean = true) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['ai-insights', tenantId],
@@ -54,7 +55,7 @@ export function useAIInsights(enabled: boolean = true) {
 
 export function useRefreshAIInsights() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (): Promise<AIInsightsResponse> => {
