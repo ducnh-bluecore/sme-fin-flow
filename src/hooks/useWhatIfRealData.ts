@@ -1,6 +1,12 @@
+/**
+ * useWhatIfRealData - Hook for What-If Scenario Analysis
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { startOfMonth, subMonths, format } from 'date-fns';
 
@@ -14,12 +20,10 @@ export interface ChannelMetrics {
   avgOrderValue: number;
   returnRate: number;
   margin: number;
-  // Fee breakdown
   commissionFee: number;
   platformFee: number;
   paymentFee: number;
   shippingFee: number;
-  // Growth
   growthRate: number;
   prevRevenue: number;
 }
@@ -37,7 +41,7 @@ export interface SKUMetrics {
   costPrice: number;
   channels: string[];
   returnRate: number;
-  contribution: number; // % of total revenue
+  contribution: number;
 }
 
 export interface GeographicMetrics {
@@ -64,7 +68,6 @@ export interface HistoricalMetrics {
 }
 
 export interface WhatIfRealData {
-  // Overall metrics
   totalRevenue: number;
   totalCogs: number;
   totalFees: number;
@@ -72,25 +75,20 @@ export interface WhatIfRealData {
   totalOrders: number;
   avgOrderValue: number;
   overallMargin: number;
-  
-  // By dimension
   byChannel: ChannelMetrics[];
   bySKU: SKUMetrics[];
   byGeography: GeographicMetrics[];
   byMonth: HistoricalMetrics[];
-  
-  // Computed rates
   avgCogsRate: number;
   avgFeeRate: number;
   avgReturnRate: number;
   monthlyGrowthRate: number;
-  
   hasData: boolean;
   dataRange: { from: string; to: string };
 }
 
 export function useWhatIfRealData() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -99,101 +97,74 @@ export function useWhatIfRealData() {
       const fromDate = startDateStr || format(subMonths(new Date(), 6), 'yyyy-MM-dd');
       const toDate = endDateStr || format(new Date(), 'yyyy-MM-dd');
       
-      // SSOT: Query cdp_orders instead of external_orders
-      // cdp_orders contains validated financial data (delivered orders only)
-      const buildOrderQuery = () => {
-        let query = supabase
-          .from('cdp_orders')
-          .select(`
-            id, channel, order_at,
-            gross_revenue, net_revenue, cogs, gross_margin
-          `)
-          .gte('order_at', fromDate)
-          .lte('order_at', toDate);
-        
-        if (tenantId) {
-          query = query.eq('tenant_id', tenantId);
-        }
-        return query;
-      };
+      // Fetch orders from cdp_orders
+      const { data: orders, error: ordersError } = await buildSelectQuery(
+        'cdp_orders',
+        'id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin'
+      )
+        .gte('order_at', fromDate)
+        .lte('order_at', toDate);
 
-      const buildItemsQuery = () => {
-        let query = supabase
-          .from('external_order_items')
-          .select(`
-            sku, product_name, category, quantity,
-            unit_price, total_amount, unit_cogs, total_cogs,
-            gross_profit, margin_percent, is_returned, return_quantity,
-            external_orders!inner(channel, order_date, status, tenant_id)
-          `)
-          .gte('external_orders.order_date', fromDate)
-          .lte('external_orders.order_date', toDate)
-          .neq('external_orders.status', 'cancelled');
-        
-        if (tenantId) {
-          query = query.eq('external_orders.tenant_id', tenantId);
-        }
-        return query;
-      };
+      if (ordersError) {
+        console.error('[useWhatIfRealData] Orders error:', ordersError);
+      }
 
-      // SSOT: Query cdp_orders for historical data
-      const buildHistoricalQuery = () => {
-        let query = supabase
-          .from('cdp_orders')
-          .select('order_at, net_revenue, gross_margin, cogs')
-          .gte('order_at', format(subMonths(new Date(fromDate), 6), 'yyyy-MM-dd'))
-          .lte('order_at', toDate);
-        
-        if (tenantId) {
-          query = query.eq('tenant_id', tenantId);
-        }
-        return query;
-      };
-      
-      // Fetch all required data in parallel
-      const [ordersResult, itemsResult, historicalResult] = await Promise.all([
-        buildOrderQuery(),
-          
-        buildItemsQuery(),
-        buildHistoricalQuery(),
-      ]);
+      // Fetch order items for SKU analysis
+      const { data: items, error: itemsError } = await buildSelectQuery(
+        'external_order_items',
+        `sku, product_name, category, quantity,
+         unit_price, total_amount, unit_cogs, total_cogs,
+         gross_profit, margin_percent, is_returned, return_quantity,
+         external_orders!inner(channel, order_date, status)`
+      )
+        .gte('external_orders.order_date', fromDate)
+        .lte('external_orders.order_date', toDate)
+        .neq('external_orders.status', 'cancelled');
 
-      const orders = ordersResult.data || [];
-      const items = itemsResult.data || [];
-      const historicalOrders = historicalResult.data || [];
+      if (itemsError) {
+        console.error('[useWhatIfRealData] Items error:', itemsError);
+      }
 
-      // Map cdp_orders to legacy format for compatibility
-      const mappedOrders = (orders as any[]).map(o => ({
+      // Fetch historical orders for trend analysis
+      const { data: historicalOrders, error: histError } = await buildSelectQuery(
+        'cdp_orders',
+        'order_at, net_revenue, gross_margin, cogs'
+      )
+        .gte('order_at', format(subMonths(new Date(fromDate), 6), 'yyyy-MM-dd'))
+        .lte('order_at', toDate);
+
+      if (histError) {
+        console.error('[useWhatIfRealData] Historical error:', histError);
+      }
+
+      const orderList = (orders || []) as any[];
+      const itemList = (items || []) as any[];
+      const historicalList = (historicalOrders || []) as any[];
+
+      if (orderList.length === 0) {
+        return getEmptyData(fromDate, toDate);
+      }
+
+      // Map orders to metrics
+      const mappedOrders = orderList.map(o => ({
         id: o.id,
         channel: o.channel,
         order_date: o.order_at,
-        status: 'delivered',
         total_amount: Number(o.gross_revenue) || 0,
         net_revenue: Number(o.net_revenue) || 0,
         net_profit: Number(o.gross_margin) || 0,
         cost_of_goods: Number(o.cogs) || 0,
-        commission_fee: 0,
-        platform_fee: 0,
-        payment_fee: 0,
-        shipping_fee: 0,
-        province_code: null,
-        province_name: null,
-        total_quantity: 1
       }));
 
-      if (mappedOrders.length === 0) {
-        return getEmptyData(fromDate, toDate);
-      }
-
-      // Calculate overall metrics using mapped data
-      const totalRevenue = mappedOrders.reduce((sum, o) => sum + Number(o.net_revenue || o.total_amount || 0), 0);
-      const totalCogs = mappedOrders.reduce((sum, o) => sum + Number(o.cost_of_goods || 0), 0);
+      // Calculate totals
+      const totalRevenue = mappedOrders.reduce((sum, o) => sum + (o.net_revenue || o.total_amount), 0);
+      const totalCogs = mappedOrders.reduce((sum, o) => sum + o.cost_of_goods, 0);
       const totalFees = 0; // cdp_orders doesn't have fee breakdown
-      const totalNetProfit = mappedOrders.reduce((sum, o) => sum + Number(o.net_profit || 0), 0);
+      const totalNetProfit = mappedOrders.reduce((sum, o) => sum + o.net_profit, 0);
       const totalOrders = mappedOrders.length;
       const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-      // Calculate by channel using mapped orders
+      // Calculate by channel
       const channelMap = new Map<string, any>();
       mappedOrders.forEach(order => {
         const ch = normalizeChannel(order.channel);
@@ -202,27 +173,13 @@ export function useWhatIfRealData() {
             channel: ch,
             revenue: 0, cogs: 0, fees: 0, netProfit: 0, orders: 0,
             commissionFee: 0, platformFee: 0, paymentFee: 0, shippingFee: 0,
-            returnedOrders: 0, totalQuantity: 0,
           });
         }
         const data = channelMap.get(ch);
-        data.revenue += Number(order.net_revenue || order.total_amount || 0);
-        data.cogs += Number(order.cost_of_goods || 0);
-        data.netProfit += Number(order.net_profit || 0);
+        data.revenue += order.net_revenue || order.total_amount;
+        data.cogs += order.cost_of_goods;
+        data.netProfit += order.net_profit;
         data.orders += 1;
-        data.totalQuantity += Number(order.total_quantity || 1);
-      });
-
-      // Calculate previous period for growth rate
-      const prevFromDate = format(subMonths(new Date(fromDate), 3), 'yyyy-MM-dd');
-      const prevToDate = format(subMonths(new Date(toDate), 3), 'yyyy-MM-dd');
-      // Map historicalOrders: order_at -> order_date for compatibility
-      const prevOrders = (historicalOrders as any[]).filter(o => 
-        o.order_at >= prevFromDate && o.order_at <= prevToDate
-      );
-      const prevRevenueByChannel = new Map<string, number>();
-      prevOrders.forEach(o => {
-        // We don't have channel in historical query, so skip growth for now
       });
 
       const byChannel: ChannelMetrics[] = Array.from(channelMap.values()).map(data => ({
@@ -233,19 +190,29 @@ export function useWhatIfRealData() {
         netProfit: data.netProfit,
         orders: data.orders,
         avgOrderValue: data.orders > 0 ? data.revenue / data.orders : 0,
-        returnRate: data.orders > 0 ? (data.returnedOrders / data.orders) * 100 : 0,
+        returnRate: 0,
         margin: data.revenue > 0 ? (data.netProfit / data.revenue) * 100 : 0,
         commissionFee: data.commissionFee,
         platformFee: data.platformFee,
         paymentFee: data.paymentFee,
         shippingFee: data.shippingFee,
-        growthRate: 0, // Would need channel-specific historical data
+        growthRate: 0,
         prevRevenue: 0,
       }));
 
       // Calculate by SKU
-      const skuMap = new Map<string, any>();
-      items.forEach((item: any) => {
+      const skuMap = new Map<string, {
+        sku: string;
+        productName: string;
+        category: string;
+        quantity: number;
+        revenue: number;
+        cogs: number;
+        profit: number;
+        channels: Set<string>;
+        returnedQty: number;
+      }>();
+      itemList.forEach((item: any) => {
         const sku = item.sku || 'UNKNOWN';
         if (!skuMap.has(sku)) {
           skuMap.set(sku, {
@@ -257,7 +224,7 @@ export function useWhatIfRealData() {
             returnedQty: 0,
           });
         }
-        const data = skuMap.get(sku);
+        const data = skuMap.get(sku)!;
         data.quantity += Number(item.quantity || 0);
         data.revenue += Number(item.total_amount || 0);
         data.cogs += Number(item.total_cogs || 0);
@@ -272,12 +239,12 @@ export function useWhatIfRealData() {
 
       const bySKU: SKUMetrics[] = Array.from(skuMap.values())
         .map(data => ({
-          sku: data.sku as string,
-          productName: data.productName as string,
-          category: data.category as string,
-          quantity: data.quantity as number,
-          revenue: data.revenue as number,
-          cogs: data.cogs as number,
+          sku: data.sku,
+          productName: data.productName,
+          category: data.category,
+          quantity: data.quantity,
+          revenue: data.revenue,
+          cogs: data.cogs,
           profit: data.profit,
           margin: data.revenue > 0 ? (data.profit / data.revenue) * 100 : 0,
           avgPrice: data.quantity > 0 ? data.revenue / data.quantity : 0,
@@ -287,45 +254,11 @@ export function useWhatIfRealData() {
           contribution: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0,
         }))
         .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 100); // Top 100 SKUs
+        .slice(0, 100);
 
-      // Calculate by geography using mappedOrders
-      const geoMap = new Map<string, any>();
-      mappedOrders.forEach(order => {
-        const province = order.province_code || 'UNKNOWN';
-        if (!geoMap.has(province)) {
-          geoMap.set(province, {
-            provinceCode: province,
-            provinceName: order.province_name || province,
-            orders: 0, revenue: 0, shippingCost: 0, netProfit: 0,
-            channels: new Set<string>(),
-          });
-        }
-        const data = geoMap.get(province);
-        data.orders += 1;
-        data.revenue += Number(order.net_revenue || order.total_amount || 0);
-        data.shippingCost += Number(order.shipping_fee || 0);
-        data.netProfit += Number(order.net_profit || 0);
-        if (order.channel) data.channels.add(normalizeChannel(order.channel));
-      });
-
-      const byGeography: GeographicMetrics[] = Array.from(geoMap.values())
-        .map(data => ({
-          provinceCode: data.provinceCode,
-          provinceName: data.provinceName,
-          orders: data.orders,
-          revenue: data.revenue,
-          avgOrderValue: data.orders > 0 ? data.revenue / data.orders : 0,
-          shippingCost: data.shippingCost,
-          netProfit: data.netProfit,
-          margin: data.revenue > 0 ? (data.netProfit / data.revenue) * 100 : 0,
-          topChannels: Array.from(data.channels).slice(0, 3) as string[],
-        }))
-        .sort((a, b) => b.revenue - a.revenue);
-
-      // Calculate by month (historical) - map cdp_orders columns
+      // Calculate by month
       const monthMap = new Map<string, any>();
-      (historicalOrders as any[]).forEach(order => {
+      historicalList.forEach((order: any) => {
         const month = format(new Date(order.order_at), 'yyyy-MM');
         if (!monthMap.has(month)) {
           monthMap.set(month, {
@@ -336,7 +269,6 @@ export function useWhatIfRealData() {
         const data = monthMap.get(month);
         data.revenue += Number(order.net_revenue || 0);
         data.cogs += Number(order.cogs || 0);
-        data.fees += 0; // cdp_orders doesn't have fee breakdown
         data.netProfit += Number(order.gross_margin || 0);
         data.orders += 1;
       });
@@ -354,7 +286,6 @@ export function useWhatIfRealData() {
         }))
         .sort((a, b) => a.month.localeCompare(b.month));
 
-      // Calculate growth rate from historical
       const monthlyGrowthRate = calculateGrowthRate(byMonth);
 
       return {
@@ -367,18 +298,18 @@ export function useWhatIfRealData() {
         overallMargin: totalRevenue > 0 ? (totalNetProfit / totalRevenue) * 100 : 0,
         byChannel,
         bySKU,
-        byGeography,
+        byGeography: [], // Geography data not available in cdp_orders
         byMonth,
         avgCogsRate: totalRevenue > 0 ? (totalCogs / totalRevenue) * 100 : 0,
         avgFeeRate: totalRevenue > 0 ? (totalFees / totalRevenue) * 100 : 0,
-        avgReturnRate: 0, // Would need more data
+        avgReturnRate: 0,
         monthlyGrowthRate,
         hasData: true,
         dataRange: { from: fromDate, to: toDate },
       };
     },
-    enabled: true, // Allow fetching even without tenantId for demo
-    staleTime: 300000, // 5 minutes
+    enabled: isReady,
+    staleTime: 300000,
   });
 }
 

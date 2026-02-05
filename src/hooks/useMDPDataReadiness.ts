@@ -1,6 +1,12 @@
+/**
+ * useMDPDataReadiness - Hook for MDP Data Readiness Check
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useMemo } from 'react';
 
 export interface DataSourceStatus {
@@ -43,57 +49,27 @@ export interface MDPDataReadinessResult {
 }
 
 export function useMDPDataReadiness(): MDPDataReadinessResult {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
-  // Check external_orders
+  // Check cdp_orders
   const ordersQuery = useQuery({
     queryKey: ['mdp-readiness-orders', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
-      // SSOT: Query cdp_orders instead of external_orders for data readiness
-      const { count, error } = await supabase
-        .from('cdp_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
       
+      // Get count using select with head option
+      const countQuery = buildSelectQuery('cdp_orders', 'id');
+      const { data: countData, error } = await countQuery;
       if (error) throw error;
+      const count = (countData as any[])?.length || 0;
 
-      // Get a sample to check fields
-      const { data: sample } = await supabase
-        .from('cdp_orders')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: sample } = await buildSelectQuery('cdp_orders', '*')
         .limit(1)
         .maybeSingle();
 
       return { count: count || 0, sample };
     },
-    enabled: !!tenantId,
-  });
-
-  // Check order items
-  const orderItemsQuery = useQuery({
-    queryKey: ['mdp-readiness-order-items', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return { count: 0, sample: null };
-      
-      const { count, error } = await supabase
-        .from('external_order_items')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
-      if (error) throw error;
-
-      const { data: sample } = await supabase
-        .from('external_order_items')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(1)
-        .maybeSingle();
-
-      return { count: count || 0, sample };
-    },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Check campaigns
@@ -102,23 +78,17 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
       
-      const { count, error } = await supabase
-        .from('promotion_campaigns')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
+      const { data: countData, error } = await buildSelectQuery('promotion_campaigns', 'id');
       if (error) throw error;
+      const count = (countData as any[])?.length || 0;
 
-      const { data: sample } = await supabase
-        .from('promotion_campaigns')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: sample } = await buildSelectQuery('promotion_campaigns', '*')
         .limit(1)
         .maybeSingle();
 
       return { count: count || 0, sample };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Check marketing expenses
@@ -127,48 +97,17 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
       
-      const { count, error } = await supabase
-        .from('marketing_expenses')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
+      const { data: countData, error } = await buildSelectQuery('marketing_expenses', 'id');
       if (error) throw error;
+      const count = (countData as any[])?.length || 0;
 
-      const { data: sample } = await supabase
-        .from('marketing_expenses')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: sample } = await buildSelectQuery('marketing_expenses', '*')
         .limit(1)
         .maybeSingle();
 
       return { count: count || 0, sample };
     },
-    enabled: !!tenantId,
-  });
-
-  // Check channel analytics
-  const channelAnalyticsQuery = useQuery({
-    queryKey: ['mdp-readiness-channel-analytics', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return { count: 0, sample: null };
-      
-      const { count, error } = await supabase
-        .from('channel_analytics')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
-      if (error) throw error;
-
-      const { data: sample } = await supabase
-        .from('channel_analytics')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(1)
-        .maybeSingle();
-
-      return { count: count || 0, sample };
-    },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Check channel fees
@@ -177,23 +116,17 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
       
-      const { count, error } = await supabase
-        .from('channel_fees')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
+      const { data: countData, error } = await buildSelectQuery('channel_fees', 'id');
       if (error) throw error;
+      const count = (countData as any[])?.length || 0;
 
-      const { data: sample } = await supabase
-        .from('channel_fees')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: sample } = await buildSelectQuery('channel_fees', '*')
         .limit(1)
         .maybeSingle();
 
       return { count: count || 0, sample };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Check products
@@ -202,23 +135,17 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
       
-      const { count, error } = await supabase
-        .from('external_products')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
+      const { data: countData, error } = await buildSelectQuery('external_products', 'id');
       if (error) throw error;
+      const count = (countData as any[])?.length || 0;
 
-      const { data: sample } = await supabase
-        .from('external_products')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: sample } = await buildSelectQuery('external_products', '*')
         .limit(1)
         .maybeSingle();
 
       return { count: count || 0, sample };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
   // Check settlements
@@ -227,53 +154,22 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
     queryFn: async () => {
       if (!tenantId) return { count: 0, sample: null };
       
-      const { count, error } = await supabase
-        .from('channel_settlements')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
+      const { data: countData, error } = await buildSelectQuery('channel_settlements', 'id');
       if (error) throw error;
+      const count = (countData as any[])?.length || 0;
 
-      const { data: sample } = await supabase
-        .from('channel_settlements')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: sample } = await buildSelectQuery('channel_settlements', '*')
         .limit(1)
         .maybeSingle();
 
       return { count: count || 0, sample };
     },
-    enabled: !!tenantId,
+    enabled: isReady,
   });
 
-  // Check expenses
-  const expensesQuery = useQuery({
-    queryKey: ['mdp-readiness-expenses', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return { count: 0, sample: null };
-      
-      const { count, error } = await supabase
-        .from('expenses')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId);
-      
-      if (error) throw error;
-
-      const { data: sample } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(1)
-        .maybeSingle();
-
-      return { count: count || 0, sample };
-    },
-    enabled: !!tenantId,
-  });
-
-  const isLoading = ordersQuery.isLoading || orderItemsQuery.isLoading || campaignsQuery.isLoading ||
-    marketingExpensesQuery.isLoading || channelAnalyticsQuery.isLoading || channelFeesQuery.isLoading ||
-    productsQuery.isLoading || settlementsQuery.isLoading || expensesQuery.isLoading;
+  const isLoading = ordersQuery.isLoading || campaignsQuery.isLoading || 
+    marketingExpensesQuery.isLoading || channelFeesQuery.isLoading ||
+    productsQuery.isLoading || settlementsQuery.isLoading;
 
   // Build sources status
   const sources = useMemo<DataSourceStatus[]>(() => {
@@ -295,48 +191,30 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
       return 'ready';
     };
 
-    // External Orders - schema: channel, order_date, status, total_amount, payment_status, cost_of_goods, seller_income
-    const ordersFields = ['channel', 'order_date', 'status', 'total_amount', 'payment_status', 'cost_of_goods', 'seller_income'];
-    const ordersCheck = checkFieldCompleteness(ordersQuery.data?.sample, ordersFields);
+    const ordersFields = ['channel', 'order_at', 'gross_revenue', 'cogs', 'net_revenue'];
+    const ordersCheck = checkFieldCompleteness(ordersQuery.data?.sample as any, ordersFields);
     
-    // Order Items - schema: product_name, quantity, unit_price, unit_cogs (not cost_price)
-    const orderItemsFields = ['product_name', 'quantity', 'unit_price', 'unit_cogs'];
-    const orderItemsCheck = checkFieldCompleteness(orderItemsQuery.data?.sample, orderItemsFields);
+    const campaignsFields = ['campaign_name', 'channel', 'actual_cost', 'total_revenue'];
+    const campaignsCheck = checkFieldCompleteness(campaignsQuery.data?.sample as any, campaignsFields);
 
-    // Campaigns - schema: campaign_name, channel, actual_cost, total_revenue, start_date, end_date
-    const campaignsFields = ['campaign_name', 'channel', 'actual_cost', 'total_revenue', 'start_date', 'end_date'];
-    const campaignsCheck = checkFieldCompleteness(campaignsQuery.data?.sample, campaignsFields);
-
-    // Marketing Expenses - schema: channel, expense_date, amount
     const marketingExpensesFields = ['channel', 'expense_date', 'amount'];
-    const marketingExpensesCheck = checkFieldCompleteness(marketingExpensesQuery.data?.sample, marketingExpensesFields);
+    const marketingExpensesCheck = checkFieldCompleteness(marketingExpensesQuery.data?.sample as any, marketingExpensesFields);
 
-    // Channel Analytics - schema: channel, analytics_date, sessions, marketing_cost (not impressions, clicks, spend)
-    const channelAnalyticsFields = ['channel', 'analytics_date', 'sessions', 'marketing_cost', 'revenue'];
-    const channelAnalyticsCheck = checkFieldCompleteness(channelAnalyticsQuery.data?.sample, channelAnalyticsFields);
-
-    // Channel Fees - schema: fee_type, amount, fee_date
     const channelFeesFields = ['fee_type', 'amount', 'fee_date'];
-    const channelFeesCheck = checkFieldCompleteness(channelFeesQuery.data?.sample, channelFeesFields);
+    const channelFeesCheck = checkFieldCompleteness(channelFeesQuery.data?.sample as any, channelFeesFields);
 
-    // Products - schema: name, selling_price, cost_price
     const productsFields = ['name', 'selling_price', 'cost_price'];
-    const productsCheck = checkFieldCompleteness(productsQuery.data?.sample, productsFields);
+    const productsCheck = checkFieldCompleteness(productsQuery.data?.sample as any, productsFields);
 
-    // Settlements - schema: period_start, period_end, net_amount, gross_sales
-    const settlementsFields = ['period_start', 'period_end', 'net_amount', 'gross_sales'];
-    const settlementsCheck = checkFieldCompleteness(settlementsQuery.data?.sample, settlementsFields);
-
-    // Expenses - schema: category, amount, expense_date
-    const expensesFields = ['category', 'amount', 'expense_date'];
-    const expensesCheck = checkFieldCompleteness(expensesQuery.data?.sample, expensesFields);
+    const settlementsFields = ['period_start', 'period_end', 'net_amount'];
+    const settlementsCheck = checkFieldCompleteness(settlementsQuery.data?.sample as any, settlementsFields);
 
     return [
       {
-        id: 'external_orders',
+        id: 'cdp_orders',
         name: 'Đơn hàng',
         nameEn: 'Orders',
-        table: 'external_orders',
+        table: 'cdp_orders',
         category: 'orders',
         status: ordersQuery.isLoading ? 'loading' : getStatus(ordersQuery.data?.count || 0, ordersCheck.percent),
         recordCount: ordersQuery.data?.count || 0,
@@ -345,24 +223,8 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
         completenessPercent: ordersCheck.percent,
         lastUpdated: null,
         importance: 'critical',
-        description: 'Dữ liệu đơn hàng từ các kênh bán hàng - nguồn sự thật về doanh thu',
-        descriptionEn: 'Order data from sales channels - source of truth for revenue',
-      },
-      {
-        id: 'external_order_items',
-        name: 'Chi tiết đơn hàng',
-        nameEn: 'Order Items',
-        table: 'external_order_items',
-        category: 'orders',
-        status: orderItemsQuery.isLoading ? 'loading' : getStatus(orderItemsQuery.data?.count || 0, orderItemsCheck.percent),
-        recordCount: orderItemsQuery.data?.count || 0,
-        requiredFields: orderItemsFields,
-        missingFields: orderItemsCheck.missing,
-        completenessPercent: orderItemsCheck.percent,
-        lastUpdated: null,
-        importance: 'important',
-        description: 'Chi tiết sản phẩm trong đơn - cần cho SKU Profitability',
-        descriptionEn: 'Product details in orders - needed for SKU Profitability',
+        description: 'Dữ liệu đơn hàng - nguồn sự thật về doanh thu',
+        descriptionEn: 'Order data - source of truth for revenue',
       },
       {
         id: 'promotion_campaigns',
@@ -377,8 +239,8 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
         completenessPercent: campaignsCheck.percent,
         lastUpdated: null,
         importance: 'critical',
-        description: 'Thông tin campaigns quảng cáo - cần cho Profit Attribution',
-        descriptionEn: 'Ad campaign data - needed for Profit Attribution',
+        description: 'Campaigns quảng cáo - cần cho Profit Attribution',
+        descriptionEn: 'Ad campaigns - needed for Profit Attribution',
       },
       {
         id: 'marketing_expenses',
@@ -393,24 +255,8 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
         completenessPercent: marketingExpensesCheck.percent,
         lastUpdated: null,
         importance: 'critical',
-        description: 'Chi phí quảng cáo theo ngày/kênh - cần cho Cash Impact',
-        descriptionEn: 'Daily ad spend by channel - needed for Cash Impact',
-      },
-      {
-        id: 'channel_analytics',
-        name: 'Ads Performance',
-        nameEn: 'Ads Performance',
-        table: 'channel_analytics',
-        category: 'marketing',
-        status: channelAnalyticsQuery.isLoading ? 'loading' : getStatus(channelAnalyticsQuery.data?.count || 0, channelAnalyticsCheck.percent),
-        recordCount: channelAnalyticsQuery.data?.count || 0,
-        requiredFields: channelAnalyticsFields,
-        missingFields: channelAnalyticsCheck.missing,
-        completenessPercent: channelAnalyticsCheck.percent,
-        lastUpdated: null,
-        importance: 'optional',
-        description: 'Metrics từ Facebook/Google Ads - cần cho Funnel Analysis',
-        descriptionEn: 'Metrics from Facebook/Google Ads - needed for Funnel Analysis',
+        description: 'Chi phí quảng cáo - cần cho Cash Impact',
+        descriptionEn: 'Ad spend - needed for Cash Impact',
       },
       {
         id: 'channel_fees',
@@ -425,8 +271,8 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
         completenessPercent: channelFeesCheck.percent,
         lastUpdated: null,
         importance: 'important',
-        description: 'Chi phí phí sàn, hoa hồng - cần cho True Profit',
-        descriptionEn: 'Platform fees, commissions - needed for True Profit',
+        description: 'Phí sàn, hoa hồng - cần cho True Profit',
+        descriptionEn: 'Platform fees - needed for True Profit',
       },
       {
         id: 'external_products',
@@ -441,8 +287,8 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
         completenessPercent: productsCheck.percent,
         lastUpdated: null,
         importance: 'important',
-        description: 'Sản phẩm với giá vốn - cần cho COGS calculation',
-        descriptionEn: 'Products with cost price - needed for COGS calculation',
+        description: 'Sản phẩm với giá vốn - cần cho COGS',
+        descriptionEn: 'Products with cost - needed for COGS',
       },
       {
         id: 'channel_settlements',
@@ -457,36 +303,17 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
         completenessPercent: settlementsCheck.percent,
         lastUpdated: null,
         importance: 'important',
-        description: 'Thanh toán từ Shopee/Lazada - cần cho Cash Flow tracking',
-        descriptionEn: 'Settlements from Shopee/Lazada - needed for Cash Flow tracking',
-      },
-      {
-        id: 'expenses',
-        name: 'Chi phí vận hành',
-        nameEn: 'Operating Expenses',
-        table: 'expenses',
-        category: 'costs',
-        status: expensesQuery.isLoading ? 'loading' : getStatus(expensesQuery.data?.count || 0, expensesCheck.percent),
-        recordCount: expensesQuery.data?.count || 0,
-        requiredFields: expensesFields,
-        missingFields: expensesCheck.missing,
-        completenessPercent: expensesCheck.percent,
-        lastUpdated: null,
-        importance: 'optional',
-        description: 'Chi phí chung (lương, thuê mặt bằng...) - tùy chọn',
-        descriptionEn: 'General expenses (payroll, rent...) - optional',
+        description: 'Thanh toán từ sàn - cần cho Cash Flow',
+        descriptionEn: 'Settlements - needed for Cash Flow',
       },
     ];
   }, [
     ordersQuery.data, ordersQuery.isLoading,
-    orderItemsQuery.data, orderItemsQuery.isLoading,
     campaignsQuery.data, campaignsQuery.isLoading,
     marketingExpensesQuery.data, marketingExpensesQuery.isLoading,
-    channelAnalyticsQuery.data, channelAnalyticsQuery.isLoading,
     channelFeesQuery.data, channelFeesQuery.isLoading,
     productsQuery.data, productsQuery.isLoading,
     settlementsQuery.data, settlementsQuery.isLoading,
-    expensesQuery.data, expensesQuery.isLoading,
   ]);
 
   // Build summary
@@ -499,87 +326,38 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
       .filter(s => s.importance === 'critical' && s.status === 'missing')
       .map(s => s.name);
 
-    // Calculate overall score
-    const weights = { critical: 3, important: 2, optional: 1 };
-    let totalWeight = 0;
-    let weightedScore = 0;
+    const totalWeight = sources.reduce((sum, s) => {
+      const weight = s.importance === 'critical' ? 3 : s.importance === 'important' ? 2 : 1;
+      return sum + weight;
+    }, 0);
 
-    sources.forEach(s => {
-      const weight = weights[s.importance];
-      totalWeight += weight;
-      
-      if (s.status === 'ready') {
-        weightedScore += weight * 100;
-      } else if (s.status === 'partial') {
-        weightedScore += weight * s.completenessPercent;
-      }
-    });
+    const achievedWeight = sources.reduce((sum, s) => {
+      const weight = s.importance === 'critical' ? 3 : s.importance === 'important' ? 2 : 1;
+      const score = s.status === 'ready' ? 1 : s.status === 'partial' ? 0.5 : 0;
+      return sum + (weight * score);
+    }, 0);
 
-    const overallScore = totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 0;
+    const overallScore = totalWeight > 0 ? Math.round((achievedWeight / totalWeight) * 100) : 0;
 
-    // Build recommendations
     const recommendations: DataReadinessSummary['recommendations'] = [];
 
-    // Check critical missing
-    if (sources.find(s => s.id === 'external_orders' && s.status === 'missing')) {
+    if (criticalMissing.length > 0) {
       recommendations.push({
         priority: 'high',
-        message: 'Chưa có dữ liệu đơn hàng - MDP không thể tính Profit Attribution',
-        messageEn: 'No order data - MDP cannot calculate Profit Attribution',
-        action: 'Import đơn hàng từ Shopee/Lazada/TikTok hoặc nhập thủ công',
-        actionEn: 'Import orders from Shopee/Lazada/TikTok or enter manually',
+        message: `Thiếu dữ liệu quan trọng: ${criticalMissing.join(', ')}`,
+        messageEn: `Missing critical data: ${criticalMissing.join(', ')}`,
+        action: 'Kết nối nguồn dữ liệu hoặc import file',
+        actionEn: 'Connect data source or import file',
       });
     }
 
-    if (sources.find(s => s.id === 'promotion_campaigns' && s.status === 'missing')) {
-      recommendations.push({
-        priority: 'high',
-        message: 'Chưa có dữ liệu campaigns - Không thể phân tích ROI Marketing',
-        messageEn: 'No campaign data - Cannot analyze Marketing ROI',
-        action: 'Tạo campaigns trong mục Promotion ROI hoặc import từ Ads Manager',
-        actionEn: 'Create campaigns in Promotion ROI or import from Ads Manager',
-      });
-    }
-
-    if (sources.find(s => s.id === 'marketing_expenses' && s.status === 'missing')) {
-      recommendations.push({
-        priority: 'high',
-        message: 'Chưa có chi phí marketing - Cash Impact sẽ không chính xác',
-        messageEn: 'No marketing expenses - Cash Impact will be inaccurate',
-        action: 'Nhập chi phí quảng cáo hàng ngày theo kênh',
-        actionEn: 'Enter daily ad spend by channel',
-      });
-    }
-
-    // Check partial data quality
-    const ordersSource = sources.find(s => s.id === 'external_orders');
-    if (ordersSource?.status === 'partial' && ordersSource.missingFields.includes('cost_of_goods')) {
+    if (partialSources > 0) {
       recommendations.push({
         priority: 'medium',
-        message: 'Thiếu giá vốn (COGS) - Contribution Margin sẽ sử dụng estimate 55%',
-        messageEn: 'Missing COGS - Contribution Margin will use 55% estimate',
-        action: 'Cập nhật giá vốn cho sản phẩm trong Product Catalog',
-        actionEn: 'Update cost price for products in Product Catalog',
-      });
-    }
-
-    if (sources.find(s => s.id === 'channel_settlements' && s.status === 'missing')) {
-      recommendations.push({
-        priority: 'medium',
-        message: 'Chưa có dữ liệu thanh toán - Cash Flow tracking sẽ không chính xác',
-        messageEn: 'No settlement data - Cash Flow tracking will be inaccurate',
-        action: 'Kết nối API sàn hoặc import báo cáo thanh toán',
-        actionEn: 'Connect platform API or import settlement reports',
-      });
-    }
-
-    if (sources.find(s => s.id === 'channel_analytics' && s.status === 'missing')) {
-      recommendations.push({
-        priority: 'low',
-        message: 'Chưa có dữ liệu Ads - Funnel Analysis sẽ sử dụng estimates',
-        messageEn: 'No Ads data - Funnel Analysis will use estimates',
-        action: 'Kết nối Facebook Ads hoặc Google Ads (tùy chọn)',
-        actionEn: 'Connect Facebook Ads or Google Ads (optional)',
+        message: `${partialSources} nguồn dữ liệu chưa đầy đủ`,
+        messageEn: `${partialSources} data sources are incomplete`,
+        action: 'Kiểm tra và bổ sung các trường còn thiếu',
+        actionEn: 'Check and fill missing fields',
       });
     }
 
@@ -595,14 +373,11 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
 
   const refetch = () => {
     ordersQuery.refetch();
-    orderItemsQuery.refetch();
     campaignsQuery.refetch();
     marketingExpensesQuery.refetch();
-    channelAnalyticsQuery.refetch();
     channelFeesQuery.refetch();
     productsQuery.refetch();
     settlementsQuery.refetch();
-    expensesQuery.refetch();
   };
 
   return {
