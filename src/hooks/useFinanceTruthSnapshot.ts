@@ -3,25 +3,12 @@
  * 
  * ⚠️ THIS IS THE SINGLE SOURCE OF TRUTH FOR ALL FINANCE METRICS
  * 
- * This hook ONLY fetches precomputed data from central_metrics_snapshots.
- * NO business calculations are performed in this hook.
- * 
- * All metrics are computed in the database via:
- * - compute_central_metrics_snapshot() stored procedure
- * - get_latest_central_metrics() auto-refresh function
- * 
- * REPLACES (deprecated):
- * - useCentralFinancialMetrics
- * - useDashboardKPIs
- * - usePLData
- * - useAnalyticsData
- * - useKPIData
- * - usePerformanceData
- * - useControlTowerAnalytics
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Finance
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // =============================================================
 // TYPES - Mirror the database schema exactly
@@ -100,14 +87,9 @@ export interface FinanceTruthSnapshot {
 
 // Phase 8.3: Data Quality Flags for transparency
 export interface DataQualityFlags {
-  // CM% warning when variable costs >> gross profit
   hasContributionMarginWarning: boolean;
   contributionMarginWarningReason: string | null;
-  
-  // ROAS data source indicator
   roasDataSource: 'promotion_campaigns' | 'expenses' | 'unavailable';
-  
-  // General data quality
   dataCompletenessPercent: number;
   lastComputedAt: string;
 }
@@ -195,23 +177,15 @@ export interface FormattedFinanceSnapshot {
 const STALE_THRESHOLD_MINUTES = 60;
 
 export function useFinanceTruthSnapshot() {
-  const { client, tenantId, isLoading: tenantLoading, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, callRpc, client, tenantId, isLoading: tenantLoading, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['finance-truth-snapshot', tenantId],
     queryFn: async (): Promise<FormattedFinanceSnapshot | null> => {
       if (!tenantId) return null;
       
-      // Fetch latest snapshot - with tenant filter if needed
-      let query = client
-        .from('central_metrics_snapshots')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query
+      // Fetch latest snapshot
+      const { data, error } = await buildSelectQuery('central_metrics_snapshots', '*')
         .order('snapshot_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -223,8 +197,7 @@ export function useFinanceTruthSnapshot() {
       
       // If no snapshot exists, trigger computation
       if (!data) {
-        const { data: newSnapshot, error: computeError } = await client
-          .rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId });
+        const { data: newSnapshot, error: computeError } = await callRpc('compute_central_metrics_snapshot', {});
         
         if (computeError) {
           console.error('[useFinanceTruthSnapshot] Compute error:', computeError);
@@ -243,20 +216,20 @@ export function useFinanceTruthSnapshot() {
       }
       
       // Check staleness and trigger background refresh if needed
-      const snapshotAge = Date.now() - new Date(data.snapshot_at).getTime();
+      const snapshotAge = Date.now() - new Date((data as any).snapshot_at).getTime();
       const isStale = snapshotAge > STALE_THRESHOLD_MINUTES * 60 * 1000;
       
       if (isStale) {
         // Trigger background refresh (don't await)
-        client.rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId })
+        callRpc('compute_central_metrics_snapshot', {})
           .then(() => console.log('[useFinanceTruthSnapshot] Background refresh completed'));
       }
       
-      return mapToFormatted(data as FinanceTruthSnapshot, isStale);
+      return mapToFormatted(data as unknown as FinanceTruthSnapshot, isStale);
     },
     enabled: isReady,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
@@ -267,14 +240,13 @@ export function useFinanceTruthSnapshot() {
 
 export function useRefreshFinanceSnapshot() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await client
-        .rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId });
+      const { data, error } = await callRpc('compute_central_metrics_snapshot', {});
       
       if (error) throw error;
       return data;
@@ -294,7 +266,6 @@ function mapToFormatted(
   isStale: boolean = false
 ): FormattedFinanceSnapshot {
   return {
-    // Revenue & Profit - direct mapping, no calculation
     netRevenue: Number(raw.net_revenue) || 0,
     grossProfit: Number(raw.gross_profit) || 0,
     grossMarginPercent: Number(raw.gross_margin_percent) || 0,
@@ -303,12 +274,10 @@ function mapToFormatted(
     ebitda: Number(raw.ebitda) || 0,
     ebitdaMarginPercent: Number(raw.ebitda_margin_percent) || 0,
     
-    // Cash & Liquidity
     cashToday: Number(raw.cash_today) || 0,
     cash7dForecast: Number(raw.cash_7d_forecast) || 0,
     cashRunwayMonths: Number(raw.cash_runway_months) || 0,
     
-    // Receivables
     totalAR: Number(raw.total_ar) || 0,
     overdueAR: Number(raw.overdue_ar) || 0,
     arAgingCurrent: Number(raw.ar_aging_current) || 0,
@@ -316,71 +285,57 @@ function mapToFormatted(
     arAging60d: Number(raw.ar_aging_60d) || 0,
     arAging90d: Number(raw.ar_aging_90d) || 0,
     
-    // Payables
     totalAP: Number(raw.total_ap) || 0,
     overdueAP: Number(raw.overdue_ap) || 0,
     
-    // Inventory
     totalInventoryValue: Number(raw.total_inventory_value) || 0,
     slowMovingInventory: Number(raw.slow_moving_inventory) || 0,
     
-    // Working Capital Cycle
     dso: Number(raw.dso) || 0,
     dpo: Number(raw.dpo) || 0,
     dio: Number(raw.dio) || 0,
     ccc: Number(raw.ccc) || 0,
     
-    // Pre-computed AR/DSO metrics (SSOT Phase 6)
-    // Calculate overdueARPercent from existing data (will be pre-computed in view in future)
     overdueARPercent: Number(raw.total_ar) > 0 
       ? Math.round((Number(raw.overdue_ar) / Number(raw.total_ar) * 100) * 10) / 10 
       : 0,
-    dsoTarget: 30, // Will be from working_capital_targets table via view
+    dsoTarget: 30,
     dpoTarget: 45,
     dioTarget: 45,
     
-    // Marketing
     totalMarketingSpend: Number(raw.total_marketing_spend) || 0,
     marketingRoas: Number(raw.marketing_roas) || 0,
     cac: Number(raw.cac) || 0,
     ltv: Number(raw.ltv) || 0,
     ltvCacRatio: Number(raw.ltv_cac_ratio) || 0,
     
-    // Orders/Customers
     totalOrders: Number(raw.total_orders) || 0,
     avgOrderValue: Number(raw.avg_order_value) || 0,
     totalCustomers: Number(raw.total_customers) || 0,
     repeatCustomerRate: Number(raw.repeat_customer_rate) || 0,
     
-    // Locked Cash (Phase 4 - DB-First, no magic numbers)
     lockedCashInventory: Number(raw.locked_cash_inventory) || 0,
     lockedCashAds: Number(raw.locked_cash_ads) || 0,
     lockedCashOps: Number(raw.locked_cash_ops) || 0,
     lockedCashPlatform: Number(raw.locked_cash_platform) || 0,
     lockedCashTotal: Number(raw.locked_cash_total) || 0,
     
-    // Period
     periodStart: raw.period_start,
     periodEnd: raw.period_end,
     
-    // Metadata
     snapshotAt: raw.snapshot_at,
     isStale,
     
-    // Phase 8.3: Data Quality Flags
     dataQuality: computeDataQualityFlags(raw),
   };
 }
 
-// Phase 8.3: Compute data quality warnings
 function computeDataQualityFlags(raw: FinanceTruthSnapshot): DataQualityFlags {
   const grossProfit = Number(raw.gross_profit) || 0;
   const contributionMargin = Number(raw.contribution_margin) || 0;
   const marketingRoas = Number(raw.marketing_roas) || 0;
   const marketingSpend = Number(raw.total_marketing_spend) || 0;
   
-  // Warning: CM is significantly negative compared to gross profit
-  // This indicates variable costs may be disproportionately high
   const variableCostsImplied = grossProfit - contributionMargin;
   const hasContributionMarginWarning = contributionMargin < 0 && variableCostsImplied > grossProfit * 2;
   
@@ -390,12 +345,10 @@ function computeDataQualityFlags(raw: FinanceTruthSnapshot): DataQualityFlags {
       'Chi phí biến đổi cao bất thường so với lợi nhuận gộp. Có thể do dữ liệu chi phí chưa đồng bộ với doanh thu hoặc là chi phí dự toán.';
   }
   
-  // ROAS data source
   const roasDataSource: 'promotion_campaigns' | 'expenses' | 'unavailable' = 
     marketingSpend > 0 && marketingRoas > 0 ? 'promotion_campaigns' :
     marketingSpend > 0 ? 'expenses' : 'unavailable';
   
-  // Data completeness (simple heuristic)
   let completenessScore = 0;
   if (Number(raw.net_revenue) > 0) completenessScore += 20;
   if (Number(raw.cash_today) > 0) completenessScore += 20;
@@ -415,20 +368,17 @@ function computeDataQualityFlags(raw: FinanceTruthSnapshot): DataQualityFlags {
 
 // =============================================================
 // COMPATIBILITY EXPORTS
-// These provide backward-compatible shapes for gradual migration
 // =============================================================
 
 /**
  * @deprecated Use useFinanceTruthSnapshot directly
- * Provides backward-compatible shape for useCentralFinancialMetrics consumers
  */
 export function useFinanceTruthAsLegacy() {
   const query = useFinanceTruthSnapshot();
   
   const legacyData = query.data ? {
-    // Map to old useCentralFinancialMetrics shape
     netRevenue: query.data.netRevenue,
-    totalRevenue: query.data.netRevenue, // alias
+    totalRevenue: query.data.netRevenue,
     grossProfit: query.data.grossProfit,
     grossMargin: query.data.grossMarginPercent,
     contributionMargin: query.data.contributionMargin,
