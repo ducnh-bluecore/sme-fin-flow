@@ -4,11 +4,12 @@
  * Hook to fetch locked costs from FDP with 3-level fallback chain.
  * Used by MDP for Profit ROAS calculation.
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for RPC calls
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { 
   CrossModuleData, 
   FDPCostData, 
@@ -21,8 +22,17 @@ interface UseFDPLockedCostsOptions {
   month?: number;
 }
 
+interface CostRPCResult {
+  cogs_percent?: number;
+  fee_percent?: number;
+  confidence_level?: string;
+  data_source?: string;
+  is_cross_module?: boolean;
+}
+
 export function useFDPLockedCosts(options: UseFDPLockedCostsOptions = {}) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const year = options.year ?? new Date().getFullYear();
   const month = options.month ?? new Date().getMonth() + 1;
 
@@ -39,7 +49,8 @@ export function useFDPLockedCosts(options: UseFDPLockedCostsOptions = {}) {
         );
       }
 
-      const { data, error } = await client.rpc('mdp_get_costs_for_roas', {
+      // Use callRpc from useTenantQueryBuilder
+      const { data, error } = await callRpc<CostRPCResult[]>('mdp_get_costs_for_roas', {
         p_tenant_id: tenantId,
         p_year: year,
         p_month: month,

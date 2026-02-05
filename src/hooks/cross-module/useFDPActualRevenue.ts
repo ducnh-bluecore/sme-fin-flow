@@ -3,10 +3,13 @@
  * 
  * Hook to manage FDP actual revenue data for CDP equity recalibration.
  * Part of Case 7: FDP → CDP flow.
+ * 
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for automatic table mapping
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -44,7 +47,8 @@ interface UseCDPActualRevenueOptions {
  * Get actual revenue for CDP recalibration
  */
 export function useCDPActualRevenue(options: UseCDPActualRevenueOptions = {}) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const { year, month } = options;
 
   return useQuery<CrossModuleData<ActualRevenue[]>>({
@@ -59,7 +63,7 @@ export function useCDPActualRevenue(options: UseCDPActualRevenueOptions = {}) {
         );
       }
 
-      const { data, error } = await client.rpc('cdp_get_actual_revenue_for_calibration' as any, {
+      const { data, error } = await callRpc<ActualRevenueRPC[]>('cdp_get_actual_revenue_for_calibration', {
         p_tenant_id: tenantId,
         p_year: year ?? null,
         p_month: month ?? null,
@@ -75,7 +79,7 @@ export function useCDPActualRevenue(options: UseCDPActualRevenueOptions = {}) {
         );
       }
 
-      const results = (data ?? []) as ActualRevenueRPC[];
+      const results = data ?? [];
 
       if (results.length === 0 || results[0]?.actual_revenue === null) {
         return createCrossModuleData<ActualRevenue[]>(
@@ -131,14 +135,15 @@ interface PushActualRevenueParams {
  * Push actual revenue from FDP to CDP
  */
 export function usePushActualRevenueToCDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: PushActualRevenueParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('fdp_push_actual_revenue_to_cdp' as any, {
+      const { data, error } = await callRpc<string>('fdp_push_actual_revenue_to_cdp', {
         p_tenant_id: tenantId,
         p_year: params.year,
         p_month: params.month,
@@ -151,7 +156,7 @@ export function usePushActualRevenueToCDP() {
       });
 
       if (error) throw error;
-      return data as string;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cdp-actual-revenue'] });
@@ -169,24 +174,17 @@ export function usePushActualRevenueToCDP() {
  * Get all actual revenue records
  */
 export function useFDPAllActualRevenue() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['fdp-all-actual-revenue', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('fdp_actual_revenue_for_cdp' as any)
-        .select('*')
+      const { data, error } = await buildSelectQuery('fdp_actual_revenue_for_cdp', '*')
         .order('period_year', { ascending: false })
         .order('period_month', { ascending: false });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching all actual revenue:', error);
@@ -214,23 +212,24 @@ export function useFDPAllActualRevenue() {
  * Run daily cross-module sync
  */
 export function useRunCrossModuleSync() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('cross_module_run_daily_sync' as any, {
+      const { data, error } = await callRpc<Array<{
+        sync_step: string;
+        records_affected: number;
+        status: string;
+      }>>('cross_module_run_daily_sync', {
         p_tenant_id: tenantId,
       });
 
       if (error) throw error;
-      return data as Array<{
-        sync_step: string;
-        records_affected: number;
-        status: string;
-      }>;
+      return data ?? [];
     },
     onSuccess: (results) => {
       // Invalidate all cross-module queries

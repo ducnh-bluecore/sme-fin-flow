@@ -3,10 +3,13 @@
  * 
  * ⚠️ DB-FIRST: This hook ONLY fetches from v_customer_ar_summary.
  * NO client-side calculations.
+ * 
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for automatic table mapping
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface CustomerARData {
   id: string;
@@ -23,26 +26,20 @@ export interface CustomerARData {
 }
 
 export function useTopCustomersAR(limit: number = 10) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['top-customers-ar', tenantId, limit],
     queryFn: async (): Promise<CustomerARData[]> => {
       if (!tenantId) return [];
 
-      // Fetch from precomputed view - NO CALCULATIONS
-      let query = client
-        .from('v_customer_ar_summary')
-        .select('*')
+      // Use buildSelectQuery for automatic tenant filtering
+      // v_customer_ar_summary is a view, table mapping handles it
+      const { data, error } = await buildSelectQuery('v_customer_ar_summary', '*')
         .gt('total_ar', 0) // Only customers with outstanding AR
         .order('total_ar', { ascending: false })
         .limit(limit);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('[useTopCustomersAR] Error:', error);
@@ -52,18 +49,18 @@ export function useTopCustomersAR(limit: number = 10) {
       if (!data?.length) return [];
 
       // Map DB columns to interface - NO CALCULATIONS
-      return data.map((row) => ({
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        phone: row.phone,
+      return (data as unknown as Array<Record<string, unknown>>).map((row) => ({
+        id: row.id as string,
+        name: row.name as string,
+        email: row.email as string | undefined,
+        phone: row.phone as string | undefined,
         totalAR: Number(row.total_ar) || 0,
         overdueAR: Number(row.overdue_ar) || 0,
         avgPaymentDays: Number(row.avg_payment_days) || 30,
         openInvoiceCount: Number(row.open_invoice_count) || 0,
         overdueInvoiceCount: Number(row.overdue_invoice_count) || 0,
         totalInvoiceCount: Number(row.total_invoice_count) || 0,
-        lastInvoiceDate: row.last_invoice_date,
+        lastInvoiceDate: row.last_invoice_date as string | undefined,
       }));
     },
     enabled: !!tenantId && isReady,

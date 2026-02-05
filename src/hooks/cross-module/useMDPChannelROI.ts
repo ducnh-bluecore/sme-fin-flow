@@ -4,11 +4,12 @@
  * Hook to manage channel ROI data from MDP for FDP budget allocation.
  * Part of Case 10: MDP → FDP flow.
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for automatic table mapping
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   CrossModuleData,
   ConfidenceLevel,
@@ -51,7 +52,8 @@ interface UseBudgetRecommendationsOptions {
  * Get budget recommendations for FDP
  */
 export function useFDPBudgetRecommendations(options: UseBudgetRecommendationsOptions = {}) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const { lookbackDays = 30 } = options;
 
   return useQuery<CrossModuleData<BudgetRecommendation[]>>({
@@ -66,7 +68,7 @@ export function useFDPBudgetRecommendations(options: UseBudgetRecommendationsOpt
         );
       }
 
-      const { data, error } = await client.rpc('fdp_get_budget_recommendations' as any, {
+      const { data, error } = await callRpc<BudgetRecommendationRPC[]>('fdp_get_budget_recommendations', {
         p_tenant_id: tenantId,
         p_lookback_days: lookbackDays,
       });
@@ -81,7 +83,7 @@ export function useFDPBudgetRecommendations(options: UseBudgetRecommendationsOpt
         );
       }
 
-      const results = (data ?? []) as BudgetRecommendationRPC[];
+      const results = data ?? [];
 
       if (results.length === 0 || results[0]?.channel === 'no_data') {
         return createCrossModuleData<BudgetRecommendation[]>(
@@ -140,14 +142,15 @@ interface PushChannelROIParams {
  * Push channel ROI from MDP to FDP
  */
 export function usePushChannelROIToFDP() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: PushChannelROIParams) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('mdp_push_channel_roi_to_fdp' as any, {
+      const { data, error } = await callRpc<string>('mdp_push_channel_roi_to_fdp', {
         p_tenant_id: tenantId,
         p_channel: params.channel,
         p_period_start: params.periodStart,
@@ -161,7 +164,7 @@ export function usePushChannelROIToFDP() {
       });
 
       if (error) throw error;
-      return data as string;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fdp-budget-recommendations'] });
@@ -179,7 +182,8 @@ export function usePushChannelROIToFDP() {
  * Get all channel ROI records for management
  */
 export function useMDPAllChannelROI(lookbackDays: number = 90) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['mdp-channel-roi', tenantId, lookbackDays],
@@ -189,17 +193,9 @@ export function useMDPAllChannelROI(lookbackDays: number = 90) {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - lookbackDays);
 
-      let query = client
-        .from('mdp_channel_roi' as any)
-        .select('*')
+      const { data, error } = await buildSelectQuery('mdp_channel_roi', '*')
         .gte('period_end', startDate.toISOString().split('T')[0])
         .order('period_end', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching channel ROI:', error);
@@ -229,7 +225,8 @@ export function useMDPAllChannelROI(lookbackDays: number = 90) {
  * Batch push channel ROI data
  */
 export function useBatchPushChannelROI() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -238,7 +235,7 @@ export function useBatchPushChannelROI() {
 
       const results = await Promise.all(
         records.map((params) =>
-          client.rpc('mdp_push_channel_roi_to_fdp' as any, {
+          callRpc<string>('mdp_push_channel_roi_to_fdp', {
             p_tenant_id: tenantId,
             p_channel: params.channel,
             p_period_start: params.periodStart,

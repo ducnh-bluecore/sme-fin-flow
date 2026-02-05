@@ -3,11 +3,15 @@
  * FDP FINANCE SSOT HOOK - DATABASE FIRST
  * ============================================
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Architecture v1.4.1: Migrated to session-based context with automatic table mapping
+ * - Uses useTenantQueryBuilder for table name translation (cdp_* → master_*)
+ * - Uses useTenantSupabaseCompat for session-aware client
+ * - Platform metrics accessed via platform schema
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -90,22 +94,18 @@ export interface FDPFinanceSSOT {
 const STALE_THRESHOLD_MINUTES = 60;
 
 export function useFDPFinanceSSOT() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter, isSchemaProvisioned } = useTenantSupabaseCompat();
+  const { buildSelectQuery, callRpc } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['fdp-finance-ssot', tenantId],
     queryFn: async (): Promise<FDPFinanceSSOT | null> => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('central_metrics_snapshots')
-        .select('*')
+      // Use buildSelectQuery for automatic table mapping and tenant filter
+      const query = buildSelectQuery('central_metrics_snapshots', '*')
         .order('snapshot_at', { ascending: false })
         .limit(1);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
       
       const { data: snapshot, error } = await query.maybeSingle();
       
@@ -115,33 +115,36 @@ export function useFDPFinanceSSOT() {
       }
       
       if (!snapshot) {
-        const { data: newSnapshotId, error: computeError } = await client
-          .rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId });
+        // Use callRpc which handles tenant context
+        const { data: newSnapshotId, error: computeError } = await callRpc<string>(
+          'compute_central_metrics_snapshot', 
+          { p_tenant_id: tenantId }
+        );
         
         if (computeError) {
           console.error('[useFDPFinanceSSOT] Compute error:', computeError);
           return null;
         }
         
-        const { data: freshSnapshot } = await client
-          .from('central_metrics_snapshots')
-          .select('*')
+        const { data: freshSnapshot } = await buildSelectQuery('central_metrics_snapshots', '*')
           .eq('id', newSnapshotId)
           .single();
         
         if (!freshSnapshot) return null;
-        return mapSnapshotToSSOT(freshSnapshot, tenantId);
+        return mapSnapshotToSSOT(freshSnapshot as unknown as Record<string, unknown>, tenantId);
       }
       
-      const snapshotAge = Date.now() - new Date(snapshot.snapshot_at).getTime();
+      const snapshotRow = snapshot as unknown as Record<string, unknown>;
+      const snapshotAge = Date.now() - new Date(snapshotRow.snapshot_at as string).getTime();
       const isStale = snapshotAge > STALE_THRESHOLD_MINUTES * 60 * 1000;
       
       if (isStale) {
-        client.rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId })
+        // Background refresh via RPC
+        callRpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId })
           .then(() => console.log('[useFDPFinanceSSOT] Background refresh completed'));
       }
       
-      return mapSnapshotToSSOT(snapshot, tenantId, isStale);
+      return mapSnapshotToSSOT(snapshotRow, tenantId, isStale);
     },
     enabled: isReady,
     staleTime: 5 * 60 * 1000,
@@ -156,14 +159,16 @@ export function useFDPFinanceSSOT() {
 
 export function useRefreshFDPFinance() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await client
-        .rpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId });
+      const { data, error } = await callRpc<string>('compute_central_metrics_snapshot', { 
+        p_tenant_id: tenantId 
+      });
       
       if (error) throw error;
       return data;
