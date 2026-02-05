@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface BankCovenant {
@@ -60,28 +60,20 @@ const COVENANT_TYPE_LABELS: Record<string, string> = {
 export const getCovenantTypeLabel = (type: string) => COVENANT_TYPE_LABELS[type] || type;
 
 export function useCovenants() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['bank-covenants', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('bank_covenants')
-        .select('*')
+      const { data, error } = await buildSelectQuery('bank_covenants', '*')
         .eq('is_active', true)
         .order('status', { ascending: false })
         .order('next_measurement_date', { ascending: true });
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
-      
       if (error) throw error;
-      return data as BankCovenant[];
+      return data as unknown as BankCovenant[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -129,28 +121,20 @@ export function useCovenantSummary() {
 }
 
 export function useCovenantMeasurements(covenantId: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['covenant-measurements', tenantId, covenantId],
     queryFn: async () => {
       if (!tenantId || !covenantId) return [];
       
-      let query = client
-        .from('covenant_measurements')
-        .select('*')
+      const { data, error } = await buildSelectQuery('covenant_measurements', '*')
         .eq('covenant_id', covenantId)
         .order('measurement_date', { ascending: false })
         .limit(12);
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
-      
       if (error) throw error;
-      return data as CovenantMeasurement[];
+      return data as unknown as CovenantMeasurement[];
     },
     enabled: !!tenantId && !!covenantId && isReady,
   });
@@ -158,15 +142,13 @@ export function useCovenantMeasurements(covenantId: string) {
 
 export function useCreateCovenant() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async (covenant: Omit<BankCovenant, 'id' | 'tenant_id' | 'created_at' | 'compliance_margin'>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await client
-        .from('bank_covenants')
-        .insert([{ ...covenant, tenant_id: tenantId }])
+      const { data, error } = await buildInsertQuery('bank_covenants', covenant)
         .select()
         .single();
       
@@ -185,13 +167,11 @@ export function useCreateCovenant() {
 
 export function useUpdateCovenant() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<BankCovenant> & { id: string }) => {
-      const { data, error } = await client
-        .from('bank_covenants')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('bank_covenants', updates)
         .eq('id', id)
         .select()
         .single();
@@ -211,7 +191,7 @@ export function useUpdateCovenant() {
 
 export function useRecordMeasurement() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, buildInsertQuery, buildUpdateQuery, tenantId } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async ({ 
@@ -262,18 +242,15 @@ export function useRecordMeasurement() {
       }
       
       // Insert measurement - always include tenant_id as required by schema
-      const { error: measurementError } = await client
-        .from('covenant_measurements')
-        .insert([{
-          tenant_id: tenantId,
-          covenant_id: covenantId,
-          measurement_date: new Date().toISOString().split('T')[0],
-          measured_value: measuredValue,
-          status,
-          numerator_value: numeratorValue,
-          denominator_value: denominatorValue,
-          notes,
-        }]);
+      const { error: measurementError } = await buildInsertQuery('covenant_measurements', {
+        covenant_id: covenantId,
+        measurement_date: new Date().toISOString().split('T')[0],
+        measured_value: measuredValue,
+        status,
+        numerator_value: numeratorValue,
+        denominator_value: denominatorValue,
+        notes,
+      });
       
       if (measurementError) throw measurementError;
       
@@ -291,15 +268,12 @@ export function useRecordMeasurement() {
           break;
       }
       
-      const { error: updateError } = await client
-        .from('bank_covenants')
-        .update({
-          current_value: measuredValue,
-          status,
-          last_measured_at: new Date().toISOString(),
-          next_measurement_date: nextMeasurement.toISOString().split('T')[0],
-        })
-        .eq('id', covenantId);
+      const { error: updateError } = await buildUpdateQuery('bank_covenants', {
+        current_value: measuredValue,
+        status,
+        last_measured_at: new Date().toISOString(),
+        next_measurement_date: nextMeasurement.toISOString().split('T')[0],
+      }).eq('id', covenantId);
       
       if (updateError) throw updateError;
       

@@ -1,11 +1,11 @@
 /**
  * useMetricGovernance - Metric governance hooks
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Schema-per-Tenant v1.4.1: Migrated to useTenantQueryBuilder
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface MetricDefinition {
   metric_code: string;
@@ -48,14 +48,12 @@ export interface GovernanceSummary {
 
 // Fetch metric registry
 export function useMetricRegistry() {
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { buildSelectQuery, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['metric-registry'],
     queryFn: async (): Promise<MetricDefinition[]> => {
-      const { data, error } = await client
-        .from('metric_registry')
-        .select('*')
+      const { data, error } = await buildSelectQuery('metric_registry', '*')
         .is('deprecation_date', null)
         .order('module', { ascending: true });
 
@@ -64,7 +62,7 @@ export function useMetricRegistry() {
         return [];
       }
 
-      return data || [];
+      return (data as unknown as MetricDefinition[]) || [];
     },
     enabled: isReady,
     staleTime: 10 * 60 * 1000, // 10 minutes - registry rarely changes
@@ -73,29 +71,21 @@ export function useMetricRegistry() {
 
 // Fetch unified metrics for tenant
 export function useUnifiedMetrics() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['unified-metrics', tenantId],
     queryFn: async (): Promise<UnifiedMetric[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_unified_metrics' as any)
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_unified_metrics', '*');
 
       if (error) {
         console.error('Error fetching unified metrics:', error);
         return [];
       }
 
-      return (data || []).map((row: any) => ({
+      return ((data as unknown as any[]) || []).map((row: any) => ({
         tenant_id: row.tenant_id,
         module: row.module,
         metric_date: row.metric_date,
@@ -110,15 +100,14 @@ export function useUnifiedMetrics() {
 
 // Check metric consistency
 export function useMetricConsistency() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['metric-consistency', tenantId],
     queryFn: async (): Promise<ConsistencyCheck[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await client
-        .rpc('check_metric_consistency', { p_tenant_id: tenantId });
+      const { data, error } = await callRpc('check_metric_consistency', { p_tenant_id: tenantId });
 
       if (error) {
         console.error('Error checking metric consistency:', error);
@@ -142,14 +131,12 @@ export function useMetricConsistency() {
 
 // Governance dashboard summary
 export function useGovernanceDashboard() {
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { buildSelectQuery, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['governance-dashboard'],
     queryFn: async (): Promise<GovernanceSummary[]> => {
-      const { data, error } = await client
-        .from('v_governance_dashboard' as any)
-        .select('*');
+      const { data, error } = await buildSelectQuery('v_governance_dashboard', '*');
 
       if (error) {
         console.error('Error fetching governance dashboard:', error);

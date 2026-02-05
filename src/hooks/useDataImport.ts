@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import type { Database } from '@/integrations/supabase/types';
 
 type ImportResult = {
@@ -17,7 +17,7 @@ type ImportResult = {
 type ExpenseCategory = Database['public']['Enums']['expense_category'];
 
 export function useDataImport() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   const importCustomers = useMutation({

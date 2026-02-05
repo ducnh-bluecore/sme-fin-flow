@@ -12,8 +12,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
-import { 
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+import {
   MarketingDecisionCard, 
   DecisionCardType, 
   DecisionAction, 
@@ -56,24 +56,16 @@ export interface MDPConfig {
  * This is a THIN WRAPPER - no business logic here
  */
 export function useMDPDecisionSignals() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data: signals, isLoading, error } = useQuery({
     queryKey: ['mdp-decision-signals', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_mdp_decision_signals')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_mdp_decision_signals', '*');
       if (error) throw error;
-      return (data || []) as MDPDecisionSignal[];
+      return (data as unknown as any[] || []) as MDPDecisionSignal[];
     },
     enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -123,27 +115,19 @@ export function useMDPDecisionSignals() {
  * Fetch MDP config thresholds
  */
 export function useMDPConfig() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['mdp-config', tenantId],
     queryFn: async () => {
       if (!tenantId) return {};
 
-      let query = client
-        .from('mdp_config')
-        .select('config_key, config_value');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('mdp_config', 'config_key, config_value');
       if (error) throw error;
       
       // Transform to key-value object
       const configMap: Record<string, number> = {};
-      (data || []).forEach(row => {
+      ((data as unknown as any[]) || []).forEach((row: any) => {
         configMap[row.config_key] = typeof row.config_value === 'number' 
           ? row.config_value 
           : parseFloat(String(row.config_value));
