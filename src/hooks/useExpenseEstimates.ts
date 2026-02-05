@@ -1,11 +1,12 @@
 /**
  * useExpenseEstimates - Hook for Variable Cost Estimates
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Expenses
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useMemo } from 'react';
 
@@ -98,7 +99,7 @@ function mapToEstimate(row: Record<string, unknown>): ExpenseEstimate {
 // =============================================================
 
 export function useExpenseEstimates(year?: number, month?: number) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
   const currentYear = year ?? new Date().getFullYear();
   const currentMonth = month ?? (new Date().getMonth() + 1);
 
@@ -107,17 +108,11 @@ export function useExpenseEstimates(year?: number, month?: number) {
     queryFn: async (): Promise<ExpenseEstimate[]> => {
       if (!tenantId) return [];
 
-      let queryBuilder = client
-        .from('expense_estimates')
-        .select('*')
+      const queryBuilder = buildSelectQuery('expense_estimates', '*')
         .eq('year', currentYear)
         .eq('month', currentMonth)
         .order('category', { ascending: true })
         .order('channel', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        queryBuilder = queryBuilder.eq('tenant_id', tenantId);
-      }
 
       const { data, error } = await queryBuilder;
 
@@ -126,9 +121,9 @@ export function useExpenseEstimates(year?: number, month?: number) {
         throw error;
       }
 
-      return (data || []).map(mapToEstimate);
+      return ((data as unknown) as Record<string, unknown>[] || []).map(mapToEstimate);
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -185,28 +180,25 @@ export function useExpenseEstimates(year?: number, month?: number) {
 
 export function useCreateExpenseEstimate() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildInsertQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: CreateEstimateInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('expense_estimates')
-        .insert({
-          tenant_id: tenantId,
-          year: input.year,
-          month: input.month,
-          category: input.category,
-          channel: input.channel || null,
-          estimated_amount: input.estimatedAmount,
-          notes: input.notes || null,
-        })
+      const { data, error } = await buildInsertQuery('expense_estimates', {
+        year: input.year,
+        month: input.month,
+        category: input.category,
+        channel: input.channel || null,
+        estimated_amount: input.estimatedAmount,
+        notes: input.notes || null,
+      })
         .select()
         .single();
 
       if (error) throw error;
-      return mapToEstimate(data);
+      return mapToEstimate(data as unknown as Record<string, unknown>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expense-estimates'] });
@@ -221,7 +213,7 @@ export function useCreateExpenseEstimate() {
 
 export function useUpdateExpenseEstimate() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: UpdateEstimateInput) => {
@@ -231,15 +223,13 @@ export function useUpdateExpenseEstimate() {
       if (input.actualAmount !== undefined) updates.actual_amount = input.actualAmount;
       if (input.notes !== undefined) updates.notes = input.notes;
 
-      const { data, error } = await client
-        .from('expense_estimates')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('expense_estimates', updates)
         .eq('id', input.id)
         .select()
         .single();
 
       if (error) throw error;
-      return mapToEstimate(data);
+      return mapToEstimate(data as unknown as Record<string, unknown>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expense-estimates'] });
@@ -254,22 +244,20 @@ export function useUpdateExpenseEstimate() {
 
 export function useLockExpenseEstimate() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await client
-        .from('expense_estimates')
-        .update({
-          status: 'locked',
-          locked_at: new Date().toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('expense_estimates', {
+        status: 'locked',
+        locked_at: new Date().toISOString(),
+      })
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return mapToEstimate(data);
+      return mapToEstimate(data as unknown as Record<string, unknown>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expense-estimates'] });
@@ -284,13 +272,11 @@ export function useLockExpenseEstimate() {
 
 export function useDeleteExpenseEstimate() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('expense_estimates')
-        .delete()
+      const { error } = await buildDeleteQuery('expense_estimates')
         .eq('id', id);
 
       if (error) throw error;

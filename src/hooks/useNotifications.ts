@@ -1,5 +1,12 @@
+/**
+ * useNotifications - User notification management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Notifications
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useAuth } from './useAuth';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -35,7 +42,7 @@ export interface CreateNotificationInput {
 // Fetch user's notifications
 export function useNotifications(limit = 50) {
   const { user } = useAuth();
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['notifications', user?.id, limit],
@@ -59,7 +66,7 @@ export function useNotifications(limit = 50) {
 // Fetch unread count
 export function useUnreadNotificationCount() {
   const { user } = useAuth();
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['notifications-unread-count', user?.id],
@@ -84,7 +91,7 @@ export function useUnreadNotificationCount() {
 export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
@@ -107,7 +114,7 @@ export function useMarkNotificationRead() {
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async () => {
@@ -131,7 +138,7 @@ export function useMarkAllNotificationsRead() {
 export function useDeleteNotification() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
@@ -154,7 +161,7 @@ export function useDeleteNotification() {
 export function useClearAllNotifications() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async () => {
@@ -177,7 +184,7 @@ export function useClearAllNotifications() {
 export function useRealtimeNotifications() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   useEffect(() => {
     if (!user?.id || !isReady) return;

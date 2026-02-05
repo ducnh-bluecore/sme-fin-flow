@@ -1,12 +1,13 @@
 /**
  * useReconciliation - Bank transaction reconciliation
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Banking
  */
 
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 interface MatchResult {
@@ -30,29 +31,23 @@ interface ReconciliationStats {
 
 // Fetch invoices with customer info
 export function useInvoices() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['invoices-reconciliation', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('invoices')
-        .select(`
+      const query = buildSelectQuery('invoices', `
           *,
           customers (name)
         `)
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
       const { data, error } = await query;
 
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -61,29 +56,23 @@ export function useInvoices() {
 
 // Fetch bank transactions
 export function useBankTransactions() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['bank-transactions-reconciliation', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('bank_transactions')
-        .select(`
+      const query = buildSelectQuery('bank_transactions', `
           *,
           bank_accounts (bank_name, account_number)
         `)
         .order('transaction_date', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
       const { data, error } = await query;
 
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -179,7 +168,7 @@ function findMatches(
 
 // Match mutation
 export function useMatchTransaction() {
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
