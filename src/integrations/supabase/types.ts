@@ -24346,6 +24346,72 @@ export type Database = {
           },
         ]
       }
+      tenant_migration_log: {
+        Row: {
+          applied_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          migration_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          migration_id: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          migration_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_migration_log_migration_id_fkey"
+            columns: ["migration_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_schema_migrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_migration_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_migration_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_migration_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "tenant_migration_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       tenant_ml_settings: {
         Row: {
           created_at: string
@@ -24489,6 +24555,33 @@ export type Database = {
           },
         ]
       }
+      tenant_schema_migrations: {
+        Row: {
+          applied_to_template_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          migration_name: string
+          migration_sql: string
+        }
+        Insert: {
+          applied_to_template_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          migration_name: string
+          migration_sql: string
+        }
+        Update: {
+          applied_to_template_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          migration_name?: string
+          migration_sql?: string
+        }
+        Relationships: []
+      }
       tenant_users: {
         Row: {
           created_at: string | null
@@ -24570,8 +24663,11 @@ export type Database = {
           name: string
           onboarding_status: string | null
           plan: string | null
+          schema_provisioned: boolean | null
+          schema_provisioned_at: string | null
           settings: Json | null
           slug: string
+          tier: Database["public"]["Enums"]["tenant_tier"]
           updated_at: string | null
         }
         Insert: {
@@ -24586,8 +24682,11 @@ export type Database = {
           name: string
           onboarding_status?: string | null
           plan?: string | null
+          schema_provisioned?: boolean | null
+          schema_provisioned_at?: string | null
           settings?: Json | null
           slug: string
+          tier?: Database["public"]["Enums"]["tenant_tier"]
           updated_at?: string | null
         }
         Update: {
@@ -24602,8 +24701,11 @@ export type Database = {
           name?: string
           onboarding_status?: string | null
           plan?: string | null
+          schema_provisioned?: boolean | null
+          schema_provisioned_at?: string | null
           settings?: Json | null
           slug?: string
+          tier?: Database["public"]["Enums"]["tenant_tier"]
           updated_at?: string | null
         }
         Relationships: []
@@ -32715,6 +32817,14 @@ export type Database = {
       }
     }
     Functions: {
+      apply_tenant_migration: {
+        Args: {
+          p_description?: string
+          p_migration_name: string
+          p_migration_sql: string
+        }
+        Returns: Json
+      }
       attach_evidence_to_decision: {
         Args: {
           p_confidence?: string
@@ -33107,6 +33217,10 @@ export type Database = {
           requires_approval: boolean
         }[]
       }
+      check_tenant_schema_status: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       close_financial_period: {
         Args: { p_period_id: string }
         Returns: boolean
@@ -33197,6 +33311,14 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
+      copy_template_table: {
+        Args: { p_table_name: string; p_target_schema: string }
+        Returns: undefined
+      }
+      copy_template_type: {
+        Args: { p_target_schema: string; p_type_name: string }
+        Returns: undefined
+      }
       cross_module_run_daily_sync: {
         Args: { p_tenant_id?: string }
         Returns: {
@@ -33205,6 +33327,9 @@ export type Database = {
           step: string
         }[]
       }
+      current_org_id: { Args: never; Returns: string }
+      current_tenant_id: { Args: never; Returns: string }
+      current_tenant_schema: { Args: never; Returns: string }
       detect_cross_domain_variance: {
         Args: { p_tenant_id: string }
         Returns: number
@@ -33699,6 +33824,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      init_tenant_session: { Args: { p_tenant_id: string }; Returns: Json }
       is_authenticated: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
@@ -33821,6 +33947,18 @@ export type Database = {
         Returns: number
       }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
+      provision_tenant_by_tier: {
+        Args: {
+          p_slug: string
+          p_tenant_id: string
+          p_tier?: Database["public"]["Enums"]["tenant_tier"]
+        }
+        Returns: Json
+      }
+      provision_tenant_from_template: {
+        Args: { p_slug: string; p_tenant_id: string }
+        Returns: Json
+      }
       provision_tenant_schema: {
         Args: { p_slug: string; p_tenant_id: string }
         Returns: Json
@@ -33891,6 +34029,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      set_current_org: { Args: { p_org_id: string }; Returns: undefined }
       set_tenant_schema: { Args: { p_tenant_id: string }; Returns: undefined }
       snooze_insight: {
         Args: {
@@ -33998,6 +34137,7 @@ export type Database = {
       settlement_status: "pending" | "processing" | "completed" | "disputed"
       sync_status: "pending" | "running" | "completed" | "failed" | "cancelled"
       tenant_role: "owner" | "admin" | "member" | "viewer"
+      tenant_tier: "smb" | "midmarket" | "enterprise"
     }
     CompositeTypes: {
       forecast_row: {
@@ -34182,6 +34322,7 @@ export const Constants = {
       settlement_status: ["pending", "processing", "completed", "disputed"],
       sync_status: ["pending", "running", "completed", "failed", "cancelled"],
       tenant_role: ["owner", "admin", "member", "viewer"],
+      tenant_tier: ["smb", "midmarket", "enterprise"],
     },
   },
 } as const
