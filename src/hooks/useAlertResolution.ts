@@ -4,12 +4,12 @@
  * Handles alert resolution workflow: start, complete, false positive.
  * All logic delegated to database RPCs.
  * 
- * @architecture database-first
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain Control Tower/Alerts
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 interface StartResolutionParams {
@@ -55,26 +55,18 @@ export interface AlertWithResolution {
 }
 
 export function useAlertsWithResolution() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['alerts-with-resolution', tenantId],
     queryFn: async (): Promise<AlertWithResolution[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_alerts_with_resolution')
-        .select('*')
+      const { data, error } = await buildSelectQuery('v_alerts_with_resolution', '*')
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return (data || []) as AlertWithResolution[];
+      return (data as unknown as AlertWithResolution[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -82,13 +74,13 @@ export function useAlertsWithResolution() {
 
 export function useStartAlertResolution() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ alertId, assignedTo }: StartResolutionParams) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { data, error } = await client.rpc('start_alert_resolution', {
+      const { data, error } = await callRpc('start_alert_resolution', {
         p_tenant_id: tenantId,
         p_alert_id: alertId,
         p_assigned_to: assignedTo || null,
@@ -113,7 +105,7 @@ export function useStartAlertResolution() {
 
 export function useCompleteAlertResolution() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -125,7 +117,7 @@ export function useCompleteAlertResolution() {
     }: CompleteResolutionParams) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { data, error } = await client.rpc('complete_alert_resolution', {
+      const { data, error } = await callRpc('complete_alert_resolution', {
         p_tenant_id: tenantId,
         p_alert_id: alertId,
         p_resolution_type: resolutionType,
@@ -153,13 +145,13 @@ export function useCompleteAlertResolution() {
 
 export function useMarkAlertFalsePositive() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ alertId, reason }: FalsePositiveParams) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { data, error } = await client.rpc('mark_alert_false_positive', {
+      const { data, error } = await callRpc('mark_alert_false_positive', {
         p_tenant_id: tenantId,
         p_alert_id: alertId,
         p_reason: reason,

@@ -1,12 +1,12 @@
 /**
  * useAlertEscalation - Alert escalation rules management
  * 
- * @architecture Schema-per-Tenant
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain Control Tower/Alerts
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface EscalationRule {
@@ -37,7 +37,7 @@ export interface DigestConfig {
 }
 
 export function useEscalationRules() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, buildInsertQuery, buildUpdateQuery, buildDeleteQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   const { data: rules, isLoading, error } = useQuery({
@@ -45,21 +45,13 @@ export function useEscalationRules() {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('alert_escalation_rules')
-        .select('*')
+      const { data, error } = await buildSelectQuery('alert_escalation_rules', '*')
         .order('severity', { ascending: true })
         .order('escalate_after_minutes', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
       
-      return (data || []).map(rule => ({
+      return ((data || []) as any[]).map(rule => ({
         ...rule,
         notify_channels: Array.isArray(rule.notify_channels) 
           ? rule.notify_channels 
@@ -73,17 +65,14 @@ export function useEscalationRules() {
     mutationFn: async (rule: Omit<EscalationRule, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>) => {
       if (!tenantId) throw new Error('No tenant selected');
       
-      const { data, error } = await client
-        .from('alert_escalation_rules')
-        .insert({
-          tenant_id: tenantId,
-          name: rule.name,
-          severity: rule.severity,
-          escalate_after_minutes: rule.escalate_after_minutes,
-          escalate_to_role: rule.escalate_to_role,
-          notify_channels: rule.notify_channels,
-          is_active: rule.is_active,
-        })
+      const { data, error } = await buildInsertQuery('alert_escalation_rules', {
+        name: rule.name,
+        severity: rule.severity,
+        escalate_after_minutes: rule.escalate_after_minutes,
+        escalate_to_role: rule.escalate_to_role,
+        notify_channels: rule.notify_channels,
+        is_active: rule.is_active,
+      })
         .select()
         .single();
 
@@ -101,9 +90,7 @@ export function useEscalationRules() {
 
   const updateRule = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<EscalationRule> & { id: string }) => {
-      const { data, error } = await client
-        .from('alert_escalation_rules')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('alert_escalation_rules', updates)
         .eq('id', id)
         .select()
         .single();
@@ -122,9 +109,7 @@ export function useEscalationRules() {
 
   const deleteRule = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('alert_escalation_rules')
-        .delete()
+      const { error } = await buildDeleteQuery('alert_escalation_rules')
         .eq('id', id);
 
       if (error) throw error;
@@ -140,9 +125,7 @@ export function useEscalationRules() {
 
   const toggleRule = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await client
-        .from('alert_escalation_rules')
-        .update({ is_active })
+      const { error } = await buildUpdateQuery('alert_escalation_rules', { is_active })
         .eq('id', id);
 
       if (error) throw error;
@@ -168,7 +151,7 @@ export function useEscalationRules() {
 }
 
 export function useDigestConfig() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   const { data: config, isLoading } = useQuery({
@@ -176,20 +159,15 @@ export function useDigestConfig() {
     queryFn: async () => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('alert_digest_configs')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('alert_digest_configs', '*')
+        .maybeSingle();
 
       if (error) throw error;
       
       if (!data) {
         return {
+          id: '',
+          tenant_id: tenantId,
           daily_enabled: true,
           daily_time: '08:00',
           weekly_enabled: true,
@@ -197,10 +175,12 @@ export function useDigestConfig() {
           weekly_time: '09:00',
           include_resolved: true,
           include_summary: true,
-        } as Partial<DigestConfig>;
+          created_at: '',
+          updated_at: '',
+        } as DigestConfig;
       }
       
-      return data as DigestConfig;
+      return data as unknown as DigestConfig;
     },
     enabled: !!tenantId && isReady,
   });

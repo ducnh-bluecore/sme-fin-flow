@@ -1,11 +1,12 @@
 /**
  * useAlertObjects - Alert object management
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Control Tower/Alerts
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export type AlertObjectType = 'product' | 'order' | 'customer' | 'store' | 'inventory' | 'cashflow' | 'kpi' | 'channel';
@@ -54,20 +55,14 @@ export interface AlertObjectFilters {
 }
 
 export function useAlertObjects(filters?: AlertObjectFilters) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['alert-objects', tenantId, filters],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('alert_objects')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
+      let query = buildSelectQuery('alert_objects', '*');
 
       if (filters?.object_type) {
         query = query.eq('object_type', filters.object_type);
@@ -88,35 +83,28 @@ export function useAlertObjects(filters?: AlertObjectFilters) {
       const { data, error } = await query.order('updated_at', { ascending: false });
 
       if (error) throw error;
-      return data as AlertObject[];
+      return (data as unknown as AlertObject[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
 }
 
 export function useAlertObjectStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['alert-object-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('alert_objects')
-        .select('object_type, alert_status, is_monitored');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('alert_objects', 'object_type, alert_status, is_monitored');
 
       if (error) throw error;
 
+      const objects = (data || []) as any[];
       const stats = {
-        total: data.length,
-        monitored: data.filter(o => o.is_monitored).length,
+        total: objects.length,
+        monitored: objects.filter(o => o.is_monitored).length,
         byType: {} as Record<string, number>,
         byStatus: {
           normal: 0,
@@ -126,7 +114,7 @@ export function useAlertObjectStats() {
         },
       };
 
-      data.forEach(obj => {
+      objects.forEach(obj => {
         stats.byType[obj.object_type] = (stats.byType[obj.object_type] || 0) + 1;
         stats.byStatus[obj.alert_status as AlertObjectStatus]++;
       });
@@ -138,19 +126,14 @@ export function useAlertObjectStats() {
 }
 
 export function useCreateAlertObject() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: AlertObjectInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('alert_objects')
-        .insert({
-          tenant_id: tenantId,
-          ...input,
-        })
+      const { data, error } = await buildInsertQuery('alert_objects', input)
         .select()
         .single();
 
@@ -169,14 +152,12 @@ export function useCreateAlertObject() {
 }
 
 export function useUpdateAlertObject() {
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: Partial<AlertObject> & { id: string }) => {
-      const { data, error } = await client
-        .from('alert_objects')
-        .update(input)
+      const { data, error } = await buildUpdateQuery('alert_objects', input)
         .eq('id', id)
         .select()
         .single();
@@ -196,14 +177,12 @@ export function useUpdateAlertObject() {
 }
 
 export function useDeleteAlertObject() {
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('alert_objects')
-        .delete()
+      const { error } = await buildDeleteQuery('alert_objects')
         .eq('id', id);
 
       if (error) throw error;
@@ -221,14 +200,12 @@ export function useDeleteAlertObject() {
 }
 
 export function useBulkUpdateAlertObjects() {
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ ids, updates }: { ids: string[]; updates: Partial<AlertObject> }) => {
-      const { error } = await client
-        .from('alert_objects')
-        .update(updates)
+      const { error } = await buildUpdateQuery('alert_objects', updates)
         .in('id', ids);
 
       if (error) throw error;
