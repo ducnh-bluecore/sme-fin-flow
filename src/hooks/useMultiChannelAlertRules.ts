@@ -4,7 +4,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import type { SalesChannel, AlertGroup } from './useIntelligentAlertRules';
 
@@ -1011,7 +1011,7 @@ export const defaultAlertRuleTemplates: AlertRuleTemplate[] = [
 // ========== HOOKS ==========
 
 export function useSeedAlertRules() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({

@@ -1,7 +1,7 @@
 /**
  * Board Reports Hook - Refactored to use SSOT
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  * 
  * Key metrics (DSO, DPO, margins, EBITDA) now use dashboard_kpi_cache
  * which is populated by useCentralFinancialMetrics.
@@ -9,7 +9,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { subMonths, subQuarters, subYears, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays } from 'date-fns';
@@ -133,7 +133,7 @@ export interface BoardReport {
 }
 
 export function useBoardReports() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, buildSelectQuery, buildInsertQuery, buildUpdateQuery, buildDeleteQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   const { data: reports, isLoading, error } = useQuery({
@@ -141,16 +141,8 @@ export function useBoardReports() {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('board_reports')
-        .select('*')
+      const { data, error } = await buildSelectQuery('board_reports', '*')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       return data as unknown as BoardReport[];
@@ -171,13 +163,13 @@ export function useBoardReports() {
       const startDate = params.start_date ? new Date(params.start_date) : undefined;
       const endDate = params.end_date ? new Date(params.end_date) : undefined;
 
-      // Generate comprehensive report data
-      const financialHighlights = await generateFinancialHighlights(client, tenantId, shouldAddTenantFilter, params.report_type, startDate, endDate);
-      const keyMetrics = await generateKeyMetrics(client, tenantId, shouldAddTenantFilter, startDate, endDate);
+      // Generate comprehensive report data (pass tenantId for filtering)
+      const financialHighlights = await generateFinancialHighlights(client, tenantId, params.report_type, startDate, endDate);
+      const keyMetrics = await generateKeyMetrics(client, tenantId, startDate, endDate);
       const riskAssessment = await generateRiskAssessment(tenantId, financialHighlights, keyMetrics);
       const strategicInitiatives = await generateStrategicInitiatives(tenantId);
-      const cashFlowAnalysis = await generateCashFlowAnalysis(client, tenantId, shouldAddTenantFilter, startDate, endDate);
-      const arAgingAnalysis = await generateARAgingAnalysis(client, tenantId, shouldAddTenantFilter);
+      const cashFlowAnalysis = await generateCashFlowAnalysis(client, tenantId, startDate, endDate);
+      const arAgingAnalysis = await generateARAgingAnalysis(client, tenantId);
       const recommendations = generateRecommendations(financialHighlights, keyMetrics, riskAssessment);
       
       const { data, error } = await client
@@ -337,9 +329,8 @@ export function useBoardReports() {
 }
 
 async function generateFinancialHighlights(
-  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
+  client: any,
   tenantId: string, 
-  shouldAddTenantFilter: boolean,
   reportType: string,
   customStartDate?: Date,
   customEndDate?: Date
@@ -372,47 +363,43 @@ async function generateFinancialHighlights(
     prevEndDate = endOfYear(subYears(now, 1));
   }
 
-  // Build queries with conditional tenant filtering
-  let invoicesQuery = client
+  // Build queries with tenant filtering
+  const invoicesQuery = client
     .from('invoices')
     .select('total_amount, status, issue_date')
     .gte('issue_date', startDate.toISOString())
-    .lte('issue_date', endDate.toISOString());
+    .lte('issue_date', endDate.toISOString())
+    .eq('tenant_id', tenantId);
 
-  let prevInvoicesQuery = client
+  const prevInvoicesQuery = client
     .from('invoices')
     .select('total_amount, status')
     .gte('issue_date', prevStartDate.toISOString())
-    .lte('issue_date', prevEndDate.toISOString());
+    .lte('issue_date', prevEndDate.toISOString())
+    .eq('tenant_id', tenantId);
 
-  let expensesQuery = client
+  const expensesQuery = client
     .from('expenses')
     .select('amount, category, expense_date')
     .gte('expense_date', startDate.toISOString())
-    .lte('expense_date', endDate.toISOString());
+    .lte('expense_date', endDate.toISOString())
+    .eq('tenant_id', tenantId);
 
-  let prevExpensesQuery = client
+  const prevExpensesQuery = client
     .from('expenses')
     .select('amount')
     .gte('expense_date', prevStartDate.toISOString())
-    .lte('expense_date', prevEndDate.toISOString());
+    .lte('expense_date', prevEndDate.toISOString())
+    .eq('tenant_id', tenantId);
 
-  let bankAccountsQuery = client.from('bank_accounts').select('current_balance');
+  const bankAccountsQuery = client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
 
-  let transactionsQuery = client
+  const transactionsQuery = client
     .from('bank_transactions')
     .select('amount, transaction_type, transaction_date')
     .gte('transaction_date', startDate.toISOString())
-    .lte('transaction_date', endDate.toISOString());
-
-  if (shouldAddTenantFilter) {
-    invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
-    prevInvoicesQuery = prevInvoicesQuery.eq('tenant_id', tenantId);
-    expensesQuery = expensesQuery.eq('tenant_id', tenantId);
-    prevExpensesQuery = prevExpensesQuery.eq('tenant_id', tenantId);
-    bankAccountsQuery = bankAccountsQuery.eq('tenant_id', tenantId);
-    transactionsQuery = transactionsQuery.eq('tenant_id', tenantId);
-  }
+    .lte('transaction_date', endDate.toISOString())
+    .eq('tenant_id', tenantId);
 
   const [
     { data: invoices },
@@ -475,47 +462,33 @@ async function generateFinancialHighlights(
 }
 
 async function generateKeyMetrics(
-  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
+  client: any,
   tenantId: string,
-  shouldAddTenantFilter: boolean,
   startDate?: Date,
   endDate?: Date
 ): Promise<KeyMetric> {
-  // Build queries with conditional tenant filtering
-  let kpiCacheQuery = client.from('dashboard_kpi_cache').select('*');
-  if (shouldAddTenantFilter) {
-    kpiCacheQuery = kpiCacheQuery.eq('tenant_id', tenantId);
-  }
+  // Build queries with tenant filtering
+  const kpiCacheQuery = client.from('dashboard_kpi_cache').select('*').eq('tenant_id', tenantId);
 
   let invoicesQuery = client
     .from('invoices')
-    .select('id, total_amount, status, due_date, customer_id, customers(name)');
-  if (shouldAddTenantFilter) {
-    invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
-  }
+    .select('id, total_amount, status, due_date, customer_id, customers(name)')
+    .eq('tenant_id', tenantId);
   if (startDate && endDate) {
     invoicesQuery = invoicesQuery
       .gte('issue_date', startDate.toISOString())
       .lte('issue_date', endDate.toISOString());
   }
 
-  let customersQuery = client.from('customers').select('id, name');
-  if (shouldAddTenantFilter) {
-    customersQuery = customersQuery.eq('tenant_id', tenantId);
-  }
+  const customersQuery = client.from('customers').select('id, name').eq('tenant_id', tenantId);
 
-  let billsQuery = client
+  const billsQuery = client
     .from('bills')
     .select('id, total_amount, paid_amount, bill_date, due_date, status')
-    .not('status', 'eq', 'cancelled');
-  if (shouldAddTenantFilter) {
-    billsQuery = billsQuery.eq('tenant_id', tenantId);
-  }
+    .not('status', 'eq', 'cancelled')
+    .eq('tenant_id', tenantId);
 
-  let bankAccountsQuery = client.from('bank_accounts').select('current_balance');
-  if (shouldAddTenantFilter) {
-    bankAccountsQuery = bankAccountsQuery.eq('tenant_id', tenantId);
-  }
+  const bankAccountsQuery = client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
 
   // Fetch all data in parallel
   const [kpiCacheRes, invoicesRes, customersRes, billsRes, bankAccountsRes] = await Promise.all([
@@ -740,9 +713,8 @@ async function generateStrategicInitiatives(
 
 
 async function generateCashFlowAnalysis(
-  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
+  client: any,
   tenantId: string,
-  shouldAddTenantFilter: boolean,
   customStartDate?: Date,
   customEndDate?: Date
 ): Promise<CashFlowAnalysis> {
@@ -753,20 +725,15 @@ async function generateCashFlowAnalysis(
     const monthStart = startOfMonth(subMonths(now, i));
     const monthEnd = endOfMonth(subMonths(now, i));
 
-    let transactionsQuery = client
+    const { data: transactions } = await client
       .from('bank_transactions')
       .select('amount, transaction_type')
       .gte('transaction_date', monthStart.toISOString())
-      .lte('transaction_date', monthEnd.toISOString());
+      .lte('transaction_date', monthEnd.toISOString())
+      .eq('tenant_id', tenantId);
 
-    if (shouldAddTenantFilter) {
-      transactionsQuery = transactionsQuery.eq('tenant_id', tenantId);
-    }
-
-    const { data: transactions } = await transactionsQuery;
-
-    const inflow = transactions?.filter(t => t.transaction_type === 'credit').reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
-    const outflow = transactions?.filter(t => t.transaction_type === 'debit').reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
+    const inflow = transactions?.filter((t: any) => t.transaction_type === 'credit').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0) || 0;
+    const outflow = transactions?.filter((t: any) => t.transaction_type === 'debit').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0) || 0;
 
     monthlyTrend.push({
       month: monthStart.toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' }),
@@ -780,12 +747,7 @@ async function generateCashFlowAnalysis(
   const recentOutflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.outflow, 0) / 3;
   const burnRate = recentOutflow - recentInflow;
 
-  let bankAccountsQuery = client.from('bank_accounts').select('current_balance');
-  if (shouldAddTenantFilter) {
-    bankAccountsQuery = bankAccountsQuery.eq('tenant_id', tenantId);
-  }
-
-  const { data: bankAccounts } = await bankAccountsQuery;
+  const { data: bankAccounts } = await client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
 
   const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
   const cashRunwayMonths = burnRate > 0 ? cashBalance / burnRate : 12;
@@ -802,22 +764,16 @@ async function generateCashFlowAnalysis(
 }
 
 async function generateARAgingAnalysis(
-  client: ReturnType<typeof useTenantSupabaseCompat>['client'],
-  tenantId: string,
-  shouldAddTenantFilter: boolean
+  client: any,
+  tenantId: string
 ): Promise<ARAgingAnalysis> {
   const now = new Date();
   
-  let invoicesQuery = client
+  const { data: invoices } = await client
     .from('invoices')
     .select('id, total_amount, due_date, status')
-    .neq('status', 'paid');
-
-  if (shouldAddTenantFilter) {
-    invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
-  }
-
-  const { data: invoices } = await invoicesQuery;
+    .neq('status', 'paid')
+    .eq('tenant_id', tenantId);
 
   const buckets = {
     current: { amount: 0, count: 0 },

@@ -1,11 +1,11 @@
 /**
  * useAlertInstances - Alert instance management
  * 
- * Schema-per-Tenant Ready
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
 
@@ -69,20 +69,14 @@ export interface AlertInstanceFilters {
 }
 
 export function useAlertInstances(filters?: AlertInstanceFilters) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['alert-instances', tenantId, filters],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('alert_instances')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
+      let query = buildSelectQuery('alert_instances', '*');
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
@@ -112,35 +106,27 @@ export function useAlertInstances(filters?: AlertInstanceFilters) {
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as AlertInstance[];
+      return data as unknown as AlertInstance[];
     },
     enabled: !!tenantId && isReady,
   });
 }
 
 export function useActiveAlerts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['active-alerts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('alert_instances')
-        .select('*')
+      const { data, error } = await buildSelectQuery('alert_instances', '*')
         .eq('status', 'active')
         .order('priority', { ascending: true })
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as AlertInstance[];
+      return data as unknown as AlertInstance[];
     },
     enabled: !!tenantId && isReady,
     refetchInterval: 30000,
@@ -148,27 +134,20 @@ export function useActiveAlerts() {
 }
 
 export function useAlertInstanceStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['alert-instance-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('alert_instances')
-        .select('status, severity, category');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('alert_instances', 'status, severity, category');
 
       if (error) throw error;
 
+      const alerts = data as any[] || [];
       const stats = {
-        total: data.length,
+        total: alerts.length,
         byStatus: {
           active: 0,
           acknowledged: 0,
@@ -183,7 +162,7 @@ export function useAlertInstanceStats() {
         byCategory: {} as Record<string, number>,
       };
 
-      data.forEach(alert => {
+      alerts.forEach(alert => {
         stats.byStatus[alert.status as AlertInstanceStatus]++;
         stats.bySeverity[alert.severity as AlertSeverity]++;
         stats.byCategory[alert.category] = (stats.byCategory[alert.category] || 0) + 1;
@@ -196,7 +175,7 @@ export function useAlertInstanceStats() {
 }
 
 export function useAcknowledgeAlert() {
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -230,7 +209,7 @@ export function useAcknowledgeAlert() {
 }
 
 export function useResolveAlert() {
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -265,7 +244,7 @@ export function useResolveAlert() {
 }
 
 export function useSnoozeAlert() {
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -296,7 +275,7 @@ export function useSnoozeAlert() {
 }
 
 export function useBulkUpdateAlerts() {
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -323,7 +302,7 @@ export function useBulkUpdateAlerts() {
 
 // Realtime subscription for alerts
 export function useRealtimeAlerts() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   useEffect(() => {
