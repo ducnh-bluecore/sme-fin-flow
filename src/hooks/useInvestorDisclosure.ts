@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/investor-disclosure`;
 
@@ -47,7 +47,7 @@ interface SavedDisclosure {
 }
 
 export function useGenerateDisclosure(period: string) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['investor-disclosure', 'generate', period, tenantId],
@@ -75,7 +75,7 @@ export function useGenerateDisclosure(period: string) {
 }
 
 export function useDisclosureList(status?: string) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['investor-disclosure', 'list', status, tenantId],
@@ -107,7 +107,7 @@ export function useDisclosureList(status?: string) {
 }
 
 export function useDisclosure(id: string) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['investor-disclosure', id, tenantId],
@@ -135,7 +135,7 @@ export function useDisclosure(id: string) {
 }
 
 export function useSaveDisclosure() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -174,7 +174,7 @@ export function useSaveDisclosure() {
 }
 
 export function useApproveDisclosure() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -205,7 +205,7 @@ export function useApproveDisclosure() {
 }
 
 export function usePublishDisclosure() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
