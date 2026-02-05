@@ -302,10 +302,12 @@ export function useNotificationCenter(filters?: AlertFilters) {
     mutationFn: async (config: Partial<AlertConfig> & { category: AlertCategory; alert_type: string }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data: existing } = await buildSelectQuery('extended_alert_configs', 'id')
+      const { data: existingData } = await buildSelectQuery('extended_alert_configs', 'id')
         .eq('category', config.category)
         .eq('alert_type', config.alert_type)
         .maybeSingle();
+      
+      const existing = existingData as unknown as { id: string } | null;
 
       const dataToSave = {
         category: config.category,
