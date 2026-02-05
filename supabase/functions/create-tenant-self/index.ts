@@ -22,6 +22,7 @@ import { seedDefaultAlertConfigs } from '../_shared/defaultAlertConfigs.ts';
 type CreateTenantSelfRequest = {
   name: string;
   slug?: string;
+  tier?: 'smb' | 'midmarket' | 'enterprise';
 };
 
 function generateSlug(name: string) {
@@ -80,14 +81,15 @@ Deno.serve(async (req: Request) => {
       return errorResponse('Slug đã tồn tại, vui lòng chọn slug khác', 400);
     }
 
-    // Create tenant
+    // Create tenant with tier
+    const tier = body.tier || 'midmarket';
     const { data: tenant, error: tenantError } = await serviceClient
       .from('tenants')
       .insert({
         name,
         slug,
         is_active: true,
-        plan: 'free',
+        plan: tier === 'enterprise' ? 'enterprise' : (tier === 'midmarket' ? 'pro' : 'free'),
       })
       .select('*')
       .single();
@@ -126,24 +128,30 @@ Deno.serve(async (req: Request) => {
       // Non-fatal; UI can still switch tenant via hook if needed
     }
 
-    // Auto-provision dedicated schema for tenant
-    console.log(`[create-tenant-self] Auto-provisioning schema for tenant ${tenant.id} (${slug})`);
-    try {
-      const { data: provisionResult, error: provisionError } = await serviceClient
-        .rpc('provision_tenant_schema', {
-          p_tenant_id: tenant.id,
-          p_slug: slug
-        });
+    // Auto-provision dedicated schema for tenant (only for midmarket and enterprise tiers)
+    // SMB tier uses shared schema with RLS
+    if (tier !== 'smb') {
+      console.log(`[create-tenant-self] Auto-provisioning schema for tenant ${tenant.id} (${slug}) - tier: ${tier}`);
+      try {
+        const { data: provisionResult, error: provisionError } = await serviceClient
+          .rpc('provision_tenant_by_tier', {
+            p_tenant_id: tenant.id,
+            p_slug: slug,
+            p_tier: tier
+          });
 
-      if (provisionError) {
-        console.error('[create-tenant-self] Error provisioning schema:', provisionError);
-        // Non-fatal - schema can be provisioned later by admin
-      } else {
-        console.log('[create-tenant-self] Schema provisioned successfully:', provisionResult);
+        if (provisionError) {
+          console.error('[create-tenant-self] Error provisioning schema:', provisionError);
+          // Non-fatal - schema can be provisioned later by admin
+        } else {
+          console.log('[create-tenant-self] Schema provisioned successfully:', provisionResult);
+        }
+      } catch (provisionErr) {
+        console.error('[create-tenant-self] Exception during schema provisioning:', provisionErr);
+        // Non-fatal - continue with tenant creation
       }
-    } catch (provisionErr) {
-      console.error('[create-tenant-self] Exception during schema provisioning:', provisionErr);
-      // Non-fatal - continue with tenant creation
+    } else {
+      console.log(`[create-tenant-self] SMB tier - skipping schema provisioning for tenant ${tenant.id}`);
     }
 
     // Auto-seed default alert configurations

@@ -2,15 +2,17 @@
  * Channel Analytics Hooks - SSOT Compliant
  * 
  * ✅ SSOT: Queries cdp_orders (Layer 1) instead of external_orders (staging)
- * ✅ Refactored to use Schema-per-Tenant architecture
+ * ✅ Refactored to use Schema-per-Tenant architecture with useTenantQueryBuilder
  * 
  * Note: This hook primarily handles channel-specific data aggregation.
  * Core financial metrics (total revenue, margins) should be sourced from
  * useCentralFinancialMetrics for cross-page consistency.
+ * 
+ * @architecture Schema-per-Tenant Ready
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { Database } from '@/integrations/supabase/types';
 
 // ✅ SSOT: Use cdp_orders type instead of external_orders
@@ -61,43 +63,24 @@ export interface FeeSummary {
 // ==================== ALL REVENUE SOURCES ====================
 
 export function useAllRevenueData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['all-revenue-data', tenantId],
     queryFn: async () => {
-      // Build queries with tenant filter
-      let ordersQuery = client
-        .from('cdp_orders')
-        .select('id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
-        .limit(50000);
-      
-      let invoicesQuery = client
-        .from('invoices')
-        .select('id, invoice_number, customer_id, issue_date, total_amount, paid_amount, status')
-        .in('status', ['sent', 'paid', 'partial'])
-        .limit(50000);
-      
-      let revenuesQuery = client
-        .from('revenues')
-        .select('id, description, source, amount, start_date, is_active')
-        .eq('is_active', true);
-
-      if (shouldAddTenantFilter) {
-        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
-        invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
-        revenuesQuery = revenuesQuery.eq('tenant_id', tenantId);
-      }
-
-      // Fetch all revenue sources in parallel
-      const [externalOrdersRes, invoicesRes, revenuesRes] = await Promise.all([
-        ordersQuery,
-        invoicesQuery,
-        revenuesQuery,
+      // Fetch all revenue sources in parallel using useTenantQueryBuilder
+      const [ordersRes, invoicesRes, revenuesRes] = await Promise.all([
+        buildSelectQuery('cdp_orders', 'id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
+          .limit(50000),
+        buildSelectQuery('invoices', 'id, invoice_number, customer_id, issue_date, total_amount, paid_amount, status')
+          .in('status', ['sent', 'paid', 'partial'])
+          .limit(50000),
+        buildSelectQuery('revenues', 'id, description, source, amount, start_date, is_active')
+          .eq('is_active', true),
       ]);
 
       return {
-        externalOrders: externalOrdersRes.data || [],
+        externalOrders: ordersRes.data || [],
         invoices: invoicesRes.data || [],
         revenues: revenuesRes.data || [],
       };
@@ -110,35 +93,29 @@ export function useAllRevenueData() {
 // ==================== CHANNEL PERFORMANCE ====================
 
 export function useChannelPerformance() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['channel-performance', tenantId],
     queryFn: async () => {
       // DB-First: Try the new aggregated view first (avoids 1000 row limit)
-      let viewQuery = client
-        .from('v_channel_performance')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        viewQuery = viewQuery.eq('tenant_id', tenantId);
-      }
-      
-      const { data: viewData, error: viewError } = await viewQuery;
+      const { data: viewData, error: viewError } = await buildSelectQuery('v_channel_performance', '*');
 
       if (!viewError && viewData && viewData.length > 0) {
         return viewData.map(item => ({
-          connector_name: item.channel || 'Unknown',
-          connector_type: item.channel || 'unknown',
+          connector_name: (item as any).channel || 'Unknown',
+          connector_type: (item as any).channel || 'unknown',
           shop_name: null,
           integration_id: '',
-          total_orders: Number(item.order_count) || 0,
-          gross_revenue: Number(item.gross_revenue) || 0,
-          net_revenue: Number(item.net_revenue) || 0,
-          total_fees: Number(item.total_fees) || 0,
-          total_cogs: Number(item.cogs) || 0,
-          gross_profit: Number(item.gross_margin) || 0,
-          avg_order_value: Number(item.order_count) > 0 ? Number(item.net_revenue) / Number(item.order_count) : 0,
+          total_orders: Number((item as any).order_count) || 0,
+          gross_revenue: Number((item as any).gross_revenue) || 0,
+          net_revenue: Number((item as any).net_revenue) || 0,
+          total_fees: Number((item as any).total_fees) || 0,
+          total_cogs: Number((item as any).cogs) || 0,
+          gross_profit: Number((item as any).gross_margin) || 0,
+          avg_order_value: Number((item as any).order_count) > 0 
+            ? Number((item as any).net_revenue) / Number((item as any).order_count) 
+            : 0,
           cancelled_orders: 0,
           returned_orders: 0,
           source: 'ecommerce' as const,
@@ -146,28 +123,10 @@ export function useChannelPerformance() {
       }
 
       // Fallback: Calculate from raw data
-      let integrationsQuery = client
-        .from('connector_integrations')
-        .select('id, connector_name, connector_type, shop_name');
-      
-      let ordersQuery = client
-        .from('cdp_orders')
-        .select('channel, gross_revenue, cogs');
-      
-      let feesQuery = client
-        .from('channel_fees')
-        .select('integration_id, amount');
-
-      if (shouldAddTenantFilter) {
-        integrationsQuery = integrationsQuery.eq('tenant_id', tenantId);
-        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
-        feesQuery = feesQuery.eq('tenant_id', tenantId);
-      }
-
       const [integrationsRes, ordersRes, feesRes] = await Promise.all([
-        integrationsQuery,
-        ordersQuery,
-        feesQuery,
+        buildSelectQuery('connector_integrations', 'id, connector_name, connector_type, shop_name'),
+        buildSelectQuery('cdp_orders', 'channel, gross_revenue, cogs'),
+        buildSelectQuery('channel_fees', 'integration_id, amount'),
       ]);
 
       const integrations = integrationsRes.data || [];
@@ -177,7 +136,7 @@ export function useChannelPerformance() {
       // Group data by integration
       const performanceMap = new Map<string, ChannelPerformance>();
 
-      integrations.forEach(integration => {
+      integrations.forEach((integration: any) => {
         performanceMap.set(integration.id, {
           connector_name: integration.connector_name,
           connector_type: integration.connector_type,
@@ -199,7 +158,7 @@ export function useChannelPerformance() {
       // Aggregate orders by channel
       const channelPerfMap = new Map<string, ChannelPerformance>();
       
-      orders.forEach(order => {
+      orders.forEach((order: any) => {
         const channel = order.channel || 'Unknown';
         const existing = channelPerfMap.get(channel) || {
           connector_name: channel,
@@ -249,7 +208,7 @@ export function useChannelPerformance() {
 // ==================== DAILY REVENUE ====================
 
 export function useDailyChannelRevenue(days: number = 90) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['daily-channel-revenue', tenantId, days],
@@ -259,23 +218,19 @@ export function useDailyChannelRevenue(days: number = 90) {
       const startDateStr = startDate.toISOString().split('T')[0];
 
       // Use cdp_orders (SSOT)
-      let query = client
-        .from('cdp_orders')
-        .select('order_at, channel, gross_revenue, net_revenue, gross_margin')
+      const { data: orders, error } = await buildSelectQuery(
+        'cdp_orders', 
+        'order_at, channel, gross_revenue, net_revenue, gross_margin'
+      )
         .gte('order_at', startDateStr)
         .order('order_at', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data: orders, error } = await query;
       if (error) throw error;
 
       // Group by date and channel
       const dailyMap = new Map<string, DailyRevenue>();
 
-      (orders || []).forEach(order => {
+      (orders || []).forEach((order: any) => {
         const dateStr = order.order_at?.split('T')[0] || '';
         const channel = order.channel || 'Unknown';
         const key = `${dateStr}_${channel}`;
@@ -312,25 +267,17 @@ export function useDailyChannelRevenue(days: number = 90) {
 // ==================== ORDER STATUS SUMMARY ====================
 
 export function useOrderStatusSummary() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['order-status-summary', tenantId],
     queryFn: async () => {
-      let query = client
-        .from('cdp_orders')
-        .select('gross_revenue');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('cdp_orders', 'gross_revenue');
       if (error) throw error;
 
       // cdp_orders contains only delivered/confirmed orders
       const statusMap = new Map<string, { count: number; total_amount: number }>();
-      const totalAmount = (data || []).reduce((sum, o) => sum + (Number(o.gross_revenue) || 0), 0);
+      const totalAmount = (data || []).reduce((sum, o: any) => sum + (Number(o.gross_revenue) || 0), 0);
       statusMap.set('delivered', {
         count: (data || []).length,
         total_amount: totalAmount,
@@ -348,24 +295,16 @@ export function useOrderStatusSummary() {
 // ==================== CHANNEL FEES SUMMARY ====================
 
 export function useChannelFeesSummary() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['channel-fees-summary', tenantId],
     queryFn: async () => {
-      let query = client
-        .from('channel_fees')
-        .select('fee_type, fee_category, amount');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('channel_fees', 'fee_type, fee_category, amount');
       if (error) throw error;
 
       const feeMap = new Map<string, number>();
-      (data || []).forEach((fee) => {
+      (data || []).forEach((fee: any) => {
         const type = fee.fee_type || 'other';
         feeMap.set(type, (feeMap.get(type) || 0) + (fee.amount || 0));
       });
@@ -382,39 +321,32 @@ export function useChannelFeesSummary() {
 // ==================== SETTLEMENTS ====================
 
 export function useSettlementsSummary() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['settlements-summary', tenantId],
     queryFn: async () => {
-      let query = client
-        .from('channel_settlements')
-        .select(`
-          id,
-          settlement_id,
-          settlement_number,
-          status,
-          period_start,
-          period_end,
-          payout_date,
-          gross_sales,
-          total_fees,
-          total_refunds,
-          net_amount,
-          total_orders,
-          is_reconciled,
-          integration_id
-        `)
+      const { data, error } = await buildSelectQuery('channel_settlements', `
+        id,
+        settlement_id,
+        settlement_number,
+        status,
+        period_start,
+        period_end,
+        payout_date,
+        gross_sales,
+        total_fees,
+        total_refunds,
+        net_amount,
+        total_orders,
+        is_reconciled,
+        integration_id
+      `)
         .order('period_end', { ascending: false })
         .limit(50);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as ChannelSettlement[];
+      return (data as unknown as ChannelSettlement[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -429,19 +361,16 @@ export function useExternalOrders(options?: {
   endDate?: string;
   limit?: number;
 }) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['external-orders', tenantId, options],
     queryFn: async () => {
-      let query = client
-        .from('cdp_orders')
-        .select('id, tenant_id, channel, order_at, customer_id, gross_revenue, net_revenue, cogs, gross_margin')
+      let query = buildSelectQuery(
+        'cdp_orders', 
+        'id, tenant_id, channel, order_at, customer_id, gross_revenue, net_revenue, cogs, gross_margin'
+      )
         .order('order_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       if (options?.channel && options.channel !== 'all') {
         query = query.eq('channel', options.channel);
@@ -460,7 +389,7 @@ export function useExternalOrders(options?: {
       if (error) throw error;
       
       // Map to legacy ExternalOrder format for backward compatibility
-      return (data || []).map(o => ({
+      return (data || []).map((o: any) => ({
         id: o.id,
         tenant_id: o.tenant_id,
         channel: o.channel,
@@ -483,22 +412,18 @@ export function useExternalOrders(options?: {
 // ==================== TOP PRODUCTS ====================
 
 export function useTopProducts(limit: number = 10) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['top-products', tenantId, limit],
     queryFn: async () => {
-      let query = client
-        .from('external_products')
-        .select('id, name, selling_price, cost_price, stock_quantity, category, integration_id')
+      const { data, error } = await buildSelectQuery(
+        'external_products', 
+        'id, name, selling_price, cost_price, stock_quantity, category, integration_id'
+      )
         .order('selling_price', { ascending: false })
         .limit(limit);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -509,7 +434,7 @@ export function useTopProducts(limit: number = 10) {
 // ==================== COMBINED ANALYTICS DATA (ALL SOURCES) ====================
 
 export function useChannelAnalyticsData() {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantQueryBuilder();
   const channelPerformance = useChannelPerformance();
   const dailyRevenue = useDailyChannelRevenue(90);
   const orderStatus = useOrderStatusSummary();
@@ -531,8 +456,8 @@ export function useChannelAnalyticsData() {
   // Add Invoice channel
   if (allRevenue.data?.invoices && allRevenue.data.invoices.length > 0) {
     const invoices = allRevenue.data.invoices;
-    const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-    const paidAmount = invoices.reduce((sum, inv) => sum + (inv.paid_amount || 0), 0);
+    const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0);
+    const paidAmount = invoices.reduce((sum: number, inv: any) => sum + (inv.paid_amount || 0), 0);
     
     combinedPerformance.push({
       connector_name: 'Hóa đơn B2B',
@@ -555,7 +480,7 @@ export function useChannelAnalyticsData() {
   // Add Other Revenue channel
   if (allRevenue.data?.revenues && allRevenue.data.revenues.length > 0) {
     const revenues = allRevenue.data.revenues;
-    const totalRevenue = revenues.reduce((sum, rev) => sum + (rev.amount || 0), 0);
+    const totalRevenue = revenues.reduce((sum: number, rev: any) => sum + (rev.amount || 0), 0);
     
     combinedPerformance.push({
       connector_name: 'Doanh thu khác',

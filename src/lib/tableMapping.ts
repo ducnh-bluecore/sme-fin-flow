@@ -19,6 +19,19 @@
  * Map of legacy table names to new schema-per-tenant table names
  */
 export const TABLE_MAP = {
+  // ============ Foundation (Layer 1) ============
+  organizations: 'organizations',
+  organization_members: 'organization_members',
+  channel_accounts: 'channel_accounts',
+  org_roles: 'user_roles',
+  user_roles: 'user_roles',
+  
+  // ============ Ingestion (Layer 1.5) ============
+  ingestion_batches: 'ingestion_batches',
+  data_watermarks: 'data_watermarks',
+  sync_checkpoints: 'sync_checkpoints',
+  connector_integrations: 'connector_integrations',
+  
   // ============ Master Model (Layer 2) ============
   // Orders
   cdp_orders: 'master_orders',
@@ -53,20 +66,23 @@ export const TABLE_MAP = {
   
   // ============ Events & Marketing (Layer 2.5) ============
   commerce_events: 'commerce_events',
+  marketing_events: 'commerce_events',
   ad_accounts: 'master_ad_accounts',
   campaigns: 'master_campaigns',
   ad_spend: 'master_ad_spend_daily',
   marketing_spend: 'master_ad_spend_daily',
-  
-  // ============ Foundation (Layer 1) ============
-  organizations: 'organizations',
-  organization_members: 'organization_members',
-  channel_accounts: 'channel_accounts',
+  ad_performance: 'master_ad_spend_daily',
+  channel_analytics: 'master_ad_spend_daily',
+  platform_ads_data: 'master_ad_spend_daily',
   
   // ============ KPI (Layer 3) ============
   kpi_definitions: 'kpi_definitions',
   kpi_thresholds: 'kpi_thresholds',
   kpi_facts: 'kpi_facts_daily',
+  kpi_facts_daily: 'kpi_facts_daily',
+  kpi_targets: 'kpi_targets',
+  kpi_snapshots: 'kpi_facts_daily',
+  finance_truth_facts: 'kpi_facts_daily',
   
   // ============ Alert & Decision (Layer 4) ============
   alert_rules: 'alert_rules',
@@ -103,15 +119,35 @@ export const TABLE_MAP = {
   ai_favorites: 'ai_favorites',
   ai_insights: 'ai_insights',
   
+  // CDP AI views (legacy names)
+  v_cdp_customer_research: 'v_customer_research',
+  v_cdp_product_benchmark: 'v_product_benchmark',
+  v_cdp_category_conversion_stats: 'v_category_conversion_stats',
+  v_cdp_customer_category_affinity: 'v_customer_category_affinity',
+  
+  // AI entities
+  cdp_product_forecasts: 'product_forecasts',
+  product_forecasts: 'product_forecasts',
+  cdp_segments: 'customer_segments',
+  customer_segments: 'customer_segments',
+  cdp_scenarios: 'scenarios',
+  hypothesis_queries: 'hypothesis_queries',
+  
   // ============ Audit (Layer 6) ============
   sync_jobs: 'sync_jobs',
   sync_errors: 'sync_errors',
   audit_logs: 'audit_logs',
+  v_cdp_customer_audit: 'v_customer_audit',
+  event_logs: 'event_logs',
+  cdp_audit: 'audit_logs',
   
   // ============ BigQuery (Layer 10) ============
   bigquery_connections: 'bigquery_connections',
   bigquery_sync_configs: 'bigquery_sync_configs',
+  bigquery_query_cache: 'query_cache',
   query_cache: 'query_cache',
+  bigquery_sync_watermarks: 'sync_watermarks',
+  bigquery_data_models: 'data_models',
 } as const;
 
 /**

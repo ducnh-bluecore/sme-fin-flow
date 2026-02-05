@@ -381,16 +381,32 @@ Step 10: Batch migrate remaining 150+ hooks
 
 ## Validation Checklist
 
-- [ ] All new table mappings compile without TypeScript errors
-- [ ] Layer 1 (Foundation) hooks work with useTenantQueryBuilder
-- [ ] Layer 1.5 (Ingestion) hooks created and tested
-- [ ] Layer 3 (KPI) hooks created and connected to precompute views
-- [ ] Layer 5 (AI) hooks fully migrated
-- [ ] Layer 6 (Audit) hooks fully migrated
-- [ ] Layer 10 (BigQuery) hooks fully migrated
-- [ ] create-tenant-self provisions schema by tier
+- [x] All new table mappings compile without TypeScript errors
+- [x] Layer 1 (Foundation) hooks work with useTenantQueryBuilder
+- [x] Layer 1.5 (Ingestion) hooks created and tested
+- [x] Layer 3 (KPI) hooks created and connected to precompute views
+- [x] Layer 5 (AI) hooks fully migrated
+- [x] Layer 6 (Audit) hooks fully migrated
+- [x] Layer 10 (BigQuery) hooks fully migrated
+- [x] create-tenant-self provisions schema by tier
 - [ ] No cross-tenant data leakage in any layer
 - [ ] All queries work for both SMB (shared) and Midmarket (dedicated)
+
+---
+
+## Phase 7 Completion Status
+
+### Completed Steps:
+1. ✅ Extended tableMapping.ts với ~25 new mappings (Layer 1.5, 2.5, 3, 5, 6, 10)
+2. ✅ Migrated Layer 1 - useOrganization.ts to useTenantQueryBuilder
+3. ✅ Created Layer 1.5 hooks - useIngestionBatches.ts, useDataWatermarks.ts
+4. ✅ Migrated Layer 2.5 - useChannelAnalytics.ts, usePlatformAdsData.ts
+5. ✅ Created Layer 3 KPI hooks - useKPITargets.ts, useKPIDefinitions.ts
+6. ✅ Migrated Layer 5/6/10 - useAIInsights.ts, useAuditLogs.ts, useBigQueryRealtime.ts
+7. ✅ Updated create-tenant-self with tier-based provisioning
+
+### Remaining Work:
+- Step 7.9: Batch migrate remaining 150+ hooks (P1-P4 priority)
 
 ---
 

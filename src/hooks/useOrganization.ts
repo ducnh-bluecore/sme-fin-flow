@@ -8,20 +8,13 @@
  * 
  * Hierarchy: Tenant → Organization → User
  * 
- * Usage:
- * ```tsx
- * function MyComponent() {
- *   const { organizations, activeOrg, switchOrg } = useOrganization();
- *   
- *   // Switch between organizations
- *   switchOrg(orgId);
- * }
- * ```
+ * @architecture Schema-per-Tenant Ready
+ * Uses useTenantQueryBuilder for all queries.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useTenantSession } from './useTenantSession';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useCallback, useState, useEffect } from 'react';
 
 // =====================================================
@@ -70,18 +63,17 @@ export interface OrganizationWithMembership extends Organization {
  */
 export function useUserOrganizations() {
   const { isSessionReady, sessionInfo } = useTenantSession();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['organizations', sessionInfo?.tenantId],
+    queryKey: ['organizations', tenantId],
     queryFn: async () => {
-      if (!isSessionReady || !sessionInfo?.isProvisioned) {
+      if (!isReady || !sessionInfo?.isProvisioned) {
         return [];
       }
 
-      // Query organizations via the tenant schema (set by session)
-      const { data, error } = await supabase
-        .from('organizations' as any)
-        .select('*')
+      // Query organizations via useTenantQueryBuilder
+      const { data, error } = await buildSelectQuery('organizations', '*')
         .eq('is_active', true);
 
       if (error) {
@@ -90,7 +82,7 @@ export function useUserOrganizations() {
       }
 
       // Get current user
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await client.auth.getUser();
       const userId = userData?.user?.id;
 
       // Transform to OrganizationWithMembership - simplified without joins
@@ -100,7 +92,7 @@ export function useUserOrganizations() {
         member_id: '',
       })) as OrganizationWithMembership[];
     },
-    enabled: isSessionReady && !!sessionInfo?.isProvisioned,
+    enabled: isSessionReady && isReady && !!sessionInfo?.isProvisioned,
     staleTime: 30000,
   });
 }
@@ -110,20 +102,19 @@ export function useUserOrganizations() {
  */
 export function useOrganization(orgId?: string) {
   const { isSessionReady, sessionInfo } = useTenantSession();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['organization', orgId],
+    queryKey: ['organization', orgId, tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('organizations' as any)
-        .select('*')
+      const { data, error } = await buildSelectQuery('organizations', '*')
         .eq('id', orgId)
         .single();
 
       if (error) throw error;
       return (data as unknown) as Organization;
     },
-    enabled: isSessionReady && sessionInfo?.isProvisioned && !!orgId,
+    enabled: isSessionReady && isReady && sessionInfo?.isProvisioned && !!orgId,
   });
 }
 
@@ -133,17 +124,16 @@ export function useOrganization(orgId?: string) {
 export function useCreateOrganization() {
   const queryClient = useQueryClient();
   const { sessionInfo } = useTenantSession();
+  const { buildInsertQuery, client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: { name: string; slug: string; logo_url?: string }) => {
-      const { data, error } = await supabase
-        .from('organizations' as any)
-        .insert({
-          name: input.name,
-          slug: input.slug,
-          logo_url: input.logo_url,
-          is_active: true,
-        })
+      const { data, error } = await buildInsertQuery('organizations', {
+        name: input.name,
+        slug: input.slug,
+        logo_url: input.logo_url,
+        is_active: true,
+      })
         .select()
         .single();
 
@@ -152,15 +142,15 @@ export function useCreateOrganization() {
       const orgData = (data as unknown) as Organization;
 
       // Also add current user as owner
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await client.auth.getUser();
       if (userData?.user?.id && orgData?.id) {
-        await supabase.from('organization_members' as any).insert({
+        await buildInsertQuery('organization_members', {
           organization_id: orgData.id,
           user_id: userData.user.id,
           is_active: true,
         });
 
-        await supabase.from('user_roles' as any).insert({
+        await buildInsertQuery('user_roles', {
           organization_id: orgData.id,
           user_id: userData.user.id,
           role: 'owner',
@@ -171,7 +161,7 @@ export function useCreateOrganization() {
       return orgData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organizations', sessionInfo?.tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['organizations', tenantId] });
     },
   });
 }
@@ -182,15 +172,14 @@ export function useCreateOrganization() {
 export function useUpdateOrganization() {
   const queryClient = useQueryClient();
   const { sessionInfo } = useTenantSession();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Organization> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('organizations' as any)
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('organizations', {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', id)
         .select()
         .single();
@@ -199,8 +188,8 @@ export function useUpdateOrganization() {
       return (data as unknown) as Organization;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['organizations', sessionInfo?.tenantId] });
-      queryClient.invalidateQueries({ queryKey: ['organization', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['organizations', tenantId] });
+      queryClient.invalidateQueries({ queryKey: ['organization', data.id, tenantId] });
     },
   });
 }
@@ -210,6 +199,7 @@ export function useUpdateOrganization() {
  */
 export function useInviteToOrganization() {
   const queryClient = useQueryClient();
+  const { buildInsertQuery, client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: { 
@@ -218,26 +208,22 @@ export function useInviteToOrganization() {
       role: UserRole['role'];
     }) => {
       // Add member
-      const { error: memberError } = await supabase
-        .from('organization_members' as any)
-        .insert({
-          organization_id: input.organization_id,
-          user_id: input.user_id,
-          is_active: true,
-        });
+      const { error: memberError } = await buildInsertQuery('organization_members', {
+        organization_id: input.organization_id,
+        user_id: input.user_id,
+        is_active: true,
+      });
 
       if (memberError) throw memberError;
 
       // Set role
-      const { data: userData } = await supabase.auth.getUser();
-      const { error: roleError } = await supabase
-        .from('user_roles' as any)
-        .insert({
-          organization_id: input.organization_id,
-          user_id: input.user_id,
-          role: input.role,
-          granted_by: userData?.user?.id,
-        });
+      const { data: userData } = await client.auth.getUser();
+      const { error: roleError } = await buildInsertQuery('user_roles', {
+        organization_id: input.organization_id,
+        user_id: input.user_id,
+        role: input.role,
+        granted_by: userData?.user?.id,
+      });
 
       if (roleError) throw roleError;
 
@@ -254,13 +240,12 @@ export function useInviteToOrganization() {
  */
 export function useOrganizationMembers(orgId?: string) {
   const { isSessionReady, sessionInfo } = useTenantSession();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['organization-members', orgId],
+    queryKey: ['organization-members', orgId, tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('organization_members' as any)
-        .select('*')
+      const { data, error } = await buildSelectQuery('organization_members', '*')
         .eq('organization_id', orgId)
         .eq('is_active', true);
 
@@ -271,7 +256,7 @@ export function useOrganizationMembers(orgId?: string) {
         role: 'viewer' as const, // Default, could be fetched separately
       }));
     },
-    enabled: isSessionReady && sessionInfo?.isProvisioned && !!orgId,
+    enabled: isSessionReady && isReady && sessionInfo?.isProvisioned && !!orgId,
   });
 }
 
@@ -285,6 +270,7 @@ export function useOrganizationMembers(orgId?: string) {
 export function useOrganizationContext() {
   const { data: organizations = [], isLoading } = useUserOrganizations();
   const { setCurrentOrg, currentOrgId, isSessionReady, sessionInfo } = useTenantSession();
+  const { isReady } = useTenantQueryBuilder();
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
 
   // Find active organization
@@ -325,7 +311,7 @@ export function useOrganizationContext() {
     organizations,
     activeOrg,
     activeOrgId,
-    isLoading: isLoading || !isSessionReady,
+    isLoading: isLoading || !isSessionReady || !isReady,
     isProvisioned: sessionInfo?.isProvisioned ?? false,
     switchOrg,
     currentRole,

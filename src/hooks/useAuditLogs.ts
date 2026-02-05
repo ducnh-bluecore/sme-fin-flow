@@ -1,12 +1,12 @@
 /**
  * useAuditLogs - Audit logs access
  * 
- * @architecture Schema-per-Tenant
- * @domain Core/Audit
+ * @architecture Schema-per-Tenant Ready
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface AuditLog {
   id: string;
@@ -22,27 +22,19 @@ export interface AuditLog {
 }
 
 export function useAuditLogs() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['audit-logs', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('audit_logs')
-        .select('*')
+      const { data, error } = await buildSelectQuery('audit_logs', '*')
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as AuditLog[];
+      return (data as unknown) as AuditLog[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -53,13 +45,12 @@ export function useAuditLogs() {
  * Avoids 1000 row limit issue
  */
 export function useAuditLogStats() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['audit-log-stats', tenantId],
     queryFn: async () => {
-      const { data, error } = await client
-        .rpc('get_audit_log_stats', { p_tenant_id: tenantId });
+      const { data, error } = await callRpc('get_audit_log_stats', { p_tenant_id: tenantId });
 
       if (error) {
         console.error('[useAuditLogStats] RPC error:', error);
