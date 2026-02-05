@@ -1,3 +1,10 @@
+/**
+ * useTenantSchemaStatus - Hook for Schema Provisioning Status
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Note: Uses platform-level RPC that checks tenant provisioning status
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -12,6 +19,7 @@ export interface TenantSchemaInfo {
 
 /**
  * Check schema provisioning status for a single tenant
+ * Note: This is a platform-level RPC
  */
 export function useTenantSchemaStatus(tenantId: string | undefined) {
   return useQuery({
@@ -39,7 +47,7 @@ export function useTenantSchemaStatus(tenantId: string | undefined) {
       };
     },
     enabled: !!tenantId,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -54,7 +62,6 @@ export function useBatchTenantSchemaStatus(tenantIds: string[]) {
 
       if (!tenantIds.length) return statusMap;
 
-      // Check each tenant in parallel
       const results = await Promise.all(
         tenantIds.map(async (tenantId) => {
           try {
@@ -116,7 +123,6 @@ export function useProvisionTenantSchema() {
       return response.data;
     },
     onSuccess: (data, variables) => {
-      // Invalidate schema status queries
       queryClient.invalidateQueries({ queryKey: ['tenant-schema-status', variables.tenantId] });
       queryClient.invalidateQueries({ queryKey: ['tenant-schema-status-batch'] });
       queryClient.invalidateQueries({ queryKey: ['admin-tenants'] });

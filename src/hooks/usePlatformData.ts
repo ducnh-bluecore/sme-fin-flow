@@ -1,25 +1,10 @@
 /**
  * Platform Data Hook - Access Control Plane (platform schema)
  * 
- * Part of Architecture v1.4.1 - Control Plane Split (RISK #3)
+ * @architecture Schema-per-Tenant v1.4.1
  * 
- * This hook provides access to shared platform data:
- * - AI metric definitions
- * - KPI templates
- * - Alert rule templates
- * - Decision taxonomy
- * - Global source platforms
- * 
- * Platform data is READ-ONLY for all tenants (cross-tenant learning).
- * 
- * Usage:
- * ```tsx
- * function MyComponent() {
- *   const { metrics, kpiTemplates, isLoading } = usePlatformData();
- *   
- *   // Use shared metrics/templates
- * }
- * ```
+ * Note: Platform data is READ-ONLY for all tenants (cross-tenant learning).
+ * Uses supabase directly since these are platform-level tables.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -102,12 +87,9 @@ export interface AIQueryTemplate {
 }
 
 // =====================================================
-// Hooks
+// Hooks (Platform-level, no tenant filter needed)
 // =====================================================
 
-/**
- * Fetch AI metric definitions from platform schema
- */
 export function useAIMetricDefinitions() {
   return useQuery({
     queryKey: ['platform', 'ai-metric-definitions'],
@@ -124,14 +106,11 @@ export function useAIMetricDefinitions() {
 
       return (data as unknown) as AIMetricDefinition[];
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes (platform data changes rarely)
+    staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 }
 
-/**
- * Fetch KPI definition templates from platform schema
- */
 export function useKPITemplates() {
   return useQuery({
     queryKey: ['platform', 'kpi-templates'],
@@ -153,9 +132,6 @@ export function useKPITemplates() {
   });
 }
 
-/**
- * Fetch alert rule templates from platform schema
- */
 export function useAlertRuleTemplates() {
   return useQuery({
     queryKey: ['platform', 'alert-rule-templates'],
@@ -177,9 +153,6 @@ export function useAlertRuleTemplates() {
   });
 }
 
-/**
- * Fetch decision taxonomy from platform schema
- */
 export function useDecisionTaxonomy() {
   return useQuery({
     queryKey: ['platform', 'decision-taxonomy'],
@@ -197,14 +170,11 @@ export function useDecisionTaxonomy() {
 
       return (data as unknown) as DecisionTaxonomy[];
     },
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+    staleTime: 10 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
 }
 
-/**
- * Fetch global source platforms
- */
 export function useGlobalSourcePlatforms() {
   return useQuery({
     queryKey: ['platform', 'source-platforms'],
@@ -222,14 +192,11 @@ export function useGlobalSourcePlatforms() {
 
       return (data as unknown) as GlobalSourcePlatform[];
     },
-    staleTime: 30 * 60 * 1000, // Cache for 30 minutes (rarely changes)
+    staleTime: 30 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   });
 }
 
-/**
- * Fetch semantic models for AI query understanding
- */
 export function useSemanticModels() {
   return useQuery({
     queryKey: ['platform', 'semantic-models'],
@@ -251,9 +218,6 @@ export function useSemanticModels() {
   });
 }
 
-/**
- * Fetch AI query templates
- */
 export function useAIQueryTemplates(category?: string) {
   return useQuery({
     queryKey: ['platform', 'ai-query-templates', category],
@@ -286,9 +250,6 @@ export function useAIQueryTemplates(category?: string) {
 // Convenience Hook - All Platform Data
 // =====================================================
 
-/**
- * Convenience hook to fetch commonly used platform data
- */
 export function usePlatformData() {
   const metrics = useAIMetricDefinitions();
   const kpiTemplates = useKPITemplates();
@@ -309,25 +270,16 @@ export function usePlatformData() {
 // Helpers
 // =====================================================
 
-/**
- * Get metric by code
- */
 export function useMetricByCode(code: string) {
   const { data: metrics } = useAIMetricDefinitions();
   return metrics?.find(m => m.code === code) ?? null;
 }
 
-/**
- * Get KPI template by code
- */
 export function useKPITemplateByCode(code: string) {
   const { data: templates } = useKPITemplates();
   return templates?.find(t => t.code === code) ?? null;
 }
 
-/**
- * Get platforms by category
- */
 export function usePlatformsByCategory(category: GlobalSourcePlatform['category']) {
   const { data: platforms } = useGlobalSourcePlatforms();
   return platforms?.filter(p => p.category === category) ?? [];

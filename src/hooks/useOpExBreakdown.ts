@@ -1,19 +1,13 @@
 /**
  * useOpExBreakdown - Hook for detailed Operating Expense breakdown
  * 
- * Provides categorized OpEx data for EBITDA transparency:
- * - Salary (wages, payroll)
- * - Rent (office, warehouse)
- * - Utilities (electricity, water, internet)
- * - Other operating expenses
- * 
- * Architecture: DB-First - Aggregates from expense_baselines + expenses tables
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useExpenseBaselines } from '@/hooks/useExpenseBaselines';
 
 export interface OpExCategory {
@@ -31,20 +25,16 @@ export interface OpExBreakdown {
   other: number;
   total: number;
   
-  // Detailed breakdown
   categories: OpExCategory[];
   
-  // Data source info
   hasBaselineData: boolean;
   hasActualData: boolean;
   periodLabel: string;
   
-  // Methodology
   calculationMethod: string;
   calculationDescription: string;
 }
 
-// Category labels for UI
 const CATEGORY_LABELS: Record<string, string> = {
   salary: 'Lương nhân viên',
   rent: 'Thuê mặt bằng',
@@ -53,7 +43,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function useOpExBreakdown() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { baselines, totalMonthlyFixed, isLoading: baselinesLoading } = useExpenseBaselines();
 
   // Fetch actual expenses from expenses table for current month
@@ -66,10 +56,7 @@ export function useOpExBreakdown() {
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
       
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('id, category, description, amount, is_recurring')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('expenses', 'id, category, description, amount, is_recurring')
         .gte('expense_date', startOfMonth.toISOString())
         .order('expense_date', { ascending: false });
       
@@ -78,14 +65,19 @@ export function useOpExBreakdown() {
         return [];
       }
       
-      return data || [];
+      return (data || []) as unknown as Array<{
+        id: string;
+        category: string;
+        description: string;
+        amount: number;
+        is_recurring: boolean;
+      }>;
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady,
     staleTime: 5 * 60 * 1000,
   });
 
   const breakdown = useMemo<OpExBreakdown>(() => {
-    // Start with baselines (Fixed Costs)
     let salary = 0;
     let rent = 0;
     let utilities = 0;
@@ -116,7 +108,6 @@ export function useOpExBreakdown() {
         const desc = (exp.description || '').toLowerCase();
         const amount = exp.amount || 0;
         
-        // Simple categorization based on description keywords
         if (desc.includes('lương') || desc.includes('salary') || desc.includes('nhân viên')) {
           salary += amount;
         } else if (desc.includes('thuê') || desc.includes('rent') || desc.includes('mặt bằng')) {
@@ -131,7 +122,6 @@ export function useOpExBreakdown() {
 
     const total = salary + rent + utilities + other;
 
-    // Build categories array with percentages
     const allCategories: OpExCategory[] = [
       {
         category: 'salary' as const,
@@ -187,7 +177,7 @@ export function useOpExBreakdown() {
 
   return {
     breakdown,
-    isLoading: baselinesLoading || expensesLoading || tenantLoading,
+    isLoading: baselinesLoading || expensesLoading,
     hasData: breakdown.total > 0,
   };
 }

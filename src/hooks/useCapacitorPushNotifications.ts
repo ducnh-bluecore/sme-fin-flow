@@ -1,3 +1,11 @@
+/**
+ * useCapacitorPushNotifications - Hook for Capacitor Push Notifications
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Note: Push subscriptions are per-user but use tenant_id for routing
+ * Uses supabase directly since this is platform-level functionality
+ */
+
 import { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
@@ -23,7 +31,6 @@ export function useCapacitorPushNotifications() {
     permissionStatus: 'unknown',
   });
 
-  // Check if running on native platform
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -31,29 +38,23 @@ export function useCapacitorPushNotifications() {
     
     if (!isNative) return;
 
-    // Check current permission status
     checkPermissions();
 
-    // Set up listeners
     const setupListeners = async () => {
-      // On registration success
       await PushNotifications.addListener('registration', async (token: Token) => {
         console.log('Push registration success, token:', token.value);
         setState(prev => ({ ...prev, token: token.value, isRegistered: true }));
         
-        // Save token to database
         if (user?.id && tenantId) {
           await saveTokenToDatabase(token.value);
         }
       });
 
-      // On registration error
       await PushNotifications.addListener('registrationError', (error: any) => {
         console.error('Push registration error:', error);
         toast.error('Không thể đăng ký push notification');
       });
 
-      // On push notification received (foreground)
       await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
         console.log('Push notification received:', notification);
         toast.info(notification.title || 'Thông báo mới', {
@@ -61,7 +62,6 @@ export function useCapacitorPushNotifications() {
         });
       });
 
-      // On push notification action performed (user tapped)
       await PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
         console.log('Push notification action performed:', action);
         const data = action.notification.data;
@@ -96,14 +96,14 @@ export function useCapacitorPushNotifications() {
     if (!user?.id || !tenantId) return;
 
     try {
-      const platform = Capacitor.getPlatform(); // 'ios' | 'android' | 'web'
+      const platform = Capacitor.getPlatform();
       
       const insertData = {
         tenant_id: tenantId,
         user_id: user.id,
-        endpoint: `fcm://${token}`, // Use FCM-style endpoint
-        p256dh_key: platform, // Store platform info
-        auth_key: 'capacitor', // Identifier for Capacitor push
+        endpoint: `fcm://${token}`,
+        p256dh_key: platform,
+        auth_key: 'capacitor',
         is_active: true,
         device_info: {
           platform,
@@ -137,7 +137,6 @@ export function useCapacitorPushNotifications() {
       const permResult = await PushNotifications.requestPermissions();
       
       if (permResult.receive === 'granted') {
-        // Register with Apple / Google
         await PushNotifications.register();
         setState(prev => ({ ...prev, permissionStatus: 'granted' }));
         toast.success('Đã bật thông báo đẩy');
@@ -158,7 +157,6 @@ export function useCapacitorPushNotifications() {
     if (!isNative || !state.token || !user?.id) return;
 
     try {
-      // Deactivate in database
       const { error } = await supabase
         .from('push_subscriptions')
         .update({ is_active: false })

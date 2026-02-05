@@ -1,3 +1,10 @@
+/**
+ * useCSAlertsSummary - Hook for CS Alerts Summary (Admin)
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Note: CS alerts are platform-level (cross-tenant), uses supabase directly
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -48,6 +55,7 @@ export interface OpenCSAlert {
 
 /**
  * Hook to fetch CS alerts summary for admin dashboard
+ * Note: Platform-level RPC
  */
 export function useCSAlertsSummary() {
   return useQuery({
@@ -58,13 +66,14 @@ export function useCSAlertsSummary() {
       if (error) throw error;
       return data as unknown as CSAlertsSummary;
     },
-    staleTime: 60000, // Cache for 1 minute
-    refetchInterval: 120000, // Refetch every 2 minutes
+    staleTime: 60000,
+    refetchInterval: 120000,
   });
 }
 
 /**
  * Hook to fetch all open CS alerts with tenant info
+ * Note: Platform-level RPC
  */
 export function useAllOpenCSAlerts(
   limit: number = 50,

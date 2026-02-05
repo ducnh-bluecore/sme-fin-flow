@@ -1,3 +1,11 @@
+/**
+ * useTenantHealth - Hook for Tenant Health Monitoring
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Note: Uses platform-level tables (cs_alerts, tenant_events) in public schema
+ * These are admin-only and cross-tenant, so we use supabase directly
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -42,6 +50,7 @@ export interface CSAlert {
 
 /**
  * Hook to fetch tenant health metrics
+ * Note: This is a platform-level RPC, tenantId is passed as parameter
  */
 export function useTenantHealth(tenantId: string | undefined) {
   return useQuery({
@@ -57,8 +66,8 @@ export function useTenantHealth(tenantId: string | undefined) {
       return data as unknown as TenantHealthData;
     },
     enabled: !!tenantId,
-    staleTime: 60000, // Cache for 1 minute
-    refetchInterval: 300000, // Refetch every 5 minutes
+    staleTime: 60000,
+    refetchInterval: 300000,
   });
 }
 
@@ -86,6 +95,7 @@ export function useTenantActivitySummary(tenantId: string | undefined, days: num
 
 /**
  * Hook to fetch CS alerts for a tenant
+ * Note: cs_alerts is a platform-level table
  */
 export function useCSAlerts(tenantId: string | undefined, statusFilter?: string[]) {
   return useQuery({

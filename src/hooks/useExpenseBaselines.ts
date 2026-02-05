@@ -1,14 +1,12 @@
 /**
  * useExpenseBaselines - Hook for Fixed Cost Baselines
  * 
- * Manages expense_baselines table for CFO-defined recurring costs
- * like salary, rent, utilities that don't change monthly.
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useMemo } from 'react';
 
@@ -98,7 +96,7 @@ function mapToBaseline(row: Record<string, unknown>): ExpenseBaseline {
 // =============================================================
 
 export function useExpenseBaselines() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const today = new Date().toISOString().split('T')[0];
 
   const query = useQuery({
@@ -106,15 +104,7 @@ export function useExpenseBaselines() {
     queryFn: async (): Promise<ExpenseBaseline[]> => {
       if (!tenantId) return [];
 
-      let dbQuery = client
-        .from('expense_baselines')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        dbQuery = dbQuery.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await dbQuery
+      const { data, error } = await buildSelectQuery('expense_baselines', '*')
         .order('category', { ascending: true })
         .order('name', { ascending: true });
 
@@ -123,7 +113,7 @@ export function useExpenseBaselines() {
         throw error;
       }
 
-      return (data || []).map(mapToBaseline);
+      return ((data || []) as unknown as Record<string, unknown>[]).map(mapToBaseline);
     },
     enabled: isReady,
     staleTime: 5 * 60 * 1000,
@@ -184,29 +174,27 @@ export function useExpenseBaselines() {
 
 export function useCreateExpenseBaseline() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: CreateBaselineInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await supabase
-        .from('expense_baselines')
-        .insert({
-          tenant_id: tenantId,
-          category: input.category,
-          name: input.name,
-          monthly_amount: input.monthlyAmount,
-          effective_from: input.effectiveFrom,
-          effective_to: input.effectiveTo || null,
-          payment_due_day: input.paymentDueDay || null,
-          notes: input.notes || null,
-        })
+      const { data, error } = await buildInsertQuery('expense_baselines', {
+        tenant_id: tenantId,
+        category: input.category,
+        name: input.name,
+        monthly_amount: input.monthlyAmount,
+        effective_from: input.effectiveFrom,
+        effective_to: input.effectiveTo || null,
+        payment_due_day: input.paymentDueDay || null,
+        notes: input.notes || null,
+      })
         .select()
         .single();
 
       if (error) throw error;
-      return mapToBaseline(data);
+      return mapToBaseline(data as unknown as Record<string, unknown>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expense-baselines'] });
@@ -221,9 +209,12 @@ export function useCreateExpenseBaseline() {
 
 export function useUpdateExpenseBaseline() {
   const queryClient = useQueryClient();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: UpdateBaselineInput) => {
+      if (!tenantId) throw new Error('No tenant selected');
+
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
       
       if (input.category !== undefined) updates.category = input.category;
@@ -234,15 +225,13 @@ export function useUpdateExpenseBaseline() {
       if (input.paymentDueDay !== undefined) updates.payment_due_day = input.paymentDueDay;
       if (input.notes !== undefined) updates.notes = input.notes;
 
-      const { data, error } = await supabase
-        .from('expense_baselines')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('expense_baselines', updates)
         .eq('id', input.id)
         .select()
         .single();
 
       if (error) throw error;
-      return mapToBaseline(data);
+      return mapToBaseline(data as unknown as Record<string, unknown>);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expense-baselines'] });
@@ -257,12 +246,13 @@ export function useUpdateExpenseBaseline() {
 
 export function useDeleteExpenseBaseline() {
   const queryClient = useQueryClient();
+  const { buildDeleteQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('expense_baselines')
-        .delete()
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { error } = await buildDeleteQuery('expense_baselines')
         .eq('id', id);
 
       if (error) throw error;
