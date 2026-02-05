@@ -1,11 +1,12 @@
 /**
  * useConnectorIntegrations - Connector integration management
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Ingestion/Connectors
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { Database, Json } from '@/integrations/supabase/types';
 
@@ -22,7 +23,7 @@ export interface CreateIntegrationParams {
 }
 
 export function useConnectorIntegrations() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, buildInsertQuery, buildUpdateQuery, buildDeleteQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   const integrationsQuery = useQuery({
@@ -30,19 +31,11 @@ export function useConnectorIntegrations() {
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('connector_integrations')
-        .select('*')
+      const { data, error } = await buildSelectQuery('connector_integrations', '*')
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as ConnectorIntegration[];
+      return (data as unknown as ConnectorIntegration[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -53,19 +46,16 @@ export function useConnectorIntegrations() {
 
       const { data: user } = await client.auth.getUser();
       
-      const { data, error } = await client
-        .from('connector_integrations')
-        .insert([{
-          tenant_id: tenantId,
-          connector_type: params.connector_type,
-          connector_name: params.connector_name,
-          shop_name: params.shop_name,
-          shop_id: params.shop_id,
-          credentials: params.credentials || {},
-          settings: params.settings || {},
-          status: 'inactive',
-          created_by: user.user?.id,
-        }])
+      const { data, error } = await buildInsertQuery('connector_integrations', {
+        connector_type: params.connector_type,
+        connector_name: params.connector_name,
+        shop_name: params.shop_name,
+        shop_id: params.shop_id,
+        credentials: params.credentials || {},
+        settings: params.settings || {},
+        status: 'inactive',
+        created_by: user.user?.id,
+      })
         .select()
         .single();
 
@@ -89,9 +79,7 @@ export function useConnectorIntegrations() {
       id: string; 
       updates: Partial<ConnectorIntegration> 
     }) => {
-      const { data, error } = await client
-        .from('connector_integrations')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('connector_integrations', updates)
         .eq('id', id)
         .select()
         .single();
@@ -110,9 +98,7 @@ export function useConnectorIntegrations() {
 
   const deleteIntegration = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('connector_integrations')
-        .delete()
+      const { error } = await buildDeleteQuery('connector_integrations')
         .eq('id', id);
 
       if (error) throw error;
@@ -128,15 +114,13 @@ export function useConnectorIntegrations() {
 
   const syncIntegration = useMutation({
     mutationFn: async (integrationId: string) => {
-      const { data: integration, error: integrationError } = await client
-        .from('connector_integrations')
-        .select('id, connector_type')
+      const { data: integration, error: integrationError } = await buildSelectQuery('connector_integrations', 'id, connector_type')
         .eq('id', integrationId)
         .single();
 
       if (integrationError) throw integrationError;
 
-      if (integration?.connector_type === 'bigquery') {
+      if ((integration as any)?.connector_type === 'bigquery') {
         throw new Error('BigQuery: vui lòng đồng bộ trong phần "Data Warehouse" (cần Service Account Key).');
       }
 

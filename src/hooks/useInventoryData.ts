@@ -1,11 +1,12 @@
 /**
  * useInventoryData - Inventory management
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Master Model/Inventory
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface InventoryItem {
   id: string;
@@ -42,7 +43,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export function useInventoryData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['inventory-data', tenantId],
@@ -50,22 +51,14 @@ export function useInventoryData() {
       if (!tenantId) return { items: [], categories: [], warehouses: [] };
 
       // Fetch inventory objects (products with stock)
-      let query = client
-        .from('alert_objects')
-        .select('*')
+      const { data: products, error } = await buildSelectQuery('alert_objects', '*')
         .eq('object_type', 'product')
         .order('object_name', { ascending: true })
         .limit(10000);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data: products, error } = await query;
-
       if (error) throw error;
 
-      const items: InventoryItem[] = (products || []).map(obj => {
+      const items: InventoryItem[] = ((products || []) as any[]).map(obj => {
         const metrics = (obj.current_metrics || {}) as Record<string, unknown>;
         const objData = (obj.object_data || {}) as Record<string, unknown>;
         
