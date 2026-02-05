@@ -3,10 +3,13 @@
  * 
  * Extracted from SKUCostBreakdownDialog for tenant-aware architecture.
  * Uses CDP SSOT via get_sku_cost_breakdown RPC.
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware RPC calls
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface OrderBreakdown {
@@ -90,7 +93,7 @@ interface SKUCostBreakdownResult {
 }
 
 export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery<SKUCostBreakdownResult | null>({
@@ -99,7 +102,7 @@ export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
       if (!tenantId || !sku) return null;
 
       // Use CDP SSOT via RPC - no more external_order_items
-      const { data: rpcData, error: rpcError } = await client.rpc(
+      const { data: rpcData, error: rpcError } = await callRpc<SKUBreakdownRow[]>(
         'get_sku_cost_breakdown',
         {
           p_tenant_id: tenantId,
@@ -114,7 +117,7 @@ export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
         throw rpcError;
       }
 
-      const rows = (rpcData as unknown as SKUBreakdownRow[]) || [];
+      const rows = rpcData || [];
 
       if (rows.length === 0) {
         return { breakdowns: [], summary: null, channelSummaries: [], fromCache: false };

@@ -1,5 +1,12 @@
+/**
+ * useWhatIfScenarios - What-If Scenario Management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -93,27 +100,19 @@ export interface WhatIfScenario {
 }
 
 export function useWhatIfScenarios() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['what-if-scenarios', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('what_if_scenarios')
-        .select('*')
+      const { data, error } = await buildSelectQuery('what_if_scenarios', '*')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       
-      return (data || []).map(item => ({
+      return ((data || []) as unknown as Record<string, unknown>[]).map(item => ({
         ...item,
         params: item.params as unknown as WhatIfParams,
         results: item.results as unknown as WhatIfResults,
@@ -128,7 +127,7 @@ export function useWhatIfScenarios() {
 
 export function useSaveWhatIfScenario() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
   const { user } = useAuth();
 
   return useMutation({
@@ -144,7 +143,6 @@ export function useSaveWhatIfScenario() {
       if (!tenantId) throw new Error('No tenant selected');
 
       const insertData = {
-        tenant_id: tenantId,
         created_by: user?.id || null,
         name: scenario.name,
         description: scenario.description || null,
@@ -155,9 +153,7 @@ export function useSaveWhatIfScenario() {
         monthly_trend_data: scenario.monthly_trend_data ? JSON.parse(JSON.stringify(scenario.monthly_trend_data)) : null,
       };
 
-      const { data, error } = await client
-        .from('what_if_scenarios')
-        .insert(insertData)
+      const { data, error } = await buildInsertQuery('what_if_scenarios', insertData)
         .select()
         .single();
 
@@ -177,7 +173,7 @@ export function useSaveWhatIfScenario() {
 
 export function useUpdateWhatIfScenario() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { 
@@ -197,9 +193,7 @@ export function useUpdateWhatIfScenario() {
       if (updates.params !== undefined) updateData.params = updates.params;
       if (updates.results !== undefined) updateData.results = updates.results;
 
-      const { data, error } = await client
-        .from('what_if_scenarios')
-        .update(updateData)
+      const { data, error } = await buildUpdateQuery('what_if_scenarios', updateData)
         .eq('id', id)
         .select()
         .single();
@@ -219,13 +213,11 @@ export function useUpdateWhatIfScenario() {
 
 export function useDeleteWhatIfScenario() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('what_if_scenarios')
-        .delete()
+      const { error } = await buildDeleteQuery('what_if_scenarios')
         .eq('id', id);
 
       if (error) throw error;
