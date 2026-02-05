@@ -1,3 +1,10 @@
+/**
+ * useTenantModules - Hook for Tenant Modules Management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Note: tenant_modules is a platform-level table, uses supabase directly
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +28,10 @@ export interface TenantModule {
   };
 }
 
-// Get modules for a specific tenant
+/**
+ * Get modules for a specific tenant
+ * Note: This is a platform-level query (admin access)
+ */
 export function useTenantModules(tenantId: string | undefined) {
   return useQuery({
     queryKey: ['tenant-modules', tenantId],
@@ -49,7 +59,10 @@ export function useTenantModules(tenantId: string | undefined) {
   });
 }
 
-// Update tenant modules (bulk operation)
+/**
+ * Update tenant modules (bulk operation)
+ * Note: This is an admin-only operation
+ */
 export function useUpdateTenantModules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -132,7 +145,10 @@ export function useUpdateTenantModules() {
   });
 }
 
-// Initialize tenant modules from plan defaults
+/**
+ * Initialize tenant modules from plan defaults
+ * Note: This is an admin-only operation
+ */
 export function useInitializeTenantModules() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
