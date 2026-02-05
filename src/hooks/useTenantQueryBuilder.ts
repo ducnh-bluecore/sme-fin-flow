@@ -2,28 +2,34 @@
  * Tenant Query Builder - Helper for Schema-per-Tenant Migration
  * 
  * This utility provides backward-compatible query building during the migration period.
- * It automatically adds tenant_id filter when schema is not provisioned (shared DB mode),
- * and skips it when using schema-per-tenant mode (isolation via search_path).
+ * It automatically:
+ * 1. Translates legacy table names (cdp_*) to new names (master_*) when schema is provisioned
+ * 2. Adds tenant_id filter when using shared DB mode (not provisioned)
+ * 3. Skips tenant filter when using schema-per-tenant mode (isolation via search_path)
  * 
  * Usage:
  * ```ts
  * const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
  * 
- * const { data } = await buildQuery('products')
+ * // Table name auto-translated, tenant filter auto-applied
+ * const { data } = await buildQuery('cdp_orders') // → master_orders if provisioned
  *   .select('*')
- *   .order('name');
+ *   .order('created_at');
  * ```
  */
 
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { getTableName, isPlatformTable, isPublicOnlyTable } from '@/lib/tableMapping';
 
 export type TableName = string;
 
 /**
  * Hook to get tenant-aware query builder
- * Automatically handles tenant_id filter based on schema mode
+ * Automatically handles:
+ * - Table name translation (cdp_* → master_*)
+ * - Tenant_id filter based on schema mode
  */
 export function useTenantQueryBuilder() {
   const {
@@ -36,13 +42,21 @@ export function useTenantQueryBuilder() {
   } = useTenantSupabaseCompat();
 
   /**
-   * Build a query with automatic tenant filtering
-   * @param tableName - The table to query
-   * @returns PostgrestFilterBuilder with tenant filter applied if needed
+   * Build a query with automatic table translation and tenant filtering
+   * @param tableName - The table to query (can be legacy name like 'cdp_orders')
+   * @returns PostgrestFilterBuilder with table translated and tenant filter applied if needed
    */
   const buildQuery = useCallback(
     <T extends TableName>(tableName: T) => {
-      const query = client.from(tableName as any).select();
+      // Translate table name if schema is provisioned
+      const actualTable = getTableName(tableName, isSchemaProvisioned ?? false);
+      
+      const query = client.from(actualTable as any).select();
+      
+      // Platform tables and public-only tables don't need tenant filter
+      if (isPlatformTable(tableName) || isPublicOnlyTable(tableName)) {
+        return query;
+      }
       
       // In schema-per-tenant mode, no filter needed (isolation via search_path)
       // In shared DB mode, add tenant_id filter
@@ -52,7 +66,7 @@ export function useTenantQueryBuilder() {
       
       return query;
     },
-    [client, shouldAddTenantFilter, tenantId]
+    [client, shouldAddTenantFilter, tenantId, isSchemaProvisioned]
   );
 
   /**
@@ -60,7 +74,15 @@ export function useTenantQueryBuilder() {
    */
   const buildSelectQuery = useCallback(
     <T extends TableName>(tableName: T, columns: string) => {
-      const query = client.from(tableName as any).select(columns);
+      // Translate table name if schema is provisioned
+      const actualTable = getTableName(tableName, isSchemaProvisioned ?? false);
+      
+      const query = client.from(actualTable as any).select(columns);
+      
+      // Platform tables and public-only tables don't need tenant filter
+      if (isPlatformTable(tableName) || isPublicOnlyTable(tableName)) {
+        return query;
+      }
       
       if (shouldAddTenantFilter && tenantId) {
         return query.eq('tenant_id', tenantId);
@@ -68,7 +90,7 @@ export function useTenantQueryBuilder() {
       
       return query;
     },
-    [client, shouldAddTenantFilter, tenantId]
+    [client, shouldAddTenantFilter, tenantId, isSchemaProvisioned]
   );
 
   /**
@@ -76,7 +98,16 @@ export function useTenantQueryBuilder() {
    */
   const buildInsertQuery = useCallback(
     <T extends TableName>(tableName: T, data: Record<string, any> | Record<string, any>[]) => {
-      // Always add tenant_id to inserts (both modes need it for data integrity)
+      // Translate table name if schema is provisioned
+      const actualTable = getTableName(tableName, isSchemaProvisioned ?? false);
+      
+      // Platform tables and public-only tables don't need tenant_id
+      if (isPlatformTable(tableName) || isPublicOnlyTable(tableName)) {
+        return client.from(actualTable as any).insert(data);
+      }
+      
+      // Add tenant_id to inserts for data integrity
+      // In schema mode, this is for consistency; in shared mode, it's required
       const addTenantId = (row: Record<string, any>) => ({
         ...row,
         tenant_id: tenantId,
@@ -86,9 +117,9 @@ export function useTenantQueryBuilder() {
         ? data.map(addTenantId) 
         : addTenantId(data);
 
-      return client.from(tableName as any).insert(dataWithTenant);
+      return client.from(actualTable as any).insert(dataWithTenant);
     },
-    [client, tenantId]
+    [client, tenantId, isSchemaProvisioned]
   );
 
   /**
@@ -96,7 +127,15 @@ export function useTenantQueryBuilder() {
    */
   const buildUpdateQuery = useCallback(
     <T extends TableName>(tableName: T, data: Record<string, any>) => {
-      const query = client.from(tableName as any).update(data);
+      // Translate table name if schema is provisioned
+      const actualTable = getTableName(tableName, isSchemaProvisioned ?? false);
+      
+      const query = client.from(actualTable as any).update(data);
+      
+      // Platform tables and public-only tables don't need tenant filter
+      if (isPlatformTable(tableName) || isPublicOnlyTable(tableName)) {
+        return query;
+      }
       
       if (shouldAddTenantFilter && tenantId) {
         return query.eq('tenant_id', tenantId);
@@ -104,7 +143,7 @@ export function useTenantQueryBuilder() {
       
       return query;
     },
-    [client, shouldAddTenantFilter, tenantId]
+    [client, shouldAddTenantFilter, tenantId, isSchemaProvisioned]
   );
 
   /**
@@ -112,7 +151,15 @@ export function useTenantQueryBuilder() {
    */
   const buildDeleteQuery = useCallback(
     <T extends TableName>(tableName: T) => {
-      const query = client.from(tableName as any).delete();
+      // Translate table name if schema is provisioned
+      const actualTable = getTableName(tableName, isSchemaProvisioned ?? false);
+      
+      const query = client.from(actualTable as any).delete();
+      
+      // Platform tables and public-only tables don't need tenant filter
+      if (isPlatformTable(tableName) || isPublicOnlyTable(tableName)) {
+        return query;
+      }
       
       if (shouldAddTenantFilter && tenantId) {
         return query.eq('tenant_id', tenantId);
@@ -120,7 +167,7 @@ export function useTenantQueryBuilder() {
       
       return query;
     },
-    [client, shouldAddTenantFilter, tenantId]
+    [client, shouldAddTenantFilter, tenantId, isSchemaProvisioned]
   );
 
   /**
@@ -140,6 +187,14 @@ export function useTenantQueryBuilder() {
     [client, tenantId]
   );
 
+  /**
+   * Get the actual table name that will be used (for debugging)
+   */
+  const getActualTableName = useCallback(
+    (tableName: string) => getTableName(tableName, isSchemaProvisioned ?? false),
+    [isSchemaProvisioned]
+  );
+
   return {
     client,
     tenantId,
@@ -154,6 +209,8 @@ export function useTenantQueryBuilder() {
     buildUpdateQuery,
     buildDeleteQuery,
     callRpc,
+    // Helpers
+    getActualTableName,
   };
 }
 
@@ -164,9 +221,16 @@ export function useTenantQueryBuilder() {
 export function buildTenantQuery(
   tableName: string,
   tenantId: string,
-  shouldAddFilter: boolean
+  shouldAddFilter: boolean,
+  isProvisioned: boolean = false
 ) {
-  const query = supabase.from(tableName as any).select();
+  const actualTable = getTableName(tableName, isProvisioned);
+  const query = supabase.from(actualTable as any).select();
+  
+  // Platform tables and public-only tables don't need tenant filter
+  if (isPlatformTable(tableName) || isPublicOnlyTable(tableName)) {
+    return query;
+  }
   
   if (shouldAddFilter && tenantId) {
     return query.eq('tenant_id', tenantId);
