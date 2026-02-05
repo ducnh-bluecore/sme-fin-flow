@@ -12,7 +12,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useMemo } from 'react';
 import {
   CDPSSOTResult,
@@ -32,22 +32,19 @@ import {
 // ============ MAIN HOOK ============
 
 export function useCDPSSOT(): CDPSSOTResult {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   // ============ QUERY: Customer count (for data sufficiency check) ============
   const customersQuery = useQuery({
     queryKey: ['cdp-ssot-customers-count', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0 };
-      let query = client
-        .from('cdp_customers')
-        .select('*', { count: 'exact', head: true });
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { count, error } = await query;
-      if (error) throw error;
-      return { count: count || 0 };
+      // Use client directly for count queries with special options
+      const { count, error } = await buildSelectQuery('cdp_customers', '*');
+      // Re-query with count option
+      const countResult = await client.from('cdp_customers').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId);
+      if (countResult.error) throw countResult.error;
+      return { count: countResult.count || 0 };
     },
     enabled: isReady,
   });
@@ -57,15 +54,9 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-orders-count', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0 };
-      let query = client
-        .from('cdp_orders')
-        .select('*', { count: 'exact', head: true });
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { count, error } = await query;
-      if (error) throw error;
-      return { count: count || 0 };
+      const countResult = await client.from('cdp_orders').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId);
+      if (countResult.error) throw countResult.error;
+      return { count: countResult.count || 0 };
     },
     enabled: isReady,
   });
@@ -75,11 +66,7 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-equity-overview', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
-      let query = client.from('v_cdp_equity_overview').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_equity_overview', '*').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -91,11 +78,7 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-equity-distribution', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client.from('v_cdp_equity_distribution').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_equity_distribution', '*');
       if (error) throw error;
       return data || [];
     },
@@ -107,11 +90,7 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-equity-drivers', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client.from('v_cdp_equity_drivers').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_equity_drivers', '*');
       if (error) throw error;
       return data || [];
     },
@@ -123,11 +102,7 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-insights', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client.from('v_cdp_highlight_signals').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.limit(20);
+      const { data, error } = await buildSelectQuery('v_cdp_highlight_signals', '*').limit(20);
       if (error) throw error;
       return data || [];
     },
@@ -139,11 +114,7 @@ export function useCDPSSOT(): CDPSSOTResult {
     queryKey: ['cdp-ssot-data-quality', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
-      let query = client.from('v_cdp_data_quality').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_data_quality', '*').maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -154,7 +125,7 @@ export function useCDPSSOT(): CDPSSOTResult {
   const dataQuality = useMemo<CDPDataQuality>(() => {
     const customerCount = customersQuery.data?.count || 0;
     const orderCount = ordersQuery.data?.count || 0;
-    const qualityData = dataQualityQuery.data;
+    const qualityData = dataQualityQuery.data as any;
     
     const identityCoverage = qualityData?.identity_coverage 
       ? Number(qualityData.identity_coverage) 
@@ -265,7 +236,7 @@ export function useCDPSSOT(): CDPSSOTResult {
   // ============ DERIVED: Equity Overview ============
   const equityOverview = useMemo<CDPEquityOverview | null>(() => {
     const customerCount = customersQuery.data?.count || 0;
-    const rawData = equityOverviewQuery.data;
+    const rawData = equityOverviewQuery.data as any;
     
     // If insufficient data, return null (show empty state)
     if (customerCount < CDP_MINIMUM_THRESHOLDS.MIN_CUSTOMERS_FOR_EQUITY) {
@@ -308,7 +279,7 @@ export function useCDPSSOT(): CDPSSOTResult {
   // ============ DERIVED: Equity Distribution ============
   const equityDistribution = useMemo<CDPEquityDistribution[]>(() => {
     const customerCount = customersQuery.data?.count || 0;
-    const rawData = equityDistributionQuery.data || [];
+    const rawData = (equityDistributionQuery.data || []) as any[];
     
     // If insufficient data, return empty array
     if (customerCount < CDP_MINIMUM_THRESHOLDS.MIN_CUSTOMERS_FOR_EQUITY) {
@@ -336,7 +307,7 @@ export function useCDPSSOT(): CDPSSOTResult {
 
   // ============ DERIVED: Equity Drivers ============
   const equityDrivers = useMemo<CDPEquityDriver[]>(() => {
-    const rawData = equityDriversQuery.data || [];
+    const rawData = (equityDriversQuery.data || []) as any[];
     
     // Return empty if no data (don't fabricate drivers)
     if (rawData.length === 0) {
@@ -358,7 +329,7 @@ export function useCDPSSOT(): CDPSSOTResult {
 
   // ============ DERIVED: Insights (from backend ONLY) ============
   const insights = useMemo<CDPInsightSignal[]>(() => {
-    const rawData = insightsQuery.data || [];
+    const rawData = (insightsQuery.data || []) as any[];
     
     // Return empty if no data
     if (rawData.length === 0) {

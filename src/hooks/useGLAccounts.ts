@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface GLAccount {
@@ -35,26 +35,18 @@ export interface GLAccountInput {
 }
 
 export function useGLAccounts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['gl-accounts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('gl_accounts')
-        .select('*')
+      const { data, error } = await buildSelectQuery('gl_accounts', '*')
         .order('account_code');
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
-      
       if (error) throw error;
-      return data as GLAccount[];
+      return data as unknown as GLAccount[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -97,15 +89,13 @@ export function useGLAccountTree() {
 
 export function useCreateGLAccount() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: GLAccountInput) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('gl_accounts')
-        .insert([{ ...input, tenant_id: tenantId }])
+      const { data, error } = await buildInsertQuery('gl_accounts', input)
         .select()
         .single();
       
@@ -124,13 +114,11 @@ export function useCreateGLAccount() {
 
 export function useUpdateGLAccount() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: GLAccountInput & { id: string }) => {
-      const { data, error } = await client
-        .from('gl_accounts')
-        .update(input)
+      const { data, error } = await buildUpdateQuery('gl_accounts', input)
         .eq('id', id)
         .select()
         .single();
@@ -150,13 +138,11 @@ export function useUpdateGLAccount() {
 
 export function useDeleteGLAccount() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('gl_accounts')
-        .delete()
+      const { error } = await buildDeleteQuery('gl_accounts')
         .eq('id', id);
       
       if (error) throw error;
@@ -172,27 +158,20 @@ export function useDeleteGLAccount() {
 }
 
 export function useTrialBalance() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['trial-balance', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      // Use gl_accounts instead of deprecated trial_balance view
-      let query = client
-        .from('gl_accounts')
-        .select('id, account_code, account_name, account_type, is_active')
-        .eq('is_active', true);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery(
+        'gl_accounts',
+        'id, account_code, account_name, account_type, is_active'
+      ).eq('is_active', true);
       
       if (error) throw error;
-      return (data || []).map(acc => ({
+      return ((data as unknown as any[]) || []).map(acc => ({
         account_id: acc.id,
         account_code: acc.account_code,
         account_name: acc.account_name,
