@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useActiveTenant, useUserTenants, useSwitchTenant, Tenant, TenantUser } from '@/hooks/useTenant';
 import { supabase } from '@/integrations/supabase/client';
+import { useTenantSession, TenantSessionInfo, TenantTier } from '@/hooks/useTenantSession';
 
 interface TenantContextType {
   activeTenant: Tenant | null;
@@ -12,6 +13,11 @@ interface TenantContextType {
   isOwner: boolean;
   isAdmin: boolean;
   canManage: boolean;
+  // New v1.4.1 session-based properties
+  isSessionReady: boolean;
+  sessionInfo: TenantSessionInfo | null;
+  tenantTier: TenantTier;
+  isSchemaProvisioned: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -34,6 +40,15 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const { data: activeTenant, isLoading: isLoadingActive } = useActiveTenant();
   const { data: userTenants = [], isLoading: isLoadingTenants } = useUserTenants();
   const switchTenantMutation = useSwitchTenant();
+  
+  // v1.4.1: Session-based tenant context
+  const { 
+    isSessionReady, 
+    isInitializing: isSessionInitializing,
+    sessionInfo, 
+    sessionError,
+    initSession 
+  } = useTenantSession();
 
   // Auto-fix invalid active tenant (e.g. profile points to a tenant the user no longer has access to)
   useEffect(() => {
@@ -70,16 +85,25 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   // Consider switching state as part of loading to prevent stale data display
   const isSwitching = switchTenantMutation.isPending;
   
+  // v1.4.1: Derive schema provisioning status from session
+  const isSchemaProvisioned = sessionInfo?.isProvisioned ?? false;
+  const tenantTier: TenantTier = sessionInfo?.tier ?? 'midmarket';
+  
   const value: TenantContextType = {
     activeTenant: activeTenant || null,
     userTenants,
-    isLoading: isLoadingActive || isLoadingTenants || isSwitching,
+    isLoading: isLoadingActive || isLoadingTenants || isSwitching || isSessionInitializing,
     switchTenant: (tenantId: string) => switchTenantMutation.mutate(tenantId),
     isSwitching,
     currentRole,
     isOwner,
     isAdmin,
     canManage,
+    // v1.4.1 session-based properties
+    isSessionReady,
+    sessionInfo,
+    tenantTier,
+    isSchemaProvisioned,
   };
 
   // If not authenticated, provide empty context
@@ -95,6 +119,11 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         isOwner: false,
         isAdmin: false,
         canManage: false,
+        // v1.4.1 session-based properties
+        isSessionReady: false,
+        sessionInfo: null,
+        tenantTier: 'midmarket',
+        isSchemaProvisioned: false,
       }}>
         {children}
       </TenantContext.Provider>
