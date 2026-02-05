@@ -51,6 +51,7 @@ DownloadButton.displayName = 'DownloadButton';
  
  export function ExportDownloadButtons() {
    const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
  
    const handleCopy = async (content: string, name: string) => {
      await copyToClipboard(content);
@@ -64,6 +65,34 @@ DownloadButton.displayName = 'DownloadButton';
      downloadFile(content, filename, mimeType);
      toast.success(`Downloaded ${filename}`);
    };
+
+  const handleDownloadAll = async () => {
+    if (isDownloadingAll) return;
+    
+    setIsDownloadingAll(true);
+    toast.info('Đang tải tất cả files...');
+    
+    const files = [
+      { generator: generateDesignTokensJSON, filename: 'bluecore-design-tokens.json', mimeType: 'application/json' },
+      { generator: generateStandaloneCSS, filename: 'bluecore-theme.css', mimeType: 'text/css' },
+      { generator: generateTailwindPreset, filename: 'bluecore-preset.ts', mimeType: 'text/typescript' },
+      { generator: generateFormattersCode, filename: 'formatters.ts', mimeType: 'text/typescript' },
+      { generator: generateCnUtility, filename: 'cn.ts', mimeType: 'text/typescript' },
+    ];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const content = file.generator();
+      downloadFile(content, file.filename, file.mimeType);
+      // Delay between downloads to prevent browser blocking
+      if (i < files.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    setIsDownloadingAll(false);
+    toast.success('Đã tải tất cả 5 files!');
+  };
  
    return (
      <div className="space-y-8">
@@ -108,16 +137,10 @@ DownloadButton.displayName = 'DownloadButton';
  
            <DownloadButton
              label="Full Package"
-             description="Tất cả files trong một lần tải"
+            description={isDownloadingAll ? "Đang tải..." : "Tất cả files trong một lần tải"}
              icon={<Package className="h-5 w-5" />}
              variant="default"
-             onClick={() => {
-               handleDownload(generateDesignTokensJSON, 'bluecore-design-tokens.json', 'application/json');
-               handleDownload(generateStandaloneCSS, 'bluecore-theme.css', 'text/css');
-               handleDownload(generateTailwindPreset, 'bluecore-preset.ts', 'text/typescript');
-               handleDownload(generateFormattersCode, 'formatters.ts', 'text/typescript');
-               handleDownload(generateCnUtility, 'cn.ts', 'text/typescript');
-             }}
+            onClick={handleDownloadAll}
            />
          </div>
        </div>
