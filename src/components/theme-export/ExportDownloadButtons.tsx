@@ -1,5 +1,6 @@
- import { Button } from '@/components/ui/button';
- import { 
+import { forwardRef } from 'react';
+import { Button } from '@/components/ui/button';
+import {
    Download, 
    FileJson, 
    FileCode, 
@@ -25,24 +26,28 @@
    description: string;
    icon: React.ReactNode;
    onClick: () => void;
-   variant?: 'default' | 'outline';
- }
- 
- function DownloadButton({ label, description, icon, onClick, variant = 'outline' }: DownloadButtonProps) {
-   return (
-     <Button 
-       variant={variant}
-       className="h-auto py-4 px-5 flex flex-col items-start gap-2 text-left w-full"
-       onClick={onClick}
-     >
-       <div className="flex items-center gap-2">
-         {icon}
-         <span className="font-semibold">{label}</span>
-       </div>
-       <span className="text-xs text-muted-foreground font-normal">{description}</span>
-     </Button>
-   );
- }
+  variant?: 'default' | 'outline';
+}
+
+const DownloadButton = forwardRef<HTMLButtonElement, DownloadButtonProps>(
+  ({ label, description, icon, onClick, variant = 'outline' }, ref) => {
+    return (
+      <Button 
+        ref={ref}
+        variant={variant}
+        className="h-auto py-4 px-5 flex flex-col items-start gap-2 text-left w-full"
+        onClick={onClick}
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="font-semibold">{label}</span>
+        </div>
+        <span className="text-xs text-muted-foreground font-normal">{description}</span>
+      </Button>
+    );
+  }
+);
+DownloadButton.displayName = 'DownloadButton';
  
  export function ExportDownloadButtons() {
    const [copiedItem, setCopiedItem] = useState<string | null>(null);
