@@ -8,7 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface ProblematicSKU {
   sku: string;
@@ -24,7 +24,7 @@ export interface ProblematicSKU {
 }
 
 export function useAllProblematicSKUs() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['problematic-skus', tenantId],
@@ -35,27 +35,17 @@ export function useAllProblematicSKUs() {
       const seenSKUs = new Set<string>();
 
       // 1. SSOT: First try product_metrics (real-time calculated from orders + products)
-      let metricsQuery = client
-        .from('product_metrics')
-        .select(`
-          sku, product_name, 
-          gross_profit_30d, gross_margin_percent,
-          total_revenue_30d, total_cost_30d, total_quantity_30d,
-          profit_per_unit, profit_status
-        `)
+      const { data: metricsData, error: metricsError } = await buildSelectQuery(
+        'product_metrics',
+        'sku, product_name, gross_profit_30d, gross_margin_percent, total_revenue_30d, total_cost_30d, total_quantity_30d, profit_per_unit, profit_status'
+      )
         .or('profit_status.eq.critical,profit_status.eq.warning')
         .gt('total_quantity_30d', 0)
         .order('gross_margin_percent', { ascending: true })
         .limit(50);
 
-      if (shouldAddTenantFilter) {
-        metricsQuery = metricsQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: metricsData, error: metricsError } = await metricsQuery;
-
       if (!metricsError && metricsData) {
-        metricsData.forEach(row => {
+        (metricsData as unknown as any[]).forEach(row => {
           seenSKUs.add(row.sku);
           results.push({
             sku: row.sku,
@@ -73,22 +63,17 @@ export function useAllProblematicSKUs() {
       }
 
       // 2. Fallback: Also check sku_profitability_cache for SKUs not in product_metrics
-      let cacheQuery = client
-        .from('sku_profitability_cache')
-        .select('sku, product_name, channel, profit, margin_percent, revenue, cogs, fees, quantity')
+      const { data: cacheData, error: cacheError } = await buildSelectQuery(
+        'sku_profitability_cache',
+        'sku, product_name, channel, profit, margin_percent, revenue, cogs, fees, quantity'
+      )
         .lt('margin_percent', 10) // Margin < 10% needs attention
         .gt('revenue', 0) // Only SKUs with actual sales
         .order('margin_percent', { ascending: true })
         .limit(50);
 
-      if (shouldAddTenantFilter) {
-        cacheQuery = cacheQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: cacheData, error: cacheError } = await cacheQuery;
-
       if (!cacheError && cacheData) {
-        cacheData.forEach(row => {
+        (cacheData as unknown as any[]).forEach(row => {
           // Skip if already from product_metrics (SSOT takes precedence)
           if (seenSKUs.has(row.sku)) return;
           

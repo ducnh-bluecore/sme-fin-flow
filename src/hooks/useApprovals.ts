@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTenantSupabaseCompat } from "@/integrations/supabase/tenantClient";
+import { useTenantQueryBuilder } from "@/hooks/useTenantQueryBuilder";
 import { useToast } from "@/hooks/use-toast";
 
 export interface EnterprisePolicy {
@@ -74,7 +74,7 @@ export interface PolicyCheckResult {
 }
 
 export function usePolicies() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['enterprise-policies', tenantId],
@@ -102,7 +102,7 @@ export function usePolicies() {
 }
 
 export function useCreatePolicy() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -147,7 +147,7 @@ export function useCreatePolicy() {
 }
 
 export function useUpdatePolicy() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -183,7 +183,7 @@ export function useUpdatePolicy() {
 }
 
 export function usePendingApprovals() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['pending-approvals', tenantId],
@@ -211,7 +211,7 @@ export function usePendingApprovals() {
 }
 
 export function useApprovalHistory(limit = 50) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['approval-history', tenantId, limit],
@@ -239,7 +239,7 @@ export function useApprovalHistory(limit = 50) {
 }
 
 export function useApprovalStats() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['approval-stats', tenantId],
@@ -266,7 +266,7 @@ export function useApprovalStats() {
 }
 
 export function useCheckPolicy() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ policyType, context }: {
@@ -296,7 +296,7 @@ export function useCheckPolicy() {
 }
 
 export function useCreateApprovalRequest() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -341,7 +341,7 @@ export function useCreateApprovalRequest() {
 }
 
 export function useDecideApproval() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
