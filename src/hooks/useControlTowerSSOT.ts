@@ -7,10 +7,12 @@
  * NO hardcoded data, NO Math.random().
  * 
  * Uses: get_control_tower_summary RPC
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 export interface ControlTowerData {
@@ -59,7 +61,7 @@ export interface ControlTowerData {
 }
 
 export function useControlTowerSSOT() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady, callRpc } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -67,7 +69,7 @@ export function useControlTowerSSOT() {
     queryFn: async (): Promise<ControlTowerData | null> => {
       if (!tenantId) return null;
 
-      const { data, error } = await client.rpc('get_control_tower_summary', {
+      const { data, error } = await callRpc('get_control_tower_summary', {
         p_tenant_id: tenantId,
         p_start_date: startDateStr,
         p_end_date: endDateStr,

@@ -1,5 +1,12 @@
+/**
+ * useSupplierPayments - Supplier payment schedule management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/AP
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface SupplierPaymentSchedule {
@@ -40,24 +47,18 @@ export interface PaymentOptimizationSummary {
 }
 
 export const useSupplierPayments = () => {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['supplier-payments', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('supplier_payment_schedules' as any)
-        .select(`
+      const query = buildSelectQuery('supplier_payment_schedules' as any, `
           *,
           vendor:vendors(id, name)
         `)
         .order('due_date', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       const { data, error } = await query;
 
@@ -135,15 +136,13 @@ export const usePaymentOptimization = () => {
 
 export const useCreatePaymentSchedule = () => {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildInsertQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (schedule: Omit<SupplierPaymentSchedule, 'id' | 'tenant_id' | 'early_payment_discount_amount' | 'created_at' | 'updated_at' | 'vendor'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('supplier_payment_schedules' as any)
-        .insert({ ...schedule, tenant_id: tenantId })
+      const { data, error } = await buildInsertQuery('supplier_payment_schedules' as any, schedule)
         .select()
         .single();
 
@@ -162,13 +161,11 @@ export const useCreatePaymentSchedule = () => {
 
 export const useUpdatePaymentSchedule = () => {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<SupplierPaymentSchedule> & { id: string }) => {
-      const { data, error } = await client
-        .from('supplier_payment_schedules')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('supplier_payment_schedules' as any, updates)
         .eq('id', id)
         .select()
         .single();
@@ -188,7 +185,7 @@ export const useUpdatePaymentSchedule = () => {
 
 export const useMarkAsPaid = () => {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, paid_amount, paid_date, payment_status }: { 
@@ -197,9 +194,7 @@ export const useMarkAsPaid = () => {
       paid_date: string;
       payment_status: 'paid_early' | 'paid_on_time' | 'paid_late';
     }) => {
-      const { data, error } = await client
-        .from('supplier_payment_schedules')
-        .update({ paid_amount, paid_date, payment_status })
+      const { data, error } = await buildUpdateQuery('supplier_payment_schedules' as any, { paid_amount, paid_date, payment_status })
         .eq('id', id)
         .select()
         .single();
