@@ -3,28 +3,15 @@
  * 
  * ⚠️ THIS IS THE SINGLE SOURCE OF TRUTH FOR ALL GRAIN-LEVEL METRICS
  * 
- * This hook ONLY fetches precomputed data from central_metric_facts.
- * NO business calculations are performed in this hook.
- * 
- * Grain types:
- * - sku: Per-SKU revenue, cost, profit, margin
- * - store: Per-store performance
- * - channel: Per-channel breakdown
- * - customer: Per-customer metrics
- * - category: Per-category aggregates
- * 
- * REPLACES heavy queries in:
- * - SKU profitability tables
- * - Store rankings
- * - Channel analytics
- * - Customer concentration analysis
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Finance
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // =============================================================
-// TYPES - Mirror the database schema exactly
+// TYPES
 // =============================================================
 
 export type FactGrainType = 'sku' | 'store' | 'channel' | 'customer' | 'category';
@@ -36,26 +23,19 @@ export interface MetricFact {
   grain_type: FactGrainType;
   grain_id: string;
   grain_name: string | null;
-  
-  // Metrics (precomputed in DB)
   revenue: number;
   cost: number;
   profit: number;
   margin_percent: number;
   quantity: number;
   order_count: number;
-  
-  // Rankings (precomputed in DB)
   revenue_rank: number | null;
   profit_rank: number | null;
-  
-  // Period
   period_start: string;
   period_end: string;
   created_at: string;
 }
 
-// Formatted for UI
 export interface FormattedFact {
   id: string;
   grainType: FactGrainType;
@@ -73,7 +53,6 @@ export interface FormattedFact {
   periodEnd: string;
 }
 
-// Summary from DB (NO client-side aggregation)
 export interface FactsSummaryFromDB {
   totalItems: number;
   totalRevenue: number;
@@ -85,7 +64,7 @@ export interface FactsSummaryFromDB {
 }
 
 // =============================================================
-// MAIN HOOK - Fetch facts by grain type (NO CALCULATIONS)
+// MAIN HOOK
 // =============================================================
 
 interface UseFinanceTruthFactsOptions {
@@ -96,7 +75,7 @@ interface UseFinanceTruthFactsOptions {
 }
 
 export function useFinanceTruthFacts(options: UseFinanceTruthFactsOptions) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { grainType, limit = 50, orderBy = 'revenue', ascending = false } = options;
   
   return useQuery({
@@ -104,29 +83,19 @@ export function useFinanceTruthFacts(options: UseFinanceTruthFactsOptions) {
     queryFn: async (): Promise<FormattedFact[]> => {
       if (!tenantId) return [];
       
-      // Direct fetch - NO CALCULATIONS
-      let query = client
-        .from('central_metric_facts')
-        .select('*')
+      const { data, error } = await buildSelectQuery('central_metric_facts', '*')
         .eq('grain_type', grainType)
         .order(orderBy, { ascending })
         .limit(limit);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-      
       if (error) {
         console.error('[useFinanceTruthFacts] Fetch error:', error);
         throw error;
       }
       
-      if (!data || data.length === 0) return [];
+      if (!data || (data as any[]).length === 0) return [];
       
-      // Map to formatted shape - NO CALCULATIONS
-      return data.map(mapToFormatted);
+      return (data as any[]).map(mapToFormatted);
     },
     enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
@@ -135,12 +104,9 @@ export function useFinanceTruthFacts(options: UseFinanceTruthFactsOptions) {
 }
 
 // =============================================================
-// SPECIALIZED HOOKS (thin wrappers, NO CALCULATIONS)
+// SPECIALIZED HOOKS
 // =============================================================
 
-/**
- * Get top SKUs by revenue or profit
- */
 export function useTopSKUs(limit: number = 20, sortBy: 'revenue' | 'profit' = 'revenue') {
   return useFinanceTruthFacts({
     grainType: 'sku',
@@ -150,21 +116,15 @@ export function useTopSKUs(limit: number = 20, sortBy: 'revenue' | 'profit' = 'r
   });
 }
 
-/**
- * Get problematic SKUs (sorted by margin, ascending = worst first)
- */
 export function useProblematicSKUs(limit: number = 20) {
   return useFinanceTruthFacts({
     grainType: 'sku',
     limit,
     orderBy: 'margin_percent',
-    ascending: true, // Worst margins first
+    ascending: true,
   });
 }
 
-/**
- * Get channel breakdown
- */
 export function useChannelFacts(limit: number = 10) {
   return useFinanceTruthFacts({
     grainType: 'channel',
@@ -174,9 +134,6 @@ export function useChannelFacts(limit: number = 10) {
   });
 }
 
-/**
- * Get store rankings
- */
 export function useStoreFacts(limit: number = 20) {
   return useFinanceTruthFacts({
     grainType: 'store',
@@ -186,9 +143,6 @@ export function useStoreFacts(limit: number = 20) {
   });
 }
 
-/**
- * Get category breakdown
- */
 export function useCategoryFacts(limit: number = 10) {
   return useFinanceTruthFacts({
     grainType: 'category',
@@ -198,9 +152,6 @@ export function useCategoryFacts(limit: number = 10) {
   });
 }
 
-/**
- * Get top customers
- */
 export function useTopCustomers(limit: number = 20) {
   return useFinanceTruthFacts({
     grainType: 'customer',
@@ -211,7 +162,7 @@ export function useTopCustomers(limit: number = 20) {
 }
 
 // =============================================================
-// HELPER - Map DB row to formatted UI object (NO CALCULATIONS)
+// HELPER
 // =============================================================
 
 function mapToFormatted(raw: MetricFact): FormattedFact {
@@ -234,58 +185,44 @@ function mapToFormatted(raw: MetricFact): FormattedFact {
 }
 
 // =============================================================
-// AGGREGATE HOOK - Fetch summary FROM DB (NO CLIENT-SIDE SUM)
+// AGGREGATE HOOK
 // =============================================================
 
-/**
- * Get facts summary - uses DB precomputed table or RPC
- * NO CLIENT-SIDE AGGREGATION
- */
 export function useFactsSummary(grainType: FactGrainType) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, callRpc, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['finance-truth-facts-summary', tenantId, grainType],
     queryFn: async (): Promise<FactsSummaryFromDB | null> => {
       if (!tenantId) return null;
       
-      // Fetch from precomputed summary table - NO CLIENT CALCULATIONS
-      const { data, error } = await client
-        .rpc('get_facts_summary', {
-          p_tenant_id: tenantId,
-          p_grain_type: grainType,
-        });
+      const { data, error } = await callRpc('get_facts_summary', {
+        p_grain_type: grainType,
+      });
       
       if (error) {
         console.error('[useFactsSummary] RPC error:', error);
-        // Fallback to summary table direct query
-        let fallbackQuery = client
-          .from('central_metric_facts_summary')
-          .select('*')
-          .eq('grain_type', grainType);
-
-        if (shouldAddTenantFilter) {
-          fallbackQuery = fallbackQuery.eq('tenant_id', tenantId);
-        }
-
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery.maybeSingle();
+        // Fallback to summary table
+        const { data: fallbackData, error: fallbackError } = await buildSelectQuery('central_metric_facts_summary', '*')
+          .eq('grain_type', grainType)
+          .maybeSingle();
         
         if (fallbackError || !fallbackData) return null;
         
         return {
-          totalItems: fallbackData.total_items || 0,
-          totalRevenue: Number(fallbackData.total_revenue) || 0,
-          totalCost: Number(fallbackData.total_cost) || 0,
-          totalProfit: Number(fallbackData.total_profit) || 0,
-          totalQuantity: Number(fallbackData.total_quantity) || 0,
-          totalOrders: fallbackData.total_orders || 0,
-          avgMarginPercent: Number(fallbackData.avg_margin_percent) || 0,
+          totalItems: (fallbackData as any).total_items || 0,
+          totalRevenue: Number((fallbackData as any).total_revenue) || 0,
+          totalCost: Number((fallbackData as any).total_cost) || 0,
+          totalProfit: Number((fallbackData as any).total_profit) || 0,
+          totalQuantity: Number((fallbackData as any).total_quantity) || 0,
+          totalOrders: (fallbackData as any).total_orders || 0,
+          avgMarginPercent: Number((fallbackData as any).avg_margin_percent) || 0,
         };
       }
       
-      if (!data || data.length === 0) return null;
+      if (!data || (data as any[]).length === 0) return null;
       
-      const row = data[0];
+      const row = (data as any[])[0];
       return {
         totalItems: row.total_items || 0,
         totalRevenue: Number(row.total_revenue) || 0,

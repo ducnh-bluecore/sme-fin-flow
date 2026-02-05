@@ -1,11 +1,12 @@
 /**
  * useFinanceMonthlySummary - CANONICAL HOOK for Monthly Finance Series
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Finance
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // =============================================================
 // TYPES
@@ -88,7 +89,7 @@ interface UseMonthlySummaryOptions {
 }
 
 export function useFinanceMonthlySummary(options: UseMonthlySummaryOptions = {}) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { months = 12 } = options;
   
   return useQuery({
@@ -96,26 +97,18 @@ export function useFinanceMonthlySummary(options: UseMonthlySummaryOptions = {})
     queryFn: async (): Promise<FormattedMonthlySummary[]> => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('finance_monthly_summary')
-        .select('*')
+      const { data, error } = await buildSelectQuery('finance_monthly_summary', '*')
         .order('year_month', { ascending: false })
         .limit(months);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
       
       if (error) {
         console.error('[useFinanceMonthlySummary] Fetch error:', error);
         throw error;
       }
       
-      if (!data || data.length === 0) return [];
+      if (!data || (data as any[]).length === 0) return [];
       
-      return data.map(mapToFormatted).reverse();
+      return (data as any[]).map(mapToFormatted).reverse();
     },
     enabled: isReady,
     staleTime: 10 * 60 * 1000,
@@ -173,29 +166,22 @@ export function useWorkingCapitalTrend(months: number = 12) {
 }
 
 export function useYoYComparison() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['finance-yoy-comparison', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('finance_monthly_summary')
-        .select('*')
+      const { data, error } = await buildSelectQuery('finance_monthly_summary', '*')
         .order('year_month', { ascending: false })
         .limit(24);
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
-      
       if (error || !data) return null;
       
-      const currentYear = data.slice(0, 12).map(mapToFormatted);
-      const previousYear = data.slice(12, 24).map(mapToFormatted);
+      const allData = data as any[];
+      const currentYear = allData.slice(0, 12).map(mapToFormatted);
+      const previousYear = allData.slice(12, 24).map(mapToFormatted);
       
       return {
         currentYear,
