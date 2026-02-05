@@ -1,5 +1,11 @@
+/**
+ * useCDPEquity - CDP Equity management hooks
+ * 
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // Types for Equity views - Aligned with v_cdp_equity_* schema
 export interface EquityOverview {
@@ -103,18 +109,15 @@ export interface EquityEvidence {
 
 // Hook: Fetch Equity Overview KPIs
 export function useCDPEquityOverview() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-equity-overview', tenantId],
     queryFn: async (): Promise<EquityOverview | null> => {
       if (!tenantId) return null;
 
-      let query = client.from('v_cdp_equity_overview').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_equity_overview', '*')
+        .maybeSingle();
 
       // PGRST116 = no rows found - this is OK, return null
       if (error && error.code !== 'PGRST116') {
@@ -122,26 +125,22 @@ export function useCDPEquityOverview() {
         throw error;
       }
 
-      return data as EquityOverview | null;
+      return data as unknown as EquityOverview | null;
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch Equity Distribution by segments
 export function useCDPEquityDistribution() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-equity-distribution', tenantId],
     queryFn: async (): Promise<EquityDistribution[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_equity_distribution').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_equity_distribution', '*');
 
       if (error) {
         console.error('Error fetching equity distribution:', error);
@@ -149,33 +148,29 @@ export function useCDPEquityDistribution() {
       }
 
       // Map to EquityDistribution interface
-      return (data || []).map(row => ({
-        tenant_id: row.tenant_id,
-        bucket: row.bucket,
-        customer_count: row.customer_count,
-        equity_sum: row.equity_sum,
-        equity_avg: row.equity_avg,
-        estimated_count: row.estimated_count,
+      return ((data as unknown as Array<Record<string, unknown>>) || []).map(row => ({
+        tenant_id: row.tenant_id as string,
+        bucket: row.bucket as string,
+        customer_count: row.customer_count as number,
+        equity_sum: row.equity_sum as number | null,
+        equity_avg: row.equity_avg as number | null,
+        estimated_count: row.estimated_count as number,
       })) as EquityDistribution[];
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch Equity Drivers
 export function useCDPEquityDrivers() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-equity-drivers', tenantId],
     queryFn: async (): Promise<EquityDriver[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_equity_drivers').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_equity_drivers', '*');
 
       if (error) {
         console.error('Error fetching equity drivers:', error);
@@ -183,32 +178,29 @@ export function useCDPEquityDrivers() {
       }
 
       // Map to EquityDriver interface
-      return (data || []).map(row => ({
-        tenant_id: row.tenant_id,
-        factor: row.factor,
-        impact_percent: row.impact_percent,
-        direction: row.direction,
-        description: row.description,
+      return ((data as unknown as Array<Record<string, unknown>>) || []).map(row => ({
+        tenant_id: row.tenant_id as string,
+        factor: row.factor as string,
+        impact_percent: row.impact_percent as number | null,
+        direction: row.direction as string,
+        description: row.description as string,
       })) as EquityDriver[];
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch Equity Snapshot (for overview cards)
 export function useCDPEquitySnapshot() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-equity-snapshot', tenantId],
     queryFn: async (): Promise<EquitySnapshot | null> => {
       if (!tenantId) return null;
 
-      let query = client.from('v_cdp_equity_snapshot').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_equity_snapshot', '*')
+        .maybeSingle();
 
       // PGRST116 = no rows found - this is OK, return null
       if (error && error.code !== 'PGRST116') {
@@ -219,24 +211,26 @@ export function useCDPEquitySnapshot() {
       // Return null if no data found
       if (!data) return null;
 
+      const row = data as unknown as Record<string, unknown>;
+      
       // Parse top_drivers from JSONB
-      const topDrivers = Array.isArray(data?.top_drivers) 
-        ? data.top_drivers as EquitySnapshot['top_drivers']
+      const topDrivers = Array.isArray(row?.top_drivers) 
+        ? row.top_drivers as EquitySnapshot['top_drivers']
         : [];
 
       return {
-        ...data,
-        change_direction: data?.change_direction as 'up' | 'down' | 'stable',
+        ...row,
+        change_direction: row?.change_direction as 'up' | 'down' | 'stable',
         top_drivers: topDrivers,
-      } as EquitySnapshot;
+      } as unknown as EquitySnapshot;
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch LTV Models - Returns placeholder models since v_cdp_ltv_models doesn't exist yet
 export function useCDPLTVModels() {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-ltv-models', tenantId],
@@ -248,87 +242,76 @@ export function useCDPLTVModels() {
       console.warn('[CDP] v_cdp_ltv_models view not implemented. Returning empty models.');
       return [];
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch LTV Rules
 export function useCDPLTVRules() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-ltv-rules', tenantId],
     queryFn: async (): Promise<LTVRule[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_ltv_rules').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_ltv_rules', '*');
 
       if (error) {
         console.error('Error fetching LTV rules:', error);
         throw error;
       }
 
-      return (data || []) as LTVRule[];
+      return ((data as unknown as LTVRule[]) || []);
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch LTV Audit History
 export function useCDPLTVAuditHistory() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-ltv-audit-history', tenantId],
     queryFn: async (): Promise<LTVAuditHistory[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_ltv_audit_history').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.order('change_date', { ascending: false });
+      const { data, error } = await buildSelectQuery('v_cdp_ltv_audit_history', '*')
+        .order('change_date', { ascending: false });
 
       if (error) {
         console.error('Error fetching LTV audit history:', error);
         throw error;
       }
 
-      return (data || []) as LTVAuditHistory[];
+      return ((data as unknown as LTVAuditHistory[]) || []);
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }
 
 // Hook: Fetch Equity Evidence (Sample Customers)
 export function useCDPEquityEvidence() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-equity-evidence', tenantId],
     queryFn: async (): Promise<EquityEvidence[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_equity_evidence').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_equity_evidence', '*');
 
       if (error) {
         console.error('Error fetching equity evidence:', error);
         throw error;
       }
 
-      return (data || []).map(d => ({
+      return ((data as unknown as Array<Record<string, unknown>>) || []).map(d => ({
         ...d,
         behavior_status: d.behavior_status as 'normal' | 'at_risk' | 'inactive',
-      })) as EquityEvidence[];
+      })) as unknown as EquityEvidence[];
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
   });
 }

@@ -8,7 +8,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   CrossModuleData,
@@ -48,8 +47,7 @@ interface UseMDPSegmentLTVOptions {
  * Get segment LTV for MDP budget allocation
  */
 export function useMDPSegmentLTV(options: UseMDPSegmentLTVOptions = {}) {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { segmentType } = options;
 
   return useQuery<CrossModuleData<SegmentLTV[]>>({
@@ -123,8 +121,7 @@ export function useMDPSegmentLTV(options: UseMDPSegmentLTVOptions = {}) {
  * Push segment LTV from CDP to MDP
  */
 export function usePushSegmentLTVToMDP() {
-  const { tenantId } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -153,8 +150,7 @@ export function usePushSegmentLTVToMDP() {
  * Get all segment LTV records for management
  */
 export function useCDPAllSegmentLTV() {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { buildSelectQuery } = useTenantQueryBuilder();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-all-segment-ltv', tenantId],

@@ -1,5 +1,11 @@
+/**
+ * useTeamMembers - Team members management hooks
+ * 
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface TeamMember {
   id: string;
@@ -30,30 +36,22 @@ interface TeamMemberRow {
 }
 
 export function useTeamMembers() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['team-members', tenantId],
     queryFn: async (): Promise<TeamMember[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('team_members')
-        .select('*')
+      const { data, error } = await buildSelectQuery('team_members', '*')
         .order('name');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching team members:', error);
         throw error;
       }
 
-      return (data as TeamMemberRow[]).map(row => ({
+      return ((data as unknown as TeamMemberRow[]) || []).map(row => ({
         id: row.id,
         name: row.name,
         email: row.email,
@@ -73,27 +71,24 @@ export function useTeamMembers() {
 
 export function useCreateTeamMember() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (member: Omit<TeamMember, 'id'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('team_members')
-        .insert({
-          tenant_id: tenantId,
-          name: member.name,
-          email: member.email,
-          phone: member.phone,
-          role: member.role,
-          department: member.department,
-          location: member.location,
-          status: member.status,
-          join_date: member.joinDate,
-          performance: member.performance,
-          avatar_url: member.avatarUrl,
-        })
+      const { data, error } = await buildInsertQuery('team_members', {
+        name: member.name,
+        email: member.email,
+        phone: member.phone,
+        role: member.role,
+        department: member.department,
+        location: member.location,
+        status: member.status,
+        join_date: member.joinDate,
+        performance: member.performance,
+        avatar_url: member.avatarUrl,
+      })
         .select()
         .single();
 
@@ -108,24 +103,24 @@ export function useCreateTeamMember() {
 
 export function useUpdateTeamMember() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<TeamMember> & { id: string }) => {
-      const { data, error } = await client
-        .from('team_members')
-        .update({
-          name: updates.name,
-          email: updates.email,
-          phone: updates.phone,
-          role: updates.role,
-          department: updates.department,
-          location: updates.location,
-          status: updates.status,
-          join_date: updates.joinDate,
-          performance: updates.performance,
-          avatar_url: updates.avatarUrl,
-        })
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { data, error } = await buildUpdateQuery('team_members', {
+        name: updates.name,
+        email: updates.email,
+        phone: updates.phone,
+        role: updates.role,
+        department: updates.department,
+        location: updates.location,
+        status: updates.status,
+        join_date: updates.joinDate,
+        performance: updates.performance,
+        avatar_url: updates.avatarUrl,
+      })
         .eq('id', id)
         .select()
         .single();
@@ -141,13 +136,13 @@ export function useUpdateTeamMember() {
 
 export function useDeleteTeamMember() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildDeleteQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('team_members')
-        .delete()
+      if (!tenantId) throw new Error('No tenant selected');
+
+      const { error } = await buildDeleteQuery('team_members')
         .eq('id', id);
 
       if (error) throw error;

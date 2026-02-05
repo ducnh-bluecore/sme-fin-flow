@@ -1,11 +1,12 @@
 /**
  * useMLMonitoring - ML Monitoring hooks
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant context
+ * Note: These hooks primarily use Edge Functions, so only client.auth is needed
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useToast } from "@/hooks/use-toast";
 
 export interface DriftSignal {
@@ -58,7 +59,7 @@ export interface DriftEvent {
 }
 
 export function useMLMonitoringSummary() {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['ml-monitoring-summary', tenantId],
@@ -92,7 +93,7 @@ export function useMLMonitoringSummary() {
 }
 
 export function useDriftEvents(limit = 50) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['ml-drift-events', tenantId, limit],
@@ -125,7 +126,7 @@ export function useDriftEvents(limit = 50) {
 }
 
 export function useRunDriftDetection() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -160,8 +161,8 @@ export function useRunDriftDetection() {
       queryClient.invalidateQueries({ queryKey: ['ml-settings'] });
       
       if (data.signals?.length > 0) {
-        const criticalCount = data.signals.filter((s: any) => s.severity === 'critical').length;
-        const highCount = data.signals.filter((s: any) => s.severity === 'high').length;
+        const criticalCount = data.signals.filter((s: DriftSignal) => s.severity === 'critical').length;
+        const highCount = data.signals.filter((s: DriftSignal) => s.severity === 'high').length;
         
         if (criticalCount > 0) {
           toast({
@@ -199,7 +200,7 @@ export function useRunDriftDetection() {
 }
 
 export function useAcknowledgeDrift() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -248,7 +249,7 @@ export function useAcknowledgeDrift() {
 }
 
 export function useResetMLStatus() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 

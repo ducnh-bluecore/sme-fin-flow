@@ -1,11 +1,11 @@
 /**
  * useExpensePlanSummary - Budget vs Actual Summary
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Architecture v1.4.1: Migrated to useTenantQueryBuilder
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useMemo } from 'react';
 
 // =============================================================
@@ -31,7 +31,7 @@ export interface ExpensePlanSummary {
 // =============================================================
 
 export function useExpensePlanSummary(months: number = 6) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const now = new Date();
 
   const query = useQuery({
@@ -39,25 +39,17 @@ export function useExpensePlanSummary(months: number = 6) {
     queryFn: async (): Promise<ExpensePlanSummary[]> => {
       if (!tenantId) return [];
 
-      let queryBuilder = client
-        .from('v_expense_plan_summary')
-        .select('*')
+      const { data, error } = await buildSelectQuery('v_expense_plan_summary', '*')
         .order('year', { ascending: false })
         .order('month', { ascending: false })
         .limit(months);
-
-      if (shouldAddTenantFilter) {
-        queryBuilder = queryBuilder.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await queryBuilder;
 
       if (error) {
         console.error('[useExpensePlanSummary] Error:', error);
         throw error;
       }
 
-      return (data || []).map(row => ({
+      return ((data as unknown as Array<Record<string, unknown>>) || []).map(row => ({
         tenantId: String(row.tenant_id || ''),
         year: Number(row.year) || now.getFullYear(),
         month: Number(row.month) || (now.getMonth() + 1),
@@ -67,13 +59,13 @@ export function useExpensePlanSummary(months: number = 6) {
         totalPlanned: Number(row.total_planned) || 0,
         totalActual: Number(row.total_actual) || 0,
         variance: Number(row.variance) || 0,
-        variancePercent: row.total_planned > 0 
+        variancePercent: (row.total_planned as number) > 0 
           ? (Number(row.variance) / Number(row.total_planned)) * 100 
           : 0,
         dataCompleteness: 100,
       }));
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
     staleTime: 5 * 60 * 1000,
   });
 

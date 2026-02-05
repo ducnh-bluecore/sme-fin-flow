@@ -8,7 +8,6 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { 
   CrossModuleData, 
@@ -31,8 +30,7 @@ interface CostRPCResult {
 }
 
 export function useFDPLockedCosts(options: UseFDPLockedCostsOptions = {}) {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const year = options.year ?? new Date().getFullYear();
   const month = options.month ?? new Date().getMonth() + 1;
 
