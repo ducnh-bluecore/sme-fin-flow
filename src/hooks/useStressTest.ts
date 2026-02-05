@@ -1,3 +1,11 @@
+/**
+ * useStressTest - Hook for Risk Stress Testing
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses Edge Function for stress test simulation
+ * Auth headers are automatically injected
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 

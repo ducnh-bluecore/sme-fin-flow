@@ -1,3 +1,10 @@
+/**
+ * useActivityTracker - Global activity tracking hook
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses tenant-aware RPC for tracking events
+ */
+
 import { useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -223,7 +230,6 @@ export function useActivityTracker() {
 
     // Track new page view without duration (duration will be calculated on leave)
     if (tenantId) {
-      // Immediate page view event (without duration)
       trackPageView(currentRoute);
     }
   }, [location.pathname, tenantId, trackPageView]);

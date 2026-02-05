@@ -1,16 +1,11 @@
 /**
  * Hook for CDP Product Forecast
- * DB-First architecture: All calculations done in database views
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantContext } from '@/contexts/TenantContext';
-
-// Wrapper to match expected interface
-function useTenant() {
-  const { activeTenant } = useTenantContext();
-  return { activeTenant };
-}
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface ProductBenchmark {
   tenant_id: string;
@@ -88,17 +83,14 @@ export function useProductBenchmarks(filters?: {
   category?: string;
   priceTier?: string;
 }) {
-  const { activeTenant } = useTenant();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['cdp-product-benchmarks', activeTenant?.id, filters],
+    queryKey: ['cdp-product-benchmarks', tenantId, filters],
     queryFn: async () => {
-      if (!activeTenant?.id) return [];
+      if (!tenantId) return [];
 
-      let query = supabase
-        .from('v_cdp_product_benchmark')
-        .select('*')
-        .eq('tenant_id', activeTenant.id)
+      let query = buildSelectQuery('v_cdp_product_benchmark', '*')
         .order('total_orders', { ascending: false });
 
       if (filters?.category) {
@@ -115,25 +107,22 @@ export function useProductBenchmarks(filters?: {
         return [];
       }
 
-      return (data || []) as ProductBenchmark[];
+      return (data || []) as unknown as ProductBenchmark[];
     },
-    enabled: !!activeTenant?.id,
+    enabled: isReady,
   });
 }
 
 // Fetch category conversion stats
 export function useCategoryConversionStats() {
-  const { activeTenant } = useTenant();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['cdp-category-conversion-stats', activeTenant?.id],
+    queryKey: ['cdp-category-conversion-stats', tenantId],
     queryFn: async () => {
-      if (!activeTenant?.id) return [];
+      if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('v_cdp_category_conversion_stats')
-        .select('*')
-        .eq('tenant_id', activeTenant.id)
+      const { data, error } = await buildSelectQuery('v_cdp_category_conversion_stats', '*')
         .order('unique_buyers', { ascending: false });
 
       if (error) {
@@ -141,9 +130,9 @@ export function useCategoryConversionStats() {
         return [];
       }
 
-      return (data || []) as CategoryConversionStats[];
+      return (data || []) as unknown as CategoryConversionStats[];
     },
-    enabled: !!activeTenant?.id,
+    enabled: isReady,
   });
 }
 
@@ -154,28 +143,25 @@ export function useMatchedCustomers(filters: {
   priceMax?: number;
   priceTier?: string;
 }) {
-  const { activeTenant } = useTenant();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['cdp-matched-customers', activeTenant?.id, filters],
+    queryKey: ['cdp-matched-customers', tenantId, filters],
     queryFn: async () => {
-      if (!activeTenant?.id || !filters.category) {
+      if (!tenantId || !filters.category) {
         return { count: 0, customers: [] };
       }
 
-      let query = supabase
-        .from('v_cdp_customer_category_affinity')
-        .select('*')
-        .eq('tenant_id', activeTenant.id)
+      let query = buildSelectQuery('v_cdp_customer_category_affinity', '*')
         .eq('category', filters.category)
-        .gte('affinity_score', 30) // Minimum affinity threshold
-        .in('recency_status', ['hot', 'warm', 'cool']); // Not cold customers
+        .gte('affinity_score', 30)
+        .in('recency_status', ['hot', 'warm', 'cool']);
 
       if (filters.priceTier) {
         query = query.eq('price_tier', filters.priceTier);
       }
 
-      const { data, error, count } = await query
+      const { data, error } = await query
         .order('affinity_score', { ascending: false })
         .limit(500);
 
@@ -186,26 +172,23 @@ export function useMatchedCustomers(filters: {
 
       return {
         count: data?.length || 0,
-        customers: (data || []) as CustomerCategoryAffinity[],
+        customers: (data || []) as unknown as CustomerCategoryAffinity[],
       };
     },
-    enabled: !!activeTenant?.id && !!filters.category,
+    enabled: isReady && !!filters.category,
   });
 }
 
 // Fetch existing forecasts
 export function useProductForecasts() {
-  const { activeTenant } = useTenant();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['cdp-product-forecasts', activeTenant?.id],
+    queryKey: ['cdp-product-forecasts', tenantId],
     queryFn: async () => {
-      if (!activeTenant?.id) return [];
+      if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('cdp_product_forecasts')
-        .select('*')
-        .eq('tenant_id', activeTenant.id)
+      const { data, error } = await buildSelectQuery('cdp_product_forecasts', '*')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -213,15 +196,15 @@ export function useProductForecasts() {
         return [];
       }
 
-      return (data || []) as ProductForecast[];
+      return (data || []) as unknown as ProductForecast[];
     },
-    enabled: !!activeTenant?.id,
+    enabled: isReady,
   });
 }
 
 // Calculate forecast based on inputs
 export function useCalculateForecast() {
-  const { activeTenant } = useTenant();
+  const { buildSelectQuery, buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -233,15 +216,12 @@ export function useCalculateForecast() {
       priceTier?: string;
       benchmarkProductIds: string[];
     }) => {
-      if (!activeTenant?.id) {
+      if (!tenantId) {
         throw new Error('No active tenant');
       }
 
       // 1. Get matched customers from affinity view
-      let customerQuery = supabase
-        .from('v_cdp_customer_category_affinity')
-        .select('customer_id, affinity_score, recency_status')
-        .eq('tenant_id', activeTenant.id)
+      let customerQuery = buildSelectQuery('v_cdp_customer_category_affinity', 'customer_id, affinity_score, recency_status')
         .eq('category', input.category)
         .gte('affinity_score', 30)
         .in('recency_status', ['hot', 'warm', 'cool']);
@@ -254,27 +234,22 @@ export function useCalculateForecast() {
       const matchedCount = matchedCustomers?.length || 0;
 
       // 2. Get benchmark products stats
-      const { data: benchmarks } = await supabase
-        .from('v_cdp_product_benchmark')
-        .select('*')
-        .eq('tenant_id', activeTenant.id)
+      const { data: benchmarks } = await buildSelectQuery('v_cdp_product_benchmark', '*')
         .in('product_id', input.benchmarkProductIds);
 
       // Calculate average new customer % from benchmarks
-      const avgNewCustomerPct = benchmarks?.length
-        ? benchmarks.reduce((sum, b) => sum + (b.new_customer_pct || 0), 0) / benchmarks.length
-        : 12; // Default 12% if no benchmarks
+      const benchmarkData = benchmarks as unknown as ProductBenchmark[] || [];
+      const avgNewCustomerPct = benchmarkData.length
+        ? benchmarkData.reduce((sum, b) => sum + (b.new_customer_pct || 0), 0) / benchmarkData.length
+        : 12;
 
       // 3. Get category conversion rate
-      const { data: conversionData } = await supabase
-        .from('v_cdp_category_conversion_stats')
-        .select('category_penetration_pct, orders_per_buyer')
-        .eq('tenant_id', activeTenant.id)
+      const { data: conversionData } = await buildSelectQuery('v_cdp_category_conversion_stats', 'category_penetration_pct, orders_per_buyer')
         .eq('category', input.category)
         .maybeSingle();
 
-      // Use category penetration as proxy for conversion rate (10-15% typical)
-      const conversionRate = Math.min((conversionData?.category_penetration_pct || 10) / 2, 20);
+      const convData = conversionData as unknown as CategoryConversionStats | null;
+      const conversionRate = Math.min((convData?.category_penetration_pct || 10) / 2, 20);
 
       // 4. Calculate estimates
       const estimatedExisting = Math.round(matchedCount * (conversionRate / 100));
@@ -283,40 +258,37 @@ export function useCalculateForecast() {
 
       // Determine confidence level
       let confidenceLevel: 'high' | 'medium' | 'low' = 'medium';
-      if (matchedCount >= 100 && (benchmarks?.length || 0) >= 3) {
+      if (matchedCount >= 100 && benchmarkData.length >= 3) {
         confidenceLevel = 'high';
-      } else if (matchedCount < 20 || (benchmarks?.length || 0) < 1) {
+      } else if (matchedCount < 20 || benchmarkData.length < 1) {
         confidenceLevel = 'low';
       }
 
       // 5. Save forecast to database
-      const { data: forecast, error } = await supabase
-        .from('cdp_product_forecasts')
-        .insert({
-          tenant_id: activeTenant.id,
-          forecast_name: input.forecastName,
-          product_definition: {
-            category: input.category,
-            price_min: input.priceMin,
-            price_max: input.priceMax,
-            price_tier: input.priceTier,
-          },
-          benchmark_product_ids: input.benchmarkProductIds,
-          matched_customer_count: matchedCount,
-          estimated_existing_orders: estimatedExisting,
-          estimated_new_orders: estimatedNew,
-          estimated_total_orders: estimatedTotal,
-          new_customer_pct: avgNewCustomerPct,
-          conversion_rate: conversionRate,
-          confidence_level: confidenceLevel,
-          calculation_details: {
-            matched_customers: matchedCount,
-            benchmark_count: benchmarks?.length || 0,
-            avg_new_customer_pct: avgNewCustomerPct,
-            category_penetration: conversionData?.category_penetration_pct,
-          },
-          status: 'active',
-        })
+      const { data: forecast, error } = await buildInsertQuery('cdp_product_forecasts', {
+        forecast_name: input.forecastName,
+        product_definition: {
+          category: input.category,
+          price_min: input.priceMin,
+          price_max: input.priceMax,
+          price_tier: input.priceTier,
+        },
+        benchmark_product_ids: input.benchmarkProductIds,
+        matched_customer_count: matchedCount,
+        estimated_existing_orders: estimatedExisting,
+        estimated_new_orders: estimatedNew,
+        estimated_total_orders: estimatedTotal,
+        new_customer_pct: avgNewCustomerPct,
+        conversion_rate: conversionRate,
+        confidence_level: confidenceLevel,
+        calculation_details: {
+          matched_customers: matchedCount,
+          benchmark_count: benchmarkData.length,
+          avg_new_customer_pct: avgNewCustomerPct,
+          category_penetration: convData?.category_penetration_pct,
+        },
+        status: 'active',
+      })
         .select()
         .single();
 
@@ -325,7 +297,7 @@ export function useCalculateForecast() {
         throw error;
       }
 
-      return forecast as ProductForecast;
+      return forecast as unknown as ProductForecast;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cdp-product-forecasts'] });
@@ -335,17 +307,14 @@ export function useCalculateForecast() {
 
 // Get unique categories from data
 export function useAvailableCategories() {
-  const { activeTenant } = useTenant();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['cdp-available-categories', activeTenant?.id],
+    queryKey: ['cdp-available-categories', tenantId],
     queryFn: async () => {
-      if (!activeTenant?.id) return [];
+      if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('v_cdp_category_conversion_stats')
-        .select('category, unique_buyers, avg_price')
-        .eq('tenant_id', activeTenant.id)
+      const { data, error } = await buildSelectQuery('v_cdp_category_conversion_stats', 'category, unique_buyers, avg_price')
         .order('unique_buyers', { ascending: false });
 
       if (error) {
@@ -353,33 +322,29 @@ export function useAvailableCategories() {
         return [];
       }
 
-      return (data || []).map(d => ({
+      return ((data || []) as unknown as CategoryConversionStats[]).map(d => ({
         category: d.category,
         buyers: d.unique_buyers,
         avgPrice: d.avg_price,
       }));
     },
-    enabled: !!activeTenant?.id,
+    enabled: isReady,
   });
 }
 
 // Count unique active customers within a configurable date range
-// Uses RPC to get accurate count (avoids 1000 row limit issue)
 export function useActiveCustomerCount(startDate?: string, endDate?: string) {
-  const { activeTenant } = useTenant();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['cdp-active-customer-count', activeTenant?.id, startDate, endDate],
+    queryKey: ['cdp-active-customer-count', tenantId, startDate, endDate],
     queryFn: async () => {
-      if (!activeTenant?.id || !startDate || !endDate) return 0;
+      if (!tenantId || !startDate || !endDate) return 0;
 
-      // Use raw SQL count to avoid 1000 row limit
-      const { data, error } = await supabase
-        .rpc('cdp_count_active_customers', {
-          p_tenant_id: activeTenant.id,
-          p_start_date: startDate,
-          p_end_date: endDate,
-        });
+      const { data, error } = await callRpc('cdp_count_active_customers', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
 
       if (error) {
         console.error('[useActiveCustomerCount] Error:', error);
@@ -388,6 +353,6 @@ export function useActiveCustomerCount(startDate?: string, endDate?: string) {
 
       return data ?? 0;
     },
-    enabled: !!activeTenant?.id && !!startDate && !!endDate,
+    enabled: isReady && !!startDate && !!endDate,
   });
 }

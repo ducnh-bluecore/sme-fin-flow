@@ -1,19 +1,15 @@
 /**
  * useExpensesDaily - CANONICAL HOOK for Expense Metrics
  * 
- * ⚠️ THIS IS THE SINGLE SOURCE OF TRUTH FOR EXPENSE METRICS
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  * 
  * This hook ONLY fetches precomputed data from finance_expenses_daily.
  * NO business calculations are performed in this hook.
- * 
- * REPLACES:
- * - Direct queries to expenses table
- * - Client-side aggregation by category
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 
 // =============================================================
@@ -86,7 +82,7 @@ interface UseExpensesDailyOptions {
 }
 
 export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const { days = 30 } = options;
   
@@ -96,27 +92,17 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
       if (!tenantId) return [];
       
       // Try RPC first (preferred)
-      const { data: rpcData, error: rpcError } = await client
-        .rpc('get_expenses_daily', {
-          p_tenant_id: tenantId,
-          p_start_date: startDateStr,
-          p_end_date: endDateStr,
-        });
+      const { data: rpcData, error: rpcError } = await callRpc('get_expenses_daily', {
+        p_start_date: startDateStr,
+        p_end_date: endDateStr,
+      });
       
-      if (!rpcError && rpcData && rpcData.length > 0) {
-        return rpcData.map(mapToFormatted);
+      if (!rpcError && rpcData && (rpcData as unknown[]).length > 0) {
+        return (rpcData as unknown as ExpensesDailyRow[]).map(mapToFormatted);
       }
       
       // Fallback to direct table query
-      let query = client
-        .from('finance_expenses_daily')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query
+      const { data, error } = await buildSelectQuery('finance_expenses_daily', '*')
         .gte('day', startDateStr)
         .lte('day', endDateStr)
         .order('day', { ascending: false })
@@ -127,10 +113,10 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
         throw error;
       }
       
-      if (!data || data.length === 0) return [];
+      if (!data || (data as unknown[]).length === 0) return [];
       
       // Map to formatted shape - NO CALCULATIONS
-      return data.map(mapToFormatted);
+      return (data as unknown as ExpensesDailyRow[]).map(mapToFormatted);
     },
     enabled: isReady,
     staleTime: 5 * 60 * 1000,
@@ -146,7 +132,7 @@ export function useExpensesDaily(options: UseExpensesDailyOptions = {}) {
  * Get expenses summary for period from precomputed data
  */
 export function useExpensesSummary() {
-  const { tenantId } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   const { data: dailyData } = useExpensesDaily({ days: 365 });
   
@@ -156,7 +142,6 @@ export function useExpensesSummary() {
       if (!dailyData || dailyData.length === 0) return null;
       
       // Sum up daily values (these are already precomputed in DB)
-      // This is simple aggregation of precomputed daily values, NOT raw data calculation
       const summary: ExpensesSummary = {
         totalAmount: dailyData.reduce((sum, d) => sum + d.totalAmount, 0),
         byCategory: {
@@ -178,7 +163,7 @@ export function useExpensesSummary() {
       
       return summary;
     },
-    enabled: !!tenantId && !!dailyData && dailyData.length > 0,
+    enabled: isReady && !!dailyData && dailyData.length > 0,
     staleTime: 5 * 60 * 1000,
   });
 }

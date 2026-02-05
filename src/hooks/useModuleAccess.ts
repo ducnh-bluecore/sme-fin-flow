@@ -1,5 +1,13 @@
+/**
+ * useModuleAccess - Hook for Module Access Control
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useActiveTenant } from '@/hooks/useTenant';
 
 // Core module that is always available (base infrastructure)
@@ -19,34 +27,31 @@ export interface ModuleAccessResult {
  */
 export function useModuleAccess(): ModuleAccessResult {
   const { data: tenant, isLoading: tenantLoading } = useActiveTenant();
+  const { buildSelectQuery, isReady } = useTenantQueryBuilder();
 
   const { data: enabledModules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ['module-access', tenant?.id],
     queryFn: async () => {
       if (!tenant?.id) return [CORE_MODULE];
 
-      const { data, error } = await supabase
-        .from('tenant_modules')
-        .select(`
-          is_enabled,
-          module:platform_modules (
-            code,
-            is_core
-          )
-        `)
-        .eq('tenant_id', tenant.id)
+      const { data, error } = await buildSelectQuery('tenant_modules', `
+        is_enabled,
+        module:platform_modules (
+          code,
+          is_core
+        )
+      `)
         .eq('is_enabled', true);
 
       if (error) {
         console.error('Error fetching tenant modules:', error);
-        // Fallback: return core module on error
         return [CORE_MODULE];
       }
 
       // Extract module codes
-      const codes = (data || [])
+      const codes = ((data || []) as unknown as Array<{ is_enabled: boolean; module: { code: string; is_core: boolean } | null }>)
         .filter(tm => tm.is_enabled && tm.module)
-        .map(tm => (tm.module as any).code as string);
+        .map(tm => tm.module!.code);
 
       // Always include core module (data_warehouse)
       if (!codes.includes(CORE_MODULE)) {
@@ -55,14 +60,13 @@ export function useModuleAccess(): ModuleAccessResult {
 
       return codes;
     },
-    enabled: !!tenant?.id,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !!tenant?.id && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const isLoading = tenantLoading || modulesLoading;
 
   const hasModule = (moduleCode: string): boolean => {
-    // Core module is always available
     if (moduleCode === CORE_MODULE) return true;
     return enabledModules.includes(moduleCode);
   };
@@ -83,8 +87,6 @@ export function useModuleAccess(): ModuleAccessResult {
     hasAllModules,
   };
 }
-
-import React from 'react';
 
 /**
  * Helper component to gate features based on module access

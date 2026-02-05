@@ -1,3 +1,10 @@
+/**
+ * useAuthRedirect - Redirect users based on role after login
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Note: This hook uses platform tables (profiles, user_roles) which are in public schema
+ */
+
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +14,7 @@ export function useAuthRedirect() {
 
   const redirectBasedOnRole = useCallback(async (userId: string) => {
     try {
-      // Check if user is super admin
+      // Check if user is super admin (platform table - public schema)
       const { data: adminRole } = await supabase
         .from('user_roles')
         .select('role')
@@ -21,7 +28,7 @@ export function useAuthRedirect() {
         return;
       }
 
-      // Check user's onboarding status
+      // Check user's onboarding status (platform table - public schema)
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_status')
