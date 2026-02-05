@@ -1,5 +1,13 @@
+/**
+ * Notification Recipients Hook
+ * 
+ * CRUD operations for notification recipients.
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface NotificationRecipient {
@@ -25,27 +33,19 @@ export interface NotificationRecipientInput {
 }
 
 export function useNotificationRecipients() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['notification-recipients', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('notification_recipients')
-        .select('*')
+      const { data, error } = await buildSelectQuery('notification_recipients', '*')
         .order('role', { ascending: true })
         .order('name', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
-      return data as NotificationRecipient[];
+      return (data as unknown as NotificationRecipient[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -53,7 +53,7 @@ export function useNotificationRecipients() {
 
 export function useSaveNotificationRecipient() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (recipient: NotificationRecipientInput & { id?: string }) => {
@@ -103,7 +103,7 @@ export function useSaveNotificationRecipient() {
 
 export function useDeleteNotificationRecipient() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {

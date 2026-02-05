@@ -7,7 +7,7 @@
  * - No silent defaults (no fixed 55% COGS, no fixed 12% fees)
  * - Alerts ONLY from backend, never frontend-generated
  * 
- * @architecture database-first
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain MDP
  * @deprecated-pattern Do NOT compute business metrics in React
  */
@@ -15,7 +15,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useMemo } from 'react';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   MDPSSOTResult,
   MDPCampaignAttribution,
@@ -71,7 +71,7 @@ export const MDP_METRIC_CODES = {
 // ============ MAIN HOOK ============
 
 export function useMDPSSOT(): MDPSSOTResult {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   // ============ QUERY: Campaigns ============
@@ -85,7 +85,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .lte('start_date', endDateStr)
         .gte('end_date', startDateStr)
         .order('actual_cost', { ascending: false });
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
@@ -104,7 +104,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .from('external_order_items')
         .select('external_order_id, sku, quantity, unit_price, total_amount, unit_cogs, total_cogs, gross_profit')
         .limit(100000);
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
@@ -124,7 +124,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .select('*')
         .gte('fee_date', startDateStr)
         .lte('fee_date', endDateStr);
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
@@ -144,7 +144,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .select('*')
         .gte('period_start', startDateStr)
         .lte('period_end', endDateStr);
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
@@ -167,7 +167,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .gte('order_at', startDateStr)
         .lte('order_at', endDateStr)
         .limit(50000);
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
@@ -196,7 +196,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .select('*')
         .gte('expense_date', startDateStr)
         .lte('expense_date', endDateStr);
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
@@ -230,7 +230,7 @@ export function useMDPSSOT(): MDPSSOTResult {
         .eq('status', 'OPEN')
         .order('severity_score', { ascending: false });
       
-      if (shouldAddTenantFilter) {
+      if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       

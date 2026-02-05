@@ -1,5 +1,13 @@
+/**
+ * CDP Customer Order Items Hook
+ * 
+ * Fetches order item details for a specific customer.
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 interface OrderItem {
   id: string;
@@ -65,7 +73,7 @@ export interface CustomerOrderItemsData {
 }
 
 export function useCDPCustomerOrderItems(customerId: string | undefined) {
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-customer-order-items', customerId],

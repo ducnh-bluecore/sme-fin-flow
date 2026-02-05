@@ -4,12 +4,12 @@
  * Fetches customer demographics from v_cdp_demographics_summary view.
  * Replaces hardcoded mock data in useAudienceData.
  * 
- * @architecture database-first
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain CDP
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface AgeDistribution {
   range: string;
@@ -65,32 +65,27 @@ const GENDER_COLORS: Record<string, string> = {
 };
 
 export function useDemographicsData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['demographics-data', tenantId],
     queryFn: async (): Promise<DemographicsData | null> => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('v_cdp_demographics_summary')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_demographics_summary', '*')
+        .maybeSingle();
         
       if (error) throw error;
       
       if (!data) return null;
       
-      // Parse JSONB arrays from database - cast through unknown first
-      const rawAge = (data.age_distribution as unknown as AgeDistribution[] | null) || [];
-      const rawGender = (data.gender_distribution as unknown as GenderDistribution[] | null) || [];
-      const rawDevice = (data.device_distribution as unknown as DeviceDistribution[] | null) || [];
-      const rawGeo = (data.geographic_distribution as unknown as GeographicDistribution[] | null) || [];
+      const row = data as unknown as Record<string, unknown>;
+      
+      // Parse JSONB arrays from database
+      const rawAge = (row.age_distribution as AgeDistribution[] | null) || [];
+      const rawGender = (row.gender_distribution as GenderDistribution[] | null) || [];
+      const rawDevice = (row.device_distribution as DeviceDistribution[] | null) || [];
+      const rawGeo = (row.geographic_distribution as GeographicDistribution[] | null) || [];
       
       // Apply colors if missing
       const age_distribution = rawAge.map(item => ({

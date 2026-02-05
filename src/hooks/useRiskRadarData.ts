@@ -4,12 +4,12 @@
  * Fetches risk radar scores from v_risk_radar_summary view.
  * Replaces hardcoded mock data in RiskDashboardPage.
  * 
- * @architecture database-first
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain FDP/Risk
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface RiskRadarData {
   liquidity_score: number;
@@ -41,38 +41,33 @@ function getSeverity(score: number): 'low' | 'medium' | 'high' {
 }
 
 export function useRiskRadarData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const query = useQuery({
     queryKey: ['risk-radar-data', tenantId],
     queryFn: async (): Promise<RiskRadarData | null> => {
       if (!tenantId) return null;
       
-      let dbQuery = client
-        .from('v_risk_radar_summary')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        dbQuery = dbQuery.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await dbQuery.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_risk_radar_summary', '*')
+        .maybeSingle();
         
       if (error) throw error;
       
       if (!data) return null;
       
+      const row = data as unknown as Record<string, unknown>;
+      
       return {
-        liquidity_score: Number(data.liquidity_score) || 0,
-        credit_score: Number(data.credit_score) || 0,
-        market_score: Number(data.market_score) || 0,
-        operational_score: Number(data.operational_score) || 0,
-        overall_score: Number(data.overall_score) || 0,
-        liquidity_severity: getSeverity(Number(data.liquidity_score) || 0),
-        credit_severity: getSeverity(Number(data.credit_score) || 0),
-        market_severity: getSeverity(Number(data.market_score) || 0),
-        operational_severity: getSeverity(Number(data.operational_score) || 0),
-        calculation_details: data.calculation_details as Record<string, unknown> | null,
+        liquidity_score: Number(row.liquidity_score) || 0,
+        credit_score: Number(row.credit_score) || 0,
+        market_score: Number(row.market_score) || 0,
+        operational_score: Number(row.operational_score) || 0,
+        overall_score: Number(row.overall_score) || 0,
+        liquidity_severity: getSeverity(Number(row.liquidity_score) || 0),
+        credit_severity: getSeverity(Number(row.credit_score) || 0),
+        market_severity: getSeverity(Number(row.market_score) || 0),
+        operational_severity: getSeverity(Number(row.operational_score) || 0),
+        calculation_details: row.calculation_details as Record<string, unknown> | null,
       };
     },
     enabled: !!tenantId && isReady,
