@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 // ============= Types =============
@@ -106,7 +106,7 @@ const QUERY_KEY = 'intelligent-alert-rules';
 // ============= Main Hook =============
 
 export function useIntelligentAlertRules() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, buildUpdateQuery, buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   // Fetch all intelligent alert rules
@@ -115,22 +115,14 @@ export function useIntelligentAlertRules() {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('intelligent_alert_rules')
-        .select('*')
+      const { data, error } = await buildSelectQuery('intelligent_alert_rules', '*')
         .order('rule_category', { ascending: true })
         .order('priority', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       
       // Parse calculation_formula if it's a JSON string
-      return (data || []).map(rule => ({
+      return ((data || []) as any[]).map(rule => ({
         ...rule,
         calculation_formula: typeof rule.calculation_formula === 'string' 
           ? tryParseJSON(rule.calculation_formula)
@@ -169,9 +161,10 @@ export function useIntelligentAlertRules() {
   // Toggle rule enabled/disabled
   const toggleRule = useMutation({
     mutationFn: async ({ id, is_enabled }: { id: string; is_enabled: boolean }) => {
-      const { data, error } = await client
-        .from('intelligent_alert_rules')
-        .update({ is_enabled, updated_at: new Date().toISOString() })
+      const { data, error } = await buildUpdateQuery('intelligent_alert_rules', { 
+        is_enabled, 
+        updated_at: new Date().toISOString() 
+      })
         .eq('id', id)
         .select()
         .single();
@@ -209,9 +202,7 @@ export function useIntelligentAlertRules() {
       if (rule.threshold_config !== undefined) updateData.threshold_config = rule.threshold_config;
       if (rule.cooldown_hours !== undefined) updateData.cooldown_hours = rule.cooldown_hours;
 
-      const { data, error } = await client
-        .from('intelligent_alert_rules')
-        .update(updateData)
+      const { data, error } = await buildUpdateQuery('intelligent_alert_rules', updateData)
         .eq('id', rule.id)
         .select()
         .single();
@@ -244,25 +235,22 @@ export function useIntelligentAlertRules() {
     }) => {
       if (!tenantId) throw new Error('No tenant ID');
 
-      const { data, error } = await client
-        .from('intelligent_alert_rules')
-        .insert({
-          tenant_id: tenantId,
-          rule_code: rule.rule_code,
-          rule_name: rule.rule_name,
-          description: rule.description || '',
-          rule_category: rule.rule_category,
-          severity: rule.severity,
-          threshold_type: 'fixed',
-          threshold_config: rule.threshold_config || {},
-          calculation_formula: rule.calculation_formula || '',
-          suggested_actions: rule.suggested_actions || [],
-          applicable_channels: rule.applicable_channels || [],
-          alert_group: rule.alert_group || 'general',
-          is_enabled: true,
-          priority: 5,
-          cooldown_hours: 4,
-        })
+      const { data, error } = await buildInsertQuery('intelligent_alert_rules', {
+        rule_code: rule.rule_code,
+        rule_name: rule.rule_name,
+        description: rule.description || '',
+        rule_category: rule.rule_category,
+        severity: rule.severity,
+        threshold_type: 'fixed',
+        threshold_config: rule.threshold_config || {},
+        calculation_formula: rule.calculation_formula || '',
+        suggested_actions: rule.suggested_actions || [],
+        applicable_channels: rule.applicable_channels || [],
+        alert_group: rule.alert_group || 'general',
+        is_enabled: true,
+        priority: 5,
+        cooldown_hours: 4,
+      })
         .select()
         .single();
 
@@ -283,15 +271,10 @@ export function useIntelligentAlertRules() {
     mutationFn: async ({ is_enabled }: { is_enabled: boolean }) => {
       if (!tenantId) throw new Error('No tenant ID');
       
-      let query = client
-        .from('intelligent_alert_rules')
-        .update({ is_enabled, updated_at: new Date().toISOString() });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { error } = await query;
+      const { error } = await buildUpdateQuery('intelligent_alert_rules', { 
+        is_enabled, 
+        updated_at: new Date().toISOString() 
+      });
 
       if (error) throw error;
       return { is_enabled };

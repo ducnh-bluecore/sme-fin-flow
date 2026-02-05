@@ -13,7 +13,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface DecisionSnapshot {
   id: string;
@@ -83,26 +83,19 @@ const STALE_THRESHOLD_MS = 15 * 60 * 1000;
  * Fetch latest snapshot for a metric
  */
 export function useLatestSnapshot(metricCode: string, enabled = true) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-snapshot-latest', tenantId, metricCode],
     queryFn: async (): Promise<DecisionSnapshot | null> => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('v_decision_latest')
-        .select('*')
-        .eq('metric_code', metricCode);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_decision_latest', '*')
+        .eq('metric_code', metricCode)
+        .maybeSingle();
 
       if (error) throw error;
-      return data as DecisionSnapshot | null;
+      return (data as unknown) as DecisionSnapshot | null;
     },
     enabled: !!tenantId && enabled && isReady,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -113,7 +106,7 @@ export function useLatestSnapshot(metricCode: string, enabled = true) {
  * Fetch all cash-related snapshots with staleness check
  */
 export function useCashSnapshots() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-snapshots-cash', tenantId],
@@ -129,16 +122,8 @@ export function useCashSnapshots() {
         };
       }
 
-      let query = client
-        .from('v_decision_latest')
-        .select('*')
+      const { data, error } = await buildSelectQuery('v_decision_latest', '*')
         .in('metric_code', ['cash_today', 'cash_flow_today', 'cash_next_7d']);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -146,7 +131,7 @@ export function useCashSnapshots() {
       let isStale = false;
       let lastUpdated: string | null = null;
 
-      for (const snap of (data || []) as DecisionSnapshot[]) {
+      for (const snap of ((data || []) as any[]) as DecisionSnapshot[]) {
         const snapshotAge = Date.now() - new Date(snap.as_of).getTime();
         if (snapshotAge > STALE_THRESHOLD_MS) {
           isStale = true;
@@ -183,7 +168,7 @@ export function useCashSnapshots() {
  * Compute and write cash snapshots via edge function
  */
 export function useComputeCashSnapshots() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -224,7 +209,7 @@ export function useComputeCashSnapshots() {
  * Get explanation for a snapshot
  */
 export function useSnapshotExplanation(snapshotId: string | null) {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-snapshot-explain', snapshotId],
@@ -262,7 +247,7 @@ export function useSnapshotExplanation(snapshotId: string | null) {
  * Create a new snapshot manually
  */
 export function useCreateSnapshot() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({

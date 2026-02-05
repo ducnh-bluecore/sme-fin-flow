@@ -9,7 +9,7 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 // Types
@@ -82,25 +82,17 @@ export interface ReconciliationStats {
  * Replaces reading from invoices.paid_amount and invoices.status
  */
 export function useInvoiceSettledStatus() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['invoice-settled-status', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_invoice_settled_status')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_invoice_settled_status', '*');
 
       if (error) throw error;
-      return data as InvoiceSettledStatus[];
+      return (data as unknown) as InvoiceSettledStatus[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -112,25 +104,17 @@ export function useInvoiceSettledStatus() {
  * Replaces reading from bank_transactions.match_status
  */
 export function useBankTxnMatchState() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['bank-txn-match-state', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_bank_txn_match_state')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_bank_txn_match_state', '*');
 
       if (error) throw error;
-      return data as BankTxnMatchState[];
+      return (data as unknown) as BankTxnMatchState[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -141,21 +125,15 @@ export function useBankTxnMatchState() {
  * Fetch reconciliation links (ledger entries)
  */
 export function useReconciliationLinks(includeVoided: boolean = false) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['reconciliation-links', tenantId, includeVoided],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('reconciliation_links')
-        .select('*')
+      let query = buildSelectQuery('reconciliation_links', '*')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       if (!includeVoided) {
         query = query.eq('is_voided', false);
@@ -163,7 +141,7 @@ export function useReconciliationLinks(includeVoided: boolean = false) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as ReconciliationLink[];
+      return (data as unknown) as ReconciliationLink[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -178,7 +156,7 @@ export function useReconciliationLinks(includeVoided: boolean = false) {
  */
 export function useCreateReconciliationLink() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -206,19 +184,16 @@ export function useCreateReconciliationLink() {
         throw new Error('Non-manual matches must have a bank transaction');
       }
 
-      const { data, error } = await client
-        .from('reconciliation_links')
-        .insert({
-          tenant_id: tenantId,
-          bank_transaction_id: bankTransactionId,
-          settlement_amount: settlementAmount,
-          settlement_date: new Date().toISOString().split('T')[0],
-          target_type: 'invoice',
-          target_id: invoiceId,
-          match_type: matchType,
-          confidence,
-          match_evidence: matchEvidence,
-        })
+      const { data, error } = await buildInsertQuery('reconciliation_links', {
+        bank_transaction_id: bankTransactionId,
+        settlement_amount: settlementAmount,
+        settlement_date: new Date().toISOString().split('T')[0],
+        target_type: 'invoice',
+        target_id: invoiceId,
+        match_type: matchType,
+        confidence,
+        match_evidence: matchEvidence,
+      })
         .select()
         .single();
 
@@ -247,7 +222,7 @@ export function useCreateReconciliationLink() {
  */
 export function useVoidReconciliationLink() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -257,13 +232,11 @@ export function useVoidReconciliationLink() {
       linkId: string;
       voidReason: string;
     }) => {
-      const { data, error } = await client
-        .from('reconciliation_links')
-        .update({
-          is_voided: true,
-          void_reason: voidReason,
-          voided_at: new Date().toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('reconciliation_links', {
+        is_voided: true,
+        void_reason: voidReason,
+        voided_at: new Date().toISOString(),
+      })
         .eq('id', linkId)
         .select()
         .single();
@@ -294,7 +267,7 @@ export function useVoidReconciliationLink() {
 export function useAutoMatchSSOT() {
   const [isMatching, setIsMatching] = useState(false);
   const [matchResults, setMatchResults] = useState<MatchResult[]>([]);
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   // Read from SSOT views
   const { data: invoiceStatus } = useInvoiceSettledStatus();
@@ -304,18 +277,11 @@ export function useAutoMatchSSOT() {
   const { data: invoices } = useQuery({
     queryKey: ['invoices-for-matching', tenantId],
     queryFn: async () => {
-      let query = client
-        .from('invoices')
-        .select('*, customers(name)')
+      const { data, error } = await buildSelectQuery('invoices', '*, customers(name)')
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -323,18 +289,11 @@ export function useAutoMatchSSOT() {
   const { data: transactions } = useQuery({
     queryKey: ['transactions-for-matching', tenantId],
     queryFn: async () => {
-      let query = client
-        .from('bank_transactions')
-        .select('*, bank_accounts(bank_name, account_number)')
+      const { data, error } = await buildSelectQuery('bank_transactions', '*, bank_accounts(bank_name, account_number)')
         .order('transaction_date', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data as any[];
     },
     enabled: !!tenantId && isReady,
   });
