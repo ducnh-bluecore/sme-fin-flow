@@ -1,11 +1,12 @@
 /**
  * useDecisionCards - Hook for decision card management
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Control Tower/Decisions
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 // Types
@@ -116,7 +117,7 @@ export function useDecisionCards(filters?: {
   priority?: Priority[];
   ownerRole?: OwnerRole[];
 }) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-cards', tenantId, filters],
@@ -153,7 +154,7 @@ export function useDecisionCards(filters?: {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as DecisionCard[];
+      return (data as unknown as DecisionCard[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -161,7 +162,7 @@ export function useDecisionCards(filters?: {
 
 // Hook to fetch single decision card with details
 export function useDecisionCard(cardId: string | null) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-card', tenantId, cardId],
@@ -184,7 +185,7 @@ export function useDecisionCard(cardId: string | null) {
       const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
-      return (data as DecisionCard) ?? null;
+      return (data as unknown as DecisionCard) ?? null;
     },
     enabled: !!cardId && !!tenantId && isReady,
   });
@@ -193,7 +194,7 @@ export function useDecisionCard(cardId: string | null) {
 // Hook to make a decision
 export function useDecideCard() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, buildInsertQuery, buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -249,8 +250,7 @@ export function useDecideCard() {
         if (error) throw error;
 
         // Also log to unified audit log with full action details
-        await client.from('decision_audit_log').insert({
-          tenant_id: tenantId!,
+        await buildInsertQuery('decision_audit_log', {
           auto_card_id: cardId,
           card_type: cardSnapshot?.card_type || 'UNKNOWN',
           entity_type: cardSnapshot?.entity_type || 'UNKNOWN',
@@ -265,7 +265,6 @@ export function useDecideCard() {
           impact_amount: cardSnapshot?.impact_amount,
           impact_currency: cardSnapshot?.impact_currency || 'VND',
           card_snapshot: cardSnapshot,
-          // New fields for action tracking
           selected_action_type: selectedAction?.type ?? actionType,
           selected_action_label: selectedAction?.label ?? actionLabel,
           action_parameters: selectedAction?.parameters ?? parameters ?? null,
@@ -279,24 +278,22 @@ export function useDecideCard() {
       }
 
       // Insert decision log for real cards
-      const { error: decisionError } = await client
-        .from('decision_card_decisions')
-        .insert({
-          card_id: cardId,
-          tenant_id: tenantId!,
-          decided_by: user?.id,
-          action_type: actionType,
-          action_label: actionLabel,
-          comment,
-          parameters: parameters || {},
-        });
+      const { error: decisionError } = await buildInsertQuery('decision_card_decisions', {
+        card_id: cardId,
+        decided_by: user?.id,
+        action_type: actionType,
+        action_label: actionLabel,
+        comment,
+        parameters: parameters || {},
+      });
 
       if (decisionError) throw decisionError;
 
       // Update card status
-      const { data, error } = await client
-        .from('decision_cards')
-        .update({ status: 'DECIDED', updated_at: new Date().toISOString() })
+      const { data, error } = await buildUpdateQuery('decision_cards', { 
+        status: 'DECIDED', 
+        updated_at: new Date().toISOString() 
+      })
         .eq('id', cardId)
         .select()
         .single();
@@ -304,26 +301,24 @@ export function useDecideCard() {
       if (error) throw error;
 
       // Also log to unified audit log for DB cards with full action details
-      await client.from('decision_audit_log').insert({
-        tenant_id: tenantId!,
+      await buildInsertQuery('decision_audit_log', {
         card_id: cardId,
-        card_type: data.card_type,
-        entity_type: data.entity_type,
-        entity_id: data.entity_id,
-        entity_label: data.entity_label,
+        card_type: (data as any).card_type,
+        entity_type: (data as any).entity_type,
+        entity_id: (data as any).entity_id,
+        entity_label: (data as any).entity_label,
         action_type: actionType,
         action_label: actionLabel,
         decision_status: 'DECIDED',
         decided_by: user?.id,
         decided_at: new Date().toISOString(),
         comment: comment,
-        impact_amount: data.impact_amount,
-        impact_currency: data.impact_currency,
-        // New fields for action tracking
+        impact_amount: (data as any).impact_amount,
+        impact_currency: (data as any).impact_currency,
         selected_action_type: selectedAction?.type ?? actionType,
         selected_action_label: selectedAction?.label ?? actionLabel,
         action_parameters: selectedAction?.parameters ?? parameters ?? null,
-        expected_impact_amount: data.impact_amount,
+        expected_impact_amount: (data as any).impact_amount,
         expected_outcome: expectedOutcome,
         follow_up_date: calculatedFollowUpDate,
         follow_up_status: 'pending',
@@ -348,7 +343,7 @@ export function useDecideCard() {
 // Hook to dismiss a card
 export function useDismissCard() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, buildInsertQuery, buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -386,8 +381,7 @@ export function useDismissCard() {
         if (error) throw error;
 
         // Also log to unified audit log
-        await client.from('decision_audit_log').insert({
-          tenant_id: tenantId!,
+        await buildInsertQuery('decision_audit_log', {
           auto_card_id: cardId,
           card_type: cardSnapshot?.card_type || 'UNKNOWN',
           entity_type: cardSnapshot?.entity_type || 'UNKNOWN',
@@ -408,23 +402,21 @@ export function useDismissCard() {
       }
 
       // Insert decision log with dismiss reason
-      const { error: decisionError } = await client
-        .from('decision_card_decisions')
-        .insert({
-          card_id: cardId,
-          tenant_id: tenantId!,
-          decided_by: user?.id,
-          action_type: 'DISMISS',
-          dismiss_reason: reason,
-          comment,
-        });
+      const { error: decisionError } = await buildInsertQuery('decision_card_decisions', {
+        card_id: cardId,
+        decided_by: user?.id,
+        action_type: 'DISMISS',
+        dismiss_reason: reason,
+        comment,
+      });
 
       if (decisionError) throw decisionError;
 
       // Update card status
-      const { data, error } = await client
-        .from('decision_cards')
-        .update({ status: 'DISMISSED', updated_at: new Date().toISOString() })
+      const { data, error } = await buildUpdateQuery('decision_cards', { 
+        status: 'DISMISSED', 
+        updated_at: new Date().toISOString() 
+      })
         .eq('id', cardId)
         .select()
         .single();
@@ -432,21 +424,20 @@ export function useDismissCard() {
       if (error) throw error;
 
       // Also log to unified audit log
-      await client.from('decision_audit_log').insert({
-        tenant_id: tenantId!,
+      await buildInsertQuery('decision_audit_log', {
         card_id: cardId,
-        card_type: data.card_type,
-        entity_type: data.entity_type,
-        entity_id: data.entity_id,
-        entity_label: data.entity_label,
+        card_type: (data as any).card_type,
+        entity_type: (data as any).entity_type,
+        entity_id: (data as any).entity_id,
+        entity_label: (data as any).entity_label,
         action_type: 'DISMISS',
         decision_status: 'DISMISSED',
         decided_by: user?.id,
         decided_at: new Date().toISOString(),
         comment: comment,
         dismiss_reason: reason,
-        impact_amount: data.impact_amount,
-        impact_currency: data.impact_currency,
+        impact_amount: (data as any).impact_amount,
+        impact_currency: (data as any).impact_currency,
       });
 
       return data;
@@ -467,7 +458,7 @@ export function useDismissCard() {
 // Hook to snooze a card
 export function useSnoozeCard() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId, buildInsertQuery, buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -504,8 +495,7 @@ export function useSnoozeCard() {
         if (error) throw error;
 
         // Also log to unified audit log
-        await client.from('decision_audit_log').insert({
-          tenant_id: tenantId!,
+        await buildInsertQuery('decision_audit_log', {
           auto_card_id: cardId,
           card_type: cardSnapshot?.card_type || 'UNKNOWN',
           entity_type: cardSnapshot?.entity_type || 'UNKNOWN',
@@ -523,13 +513,11 @@ export function useSnoozeCard() {
         return { id: cardId, status: 'SNOOZED', snoozed_until: snoozedUntil.toISOString() };
       }
 
-      const { data, error } = await client
-        .from('decision_cards')
-        .update({
-          snoozed_until: snoozedUntil.toISOString(),
-          snooze_count: 1, // Increment will be handled separately if needed
-          updated_at: new Date().toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('decision_cards', {
+        snoozed_until: snoozedUntil.toISOString(),
+        snooze_count: 1,
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', cardId)
         .select()
         .single();
@@ -537,19 +525,18 @@ export function useSnoozeCard() {
       if (error) throw error;
 
       // Also log to unified audit log
-      await client.from('decision_audit_log').insert({
-        tenant_id: tenantId!,
+      await buildInsertQuery('decision_audit_log', {
         card_id: cardId,
-        card_type: data.card_type,
-        entity_type: data.entity_type,
-        entity_id: data.entity_id,
-        entity_label: data.entity_label,
+        card_type: (data as any).card_type,
+        entity_type: (data as any).entity_type,
+        entity_id: (data as any).entity_id,
+        entity_label: (data as any).entity_label,
         action_type: 'SNOOZE',
         decision_status: 'SNOOZED',
         decided_by: user?.id,
         decided_at: new Date().toISOString(),
-        impact_amount: data.impact_amount,
-        impact_currency: data.impact_currency,
+        impact_amount: (data as any).impact_amount,
+        impact_currency: (data as any).impact_currency,
       });
 
       return data;
@@ -568,25 +555,17 @@ export function useSnoozeCard() {
 
 // Hook to get auto-card states for filtering
 export function useAutoDecisionCardStates() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['auto-decision-card-states', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('auto_decision_card_states')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('auto_decision_card_states', '*');
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -594,27 +573,19 @@ export function useAutoDecisionCardStates() {
 
 // Hook to get unified decision history
 export function useUnifiedDecisionHistory() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['unified-decision-history', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('decision_audit_log')
-        .select('*')
+      const { data, error } = await buildSelectQuery('decision_audit_log', '*')
         .order('decided_at', { ascending: false })
         .limit(100);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!tenantId && isReady,
   });
