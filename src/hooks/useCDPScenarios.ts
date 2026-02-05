@@ -2,11 +2,11 @@
  * useCDPScenarios - CDP LTV Scenario Comparison & Decay Detection
  * 
  * Refactored to Schema-per-Tenant architecture.
- * Uses useTenantSupabaseCompat for tenant-aware queries.
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface Scenario {
@@ -62,14 +62,14 @@ export interface DecayAlert {
  * Hook to compare LTV scenarios
  */
 export function useLTVScenarioComparison(modelId: string | null, scenarios: Scenario[]) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-ltv-scenarios', tenantId, modelId, scenarios],
     queryFn: async () => {
       if (!tenantId || !modelId) return [];
 
-      const { data, error } = await client.rpc('cdp_compare_ltv_scenarios', {
+      const { data, error } = await callRpc('cdp_compare_ltv_scenarios', {
         p_tenant_id: tenantId,
         p_base_model_id: modelId,
         p_scenarios: JSON.parse(JSON.stringify(scenarios)),
@@ -91,14 +91,14 @@ export function useLTVScenarioComparison(modelId: string | null, scenarios: Scen
  * Hook to detect LTV decay
  */
 export function useLTVDecayDetection(threshold: number = 10) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-ltv-decay', tenantId, threshold],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await client.rpc('cdp_detect_ltv_decay', {
+      const { data, error } = await callRpc('cdp_detect_ltv_decay', {
         p_tenant_id: tenantId,
         p_threshold_percent: threshold,
       });
@@ -120,35 +120,32 @@ export function useLTVDecayDetection(threshold: number = 10) {
  * Hook to create a decision card from a decay alert
  */
 export function useCreateDecayDecisionCard() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (alert: DecayAlert) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('cdp_decision_cards')
-        .insert({
-          tenant_id: tenantId,
-          source_type: 'MANUAL',
-          source_ref: {
-            trigger_source: 'ltv_decay_detection',
-            trigger_data: {
-              decay_type: alert.decay_type,
-              population_name: alert.population_name,
-              decline_percent: alert.decline_percent,
-              revenue_at_risk: alert.revenue_at_risk,
-            },
+      const { data, error } = await buildInsertQuery('cdp_decision_cards', {
+        source_type: 'MANUAL',
+        source_ref: {
+          trigger_source: 'ltv_decay_detection',
+          trigger_data: {
+            decay_type: alert.decay_type,
+            population_name: alert.population_name,
+            decline_percent: alert.decline_percent,
+            revenue_at_risk: alert.revenue_at_risk,
           },
-          title: `[LTV Alert] ${alert.population_name} giảm ${alert.decline_percent.toFixed(1)}%`,
-          summary: `Phát hiện ${alert.decay_type === 'COHORT_DECAY' ? 'suy giảm cohort' : 'mất cân bằng tier'}. ${alert.recommendation}`,
-          category: 'VALUE',
-          population_ref: { population_name: alert.population_name },
-          priority: alert.severity === 'critical' ? 'P0' : 'P1',
-          severity: alert.severity === 'critical' ? 'CRITICAL' : 'HIGH',
-          status: 'NEW',
-        })
+        },
+        title: `[LTV Alert] ${alert.population_name} giảm ${alert.decline_percent.toFixed(1)}%`,
+        summary: `Phát hiện ${alert.decay_type === 'COHORT_DECAY' ? 'suy giảm cohort' : 'mất cân bằng tier'}. ${alert.recommendation}`,
+        category: 'VALUE',
+        population_ref: { population_name: alert.population_name },
+        priority: alert.severity === 'critical' ? 'P0' : 'P1',
+        severity: alert.severity === 'critical' ? 'CRITICAL' : 'HIGH',
+        status: 'NEW',
+      })
         .select()
         .single();
 

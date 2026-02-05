@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface InsightRegistryItem {
@@ -32,29 +32,21 @@ export interface InsightRegistryStats {
  * KHÔNG tính toán - chỉ fetch dữ liệu đã được tính sẵn trong view
  */
 export function useCDPInsightRegistry() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data: insights = [], isLoading, error, refetch } = useQuery({
     queryKey: ['cdp-insight-registry', tenantId],
     queryFn: async () => {
-      // Query từ view đã được tính toán sẵn
-      let query = client
-        .from('v_cdp_insight_registry_summary')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_insight_registry_summary', '*');
 
       if (error) throw error;
 
       // Map database fields to component interface
       // Group by code để remove duplicates (có thể có nhiều tenant_id)
       const uniqueInsights = new Map<string, InsightRegistryItem>();
+      const rows = (data || []) as any[];
       
-      for (const row of data || []) {
+      for (const row of rows) {
         const existing = uniqueInsights.get(row.code);
         // Prefer row with tenant_id match (has triggered info)
         if (!existing || row.tenant_id === tenantId) {
@@ -105,11 +97,11 @@ export function useCDPInsightRegistry() {
  */
 export function useCDPInsightToggle() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { callRpc } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ code, enabled }: { code: string; enabled: boolean }) => {
-      const { error } = await client.rpc('cdp_toggle_insight_enabled', {
+      const { error } = await callRpc('cdp_toggle_insight_enabled', {
         p_insight_code: code,
         p_enabled: enabled,
       });

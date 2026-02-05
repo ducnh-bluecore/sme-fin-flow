@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
+
 // Types matching v_cdp_insight_feed view
 export type InsightTopic = 'demand' | 'value' | 'timing' | 'risk' | 'equity';
 export type InsightSeverity = 'critical' | 'high' | 'medium' | 'low';
@@ -31,25 +32,22 @@ export interface TopicCount {
 
 // Hook for insight feed list
 export function useCDPInsightFeed() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-insight-feed', tenantId],
     queryFn: async (): Promise<InsightFeedItem[]> => {
       if (!tenantId) return [];
 
-      let query = client.from('v_cdp_insight_feed').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.order('detected_at', { ascending: false });
+      const { data, error } = await buildSelectQuery('v_cdp_insight_feed', '*')
+        .order('detected_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching insight feed:', error);
         return [];
       }
 
-      return (data || []).map(row => ({
+      return ((data || []) as any[]).map(row => ({
         event_id: row.event_id,
         code: row.code,
         title: row.title,
@@ -67,14 +65,14 @@ export function useCDPInsightFeed() {
         cooldown_until: row.cooldown_until,
       }));
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
 // Hook for topic counts (sidebar summary)
 export function useCDPInsightTopicCounts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-insight-topic-counts', tenantId],
@@ -89,11 +87,7 @@ export function useCDPInsightTopicCounts() {
 
       if (!tenantId) return defaultCounts;
 
-      let query = client.from('v_cdp_insight_topic_counts').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('v_cdp_insight_topic_counts', '*');
 
       if (error) {
         console.error('Error fetching topic counts:', error);
@@ -101,7 +95,7 @@ export function useCDPInsightTopicCounts() {
       }
 
       const counts = { ...defaultCounts };
-      (data || []).forEach(row => {
+      ((data || []) as any[]).forEach(row => {
         const topic = row.topic as InsightTopic;
         if (counts[topic]) {
           counts[topic] = {
@@ -114,7 +108,7 @@ export function useCDPInsightTopicCounts() {
 
       return counts;
     },
-    enabled: isReady,
+    enabled: isReady && !!tenantId,
     staleTime: 2 * 60 * 1000,
   });
 }

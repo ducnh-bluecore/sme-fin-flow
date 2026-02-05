@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface InsightQualitySummary {
   totalInsights: number;
@@ -26,20 +26,13 @@ export interface InsightValidationResult {
  * Hook để lấy Insight Quality Summary từ audit log
  */
 export function useCDPInsightQualitySummary() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-insight-quality-summary', tenantId],
     queryFn: async (): Promise<InsightQualitySummary | null> => {
-      let query = client
-        .from('v_cdp_insight_quality_summary' as any)
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_insight_quality_summary', '*')
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching insight quality summary:', error);
@@ -67,12 +60,12 @@ export function useCDPInsightQualitySummary() {
  * Hook để validate insight accuracy so với source data
  */
 export function useCDPValidateInsightAccuracy(insightCode?: string) {
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-validate-insight-accuracy', tenantId, insightCode],
     queryFn: async (): Promise<InsightValidationResult[]> => {
-      const { data, error } = await client.rpc('cdp_validate_insight_accuracy', {
+      const { data, error } = await callRpc('cdp_validate_insight_accuracy', {
         p_tenant_id: tenantId,
         p_insight_code: insightCode || null,
       });
