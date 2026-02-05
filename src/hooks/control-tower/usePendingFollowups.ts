@@ -1,5 +1,14 @@
+/**
+ * usePendingFollowups
+ * 
+ * Hook to fetch pending decision followups.
+ * Part of Control Tower - Decision Tracking.
+ * 
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
+ */
+
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface PendingFollowup {
   id: string;
@@ -16,23 +25,15 @@ export interface PendingFollowup {
 }
 
 export function usePendingFollowups() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['pending-followups', tenantId],
     queryFn: async (): Promise<PendingFollowup[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_decision_pending_followup')
-        .select('*')
+      const { data, error } = await buildSelectQuery('v_decision_pending_followup', '*')
         .order('followup_due_date', { ascending: true });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching pending followups:', error);

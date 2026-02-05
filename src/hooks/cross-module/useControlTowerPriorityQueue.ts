@@ -4,11 +4,11 @@
  * Hook to manage the Control Tower priority queue.
  * Aggregates signals from FDP, MDP, and CDP.
  * 
- * Refactored to Schema-per-Tenant architecture.
+ * Migrated to Schema-per-Tenant architecture v1.4.1.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { SourceModule } from '@/types/cross-module';
 import { toast } from 'sonner';
 
@@ -74,7 +74,7 @@ interface UseQueueOptions {
 }
 
 export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { status = 'pending', sourceModule, limit = 20 } = options;
 
   return useQuery<PrioritySignal[]>({
@@ -82,16 +82,10 @@ export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('control_tower_priority_queue' as any)
-        .select('*')
+      let query = buildSelectQuery('control_tower_priority_queue', '*')
         .order('priority_score', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(limit);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       if (status !== 'all') {
         query = query.eq('status', status);
@@ -119,22 +113,14 @@ export function useControlTowerPriorityQueue(options: UseQueueOptions = {}) {
  * Get queue statistics
  */
 export function useControlTowerQueueStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['control-tower-queue-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('control_tower_priority_queue' as any)
-        .select('status, source_module, priority_score, impact_amount');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('control_tower_priority_queue', 'status, source_module, priority_score, impact_amount');
 
       if (error) {
         console.error('Error fetching queue stats:', error);
@@ -170,14 +156,14 @@ export function useControlTowerQueueStats() {
  * Refresh the priority queue by aggregating signals from all modules
  */
 export function useRefreshPriorityQueue() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client.rpc('control_tower_aggregate_signals' as any, {
+      const { data, error } = await callRpc('control_tower_aggregate_signals', {
         p_tenant_id: tenantId,
       });
 
@@ -202,7 +188,7 @@ export function useRefreshPriorityQueue() {
  * Update signal status
  */
 export function useUpdateSignalStatus() {
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -213,9 +199,10 @@ export function useUpdateSignalStatus() {
       signalId: string;
       status: PrioritySignal['status'];
     }) => {
-      const { error } = await client
-        .from('control_tower_priority_queue' as any)
-        .update({ status, updated_at: new Date().toISOString() })
+      const { error } = await buildUpdateQuery('control_tower_priority_queue', {
+        status,
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', signalId);
 
       if (error) throw error;
@@ -231,7 +218,7 @@ export function useUpdateSignalStatus() {
  * Assign signal to user
  */
 export function useAssignSignal() {
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -242,13 +229,11 @@ export function useAssignSignal() {
       signalId: string;
       userId: string;
     }) => {
-      const { error } = await client
-        .from('control_tower_priority_queue' as any)
-        .update({
-          assigned_to: userId,
-          status: 'in_progress',
-          updated_at: new Date().toISOString(),
-        })
+      const { error } = await buildUpdateQuery('control_tower_priority_queue', {
+        assigned_to: userId,
+        status: 'in_progress',
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', signalId);
 
       if (error) throw error;
