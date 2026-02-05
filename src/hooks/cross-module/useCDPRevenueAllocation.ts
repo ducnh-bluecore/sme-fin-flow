@@ -4,11 +4,11 @@
  * Hook to manage CDP → FDP revenue allocation bridge.
  * Allows pushing CDP What-If scenarios to FDP for financial planning.
  * 
- * Architecture v1.4.1: Uses useTenantQueryBuilder for automatic table mapping
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Cross-Module
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/hooks/useTenantSupabase';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 interface RevenueAllocation {
@@ -30,8 +30,7 @@ interface RevenueAllocation {
 }
 
 export function useCDPRevenueAllocations() {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { buildSelectQuery } = useTenantQueryBuilder();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery<RevenueAllocation[]>({
     queryKey: ['cdp-revenue-allocations', tenantId],
@@ -80,8 +79,7 @@ interface PushRevenueParams {
 }
 
 export function usePushRevenueToFDP() {
-  const { tenantId } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { tenantId, callRpc } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -111,8 +109,7 @@ export function usePushRevenueToFDP() {
 }
 
 export function useCrossModuleRevenueForecasts() {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
-  const { buildSelectQuery } = useTenantQueryBuilder();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
   const year = new Date().getFullYear();
 
   return useQuery({

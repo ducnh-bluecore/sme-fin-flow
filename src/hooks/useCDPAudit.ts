@@ -1,6 +1,13 @@
+/**
+ * useCDPAudit - Customer audit and merge tracking
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain CDP/Audit
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface CustomerAuditData {
   internalId: string;
@@ -26,30 +33,24 @@ export interface CustomerAuditData {
 }
 
 export function useCDPCustomerAudit(customerId: string | undefined) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-customer-audit', tenantId, customerId],
     queryFn: async (): Promise<CustomerAuditData | null> => {
       if (!tenantId || !customerId) return null;
 
-      let query = client.from('v_cdp_customer_audit').select('*');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data, error } = await query.eq('id', customerId).maybeSingle();
+      const { data, error } = await buildSelectQuery('v_cdp_customer_audit', '*')
+        .eq('id', customerId)
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
 
+      const row = data as unknown as Record<string, unknown>;
+
       // Get active connectors for this tenant (real data sources)
-      let connectorQuery = client
-        .from('connector_integrations')
-        .select('connector_type, status, last_sync_at');
-      if (shouldAddTenantFilter) {
-        connectorQuery = connectorQuery.eq('tenant_id', tenantId);
-      }
-      const { data: connectors } = await connectorQuery;
+      const { data: connectors } = await buildSelectQuery('connector_integrations', 'connector_type, status, last_sync_at');
 
       // Get REAL order stats per channel from cdp_orders using RPC (avoids 1000 row limit)
       const { data: channelStats } = await supabase
@@ -106,7 +107,7 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
       const addedChannels = new Set<string>();
 
       // First: Add connectors and merge with their channel data (dedupe by displayName)
-      (connectors || []).forEach(connector => {
+      ((connectors as unknown as any[]) || []).forEach(connector => {
         const connectorType = connector.connector_type.toLowerCase();
         const displayName = connectorDisplayNames[connectorType] || connector.connector_type;
         
@@ -175,34 +176,34 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
       });
 
       // If still no sources, show a placeholder indicating data origin
-      if (sources.length === 0 && data.order_count > 0) {
+      if (sources.length === 0 && Number(row.order_count) > 0) {
         sources.push({
           name: 'Nhập trực tiếp',
           hasData: true,
-          orderCount: data.order_count,
-          totalValue: data.total_spend,
+          orderCount: Number(row.order_count),
+          totalValue: Number(row.total_spend),
           lastSync: new Date().toLocaleDateString('vi-VN'),
         });
       }
 
       return {
-        internalId: data.internal_id,
-        anonymizedPhone: data.anonymized_phone,
-        anonymizedEmail: data.anonymized_email,
-        mergeConfidence: data.merge_confidence || 85,
+        internalId: row.internal_id as string,
+        anonymizedPhone: row.anonymized_phone as string | null,
+        anonymizedEmail: row.anonymized_email as string | null,
+        mergeConfidence: (row.merge_confidence as number) || 85,
         sourceCount: sources.filter(s => s.hasData).length || 1,
-        mergeStatus: data.merge_status as CustomerAuditData['mergeStatus'],
-        totalSpend: Number(data.total_spend) || 0,
-        orderCount: Number(data.order_count) || 0,
-        aov: Number(data.aov) || 0,
-        daysSinceLastPurchase: Number(data.days_since_last_purchase) || 0,
+        mergeStatus: row.merge_status as CustomerAuditData['mergeStatus'],
+        totalSpend: Number(row.total_spend) || 0,
+        orderCount: Number(row.order_count) || 0,
+        aov: Number(row.aov) || 0,
+        daysSinceLastPurchase: Number(row.days_since_last_purchase) || 0,
         rfmScore: {
-          r: data.rfm_r || 3,
-          f: data.rfm_f || 3,
-          m: data.rfm_m || 3,
+          r: (row.rfm_r as number) || 3,
+          f: (row.rfm_f as number) || 3,
+          m: (row.rfm_m as number) || 3,
         },
-        clv: Number(data.clv) || 0,
-        avgClvSegment: Number(data.clv) * 0.75,
+        clv: Number(row.clv) || 0,
+        avgClvSegment: Number(row.clv) * 0.75,
         sources,
       };
     },

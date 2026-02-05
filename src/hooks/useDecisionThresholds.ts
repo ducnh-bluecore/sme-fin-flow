@@ -1,12 +1,12 @@
 /**
  * Decision Threshold Configuration
  * 
- * @architecture Schema-per-Tenant
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain Control Tower/Decisions
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { FDP_THRESHOLDS } from '@/lib/fdp-formulas';
 
@@ -189,27 +189,20 @@ export const THRESHOLD_METADATA: Record<string, { label: string; description: st
  * Trả về DEFAULT_THRESHOLDS nếu chưa có config
  */
 export function useDecisionThresholds() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-thresholds', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('decision_threshold_configs')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('decision_threshold_configs', '*')
+        .maybeSingle();
 
       if (error) throw error;
       
       // Return data or default if not found
-      if (data) return data as DecisionThresholdConfig;
+      if (data) return data as unknown as DecisionThresholdConfig;
       
       return null;
     },
@@ -237,7 +230,7 @@ export function useEffectiveThresholds() {
  */
 export function useSaveDecisionThresholds() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (config: Partial<DecisionThresholdConfig>) => {
@@ -302,16 +295,13 @@ export function useSaveDecisionThresholds() {
  */
 export function useResetDecisionThresholds() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { error } = await client
-        .from('decision_threshold_configs')
-        .delete()
-        .eq('tenant_id', tenantId);
+      const { error } = await buildDeleteQuery('decision_threshold_configs');
 
       if (error) throw error;
     },

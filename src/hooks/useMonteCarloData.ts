@@ -1,11 +1,12 @@
 /**
  * Monte Carlo Simulation Data Hook
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Simulation
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface MonteCarloResultDB {
@@ -26,21 +27,15 @@ export interface MonteCarloResultDB {
 
 // Fetch all Monte Carlo results
 export function useMonteCarloResults(scenarioId?: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { tenantId, isReady, buildSelectQuery } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['monte-carlo-results', tenantId, scenarioId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('monte_carlo_results')
-        .select('*')
+      let query = buildSelectQuery('monte_carlo_results', '*')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       if (scenarioId) {
         query = query.eq('scenario_id', scenarioId);
@@ -49,7 +44,7 @@ export function useMonteCarloResults(scenarioId?: string) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as MonteCarloResultDB[];
+      return (data as unknown) as MonteCarloResultDB[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -58,7 +53,7 @@ export function useMonteCarloResults(scenarioId?: string) {
 // Save Monte Carlo result
 export function useSaveMonteCarloResult() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildInsertQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (result: {
@@ -76,12 +71,7 @@ export function useSaveMonteCarloResult() {
     }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('monte_carlo_results')
-        .insert({
-          ...result,
-          tenant_id: tenantId,
-        })
+      const { data, error } = await buildInsertQuery('monte_carlo_results', result)
         .select()
         .single();
 
@@ -101,13 +91,11 @@ export function useSaveMonteCarloResult() {
 // Delete Monte Carlo result
 export function useDeleteMonteCarloResult() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { tenantId, buildDeleteQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('monte_carlo_results')
-        .delete()
+      const { error } = await buildDeleteQuery('monte_carlo_results')
         .eq('id', id);
 
       if (error) throw error;
