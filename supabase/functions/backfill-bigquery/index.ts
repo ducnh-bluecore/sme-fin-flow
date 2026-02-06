@@ -301,6 +301,74 @@ const REFUND_SOURCES = [
   }
 ];
 
+const PAYMENT_SOURCES = [
+  {
+    channel: 'shopee',
+    dataset: 'olvboutique_shopee',
+    table: 'shopee_Orders',
+    mapping: {
+      payment_key: 'order_sn',
+      order_key: 'order_sn',
+      payment_method: 'payment_method',
+      payment_status: 'order_status',
+      amount: 'total_amount',
+      paid_at: 'pay_time',
+    }
+  },
+  {
+    channel: 'lazada',
+    dataset: 'olvboutique_lazada',
+    table: 'lazada_Orders',
+    mapping: {
+      payment_key: 'order_id',
+      order_key: 'order_id',
+      payment_method: 'payment_method',
+      payment_status: 'statuses',
+      amount: 'price',
+      paid_at: 'updated_at',
+    }
+  },
+  {
+    channel: 'tiktok',
+    dataset: 'olvboutique_tiktokshop',
+    table: 'tiktok_Orders',
+    mapping: {
+      payment_key: 'order_id',
+      order_key: 'order_id',
+      payment_method: 'payment_method_name',
+      payment_status: 'order_status',
+      amount: 'payment_total_amount',
+      paid_at: 'paid_time',
+    }
+  },
+  {
+    channel: 'tiki',
+    dataset: 'olvboutique_tiki',
+    table: 'tiki_Orders',
+    mapping: {
+      payment_key: 'code',
+      order_key: 'code',
+      payment_method: 'payment_method',
+      payment_status: 'status',
+      amount: 'invoice_grand_total',
+      paid_at: 'updated_at',
+    }
+  },
+  {
+    channel: 'kiotviet',
+    dataset: 'olvboutique',
+    table: 'raw_kiotviet_Orders',
+    mapping: {
+      payment_key: 'OrderId',
+      order_key: 'OrderId',
+      payment_method: 'PaymentMethod',
+      payment_status: 'Status',
+      amount: 'Total',
+      paid_at: 'PurchaseDate',
+    }
+  }
+];
+
 const PRODUCT_SOURCE = {
   name: 'kiotviet_master',
   dataset: 'olvboutique',
@@ -1165,6 +1233,146 @@ async function syncRefunds(
   return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
 }
 
+// ============= Payments Sync =============
+
+async function syncPayments(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  jobId: string,
+  options: { batch_size?: number; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
+  let paused = false;
+
+  const sources = options.source_table
+    ? PAYMENT_SOURCES.filter(s => s.table === options.source_table)
+    : PAYMENT_SOURCES;
+
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of sources) {
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing payments from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
+
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table
+    );
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let hasMore = true;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
+      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
+      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.payment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const payments = rows.map(row => ({
+          tenant_id: tenantId,
+          payment_key: `${source.channel}:${String(row[source.mapping.payment_key] || '')}`,
+          order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
+          channel: source.channel,
+          payment_method: row[source.mapping.payment_method] || null,
+          payment_status: row[source.mapping.payment_status] || null,
+          amount: parseFloat(row[source.mapping.amount] || '0'),
+          paid_at: row[source.mapping.paid_at] || null,
+        }));
+
+        const { error, count } = await supabase
+          .from('cdp_payments')
+          .upsert(payments, { onConflict: 'tenant_id,payment_key', ignoreDuplicates: true })
+          .select('id');
+
+        if (error) {
+          console.error('Payment upsert error:', error);
+        } else {
+          inserted += count || payments.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${source.channel} payments:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
+        hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
+      }
+    }
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
+
+    if (paused) break;
+  }
+
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+}
+
 // ============= Products Sync with Pagination =============
 
 async function syncProducts(
@@ -1523,6 +1731,15 @@ serve(async (req) => {
           
         case 'refunds':
           result = await syncRefunds(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId, job.id,
+            params.options || {},
+            startTime,
+          );
+          break;
+          
+        case 'payments':
+          result = await syncPayments(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
             params.options || {},
