@@ -634,8 +634,7 @@ async function syncCustomers(
   for (let i = 0; i < customers.length; i += upsertBatchSize) {
     const batch = customers.slice(i, i + upsertBatchSize).map(c => ({
       tenant_id: tenantId,
-      integration_id: integrationId,
-      customer_key: c.phone || c.email,
+      canonical_key: c.phone || c.email,
       name: c.name,
       phone: c.phone,
       email: c.email,
@@ -651,7 +650,7 @@ async function syncCustomers(
     
     const { error } = await supabase
       .from('cdp_customers')
-      .upsert(batch, { onConflict: 'tenant_id,integration_id,customer_key' });
+      .upsert(batch, { onConflict: 'tenant_id,canonical_key' });
     
     if (error) {
       console.error('Upsert error:', error);
