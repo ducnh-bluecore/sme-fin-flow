@@ -1,46 +1,92 @@
 
-# KẾ HOẠCH: Thêm Route cho BigQuery Backfill Admin Page
+# Plan: Cập nhật Dataset Mapping chính xác cho BigQuery Backfill
 
-## 1. VẤN ĐỀ HIỆN TẠI
+## Tổng quan vấn đề
 
-Page `/admin/bigquery-backfill` hiện đang trả về 404 vì:
-- File `src/pages/admin/BigQueryBackfill.tsx` đã được tạo
-- Nhưng **chưa được import và đăng ký route** trong `src/App.tsx`
+Hiện tại cấu hình trong `backfill-bigquery/index.ts` đang sai dataset cho nhiều sources. Cần cập nhật theo đúng cấu trúc BigQuery thực tế.
 
-## 2. GIẢI PHÁP
+## Cấu trúc Dataset đã xác nhận
 
-Thêm route vào App.tsx theo pattern hiện tại của các admin pages khác.
+| Dataset | Chứa data từ |
+|---------|--------------|
+| `olvboutique` | KiotViet, Haravan, Bluecore, Products + các source khác |
+| `olvboutique_shopee` | Shopee Orders & Items |
+| `olvboutique_lazada` | Lazada Orders & Items |
+| `olvboutique_tiktokshop` | TikTok Shop Orders & Items |
+| `olvboutique_tiki` | Tiki Orders & Items |
+| `olvboutique_shopeeads` | Shopee Ads data |
 
-## 3. THAY ĐỔI CẦN THỰC HIỆN
+## Các thay đổi cần thực hiện
 
-### 3.1 File: `src/App.tsx`
-
-**Bước 1: Thêm lazy import** (sau dòng 70)
-```typescript
-const AdminModulesPage = lazy(() => import("./pages/admin/AdminModulesPage"));
-const BigQueryBackfillPage = lazy(() => import("./pages/admin/BigQueryBackfill")); // THÊM
+### 1. CUSTOMER_SOURCES (đã đúng - không cần sửa)
+```
+kiotviet  → olvboutique ✓
+haravan   → olvboutique ✓
+bluecore  → olvboutique ✓
 ```
 
-**Bước 2: Thêm route** (trong block Super Admin Routes, sau dòng 568)
+### 2. ORDER_SOURCES - Cần sửa lại
+
+| Channel | Hiện tại | Đúng |
+|---------|----------|------|
+| shopee | olvboutique | **olvboutique_shopee** |
+| lazada | olvboutique | **olvboutique_lazada** |
+| tiktok | olvboutique | **olvboutique_tiktokshop** |
+| tiki | olvboutique | **olvboutique_tiki** |
+| kiotviet | olvboutique | olvboutique ✓ |
+
+### 3. ORDER_ITEM_SOURCES - Cần sửa 2 sources
+
+| Channel | Hiện tại | Đúng |
+|---------|----------|------|
+| shopee | olvboutique_shopee | olvboutique_shopee ✓ |
+| lazada | olvboutique_lazada | olvboutique_lazada ✓ |
+| tiktok | olvboutique_tiktokshop | olvboutique_tiktokshop ✓ |
+| kiotviet | olvboutique_kiotviet | **olvboutique** |
+
+### 4. Products Sync - Cần sửa
+
+| Hiện tại | Đúng |
+|----------|------|
+| `olvboutique_kiotviet.bdm_master_data_products` | **`olvboutique.bdm_master_data_products`** |
+
+## Chi tiết kỹ thuật
+
+### File: `supabase/functions/backfill-bigquery/index.ts`
+
+**Thay đổi 1 - ORDER_SOURCES (lines 114-183):**
 ```typescript
-<Route path="/admin/settings" element={<AdminSettingsPage />} />
-<Route path="/admin/bigquery-backfill" element={<BigQueryBackfillPage />} /> {/* THÊM */}
+const ORDER_SOURCES = [
+  { channel: 'shopee', dataset: 'olvboutique_shopee', table: 'shopee_Orders', ... },
+  { channel: 'lazada', dataset: 'olvboutique_lazada', table: 'lazada_Orders', ... },
+  { channel: 'tiktok', dataset: 'olvboutique_tiktokshop', table: 'tiktok_Orders', ... },
+  { channel: 'tiki', dataset: 'olvboutique_tiki', table: 'tiki_Orders', ... },
+  { channel: 'kiotviet', dataset: 'olvboutique', table: 'raw_kiotviet_Orders', ... },
+];
 ```
 
-## 4. KẾT QUẢ SAU KHI SỬA
+**Thay đổi 2 - ORDER_ITEM_SOURCES KiotViet (line 597-610):**
+```typescript
+{
+  channel: 'kiotviet',
+  dataset: 'olvboutique',  // Sửa từ olvboutique_kiotviet
+  table: 'raw_kiotviet_OrderDetails',
+  ...
+}
+```
 
-| Route | Status |
-|-------|--------|
-| `/admin/bigquery-backfill` | ✅ Hoạt động |
-| Page hiển thị | BigQuery Backfill Admin UI |
-| Permissions | Super Admin only |
+**Thay đổi 3 - syncProducts query (line 712):**
+```typescript
+FROM `${projectId}.olvboutique.bdm_master_data_products`  // Sửa từ olvboutique_kiotviet
+```
 
-## 5. VERIFICATION
+## Tóm tắt thay đổi
 
-Sau khi apply changes:
-1. Truy cập `/admin/bigquery-backfill`
-2. Page BigQuery Backfill sẽ hiển thị với:
-   - Form "Start New Backfill"
-   - Bảng "Backfill Jobs"
-   - Model overview cards
+| Model | Số lượng sửa |
+|-------|--------------|
+| Customers | 0 (đã đúng) |
+| Orders | 4 sources |
+| Order Items | 1 source |
+| Products | 1 query |
 
+**Tổng: 6 điểm cần sửa trong 1 file**
