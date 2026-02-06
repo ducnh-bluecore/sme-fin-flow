@@ -522,6 +522,151 @@ async function syncOrders(
   return { processed: totalProcessed, inserted };
 }
 
+// ============= Order Items Sync =============
+
+const ORDER_ITEM_SOURCES = [
+  {
+    channel: 'shopee',
+    dataset: 'olvboutique_shopee',
+    table: 'shopee_OrderItems',
+    mapping: {
+      order_key: 'order_sn',
+      item_id: 'item_id',
+      sku: 'item_sku',
+      name: 'item_name',
+      quantity: 'model_quantity_purchased',
+      unit_price: 'model_original_price',
+      discount: 'model_discounted_price',
+      total: 'model_discounted_price',
+    }
+  },
+  {
+    channel: 'lazada',
+    dataset: 'olvboutique_lazada',
+    table: 'lazada_OrderItems',
+    mapping: {
+      order_key: 'order_id',
+      item_id: 'order_item_id',
+      sku: 'sku',
+      name: 'name',
+      quantity: 'quantity',
+      unit_price: 'item_price',
+      discount: 'voucher_amount',
+      total: 'paid_price',
+    }
+  },
+  {
+    channel: 'tiktok',
+    dataset: 'olvboutique_tiktokshop',
+    table: 'tiktok_OrderItems',
+    mapping: {
+      order_key: 'order_id',
+      item_id: 'id',
+      sku: 'seller_sku',
+      name: 'product_name',
+      quantity: 'quantity',
+      unit_price: 'original_price',
+      discount: 'platform_discount',
+      total: 'sale_price',
+    }
+  },
+  {
+    channel: 'kiotviet',
+    dataset: 'olvboutique_kiotviet',
+    table: 'raw_kiotviet_OrderDetails',
+    mapping: {
+      order_key: 'OrderId',
+      item_id: 'ProductId',
+      sku: 'ProductCode',
+      name: 'ProductName',
+      quantity: 'Quantity',
+      unit_price: 'Price',
+      discount: 'Discount',
+      total: 'SubTotal',
+    }
+  }
+];
+
+async function syncOrderItems(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string }
+): Promise<{ processed: number; inserted: number }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  
+  // Filter to specific source if provided, otherwise all
+  const sources = options.source_table
+    ? ORDER_ITEM_SOURCES.filter(s => s.table === options.source_table)
+    : ORDER_ITEM_SOURCES;
+  
+  for (const source of sources) {
+    console.log(`Processing order items from: ${source.channel}`);
+    
+    let offset = 0;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const columns = Object.values(source.mapping).join(', ');
+      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY ${source.mapping.order_key} LIMIT ${batchSize} OFFSET ${offset}`;
+      
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+        
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+        
+        // Transform and insert (no unique constraint on this table)
+        const orderItems = rows.map(row => ({
+          tenant_id: tenantId,
+          integration_id: integrationId,
+          product_id: String(row[source.mapping.item_id] || ''),
+          sku: row[source.mapping.sku],
+          product_name: row[source.mapping.name],
+          qty: parseInt(row[source.mapping.quantity] || '1', 10),
+          unit_price: parseFloat(row[source.mapping.unit_price] || '0'),
+          original_price: parseFloat(row[source.mapping.unit_price] || '0'),
+          discount_amount: parseFloat(row[source.mapping.discount] || '0'),
+          line_revenue: parseFloat(row[source.mapping.total] || '0'),
+          raw_data: {
+            source_channel: source.channel,
+            source_order_key: String(row[source.mapping.order_key]),
+          },
+        }));
+        
+        const { error, count } = await supabase
+          .from('cdp_order_items')
+          .insert(orderItems)
+          .select('id');
+        
+        if (error) {
+          console.error('Order item upsert error:', error);
+        } else {
+          inserted += count || orderItems.length;
+        }
+        
+        totalProcessed += rows.length;
+        offset += rows.length;
+        
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error) {
+        console.error(`Error processing ${source.channel} order items:`, error);
+        hasMore = false;
+      }
+    }
+  }
+  
+  return { processed: totalProcessed, inserted };
+}
+
 // ============= Products Sync =============
 
 async function syncProducts(
@@ -752,6 +897,14 @@ serve(async (req) => {
           result = await syncProducts(
             supabase, accessToken, projectId,
             params.tenant_id,
+            params.options || {}
+          );
+          break;
+          
+        case 'order_items':
+          result = await syncOrderItems(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId,
             params.options || {}
           );
           break;
