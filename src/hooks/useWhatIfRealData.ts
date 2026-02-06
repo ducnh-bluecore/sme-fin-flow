@@ -109,17 +109,18 @@ export function useWhatIfRealData() {
         console.error('[useWhatIfRealData] Orders error:', ordersError);
       }
 
-      // Fetch order items for SKU analysis
+      // Fetch order items for SKU analysis from cdp_order_items (SSOT Layer 2)
+      // Uses cdp_order_items which maps to master_order_items via tableMapping
       const { data: items, error: itemsError } = await buildSelectQuery(
-        'external_order_items',
+        'cdp_order_items',
         `sku, product_name, category, quantity,
-         unit_price, total_amount, unit_cogs, total_cogs,
-         gross_profit, margin_percent, is_returned, return_quantity,
-         external_orders!inner(channel, order_date, status)`
+         unit_price, line_total, unit_cogs, line_cogs,
+         line_margin, is_returned, return_quantity,
+         cdp_orders!inner(channel, order_at, status)`
       )
-        .gte('external_orders.order_date', fromDate)
-        .lte('external_orders.order_date', toDate)
-        .neq('external_orders.status', 'cancelled');
+        .gte('cdp_orders.order_at', fromDate)
+        .lte('cdp_orders.order_at', toDate)
+        .neq('cdp_orders.status', 'cancelled');
 
       if (itemsError) {
         console.error('[useWhatIfRealData] Items error:', itemsError);
@@ -226,11 +227,13 @@ export function useWhatIfRealData() {
         }
         const data = skuMap.get(sku)!;
         data.quantity += Number(item.quantity || 0);
-        data.revenue += Number(item.total_amount || 0);
-        data.cogs += Number(item.total_cogs || 0);
-        data.profit += Number(item.gross_profit || 0);
-        if (item.external_orders?.channel) {
-          data.channels.add(normalizeChannel(item.external_orders.channel));
+        // Updated column names: line_total, line_cogs, line_margin (SSOT)
+        data.revenue += Number(item.line_total || item.total_amount || 0);
+        data.cogs += Number(item.line_cogs || item.total_cogs || 0);
+        data.profit += Number(item.line_margin || item.gross_profit || 0);
+        // Updated relation: cdp_orders instead of external_orders
+        if (item.cdp_orders?.channel) {
+          data.channels.add(normalizeChannel(item.cdp_orders.channel));
         }
         if (item.is_returned) {
           data.returnedQty += Number(item.return_quantity || item.quantity || 0);

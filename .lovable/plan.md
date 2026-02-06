@@ -233,9 +233,9 @@ Sau khi hoan thanh, verify:
 
 - [ ] `sync-bigquery` ghi truc tiep vao `master_orders`
 - [ ] `sync-connector` ghi truc tiep vao `master_orders`
-- [ ] `useWhatIfRealData` query tu `master_order_items`
-- [ ] `useMDPSSOT` query tu `master_order_items`
-- [ ] `useMDPData` query tu `master_order_items`
+- [x] `useWhatIfRealData` query tu `cdp_order_items` (maps to master_order_items)
+- [x] `useMDPSSOT` query tu `cdp_order_items` (maps to master_order_items)
+- [x] `useMDPData` query tu `cdp_order_items` (maps to master_order_items)
 - [ ] Tat ca SQL views query tu `cdp_orders` hoac `master_orders`
 - [ ] E2E test OLV Boutique pass
 - [ ] UI screens hien thi dung data
