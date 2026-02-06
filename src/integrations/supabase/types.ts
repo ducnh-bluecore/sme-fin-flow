@@ -3099,6 +3099,92 @@ export type Database = {
           },
         ]
       }
+      bigquery_backfill_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          failed_records: number | null
+          id: string
+          last_processed_date: string | null
+          last_watermark: string | null
+          metadata: Json | null
+          model_type: string
+          processed_records: number | null
+          source_table: string
+          started_at: string | null
+          status: string
+          tenant_id: string
+          total_records: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          failed_records?: number | null
+          id?: string
+          last_processed_date?: string | null
+          last_watermark?: string | null
+          metadata?: Json | null
+          model_type: string
+          processed_records?: number | null
+          source_table: string
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+          total_records?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          failed_records?: number | null
+          id?: string
+          last_processed_date?: string | null
+          last_watermark?: string | null
+          metadata?: Json | null
+          model_type?: string
+          processed_records?: number | null
+          source_table?: string
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+          total_records?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_backfill_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bigquery_backfill_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bigquery_backfill_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bigquery_backfill_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       bigquery_configs: {
         Row: {
           cache_ttl_minutes: number | null
@@ -5663,45 +5749,75 @@ export type Database = {
       }
       cdp_customers: {
         Row: {
+          acquisition_source: string | null
+          address: string | null
           age_range: string | null
           canonical_key: string
           city: string | null
           created_at: string
+          district: string | null
+          email: string | null
+          external_ids: Json | null
           first_order_at: string | null
           gender: string | null
           id: string
           last_order_at: string | null
+          lifetime_value: number | null
+          loyalty_points: number | null
+          name: string | null
+          phone: string | null
           primary_device: string | null
           province: string | null
           status: string | null
+          tags: string[] | null
           tenant_id: string
         }
         Insert: {
+          acquisition_source?: string | null
+          address?: string | null
           age_range?: string | null
           canonical_key: string
           city?: string | null
           created_at?: string
+          district?: string | null
+          email?: string | null
+          external_ids?: Json | null
           first_order_at?: string | null
           gender?: string | null
           id?: string
           last_order_at?: string | null
+          lifetime_value?: number | null
+          loyalty_points?: number | null
+          name?: string | null
+          phone?: string | null
           primary_device?: string | null
           province?: string | null
           status?: string | null
+          tags?: string[] | null
           tenant_id: string
         }
         Update: {
+          acquisition_source?: string | null
+          address?: string | null
           age_range?: string | null
           canonical_key?: string
           city?: string | null
           created_at?: string
+          district?: string | null
+          email?: string | null
+          external_ids?: Json | null
           first_order_at?: string | null
           gender?: string | null
           id?: string
           last_order_at?: string | null
+          lifetime_value?: number | null
+          loyalty_points?: number | null
+          name?: string | null
+          phone?: string | null
           primary_device?: string | null
           province?: string | null
           status?: string | null
+          tags?: string[] | null
           tenant_id?: string
         }
         Relationships: [
