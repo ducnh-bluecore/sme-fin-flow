@@ -313,10 +313,10 @@ async function syncCustomers(
 
     while (hasMore) {
       // Build a safe SELECT list. Some column names (e.g. "Groups") collide with keywords.
-      // We alias every selected column back to its original name so row access remains consistent.
+      // We quote both the column AND alias to handle reserved words.
       const selectList = Object.values(source.mapping)
         .filter(Boolean)
-        .map((col) => `\`${col}\` AS ${col}`)
+        .map((col) => `\`${col}\` AS \`${col}\``)
         .join(', ');
 
       let query = `SELECT ${selectList} FROM \`${projectId}.${source.dataset}.${source.table}\``;
