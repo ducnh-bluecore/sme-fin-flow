@@ -22,14 +22,13 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatNumber, formatDateTime } from '@/lib/formatters';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function APIPage() {
   const [showKey, setShowKey] = useState<string | null>(null);
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { t } = useLanguage();
 
   const endpoints = [
@@ -52,16 +51,13 @@ export default function APIPage() {
     queryKey: ['api-keys', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('api_keys')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('api_keys', '*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
   
   const totalRequests = apiKeys.reduce((sum, k) => sum + (k.requests_count || 0), 0);

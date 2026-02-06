@@ -21,8 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { differenceInDays, parseISO } from 'date-fns';
 
 const statusConfig = {
@@ -34,37 +33,33 @@ const statusConfig = {
 
 export default function TaxCompliancePage() {
   const [isCalculating, setIsCalculating] = useState(false);
-  const tenantId = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   // Fetch tax obligations
   const { data: taxObligations = [], isLoading: loadingObligations } = useQuery({
     queryKey: ['tax-obligations', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tax_obligations')
-        .select('*')
+      const { data, error } = await buildSelectQuery('tax_obligations', '*')
         .order('due_date', { ascending: true });
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Fetch tax filings
   const { data: taxFilings = [], isLoading: loadingFilings } = useQuery({
     queryKey: ['tax-filings', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tax_filings')
-        .select('*')
+      const { data, error } = await buildSelectQuery('tax_filings', '*')
         .order('submitted_date', { ascending: false })
         .limit(5);
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const isLoading = loadingObligations || loadingFilings;

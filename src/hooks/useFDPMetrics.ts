@@ -34,6 +34,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useActiveTenantId } from './useActiveTenantId';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useMemo } from 'react';
+
+/**
+ * @deprecated LEGACY HOOK - Kept for backward compatibility only
+ * @architecture Control Plane exemption - Uses direct supabase client
+ * This hook is DEPRECATED and should NOT be used in new code.
+ * Use useFDPFinanceSSOT() instead which follows Schema-per-Tenant v1.4.1.
+ */
 import {
   calculateNetRevenue,
   calculateContributionMargin,
