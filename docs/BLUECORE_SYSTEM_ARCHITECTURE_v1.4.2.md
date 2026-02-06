@@ -1,7 +1,7 @@
-# BLUECORE SYSTEM ARCHITECTURE DOCUMENTATION v1.4.1
+# BLUECORE SYSTEM ARCHITECTURE DOCUMENTATION v1.4.2
 ## Comprehensive Technical & Business Reference
 
-**Version:** 1.4.1  
+**Version:** 1.4.2  
 **Last Updated:** 2026-02-06  
 **Author:** Bluecore Engineering Team
 
@@ -804,6 +804,62 @@ const { data } = await buildSelectQuery('master_orders', '*')
 
 ---
 
-**Document Version:** 1.4.1  
+**Document Version:** 1.4.2  
 **Last Updated:** 2026-02-06  
 **Maintained By:** Bluecore Engineering Team
+
+---
+
+## APPENDIX B: v1.4.2 Changes
+
+### B.1 SSOT Enforcement (NEW)
+
+Added strict tenant isolation enforcement in Query Builder:
+
+```typescript
+// SCHEMA mode: tenant_id filters are rejected/warned
+// This prevents redundant filters when isolation is via search_path
+buildSelectQuery('master_orders', '*')
+  .eq('tenant_id', tenantId)  // ❌ Console warning in dev
+
+// RLS mode: tenant_id filters are auto-applied
+buildSelectQuery('master_orders', '*')  // ✓ Auto-adds .eq('tenant_id', ...)
+```
+
+### B.2 Facade Views (NEW)
+
+Created 4 canonical views for SSOT dashboard entry points:
+
+| View | Domain | Purpose |
+|------|--------|---------|
+| `v_ct_truth_snapshot` | Control Tower | Alert counts, impact summary |
+| `v_decision_outcome_stats` | Decisions | Auto-measured outcome aggregations |
+
+### B.3 Metric Contracts Registry (NEW)
+
+Added `metric_contracts` table for metric versioning & governance:
+
+```sql
+SELECT metric_code, domain, source_view, grain, is_actionable
+FROM metric_contracts
+WHERE domain = 'FDP';
+-- Returns: NET_REVENUE, GROSS_PROFIT, CONTRIBUTION_MARGIN
+```
+
+### B.4 Job Idempotency (Phase 3)
+
+All edge functions now use shared idempotency pattern:
+- `detect-alerts` - Per-tenant daily lock
+- `generate-decision-cards` - Per-tenant daily lock  
+- `auto-measure-outcomes` - Global daily lock
+
+See: `docs/JOB_IDEMPOTENCY_STANDARD.md`
+
+### B.5 Evidence Contract (Phase 2)
+
+Evidence packs now required for decision cards:
+- `evidence_packs` table with TTL
+- `evidence_pack_id` FK on `alert_instances`, `decision_cards`
+- `create_evidence_pack()` SQL helper
+
+See: `docs/SSOT_ENFORCEMENT_SPEC.md`

@@ -39,26 +39,46 @@ async function measureEntityMetrics(
       };
 
     case 'CASH':
-      const { data: bankData } = await supabase
-        .from('bank_accounts')
-        .select('current_balance')
-        .eq('tenant_id', tenantId);
+      // SSOT v1.4.2: Use SQL aggregation instead of client-side .reduce()
+      const { data: cashData } = await supabase.rpc('get_cash_position_metrics', {
+        p_tenant_id: tenantId
+      }).maybeSingle();
       
-      const totalCash = (bankData || []).reduce((sum: number, b: any) => sum + (b.current_balance || 0), 0);
-      
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('tenant_id', tenantId)
-        .gte('expense_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-      
-      const monthlyBurn = (expenses || []).reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
-      const runwayDays = monthlyBurn > 0 ? Math.round((totalCash / monthlyBurn) * 30) : 999;
+      // Fallback if RPC doesn't exist yet
+      if (!cashData) {
+        const { data: bankData } = await supabase
+          .from('bank_accounts')
+          .select('current_balance')
+          .eq('tenant_id', tenantId);
+        
+        const { data: expenseAgg } = await supabase
+          .from('expenses')
+          .select('amount.sum()')
+          .eq('tenant_id', tenantId)
+          .gte('expense_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+          .single();
+        
+        const { data: cashAgg } = await supabase
+          .from('bank_accounts')
+          .select('current_balance.sum()')
+          .eq('tenant_id', tenantId)
+          .single();
+        
+        const totalCash = (cashAgg as any)?.sum ?? 0;
+        const monthlyBurn = (expenseAgg as any)?.sum ?? 0;
+        const runwayDays = monthlyBurn > 0 ? Math.round((totalCash / monthlyBurn) * 30) : 999;
+
+        return {
+          cash_balance: totalCash,
+          runway_days: runwayDays,
+          monthly_burn: monthlyBurn,
+        };
+      }
 
       return {
-        cash_balance: totalCash,
-        runway_days: runwayDays,
-        monthly_burn: monthlyBurn,
+        cash_balance: cashData.total_cash ?? 0,
+        runway_days: cashData.runway_days ?? 999,
+        monthly_burn: cashData.monthly_burn ?? 0,
       };
 
     case 'CHANNEL':
