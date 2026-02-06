@@ -8,7 +8,7 @@
  * 3. Skips tenant filter when using schema-per-tenant mode (isolation via search_path)
  * 
  * SSOT v1.4.2 ENFORCEMENT:
- * - SCHEMA mode: Rejects tenant_id filters (isolation via search_path)
+ * - SCHEMA mode: Rejects/warns tenant_id filters (isolation via search_path)
  * - RLS mode: REQUIRES tenant_id filter (enforced by this builder)
  * 
  * Usage:
@@ -29,6 +29,35 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { getTableName, isPlatformTable, isPublicOnlyTable } from '@/lib/tableMapping';
+
+/**
+ * Wraps a Supabase query to detect and warn/skip tenant_id filters in SCHEMA mode
+ * @see docs/SSOT_ENFORCEMENT_SPEC.md - Section 4.2
+ */
+function createSchemaProtectedQuery<T>(query: T, tableName: string): T {
+  if (!query || typeof query !== 'object') return query;
+  
+  const originalEq = (query as any).eq?.bind(query);
+  if (!originalEq) return query;
+  
+  (query as any).eq = (column: string, value: any) => {
+    if (column === 'tenant_id') {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(
+          `[SSOT VIOLATION] tenant_id filter on "${tableName}" in SCHEMA mode.`,
+          '\n→ Isolation is via search_path, not row filter.',
+          '\n→ Remove .eq("tenant_id", ...) from query.',
+          '\n→ See docs/SSOT_ENFORCEMENT_SPEC.md'
+        );
+      }
+      // Skip the filter silently - isolation is already guaranteed by search_path
+      return query;
+    }
+    return originalEq(column, value);
+  };
+  
+  return query;
+}
 
 export type TableName = string;
 
@@ -67,6 +96,8 @@ export function useTenantQueryBuilder() {
 
   /**
    * Build a query with automatic table translation and tenant filtering
+   * In SCHEMA mode: wraps query to detect/reject tenant_id misuse
+   * In RLS mode: auto-applies tenant_id filter
    * @param tableName - The table to query (can be legacy name like 'cdp_orders')
    * @returns PostgrestFilterBuilder with table translated and tenant filter applied if needed
    */
@@ -82,8 +113,12 @@ export function useTenantQueryBuilder() {
         return query;
       }
       
-      // In schema-per-tenant mode, no filter needed (isolation via search_path)
-      // In shared DB mode, add tenant_id filter
+      // SCHEMA mode: wrap query to detect tenant_id misuse
+      if (isSchemaProvisioned) {
+        return createSchemaProtectedQuery(query, tableName);
+      }
+      
+      // RLS mode: ENFORCE tenant_id filter
       if (shouldAddTenantFilter && tenantId) {
         return query.eq('tenant_id', tenantId);
       }
@@ -95,6 +130,8 @@ export function useTenantQueryBuilder() {
 
   /**
    * Build a query for a specific table with custom select
+   * In SCHEMA mode: wraps query to detect/reject tenant_id misuse
+   * In RLS mode: auto-applies tenant_id filter
    */
   const buildSelectQuery = useCallback(
     <T extends TableName>(tableName: T, columns: string) => {
@@ -108,6 +145,12 @@ export function useTenantQueryBuilder() {
         return query;
       }
       
+      // SCHEMA mode: wrap query to detect tenant_id misuse
+      if (isSchemaProvisioned) {
+        return createSchemaProtectedQuery(query, tableName);
+      }
+      
+      // RLS mode: ENFORCE tenant_id filter
       if (shouldAddTenantFilter && tenantId) {
         return query.eq('tenant_id', tenantId);
       }
