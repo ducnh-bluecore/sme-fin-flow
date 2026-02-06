@@ -1,12 +1,11 @@
 /**
  * usePerformanceData - Performance Dashboard Data
  * 
- * Refactored to Schema-per-Tenant architecture.
- * Uses useTenantSupabaseCompat for tenant-aware queries.
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useStores } from './useStores';
 import { subMonths } from 'date-fns';
 
@@ -40,7 +39,7 @@ export interface StoreRanking {
 }
 
 export function usePerformanceData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { data: stores } = useStores();
 
   return useQuery({
@@ -63,21 +62,13 @@ export function usePerformanceData() {
       }
 
       // Fetch metrics from object_calculated_metrics
-      let query = client
-        .from('object_calculated_metrics')
-        .select('*')
+      const { data: metrics, error } = await buildSelectQuery('object_calculated_metrics', '*')
         .order('created_at', { ascending: false })
         .limit(10000);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data: metrics, error } = await query;
-
       if (error) throw error;
 
-      // Process monthly data - aggregate from stores and metrics
+      // Process monthly data
       const now = new Date();
       const monthlyData: MonthlyData[] = [];
       
@@ -97,7 +88,7 @@ export function usePerformanceData() {
       let totalConversion = 0;
       let metricsCount = 0;
 
-      (metrics || []).forEach(m => {
+      ((metrics || []) as any[]).forEach(m => {
         totalDailyRevenue += m.daily_revenue || 0;
         if (m.conversion_rate) {
           totalConversion += m.conversion_rate;
@@ -105,7 +96,6 @@ export function usePerformanceData() {
         }
       });
 
-      // Adjust latest month with real data if available
       if (totalDailyRevenue > 0 && monthlyData.length > 0) {
         monthlyData[monthlyData.length - 1].revenue = totalDailyRevenue / 1000000;
       }
@@ -114,7 +104,6 @@ export function usePerformanceData() {
       const totalTarget = monthlyData.reduce((sum, m) => sum + m.target, 0);
       const totalOrders = monthlyData.reduce((sum, m) => sum + m.orders, 0);
 
-      // Calculate KPI data
       const avgConversion = metricsCount > 0 ? totalConversion / metricsCount : 85;
       
       const kpiData: KPIData[] = [
@@ -126,18 +115,16 @@ export function usePerformanceData() {
         { metric: 'Hiệu suất', value: Math.min(Math.round(avgConversion), 100), fullMark: 100 },
       ];
 
-      // Process store rankings from stores data
       const storeRankings: StoreRanking[] = (stores || [])
         .slice(0, 5)
         .map(store => ({
           name: store.name,
           target: store.target || 90,
           actual: store.target > 0 ? Math.round((store.revenue / store.target) * 100) : 85,
-          revenue: Math.round(store.revenue / 1000000), // Convert to millions
+          revenue: Math.round(store.revenue / 1000000),
         }))
         .sort((a, b) => b.actual - a.actual);
 
-      // Generate top performers (would come from team/staff table in future)
       const topPerformers: TopPerformer[] = [
         { name: 'Nguyễn Văn A', role: 'Sales Lead', revenue: 125.5, orders: 342, growth: 18.5, avatar: 'NVA' },
         { name: 'Trần Thị B', role: 'Sales Executive', revenue: 98.2, orders: 287, growth: 12.3, avatar: 'TTB' },

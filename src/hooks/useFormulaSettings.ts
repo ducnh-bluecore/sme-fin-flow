@@ -4,31 +4,31 @@
  * This hook provides access to tenant-specific financial calculation parameters
  * including growth rates, benchmarks, and forecasting settings.
  * 
- * Architecture: DB-First - Returns pre-configured settings from database
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface FormulaSettings {
   // Forecasting Parameters
-  forecastDefaultGrowthRate: number;        // Default monthly growth % for projections
-  forecastCollectionRate: number;           // Expected AR collection %
-  forecastConfidenceLevel: number;          // Confidence level for forecasts
+  forecastDefaultGrowthRate: number;
+  forecastCollectionRate: number;
+  forecastConfidenceLevel: number;
   
   // Cash Management
-  minCashRunwayMonths: number;              // Minimum safe runway
-  safeCashRunwayMonths: number;             // Target safe runway
-  cashReservePercentage: number;            // % of revenue to keep as reserve
+  minCashRunwayMonths: number;
+  safeCashRunwayMonths: number;
+  cashReservePercentage: number;
   
   // Working Capital
-  targetDso: number;                        // Target Days Sales Outstanding
-  targetGrossMargin: number;                // Target gross margin %
-  targetNetMargin: number;                  // Target net margin %
+  targetDso: number;
+  targetGrossMargin: number;
+  targetNetMargin: number;
   
   // Payment Terms
-  defaultPaymentTermsAr: number;            // Default AR terms (days)
-  defaultPaymentTermsAp: number;            // Default AP terms (days)
+  defaultPaymentTermsAr: number;
+  defaultPaymentTermsAp: number;
   
   // Tax Rates
   vatRate: number;
@@ -41,7 +41,6 @@ export interface FormulaSettings {
   source: 'db' | 'default';
 }
 
-// Default values matching DB defaults
 const DEFAULT_SETTINGS: FormulaSettings = {
   forecastDefaultGrowthRate: 5.00,
   forecastCollectionRate: 85.00,
@@ -61,7 +60,7 @@ const DEFAULT_SETTINGS: FormulaSettings = {
 };
 
 export function useFormulaSettings() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const query = useQuery({
     queryKey: ['formula-settings', tenantId],
@@ -70,30 +69,23 @@ export function useFormulaSettings() {
         return DEFAULT_SETTINGS;
       }
 
-      let dbQuery = client
-        .from('formula_settings')
-        .select(`
-          forecast_default_growth_rate,
-          forecast_collection_rate,
-          forecast_confidence_level,
-          min_cash_runway_months,
-          safe_cash_runway_months,
-          cash_reserve_percentage,
-          target_dso,
-          target_gross_margin,
-          target_net_margin,
-          default_payment_terms_ar,
-          default_payment_terms_ap,
-          vat_rate,
-          corporate_tax_rate,
-          custom_parameters
-        `);
-
-      if (shouldAddTenantFilter) {
-        dbQuery = dbQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await dbQuery.maybeSingle();
+      const { data, error } = await buildSelectQuery('formula_settings', `
+        forecast_default_growth_rate,
+        forecast_collection_rate,
+        forecast_confidence_level,
+        min_cash_runway_months,
+        safe_cash_runway_months,
+        cash_reserve_percentage,
+        target_dso,
+        target_gross_margin,
+        target_net_margin,
+        default_payment_terms_ar,
+        default_payment_terms_ap,
+        vat_rate,
+        corporate_tax_rate,
+        custom_parameters
+      `)
+        .maybeSingle();
 
       if (error) {
         console.error('[useFormulaSettings] Error:', error);
@@ -104,26 +96,27 @@ export function useFormulaSettings() {
         return DEFAULT_SETTINGS;
       }
 
+      const row = data as any;
       return {
-        forecastDefaultGrowthRate: data.forecast_default_growth_rate ?? DEFAULT_SETTINGS.forecastDefaultGrowthRate,
-        forecastCollectionRate: data.forecast_collection_rate ?? DEFAULT_SETTINGS.forecastCollectionRate,
-        forecastConfidenceLevel: data.forecast_confidence_level ?? DEFAULT_SETTINGS.forecastConfidenceLevel,
-        minCashRunwayMonths: data.min_cash_runway_months ?? DEFAULT_SETTINGS.minCashRunwayMonths,
-        safeCashRunwayMonths: data.safe_cash_runway_months ?? DEFAULT_SETTINGS.safeCashRunwayMonths,
-        cashReservePercentage: data.cash_reserve_percentage ?? DEFAULT_SETTINGS.cashReservePercentage,
-        targetDso: data.target_dso ?? DEFAULT_SETTINGS.targetDso,
-        targetGrossMargin: data.target_gross_margin ?? DEFAULT_SETTINGS.targetGrossMargin,
-        targetNetMargin: data.target_net_margin ?? DEFAULT_SETTINGS.targetNetMargin,
-        defaultPaymentTermsAr: data.default_payment_terms_ar ?? DEFAULT_SETTINGS.defaultPaymentTermsAr,
-        defaultPaymentTermsAp: data.default_payment_terms_ap ?? DEFAULT_SETTINGS.defaultPaymentTermsAp,
-        vatRate: data.vat_rate ?? DEFAULT_SETTINGS.vatRate,
-        corporateTaxRate: data.corporate_tax_rate ?? DEFAULT_SETTINGS.corporateTaxRate,
-        customParameters: (data.custom_parameters as Record<string, unknown>) ?? {},
+        forecastDefaultGrowthRate: row.forecast_default_growth_rate ?? DEFAULT_SETTINGS.forecastDefaultGrowthRate,
+        forecastCollectionRate: row.forecast_collection_rate ?? DEFAULT_SETTINGS.forecastCollectionRate,
+        forecastConfidenceLevel: row.forecast_confidence_level ?? DEFAULT_SETTINGS.forecastConfidenceLevel,
+        minCashRunwayMonths: row.min_cash_runway_months ?? DEFAULT_SETTINGS.minCashRunwayMonths,
+        safeCashRunwayMonths: row.safe_cash_runway_months ?? DEFAULT_SETTINGS.safeCashRunwayMonths,
+        cashReservePercentage: row.cash_reserve_percentage ?? DEFAULT_SETTINGS.cashReservePercentage,
+        targetDso: row.target_dso ?? DEFAULT_SETTINGS.targetDso,
+        targetGrossMargin: row.target_gross_margin ?? DEFAULT_SETTINGS.targetGrossMargin,
+        targetNetMargin: row.target_net_margin ?? DEFAULT_SETTINGS.targetNetMargin,
+        defaultPaymentTermsAr: row.default_payment_terms_ar ?? DEFAULT_SETTINGS.defaultPaymentTermsAr,
+        defaultPaymentTermsAp: row.default_payment_terms_ap ?? DEFAULT_SETTINGS.defaultPaymentTermsAp,
+        vatRate: row.vat_rate ?? DEFAULT_SETTINGS.vatRate,
+        corporateTaxRate: row.corporate_tax_rate ?? DEFAULT_SETTINGS.corporateTaxRate,
+        customParameters: (row.custom_parameters as Record<string, unknown>) ?? {},
         source: 'db',
       };
     },
     enabled: !!tenantId && isReady,
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 
   return {

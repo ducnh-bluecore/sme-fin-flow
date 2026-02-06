@@ -1,12 +1,12 @@
 /**
  * useCreditDebitNotes - Credit/Debit notes management
  * 
- * @architecture Schema-per-Tenant
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  * @domain Finance/AR
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 // Unified adjustment note type
@@ -143,7 +143,6 @@ export interface DebitNoteItem {
   invoice_item_id: string | null;
 }
 
-// Helper to transform adjustment_notes to legacy CreditNote format
 function toOldCreditNoteFormat(note: AdjustmentNote): CreditNote {
   return {
     id: note.id,
@@ -169,7 +168,6 @@ function toOldCreditNoteFormat(note: AdjustmentNote): CreditNote {
   };
 }
 
-// Helper to transform adjustment_notes to legacy DebitNote format
 function toOldDebitNoteFormat(note: AdjustmentNote): DebitNote {
   return {
     id: note.id,
@@ -195,36 +193,28 @@ function toOldDebitNoteFormat(note: AdjustmentNote): DebitNote {
   };
 }
 
-// Credit Notes (using new adjustment_notes table)
+// Credit Notes
 export function useCreditNotes() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['credit-notes', tenantId],
     queryFn: async (): Promise<CreditNote[]> => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('adjustment_notes')
-        .select('*')
+      const { data, error } = await buildSelectQuery('adjustment_notes', '*')
         .eq('note_type', 'credit_note')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
       
       if (error) throw error;
-      return (data || []).map(toOldCreditNoteFormat);
+      return ((data || []) as any[]).map(note => toOldCreditNoteFormat(note as AdjustmentNote));
     },
     enabled: !!tenantId && isReady,
   });
 }
 
 export function useCreditNoteDetail(id: string | undefined) {
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['credit-note-detail', id],
@@ -236,13 +226,12 @@ export function useCreditNoteDetail(id: string | undefined) {
         client.from('adjustment_note_items').select('*').eq('adjustment_note_id', id),
       ]);
       
-      // Note not found - return null instead of throwing
       if (noteResult.error && noteResult.error.code !== 'PGRST116') throw noteResult.error;
       if (!noteResult.data) return null;
       
       return {
         note: toOldCreditNoteFormat(noteResult.data as AdjustmentNote),
-        items: (itemsResult.data || []).map(item => ({
+        items: ((itemsResult.data || []) as any[]).map(item => ({
           id: item.id,
           credit_note_id: item.adjustment_note_id,
           tenant_id: item.tenant_id,
@@ -262,36 +251,32 @@ export function useCreditNoteDetail(id: string | undefined) {
 
 export function useCreateCreditNote() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: Partial<CreditNote> & { items?: Partial<CreditNoteItem>[] }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
       const { items, ...noteData } = input;
-
-      // Generate note number
       const noteNumber = `CN-${Date.now()}`;
 
-      const { data: note, error: noteError } = await client
-        .from('adjustment_notes')
-        .insert({
-          note_number: noteNumber,
-          note_type: 'credit_note',
-          direction: 'customer',
-          tenant_id: tenantId,
-          original_invoice_id: noteData.invoice_id,
-          party_id: noteData.customer_id,
-          note_date: noteData.credit_note_date || new Date().toISOString().split('T')[0],
-          reason: noteData.reason || 'Điều chỉnh',
-          description: noteData.description,
-          status: (noteData.status as any) || 'draft',
-          subtotal: noteData.subtotal || 0,
-          tax_amount: noteData.vat_amount || 0,
-          total_amount: noteData.total_amount || 0,
-          currency: noteData.currency_code || 'VND',
-          notes: noteData.notes,
-        })
+      const { data: note, error: noteError } = await buildInsertQuery('adjustment_notes', {
+        note_number: noteNumber,
+        note_type: 'credit_note',
+        direction: 'customer',
+        tenant_id: tenantId,
+        original_invoice_id: noteData.invoice_id,
+        party_id: noteData.customer_id,
+        note_date: noteData.credit_note_date || new Date().toISOString().split('T')[0],
+        reason: noteData.reason || 'Điều chỉnh',
+        description: noteData.description,
+        status: (noteData.status as any) || 'draft',
+        subtotal: noteData.subtotal || 0,
+        tax_amount: noteData.vat_amount || 0,
+        total_amount: noteData.total_amount || 0,
+        currency: noteData.currency_code || 'VND',
+        notes: noteData.notes,
+      })
         .select()
         .single();
       
@@ -308,7 +293,7 @@ export function useCreateCreditNote() {
               amount: item.amount || 0,
               tax_rate: item.vat_rate || 0,
               product_id: item.product_id,
-              adjustment_note_id: note.id,
+              adjustment_note_id: (note as any).id,
               tenant_id: tenantId,
             }))
           );
@@ -330,13 +315,11 @@ export function useCreateCreditNote() {
 
 export function useUpdateCreditNoteStatus() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { data, error } = await client
-        .from('adjustment_notes')
-        .update({ status })
+      const { data, error } = await buildUpdateQuery('adjustment_notes', { status })
         .eq('id', id)
         .select()
         .single();
@@ -356,36 +339,28 @@ export function useUpdateCreditNoteStatus() {
   });
 }
 
-// Debit Notes (using new adjustment_notes table)
+// Debit Notes
 export function useDebitNotes() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['debit-notes', tenantId],
     queryFn: async (): Promise<DebitNote[]> => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('adjustment_notes')
-        .select('*')
+      const { data, error } = await buildSelectQuery('adjustment_notes', '*')
         .eq('note_type', 'debit_note')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
       
       if (error) throw error;
-      return (data || []).map(toOldDebitNoteFormat);
+      return ((data || []) as any[]).map(note => toOldDebitNoteFormat(note as AdjustmentNote));
     },
     enabled: !!tenantId && isReady,
   });
 }
 
 export function useDebitNoteDetail(id: string | undefined) {
-  const { client, isReady } = useTenantSupabaseCompat();
+  const { client, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['debit-note-detail', id],
@@ -397,13 +372,12 @@ export function useDebitNoteDetail(id: string | undefined) {
         client.from('adjustment_note_items').select('*').eq('adjustment_note_id', id),
       ]);
       
-      // Note not found - return null instead of throwing
       if (noteResult.error && noteResult.error.code !== 'PGRST116') throw noteResult.error;
       if (!noteResult.data) return null;
       
       return {
         note: toOldDebitNoteFormat(noteResult.data as AdjustmentNote),
-        items: (itemsResult.data || []).map(item => ({
+        items: ((itemsResult.data || []) as any[]).map(item => ({
           id: item.id,
           debit_note_id: item.adjustment_note_id,
           tenant_id: item.tenant_id,
@@ -423,36 +397,32 @@ export function useDebitNoteDetail(id: string | undefined) {
 
 export function useCreateDebitNote() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (input: Partial<DebitNote> & { items?: Partial<DebitNoteItem>[] }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
       const { items, ...noteData } = input;
-
-      // Generate note number
       const noteNumber = `DN-${Date.now()}`;
 
-      const { data: note, error: noteError } = await client
-        .from('adjustment_notes')
-        .insert({
-          note_number: noteNumber,
-          note_type: 'debit_note',
-          direction: 'customer',
-          tenant_id: tenantId,
-          original_invoice_id: noteData.invoice_id,
-          party_id: noteData.customer_id,
-          note_date: noteData.debit_note_date || new Date().toISOString().split('T')[0],
-          reason: noteData.reason || 'Điều chỉnh',
-          description: noteData.description,
-          status: (noteData.status as any) || 'draft',
-          subtotal: noteData.subtotal || 0,
-          tax_amount: noteData.vat_amount || 0,
-          total_amount: noteData.total_amount || 0,
-          currency: noteData.currency_code || 'VND',
-          notes: noteData.notes,
-        })
+      const { data: note, error: noteError } = await buildInsertQuery('adjustment_notes', {
+        note_number: noteNumber,
+        note_type: 'debit_note',
+        direction: 'customer',
+        tenant_id: tenantId,
+        original_invoice_id: noteData.invoice_id,
+        party_id: noteData.customer_id,
+        note_date: noteData.debit_note_date || new Date().toISOString().split('T')[0],
+        reason: noteData.reason || 'Điều chỉnh',
+        description: noteData.description,
+        status: (noteData.status as any) || 'draft',
+        subtotal: noteData.subtotal || 0,
+        tax_amount: noteData.vat_amount || 0,
+        total_amount: noteData.total_amount || 0,
+        currency: noteData.currency_code || 'VND',
+        notes: noteData.notes,
+      })
         .select()
         .single();
       
@@ -469,7 +439,7 @@ export function useCreateDebitNote() {
               amount: item.amount || 0,
               tax_rate: item.vat_rate || 0,
               product_id: item.product_id,
-              adjustment_note_id: note.id,
+              adjustment_note_id: (note as any).id,
               tenant_id: tenantId,
             }))
           );
@@ -491,13 +461,11 @@ export function useCreateDebitNote() {
 
 export function useUpdateDebitNoteStatus() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { data, error } = await client
-        .from('adjustment_notes')
-        .update({ status })
+      const { data, error } = await buildUpdateQuery('adjustment_notes', { status })
         .eq('id', id)
         .select()
         .single();
@@ -510,138 +478,6 @@ export function useUpdateDebitNoteStatus() {
       queryClient.invalidateQueries({ queryKey: ['debit-note-detail'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Cập nhật trạng thái thành công');
-    },
-    onError: (error) => {
-      toast.error('Lỗi: ' + error.message);
-    },
-  });
-}
-
-// Invoice adjustments summary
-export function useInvoiceAdjustments() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
-
-  return useQuery({
-    queryKey: ['invoice-adjustments', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return { creditNotes: [], debitNotes: [] };
-      
-      let query = client
-        .from('adjustment_notes')
-        .select('*')
-        .in('note_type', ['credit_note', 'debit_note'])
-        .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      const creditNotes = (data || [])
-        .filter(n => n.note_type === 'credit_note')
-        .map(toOldCreditNoteFormat);
-      const debitNotes = (data || [])
-        .filter(n => n.note_type === 'debit_note')
-        .map(toOldDebitNoteFormat);
-      
-      return { creditNotes, debitNotes };
-    },
-    enabled: !!tenantId && isReady,
-  });
-}
-
-// Vendor Credit Notes
-export function useVendorCreditNotes() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
-
-  return useQuery({
-    queryKey: ['vendor-credit-notes', tenantId],
-    queryFn: async (): Promise<AdjustmentNote[]> => {
-      if (!tenantId) return [];
-      
-      let query = client
-        .from('adjustment_notes')
-        .select('*')
-        .eq('note_type', 'vendor_credit_note')
-        .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      return (data || []) as AdjustmentNote[];
-    },
-    enabled: !!tenantId && isReady,
-  });
-}
-
-export function useCreateVendorCreditNote() {
-  const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
-
-  return useMutation({
-    mutationFn: async (input: Partial<AdjustmentNote> & { items?: Partial<AdjustmentNoteItem>[] }) => {
-      if (!tenantId) throw new Error('No tenant selected');
-
-      const { items, ...noteData } = input;
-
-      const noteNumber = `VCN-${Date.now()}`;
-
-      const { data: note, error: noteError } = await client
-        .from('adjustment_notes')
-        .insert({
-          note_number: noteNumber,
-          note_type: 'vendor_credit_note',
-          direction: 'vendor',
-          tenant_id: tenantId,
-          original_bill_id: noteData.original_bill_id,
-          party_id: noteData.party_id,
-          party_name: noteData.party_name,
-          note_date: noteData.note_date || new Date().toISOString().split('T')[0],
-          reason: noteData.reason || 'Điều chỉnh',
-          description: noteData.description,
-          status: 'draft',
-          subtotal: noteData.subtotal || 0,
-          tax_amount: noteData.tax_amount || 0,
-          total_amount: noteData.total_amount || 0,
-          currency: noteData.currency || 'VND',
-          notes: noteData.notes,
-        })
-        .select()
-        .single();
-      
-      if (noteError) throw noteError;
-
-      if (items && items.length > 0) {
-        const { error: itemsError } = await client
-          .from('adjustment_note_items')
-          .insert(
-            items.map(item => ({
-              description: item.description || '',
-              quantity: item.quantity || 1,
-              unit_price: item.unit_price || 0,
-              amount: item.amount || 0,
-              tax_rate: item.tax_rate || 0,
-              product_id: item.product_id,
-              adjustment_note_id: note.id,
-              tenant_id: tenantId,
-            }))
-          );
-        
-        if (itemsError) throw itemsError;
-      }
-
-      return note;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendor-credit-notes'] });
-      toast.success('Tạo phiếu giảm giá NCC thành công');
     },
     onError: (error) => {
       toast.error('Lỗi: ' + error.message);

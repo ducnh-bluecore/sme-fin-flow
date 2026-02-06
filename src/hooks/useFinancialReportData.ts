@@ -3,14 +3,11 @@
  * 
  * ⚠️ ZERO calculations - fetch precomputed data only
  * 
- * Follows DB-First architecture:
- * - All KPIs, margins, and ratios come pre-computed from database views
- * - Insights are pre-generated with status and descriptions
- * - Progress percentages are pre-calculated and capped at 100
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface FinancialKPIs {
   netRevenue: number;
@@ -56,40 +53,25 @@ export interface FinancialReportData {
 }
 
 export function useFinancialReportData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['financial-report-ssot', tenantId],
     queryFn: async (): Promise<FinancialReportData | null> => {
       if (!tenantId) return null;
 
-      // Build queries with optional tenant filter
-      let kpisQuery = client
-        .from('v_financial_report_kpis')
-        .select('*');
-      
-      let insightsQuery = client
-        .from('v_financial_insights')
-        .select('*');
-      
-      let ratiosQuery = client
-        .from('v_financial_ratios_with_targets')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        kpisQuery = kpisQuery.eq('tenant_id', tenantId);
-        insightsQuery = insightsQuery.eq('tenant_id', tenantId);
-        ratiosQuery = ratiosQuery.eq('tenant_id', tenantId);
-      }
-
       const [kpisRes, insightsRes, ratiosRes] = await Promise.all([
-        kpisQuery.maybeSingle(),
-        insightsQuery.maybeSingle(),
-        ratiosQuery,
+        buildSelectQuery('v_financial_report_kpis', '*').maybeSingle(),
+        buildSelectQuery('v_financial_insights', '*').maybeSingle(),
+        buildSelectQuery('v_financial_ratios_with_targets', '*'),
       ]);
 
       // Map KPIs - DIRECT mapping, NO calculations
-      const kpisData = kpisRes.data as Record<string, unknown> | null;
+      const kpisData = kpisRes.data as unknown as Record<string, unknown> | null;
+      const insightsData = insightsRes.data as unknown as Record<string, unknown> | null;
+      const ratiosData = (ratiosRes.data || []) as unknown as Record<string, unknown>[];
+
+      // Map KPIs
       const kpis: FinancialKPIs | null = kpisData ? {
         netRevenue: Number(kpisData.net_revenue) || 0,
         netRevenueM: Number(kpisData.net_revenue_m) || 0,
@@ -111,12 +93,10 @@ export function useFinancialReportData() {
         snapshotAt: kpisData.snapshot_at as string | null,
       } : null;
 
-      // Map Insights - filter only those with show=true
+      // Map Insights
       const insights: FinancialInsight[] = [];
-      const insightsData = insightsRes.data as Record<string, unknown> | null;
       
       if (insightsData) {
-        // Gross Margin insight
         if (insightsData.gross_margin_show && insightsData.gross_margin_title) {
           insights.push({ 
             type: insightsData.gross_margin_status as 'success' | 'warning' | 'danger', 
@@ -124,7 +104,6 @@ export function useFinancialReportData() {
             description: insightsData.gross_margin_description as string 
           });
         }
-        // DSO insight
         if (insightsData.dso_show && insightsData.dso_title) {
           insights.push({ 
             type: insightsData.dso_status as 'success' | 'warning' | 'danger', 
@@ -132,7 +111,6 @@ export function useFinancialReportData() {
             description: insightsData.dso_description as string 
           });
         }
-        // Net Margin insight
         if (insightsData.net_margin_show && insightsData.net_margin_title) {
           insights.push({ 
             type: insightsData.net_margin_status as 'success' | 'warning' | 'danger', 
@@ -140,7 +118,6 @@ export function useFinancialReportData() {
             description: insightsData.net_margin_description as string 
           });
         }
-        // AR insight
         if (insightsData.ar_show && insightsData.ar_title) {
           insights.push({ 
             type: insightsData.ar_status as 'success' | 'warning' | 'danger', 
@@ -148,7 +125,6 @@ export function useFinancialReportData() {
             description: insightsData.ar_description as string 
           });
         }
-        // Cash Health insight
         if (insightsData.cash_show && insightsData.cash_title) {
           insights.push({ 
             type: insightsData.cash_status as 'success' | 'warning' | 'danger', 
@@ -158,8 +134,7 @@ export function useFinancialReportData() {
         }
       }
 
-      // Map Ratios - DIRECT mapping from DB
-      const ratiosData = (ratiosRes.data || []) as Record<string, unknown>[];
+      // Map Ratios
       const ratios: FinancialRatio[] = ratiosData.map(r => ({
         ratioCode: r.ratio_code as string,
         name: r.ratio_name as string,

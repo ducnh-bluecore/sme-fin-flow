@@ -1,18 +1,18 @@
 /**
  * useDataAssessment - CRUD operations for data assessments
  * 
- * Schema-per-Tenant Ready
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import type { ModuleKey } from '@/lib/dataRequirementsMap';
 
 export interface SurveyResponses {
-  data_sources: string[];         // Main sources: ['ecommerce', 'accounting']
-  sub_sources: string[];          // Specific platforms: ['shopee', 'lazada', 'misa']
-  additional_data_types: string[]; // Extra from Excel/manual selection
+  data_sources: string[];
+  sub_sources: string[];
+  additional_data_types: string[];
 }
 
 export interface ImportPlanItem {
@@ -46,7 +46,6 @@ export interface DataAssessment {
   updated_at: string;
 }
 
-// Default values for empty responses/plan
 const defaultSurveyResponses: SurveyResponses = {
   data_sources: [],
   sub_sources: [],
@@ -61,7 +60,7 @@ const defaultImportPlan: ImportPlan = {
 };
 
 export function useDataAssessment(moduleKey: ModuleKey) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, buildDeleteQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   // Query to get assessment for current module
@@ -73,33 +72,26 @@ export function useDataAssessment(moduleKey: ModuleKey) {
       const { data: user } = await client.auth.getUser();
       if (!user.user) return null;
 
-      let query = client
-        .from('user_data_assessments')
-        .select('*')
+      const { data, error } = await buildSelectQuery('user_data_assessments', '*')
         .eq('module_key', moduleKey)
-        .eq('user_id', user.user.id);
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+        .eq('user_id', user.user.id)
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
       
       return {
-        id: data.id,
-        user_id: data.user_id,
-        tenant_id: data.tenant_id,
-        module_key: data.module_key,
-        survey_responses: (data.survey_responses as unknown as SurveyResponses) || defaultSurveyResponses,
-        import_plan: (data.import_plan as unknown as ImportPlan) || defaultImportPlan,
-        status: (data.status as DataAssessment['status']) || 'pending',
-        completed_at: data.completed_at,
-        skipped_at: data.skipped_at,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        id: (data as any).id,
+        user_id: (data as any).user_id,
+        tenant_id: (data as any).tenant_id,
+        module_key: (data as any).module_key,
+        survey_responses: ((data as any).survey_responses as unknown as SurveyResponses) || defaultSurveyResponses,
+        import_plan: ((data as any).import_plan as unknown as ImportPlan) || defaultImportPlan,
+        status: ((data as any).status as DataAssessment['status']) || 'pending',
+        completed_at: (data as any).completed_at,
+        skipped_at: (data as any).skipped_at,
+        created_at: (data as any).created_at,
+        updated_at: (data as any).updated_at,
       };
     },
     enabled: !!tenantId && isReady,
@@ -114,21 +106,13 @@ export function useDataAssessment(moduleKey: ModuleKey) {
       const { data: user } = await client.auth.getUser();
       if (!user.user) return [];
 
-      let query = client
-        .from('user_data_assessments')
-        .select('*')
+      const { data, error } = await buildSelectQuery('user_data_assessments', '*')
         .eq('user_id', user.user.id)
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
       
-      return (data || []).map(row => ({
+      return ((data || []) as any[]).map(row => ({
         id: row.id,
         user_id: row.user_id,
         tenant_id: row.tenant_id,
@@ -319,7 +303,7 @@ export function useDataAssessment(moduleKey: ModuleKey) {
     },
   });
 
-  // Reset assessment (to retake survey)
+  // Reset assessment
   const resetAssessment = useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant selected');
@@ -327,11 +311,8 @@ export function useDataAssessment(moduleKey: ModuleKey) {
       const { data: user } = await client.auth.getUser();
       if (!user.user) throw new Error('Not authenticated');
 
-      const { error } = await client
-        .from('user_data_assessments')
-        .delete()
+      const { error } = await buildDeleteQuery('user_data_assessments')
         .eq('user_id', user.user.id)
-        .eq('tenant_id', tenantId)
         .eq('module_key', moduleKey);
 
       if (error) throw error;
@@ -347,27 +328,18 @@ export function useDataAssessment(moduleKey: ModuleKey) {
   });
 
   return {
-    // Current module assessment
     assessment: assessmentQuery.data,
     isLoading: assessmentQuery.isLoading,
     error: assessmentQuery.error,
-    
-    // All assessments
     allAssessments: allAssessmentsQuery.data || [],
-    
-    // Status helpers
     isCompleted: assessmentQuery.data?.status === 'completed',
     isSkipped: assessmentQuery.data?.status === 'skipped',
     needsAssessment: !assessmentQuery.data || 
       (assessmentQuery.data.status !== 'completed' && assessmentQuery.data.status !== 'skipped'),
-    
-    // Mutations
     upsertAssessment,
     completeAssessment,
     skipAssessment,
     resetAssessment,
-    
-    // Refetch
     refetch: assessmentQuery.refetch,
   };
 }

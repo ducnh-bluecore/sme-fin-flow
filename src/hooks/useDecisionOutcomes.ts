@@ -1,12 +1,12 @@
 /**
  * useDecisionOutcomes - Decision outcome tracking
  * 
- * @architecture Schema-per-Tenant
+ * @architecture Schema-per-Tenant v1.4.1
  * @domain Control Tower/Decisions
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface DecisionOutcome {
@@ -49,25 +49,17 @@ export interface PendingFollowup {
 
 // Hook để lấy danh sách decisions cần follow-up
 export function usePendingFollowups() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['pending-followups', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('decisions_pending_followup')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('decisions_pending_followup', '*');
 
       if (error) throw error;
-      return (data || []) as PendingFollowup[];
+      return (data || []) as unknown as PendingFollowup[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -75,27 +67,19 @@ export function usePendingFollowups() {
 
 // Hook để lấy outcomes của một decision
 export function useDecisionOutcomes(decisionAuditId: string | null) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-outcomes', tenantId, decisionAuditId],
     queryFn: async () => {
       if (!tenantId || !decisionAuditId) return [];
 
-      let query = client
-        .from('decision_outcomes')
-        .select('*')
+      const { data, error } = await buildSelectQuery('decision_outcomes', '*')
         .eq('decision_audit_id', decisionAuditId)
         .order('measured_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return (data || []) as DecisionOutcome[];
+      return (data || []) as unknown as DecisionOutcome[];
     },
     enabled: !!tenantId && !!decisionAuditId && isReady,
   });
@@ -104,7 +88,7 @@ export function useDecisionOutcomes(decisionAuditId: string | null) {
 // Hook để ghi nhận outcome
 export function useRecordOutcome() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, buildInsertQuery, buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (payload: {
@@ -133,31 +117,27 @@ export function useRecordOutcome() {
         }
       }
 
-      const { data, error } = await client
-        .from('decision_outcomes')
-        .insert({
-          tenant_id: tenantId,
-          decision_audit_id: payload.decisionAuditId,
-          measured_by: user?.id ?? null,
-          actual_impact_amount: payload.actualImpactAmount ?? null,
-          impact_variance: impactVariance,
-          impact_variance_percent: impactVariancePercent,
-          outcome_status: payload.outcomeStatus,
-          outcome_summary: payload.outcomeSummary,
-          outcome_details: payload.outcomeDetails ?? null,
-          lessons_learned: payload.lessonsLearned ?? null,
-          would_repeat: payload.wouldRepeat ?? null,
-          supporting_metrics: payload.supportingMetrics ?? null,
-        })
+      const { data, error } = await buildInsertQuery('decision_outcomes', {
+        tenant_id: tenantId,
+        decision_audit_id: payload.decisionAuditId,
+        measured_by: user?.id ?? null,
+        actual_impact_amount: payload.actualImpactAmount ?? null,
+        impact_variance: impactVariance,
+        impact_variance_percent: impactVariancePercent,
+        outcome_status: payload.outcomeStatus,
+        outcome_summary: payload.outcomeSummary,
+        outcome_details: payload.outcomeDetails ?? null,
+        lessons_learned: payload.lessonsLearned ?? null,
+        would_repeat: payload.wouldRepeat ?? null,
+        supporting_metrics: payload.supportingMetrics ?? null,
+      })
         .select()
         .single();
 
       if (error) throw error;
 
       // Update follow-up status
-      await client
-        .from('decision_audit_log')
-        .update({ follow_up_status: 'completed' })
+      await buildUpdateQuery('decision_audit_log', { follow_up_status: 'completed' })
         .eq('id', payload.decisionAuditId);
 
       return data;
@@ -179,7 +159,7 @@ export function useRecordOutcome() {
 // Hook để cập nhật follow-up status
 export function useUpdateFollowupStatus() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -201,9 +181,7 @@ export function useUpdateFollowupStatus() {
         updateData.follow_up_date = followUpDate;
       }
 
-      const { error } = await client
-        .from('decision_audit_log')
-        .update(updateData)
+      const { error } = await buildUpdateQuery('decision_audit_log', updateData)
         .eq('id', decisionAuditId);
 
       if (error) throw error;
@@ -217,38 +195,38 @@ export function useUpdateFollowupStatus() {
 
 // Hook để lấy thống kê outcomes
 export function useOutcomeStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['outcome-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('decision_outcomes')
-        .select('outcome_status, actual_impact_amount, impact_variance, would_repeat');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('decision_outcomes', 
+        'outcome_status, actual_impact_amount, impact_variance, would_repeat');
 
       if (error) throw error;
 
+      const typedData = (data || []) as unknown as Array<{
+        outcome_status: string;
+        actual_impact_amount: number | null;
+        impact_variance: number | null;
+        would_repeat: boolean | null;
+      }>;
+
       const stats = {
-        totalOutcomes: data.length,
-        positiveCount: data.filter(d => d.outcome_status === 'positive').length,
-        neutralCount: data.filter(d => d.outcome_status === 'neutral').length,
-        negativeCount: data.filter(d => d.outcome_status === 'negative').length,
-        tooEarlyCount: data.filter(d => d.outcome_status === 'too_early').length,
-        wouldRepeatCount: data.filter(d => d.would_repeat === true).length,
-        totalActualImpact: data.reduce((sum, d) => sum + (d.actual_impact_amount || 0), 0),
-        avgVariancePercent: data.length > 0 
-          ? data.reduce((sum, d) => sum + (d.impact_variance || 0), 0) / data.length 
+        totalOutcomes: typedData.length,
+        positiveCount: typedData.filter(d => d.outcome_status === 'positive').length,
+        neutralCount: typedData.filter(d => d.outcome_status === 'neutral').length,
+        negativeCount: typedData.filter(d => d.outcome_status === 'negative').length,
+        tooEarlyCount: typedData.filter(d => d.outcome_status === 'too_early').length,
+        wouldRepeatCount: typedData.filter(d => d.would_repeat === true).length,
+        totalActualImpact: typedData.reduce((sum, d) => sum + (d.actual_impact_amount || 0), 0),
+        avgVariancePercent: typedData.length > 0 
+          ? typedData.reduce((sum, d) => sum + (d.impact_variance || 0), 0) / typedData.length 
           : 0,
-        successRate: data.length > 0 
-          ? (data.filter(d => d.outcome_status === 'positive').length / data.length) * 100 
+        successRate: typedData.length > 0 
+          ? (typedData.filter(d => d.outcome_status === 'positive').length / typedData.length) * 100 
           : 0,
       };
 
