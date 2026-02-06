@@ -338,7 +338,7 @@ const PAYMENT_SOURCES = [
       payment_method: 'payment_method_name',
       payment_status: 'order_status',
       amount: 'payment_total_amount',
-      paid_at: 'paid_time',
+      paid_at: 'update_time',
     }
   },
   {
@@ -361,9 +361,9 @@ const PAYMENT_SOURCES = [
     mapping: {
       payment_key: 'OrderId',
       order_key: 'OrderId',
-      payment_method: 'PaymentMethod',
+      payment_method: 'UsingCod',
       payment_status: 'Status',
-      amount: 'Total',
+      amount: 'TotalPayment',
       paid_at: 'PurchaseDate',
     }
   }
@@ -1333,7 +1333,9 @@ async function syncPayments(
         paused = true;
         break;
       }
-      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
+      // Deduplicate columns (payment_key and order_key often map to the same column)
+      const uniqueColumns = [...new Set(Object.values(source.mapping))];
+      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
       const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.payment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
@@ -1349,8 +1351,10 @@ async function syncPayments(
           payment_key: `${source.channel}:${String(row[source.mapping.payment_key] || '')}`,
           order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
           channel: source.channel,
-          payment_method: row[source.mapping.payment_method] || null,
-          payment_status: row[source.mapping.payment_status] || null,
+          payment_method: source.channel === 'kiotviet' 
+            ? (String(row[source.mapping.payment_method]) === 'true' ? 'COD' : 'Online')
+            : (row[source.mapping.payment_method] || null),
+          payment_status: row[source.mapping.payment_status] != null ? String(row[source.mapping.payment_status]) : null,
           amount: parseFloat(row[source.mapping.amount] || '0'),
           paid_at: row[source.mapping.paid_at] || null,
         }));
@@ -1473,7 +1477,8 @@ async function syncFulfillments(
         paused = true;
         break;
       }
-      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
+      const uniqueColumns = [...new Set(Object.values(source.mapping))];
+      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
       const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.fulfillment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
