@@ -7342,41 +7342,84 @@ export type Database = {
       cdp_order_items: {
         Row: {
           category: string | null
+          discount_amount: number | null
           id: string
+          image_url: string | null
+          integration_id: string | null
+          is_returned: boolean | null
           line_cogs: number
           line_margin: number
           line_revenue: number
           order_id: string
+          original_price: number | null
           product_id: string | null
+          product_name: string | null
           qty: number
+          raw_data: Json | null
+          return_quantity: number | null
+          sku: string | null
           tenant_id: string
+          unit_cogs: number | null
           unit_price: number
+          variation_name: string | null
+          weight: number | null
         }
         Insert: {
           category?: string | null
+          discount_amount?: number | null
           id?: string
+          image_url?: string | null
+          integration_id?: string | null
+          is_returned?: boolean | null
           line_cogs?: number
           line_margin?: number
           line_revenue?: number
           order_id: string
+          original_price?: number | null
           product_id?: string | null
+          product_name?: string | null
           qty?: number
+          raw_data?: Json | null
+          return_quantity?: number | null
+          sku?: string | null
           tenant_id: string
+          unit_cogs?: number | null
           unit_price?: number
+          variation_name?: string | null
+          weight?: number | null
         }
         Update: {
           category?: string | null
+          discount_amount?: number | null
           id?: string
+          image_url?: string | null
+          integration_id?: string | null
+          is_returned?: boolean | null
           line_cogs?: number
           line_margin?: number
           line_revenue?: number
           order_id?: string
+          original_price?: number | null
           product_id?: string | null
+          product_name?: string | null
           qty?: number
+          raw_data?: Json | null
+          return_quantity?: number | null
+          sku?: string | null
           tenant_id?: string
+          unit_cogs?: number | null
           unit_price?: number
+          variation_name?: string | null
+          weight?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cdp_order_items_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "connector_integrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cdp_order_items_order_id_fkey"
             columns: ["order_id"]
@@ -7416,67 +7459,154 @@ export type Database = {
       }
       cdp_orders: {
         Row: {
+          buyer_id: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
           channel: string | null
           cogs: number
+          commission_fee: number | null
           created_at: string
           currency: string
           customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivered_at: string | null
           discount_amount: number
+          district_name: string | null
           gross_margin: number
           gross_revenue: number
           id: string
+          integration_id: string | null
           is_bundle: boolean
           is_discounted: boolean
+          item_count: number | null
+          last_synced_at: string | null
           net_revenue: number
           order_at: string
           order_key: string
           other_fees: number | null
+          paid_at: string | null
+          payment_fee: number | null
           payment_method: string | null
           platform_fee: number | null
+          province_code: string | null
+          province_name: string | null
+          raw_data: Json | null
+          return_reason: string | null
+          returned_at: string | null
+          seller_income: number | null
+          service_fee: number | null
+          shipped_at: string | null
+          shipping_carrier: string | null
           shipping_fee: number | null
+          shop_id: string | null
+          shop_name: string | null
+          status: string | null
           tenant_id: string
+          total_fees: number | null
+          total_quantity: number | null
+          tracking_number: string | null
+          voucher_discount: number | null
         }
         Insert: {
+          buyer_id?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           channel?: string | null
           cogs?: number
+          commission_fee?: number | null
           created_at?: string
           currency?: string
           customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivered_at?: string | null
           discount_amount?: number
+          district_name?: string | null
           gross_margin?: number
           gross_revenue?: number
           id?: string
+          integration_id?: string | null
           is_bundle?: boolean
           is_discounted?: boolean
+          item_count?: number | null
+          last_synced_at?: string | null
           net_revenue?: number
           order_at: string
           order_key: string
           other_fees?: number | null
+          paid_at?: string | null
+          payment_fee?: number | null
           payment_method?: string | null
           platform_fee?: number | null
+          province_code?: string | null
+          province_name?: string | null
+          raw_data?: Json | null
+          return_reason?: string | null
+          returned_at?: string | null
+          seller_income?: number | null
+          service_fee?: number | null
+          shipped_at?: string | null
+          shipping_carrier?: string | null
           shipping_fee?: number | null
+          shop_id?: string | null
+          shop_name?: string | null
+          status?: string | null
           tenant_id: string
+          total_fees?: number | null
+          total_quantity?: number | null
+          tracking_number?: string | null
+          voucher_discount?: number | null
         }
         Update: {
+          buyer_id?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           channel?: string | null
           cogs?: number
+          commission_fee?: number | null
           created_at?: string
           currency?: string
           customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivered_at?: string | null
           discount_amount?: number
+          district_name?: string | null
           gross_margin?: number
           gross_revenue?: number
           id?: string
+          integration_id?: string | null
           is_bundle?: boolean
           is_discounted?: boolean
+          item_count?: number | null
+          last_synced_at?: string | null
           net_revenue?: number
           order_at?: string
           order_key?: string
           other_fees?: number | null
+          paid_at?: string | null
+          payment_fee?: number | null
           payment_method?: string | null
           platform_fee?: number | null
+          province_code?: string | null
+          province_name?: string | null
+          raw_data?: Json | null
+          return_reason?: string | null
+          returned_at?: string | null
+          seller_income?: number | null
+          service_fee?: number | null
+          shipped_at?: string | null
+          shipping_carrier?: string | null
           shipping_fee?: number | null
+          shop_id?: string | null
+          shop_name?: string | null
+          status?: string | null
           tenant_id?: string
+          total_fees?: number | null
+          total_quantity?: number | null
+          tracking_number?: string | null
+          voucher_discount?: number | null
         }
         Relationships: [
           {
@@ -7498,6 +7628,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "connector_integrations"
             referencedColumns: ["id"]
           },
           {
