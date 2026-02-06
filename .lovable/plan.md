@@ -1,330 +1,370 @@
 
+# PLAN: Tạo Edge Function `bigquery-query` để Query Raw Data từ BigQuery
 
-# PLAN: VIẾT LẠI E2E TEST SUITE THEO ARCHITECTURE v1.4.2
+## 1. MỤC ĐÍCH
 
-## 1. VẤN ĐỀ HIỆN TẠI
+Tạo Edge Function mới `bigquery-query` với khả năng:
+- Query raw data trực tiếp từ BigQuery tables
+- Hỗ trợ cả predefined queries và custom SQL
+- Tích hợp authentication + tenant isolation
+- Caching kết quả để optimize performance
+- Response format chuẩn hóa cho UI consumption
 
-E2E Test hiện tại sử dụng layer structure **không nhất quán** với Architecture v1.4.2:
+## 2. SỰ KHÁC BIỆT VỚI EXISTING FUNCTIONS
 
-```text
-HIỆN TẠI (SAI):
-┌─────────────────────────────────────────────────────────────────────┐
-│ Layer 0-1: Source → products, cdp_customers, cdp_orders            │
-│ Layer 2: Computed → cdp_customer_equity_computed                    │
-│ Layer 3-4: Cross-Module → fdp_locked_costs, control_tower          │
-└─────────────────────────────────────────────────────────────────────┘
+| Function | Mục đích | Use Case |
+|----------|----------|----------|
+| `bigquery-list` | List datasets, tables, preview schema | Admin/Config UI |
+| `bigquery-realtime` | Aggregated metrics (daily_revenue, channel_summary) | Dashboard widgets |
+| `sync-bigquery` | Sync data từ BQ → Supabase (SSOT Layer 2) | Background jobs |
+| **`bigquery-query` (MỚI)** | Query raw data với filters, pagination | Data exploration, reports |
 
-ARCHITECTURE v1.4.2 (ĐÚNG):
-┌─────────────────────────────────────────────────────────────────────┐
-│ L0: Raw/External → external_orders, external_products (Staging)     │
-│ L1: Foundation → organizations, organization_members, channel_accounts
-│ L1.5: Ingestion → ingestion_batches, data_watermarks               │
-│ L2: Master Model → master_orders, master_customers, master_products│
-│ L2.5: Events → commerce_events, master_campaigns, master_ad_spend  │
-│ L3: KPI → kpi_definitions, kpi_facts_daily, kpi_targets            │
-│ L4: Alert/Decision → alert_instances, decision_cards, priority_queue
-│ L5: AI Query → ai_conversations, ai_messages                        │
-│ L6: Audit → sync_jobs, audit_logs                                   │
-│ L10: BigQuery → bigquery_connections, sync_configs                  │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### SAI LẦM CHÍNH:
-1. **Đặt Products/Customers vào Layer 0-1** - Đây là Master Model (Layer 2)
-2. **Nhầm cdp_orders là Source** - cdp_orders là CDP view, Master Model là master_orders
-3. **Bỏ qua Layer 1 (Foundation)** - Không test organizations, members
-4. **Bỏ qua Layer 1.5 (Ingestion)** - Không test batches, watermarks
-5. **Bỏ qua Layer 2.5 (Events)** - Không test campaigns, ad_spend
-6. **Đưa control_tower vào Layer 3-4 chung** - Layer 3 là KPI, Layer 4 là Alert riêng
-7. **Còn reference external_orders** - Script 05 tạo external_orders nhưng đã deprecated
-
----
-
-## 2. CẤU TRÚC E2E TEST MỚI (v1.4.2 COMPLIANT)
-
-### 2.1 File Structure Mới
+## 3. KIẾN TRÚC
 
 ```text
-supabase/e2e-test/
-├── README.md                              # Updated architecture docs
-├── expected-values.json                   # Updated layer structure
-│
-├── L0-raw/
-│   └── 00-raw-external-data.sql          # (SKIP - Staging only, no test)
-│
-├── L1-foundation/
-│   ├── 01-create-tenant.sql              # Tenant + connectors
-│   └── 02-organizations.sql              # Organizations, members, roles
-│
-├── L1.5-ingestion/
-│   └── 03-ingestion-batches.sql          # Batches, watermarks, checkpoints
-│
-├── L2-master/
-│   ├── 04-master-products.sql            # 100 SKUs
-│   ├── 05-master-customers.sql           # 500 customers
-│   ├── 06-master-orders.sql              # 5,500 orders
-│   └── 07-master-order-items.sql         # Order line items
-│
-├── L2.5-events/
-│   ├── 08-commerce-events.sql            # Page views, add to cart, checkout
-│   └── 09-marketing-campaigns.sql        # Campaigns, ad accounts, ad spend
-│
-├── L3-kpi/
-│   ├── 10-kpi-definitions.sql            # KPI metadata
-│   ├── 11-run-kpi-aggregation.sql        # [DB-First] Compute kpi_facts_daily
-│   └── 12-kpi-targets.sql                # Targets vs Actual
-│
-├── L4-alert/
-│   ├── 13-alert-rules.sql                # Alert rule definitions
-│   ├── 14-run-alert-detection.sql        # [DB-First] Detect variances
-│   └── 15-decision-cards.sql             # Decision cards, outcomes
-│
-├── verify/
-│   ├── 20-verify-layer-integrity.sql     # Layer-by-layer verification
-│   └── 21-verify-ui-screens.sql          # Screen-by-screen verification
-│
-└── cleanup/
-    └── 99-cleanup-test-data.sql          # Remove test tenant data
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         bigquery-query                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  INPUT                          PROCESSING                      OUTPUT   │
+│  ─────                          ──────────                      ──────   │
+│  • tenant_id                    1. Validate auth               • rows[]  │
+│  • dataset                      2. Load tenant config          • schema  │
+│  • table                        3. Build safe query            • stats   │
+│  • query_type:                  4. Execute via BQ API          • cached  │
+│    - raw_select                 5. Transform response                    │
+│    - filtered                   6. Cache results                         │
+│    - custom_sql                 7. Return JSON                           │
+│  • filters[]                                                             │
+│  • columns[]                                                             │
+│  • order_by                                                              │
+│  • limit/offset                                                          │
+│  • date_range                                                            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Layer Flow Diagram Mới
+## 4. API SPECIFICATION
 
-```text
-L1 FOUNDATION (Setup)
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ tenant: E2E Test Company                                                      │
-│ organization: OLV Boutique                                                    │
-│ members: owner, admin, analyst                                                │
-│ channel_accounts: Shopee, Lazada, TikTok Shop, Website                        │
-└───────────────────────────────────────┬──────────────────────────────────────┘
-                                        │
-                                        ▼
-L1.5 INGESTION
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ ingestion_batches: 4 batches (1 per channel)                                 │
-│ data_watermarks: 4 watermarks with last_sync timestamps                      │
-│ connector_integrations: 4 active integrations                                │
-└───────────────────────────────────────┬──────────────────────────────────────┘
-                                        │
-                                        ▼
-L2 MASTER MODEL (SSOT)
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ master_products: 100 SKUs (5 categories)                                     │
-│ master_customers: 500 customers (4 tiers)                                    │
-│ master_orders: 5,500 orders (25 months, 4 channels)                          │
-│ master_order_items: ~12,100 items (2.2 items/order)                          │
-│ master_payments: 5,500 payments                                              │
-└───────────────────────────────────────┬──────────────────────────────────────┘
-                                        │
-                                        ▼
-L2.5 EVENTS & MARKETING
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ commerce_events: ~27,500 events (5 events/order)                             │
-│ master_ad_accounts: 4 accounts (1 per channel)                               │
-│ master_campaigns: 50 campaigns (25 months x 2)                               │
-│ master_ad_spend: 100 spend records                                           │
-└───────────────────────────────────────┬──────────────────────────────────────┘
-                                        │
-                                        ▼ compute_kpi_facts_daily()
-L3 KPI (AGGREGATED)
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ kpi_definitions: 20 definitions (Revenue, COGS, Margin, CAC, LTV, etc)       │
-│ kpi_facts_daily: ~760 rows (25 months x 30 days, aggregated)                 │
-│ kpi_targets: 100 targets (20 KPIs x 5 periods)                               │
-│ kpi_thresholds: 60 thresholds (20 KPIs x 3 severity levels)                  │
-└───────────────────────────────────────┬──────────────────────────────────────┘
-                                        │
-                                        ▼ detect_threshold_breaches()
-L4 ALERT & DECISION
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ alert_rules: 15 rules (based on KPI thresholds)                              │
-│ alert_instances: 5-15 active alerts                                          │
-│ decision_cards: 10-20 cards (actionable items)                               │
-│ priority_queue: 5-10 prioritized items                                       │
-│ evidence_logs: Linked evidence for each alert                                │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+### 4.1 Request Body
 
----
-
-## 3. CHI TIẾT THAY ĐỔI
-
-### 3.1 README.md Mới
-
-```text
-# E2E Test Suite - Bluecore Platform v1.4.2
-
-## Architecture
-
-| Layer | Tables | Script | Purpose |
-|-------|--------|--------|---------|
-| L0 | external_* | SKIP | Staging only, không test |
-| L1 | organizations, members | 01, 02 | Foundation setup |
-| L1.5 | ingestion_batches | 03 | Data pipeline tracking |
-| L2 | master_orders, master_customers | 04-07 | SSOT Master Model |
-| L2.5 | commerce_events, campaigns | 08-09 | Events & Marketing |
-| L3 | kpi_facts_daily, kpi_targets | 10-12 | KPI aggregation |
-| L4 | alert_instances, decision_cards | 13-15 | Control Tower |
-```
-
-### 3.2 expected-values.json Mới
-
-```json
-{
-  "meta": {
-    "version": "3.0",
-    "architecture": "v1.4.2 10-Layer"
-  },
-  "layer_1_foundation": {
-    "tenants": { "count": 1 },
-    "organizations": { "count": 1 },
-    "organization_members": { "count": 3 },
-    "channel_accounts": { "count": 4 }
-  },
-  "layer_1_5_ingestion": {
-    "ingestion_batches": { "count": 4 },
-    "data_watermarks": { "count": 4 }
-  },
-  "layer_2_master": {
-    "master_products": { "count": 100 },
-    "master_customers": { "count": 500 },
-    "master_orders": { "count": 5500 },
-    "master_order_items": { "count": 12100 }
-  },
-  "layer_2_5_events": {
-    "commerce_events": { "count": 27500 },
-    "master_campaigns": { "count": 50 }
-  },
-  "layer_3_kpi": {
-    "kpi_definitions": { "count": 20 },
-    "kpi_facts_daily": { "count_min": 700 },
-    "kpi_targets": { "count": 100 }
-  },
-  "layer_4_alert": {
-    "alert_instances": { "count_range": [5, 15] },
-    "decision_cards": { "count_range": [10, 20] },
-    "priority_queue": { "count_range": [5, 10] }
-  }
+```typescript
+interface BigQueryQueryRequest {
+  // Required
+  tenant_id: string;
+  dataset: string;           // e.g., "bluecoredcp_shopee"
+  table: string;             // e.g., "shopee_Orders"
+  
+  // Query type
+  query_type: 'raw_select' | 'filtered' | 'aggregated' | 'custom_sql';
+  
+  // For raw_select / filtered
+  columns?: string[];        // Default: ['*']
+  filters?: {
+    field: string;
+    operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in' | 'between';
+    value: any;
+  }[];
+  order_by?: { field: string; direction: 'asc' | 'desc' }[];
+  
+  // Pagination
+  limit?: number;            // Default: 100, Max: 10000
+  offset?: number;           // Default: 0
+  
+  // Date filtering (common case)
+  date_field?: string;       // e.g., "create_time"
+  start_date?: string;       // ISO format
+  end_date?: string;
+  
+  // For aggregated
+  group_by?: string[];
+  aggregations?: { field: string; func: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' }[];
+  
+  // For custom_sql (restricted)
+  custom_sql?: string;       // Must pass validation
+  
+  // Caching
+  use_cache?: boolean;       // Default: true
+  cache_ttl_minutes?: number; // Default: 15
 }
 ```
 
-### 3.3 Scripts Thay Đổi
+### 4.2 Response Body
 
-| Old Script | New Script | Thay Đổi |
-|------------|------------|----------|
-| 00-create-test-tenant.sql | L1-foundation/01-create-tenant.sql | Giữ nguyên |
-| 01-products.sql | L2-master/04-master-products.sql | Đổi table: products → master_products |
-| 02-customers.sql | L2-master/05-master-customers.sql | Đổi table: cdp_customers → master_customers |
-| 03-orders.sql | L2-master/06-master-orders.sql | Đổi table: cdp_orders → master_orders |
-| 04-order-items.sql | L2-master/07-master-order-items.sql | Đổi table: cdp_order_items → master_order_items |
-| 05-external-orders.sql | (DELETED) | XÓA - Không còn external_orders flow |
-| 06-run-compute-pipeline.sql | L3-kpi/11-run-kpi-aggregation.sql | Đổi logic: CDP → KPI aggregation |
-| 07-fdp-locked-costs.sql | L3-kpi/12-kpi-targets.sql | Đổi table: fdp_locked_costs → kpi_targets |
-| 08-run-cross-module-sync.sql | L4-alert/14-run-alert-detection.sql | Đổi logic: Cross-module → Alert detection |
-| 09-verify-expected.sql | verify/20-verify-layer-integrity.sql | Rewrite theo layer mới |
-| 10-comprehensive-verify.sql | verify/21-verify-ui-screens.sql | Update table references |
-
----
-
-## 4. EXPECTED VALUES CHÍNH
-
-### L2 Master Model
-
-| Metric | Expected | Tolerance |
-|--------|----------|-----------|
-| Total Orders | 5,500 | 2% |
-| Total Gross Revenue | ~₫2.7B VND | 10% |
-| Total Net Revenue | ~₫2.35B VND | 10% |
-| COGS % | 53% | 3% |
-| Total Customers | 500 | 0% |
-| Active Customers (90d) | ~350 | 10% |
-
-### L3 KPI
-
-| Metric | Expected | Source |
-|--------|----------|--------|
-| Revenue KPI Facts | 760+ rows | Aggregated from master_orders |
-| AOV Daily | ~₫430K | Computed |
-| Monthly Margin | ~₫380M | Computed |
-
-### L4 Control Tower
-
-| Metric | Expected | Range |
-|--------|----------|-------|
-| Alert Instances | 5-15 | Auto-generated |
-| Decision Cards | 10-20 | Auto-generated |
-| Priority Queue | 5-10 | Highest severity |
-
----
-
-## 5. KẾ HOẠCH THỰC HIỆN
-
-### Phase 1: Tạo Structure Mới (1h)
-- Tạo folder structure mới
-- Tạo README.md v3.0
-- Tạo expected-values.json v3.0
-
-### Phase 2: Migrate Existing Scripts (2h)
-- L1: 01, 02 (Foundation)
-- L1.5: 03 (Ingestion - NEW)
-- L2: 04-07 (Master Model - migrate from cdp_* to master_*)
-
-### Phase 3: Tạo Scripts Mới (2h)
-- L2.5: 08, 09 (Events & Marketing - NEW)
-- L3: 10-12 (KPI - rewrite từ CDP equity sang KPI facts)
-- L4: 13-15 (Alert - rewrite từ cross-module sang alert detection)
-
-### Phase 4: Verification Scripts (1h)
-- 20-verify-layer-integrity.sql (Layer-by-layer)
-- 21-verify-ui-screens.sql (Screen mapping)
-
-### Phase 5: Delete Old Scripts (0.5h)
-- Xóa 05-external-orders.sql
-- Archive old scripts
-
-### Total Estimated: 6-7 hours
-
----
-
-## 6. TABLE MAPPING CHI TIẾT
-
-```text
-OLD TABLE (E2E cũ)          → NEW TABLE (v1.4.2)
-─────────────────────────────────────────────────
-products                    → master_products
-cdp_customers              → master_customers  
-cdp_orders                 → master_orders
-cdp_order_items            → master_order_items
-external_orders            → (DELETED)
-external_order_items       → (DELETED)
-cdp_customer_equity_computed → kpi_facts_daily (aggregated)
-fdp_locked_costs           → kpi_targets
-cdp_segment_ltv_for_mdp    → kpi_facts_daily (segment)
-cdp_customer_cohort_cac    → kpi_facts_daily (cohort)
-cross_domain_variance_alerts → alert_instances
-control_tower_priority_queue → priority_queue
+```typescript
+interface BigQueryQueryResponse {
+  success: boolean;
+  
+  // Data
+  rows: Record<string, any>[];
+  row_count: number;
+  total_count?: number;      // For pagination awareness
+  
+  // Schema info
+  schema: {
+    name: string;
+    type: string;
+    mode: string;
+  }[];
+  
+  // Performance
+  query_time_ms: number;
+  bytes_processed?: number;
+  
+  // Cache info
+  cached: boolean;
+  cached_at?: string;
+  expires_at?: string;
+  
+  // Errors
+  error?: string;
+  warnings?: string[];
+}
 ```
 
----
+## 5. SECURITY CONSIDERATIONS
 
-## 7. VERIFICATION OUTPUT MỚI
+### 5.1 SQL Injection Prevention
+- Sử dụng parameterized query building
+- Whitelist allowed operators
+- Validate column/table names against schema
+- Block dangerous keywords: `DROP`, `DELETE`, `UPDATE`, `INSERT`, `TRUNCATE`, `ALTER`
 
+### 5.2 Tenant Isolation
+- Load tenant's BigQuery config từ `bigquery_configs` table
+- Validate dataset access permissions
+- Log all queries với tenant context
+
+### 5.3 Rate Limiting
+- Max 100 requests/minute per tenant
+- Max 10000 rows per query
+- Max query timeout: 30 seconds
+
+## 6. IMPLEMENTATION STEPS
+
+### Step 1: Create Edge Function Structure
 ```text
-═══════════════════════════════════════════════════════════════════════
-                E2E TEST VERIFICATION - ARCHITECTURE v1.4.2             
-═══════════════════════════════════════════════════════════════════════
-
-LAYER       │ TOTAL │ PASSED │ FAILED │ WARNINGS
-────────────┼───────┼────────┼────────┼─────────
-L1_FOUND    │   4   │   4    │   0    │    0
-L1.5_INGEST │   2   │   2    │   0    │    0
-L2_MASTER   │   6   │   6    │   0    │    0
-L2.5_EVENTS │   3   │   3    │   0    │    0
-L3_KPI      │   5   │   5    │   0    │    0
-L4_ALERT    │   4   │   4    │   0    │    0
-────────────┼───────┼────────┼────────┼─────────
-OVERALL     │  24   │  24    │   0    │    0
-
-✅ ALL LAYERS VERIFIED - ARCHITECTURE v1.4.2 COMPLIANT
+supabase/functions/bigquery-query/
+└── index.ts
 ```
 
+### Step 2: Core Components
+
+```typescript
+// 1. Safe Query Builder
+function buildSafeQuery(params: BigQueryQueryRequest): string {
+  // Validate table/column names
+  // Build WHERE clause from filters
+  // Add ORDER BY, LIMIT, OFFSET
+  // Return parameterized query
+}
+
+// 2. SQL Validator (for custom_sql)
+function validateCustomSql(sql: string): { valid: boolean; error?: string } {
+  // Check for dangerous keywords
+  // Validate syntax structure
+  // Ensure SELECT only
+}
+
+// 3. Cache Manager
+async function getCachedResult(queryHash: string, tenantId: string): Promise<any | null>
+async function setCacheResult(queryHash: string, tenantId: string, data: any, ttl: number): Promise<void>
+```
+
+### Step 3: Main Handler Flow
+
+```typescript
+serve(async (req) => {
+  // 1. CORS handling
+  if (req.method === 'OPTIONS') return corsResponse();
+  
+  // 2. Parse request
+  const params = await req.json();
+  
+  // 3. Validate tenant
+  if (!params.tenant_id) throw Error('tenant_id required');
+  
+  // 4. Check cache
+  const queryHash = await hashQuery(params);
+  if (params.use_cache) {
+    const cached = await getCachedResult(queryHash, params.tenant_id);
+    if (cached) return jsonResponse({ ...cached, cached: true });
+  }
+  
+  // 5. Load tenant config
+  const config = await getTenantConfig(params.tenant_id);
+  
+  // 6. Build query
+  let query: string;
+  if (params.query_type === 'custom_sql') {
+    const validation = validateCustomSql(params.custom_sql);
+    if (!validation.valid) throw Error(validation.error);
+    query = params.custom_sql;
+  } else {
+    query = buildSafeQuery(params, config);
+  }
+  
+  // 7. Execute query
+  const startTime = Date.now();
+  const accessToken = await getAccessToken(serviceAccount);
+  const result = await executeQuery(accessToken, config.project_id, query);
+  const queryTime = Date.now() - startTime;
+  
+  // 8. Cache result
+  if (params.use_cache && result.rows.length > 0) {
+    await setCacheResult(queryHash, params.tenant_id, result, params.cache_ttl_minutes);
+  }
+  
+  // 9. Return response
+  return jsonResponse({
+    success: true,
+    rows: result.rows,
+    row_count: result.rows.length,
+    schema: result.schema,
+    query_time_ms: queryTime,
+    cached: false,
+  });
+});
+```
+
+## 7. FILTER OPERATORS MAPPING
+
+```typescript
+const OPERATOR_MAP = {
+  'eq': '=',
+  'neq': '!=',
+  'gt': '>',
+  'gte': '>=',
+  'lt': '<',
+  'lte': '<=',
+  'like': 'LIKE',
+  'in': 'IN',
+  'between': 'BETWEEN',
+};
+
+// Example filter building
+// { field: 'order_status', operator: 'eq', value: 'COMPLETED' }
+// → WHERE order_status = 'COMPLETED'
+
+// { field: 'total_amount', operator: 'between', value: [100000, 500000] }
+// → WHERE total_amount BETWEEN 100000 AND 500000
+```
+
+## 8. ERROR HANDLING
+
+```typescript
+const ERROR_CODES = {
+  INVALID_PARAMS: { status: 400, message: 'Invalid request parameters' },
+  UNAUTHORIZED: { status: 401, message: 'Authentication required' },
+  FORBIDDEN: { status: 403, message: 'Access denied to this dataset' },
+  NOT_FOUND: { status: 404, message: 'Table or dataset not found' },
+  QUERY_ERROR: { status: 422, message: 'Query execution failed' },
+  RATE_LIMITED: { status: 429, message: 'Too many requests' },
+  TIMEOUT: { status: 504, message: 'Query timeout exceeded' },
+};
+```
+
+## 9. FILES TO CREATE/MODIFY
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/functions/bigquery-query/index.ts` | CREATE | Main function implementation |
+| `src/hooks/useBigQueryQuery.ts` | CREATE | React hook để gọi function |
+| `supabase/config.toml` | MODIFY | Add function config (verify_jwt = false) |
+
+## 10. TECHNICAL DETAILS
+
+### 10.1 Edge Function Code Structure
+
+```typescript
+// supabase/functions/bigquery-query/index.ts
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = { /* ... */ };
+
+// Reuse getAccessToken from bigquery-list
+async function getAccessToken(serviceAccount: any): Promise<string> { /* ... */ }
+
+// Safe query builder
+function buildSafeQuery(params: BigQueryQueryRequest, projectId: string): string { /* ... */ }
+
+// SQL validator
+function validateCustomSql(sql: string): ValidationResult { /* ... */ }
+
+// Main handler
+serve(async (req) => { /* ... */ });
+```
+
+### 10.2 React Hook
+
+```typescript
+// src/hooks/useBigQueryQuery.ts
+
+export function useBigQueryQuery(params: BigQueryQueryParams) {
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
+  
+  return useQuery({
+    queryKey: ['bigquery-query', tenantId, params],
+    queryFn: async () => {
+      const { data, error } = await client.functions.invoke('bigquery-query', {
+        body: { tenant_id: tenantId, ...params }
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId && isReady && !!params.dataset && !!params.table,
+  });
+}
+```
+
+## 11. TESTING PLAN
+
+### 11.1 Unit Tests
+- Filter builder với các operators
+- SQL validator với dangerous inputs
+- Cache hash generation
+
+### 11.2 Integration Tests
+```typescript
+// Test raw_select
+await invoke('bigquery-query', {
+  tenant_id: 'test-tenant',
+  dataset: 'bluecoredcp_shopee',
+  table: 'shopee_Orders',
+  query_type: 'raw_select',
+  limit: 10,
+});
+
+// Test filtered
+await invoke('bigquery-query', {
+  tenant_id: 'test-tenant',
+  dataset: 'bluecoredcp_shopee',
+  table: 'shopee_Orders',
+  query_type: 'filtered',
+  filters: [
+    { field: 'order_status', operator: 'eq', value: 'COMPLETED' },
+    { field: 'create_time', operator: 'gte', value: '2024-01-01' },
+  ],
+  order_by: [{ field: 'create_time', direction: 'desc' }],
+  limit: 100,
+});
+```
+
+## 12. ESTIMATED EFFORT
+
+| Task | Time |
+|------|------|
+| Create Edge Function | 1h |
+| Implement safe query builder | 0.5h |
+| Implement SQL validator | 0.5h |
+| Create React hook | 0.5h |
+| Testing & deployment | 0.5h |
+| **Total** | **3h** |
+
+## 13. DEPENDENCIES
+
+- Secret `GOOGLE_SERVICE_ACCOUNT_JSON` đã được cấu hình
+- Tenant có config trong `bigquery_configs` table
+- BigQuery project có quyền access với Service Account
