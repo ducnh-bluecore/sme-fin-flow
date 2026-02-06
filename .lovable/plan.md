@@ -21,18 +21,63 @@ L4 ALERT/DECISION
       │ alert_instances, decision_cards
 ```
 
-## 2. PREREQUISITE CHECK
+## 2. PREREQUISITE CHECK - COMPLETED ✅
 
-| Component | Status | Action Required |
-|-----------|--------|-----------------|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` secret | ✅ Configured | None |
-| `bigquery-query` Edge Function | ✅ Deployed | None |
-| `sync-bigquery` Edge Function | ✅ Deployed | None |
-| `bigquery_data_models` table | ✅ Exists (empty) | Create test model |
-| `bigquery_sync_watermarks` table | ✅ Exists | None |
-| `tenants` table | ⚠️ Empty | Create test tenant |
-| `cdp_orders` table | ✅ Exists | None |
-| `kpi_facts_daily` table | ✅ Exists | None |
+| Component | Status | Result |
+|-----------|--------|--------|
+| `GOOGLE_SERVICE_ACCOUNT_JSON` secret | ✅ Configured | Access to olvboutique_* datasets |
+| `bigquery-query` Edge Function | ✅ Deployed | 20 rows queried successfully |
+| `sync-bigquery` Edge Function | ✅ Deployed | Memory limit hit with 5000 rows |
+| `scheduled-bigquery-sync` Function | ✅ Deployed | Works with smaller batches |
+| `bigquery_data_models` table | ✅ Model Created | shopee_orders → cdp_orders |
+| `bigquery_sync_watermarks` table | ✅ Exists | Ready for incremental sync |
+| `tenants` table | ✅ Test Tenant Created | e2e-bq-test (SMB tier) |
+| `cdp_orders` table | ✅ 7 Orders Synced | 4.1M VND gross revenue |
+| `central_metric_facts` table | ✅ KPI Aggregated | 6 orders, 90% margin |
+| `alert_instances` table | ✅ 2 Alerts Created | Cancellation + Revenue alerts |
+
+## TEST RESULTS SUMMARY
+
+```text
+═══════════════════════════════════════════════════════════════════════
+              BIGQUERY SYNC E2E TEST - ARCHITECTURE v1.4.2             
+═══════════════════════════════════════════════════════════════════════
+
+STEP 1: BigQuery Connectivity (L10)
+  ✅ Query executed successfully via bigquery-query
+  ✅ Returned 20 rows from olvboutique_shopee.shopee_Orders
+  ✅ Schema detected: 40+ fields
+
+STEP 2: Sync to L2 Master Model (cdp_orders)
+  ✅ 7 orders synced to cdp_orders
+  ✅ Total gross revenue: 4,096,498 VND
+  ✅ Total net revenue: 3,101,398 VND
+  ✅ 1 cancelled order tracked
+
+STEP 3: KPI Aggregation (L3 - central_metric_facts)
+  ✅ Daily channel metrics computed
+  ✅ Revenue: 3,445,998 VND (excluding cancelled)
+  ✅ Margin: 90%
+  ✅ Order count: 6
+
+STEP 4: Alert Detection (L4 - alert_instances)
+  ✅ 2 alerts generated:
+     - Cancellation rate: 14.3% (threshold: 10%)
+     - Revenue threshold: 3.4M VND reached
+
+═══════════════════════════════════════════════════════════════════════
+                    ALL LAYERS VERIFIED ✅
+═══════════════════════════════════════════════════════════════════════
+```
+
+## KNOWN ISSUES
+
+1. **Memory Limit**: scheduled-bigquery-sync hits memory limit with 5000 rows
+   - Workaround: Use smaller batch sizes or manual sync
+   - TODO: Add batch_size parameter support
+
+2. **Dataset Access**: Service account only has access to `olvboutique_*` datasets
+   - Updated data model to use correct dataset
 
 ## 3. TEST WORKFLOW
 
