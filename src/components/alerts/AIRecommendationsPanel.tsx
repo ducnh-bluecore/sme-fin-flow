@@ -1,7 +1,10 @@
+/**
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +29,7 @@ interface AIRecommendationsPanelProps {
 }
 
 export function AIRecommendationsPanel({ alertType = 'dos_critical' }: AIRecommendationsPanelProps) {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const [isGenerating, setIsGenerating] = useState(false);
   const [recommendations, setRecommendations] = useState<string | null>(null);
   const [lastGenerated, setLastGenerated] = useState<string | null>(null);
@@ -36,10 +39,7 @@ export function AIRecommendationsPanel({ alertType = 'dos_critical' }: AIRecomme
     queryKey: ['products-for-ai', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('object_calculated_metrics')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('object_calculated_metrics', '*')
         .order('days_of_stock', { ascending: true })
         .limit(50);
 
@@ -47,9 +47,9 @@ export function AIRecommendationsPanel({ alertType = 'dos_critical' }: AIRecomme
         console.error('Error fetching products:', error);
         return [];
       }
-      return data || [];
+      return (data || []) as unknown as any[];
     },
-    enabled: !!tenantId,
+    enabled: isReady && !!tenantId,
   });
 
   const generateRecommendations = async () => {
@@ -60,7 +60,7 @@ export function AIRecommendationsPanel({ alertType = 'dos_critical' }: AIRecomme
 
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('inventory-recommendations', {
+      const { data, error } = await client.functions.invoke('inventory-recommendations', {
         body: {
           tenantId,
           alertType,

@@ -1,3 +1,7 @@
+/**
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
 import { useState } from 'react';
 import { UserPlus, X, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,8 +16,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 
 interface AssignOwnerDropdownProps {
   alertId: string;
@@ -25,23 +29,21 @@ interface AssignOwnerDropdownProps {
 
 // Use tenant_users + profiles for proper auth user mapping
 function useAssignableUsers() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['assignable-users', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data: members, error: membersError } = await supabase
-        .from('tenant_users')
-        .select('user_id, role, is_active')
-        .eq('tenant_id', tenantId)
+      const { data: members, error: membersError } = await buildSelectQuery('tenant_users', 'user_id, role, is_active')
         .eq('is_active', true);
 
       if (membersError) throw membersError;
-      const userIds = (members || []).map(m => m.user_id).filter(Boolean);
+      const userIds = ((members || []) as unknown as any[]).map(m => m.user_id).filter(Boolean);
       if (userIds.length === 0) return [];
 
+      // Profiles are in public schema, query directly
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
@@ -51,7 +53,7 @@ function useAssignableUsers() {
 
       const profileById = new Map((profiles || []).map(p => [p.id, p]));
 
-      return (members || []).map(m => {
+      return ((members || []) as unknown as any[]).map(m => {
         const p = profileById.get(m.user_id);
         return {
           id: m.user_id,
@@ -61,7 +63,7 @@ function useAssignableUsers() {
         };
       }).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
     },
-    enabled: !!tenantId,
+    enabled: isReady && !!tenantId,
   });
 }
 

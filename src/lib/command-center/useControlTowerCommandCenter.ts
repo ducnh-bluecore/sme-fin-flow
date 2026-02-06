@@ -1,6 +1,9 @@
 /**
  * CONTROL TOWER COMMAND CENTER HOOK
  * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ * 
  * Cross-system escalation Command Center.
  * Receives escalated decisions from FDP, MDP, CDP.
  * 
@@ -12,8 +15,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import {
   DecisionContract,
@@ -72,7 +74,7 @@ export interface ControlTowerResult {
 export function useControlTowerCommandCenter(
   filters: ControlTowerFilters = {}
 ): ControlTowerResult {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   const {
     status = ['ESCALATED', 'OPEN', 'IN_PROGRESS'],
@@ -88,14 +90,11 @@ export function useControlTowerCommandCenter(
     queryFn: async (): Promise<DecisionContract[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .select(`
+      const { data, error } = await buildSelectQuery('decision_cards', `
           *,
           facts:decision_card_facts(*),
           actions:decision_card_actions(*)
         `)
-        .eq('tenant_id', tenantId)
         .in('status', status)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -103,11 +102,10 @@ export function useControlTowerCommandCenter(
       if (error) throw error;
 
       // Filter for escalated decisions or Control Tower specific
-      let filtered = (data || []).filter(row => {
-        const r = row as Record<string, unknown>;
-        const cardType = r.card_type as string;
-        const escalatedTo = r.escalated_to as string;
-        const cardStatus = r.status as string;
+      let filtered = ((data || []) as unknown as any[]).filter(row => {
+        const cardType = row.card_type as string;
+        const escalatedTo = row.escalated_to as string;
+        const cardStatus = row.status as string;
         
         // Include if explicitly escalated to Control Tower
         if (escalatedTo === 'CONTROL_TOWER') return true;
@@ -127,7 +125,7 @@ export function useControlTowerCommandCenter(
       // Apply domain filter
       if (sourceDomain && sourceDomain.length > 0) {
         filtered = filtered.filter(row => {
-          const cardType = (row as Record<string, unknown>).card_type as string;
+          const cardType = row.card_type as string;
           const domain = extractDomainFromCardType(cardType);
           return sourceDomain.includes(domain);
         });
@@ -136,13 +134,13 @@ export function useControlTowerCommandCenter(
       // Apply optional filters
       if (severity && severity.length > 0) {
         filtered = filtered.filter(row => 
-          severity.includes((row as Record<string, unknown>).severity as DecisionSeverity)
+          severity.includes(row.severity as DecisionSeverity)
         );
       }
 
       if (ownerRole && ownerRole.length > 0) {
         filtered = filtered.filter(row => 
-          ownerRole.includes((row as Record<string, unknown>).owner_role as string)
+          ownerRole.includes(row.owner_role as string)
         );
       }
 
@@ -150,7 +148,7 @@ export function useControlTowerCommandCenter(
       const decisions = filtered.map(row => transformToDecisionContract(row));
       return deduplicateDecisions(decisions);
     },
-    enabled: !!tenantId,
+    enabled: isReady && !!tenantId,
   });
 
   const decisions = data || [];
@@ -187,6 +185,7 @@ export function useControlTowerCommandCenter(
 // ═══════════════════════════════════════════════════════════════════
 
 export function useControlTowerDecide() {
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -201,16 +200,16 @@ export function useControlTowerDecide() {
       note?: string;
       decidedBy: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
-          status: 'DECIDED',
-          decision_outcome: outcome,
-          decision_note: note,
-          decided_by: decidedBy,
-          decided_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+      if (!tenantId) throw new Error('No tenant');
+
+      const { data, error } = await buildUpdateQuery('decision_cards', {
+        status: 'DECIDED',
+        decision_outcome: outcome,
+        decision_note: note,
+        decided_by: decidedBy,
+        decided_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', decisionId)
         .select()
         .single();
@@ -235,6 +234,7 @@ export function useControlTowerDecide() {
 }
 
 export function useControlTowerDismiss() {
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -245,13 +245,13 @@ export function useControlTowerDismiss() {
       decisionId: string;
       reason: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
-          status: 'DISMISSED',
-          decision_note: reason,
-          updated_at: new Date().toISOString(),
-        })
+      if (!tenantId) throw new Error('No tenant');
+
+      const { data, error } = await buildUpdateQuery('decision_cards', {
+        status: 'DISMISSED',
+        decision_note: reason,
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', decisionId)
         .select()
         .single();
@@ -271,6 +271,7 @@ export function useControlTowerDismiss() {
 }
 
 export function useControlTowerReassign() {
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -283,15 +284,15 @@ export function useControlTowerReassign() {
       targetDomain: CommandCenterDomain;
       reason?: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
-          status: 'OPEN',
-          escalated_to: null,
-          reassigned_to: targetDomain,
-          reassignment_reason: reason,
-          updated_at: new Date().toISOString(),
-        })
+      if (!tenantId) throw new Error('No tenant');
+
+      const { data, error } = await buildUpdateQuery('decision_cards', {
+        status: 'OPEN',
+        escalated_to: null,
+        reassigned_to: targetDomain,
+        reassignment_reason: reason,
+        updated_at: new Date().toISOString(),
+      })
         .eq('id', decisionId)
         .select()
         .single();

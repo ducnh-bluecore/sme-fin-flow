@@ -1,7 +1,10 @@
+/**
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +40,7 @@ export function AlertAIRecommendationDialog({
   onOpenChange,
   alert,
 }: AlertAIRecommendationDialogProps) {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const [isGenerating, setIsGenerating] = useState(false);
   const [recommendations, setRecommendations] = useState<string | null>(null);
 
@@ -54,10 +57,7 @@ export function AlertAIRecommendationDialog({
     queryKey: ['alert-products', tenantId, statusFilter, metricField],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('object_calculated_metrics')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('object_calculated_metrics', '*')
         .eq(metricField, statusFilter)
         .order('days_of_stock', { ascending: true })
         .limit(20);
@@ -66,9 +66,9 @@ export function AlertAIRecommendationDialog({
         console.error('Error fetching products:', error);
         return [];
       }
-      return data || [];
+      return (data || []) as unknown as any[];
     },
-    enabled: open && !!tenantId && isSummaryAlert,
+    enabled: open && isReady && !!tenantId && isSummaryAlert,
   });
 
   // For single product alert, fetch that specific product
@@ -76,10 +76,7 @@ export function AlertAIRecommendationDialog({
     queryKey: ['single-product', tenantId, alert?.external_object_id],
     queryFn: async () => {
       if (!tenantId || !alert?.external_object_id) return null;
-      const { data, error } = await supabase
-        .from('object_calculated_metrics')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('object_calculated_metrics', '*')
         .eq('external_id', alert.external_object_id)
         .maybeSingle();
 
@@ -88,9 +85,9 @@ export function AlertAIRecommendationDialog({
         console.error('Error fetching product:', error);
         return null;
       }
-      return data;
+      return data as unknown as any;
     },
-    enabled: open && !!tenantId && !isSummaryAlert && !!alert?.external_object_id,
+    enabled: open && isReady && !!tenantId && !isSummaryAlert && !!alert?.external_object_id,
   });
 
   const generateRecommendations = async () => {
@@ -108,7 +105,7 @@ export function AlertAIRecommendationDialog({
 
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('inventory-recommendations', {
+      const { data, error } = await client.functions.invoke('inventory-recommendations', {
         body: {
           tenantId,
           alertType: alert.alert_type,
