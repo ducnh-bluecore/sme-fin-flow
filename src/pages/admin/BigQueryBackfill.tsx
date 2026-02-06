@@ -58,14 +58,21 @@ const MODEL_TYPES: BackfillModelType[] = [
   'ad_spend',
 ];
 
+// Fixed tenant ID for E2E BigQuery Test tenant
+const E2E_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
 export default function BigQueryBackfillPage() {
-  const { startBackfill, cancelBackfill, isReady } = useBigQueryBackfill();
+  const { startBackfill, cancelBackfill, isReady, tenantId } = useBigQueryBackfill();
   const { data: jobs, isLoading, refetch } = useAllBackfillJobs();
   
   const [selectedModel, setSelectedModel] = useState<BackfillModelType>('customers');
   const [dateFrom, setDateFrom] = useState('2025-01-01');
   const [dateTo, setDateTo] = useState('');
   const [batchSize, setBatchSize] = useState('500');
+  
+  // For Super Admin: use fixed tenant if no tenant context
+  const effectiveTenantId = tenantId || E2E_TENANT_ID;
+  const canStart = !!effectiveTenantId;
 
   const handleStartBackfill = () => {
     startBackfill.mutate({
@@ -176,7 +183,7 @@ export default function BigQueryBackfillPage() {
           <div className="mt-4">
             <Button 
               onClick={handleStartBackfill}
-              disabled={!isReady || startBackfill.isPending}
+              disabled={!canStart || startBackfill.isPending}
             >
               {startBackfill.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
