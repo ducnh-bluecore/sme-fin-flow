@@ -301,63 +301,72 @@ async function syncCustomers(
   let created = 0;
   let merged = 0;
   
+  const sourceErrors: string[] = [];
+
   for (const source of CUSTOMER_SOURCES) {
     console.log(`Processing customer source: ${source.name}`);
-    
+
     let offset = 0;
     let hasMore = true;
-    
+    let sourceProcessed = 0;
+    let sourceFailed = false;
+
     while (hasMore) {
-      // Build query with proper column mapping
-      const columns = Object.values(source.mapping).join(', ');
-      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
-      
+      // Build a safe SELECT list. Some column names (e.g. "Groups") collide with keywords.
+      // We alias every selected column back to its original name so row access remains consistent.
+      const selectList = Object.values(source.mapping)
+        .filter(Boolean)
+        .map((col) => `\`${col}\` AS ${col}`)
+        .join(', ');
+
+      let query = `SELECT ${selectList} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+
       if (options.date_from && source.mapping.created_at) {
-        query += ` WHERE DATE(${source.mapping.created_at}) >= '${options.date_from}'`;
+        query += ` WHERE DATE(\`${source.mapping.created_at}\`) >= '${options.date_from}'`;
       }
-      
-      query += ` ORDER BY ${source.mapping.id} LIMIT ${batchSize} OFFSET ${offset}`;
-      
+
+      query += ` ORDER BY \`${source.mapping.id}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
-        
+
         if (rows.length === 0) {
           hasMore = false;
           break;
         }
-        
+
         for (const row of rows) {
           const phone = normalizePhone(row[source.mapping.phone]);
           const email = row[source.mapping.email]?.toLowerCase()?.trim();
-          
+
           // Create dedup key: prefer phone, fallback to email
           const dedupKey = phone || email;
           if (!dedupKey) continue;
-          
+
           // Build customer data
           const name = source.mapping.first_name && source.mapping.last_name
             ? `${row[source.mapping.first_name] || ''} ${row[source.mapping.last_name] || ''}`.trim()
             : row[source.mapping.name];
-          
+
           const externalId = {
             source: source.name,
             id: String(row[source.mapping.id]),
             code: row[source.mapping.code],
           };
-          
+
           if (customerMap.has(dedupKey)) {
             // Merge with existing
             const existing = customerMap.get(dedupKey);
             existing.external_ids.push(externalId);
             existing.lifetime_value += parseFloat(row[source.mapping.lifetime_value] || '0');
             existing.loyalty_points += parseInt(row[source.mapping.loyalty_points] || '0', 10);
-            
+
             // Keep earliest created_at
             const newCreatedAt = row[source.mapping.created_at];
             if (newCreatedAt && (!existing.created_at || newCreatedAt < existing.created_at)) {
               existing.created_at = newCreatedAt;
             }
-            
+
             merged++;
           } else {
             // New customer
@@ -377,21 +386,35 @@ async function syncCustomers(
             });
             created++;
           }
-          
+
           totalProcessed++;
+          sourceProcessed++;
         }
-        
+
         offset += rows.length;
         if (rows.length < batchSize) {
           hasMore = false;
         }
-      } catch (error) {
+      } catch (error: any) {
+        const msg = error?.message ? String(error.message) : String(error);
         console.error(`Error processing ${source.name} at offset ${offset}:`, error);
+        sourceErrors.push(`${source.name}: ${msg}`);
+        sourceFailed = true;
         hasMore = false;
       }
     }
+
+    // If a source fails immediately and produces nothing, keep going to next source;
+    // but if ALL sources fail and we end up with 0 processed, we should fail the job.
+    if (sourceFailed && sourceProcessed === 0) {
+      continue;
+    }
   }
-  
+
+  if (totalProcessed === 0 && sourceErrors.length > 0) {
+    throw new Error(`All customer sources failed. ${sourceErrors.join(' | ')}`);
+  }
+
   // Upsert customers to database in batches
   const customers = Array.from(customerMap.values());
   const upsertBatchSize = 100;
