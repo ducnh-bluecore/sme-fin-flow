@@ -55,17 +55,23 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Auto-fix invalid active tenant (e.g. profile points to a tenant the user no longer has access to)
+  // Track whether we've already attempted a fix to prevent infinite loops
+  const [hasAttemptedFix, setHasAttemptedFix] = useState(false);
+  
   useEffect(() => {
     if (!isAuthenticated) return;
     if (isLoadingActive || isLoadingTenants || switchTenantMutation.isPending) return;
     if (userTenants.length === 0) return;
+    if (hasAttemptedFix) return; // Prevent multiple fix attempts
 
     const allowedTenantIds = new Set(userTenants.map((tu) => tu.tenant_id));
     const currentTenantId = activeTenant?.id ?? null;
 
-    if (!currentTenantId || !allowedTenantIds.has(currentTenantId)) {
+    // Only switch if current tenant is explicitly invalid AND we have alternatives
+    if (currentTenantId && !allowedTenantIds.has(currentTenantId)) {
       const fallbackTenantId = userTenants[0].tenant_id;
-      if (fallbackTenantId && fallbackTenantId !== currentTenantId) {
+      if (fallbackTenantId) {
+        setHasAttemptedFix(true);
         switchTenantMutation.mutate(fallbackTenantId);
       }
     }
@@ -77,6 +83,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     activeTenant?.id,
     switchTenantMutation.isPending,
     switchTenantMutation.mutate,
+    hasAttemptedFix,
   ]);
 
   const currentMembership = userTenants.find((tu) => tu.tenant_id === activeTenant?.id);
