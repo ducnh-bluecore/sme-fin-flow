@@ -224,7 +224,7 @@ const ORDER_ITEM_SOURCES = [
       item_id: 'order_item_id',
       sku: 'sku',
       name: 'name',
-      quantity: 'quantity',
+      // Lazada has no quantity column - each row = 1 item
       unit_price: 'item_price',
       discount: 'voucher_amount',
       total: 'paid_price',
@@ -236,28 +236,28 @@ const ORDER_ITEM_SOURCES = [
     table: 'tiktok_OrderItems',
     mapping: {
       order_key: 'order_id',
-      item_id: 'id',
+      item_id: 'sku_id',
       sku: 'seller_sku',
       name: 'product_name',
       quantity: 'quantity',
-      unit_price: 'original_price',
-      discount: 'platform_discount',
-      total: 'sale_price',
+      unit_price: 'sku_original_price',
+      discount: 'sku_platform_discount',
+      total: 'sku_sale_price',
     }
   },
   {
     channel: 'kiotviet',
     dataset: 'olvboutique',
-    table: 'raw_kiotviet_OrderDetails',
+    table: 'bdm_kov_OrderLineItems',
     mapping: {
       order_key: 'OrderId',
-      item_id: 'ProductId',
-      sku: 'ProductCode',
-      name: 'ProductName',
+      item_id: 'ProductID',
+      sku: 'Productcode',
+      name: 'Productname',
       quantity: 'Quantity',
-      unit_price: 'Price',
+      unit_price: 'SubTotal',
       discount: 'Discount',
-      total: 'SubTotal',
+      total: 'Total',
     }
   }
 ];
@@ -897,8 +897,8 @@ async function syncOrderItems(
         paused = true;
         break;
       }
-      const columns = Object.values(source.mapping).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY ${source.mapping.order_key} LIMIT ${batchSize} OFFSET ${offset}`;
+      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
+      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -915,7 +915,7 @@ async function syncOrderItems(
           product_id: String(row[source.mapping.item_id] || ''),
           sku: row[source.mapping.sku],
           product_name: row[source.mapping.name],
-          qty: parseInt(row[source.mapping.quantity] || '1', 10),
+          qty: source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1,
           unit_price: parseFloat(row[source.mapping.unit_price] || '0'),
           original_price: parseFloat(row[source.mapping.unit_price] || '0'),
           discount_amount: parseFloat(row[source.mapping.discount] || '0'),
