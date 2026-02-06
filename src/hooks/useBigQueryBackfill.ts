@@ -187,8 +187,11 @@ export function useBigQueryBackfill() {
     },
     onSuccess: (_, modelType) => {
       toast.info(`Backfill ${modelType} cancelled`);
-      queryClient.invalidateQueries({ 
-        queryKey: ['backfill-status', tenantId, modelType] 
+      queryClient.invalidateQueries({
+        queryKey: ['backfill-status', tenantId, modelType]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['backfill-jobs-all', tenantId]
       });
     },
     onError: (error) => {
@@ -198,10 +201,38 @@ export function useBigQueryBackfill() {
     },
   });
 
+  // Delete job (admin cleanup)
+  const deleteBackfillJob = useMutation({
+    mutationFn: async (jobId: string) => {
+      if (!tenantId) {
+        throw new Error('No active tenant');
+      }
+
+      const { error } = await client
+        .from('bigquery_backfill_jobs')
+        .delete()
+        .eq('id', jobId)
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+      return { success: true };
+    },
+    onSuccess: () => {
+      toast.success('Đã xóa job');
+      queryClient.invalidateQueries({ queryKey: ['backfill-jobs-all', tenantId] });
+    },
+    onError: (error) => {
+      toast.error('Xóa job thất bại', {
+        description: error.message,
+      });
+    },
+  });
+
   return {
     startBackfill,
     continueBackfill,
     cancelBackfill,
+    deleteBackfillJob,
     isReady,
     tenantId,
   };
