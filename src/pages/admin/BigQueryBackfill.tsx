@@ -42,6 +42,7 @@ import {
   XCircle, 
   Clock,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -62,7 +63,7 @@ const MODEL_TYPES: BackfillModelType[] = [
 const E2E_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 export default function BigQueryBackfillPage() {
-  const { startBackfill, cancelBackfill, isReady, tenantId } = useBigQueryBackfill();
+  const { startBackfill, cancelBackfill, deleteBackfillJob, isReady, tenantId } = useBigQueryBackfill();
   const { data: jobs, isLoading, refetch } = useAllBackfillJobs();
   
   const [selectedModel, setSelectedModel] = useState<BackfillModelType>('customers');
@@ -87,6 +88,12 @@ export default function BigQueryBackfillPage() {
 
   const handleCancelBackfill = (modelType: BackfillModelType) => {
     cancelBackfill.mutate(modelType);
+  };
+
+  const handleDeleteJob = (jobId: string) => {
+    const ok = window.confirm('Xóa job này? (không thể hoàn tác)');
+    if (!ok) return;
+    deleteBackfillJob.mutate(jobId);
   };
 
   const getStatusBadge = (status: string) => {
@@ -266,20 +273,35 @@ export default function BigQueryBackfillPage() {
                         {duration !== null ? `${duration}s` : '-'}
                       </TableCell>
                       <TableCell>
-                        {job.status === 'running' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleCancelBackfill(job.model_type as BackfillModelType)}
-                          >
-                            <Square className="w-4 h-4" />
-                          </Button>
-                        )}
-                        {job.error_message && (
-                          <span className="text-destructive text-xs" title={job.error_message}>
-                            ⚠️
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {job.status === 'running' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleCancelBackfill(job.model_type as BackfillModelType)}
+                            >
+                              <Square className="w-4 h-4" />
+                            </Button>
+                          )}
+
+                          {job.status !== 'running' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteJob(job.id)}
+                              disabled={deleteBackfillJob.isPending}
+                              title="Xóa job"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+
+                          {job.error_message && (
+                            <span className="text-destructive text-xs" title={job.error_message}>
+                              ⚠️
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
