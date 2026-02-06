@@ -384,8 +384,10 @@ async function initSourceProgress(
     last_offset: 0,
   }));
   
+  // Use ignoreDuplicates to NOT reset existing progress on continue
   await supabase.from('backfill_source_progress').upsert(records, {
     onConflict: 'job_id,source_name',
+    ignoreDuplicates: true,
   });
 }
 
@@ -474,7 +476,14 @@ async function syncCustomers(
   })));
 
   for (const source of CUSTOMER_SOURCES) {
-    console.log(`Processing customer source: ${source.name}`);
+    // Read saved progress to resume from where we left off
+    const savedProgress = await getSourceProgress(supabase, jobId, source.name);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.name}`);
+      continue;
+    }
+
+    console.log(`Processing customer source: ${source.name} (resuming from offset ${savedProgress?.last_offset || 0})`);
     
     // Count total records first
     const totalRecords = await countSourceRecords(
@@ -485,12 +494,12 @@ async function syncCustomers(
     await updateSourceProgress(supabase, jobId, source.name, {
       status: 'running',
       total_records: totalRecords,
-      started_at: new Date().toISOString(),
+      started_at: savedProgress?.started_at || new Date().toISOString(),
     });
 
-    let offset = 0;
+    let offset = savedProgress?.last_offset || 0;
     let hasMore = true;
-    let sourceProcessed = 0;
+    let sourceProcessed = savedProgress?.processed_records || 0;
     let sourceFailed = false;
 
     while (hasMore) {
@@ -690,7 +699,14 @@ async function syncOrders(
   })));
   
   for (const source of sources) {
-    console.log(`Processing orders from: ${source.channel}`);
+    // Read saved progress to resume
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing orders from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
     
     // Count total records
     const totalRecords = await countSourceRecords(
@@ -701,12 +717,12 @@ async function syncOrders(
     await updateSourceProgress(supabase, jobId, source.channel, {
       status: 'running',
       total_records: totalRecords,
-      started_at: new Date().toISOString(),
+      started_at: savedProgress?.started_at || new Date().toISOString(),
     });
     
-    let offset = 0;
+    let offset = savedProgress?.last_offset || 0;
     let hasMore = true;
-    let sourceProcessed = 0;
+    let sourceProcessed = savedProgress?.processed_records || 0;
     let sourceFailed = false;
     let errorMessage = '';
     
@@ -849,7 +865,14 @@ async function syncOrderItems(
   })));
   
   for (const source of sources) {
-    console.log(`Processing order items from: ${source.channel}`);
+    // Read saved progress to resume
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing order items from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
     
     // Count total records
     const totalRecords = await countSourceRecords(
@@ -859,12 +882,12 @@ async function syncOrderItems(
     await updateSourceProgress(supabase, jobId, source.channel, {
       status: 'running',
       total_records: totalRecords,
-      started_at: new Date().toISOString(),
+      started_at: savedProgress?.started_at || new Date().toISOString(),
     });
     
-    let offset = 0;
+    let offset = savedProgress?.last_offset || 0;
     let hasMore = true;
-    let sourceProcessed = 0;
+    let sourceProcessed = savedProgress?.processed_records || 0;
     let sourceFailed = false;
     let errorMessage = '';
     
@@ -975,7 +998,7 @@ async function syncProducts(
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
-  let totalProcessed = 0;
+  let totalProcessed = 0; // Will be set after reading saved progress
   let inserted = 0;
   
   const source = PRODUCT_SOURCE;
@@ -987,20 +1010,28 @@ async function syncProducts(
     table: source.table,
   }]);
   
+  // Read saved progress to resume
+  const savedProgress = await getSourceProgress(supabase, jobId, source.name);
+  if (savedProgress?.status === 'completed') {
+    console.log(`Skipping completed source: ${source.name}`);
+    return { processed: savedProgress.processed_records, inserted: 0, sources: [], paused: false };
+  }
+
   // Count total records first
   const totalRecords = await countSourceRecords(
     accessToken, projectId, source.dataset, source.table
   );
   
-  console.log(`Products source has ${totalRecords} total records`);
+  console.log(`Products source has ${totalRecords} total records (resuming from offset ${savedProgress?.last_offset || 0})`);
   
   await updateSourceProgress(supabase, jobId, source.name, {
     status: 'running',
     total_records: totalRecords,
-    started_at: new Date().toISOString(),
+    started_at: savedProgress?.started_at || new Date().toISOString(),
   });
   
-  let offset = 0;
+  let offset = savedProgress?.last_offset || 0;
+  totalProcessed = savedProgress?.processed_records || 0;
   let hasMore = true;
   let sourceFailed = false;
   let errorMessage = '';
