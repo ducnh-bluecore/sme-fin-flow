@@ -262,6 +262,45 @@ const ORDER_ITEM_SOURCES = [
   }
 ];
 
+const REFUND_SOURCES = [
+  {
+    channel: 'shopee',
+    dataset: 'olvboutique_shopee',
+    table: 'shopee_Returns',
+    mapping: {
+      refund_key: 'return_sn',
+      refund_at: 'create_time',
+      refund_amount: 'refund_amount',
+      order_key: 'order_sn',
+      reason: 'text_reason',
+    }
+  },
+  {
+    channel: 'lazada',
+    dataset: 'olvboutique_lazada',
+    table: 'lazada_ReverseOrders',
+    mapping: {
+      refund_key: 'reverse_order_id',
+      refund_at: 'return_order_line_gmt_create',
+      refund_amount: 'refund_amount',
+      order_key: 'trade_order_id',
+      reason: 'reason_text',
+    }
+  },
+  {
+    channel: 'tiktok',
+    dataset: 'olvboutique_tiktokshop',
+    table: 'tiktok_Returns',
+    mapping: {
+      refund_key: 'reverse_order_id',
+      refund_at: 'reverse_request_time',
+      refund_amount: 'refund_total',
+      order_key: 'order_id',
+      reason: 'return_reason',
+    }
+  }
+];
+
 const PRODUCT_SOURCE = {
   name: 'kiotviet_master',
   dataset: 'olvboutique',
@@ -987,6 +1026,145 @@ async function syncOrderItems(
   return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
 }
 
+// ============= Refunds Sync =============
+
+async function syncRefunds(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  jobId: string,
+  options: { batch_size?: number; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
+  let paused = false;
+
+  const sources = options.source_table
+    ? REFUND_SOURCES.filter(s => s.table === options.source_table)
+    : REFUND_SOURCES;
+
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of sources) {
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing refunds from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
+
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table
+    );
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let hasMore = true;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
+      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
+      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.refund_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const refunds = rows.map(row => ({
+          tenant_id: tenantId,
+          refund_key: `${source.channel}:${String(row[source.mapping.refund_key] || '')}`,
+          refund_at: row[source.mapping.refund_at] || new Date().toISOString(),
+          refund_amount: parseFloat(row[source.mapping.refund_amount] || '0'),
+          reason: row[source.mapping.reason] || null,
+          order_id: null, // Cannot resolve FK without lookup; store in raw_data
+        }));
+
+        // Upsert to avoid duplicates (unique on tenant_id + refund_key)
+        const { error, count } = await supabase
+          .from('cdp_refunds')
+          .upsert(refunds, { onConflict: 'tenant_id,refund_key', ignoreDuplicates: true })
+          .select('id');
+
+        if (error) {
+          console.error('Refund upsert error:', error);
+        } else {
+          inserted += count || refunds.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${source.channel} refunds:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
+        hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
+      }
+    }
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
+
+    if (paused) break;
+  }
+
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+}
+
 // ============= Products Sync with Pagination =============
 
 async function syncProducts(
@@ -1336,6 +1514,15 @@ serve(async (req) => {
           
         case 'order_items':
           result = await syncOrderItems(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId, job.id,
+            params.options || {},
+            startTime,
+          );
+          break;
+          
+        case 'refunds':
+          result = await syncRefunds(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
             params.options || {},
