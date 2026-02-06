@@ -1,11 +1,12 @@
 /**
  * Monthly Plans Hook
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface MonthlyPlan {
@@ -45,27 +46,19 @@ export interface MonthlyActual {
 
 // Fetch monthly plans for a scenario
 export function useMonthlyPlans(scenarioId: string | undefined, year: number) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['monthly-plans', tenantId, scenarioId, year],
     queryFn: async () => {
       if (!tenantId || !scenarioId) return [];
 
-      let query = client
-        .from('scenario_monthly_plans')
-        .select('*')
+      const { data, error } = await buildSelectQuery('scenario_monthly_plans', '*')
         .eq('scenario_id', scenarioId)
         .eq('year', year);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as MonthlyPlan[];
+      return data as unknown as MonthlyPlan[];
     },
     enabled: !!tenantId && !!scenarioId && isReady,
   });
@@ -73,27 +66,19 @@ export function useMonthlyPlans(scenarioId: string | undefined, year: number) {
 
 // Fetch monthly actuals
 export function useMonthlyActuals(year: number) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['monthly-actuals', tenantId, year],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('scenario_monthly_actuals')
-        .select('*')
+      const { data, error } = await buildSelectQuery('scenario_monthly_actuals', '*')
         .eq('year', year)
         .order('month', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as MonthlyActual[];
+      return data as unknown as MonthlyActual[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -102,7 +87,7 @@ export function useMonthlyActuals(year: number) {
 // Save or update monthly plan
 export function useSaveMonthlyPlan() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -189,7 +174,7 @@ export function useSaveMonthlyPlan() {
 // Save or update monthly actual
 export function useSaveMonthlyActual() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({

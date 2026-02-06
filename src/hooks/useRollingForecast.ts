@@ -1,11 +1,12 @@
 /**
  * useRollingForecast - Rolling forecast management hooks
  * 
- * Refactored to use Schema-per-Tenant architecture.
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { addMonths, format, startOfMonth } from 'date-fns';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
@@ -42,70 +43,59 @@ export interface RollingForecastSummary {
 const FORECAST_MONTHS = 18;
 
 export function useRollingForecasts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['rolling-forecasts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
       
-      let query = client
-        .from('rolling_forecasts')
-        .select('*')
+      const { data, error } = await buildSelectQuery('rolling_forecasts', '*')
         .order('forecast_month', { ascending: true });
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
       if (error) throw error;
-      return data as RollingForecastItem[];
+      return data as unknown as RollingForecastItem[];
     },
     enabled: !!tenantId && isReady,
   });
 }
 
 export function useRollingForecastSummary() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['rolling-forecast-summary', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
       
-      let query = client
-        .from('v_rolling_forecast_summary')
-        .select('*');
+      const { data, error } = await buildSelectQuery('v_rolling_forecast_summary', '*')
+        .maybeSingle();
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       
       // Thin wrapper - NO client-side calculations
+      const summaryData = data as unknown as any;
+      
       const summary: RollingForecastSummary = {
-        totalBudget: Number(data?.total_budget) || 0,
-        totalForecast: Number(data?.total_forecast) || 0,
-        totalActual: Number(data?.total_actual) || 0,
-        totalVariance: Number(data?.total_variance) || 0,
-        averageConfidence: Number(data?.average_confidence) || 0,
+        totalBudget: Number(summaryData?.total_budget) || 0,
+        totalForecast: Number(summaryData?.total_forecast) || 0,
+        totalActual: Number(summaryData?.total_actual) || 0,
+        totalVariance: Number(summaryData?.total_variance) || 0,
+        averageConfidence: Number(summaryData?.average_confidence) || 0,
         byType: {
           revenue: { 
-            budget: Number(data?.revenue_budget) || 0, 
-            forecast: Number(data?.revenue_forecast) || 0, 
-            actual: Number(data?.revenue_actual) || 0 
+            budget: Number(summaryData?.revenue_budget) || 0, 
+            forecast: Number(summaryData?.revenue_forecast) || 0, 
+            actual: Number(summaryData?.revenue_actual) || 0 
           },
           expense: { 
-            budget: Number(data?.expense_budget) || 0, 
-            forecast: Number(data?.expense_forecast) || 0, 
-            actual: Number(data?.expense_actual) || 0 
+            budget: Number(summaryData?.expense_budget) || 0, 
+            forecast: Number(summaryData?.expense_forecast) || 0, 
+            actual: Number(summaryData?.expense_actual) || 0 
           },
         },
-        byMonth: (data?.by_month_data as { month: string; revenue: number; expense: number; netCash: number }[]) || [],
-        forecastAccuracy: Number(data?.forecast_accuracy) || 0,
+        byMonth: (summaryData?.by_month_data as { month: string; revenue: number; expense: number; netCash: number }[]) || [],
+        forecastAccuracy: Number(summaryData?.forecast_accuracy) || 0,
       };
       
       return summary;
@@ -116,7 +106,7 @@ export function useRollingForecastSummary() {
 
 export function useSaveRollingForecast() {
   const queryClient = useQueryClient();
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async (forecast: Partial<RollingForecastItem> & { 
@@ -157,7 +147,7 @@ export function useSaveRollingForecast() {
  */
 export function useGenerateRollingForecast() {
   const queryClient = useQueryClient();
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { data: snapshot } = useFinanceTruthSnapshot();
   
   return useMutation({

@@ -1,5 +1,12 @@
+/**
+ * useInvestments - Investment management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface Investment {
@@ -27,26 +34,18 @@ export type InvestmentInsert = Omit<Investment, 'id' | 'created_at' | 'updated_a
 export type InvestmentUpdate = Partial<InvestmentInsert>;
 
 export function useInvestments() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['investments', tenantId],
     queryFn: async (): Promise<Investment[]> => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('investments')
-        .select('*')
+      const { data, error } = await buildSelectQuery('investments', '*')
         .order('created_at', { ascending: false });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data || [];
+      return (data as unknown as Investment[]) || [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -54,15 +53,13 @@ export function useInvestments() {
 
 export function useInvestmentMutations() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildInsertQuery, buildUpdateQuery, buildDeleteQuery, tenantId } = useTenantQueryBuilder();
 
   const createInvestment = useMutation({
     mutationFn: async (investment: Omit<InvestmentInsert, 'tenant_id'>) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data, error } = await client
-        .from('investments')
-        .insert({ ...investment, tenant_id: tenantId })
+      const { data, error } = await buildInsertQuery('investments', investment)
         .select()
         .single();
 
@@ -80,9 +77,7 @@ export function useInvestmentMutations() {
 
   const updateInvestment = useMutation({
     mutationFn: async ({ id, ...updates }: InvestmentUpdate & { id: string }) => {
-      const { data, error } = await client
-        .from('investments')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('investments', updates)
         .eq('id', id)
         .select()
         .single();
@@ -101,9 +96,7 @@ export function useInvestmentMutations() {
 
   const deleteInvestment = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('investments')
-        .delete()
+      const { error } = await buildDeleteQuery('investments')
         .eq('id', id);
 
       if (error) throw error;
