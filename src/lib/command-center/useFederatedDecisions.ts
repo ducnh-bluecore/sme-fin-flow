@@ -7,8 +7,7 @@
 
 import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import {
   DecisionContract,
@@ -71,7 +70,7 @@ export interface FederatedDecisionsResult {
 export function useFederatedDecisions(
   filters: FederatedDecisionsFilters = {}
 ): FederatedDecisionsResult {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   const {
     domains = ['FDP', 'MDP', 'CDP', 'CONTROL_TOWER'],
@@ -89,14 +88,11 @@ export function useFederatedDecisions(
       if (!tenantId) return [];
 
       // Build query with explicit typing to avoid deep type inference
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .select(`
+      const { data, error } = await buildSelectQuery('decision_cards', `
           *,
           facts:decision_card_facts(*),
           actions:decision_card_actions(*)
         `)
-        .eq('tenant_id', tenantId)
         .in('status', status)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -104,24 +100,24 @@ export function useFederatedDecisions(
       if (error) throw error;
       
       // Filter in JS for optional filters to avoid complex query chaining
-      let filteredData = data || [];
+      let filteredData = ((data || []) as unknown as Record<string, unknown>[]);
       
       if (severity && severity.length > 0) {
         filteredData = filteredData.filter(row => 
-          severity.includes((row as Record<string, unknown>).severity as DecisionSeverity)
+          severity.includes(row.severity as DecisionSeverity)
         );
       }
 
       if (ownerRole && ownerRole.length > 0) {
         filteredData = filteredData.filter(row => 
-          ownerRole.includes((row as Record<string, unknown>).owner_role as string)
+          ownerRole.includes(row.owner_role as string)
         );
       }
       
       // Transform DB rows to DecisionContract format
-      return filteredData.map(row => transformDbToContract(row as Record<string, unknown>));
+      return filteredData.map(row => transformDbToContract(row));
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Process decisions
@@ -196,7 +192,7 @@ export function useFederatedDecisions(
 
 export function useEscalateDecision() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ 
@@ -206,9 +202,7 @@ export function useEscalateDecision() {
       decisionId: string; 
       reason?: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
+      const { data, error } = await buildUpdateQuery('decision_cards', {
           status: 'ESCALATED',
           escalated_to: 'CONTROL_TOWER',
           updated_at: new Date().toISOString(),
@@ -234,7 +228,7 @@ export function useEscalateDecision() {
 
 export function useDecideOnDecision() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -248,9 +242,7 @@ export function useDecideOnDecision() {
       note?: string;
       decidedBy: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
+      const { data, error } = await buildUpdateQuery('decision_cards', {
           status: 'DECIDED',
           decision_outcome: outcome,
           decision_note: note,
@@ -279,7 +271,7 @@ export function useDecideOnDecision() {
 
 export function useDismissDecision() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -289,9 +281,7 @@ export function useDismissDecision() {
       decisionId: string;
       reason: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
+      const { data, error } = await buildUpdateQuery('decision_cards', {
           status: 'DISMISSED',
           decision_note: reason,
           updated_at: new Date().toISOString(),

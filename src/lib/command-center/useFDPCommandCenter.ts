@@ -11,8 +11,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import {
   DecisionContract,
@@ -77,7 +76,7 @@ const FDP_CARD_TYPES = [
 export function useFDPCommandCenter(
   filters: FDPCommandCenterFilters = {}
 ): FDPCommandCenterResult {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   const {
     status = ['OPEN', 'IN_PROGRESS'],
@@ -91,14 +90,11 @@ export function useFDPCommandCenter(
     queryFn: async (): Promise<DecisionContract[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .select(`
+      const { data, error } = await buildSelectQuery('decision_cards', `
           *,
           facts:decision_card_facts(*),
           actions:decision_card_actions(*)
         `)
-        .eq('tenant_id', tenantId)
         .in('status', status)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -106,21 +102,21 @@ export function useFDPCommandCenter(
       if (error) throw error;
 
       // Filter for FDP card types only
-      let filtered = (data || []).filter(row => {
-        const cardType = (row as Record<string, unknown>).card_type as string;
+      let filtered = ((data || []) as unknown as Record<string, unknown>[]).filter(row => {
+        const cardType = row.card_type as string;
         return cardType?.startsWith('FDP_') || FDP_CARD_TYPES.includes(cardType);
       });
 
       // Apply optional filters
       if (severity && severity.length > 0) {
         filtered = filtered.filter(row => 
-          severity.includes((row as Record<string, unknown>).severity as DecisionSeverity)
+          severity.includes(row.severity as DecisionSeverity)
         );
       }
 
       if (ownerRole && ownerRole.length > 0) {
         filtered = filtered.filter(row => 
-          ownerRole.includes((row as Record<string, unknown>).owner_role as string)
+          ownerRole.includes(row.owner_role as string)
         );
       }
 
@@ -128,7 +124,7 @@ export function useFDPCommandCenter(
       const decisions = filtered.map(row => transformToDecisionContract(row, 'FDP'));
       return deduplicateDecisions(decisions);
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const decisions = data || [];
@@ -158,6 +154,7 @@ export function useFDPCommandCenter(
 
 export function useFDPDecide() {
   const queryClient = useQueryClient();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -171,9 +168,7 @@ export function useFDPDecide() {
       note?: string;
       decidedBy: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
+      const { data, error } = await buildUpdateQuery('decision_cards', {
           status: 'DECIDED',
           decision_outcome: outcome,
           decision_note: note,
@@ -201,6 +196,7 @@ export function useFDPDecide() {
 
 export function useFDPEscalate() {
   const queryClient = useQueryClient();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({
@@ -210,9 +206,7 @@ export function useFDPEscalate() {
       decisionId: string;
       reason?: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_cards')
-        .update({
+      const { data, error } = await buildUpdateQuery('decision_cards', {
           status: 'ESCALATED',
           escalated_to: 'CONTROL_TOWER',
           escalation_reason: reason,

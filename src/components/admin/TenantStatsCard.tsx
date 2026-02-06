@@ -27,12 +27,22 @@ interface TenantStats {
   members: number;
 }
 
+/**
+ * TenantStatsCard - Admin component for viewing tenant usage stats
+ * 
+ * NOTE: This is an ADMIN component that needs cross-tenant access.
+ * It uses supabase client directly because:
+ * 1. Admin views tenant data regardless of current session's tenant context
+ * 2. The tenantId is passed as a prop (not from session)
+ * 3. Admin users have elevated permissions via RLS policies
+ */
 export function TenantStatsCard({ tenantId, tenantSlug, isProvisioned }: TenantStatsCardProps) {
   // Fetch basic stats from public schema (always available)
+  // Uses direct supabase client for admin cross-tenant access
   const { data: stats, isLoading } = useQuery({
     queryKey: ['tenant-usage-stats', tenantId],
     queryFn: async (): Promise<TenantStats> => {
-      // Get counts from various tables
+      // Get counts from various tables - admin can see all tenants
       const [
         customersRes,
         ordersRes,

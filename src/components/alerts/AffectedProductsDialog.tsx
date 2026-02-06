@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   Dialog,
   DialogContent,
@@ -55,7 +54,7 @@ export function AffectedProductsDialog({
   alertType,
   totalCount,
 }: AffectedProductsDialogProps) {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('days_of_stock');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -77,10 +76,7 @@ export function AffectedProductsDialog({
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('object_calculated_metrics')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('object_calculated_metrics', '*')
         .eq(metricField, statusFilter)
         .order('days_of_stock', { ascending: true })
         .limit(1000);
@@ -90,9 +86,9 @@ export function AffectedProductsDialog({
         return [];
       }
 
-      return data || [];
+      return (data || []) as unknown as any[];
     },
-    enabled: open && !!tenantId,
+    enabled: open && !!tenantId && isReady,
   });
 
   // Get unique object types as categories

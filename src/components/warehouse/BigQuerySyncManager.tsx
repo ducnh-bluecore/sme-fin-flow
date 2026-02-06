@@ -21,8 +21,7 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useSyncProgress } from '@/contexts/SyncProgressContext';
 import { toast } from 'sonner';
 
@@ -50,7 +49,7 @@ interface CountResult {
 }
 
 export function BigQuerySyncManager() {
-  const { data: tenantId } = useActiveTenantId();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const { syncState, setIsLoading, setProgress, setCurrentStep, updateChannel, setLastResult } = useSyncProgress();
   
@@ -81,13 +80,13 @@ export function BigQuerySyncManager() {
     queryFn: async () => {
       if (!tenantId) return null;
       
+      // ⚠️ STAGING MONITORING: external_orders is staging table, count for sync status only
       const [orders, items, products, customers, settlements] = await Promise.all([
-        // ⚠️ STAGING MONITORING: external_orders is staging table, count for sync status only
-        supabase.from('external_orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('external_order_items').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('external_products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('channel_settlements').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        client.from('external_orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        client.from('external_order_items').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        client.from('external_products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        client.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+        client.from('channel_settlements').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
       ]);
       
       return {
@@ -98,7 +97,7 @@ export function BigQuerySyncManager() {
         settlements: settlements.count || 0,
       };
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Count available data in BigQuery
@@ -109,7 +108,7 @@ export function BigQuerySyncManager() {
         throw new Error('Vui lòng cấu hình BigQuery trước');
       }
 
-      const { data, error } = await supabase.functions.invoke('sync-bigquery', {
+      const { data, error } = await client.functions.invoke('sync-bigquery', {
         body: {
           tenant_id: tenantId,
           service_account_key: config.serviceAccountKey,
@@ -160,7 +159,7 @@ export function BigQuerySyncManager() {
 
       try {
         // Use sync_from_models action to read from Data Models config
-        const { data, error } = await supabase.functions.invoke('sync-bigquery', {
+        const { data, error } = await client.functions.invoke('sync-bigquery', {
           body: {
             tenant_id: tenantId,
             action: 'sync_from_models', // NEW: Read from Data Models
