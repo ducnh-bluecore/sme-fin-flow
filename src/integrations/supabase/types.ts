@@ -6725,6 +6725,83 @@ export type Database = {
           },
         ]
       }
+      cdp_fulfillments: {
+        Row: {
+          channel: string | null
+          created_at: string
+          delivered_at: string | null
+          fulfillment_key: string
+          fulfillment_status: string | null
+          id: string
+          order_key: string | null
+          raw_data: Json | null
+          shipped_at: string | null
+          shipping_carrier: string | null
+          tenant_id: string
+          tracking_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          fulfillment_key: string
+          fulfillment_status?: string | null
+          id?: string
+          order_key?: string | null
+          raw_data?: Json | null
+          shipped_at?: string | null
+          shipping_carrier?: string | null
+          tenant_id: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          fulfillment_key?: string
+          fulfillment_status?: string | null
+          id?: string
+          order_key?: string | null
+          raw_data?: Json | null
+          shipped_at?: string | null
+          shipping_carrier?: string | null
+          tenant_id?: string
+          tracking_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_fulfillments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_fulfillments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_fulfillments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_fulfillments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_insight_actions: {
         Row: {
           action_at: string
