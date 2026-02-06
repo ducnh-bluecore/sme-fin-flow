@@ -1,3 +1,12 @@
+/**
+ * TenantSubscriptionTab - Admin component to manage tenant subscription
+ * 
+ * @architecture Control Plane - Cross-tenant admin management
+ * Uses direct supabase client for:
+ * - tenants table (public schema) update
+ * This is an admin component that operates on ANY tenant, not the current user's tenant.
+ */
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

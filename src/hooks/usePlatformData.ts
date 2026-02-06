@@ -1,10 +1,21 @@
 /**
  * Platform Data Hook - Access Control Plane (platform schema)
  * 
- * @architecture Schema-per-Tenant v1.4.1
+ * @architecture Control Plane - Schema-per-Tenant v1.4.1
  * 
- * Note: Platform data is READ-ONLY for all tenants (cross-tenant learning).
- * Uses supabase directly since these are platform-level tables.
+ * Uses direct supabase client because platform tables are:
+ * 1. Global to all tenants (no tenant_id filter)
+ * 2. READ-ONLY for tenants (cross-tenant learning)
+ * 3. Stored in platform schema or public schema
+ * 
+ * Tables accessed:
+ * - ai_metric_definitions (platform)
+ * - kpi_definition_templates (platform)
+ * - alert_rule_templates (platform)
+ * - decision_taxonomy (platform)
+ * - global_source_platforms (public)
+ * - ai_semantic_models (platform)
+ * - ai_query_templates (platform)
  */
 
 import { useQuery } from '@tanstack/react-query';

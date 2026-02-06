@@ -1,3 +1,11 @@
+/**
+ * usePlatformModules - Global platform module management
+ * 
+ * @architecture Control Plane - Platform-level configuration
+ * Uses direct supabase client as platform_modules is in public schema
+ * and is shared across all tenants (global configuration).
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';

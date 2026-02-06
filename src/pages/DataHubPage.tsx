@@ -40,8 +40,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FileImportDialog } from '@/components/import/FileImportDialog';
 import { AddConnectorDialog } from '@/components/connectors/AddConnectorDialog';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useConnectorIntegrations } from '@/hooks/useConnectorIntegrations';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { useBankAccounts } from '@/hooks/useBankData';
@@ -76,7 +75,7 @@ export default function DataHubPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [addConnectorOpen, setAddConnectorOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const { integrations = [], isLoading: loadingConnectors, syncIntegration, deleteIntegration } = useConnectorIntegrations();
   const { data: bankAccounts = [], isLoading: loadingBanks } = useBankAccounts();
@@ -92,17 +91,14 @@ export default function DataHubPage() {
     queryKey: ['import-jobs', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('import_jobs')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('import_jobs', '*')
         .order('created_at', { ascending: false })
         .limit(20);
       
       if (error) throw error;
-      return data || [];
+      return ((data || []) as unknown) as ImportJob[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const completedJobs = (importJobs as ImportJob[]).filter((j) => j.status === 'completed');

@@ -35,10 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 interface BankConnection {
   id: string;
   bank_code: string;
@@ -94,7 +92,7 @@ const credentialFields: Record<string, { label: string; placeholder: string; typ
 };
 
 export default function BankConnectionsPage() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, buildUpdateQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const [selectedConnection, setSelectedConnection] = useState<BankConnection | null>(null);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
@@ -106,16 +104,13 @@ export default function BankConnectionsPage() {
     queryKey: ['bank-connections', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('bank_connection_configs')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('bank_connection_configs', '*')
         .order('bank_name');
       
       if (error) throw error;
-      return data || [];
+      return ((data || []) as unknown) as BankConnection[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Merge available banks with configured connections
@@ -175,7 +170,7 @@ export default function BankConnectionsPage() {
     }
 
     // Upsert connection config
-    const { error } = await supabase
+    const { error } = await client
       .from('bank_connection_configs')
       .upsert({
         tenant_id: tenantId,
@@ -212,14 +207,11 @@ export default function BankConnectionsPage() {
     const success = Math.random() > 0.3;
 
     if (tenantId) {
-      await supabase
-        .from('bank_connection_configs')
-        .update({
-          status: success ? 'connected' : 'error',
-          last_sync_at: success ? new Date().toISOString() : null,
-          transaction_count: success ? Math.floor(Math.random() * 1000) + 100 : 0,
-        })
-        .eq('tenant_id', tenantId)
+      await buildUpdateQuery('bank_connection_configs', {
+        status: success ? 'connected' : 'error',
+        last_sync_at: success ? new Date().toISOString() : null,
+        transaction_count: success ? Math.floor(Math.random() * 1000) + 100 : 0,
+      })
         .eq('bank_code', connection.bank_code);
 
       queryClient.invalidateQueries({ queryKey: ['bank-connections', tenantId] });
@@ -237,13 +229,10 @@ export default function BankConnectionsPage() {
   const handleDisconnect = async (connection: BankConnection) => {
     if (!tenantId) return;
 
-    await supabase
-      .from('bank_connection_configs')
-      .update({
-        status: 'disconnected',
-        is_configured: false,
-      })
-      .eq('tenant_id', tenantId)
+    await buildUpdateQuery('bank_connection_configs', {
+      status: 'disconnected',
+      is_configured: false,
+    })
       .eq('bank_code', connection.bank_code);
 
     queryClient.invalidateQueries({ queryKey: ['bank-connections', tenantId] });

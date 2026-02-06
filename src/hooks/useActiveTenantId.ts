@@ -1,3 +1,13 @@
+/**
+ * useActiveTenantId - Get active tenant ID for the current user
+ * 
+ * @architecture Control Plane - Auth/Profile management
+ * Uses direct supabase client because:
+ * 1. profiles is in public schema
+ * 2. This hook PROVIDES the tenantId that other hooks depend on
+ * 3. Cannot use useTenantQueryBuilder which requires tenantId
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 

@@ -1,3 +1,11 @@
+/**
+ * CrashOverlay - Debug overlay for runtime error detection
+ * 
+ * @architecture Control Plane - Debug/Auth
+ * Uses direct supabase client for auth.getUser() and profiles lookup
+ * (diagnostic information only, not business data)
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
