@@ -1,7 +1,14 @@
 /**
  * Tenant Session Hook - Session-based Context Management
  * 
- * Part of Architecture v1.4.1 - Fixes Connection Pool Hell (RISK #2)
+ * @architecture Schema-per-Tenant v1.4.1 - Fixes Connection Pool Hell (RISK #2)
+ * 
+ * NOTE: This is a CONTROL PLANE hook that manages tenant session lifecycle.
+ * Uses direct supabase client because:
+ * 1. init_tenant_session() is the RPC that SETS UP the tenant context
+ * 2. set_current_org() is session-level configuration
+ * 3. check_tenant_schema_status() is platform-level introspection
+ * 4. These RPCs establish the context for all subsequent Data Plane queries
  * 
  * This hook initializes tenant session ONCE per connection, not per query.
  * It sets search_path to the correct tenant schema based on tier:

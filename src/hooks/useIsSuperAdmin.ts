@@ -1,13 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-
 /**
  * useIsSuperAdmin - Check if current user has admin role
  * 
- * Note: This hook intentionally uses the global supabase client
- * because user_roles is a global table, not tenant-specific.
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a CONTROL PLANE hook for authorization.
+ * Uses direct supabase client because:
+ * 1. user_roles is a PLATFORM table (not tenant-specific)
+ * 2. Super admin status is cross-tenant privilege
+ * 3. This check runs before tenant context is established
  */
+
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './useAuth';
 export function useIsSuperAdmin() {
   const { user, loading: authLoading } = useAuth();
 

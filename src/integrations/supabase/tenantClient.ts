@@ -1,7 +1,14 @@
 /**
  * Tenant-aware Supabase Client Wrapper
  * 
- * Part of Schema-per-Tenant Architecture v1.4.1
+ * @architecture Schema-per-Tenant v1.4.1
+ * 
+ * NOTE: This is the CORE CONTROL PLANE module for tenant session management.
+ * Uses direct supabase client because:
+ * 1. This IS the module that establishes tenant context
+ * 2. init_tenant_session(), set_tenant_schema() are session RPCs
+ * 3. is_tenant_schema_provisioned() checks tenant metadata
+ * 4. All Data Plane hooks depend on this module being initialized first
  * 
  * This module provides:
  * 1. useTenantSupabase() - Hook that auto-sets schema for React components

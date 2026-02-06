@@ -1,10 +1,17 @@
+/**
+ * ContextualAIPanel - AI Analysis Panel Component
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for Edge Function invocation with tenant context
+ */
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, RefreshCw, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 
@@ -38,19 +45,6 @@ const contextTitles: Record<AnalysisContext, string> = {
   budget_vs_actual: 'AI Đề xuất Hành động',
 };
 
-async function fetchContextualAnalysis(context: AnalysisContext) {
-  const { data, error } = await supabase.functions.invoke('analyze-contextual', {
-    body: { context },
-  });
-
-  if (error) {
-    const message = (error as any)?.message || 'Lỗi phân tích';
-    throw new Error(message);
-  }
-
-  return data;
-}
-
 export function ContextualAIPanel({ 
   context, 
   title,
@@ -61,20 +55,35 @@ export function ContextualAIPanel({
   const [isExpanded, setIsExpanded] = useState(!compact);
   const [hasTriggeredLoad, setHasTriggeredLoad] = useState(autoLoad);
   const queryClient = useQueryClient();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
+
+  // Local fetch function using tenant-aware client
+  const fetchContextualAnalysis = async (ctx: AnalysisContext) => {
+    const { data, error } = await client.functions.invoke('analyze-contextual', {
+      body: { context: ctx, tenant_id: tenantId },
+    });
+
+    if (error) {
+      const message = (error as any)?.message || 'Lỗi phân tích';
+      throw new Error(message);
+    }
+
+    return data;
+  };
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ['contextual-analysis', context],
+    queryKey: ['contextual-analysis', context, tenantId],
     queryFn: () => fetchContextualAnalysis(context),
     staleTime: 10 * 60 * 1000, // 10 minutes - increased for better caching
     gcTime: 30 * 60 * 1000, // 30 minutes cache
     retry: 1,
-    enabled: hasTriggeredLoad, // Only fetch when triggered
+    enabled: hasTriggeredLoad && !!tenantId && isReady, // Only fetch when triggered and ready
   });
 
   const refreshMutation = useMutation({
     mutationFn: () => fetchContextualAnalysis(context),
     onSuccess: (newData) => {
-      queryClient.setQueryData(['contextual-analysis', context], newData);
+      queryClient.setQueryData(['contextual-analysis', context, tenantId], newData);
     },
   });
 

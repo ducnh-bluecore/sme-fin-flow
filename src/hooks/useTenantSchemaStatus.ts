@@ -2,7 +2,11 @@
  * useTenantSchemaStatus - Hook for Schema Provisioning Status
  * 
  * @architecture Schema-per-Tenant v1.4.1
- * Note: Uses platform-level RPC that checks tenant provisioning status
+ * NOTE: Uses PLATFORM-LEVEL RPC that checks tenant provisioning status.
+ * This is a Control Plane operation - uses direct supabase client because:
+ * 1. RPCs like is_tenant_schema_provisioned are platform-level
+ * 2. provision-tenant-schema Edge Function manages schema creation
+ * 3. No tenant context needed - this determines the context itself
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

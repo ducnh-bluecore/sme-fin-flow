@@ -1,3 +1,14 @@
+/**
+ * useImpersonation - Admin Impersonation Hook
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a CONTROL PLANE hook for Super Admin functionality.
+ * Uses direct supabase client because:
+ * 1. Impersonation updates profiles.active_tenant_id (public schema)
+ * 2. Admin can impersonate ANY tenant (cross-tenant operation)
+ * 3. This is a platform-level security feature for support
+ */
+
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';

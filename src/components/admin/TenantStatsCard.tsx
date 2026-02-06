@@ -51,6 +51,8 @@ export function TenantStatsCard({ tenantId, tenantSlug, isProvisioned }: TenantS
         billsRes,
         membersRes
       ] = await Promise.all([
+        // NOTE: Admin component uses direct supabase for cross-tenant access
+        // These counts are for display in admin dashboard only
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
         supabase.from('orders').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),

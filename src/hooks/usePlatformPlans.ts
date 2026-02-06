@@ -1,3 +1,14 @@
+/**
+ * usePlatformPlans - Platform Plan Management (Admin)
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a PLATFORM CONTROL PLANE module.
+ * Uses direct supabase client because:
+ * 1. platform_plans is in public schema (shared across all tenants)
+ * 2. plan_modules defines which modules each plan includes
+ * 3. These are admin-only operations for plan configuration
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
