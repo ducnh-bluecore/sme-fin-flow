@@ -1,8 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  acquireJobLock, 
+  completeJob, 
+  failJob, 
+  createConflictResponse 
+} from "../_shared/jobIdempotency.ts";
 
 /**
  * SECURITY: JWT validation OR service role required
+ * IDEMPOTENCY: Uses job_runs table to prevent duplicate executions
+ * 
  * This function can be called by:
  * 1. Authenticated users (for their tenant)
  * 2. Scheduled functions (with service role)
@@ -138,27 +146,52 @@ serve(async (req) => {
       });
     }
 
-    const result: DetectionResult = { triggered: 0, checked: 0, errors: [], calculations: [] };
+    // ========== IDEMPOTENCY: Acquire job lock ==========
+    const jobContext = await acquireJobLock(supabase, 'detect-alerts', tenantId, {
+      grainDate: new Date().toISOString().split('T')[0],
+      inputParams: { use_precalculated },
+    });
 
-    // Step 1: Get intelligent rules
-    const { data: intelligentRules } = await supabase
-      .from('intelligent_alert_rules')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('is_enabled', true)
-      .order('priority', { ascending: true });
+    if (!jobContext) {
+      return new Response(JSON.stringify({
+        success: false,
+        reason: 'Failed to acquire job lock',
+        code: 'LOCK_FAILED',
+      }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    console.log(`Found ${intelligentRules?.length || 0} intelligent rules`);
+    if (jobContext.alreadyRunning) {
+      return createConflictResponse(jobContext.jobId, corsHeaders);
+    }
 
-    // Step 2: Get PRE-CALCULATED metrics (much faster!)
-    if (use_precalculated) {
-      console.log('Using pre-calculated metrics from object_calculated_metrics...');
-      
-      // Process alerts from pre-calculated metrics - SUPER FAST!
-      const alertsFromPrecalc = await processFromPrecalculatedMetrics(supabase, tenantId, intelligentRules || []);
-      result.triggered += alertsFromPrecalc.triggered;
-      result.checked += alertsFromPrecalc.checked;
-      result.calculations.push(...alertsFromPrecalc.calculations);
+    const jobId = jobContext.jobId;
+    console.log(`[detect-alerts] Job started: ${jobId}`);
+
+    try {
+      const result: DetectionResult = { triggered: 0, checked: 0, errors: [], calculations: [] };
+
+      // Step 1: Get intelligent rules
+      const { data: intelligentRules } = await supabase
+        .from('intelligent_alert_rules')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('is_enabled', true)
+        .order('priority', { ascending: true });
+
+      console.log(`Found ${intelligentRules?.length || 0} intelligent rules`);
+
+      // Step 2: Get PRE-CALCULATED metrics (much faster!)
+      if (use_precalculated) {
+        console.log('Using pre-calculated metrics from object_calculated_metrics...');
+        
+        // Process alerts from pre-calculated metrics - SUPER FAST!
+        const alertsFromPrecalc = await processFromPrecalculatedMetrics(supabase, tenantId, intelligentRules || []);
+        result.triggered += alertsFromPrecalc.triggered;
+        result.checked += alertsFromPrecalc.checked;
+        result.calculations.push(...alertsFromPrecalc.calculations);
       
     } else {
       // Fallback to legacy calculation
@@ -221,13 +254,26 @@ serve(async (req) => {
     const additionalAlerts = await runCrossObjectDetection(supabase, tenantId, objectsForBasic || [], additionalData);
     result.triggered += additionalAlerts;
 
+    // ========== IDEMPOTENCY: Mark job as completed ==========
+    await completeJob(supabase, jobId, result);
+    console.log(`[detect-alerts] Job completed: ${jobId}`);
+
     return new Response(JSON.stringify({
       success: true,
       result,
+      job_id: jobId,
       timestamp: new Date().toISOString(),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
+    } catch (innerError) {
+      // ========== IDEMPOTENCY: Mark job as failed ==========
+      const innerErrorMessage = innerError instanceof Error ? innerError.message : 'Unknown error';
+      await failJob(supabase, jobId, innerErrorMessage);
+      console.error(`[detect-alerts] Job failed: ${jobId}`, innerError);
+      throw innerError;
+    }
 
   } catch (error) {
     console.error('Detection error:', error);

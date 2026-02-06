@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { 
+  acquireJobLock, 
+  completeJob, 
+  failJob 
+} from "../_shared/jobIdempotency.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,7 +62,6 @@ async function measureEntityMetrics(
       };
 
     case 'CHANNEL':
-      // Channel metrics would come from marketing data
       return {
         ad_spend_7d: null,
         roas: null,
@@ -113,7 +117,7 @@ function suggestOutcomeStatus(
       return 'neutral';
 
     case 'CHANNEL':
-      if (actionType === 'PAUSE') return 'positive'; // Assumed positive if we stopped spending
+      if (actionType === 'PAUSE') return 'positive';
       return 'neutral';
 
     default:
@@ -169,125 +173,181 @@ serve(async (req) => {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
 
-    // 1. Find decisions that are due for follow-up (today or overdue)
-    const { data: dueFollowups, error: fetchError } = await supabase
-      .from('decision_audit_log')
-      .select('*')
-      .in('follow_up_status', ['pending', 'in_progress'])
-      .lte('follow_up_date', today)
-      .not('entity_type', 'is', null);
+    // ========== IDEMPOTENCY: Acquire global job lock ==========
+    // Use 'global' tenant for cross-tenant jobs
+    const jobContext = await acquireJobLock(supabase, 'auto-measure-outcomes', 'global', {
+      grainDate: today,
+    });
 
-    if (fetchError) {
-      throw fetchError;
-    }
-
-    console.log(`Found ${dueFollowups?.length || 0} decisions due for auto-measurement`);
-
-    const results: any[] = [];
-
-    for (const decision of (dueFollowups || [])) {
-      try {
-        const tenantId = decision.tenant_id;
-        const entityType = decision.entity_type || 'UNKNOWN';
-        const entityId = decision.entity_id;
-        const entityLabel = decision.entity_label;
-
-        // Get baseline metrics
-        let baselineMetrics: Record<string, any> = {};
-        if (decision.baseline_metrics) {
-          baselineMetrics = decision.baseline_metrics;
-        } else if (decision.card_snapshot) {
-          const snapshot = decision.card_snapshot as Record<string, any>;
-          baselineMetrics = {
-            gross_margin_percent: snapshot.margin_percent ?? snapshot.gross_margin_percent,
-            cash_balance: snapshot.cash_balance,
-            runway_days: snapshot.runway_days,
-          };
-        }
-
-        // Measure current metrics
-        const currentMetrics = await measureEntityMetrics(supabase, tenantId, entityType, entityId);
-
-        // Calculate variance
-        const variance = calculateVariance(baselineMetrics, currentMetrics);
-
-        // Check if we have any current data
-        const hasCurrentData = Object.values(currentMetrics).some(v => v != null && v !== 0);
-
-        // Suggest status
-        const outcomeStatus = hasCurrentData 
-          ? suggestOutcomeStatus(entityType, variance, decision.selected_action_type)
-          : 'too_early';
-
-        // Generate summary
-        const outcomeSummary = hasCurrentData
-          ? generateSummary(entityType, entityLabel, variance)
-          : `[Tự động] Chưa có đủ dữ liệu để đo lường ${entityLabel || entityType}`;
-
-        // Calculate impact
-        let actualImpact: number | null = null;
-        if (variance.cash_balance?.change != null) actualImpact = variance.cash_balance.change;
-        else if (variance.revenue_7d?.change != null) actualImpact = variance.revenue_7d.change;
-
-        // Insert outcome
-        const { data: outcome, error: insertError } = await supabase
-          .from('decision_outcomes')
-          .insert({
-            tenant_id: tenantId,
-            decision_audit_id: decision.id,
-            measured_by: null, // System auto-measure
-            actual_impact_amount: actualImpact,
-            outcome_status: outcomeStatus,
-            outcome_summary: outcomeSummary,
-            is_auto_measured: true,
-            baseline_metrics: baselineMetrics,
-            current_metrics: currentMetrics,
-            measurement_timestamp: now.toISOString(),
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error(`Error inserting outcome for ${decision.id}:`, insertError);
-          continue;
-        }
-
-        // Update follow-up status to completed
-        await supabase
-          .from('decision_audit_log')
-          .update({ follow_up_status: 'completed' })
-          .eq('id', decision.id);
-
-        results.push({
-          decisionId: decision.id,
-          entityLabel,
-          outcomeStatus,
-          success: true,
-        });
-
-        console.log(`Auto-measured outcome for ${entityLabel || decision.id}: ${outcomeStatus}`);
-      } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        console.error(`Error processing decision ${decision.id}:`, err);
-        results.push({
-          decisionId: decision.id,
-          error: errorMessage,
+    if (!jobContext) {
+      return new Response(
+        JSON.stringify({
           success: false,
-        });
-      }
+          reason: 'Failed to acquire job lock',
+          code: 'LOCK_FAILED',
+        }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        processed: results.length,
-        results,
-        timestamp: now.toISOString(),
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (jobContext.alreadyRunning) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          reason: 'Job already running',
+          existing_job_id: jobContext.jobId,
+          code: 'JOB_ALREADY_RUNNING',
+        }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const jobId = jobContext.jobId;
+    console.log(`[auto-measure-outcomes] Job started: ${jobId}`);
+
+    try {
+      // Find decisions that are due for follow-up (today or overdue)
+      const { data: dueFollowups, error: fetchError } = await supabase
+        .from('decision_audit_log')
+        .select('*')
+        .in('follow_up_status', ['pending', 'in_progress'])
+        .lte('follow_up_date', today)
+        .not('entity_type', 'is', null);
+
+      if (fetchError) {
+        throw fetchError;
       }
-    );
+
+      console.log(`Found ${dueFollowups?.length || 0} decisions due for auto-measurement`);
+
+      const results: any[] = [];
+
+      for (const decision of (dueFollowups || [])) {
+        try {
+          const tenantId = decision.tenant_id;
+          const entityType = decision.entity_type || 'UNKNOWN';
+          const entityId = decision.entity_id;
+          const entityLabel = decision.entity_label;
+
+          // Get baseline metrics
+          let baselineMetrics: Record<string, any> = {};
+          if (decision.baseline_metrics) {
+            baselineMetrics = decision.baseline_metrics;
+          } else if (decision.card_snapshot) {
+            const snapshot = decision.card_snapshot as Record<string, any>;
+            baselineMetrics = {
+              gross_margin_percent: snapshot.margin_percent ?? snapshot.gross_margin_percent,
+              cash_balance: snapshot.cash_balance,
+              runway_days: snapshot.runway_days,
+            };
+          }
+
+          // Measure current metrics
+          const currentMetrics = await measureEntityMetrics(supabase, tenantId, entityType, entityId);
+
+          // Calculate variance
+          const variance = calculateVariance(baselineMetrics, currentMetrics);
+
+          // Check if we have any current data
+          const hasCurrentData = Object.values(currentMetrics).some(v => v != null && v !== 0);
+
+          // Suggest status
+          const outcomeStatus = hasCurrentData 
+            ? suggestOutcomeStatus(entityType, variance, decision.selected_action_type)
+            : 'too_early';
+
+          // Generate summary
+          const outcomeSummary = hasCurrentData
+            ? generateSummary(entityType, entityLabel, variance)
+            : `[Tự động] Chưa có đủ dữ liệu để đo lường ${entityLabel || entityType}`;
+
+          // Calculate impact
+          let actualImpact: number | null = null;
+          if (variance.cash_balance?.change != null) actualImpact = variance.cash_balance.change;
+          else if (variance.revenue_7d?.change != null) actualImpact = variance.revenue_7d.change;
+
+          // Insert outcome
+          const { data: outcome, error: insertError } = await supabase
+            .from('decision_outcomes')
+            .insert({
+              tenant_id: tenantId,
+              decision_audit_id: decision.id,
+              measured_by: null,
+              actual_impact_amount: actualImpact,
+              outcome_status: outcomeStatus,
+              outcome_summary: outcomeSummary,
+              is_auto_measured: true,
+              baseline_metrics: baselineMetrics,
+              current_metrics: currentMetrics,
+              measurement_timestamp: now.toISOString(),
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error(`Error inserting outcome for ${decision.id}:`, insertError);
+            continue;
+          }
+
+          // Update follow-up status to completed
+          await supabase
+            .from('decision_audit_log')
+            .update({ follow_up_status: 'completed' })
+            .eq('id', decision.id);
+
+          results.push({
+            decisionId: decision.id,
+            entityLabel,
+            outcomeStatus,
+            success: true,
+          });
+
+          console.log(`Auto-measured outcome for ${entityLabel || decision.id}: ${outcomeStatus}`);
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          console.error(`Error processing decision ${decision.id}:`, err);
+          results.push({
+            decisionId: decision.id,
+            error: errorMessage,
+            success: false,
+          });
+        }
+      }
+
+      // ========== IDEMPOTENCY: Mark job as completed ==========
+      const jobResult = {
+        processed: results.length,
+        successful: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length,
+      };
+      await completeJob(supabase, jobId, jobResult);
+      console.log(`[auto-measure-outcomes] Job completed: ${jobId}`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          job_id: jobId,
+          processed: results.length,
+          results,
+          timestamp: now.toISOString(),
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (innerError) {
+      // ========== IDEMPOTENCY: Mark job as failed ==========
+      const errorMessage = innerError instanceof Error ? innerError.message : 'Unknown error';
+      await failJob(supabase, jobId, errorMessage);
+      console.error(`[auto-measure-outcomes] Job failed: ${jobId}`, innerError);
+      throw innerError;
+    }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("Error in auto-measure-outcomes:", error);
