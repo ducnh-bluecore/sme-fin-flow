@@ -68,6 +68,7 @@ const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminCSAlertsPage = lazy(() => import("./pages/admin/AdminCSAlertsPage"));
 const AdminPlansPage = lazy(() => import("./pages/admin/AdminPlansPage"));
 const AdminModulesPage = lazy(() => import("./pages/admin/AdminModulesPage"));
+const BigQueryBackfillPage = lazy(() => import("./pages/admin/BigQueryBackfill"));
 
 // New merged pages
 const ReconciliationHubPage = lazy(() => import("./pages/ReconciliationHubPage"));
@@ -566,6 +567,7 @@ const AppRoutes = () => {
           <Route path="/admin/plans" element={<AdminPlansPage />} />
           <Route path="/admin/modules" element={<AdminModulesPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/bigquery-backfill" element={<BigQueryBackfillPage />} />
         </Route>
       </Route>
 
