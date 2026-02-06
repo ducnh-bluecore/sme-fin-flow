@@ -1,3 +1,10 @@
+/**
+ * BudgetOptimizationPanel - AI-powered marketing budget optimization
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware edge function calls
+ */
+
 import { useState, useMemo, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -30,7 +37,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { formatVNDCompact, formatVND } from '@/lib/formatters';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import {
   BarChart,
@@ -143,6 +150,7 @@ interface BudgetOptimizationPanelProps {
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export function BudgetOptimizationPanel({ channels, totalBudget }: BudgetOptimizationPanelProps) {
+  const { client } = useTenantQueryBuilder();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +166,7 @@ export function BudgetOptimizationPanel({ channels, totalBudget }: BudgetOptimiz
     setError(null);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('optimize-channel-budget', {
+      const { data, error: invokeError } = await client.functions.invoke('optimize-channel-budget', {
         body: {
           channels,
           totalBudget,

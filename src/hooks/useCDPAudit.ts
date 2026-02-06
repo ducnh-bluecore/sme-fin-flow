@@ -2,11 +2,11 @@
  * useCDPAudit - Customer audit and merge tracking
  * 
  * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  * @domain CDP/Audit
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface CustomerAuditData {
@@ -53,8 +53,7 @@ export function useCDPCustomerAudit(customerId: string | undefined) {
       const { data: connectors } = await buildSelectQuery('connector_integrations', 'connector_type, status, last_sync_at');
 
       // Get REAL order stats per channel from cdp_orders using RPC (avoids 1000 row limit)
-      const { data: channelStats } = await supabase
-        .rpc('cdp_customer_channel_stats', { p_customer_id: customerId });
+      const { data: channelStats } = await client.rpc('cdp_customer_channel_stats', { p_customer_id: customerId });
       // Build channel aggregates from RPC result
       const channelAggregates: Record<string, { orderCount: number; totalValue: number }> = {};
       (channelStats || []).forEach((stat: { channel: string; order_count: number; total_value: number }) => {

@@ -2,8 +2,12 @@
  * useCapacitorPushNotifications - Hook for Capacitor Push Notifications
  * 
  * @architecture Schema-per-Tenant v1.4.1
- * Note: Push subscriptions are per-user but use tenant_id for routing
- * Uses supabase directly since this is platform-level functionality
+ * @plane Control Plane (Platform Schema)
+ * 
+ * Note: Push subscriptions are per-user but use tenant_id for routing.
+ * Uses supabase directly since push_subscriptions is platform-level functionality
+ * that needs cross-tenant access for device token management.
+ * This is intentional and should NOT be migrated to useTenantQueryBuilder.
  */
 
 import { useEffect, useState, useCallback } from 'react';

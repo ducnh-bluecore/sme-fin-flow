@@ -1,3 +1,10 @@
+/**
+ * StrategicInitiativesPage - Strategic initiatives management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -11,9 +18,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { 
   Plus, Target, Pencil, Trash2, CheckCircle, Clock, 
@@ -110,7 +116,7 @@ const defaultFormData: InitiativeFormData = {
 export default function StrategicInitiativesPage() {
   const { t, language } = useLanguage();
   const dateLocale = language === 'vi' ? vi : enUS;
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, buildInsertQuery, buildUpdateQuery, buildDeleteQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -144,15 +150,12 @@ export default function StrategicInitiativesPage() {
     queryKey: ['strategic-initiatives', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('strategic_initiatives')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('strategic_initiatives', '*')
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return (data || []).map(row => ({
+      return ((data || []) as unknown as any[]).map(row => ({
         ...row,
         category: row.category as InitiativeCategory,
         priority: row.priority as InitiativePriority,
@@ -160,7 +163,7 @@ export default function StrategicInitiativesPage() {
         milestones: (row.milestones as unknown as Milestone[]) || [],
       })) as StrategicInitiative[];
     },
-    enabled: !!tenantId,
+    enabled: isReady && !!tenantId,
   });
 
   type InsertPayload = {
@@ -182,24 +185,21 @@ export default function StrategicInitiativesPage() {
 
   const createMutation = useMutation({
     mutationFn: async (payload: InsertPayload) => {
-      const { error } = await supabase
-        .from('strategic_initiatives')
-        .insert({
-          title: payload.title,
-          description: payload.description,
-          category: payload.category,
-          priority: payload.priority,
-          status: payload.status,
-          progress: payload.progress,
-          budget: payload.budget,
-          spent: payload.spent,
-          start_date: payload.start_date,
-          end_date: payload.end_date,
-          owner: payload.owner,
-          kpis: payload.kpis,
-          milestones: payload.milestones as unknown as null,
-          tenant_id: tenantId,
-        });
+      const { error } = await buildInsertQuery('strategic_initiatives', {
+        title: payload.title,
+        description: payload.description,
+        category: payload.category,
+        priority: payload.priority,
+        status: payload.status,
+        progress: payload.progress,
+        budget: payload.budget,
+        spent: payload.spent,
+        start_date: payload.start_date,
+        end_date: payload.end_date,
+        owner: payload.owner,
+        kpis: payload.kpis,
+        milestones: payload.milestones as unknown as null,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -213,24 +213,21 @@ export default function StrategicInitiativesPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: InsertPayload }) => {
-      const { error } = await supabase
-        .from('strategic_initiatives')
-        .update({
-          title: data.title,
-          description: data.description,
-          category: data.category,
-          priority: data.priority,
-          status: data.status,
-          progress: data.progress,
-          budget: data.budget,
-          spent: data.spent,
-          start_date: data.start_date,
-          end_date: data.end_date,
-          owner: data.owner,
-          kpis: data.kpis,
-          milestones: data.milestones as unknown as null,
-        })
-        .eq('id', id);
+      const { error } = await buildUpdateQuery('strategic_initiatives', {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        priority: data.priority,
+        status: data.status,
+        progress: data.progress,
+        budget: data.budget,
+        spent: data.spent,
+        start_date: data.start_date,
+        end_date: data.end_date,
+        owner: data.owner,
+        kpis: data.kpis,
+        milestones: data.milestones as unknown as null,
+      }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -245,9 +242,7 @@ export default function StrategicInitiativesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('strategic_initiatives')
-        .delete()
+      const { error } = await buildDeleteQuery('strategic_initiatives')
         .eq('id', id);
       if (error) throw error;
     },
