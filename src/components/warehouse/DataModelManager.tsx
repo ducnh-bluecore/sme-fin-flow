@@ -1,3 +1,10 @@
+/**
+ * DataModelManager - BigQuery data model configuration and sync
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
@@ -54,8 +61,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { useBigQueryDataModels, useUpsertDataModel, useSyncWatermarks } from '@/hooks/useBigQueryRealtime';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -131,7 +137,7 @@ export function DataModelManager() {
   const { data: models, isLoading, refetch } = useBigQueryDataModels();
   const { data: watermarks, refetch: refetchWatermarks } = useSyncWatermarks();
   const upsertModel = useUpsertDataModel();
-  const { data: tenantId } = useActiveTenantId();
+  const { client, buildDeleteQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   const [editingModel, setEditingModel] = useState<DataModelConfig | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -184,7 +190,7 @@ export function DataModelManager() {
     setShowSuggestions(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('suggest-data-models', {
+      const { data, error } = await client.functions.invoke('suggest-data-models', {
         body: {}
       });
       
@@ -259,7 +265,7 @@ export function DataModelManager() {
     const startTime = Date.now();
     
     try {
-      const { data, error } = await supabase.functions.invoke('sync-bigquery', {
+      const { data, error } = await client.functions.invoke('sync-bigquery', {
         body: {
           tenant_id: tenantId,
           model_name: model.model_name,
@@ -368,10 +374,7 @@ export function DataModelManager() {
     if (!tenantId) return;
     
     try {
-      const { error } = await supabase
-        .from('bigquery_data_models')
-        .delete()
-        .eq('tenant_id', tenantId)
+      const { error } = await buildDeleteQuery('bigquery_data_models')
         .eq('model_name', modelName);
       
       if (error) throw error;

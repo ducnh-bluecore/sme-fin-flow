@@ -2,8 +2,11 @@
  * useTenantHealth - Hook for Tenant Health Monitoring
  * 
  * @architecture Schema-per-Tenant v1.4.1
- * Note: Uses platform-level tables (cs_alerts, tenant_events) in public schema
- * These are admin-only and cross-tenant, so we use supabase directly
+ * @plane Control Plane (Platform Schema)
+ * 
+ * Note: Uses platform-level tables (cs_alerts, tenant_events) in public schema.
+ * These are admin-only and cross-tenant, so we use supabase directly.
+ * This is intentional and should NOT be migrated to useTenantQueryBuilder.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

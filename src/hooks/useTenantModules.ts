@@ -2,7 +2,11 @@
  * useTenantModules - Hook for Tenant Modules Management
  * 
  * @architecture Schema-per-Tenant v1.4.1
- * Note: tenant_modules is a platform-level table, uses supabase directly
+ * @plane Control Plane (Platform Schema)
+ * 
+ * Note: tenant_modules is a platform-level table in the public schema.
+ * Uses supabase directly for cross-tenant admin operations.
+ * This is intentional and should NOT be migrated to useTenantQueryBuilder.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

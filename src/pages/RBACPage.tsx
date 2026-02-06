@@ -1,8 +1,14 @@
+/**
+ * RBACPage - Role-Based Access Control management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
+
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { 
   Shield, 
   Users, 
@@ -68,33 +74,31 @@ const permissions = [
 ];
 
 export default function RBACPage() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   // Fetch tenant users with profiles
+  // Note: tenant_users is a platform table, but we query with tenant_id filter
   const { data: tenantUsers = [], isLoading: usersLoading } = useQuery({
     queryKey: ['tenant-users-rbac', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tenant_users')
-        .select(`
+      const { data, error } = await buildSelectQuery('tenant_users', `
+        id,
+        user_id,
+        role,
+        is_active,
+        joined_at,
+        profiles:user_id (
           id,
-          user_id,
-          role,
-          is_active,
-          joined_at,
-          profiles:user_id (
-            id,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('tenant_id', tenantId!)
+          full_name,
+          avatar_url
+        )
+      `)
         .order('joined_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as any[];
     },
-    enabled: !!tenantId,
+    enabled: isReady && !!tenantId,
   });
 
   // Transform data for display

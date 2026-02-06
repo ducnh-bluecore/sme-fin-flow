@@ -2,7 +2,11 @@
  * useActivityTracker - Global activity tracking hook
  * 
  * @architecture Schema-per-Tenant v1.4.1
- * Uses tenant-aware RPC for tracking events
+ * @plane Control Plane (Platform Schema)
+ * 
+ * Note: Uses tenant-aware RPC for tracking events to platform schema.
+ * The RPC handles tenant routing internally, so we use supabase directly.
+ * This is intentional and should NOT be migrated to useTenantQueryBuilder.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
