@@ -1,5 +1,13 @@
+/**
+ * useFeatureDecisions - Feature decision management for Review Hub
+ * 
+ * NOTE: This hook uses localStorage for feature decisions, not database.
+ * The supabase import is currently unused but kept for future migration.
+ * 
+ * @architecture Local Storage - No tenant context needed
+ */
+
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { 
   FeatureDecision, 
   SystemType, 

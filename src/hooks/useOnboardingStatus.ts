@@ -1,5 +1,9 @@
 /**
  * useOnboardingStatus - Check and update onboarding status for profile and tenant
+ * 
+ * @architecture Control Plane - Auth/Profile management
+ * Uses direct supabase client as profiles and tenants are in public schema.
+ * This hook manages user onboarding state which is cross-tenant.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

@@ -23,12 +23,11 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function ETLRulesPage() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const { t } = useLanguage();
 
   const statusConfig = {
@@ -42,32 +41,26 @@ export default function ETLRulesPage() {
     queryKey: ['etl-pipelines', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('etl_pipelines')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('etl_pipelines', '*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      return ((data || []) as unknown) as any[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const { data: transformRules = [], isLoading: loadingRules } = useQuery({
     queryKey: ['etl-transform-rules', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('etl_transform_rules')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('etl_transform_rules', '*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      return ((data || []) as unknown) as any[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   const runningCount = etlPipelines.filter(p => p.status === 'running').length;

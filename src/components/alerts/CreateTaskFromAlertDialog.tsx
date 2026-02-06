@@ -5,7 +5,6 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
-import { supabase } from '@/integrations/supabase/client';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import {
   Dialog,
@@ -55,7 +54,7 @@ export function CreateTaskFromAlertDialog({
   onOpenChange,
   alert,
 }: CreateTaskFromAlertDialogProps) {
-  const { buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildInsertQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   
   const [title, setTitle] = useState('');
@@ -112,7 +111,7 @@ export function CreateTaskFromAlertDialog({
     mutationFn: async () => {
       if (!tenantId || !alert) throw new Error('Missing data');
 
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await client.auth.getUser();
       
       const { error } = await buildInsertQuery('tasks', {
         title,

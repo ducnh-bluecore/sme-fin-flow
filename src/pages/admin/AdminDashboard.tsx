@@ -1,3 +1,10 @@
+/**
+ * AdminDashboard - Super Admin dashboard for platform management
+ * 
+ * @architecture Control Plane - Cross-tenant admin view
+ * Uses direct supabase client for admin queries (tenants, profiles tables in public schema)
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';

@@ -1,3 +1,10 @@
+/**
+ * BigQuerySchemaManager - Manage BigQuery schema configuration
+ * 
+ * @architecture Data Plane - Tenant-specific configuration
+ * TODO: Migrate to useTenantQueryBuilder for bigquery_tenant_configs table
+ */
+
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -38,8 +45,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Json } from '@/integrations/supabase/types';
@@ -150,7 +156,7 @@ const DEFAULT_CHANNELS: Record<string, ChannelConfig> = {
 };
 
 export function BigQuerySchemaManager() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, buildUpdateQuery, buildInsertQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const [editingChannel, setEditingChannel] = useState<string | null>(null);
   const [localConfig, setLocalConfig] = useState<BigQueryConfigData>({
@@ -166,15 +172,12 @@ export function BigQuerySchemaManager() {
     queryKey: ['bigquery-config', tenantId],
     queryFn: async () => {
       if (!tenantId) throw new Error('No tenant');
-      const { data, error } = await supabase
-        .from('bigquery_configs')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('bigquery_configs', '*')
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return (data as unknown) as any;
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 
   // Update local state when config loads
@@ -209,7 +212,7 @@ export function BigQuerySchemaManager() {
       };
 
       if (config.id) {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('bigquery_configs')
           .update(payload)
           .eq('id', config.id)
@@ -218,7 +221,7 @@ export function BigQuerySchemaManager() {
         if (error) throw error;
         return data;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('bigquery_configs')
           .insert(payload)
           .select()

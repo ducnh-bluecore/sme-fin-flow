@@ -1,3 +1,10 @@
+/**
+ * TenantAuditLog - Admin component to view tenant audit logs
+ * 
+ * @architecture Control Plane - Cross-tenant admin view
+ * Uses direct supabase client for admin queries with explicit tenant_id filter
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

@@ -47,7 +47,7 @@ export interface ChannelBudgetInput {
 const DEFAULT_CHANNELS = ['shopee', 'lazada', 'tiktok', 'facebook', 'google', 'website', 'offline'];
 
 export function useChannelBudgets(year?: number, month?: number) {
-  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildSelectQuery, buildDeleteQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   
   const currentYear = year || new Date().getFullYear();
@@ -152,9 +152,7 @@ export function useChannelBudgets(year?: number, month?: number) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await client
-        .from('channel_budgets')
-        .delete()
+      const { error } = await buildDeleteQuery('channel_budgets')
         .eq('id', id);
       
       if (error) throw error;
