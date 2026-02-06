@@ -21,6 +21,12 @@ import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useMemo } from 'react';
 import { useChannelBudgets } from './useChannelBudgets';
 
+/**
+ * @deprecated LEGACY HOOK - Kept for backward compatibility only
+ * @architecture Control Plane exemption - Uses direct supabase client
+ * This hook is DEPRECATED. Use useMDPSSOT() for new development.
+ */
+
 // ============ MDP CORE - UNIFIED DATA LAYER ============
 // ⚠️ DEPRECATED: Use useMDPSSOT for new development
 // Một data layer duy nhất phục vụ 2 modes: Marketing Mode & CMO Mode
