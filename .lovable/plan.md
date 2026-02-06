@@ -238,7 +238,7 @@ Sau khi hoan thanh, verify:
 - [x] `useWhatIfRealData` query tu `cdp_order_items` (maps to master_order_items)
 - [x] `useMDPSSOT` query tu `cdp_order_items` (maps to master_order_items)
 - [x] `useMDPData` query tu `cdp_order_items` (maps to master_order_items)
-- [ ] Tat ca SQL views query tu `cdp_orders` hoac `master_orders`
+- [x] Tat ca SQL views query tu `cdp_orders` hoac `master_orders` ✅ 10 functions refactored
 - [ ] E2E test OLV Boutique pass
 - [ ] UI screens hien thi dung data
 

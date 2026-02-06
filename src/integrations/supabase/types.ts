@@ -34589,12 +34589,10 @@ export type Database = {
         Args: { p_insight_event_id: string; p_tenant_id: string }
         Returns: boolean
       }
-      recalculate_product_metrics:
-        | { Args: { p_sku?: string; p_tenant_id: string }; Returns: number }
-        | {
-            Args: { p_days_back?: number; p_sku?: string; p_tenant_id: string }
-            Returns: number
-          }
+      recalculate_product_metrics: {
+        Args: { p_days_back?: number; p_sku?: string; p_tenant_id: string }
+        Returns: number
+      }
       refresh_central_metrics_cache: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: undefined
