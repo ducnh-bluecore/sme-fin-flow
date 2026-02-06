@@ -1,8 +1,9 @@
 {
   "meta": {
-    "version": "2.0",
-    "architecture": "DB-First",
-    "description": "Expected values for E2E test suite - all computed layers auto-generated from source data"
+    "version": "3.0",
+    "architecture": "v1.4.2 10-Layer",
+    "description": "Expected values for E2E test suite aligned with Architecture v1.4.2",
+    "generated_at": "2026-02-06"
   },
   "tenant": {
     "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
@@ -11,13 +12,54 @@
     "plan": "pro"
   },
   "period": {
-    "start": "2026-01-01",
+    "start": "2024-01-01",
     "end": "2027-01-26",
-    "months": 13,
-    "note": "Dates in 2026-2027 to work with CURRENT_DATE logic"
+    "months": 37,
+    "note": "Extended period for comprehensive testing"
   },
-  "layer_0_source": {
-    "products": {
+  "layer_1_foundation": {
+    "_description": "Foundation layer: tenant, organizations, members",
+    "tenants": {
+      "count": 1,
+      "tolerance": 0
+    },
+    "organizations": {
+      "count": 1,
+      "tolerance": 0,
+      "name": "OLV Boutique"
+    },
+    "organization_members": {
+      "count": 3,
+      "tolerance": 0,
+      "roles": ["owner", "admin", "analyst"]
+    },
+    "channel_accounts": {
+      "count": 4,
+      "tolerance": 0,
+      "channels": ["Shopee", "Lazada", "TikTok Shop", "Website"]
+    }
+  },
+  "layer_1_5_ingestion": {
+    "_description": "Ingestion tracking: batches and watermarks",
+    "ingestion_batches": {
+      "count": 4,
+      "tolerance": 0,
+      "per_channel": 1
+    },
+    "data_watermarks": {
+      "count": 4,
+      "tolerance": 0,
+      "per_channel": 1
+    },
+    "connector_integrations": {
+      "count": 4,
+      "tolerance": 0,
+      "status": "active"
+    }
+  },
+  "layer_2_master": {
+    "_description": "SSOT Master Model: products, customers, orders",
+    "master_products": {
       "count": 100,
       "tolerance": 0,
       "categories": {
@@ -28,40 +70,41 @@
         "Giày dép": 10
       }
     },
-    "connectors": {
-      "count": 4,
-      "list": ["Shopee", "Lazada", "TikTok Shop", "Website"]
-    }
-  },
-  "layer_1_cdp_source": {
-    "customers": {
+    "master_customers": {
       "count": 500,
       "tolerance": 0,
       "by_tier": {
         "platinum": 25,
         "gold": 75,
         "silver": 150,
-        "standard": 250
+        "bronze": 250
       }
     },
-    "orders": {
-      "count": 3000,
-      "tolerance": 5,
+    "master_orders": {
+      "count": 5500,
+      "tolerance_percent": 2,
       "by_channel": {
-        "Shopee": { "percent": 40, "orders": 1200 },
-        "Lazada": { "percent": 25, "orders": 750 },
-        "Website": { "percent": 15, "orders": 450 },
-        "TikTok Shop": { "percent": 20, "orders": 600 }
+        "Shopee": { "percent": 40, "orders": 2200 },
+        "Lazada": { "percent": 25, "orders": 1375 },
+        "TikTok Shop": { "percent": 20, "orders": 1100 },
+        "Website": { "percent": 15, "orders": 825 }
+      },
+      "by_status": {
+        "completed": { "percent": 82, "orders": 4510 },
+        "returned": { "percent": 10, "orders": 550 },
+        "cancelled": { "percent": 5, "orders": 275 },
+        "pending": { "percent": 3, "orders": 165 }
       }
     },
-    "order_items": {
-      "count": 6600,
-      "tolerance": 10,
+    "master_order_items": {
+      "count": 12100,
+      "tolerance_percent": 5,
       "avg_items_per_order": 2.2
     },
     "revenue": {
-      "total_net_revenue": 1584000000,
-      "tolerance_percent": 15,
+      "gross_revenue": 2700000000,
+      "net_revenue": 2346175150,
+      "tolerance_percent": 10,
       "unit": "VND"
     },
     "costs": {
@@ -69,87 +112,147 @@
       "tolerance": 3
     }
   },
-  "layer_2_computed": {
-    "_source": "AUTO-COMPUTED by cdp_run_daily_build()",
-    "cdp_customer_equity_computed": {
-      "row_count": 500,
-      "tolerance": 5,
-      "unique_customers": 500
+  "layer_2_5_events": {
+    "_description": "Events and Marketing: commerce events, campaigns, ad spend",
+    "commerce_events": {
+      "count": 27500,
+      "tolerance_percent": 10,
+      "events_per_order": 5,
+      "event_types": ["page_view", "add_to_cart", "checkout_start", "checkout_complete", "purchase"]
     },
-    "equity": {
-      "total_equity_12m": 1227758419,
-      "total_equity_24m": 1825614700,
-      "avg_equity_12m": 2455517,
-      "tolerance_percent": 20
+    "master_ad_accounts": {
+      "count": 4,
+      "tolerance": 0,
+      "per_channel": 1
     },
-    "customer_activity": {
-      "active_90d": 325,
-      "at_risk": 100,
-      "dormant": 75,
-      "tolerance": 20
+    "master_campaigns": {
+      "count": 50,
+      "tolerance_percent": 10,
+      "avg_per_month": 2
+    },
+    "master_ad_spend": {
+      "count": 100,
+      "tolerance_percent": 10,
+      "total_spend": 300000000,
+      "unit": "VND"
     }
   },
-  "layer_3_cross_module": {
-    "_source": "AUTO-COMPUTED by cross_module_run_daily_sync()",
-    "fdp_locked_costs": {
-      "row_count": 13,
+  "layer_3_kpi": {
+    "_description": "KPI Layer: definitions, facts, targets",
+    "kpi_definitions": {
+      "count": 20,
       "tolerance": 0,
-      "computed_from": "cdp_orders aggregation"
+      "metrics": [
+        "net_revenue", "gross_revenue", "cogs", "gross_margin",
+        "aov", "order_count", "customer_count", "new_customers",
+        "returning_customers", "cac", "ltv", "ltv_cac_ratio",
+        "roas", "platform_fees", "marketing_spend", "contribution_margin",
+        "refund_rate", "return_rate", "active_rate", "churn_rate"
+      ]
     },
-    "cdp_segment_ltv_for_mdp": {
-      "row_count": 4,
+    "kpi_facts_daily": {
+      "count_min": 700,
+      "count_max": 800,
+      "tolerance_percent": 10,
+      "computed_from": "master_orders aggregation"
+    },
+    "kpi_targets": {
+      "count": 100,
+      "tolerance_percent": 5,
+      "periods": ["monthly", "quarterly", "yearly"],
+      "kpis_with_targets": 20
+    },
+    "kpi_thresholds": {
+      "count": 60,
       "tolerance": 0,
-      "segments": ["Champions", "Loyal", "Potential", "New"]
-    },
-    "cdp_customer_cohort_cac": {
-      "row_count_min": 40,
-      "row_count_max": 60,
-      "computed_from": "monthly orders × channels"
+      "per_kpi": 3,
+      "severity_levels": ["info", "warning", "critical"]
     }
   },
-  "layer_4_control_tower": {
-    "_source": "AUTO-COMPUTED by control_tower_aggregate_signals()",
-    "cross_domain_variance_alerts": {
-      "count_min": 3,
-      "count_max": 15
+  "layer_4_alert": {
+    "_description": "Alert & Decision Layer: instances, cards, queue",
+    "alert_rules": {
+      "count": 15,
+      "tolerance": 0,
+      "based_on": "kpi_thresholds"
     },
-    "control_tower_priority_queue": {
+    "alert_instances": {
       "count_min": 5,
-      "count_max": 20
+      "count_max": 15,
+      "auto_generated": true
+    },
+    "decision_cards": {
+      "count_min": 10,
+      "count_max": 20,
+      "auto_generated": true
+    },
+    "priority_queue": {
+      "count_min": 5,
+      "count_max": 10,
+      "highest_severity_first": true
+    },
+    "evidence_logs": {
+      "linked_to": "alert_instances",
+      "per_alert": 1
     }
   },
   "screens": {
     "cdp_overview": {
       "path": "/cdp",
-      "CustomerEquitySnapshot": {
-        "total_equity_12m": "₫1.2B",
-        "at_risk_percent": "~8%"
-      },
-      "ActiveCustomersCard": {
-        "customers_with_orders": 325,
-        "total_customers": 500
+      "data_source": "layer_2_master + layer_3_kpi",
+      "expected": {
+        "total_customers": 500,
+        "active_customers_90d": 350,
+        "at_risk_customers": 100
       }
     },
     "cdp_ltv_engine": {
       "path": "/cdp/ltv-engine",
-      "total_clv_range": ["1.5B", "2.5B"],
-      "clv_per_customer_range": ["3M", "5M"]
+      "data_source": "kpi_facts_daily",
+      "expected": {
+        "total_ltv_range": ["1.5B", "2.5B"],
+        "avg_ltv_range": ["3M", "5M"]
+      }
     },
     "fdp_dashboard": {
       "path": "/dashboard",
-      "cogs_percent": 53,
-      "gross_margin_percent": 47
+      "data_source": "kpi_facts_daily",
+      "expected": {
+        "cogs_percent": 53,
+        "gross_margin_percent": 47
+      }
     },
     "control_tower": {
       "path": "/control-tower/ceo",
-      "priority_queue_range": [5, 20]
+      "data_source": "layer_4_alert",
+      "expected": {
+        "priority_queue_range": [5, 10],
+        "alert_count_range": [5, 15]
+      }
     }
   },
   "tolerances": {
+    "_description": "Tolerance thresholds for verification",
     "exact_counts": 0,
-    "source_data": 5,
-    "computed_data": 10,
-    "equity": 20,
+    "source_data": 2,
+    "computed_data": 5,
+    "aggregated_data": 10,
+    "projections": 20,
     "control_tower": "range"
+  },
+  "table_mapping": {
+    "_description": "Legacy to v1.4.2 table mapping",
+    "products": "master_products",
+    "cdp_customers": "master_customers",
+    "cdp_orders": "master_orders",
+    "cdp_order_items": "master_order_items",
+    "external_orders": "(DELETED)",
+    "external_order_items": "(DELETED)",
+    "cdp_customer_equity_computed": "kpi_facts_daily",
+    "fdp_locked_costs": "kpi_targets",
+    "cdp_segment_ltv_for_mdp": "kpi_facts_daily (segment)",
+    "cdp_customer_cohort_cac": "kpi_facts_daily (cohort)",
+    "cross_domain_variance_alerts": "alert_instances",
+    "control_tower_priority_queue": "priority_queue"
   }
 }
