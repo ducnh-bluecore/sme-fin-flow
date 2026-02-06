@@ -68,9 +68,16 @@ export interface BackfillResult {
 
 // ============= Main Hook =============
 
+// Fixed tenant ID for Super Admin context (E2E BigQuery Test)
+const E2E_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
 export function useBigQueryBackfill() {
-  const { client, tenantId, isReady } = useTenantQueryBuilder();
+  const { client, tenantId: contextTenantId, isReady: contextReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
+  
+  // Fallback to E2E tenant if no tenant context (Super Admin mode)
+  const tenantId = contextTenantId || E2E_TENANT_ID;
+  const isReady = contextReady || !!tenantId;
 
   // Start backfill mutation
   const startBackfill = useMutation({
@@ -235,7 +242,11 @@ export function useBackfillStatus(modelType: BackfillModelType) {
 // ============= All Jobs Hook =============
 
 export function useAllBackfillJobs() {
-  const { client, tenantId, isReady } = useTenantQueryBuilder();
+  const { client, tenantId: contextTenantId, isReady: contextReady } = useTenantQueryBuilder();
+  
+  // Fallback to E2E tenant if no tenant context
+  const tenantId = contextTenantId || E2E_TENANT_ID;
+  const isReady = contextReady || !!tenantId;
 
   return useQuery({
     queryKey: ['backfill-jobs-all', tenantId],
