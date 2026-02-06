@@ -1288,6 +1288,7 @@ export type Database = {
           current_value: number | null
           data_source_id: string | null
           deadline_at: string | null
+          evidence_pack_id: string | null
           external_object_id: string | null
           id: string
           impact_amount: number | null
@@ -1338,6 +1339,7 @@ export type Database = {
           current_value?: number | null
           data_source_id?: string | null
           deadline_at?: string | null
+          evidence_pack_id?: string | null
           external_object_id?: string | null
           id?: string
           impact_amount?: number | null
@@ -1388,6 +1390,7 @@ export type Database = {
           current_value?: number | null
           data_source_id?: string | null
           deadline_at?: string | null
+          evidence_pack_id?: string | null
           external_object_id?: string | null
           id?: string
           impact_amount?: number | null
@@ -1440,6 +1443,13 @@ export type Database = {
             columns: ["data_source_id"]
             isOneToOne: false
             referencedRelation: "alert_data_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_instances_evidence_pack_id_fkey"
+            columns: ["evidence_pack_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_packs"
             referencedColumns: ["id"]
           },
           {
@@ -11110,6 +11120,7 @@ export type Database = {
           entity_id: string | null
           entity_label: string
           entity_type: string
+          evidence_pack_id: string | null
           id: string
           impact_amount: number | null
           impact_currency: string | null
@@ -11142,6 +11153,7 @@ export type Database = {
           entity_id?: string | null
           entity_label: string
           entity_type: string
+          evidence_pack_id?: string | null
           id?: string
           impact_amount?: number | null
           impact_currency?: string | null
@@ -11174,6 +11186,7 @@ export type Database = {
           entity_id?: string | null
           entity_label?: string
           entity_type?: string
+          evidence_pack_id?: string | null
           id?: string
           impact_amount?: number | null
           impact_currency?: string | null
@@ -11195,6 +11208,13 @@ export type Database = {
           vertical?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "decision_cards_evidence_pack_id_fkey"
+            columns: ["evidence_pack_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_packs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "decision_cards_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -13074,6 +13094,71 @@ export type Database = {
           },
           {
             foreignKeyName: "etl_transform_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      evidence_packs: {
+        Row: {
+          as_of: string
+          created_at: string
+          expires_at: string
+          id: string
+          quality_scores: Json
+          reconciliation_diffs: Json | null
+          row_counts: Json
+          tenant_id: string
+          watermark: Json
+        }
+        Insert: {
+          as_of?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          quality_scores?: Json
+          reconciliation_diffs?: Json | null
+          row_counts?: Json
+          tenant_id: string
+          watermark?: Json
+        }
+        Update: {
+          as_of?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          quality_scores?: Json
+          reconciliation_diffs?: Json | null
+          row_counts?: Json
+          tenant_id?: string
+          watermark?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "evidence_packs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -16498,6 +16583,80 @@ export type Database = {
           },
           {
             foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      job_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          function_name: string
+          id: string
+          input_params: Json | null
+          lock_key: string
+          result: Json | null
+          retry_count: number | null
+          started_at: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          function_name: string
+          id?: string
+          input_params?: Json | null
+          lock_key: string
+          result?: Json | null
+          retry_count?: number | null
+          started_at?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          function_name?: string
+          id?: string
+          input_params?: Json | null
+          lock_key?: string
+          result?: Json | null
+          retry_count?: number | null
+          started_at?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "job_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "job_runs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -33221,6 +33380,7 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: Json
       }
+      cleanup_expired_evidence: { Args: never; Returns: number }
       close_financial_period: {
         Args: { p_period_id: string }
         Returns: boolean
@@ -33318,6 +33478,16 @@ export type Database = {
       copy_template_type: {
         Args: { p_target_schema: string; p_type_name: string }
         Returns: undefined
+      }
+      create_evidence_pack: {
+        Args: {
+          p_quality_scores?: Json
+          p_reconciliation_diffs?: Json
+          p_row_counts?: Json
+          p_tenant_id: string
+          p_watermark?: Json
+        }
+        Returns: string
       }
       cross_module_run_daily_sync: {
         Args: { p_tenant_id?: string }
