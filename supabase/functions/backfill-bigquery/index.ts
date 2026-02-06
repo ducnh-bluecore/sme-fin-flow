@@ -703,14 +703,18 @@ async function syncProducts(
   let totalProcessed = 0;
   let inserted = 0;
   
+  // Schema from bdm_master_data_products:
+  // Ma_hang (SKU), Ten_hang (Name), Nhom_hang (Category), Thuong_hieu (Brand)
+  // Gia_ban (Sell Price), Gia_goc (Base/Cost Price), Ton_kho (Stock)
+  // productid (ID), Date (Created)
   const query = `
     SELECT 
-      ItemId, Barcode, ItemCode, ItemName, 
-      CategoryName, TradeMark, Unit, 
-      AvgCostPrice, BasePrice, SellPrice,
-      CreatedDate, ModifiedDate
+      productid, Ma_hang, Ten_hang, 
+      Nhom_hang, Thuong_hieu, 
+      Gia_goc, Gia_ban, Ton_kho,
+      Date, family_code
     FROM \`${projectId}.olvboutique.bdm_master_data_products\`
-    ORDER BY ItemId
+    ORDER BY productid
     LIMIT ${batchSize}
   `;
   
@@ -719,16 +723,20 @@ async function syncProducts(
     
     const products = rows.map(row => ({
       tenant_id: tenantId,
-      sku: row.ItemCode || row.Barcode,
-      barcode: row.Barcode,
-      name: row.ItemName,
-      category: row.CategoryName,
-      brand: row.TradeMark,
-      unit: row.Unit,
-      cost_price: parseFloat(row.AvgCostPrice || '0'),
-      base_price: parseFloat(row.BasePrice || '0'),
-      sell_price: parseFloat(row.SellPrice || '0'),
-      metadata: { kiotviet_id: row.ItemId },
+      sku: row.Ma_hang,
+      barcode: row.Ma_hang, // Use SKU as barcode if no separate field
+      name: row.Ten_hang,
+      category: row.Nhom_hang,
+      brand: row.Thuong_hieu,
+      unit: null,
+      cost_price: parseFloat(row.Gia_goc || '0'),
+      base_price: parseFloat(row.Gia_goc || '0'),
+      sell_price: parseFloat(row.Gia_ban || '0'),
+      metadata: { 
+        kiotviet_id: row.productid,
+        family_code: row.family_code,
+        stock: parseFloat(row.Ton_kho || '0'),
+      },
     }));
     
     const { error, count } = await supabase
@@ -747,6 +755,7 @@ async function syncProducts(
     totalProcessed = rows.length;
   } catch (error) {
     console.error('Error syncing products:', error);
+    throw error; // Re-throw to mark job as failed
   }
   
   return { processed: totalProcessed, inserted };
