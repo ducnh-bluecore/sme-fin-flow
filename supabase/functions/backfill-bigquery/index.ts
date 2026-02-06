@@ -59,7 +59,7 @@ const MAX_EXECUTION_TIME_MS = 120000; // 2 minutes, leave buffer for 150s limit
 const CUSTOMER_SOURCES: CustomerSource[] = [
   {
     name: 'kiotviet',
-    dataset: 'olvboutique_kiotviet',
+    dataset: 'olvboutique',
     table: 'raw_kiotviet_Customers',
     mapping: {
       id: 'CusId',
@@ -78,7 +78,7 @@ const CUSTOMER_SOURCES: CustomerSource[] = [
   },
   {
     name: 'haravan',
-    dataset: 'olvboutique_haravan',
+    dataset: 'olvboutique',
     table: 'raw_hrv_Customers',
     mapping: {
       id: 'CusId',
@@ -98,7 +98,7 @@ const CUSTOMER_SOURCES: CustomerSource[] = [
   },
   {
     name: 'bluecore',
-    dataset: 'olvboutique_bcapp',
+    dataset: 'olvboutique',
     table: 'BCApp_MemberInfo',
     mapping: {
       id: 'id',
@@ -114,7 +114,7 @@ const CUSTOMER_SOURCES: CustomerSource[] = [
 const ORDER_SOURCES = [
   { 
     channel: 'shopee', 
-    dataset: 'olvboutique_shopee', 
+    dataset: 'olvboutique', 
     table: 'shopee_Orders',
     mapping: {
       order_key: 'order_sn',
@@ -129,7 +129,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'lazada',
-    dataset: 'olvboutique_lazada',
+    dataset: 'olvboutique',
     table: 'lazada_Orders',
     mapping: {
       order_key: 'order_id',
@@ -142,7 +142,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'tiktok',
-    dataset: 'olvboutique_tiktokshop',
+    dataset: 'olvboutique',
     table: 'tiktok_Orders',
     mapping: {
       order_key: 'id',
@@ -154,7 +154,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'tiki',
-    dataset: 'olvboutique_tiki',
+    dataset: 'olvboutique',
     table: 'tiki_Orders',
     mapping: {
       order_key: 'code',
@@ -167,7 +167,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'kiotviet',
-    dataset: 'olvboutique_kiotviet',
+    dataset: 'olvboutique',
     table: 'raw_kiotviet_Orders',
     mapping: {
       order_key: 'Id',
