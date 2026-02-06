@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { useDemographicsData } from './useDemographicsData';
 import { useMemo } from 'react';
@@ -151,7 +151,7 @@ interface CustomerMetric {
 }
 
 export function useAudienceData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   // Fetch orders data for audience analysis

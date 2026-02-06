@@ -80,7 +80,6 @@ export default function CreditDebitNotesPage() {
   const { t } = useLanguage();
   const { data: creditNotes, isLoading: creditLoading, refetch: refetchCredit } = useCreditNotes();
   const { data: debitNotes, isLoading: debitLoading, refetch: refetchDebit } = useDebitNotes();
-  const { data: adjustments } = useInvoiceAdjustments();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [search, setSearch] = useState('');

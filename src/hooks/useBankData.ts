@@ -1,11 +1,12 @@
 /**
  * useBankData - Bank account and transaction management
  * 
- * Schema-per-Tenant Ready
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Banking
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface BankAccount {
@@ -39,26 +40,18 @@ export interface BankTransaction {
 
 // Fetch all bank accounts
 export function useBankAccounts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['bank-accounts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('bank_accounts')
-        .select('*')
+      const { data, error } = await buildSelectQuery('bank_accounts', '*')
         .order('bank_name', { ascending: true });
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
-      return data as BankAccount[];
+      return data as unknown as BankAccount[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -67,7 +60,7 @@ export function useBankAccounts() {
 
 // Fetch bank transactions
 export function useBankTransactions(bankAccountId?: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['bank-transactions', tenantId, bankAccountId],
@@ -135,14 +128,12 @@ export function useBankStats() {
 
 // Update bank account
 export function useUpdateBankAccount() {
-  const { client } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<BankAccount> }) => {
-      const { error } = await client
-        .from('bank_accounts')
-        .update(updates)
+      const { error } = await buildUpdateQuery('bank_accounts', updates)
         .eq('id', id);
 
       if (error) throw error;

@@ -1,9 +1,10 @@
 /**
  * useWorkingCapital - REFACTORED to use precomputed data
  * 
- * ⚠️ NOW USES CANONICAL HOOKS ONLY - NO CLIENT-SIDE CALCULATIONS
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain FDP/Working Capital
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * Uses canonical hooks only - NO client-side calculations
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +13,7 @@ import { format } from 'date-fns';
 import { useWorkingCapitalDaily, useLatestWorkingCapital, FormattedWorkingCapital } from './useWorkingCapitalDaily';
 import { useFinanceTruthSnapshot } from './useFinanceTruthSnapshot';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // =============================================================
 // TYPES
@@ -65,26 +66,21 @@ export interface WorkingCapitalRecommendation {
 // =============================================================
 
 export function useWorkingCapitalMetrics() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['working-capital-metrics', tenantId],
     queryFn: async () => {
-      let query = client
-        .from('working_capital_metrics')
-        .select('*')
+      if (!tenantId) return [];
+
+      const { data, error } = await buildSelectQuery('working_capital_metrics', '*')
         .order('metric_date', { ascending: false })
         .limit(12);
       
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data, error } = await query;
       if (error) throw error;
-      return data as WorkingCapitalMetric[];
+      return data as unknown as WorkingCapitalMetric[];
     },
-    enabled: isReady,
+    enabled: !!tenantId && isReady,
   });
 }
 
@@ -93,7 +89,7 @@ export function useWorkingCapitalMetrics() {
  * NO client-side DSO/DPO/CCC calculations
  */
 export function useWorkingCapitalSummary() {
-  const { tenantId, isReady } = useTenantSupabaseCompat();
+  const { tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
   
   // Use canonical precomputed hooks
@@ -243,7 +239,7 @@ export function useWorkingCapitalSummary() {
 
 export function useSaveWorkingCapitalMetric() {
   const queryClient = useQueryClient();
-  const { client, tenantId, isReady } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async (metric: Partial<WorkingCapitalMetric>) => {

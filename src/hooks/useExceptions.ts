@@ -1,5 +1,12 @@
+/**
+ * useExceptions - Exception queue management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Control Tower/Exceptions
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 // Types
 export interface Exception {
@@ -79,20 +86,14 @@ export interface ExceptionFilters {
 
 // Hook: Fetch exceptions list
 export function useExceptions(filters: ExceptionFilters = {}) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['exceptions', tenantId, filters],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('exceptions_queue')
-        .select('*');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
+      let query = buildSelectQuery('exceptions_queue', '*');
 
       // Apply filters
       if (filters.status && filters.status !== 'all') {
@@ -125,7 +126,7 @@ export function useExceptions(filters: ExceptionFilters = {}) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as Exception[];
+      return data as unknown as Exception[];
     },
     staleTime: 30000,
     enabled: !!tenantId && isReady,
@@ -134,43 +135,35 @@ export function useExceptions(filters: ExceptionFilters = {}) {
 
 // Hook: Fetch exception stats
 export function useExceptionStats() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['exception-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('exceptions_queue')
-        .select('status, severity, exception_type, impact_amount');
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await buildSelectQuery('exceptions_queue', 'status, severity, exception_type, impact_amount');
 
       if (error) throw error;
 
       const stats: ExceptionStats = {
         total: data?.length || 0,
-        open: data?.filter(e => e.status === 'open').length || 0,
-        triaged: data?.filter(e => e.status === 'triaged').length || 0,
-        snoozed: data?.filter(e => e.status === 'snoozed').length || 0,
-        resolved: data?.filter(e => e.status === 'resolved').length || 0,
+        open: data?.filter((e: any) => e.status === 'open').length || 0,
+        triaged: data?.filter((e: any) => e.status === 'triaged').length || 0,
+        snoozed: data?.filter((e: any) => e.status === 'snoozed').length || 0,
+        resolved: data?.filter((e: any) => e.status === 'resolved').length || 0,
         by_severity: {
-          critical: data?.filter(e => e.status === 'open' && e.severity === 'critical').length || 0,
-          high: data?.filter(e => e.status === 'open' && e.severity === 'high').length || 0,
-          medium: data?.filter(e => e.status === 'open' && e.severity === 'medium').length || 0,
-          low: data?.filter(e => e.status === 'open' && e.severity === 'low').length || 0,
+          critical: data?.filter((e: any) => e.status === 'open' && e.severity === 'critical').length || 0,
+          high: data?.filter((e: any) => e.status === 'open' && e.severity === 'high').length || 0,
+          medium: data?.filter((e: any) => e.status === 'open' && e.severity === 'medium').length || 0,
+          low: data?.filter((e: any) => e.status === 'open' && e.severity === 'low').length || 0,
         },
         by_type: {
-          ORPHAN_BANK_TXN: data?.filter(e => e.status === 'open' && e.exception_type === 'ORPHAN_BANK_TXN').length || 0,
-          AR_OVERDUE: data?.filter(e => e.status === 'open' && e.exception_type === 'AR_OVERDUE').length || 0,
-          PARTIAL_MATCH_STUCK: data?.filter(e => e.status === 'open' && e.exception_type === 'PARTIAL_MATCH_STUCK').length || 0,
+          ORPHAN_BANK_TXN: data?.filter((e: any) => e.status === 'open' && e.exception_type === 'ORPHAN_BANK_TXN').length || 0,
+          AR_OVERDUE: data?.filter((e: any) => e.status === 'open' && e.exception_type === 'AR_OVERDUE').length || 0,
+          PARTIAL_MATCH_STUCK: data?.filter((e: any) => e.status === 'open' && e.exception_type === 'PARTIAL_MATCH_STUCK').length || 0,
         },
-        total_impact: data?.filter(e => e.status === 'open').reduce((sum, e) => sum + (Number(e.impact_amount) || 0), 0) || 0,
+        total_impact: data?.filter((e: any) => e.status === 'open').reduce((sum: number, e: any) => sum + (Number(e.impact_amount) || 0), 0) || 0,
       };
 
       return stats;
@@ -182,71 +175,72 @@ export function useExceptionStats() {
 
 // Hook: Fetch single exception detail
 export function useExceptionDetail(exceptionId: string | null) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, buildSelectQuery, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['exception-detail', tenantId, exceptionId],
     queryFn: async () => {
       if (!exceptionId || !tenantId) return null;
 
-      let query = client
-        .from('exceptions_queue')
-        .select('*')
-        .eq('id', exceptionId);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data: exception, error } = await query.single();
+      const { data: exception, error } = await buildSelectQuery('exceptions_queue', '*')
+        .eq('id', exceptionId)
+        .single();
 
       if (error) throw error;
       if (!exception) return null;
 
+      const ex = exception as unknown as Exception;
+
       // Get additional context based on ref_type
       let refData = null;
-      if (exception.ref_type === 'invoice') {
+      if (ex.ref_type === 'invoice') {
         let invoiceQuery = client
           .from('invoices')
           .select(`
             *,
             customers (name, email, phone)
           `)
-          .eq('id', exception.ref_id);
+          .eq('id', ex.ref_id);
+        if (shouldAddTenantFilter) {
+          invoiceQuery = invoiceQuery.eq('tenant_id', tenantId);
+        }
         const { data: invoice } = await invoiceQuery.single();
         refData = invoice;
-      } else if (exception.ref_type === 'bank_transaction') {
+      } else if (ex.ref_type === 'bank_transaction') {
         let txnQuery = client
           .from('bank_transactions')
           .select('*')
-          .eq('id', exception.ref_id);
+          .eq('id', ex.ref_id);
+        if (shouldAddTenantFilter) {
+          txnQuery = txnQuery.eq('tenant_id', tenantId);
+        }
         const { data: txn } = await txnQuery.single();
         refData = txn;
       }
 
-      const aging = Math.floor((Date.now() - new Date(exception.detected_at).getTime()) / (1000 * 60 * 60 * 24));
+      const aging = Math.floor((Date.now() - new Date(ex.detected_at).getTime()) / (1000 * 60 * 60 * 24));
 
       const explanation: ExceptionExplanation = {
-        id: exception.id,
-        type: exception.exception_type,
-        severity: exception.severity,
-        status: exception.status,
-        title: exception.title,
-        description: exception.description,
+        id: ex.id,
+        type: ex.exception_type,
+        severity: ex.severity,
+        status: ex.status,
+        title: ex.title,
+        description: ex.description,
         impact: {
-          amount: Number(exception.impact_amount),
-          currency: exception.currency,
+          amount: Number(ex.impact_amount),
+          currency: ex.currency,
         },
         aging_days: aging,
-        detected_at: exception.detected_at,
-        last_seen_at: exception.last_seen_at,
-        evidence: exception.evidence as Record<string, unknown>,
-        payload: exception.payload as Record<string, unknown>,
+        detected_at: ex.detected_at,
+        last_seen_at: ex.last_seen_at,
+        evidence: ex.evidence,
+        payload: ex.payload,
         ref_data: refData,
-        suggested_actions: getSuggestedActions(exception.exception_type),
-        assigned_to: exception.assigned_to,
-        triage_notes: exception.triage_notes,
-        snoozed_until: exception.snoozed_until,
+        suggested_actions: getSuggestedActions(ex.exception_type),
+        assigned_to: ex.assigned_to,
+        triage_notes: ex.triage_notes,
+        snoozed_until: ex.snoozed_until,
       };
 
       return explanation;
@@ -259,7 +253,7 @@ export function useExceptionDetail(exceptionId: string | null) {
 // Hook: Triage exception
 export function useTriageException() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ 
@@ -271,20 +265,14 @@ export function useTriageException() {
       assignedTo?: string; 
       triageNotes?: string;
     }) => {
-      let query = client
-        .from('exceptions_queue')
-        .update({
-          status: 'triaged',
-          assigned_to: assignedTo || null,
-          triage_notes: triageNotes || null,
-        })
-        .eq('id', exceptionId);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.select().single();
+      const { data, error } = await buildUpdateQuery('exceptions_queue', {
+        status: 'triaged',
+        assigned_to: assignedTo || null,
+        triage_notes: triageNotes || null,
+      })
+        .eq('id', exceptionId)
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
@@ -300,7 +288,7 @@ export function useTriageException() {
 // Hook: Snooze exception
 export function useSnoozeException() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ 
@@ -310,19 +298,13 @@ export function useSnoozeException() {
       exceptionId: string; 
       snoozedUntil: string;
     }) => {
-      let query = client
-        .from('exceptions_queue')
-        .update({
-          status: 'snoozed',
-          snoozed_until: snoozedUntil,
-        })
-        .eq('id', exceptionId);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.select().single();
+      const { data, error } = await buildUpdateQuery('exceptions_queue', {
+        status: 'snoozed',
+        snoozed_until: snoozedUntil,
+      })
+        .eq('id', exceptionId)
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
@@ -338,7 +320,7 @@ export function useSnoozeException() {
 // Hook: Resolve exception
 export function useResolveException() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, buildUpdateQuery } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ 
@@ -350,21 +332,15 @@ export function useResolveException() {
     }) => {
       const { data: { user } } = await client.auth.getUser();
 
-      let query = client
-        .from('exceptions_queue')
-        .update({
-          status: 'resolved',
-          resolved_at: new Date().toISOString(),
-          resolved_by: user?.id || null,
-          triage_notes: resolvedReason ? `Resolved: ${resolvedReason}` : 'Manually resolved',
-        })
-        .eq('id', exceptionId);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.select().single();
+      const { data, error } = await buildUpdateQuery('exceptions_queue', {
+        status: 'resolved',
+        resolved_at: new Date().toISOString(),
+        resolved_by: user?.id || null,
+        triage_notes: resolvedReason ? `Resolved: ${resolvedReason}` : 'Manually resolved',
+      })
+        .eq('id', exceptionId)
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
