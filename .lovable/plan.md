@@ -1,386 +1,417 @@
-# PLAN: Tạo Edge Function `bigquery-query` để Query Raw Data từ BigQuery
 
-## ✅ COMPLETED
+# PLAN: Test End-to-End BigQuery Sync theo Architecture v1.4.2
 
-**Implementation completed:**
-- ✅ Edge Function: `supabase/functions/bigquery-query/index.ts`
-- ✅ React Hook: `src/hooks/useBigQueryQuery.ts`
-- ✅ Deployed and tested
+## 1. TỔNG QUAN
 
-**Features:**
-- `raw_select`, `filtered`, `aggregated`, `custom_sql` query types
-- SQL injection prevention (identifier validation, value escaping)
-- Operators: eq, neq, gt, gte, lt, lte, like, in, between, is_null, is_not_null
-- Pagination with limit/offset (max 10,000 rows)
-- Caching with configurable TTL (default 15 min)
-- Tenant isolation via `bigquery_configs` table
-
----
-
-## 1. MỤC ĐÍCH
-
-Tạo Edge Function mới `bigquery-query` với khả năng:
-- Query raw data trực tiếp từ BigQuery tables
-- Hỗ trợ cả predefined queries và custom SQL
-- Tích hợp authentication + tenant isolation
-- Caching kết quả để optimize performance
-- Response format chuẩn hóa cho UI consumption
-
-## 2. SỰ KHÁC BIỆT VỚI EXISTING FUNCTIONS
-
-| Function | Mục đích | Use Case |
-|----------|----------|----------|
-| `bigquery-list` | List datasets, tables, preview schema | Admin/Config UI |
-| `bigquery-realtime` | Aggregated metrics (daily_revenue, channel_summary) | Dashboard widgets |
-| `sync-bigquery` | Sync data từ BQ → Supabase (SSOT Layer 2) | Background jobs |
-| **`bigquery-query` (MỚI)** | Query raw data với filters, pagination | Data exploration, reports |
-
-## 3. KIẾN TRÚC
+Test đồng bộ dữ liệu từ BigQuery lên các layers của Supabase theo kiến trúc:
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         bigquery-query                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  INPUT                          PROCESSING                      OUTPUT   │
-│  ─────                          ──────────                      ──────   │
-│  • tenant_id                    1. Validate auth               • rows[]  │
-│  • dataset                      2. Load tenant config          • schema  │
-│  • table                        3. Build safe query            • stats   │
-│  • query_type:                  4. Execute via BQ API          • cached  │
-│    - raw_select                 5. Transform response                    │
-│    - filtered                   6. Cache results                         │
-│    - custom_sql                 7. Return JSON                           │
-│  • filters[]                                                             │
-│  • columns[]                                                             │
-│  • order_by                                                              │
-│  • limit/offset                                                          │
-│  • date_range                                                            │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+BigQuery (Raw Data)
+      │
+      ▼ sync-bigquery / bigquery-query
+L2 MASTER MODEL (SSOT)
+      │ cdp_orders, cdp_order_items
+      │
+      ▼ compute_kpi_facts_daily()
+L3 KPI AGGREGATION
+      │ kpi_facts_daily, kpi_targets
+      │
+      ▼ detect_threshold_breaches()
+L4 ALERT/DECISION
+      │ alert_instances, decision_cards
 ```
 
-## 4. API SPECIFICATION
+## 2. PREREQUISITE CHECK
 
-### 4.1 Request Body
+| Component | Status | Action Required |
+|-----------|--------|-----------------|
+| `GOOGLE_SERVICE_ACCOUNT_JSON` secret | ✅ Configured | None |
+| `bigquery-query` Edge Function | ✅ Deployed | None |
+| `sync-bigquery` Edge Function | ✅ Deployed | None |
+| `bigquery_data_models` table | ✅ Exists (empty) | Create test model |
+| `bigquery_sync_watermarks` table | ✅ Exists | None |
+| `tenants` table | ⚠️ Empty | Create test tenant |
+| `cdp_orders` table | ✅ Exists | None |
+| `kpi_facts_daily` table | ✅ Exists | None |
+
+## 3. TEST WORKFLOW
+
+### Phase 1: Setup Test Tenant & BigQuery Config
+
+Tạo tenant và cấu hình BigQuery data model:
+
+```sql
+-- Step 1.1: Create test tenant
+INSERT INTO tenants (id, name, slug, plan)
+VALUES (
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  'E2E BigQuery Test',
+  'e2e-bq-test',
+  'pro'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Step 1.2: Create BigQuery config
+INSERT INTO bigquery_configs (tenant_id, project_id, is_active)
+VALUES (
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  'bluecore-dcp',
+  true
+) ON CONFLICT (tenant_id) DO UPDATE SET is_active = true;
+
+-- Step 1.3: Create data models for sync
+INSERT INTO bigquery_data_models (
+  tenant_id, model_name, model_label, bigquery_dataset, bigquery_table,
+  primary_key_field, timestamp_field, target_table, is_enabled
+) VALUES 
+  -- Orders model
+  (
+    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    'shopee_orders',
+    'Shopee Orders',
+    'bluecoredcp_shopee',
+    'shopee_Orders',
+    'order_sn',
+    'create_time',
+    'cdp_orders',
+    true
+  ),
+  -- Order Items model
+  (
+    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    'shopee_order_items',
+    'Shopee Order Items',
+    'bluecoredcp_shopee',
+    'shopee_OrderItems',
+    'item_id',
+    NULL,
+    'cdp_order_items',
+    true
+  )
+ON CONFLICT (tenant_id, model_name) DO UPDATE SET is_enabled = true;
+```
+
+### Phase 2: Test BigQuery Query (L10)
+
+Test direct query từ BigQuery để verify connectivity:
 
 ```typescript
-interface BigQueryQueryRequest {
-  // Required
-  tenant_id: string;
-  dataset: string;           // e.g., "bluecoredcp_shopee"
-  table: string;             // e.g., "shopee_Orders"
-  
-  // Query type
-  query_type: 'raw_select' | 'filtered' | 'aggregated' | 'custom_sql';
-  
-  // For raw_select / filtered
-  columns?: string[];        // Default: ['*']
-  filters?: {
-    field: string;
-    operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'in' | 'between';
-    value: any;
-  }[];
-  order_by?: { field: string; direction: 'asc' | 'desc' }[];
-  
-  // Pagination
-  limit?: number;            // Default: 100, Max: 10000
-  offset?: number;           // Default: 0
-  
-  // Date filtering (common case)
-  date_field?: string;       // e.g., "create_time"
-  start_date?: string;       // ISO format
-  end_date?: string;
-  
-  // For aggregated
-  group_by?: string[];
-  aggregations?: { field: string; func: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' }[];
-  
-  // For custom_sql (restricted)
-  custom_sql?: string;       // Must pass validation
-  
-  // Caching
-  use_cache?: boolean;       // Default: true
-  cache_ttl_minutes?: number; // Default: 15
+// Via Edge Function
+POST /functions/v1/bigquery-query
+{
+  "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "dataset": "bluecoredcp_shopee",
+  "table": "shopee_Orders",
+  "query_type": "filtered",
+  "columns": ["order_sn", "create_time", "total_amount", "order_status"],
+  "limit": 10,
+  "order_by": [{ "field": "create_time", "direction": "desc" }]
 }
 ```
 
-### 4.2 Response Body
+**Expected Result:**
+- `success: true`
+- `row_count: 10`
+- `rows[]` chứa order data từ BigQuery
+
+### Phase 3: Test BigQuery Sync to L2 (Master Model)
+
+Sync data từ BigQuery vào cdp_orders:
 
 ```typescript
-interface BigQueryQueryResponse {
-  success: boolean;
-  
-  // Data
-  rows: Record<string, any>[];
-  row_count: number;
-  total_count?: number;      // For pagination awareness
-  
-  // Schema info
-  schema: {
-    name: string;
-    type: string;
-    mode: string;
-  }[];
-  
-  // Performance
-  query_time_ms: number;
-  bytes_processed?: number;
-  
-  // Cache info
-  cached: boolean;
-  cached_at?: string;
-  expires_at?: string;
-  
-  // Errors
-  error?: string;
-  warnings?: string[];
+// Via Edge Function
+POST /functions/v1/sync-bigquery
+Authorization: Bearer {SERVICE_ROLE_KEY}
+{
+  "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "action": "sync_from_models",
+  "batch_size": 100
 }
 ```
 
-## 5. SECURITY CONSIDERATIONS
+**Verification:**
+```sql
+-- Check synced orders
+SELECT 
+  COUNT(*) as total_orders,
+  SUM(gross_revenue) as total_revenue,
+  MIN(order_at) as first_order,
+  MAX(order_at) as last_order
+FROM cdp_orders
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
-### 5.1 SQL Injection Prevention
-- Sử dụng parameterized query building
-- Whitelist allowed operators
-- Validate column/table names against schema
-- Block dangerous keywords: `DROP`, `DELETE`, `UPDATE`, `INSERT`, `TRUNCATE`, `ALTER`
+-- Check sync watermarks
+SELECT * FROM bigquery_sync_watermarks
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+```
 
-### 5.2 Tenant Isolation
-- Load tenant's BigQuery config từ `bigquery_configs` table
-- Validate dataset access permissions
-- Log all queries với tenant context
+### Phase 4: Test KPI Aggregation (L3)
 
-### 5.3 Rate Limiting
-- Max 100 requests/minute per tenant
-- Max 10000 rows per query
-- Max query timeout: 30 seconds
+Sau khi có data ở L2, chạy KPI aggregation:
+
+```sql
+-- Option A: Call function if exists
+SELECT compute_kpi_facts_daily(
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  CURRENT_DATE
+);
+
+-- Option B: Direct aggregation
+INSERT INTO kpi_facts_daily (tenant_id, kpi_id, fact_date, value, grain)
+SELECT
+  tenant_id,
+  (SELECT id FROM kpi_definitions WHERE code = 'REVENUE' LIMIT 1),
+  order_at::date,
+  SUM(net_revenue),
+  'daily'
+FROM cdp_orders
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+GROUP BY tenant_id, order_at::date;
+```
+
+**Verification:**
+```sql
+SELECT 
+  fact_date,
+  SUM(value) as total_value,
+  COUNT(*) as kpi_count
+FROM kpi_facts_daily
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+GROUP BY fact_date
+ORDER BY fact_date DESC
+LIMIT 10;
+```
+
+### Phase 5: Test Alert Detection (L4)
+
+Trigger alert detection dựa trên KPI thresholds:
+
+```sql
+-- Check if detect function exists
+SELECT detect_threshold_breaches(
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+);
+
+-- Verify alerts
+SELECT * FROM alert_instances
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+## 4. TEST SCRIPT CHI TIẾT
+
+### Script 1: Setup (`test-bq-01-setup.sql`)
+
+```sql
+-- ============================================================================
+-- BIGQUERY SYNC TEST - SETUP
+-- ============================================================================
+
+-- Cleanup existing test data
+DELETE FROM bigquery_sync_watermarks 
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+DELETE FROM bigquery_data_models 
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+DELETE FROM cdp_orders 
+WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+-- Create tenant
+INSERT INTO tenants (id, name, slug, plan)
+VALUES (
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  'E2E BigQuery Test',
+  'e2e-bq-test',
+  'pro'
+) ON CONFLICT (id) DO UPDATE SET name = 'E2E BigQuery Test';
+
+-- Create BigQuery config
+INSERT INTO bigquery_configs (tenant_id, project_id, is_active)
+VALUES (
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  'bluecore-dcp',
+  true
+) ON CONFLICT (tenant_id) DO UPDATE SET is_active = true;
+
+-- Create connector integration
+INSERT INTO connector_integrations (
+  id, tenant_id, connector_type, connector_name, status
+) VALUES (
+  '11111111-1111-1111-1111-111111111111',
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  'bigquery',
+  'BigQuery - Shopee',
+  'active'
+) ON CONFLICT (id) DO UPDATE SET status = 'active';
+
+-- Create data models
+INSERT INTO bigquery_data_models (
+  tenant_id, model_name, model_label, bigquery_dataset, bigquery_table,
+  primary_key_field, timestamp_field, target_table, is_enabled, sync_frequency_hours
+) VALUES 
+(
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  'shopee_orders',
+  'Shopee Orders',
+  'bluecoredcp_shopee',
+  'shopee_Orders',
+  'order_sn',
+  'create_time',
+  'cdp_orders',
+  true,
+  1
+)
+ON CONFLICT (tenant_id, model_name) DO UPDATE SET is_enabled = true;
+
+SELECT 'Setup completed' as status;
+```
+
+### Script 2: Verify BigQuery Query (`test-bq-02-query.ts`)
+
+```typescript
+// Test via Edge Function
+async function testBigQueryQuery() {
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/bigquery-query`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        dataset: 'bluecoredcp_shopee',
+        table: 'shopee_Orders',
+        query_type: 'filtered',
+        columns: ['order_sn', 'create_time', 'total_amount'],
+        limit: 5,
+      }),
+    }
+  );
+  
+  const result = await response.json();
+  console.log('Query result:', result);
+  
+  return {
+    success: result.success,
+    row_count: result.row_count,
+    has_schema: result.schema?.length > 0,
+  };
+}
+```
+
+### Script 3: Sync & Verify (`test-bq-03-sync.ts`)
+
+```typescript
+// Trigger sync
+async function testBigQuerySync() {
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/sync-bigquery`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        action: 'sync_from_models',
+        batch_size: 100,
+      }),
+    }
+  );
+  
+  return await response.json();
+}
+
+// Verify sync
+async function verifySyncResults() {
+  const { data: orders } = await supabase
+    .from('cdp_orders')
+    .select('*', { count: 'exact' })
+    .eq('tenant_id', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    
+  const { data: watermarks } = await supabase
+    .from('bigquery_sync_watermarks')
+    .select('*')
+    .eq('tenant_id', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    
+  return {
+    orders_synced: orders?.length || 0,
+    watermark_status: watermarks?.[0]?.sync_status,
+    last_sync: watermarks?.[0]?.last_sync_at,
+  };
+}
+```
+
+## 5. FILES TO CREATE
+
+| File | Purpose |
+|------|---------|
+| `supabase/e2e-test/bigquery/01-setup.sql` | Setup tenant & config |
+| `supabase/e2e-test/bigquery/02-test-query.sql` | Test BigQuery query |
+| `supabase/e2e-test/bigquery/03-test-sync.sql` | Test sync to L2 |
+| `supabase/e2e-test/bigquery/04-verify-l3.sql` | Verify KPI aggregation |
+| `supabase/e2e-test/bigquery/05-verify-l4.sql` | Verify alert detection |
+| `supabase/e2e-test/bigquery/99-cleanup.sql` | Cleanup test data |
 
 ## 6. IMPLEMENTATION STEPS
 
-### Step 1: Create Edge Function Structure
+1. **Create test folder structure** - `supabase/e2e-test/bigquery/`
+2. **Create setup script** - Insert tenant, config, data models
+3. **Test BigQuery connectivity** - Via `bigquery-query` function
+4. **Test sync flow** - Via `sync-bigquery` function
+5. **Verify L2 data** - Check cdp_orders populated
+6. **Run L3 aggregation** - Generate kpi_facts_daily
+7. **Run L4 detection** - Generate alerts if thresholds breached
+8. **Create verification script** - Summary report
+
+## 7. EXPECTED OUTPUT
+
 ```text
-supabase/functions/bigquery-query/
-└── index.ts
+═══════════════════════════════════════════════════════════════════════
+              BIGQUERY SYNC E2E TEST - ARCHITECTURE v1.4.2             
+═══════════════════════════════════════════════════════════════════════
+
+STEP 1: BigQuery Connectivity
+  ✅ Query executed successfully
+  ✅ Returned 5 rows from shopee_Orders
+  ✅ Schema detected: 15 fields
+
+STEP 2: Sync to L2 Master Model
+  ✅ sync-bigquery function called
+  ✅ cdp_orders: 100 records synced
+  ✅ Watermark updated: completed
+
+STEP 3: KPI Aggregation (L3)
+  ✅ kpi_facts_daily: 30 records generated
+  ✅ Revenue metrics computed
+
+STEP 4: Alert Detection (L4)
+  ✅ Threshold check completed
+  ✅ alert_instances: 3 alerts generated
+
+═══════════════════════════════════════════════════════════════════════
+                    ALL LAYERS VERIFIED ✅
+═══════════════════════════════════════════════════════════════════════
 ```
 
-### Step 2: Core Components
+## 8. TECHNICAL NOTES
 
-```typescript
-// 1. Safe Query Builder
-function buildSafeQuery(params: BigQueryQueryRequest): string {
-  // Validate table/column names
-  // Build WHERE clause from filters
-  // Add ORDER BY, LIMIT, OFFSET
-  // Return parameterized query
-}
+### BigQuery Datasets Available
+- `bluecoredcp_shopee` - Shopee data
+- `bluecoredcp_lazada` - Lazada data
+- `bluecoredcp_tiktokshop` - TikTok data
+- `bluecoredcp_sapo` - Sapo data
 
-// 2. SQL Validator (for custom_sql)
-function validateCustomSql(sql: string): { valid: boolean; error?: string } {
-  // Check for dangerous keywords
-  // Validate syntax structure
-  // Ensure SELECT only
-}
+### Key Functions
+- `sync-bigquery` - Main sync function (requires service role key)
+- `bigquery-query` - Query function (anon key OK)
+- `scheduled-bigquery-sync` - Cron-triggered sync
 
-// 3. Cache Manager
-async function getCachedResult(queryHash: string, tenantId: string): Promise<any | null>
-async function setCacheResult(queryHash: string, tenantId: string, data: any, ttl: number): Promise<void>
-```
-
-### Step 3: Main Handler Flow
-
-```typescript
-serve(async (req) => {
-  // 1. CORS handling
-  if (req.method === 'OPTIONS') return corsResponse();
-  
-  // 2. Parse request
-  const params = await req.json();
-  
-  // 3. Validate tenant
-  if (!params.tenant_id) throw Error('tenant_id required');
-  
-  // 4. Check cache
-  const queryHash = await hashQuery(params);
-  if (params.use_cache) {
-    const cached = await getCachedResult(queryHash, params.tenant_id);
-    if (cached) return jsonResponse({ ...cached, cached: true });
-  }
-  
-  // 5. Load tenant config
-  const config = await getTenantConfig(params.tenant_id);
-  
-  // 6. Build query
-  let query: string;
-  if (params.query_type === 'custom_sql') {
-    const validation = validateCustomSql(params.custom_sql);
-    if (!validation.valid) throw Error(validation.error);
-    query = params.custom_sql;
-  } else {
-    query = buildSafeQuery(params, config);
-  }
-  
-  // 7. Execute query
-  const startTime = Date.now();
-  const accessToken = await getAccessToken(serviceAccount);
-  const result = await executeQuery(accessToken, config.project_id, query);
-  const queryTime = Date.now() - startTime;
-  
-  // 8. Cache result
-  if (params.use_cache && result.rows.length > 0) {
-    await setCacheResult(queryHash, params.tenant_id, result, params.cache_ttl_minutes);
-  }
-  
-  // 9. Return response
-  return jsonResponse({
-    success: true,
-    rows: result.rows,
-    row_count: result.rows.length,
-    schema: result.schema,
-    query_time_ms: queryTime,
-    cached: false,
-  });
-});
-```
-
-## 7. FILTER OPERATORS MAPPING
-
-```typescript
-const OPERATOR_MAP = {
-  'eq': '=',
-  'neq': '!=',
-  'gt': '>',
-  'gte': '>=',
-  'lt': '<',
-  'lte': '<=',
-  'like': 'LIKE',
-  'in': 'IN',
-  'between': 'BETWEEN',
-};
-
-// Example filter building
-// { field: 'order_status', operator: 'eq', value: 'COMPLETED' }
-// → WHERE order_status = 'COMPLETED'
-
-// { field: 'total_amount', operator: 'between', value: [100000, 500000] }
-// → WHERE total_amount BETWEEN 100000 AND 500000
-```
-
-## 8. ERROR HANDLING
-
-```typescript
-const ERROR_CODES = {
-  INVALID_PARAMS: { status: 400, message: 'Invalid request parameters' },
-  UNAUTHORIZED: { status: 401, message: 'Authentication required' },
-  FORBIDDEN: { status: 403, message: 'Access denied to this dataset' },
-  NOT_FOUND: { status: 404, message: 'Table or dataset not found' },
-  QUERY_ERROR: { status: 422, message: 'Query execution failed' },
-  RATE_LIMITED: { status: 429, message: 'Too many requests' },
-  TIMEOUT: { status: 504, message: 'Query timeout exceeded' },
-};
-```
-
-## 9. FILES TO CREATE/MODIFY
-
-| File | Action | Description |
-|------|--------|-------------|
-| `supabase/functions/bigquery-query/index.ts` | CREATE | Main function implementation |
-| `src/hooks/useBigQueryQuery.ts` | CREATE | React hook để gọi function |
-| `supabase/config.toml` | MODIFY | Add function config (verify_jwt = false) |
-
-## 10. TECHNICAL DETAILS
-
-### 10.1 Edge Function Code Structure
-
-```typescript
-// supabase/functions/bigquery-query/index.ts
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = { /* ... */ };
-
-// Reuse getAccessToken from bigquery-list
-async function getAccessToken(serviceAccount: any): Promise<string> { /* ... */ }
-
-// Safe query builder
-function buildSafeQuery(params: BigQueryQueryRequest, projectId: string): string { /* ... */ }
-
-// SQL validator
-function validateCustomSql(sql: string): ValidationResult { /* ... */ }
-
-// Main handler
-serve(async (req) => { /* ... */ });
-```
-
-### 10.2 React Hook
-
-```typescript
-// src/hooks/useBigQueryQuery.ts
-
-export function useBigQueryQuery(params: BigQueryQueryParams) {
-  const { client, tenantId, isReady } = useTenantQueryBuilder();
-  
-  return useQuery({
-    queryKey: ['bigquery-query', tenantId, params],
-    queryFn: async () => {
-      const { data, error } = await client.functions.invoke('bigquery-query', {
-        body: { tenant_id: tenantId, ...params }
-      });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId && isReady && !!params.dataset && !!params.table,
-  });
-}
-```
-
-## 11. TESTING PLAN
-
-### 11.1 Unit Tests
-- Filter builder với các operators
-- SQL validator với dangerous inputs
-- Cache hash generation
-
-### 11.2 Integration Tests
-```typescript
-// Test raw_select
-await invoke('bigquery-query', {
-  tenant_id: 'test-tenant',
-  dataset: 'bluecoredcp_shopee',
-  table: 'shopee_Orders',
-  query_type: 'raw_select',
-  limit: 10,
-});
-
-// Test filtered
-await invoke('bigquery-query', {
-  tenant_id: 'test-tenant',
-  dataset: 'bluecoredcp_shopee',
-  table: 'shopee_Orders',
-  query_type: 'filtered',
-  filters: [
-    { field: 'order_status', operator: 'eq', value: 'COMPLETED' },
-    { field: 'create_time', operator: 'gte', value: '2024-01-01' },
-  ],
-  order_by: [{ field: 'create_time', direction: 'desc' }],
-  limit: 100,
-});
-```
-
-## 12. ESTIMATED EFFORT
-
-| Task | Time |
-|------|------|
-| Create Edge Function | 1h |
-| Implement safe query builder | 0.5h |
-| Implement SQL validator | 0.5h |
-| Create React hook | 0.5h |
-| Testing & deployment | 0.5h |
-| **Total** | **3h** |
-
-## 13. DEPENDENCIES
-
-- Secret `GOOGLE_SERVICE_ACCOUNT_JSON` đã được cấu hình
-- Tenant có config trong `bigquery_configs` table
-- BigQuery project có quyền access với Service Account
+### Security
+- `sync-bigquery` validates `Authorization: Bearer {SERVICE_ROLE_KEY}`
+- Tenant isolation via `tenant_id` filter
+- SQL injection prevention in query builder
