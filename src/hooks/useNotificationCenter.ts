@@ -16,7 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client'; // Used for auth.getUser() and realtime only
 
 // ============= Types =============
 

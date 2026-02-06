@@ -1,7 +1,11 @@
+/**
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import {
   Dialog,
@@ -51,7 +55,7 @@ export function CreateTaskFromAlertDialog({
   onOpenChange,
   alert,
 }: CreateTaskFromAlertDialogProps) {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   
   const [title, setTitle] = useState('');
@@ -110,31 +114,28 @@ export function CreateTaskFromAlertDialog({
 
       const { data: userData } = await supabase.auth.getUser();
       
-      const { error } = await supabase
-        .from('tasks')
-        .insert({
-          tenant_id: tenantId,
-          title,
-          description,
-          status: 'todo',
-          priority,
-          assignee_id: assigneeId || null,
-          assignee_name: selectedMember?.name || null,
-          department: department || null,
-          due_date: dueDate ? new Date(dueDate).toISOString() : null,
-          source_type: 'alert',
-          source_id: alert.id,
-          source_alert_type: alert.alert_type,
-          created_by: userData.user?.id || null,
-          metadata: {
-            alert_title: alert.title,
-            alert_severity: alert.severity,
-            alert_category: alert.category,
-            current_value: alert.current_value,
-            threshold_value: alert.threshold_value,
-            assignee_email: selectedMember?.email || null,
-          },
-        });
+      const { error } = await buildInsertQuery('tasks', {
+        title,
+        description,
+        status: 'todo',
+        priority,
+        assignee_id: assigneeId || null,
+        assignee_name: selectedMember?.name || null,
+        department: department || null,
+        due_date: dueDate ? new Date(dueDate).toISOString() : null,
+        source_type: 'alert',
+        source_id: alert.id,
+        source_alert_type: alert.alert_type,
+        created_by: userData.user?.id || null,
+        metadata: {
+          alert_title: alert.title,
+          alert_severity: alert.severity,
+          alert_category: alert.category,
+          current_value: alert.current_value,
+          threshold_value: alert.threshold_value,
+          assignee_email: selectedMember?.email || null,
+        },
+      });
 
       if (error) throw error;
     },

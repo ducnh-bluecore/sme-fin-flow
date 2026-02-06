@@ -1,7 +1,10 @@
+/**
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
+ */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -291,17 +294,15 @@ function OutcomeCard({ outcome }: { outcome: OutcomeWithDecision }) {
 }
 
 export function OutcomeHistoryPanel() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data: outcomes, isLoading } = useQuery({
     queryKey: ['outcome-history', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Join with decision_audit_log to get decision details
-      const { data, error } = await supabase
-        .from('decision_outcomes')
-        .select(`
+      // Fetch outcomes
+      const { data, error } = await buildSelectQuery('decision_outcomes', `
           id,
           measured_at,
           actual_impact_amount,
@@ -316,33 +317,33 @@ export function OutcomeHistoryPanel() {
           current_metrics,
           decision_audit_id
         `)
-        .eq('tenant_id', tenantId)
         .order('measured_at', { ascending: false });
 
       if (error) throw error;
 
+      const rawData = (data || []) as unknown as any[];
+      
       // Fetch decision details for each outcome
-      const outcomeIds = data.map(o => o.decision_audit_id).filter(Boolean);
+      const outcomeIds = rawData.map(o => o.decision_audit_id).filter(Boolean);
       
       let decisionsMap: Record<string, any> = {};
       if (outcomeIds.length > 0) {
-        const { data: decisions } = await supabase
-          .from('decision_audit_log')
-          .select('id, entity_label, entity_type, card_type, selected_action_label, expected_impact_amount, decided_at')
-          .in('id', outcomeIds);
+        const { data: decisions } = await buildSelectQuery('decision_audit_log', 
+          'id, entity_label, entity_type, card_type, selected_action_label, expected_impact_amount, decided_at'
+        ).in('id', outcomeIds);
         
         if (decisions) {
-          decisionsMap = Object.fromEntries(decisions.map(d => [d.id, d]));
+          decisionsMap = Object.fromEntries((decisions as unknown as any[]).map(d => [d.id, d]));
         }
       }
 
       // Merge data
-      return data.map(o => ({
+      return rawData.map(o => ({
         ...o,
         ...(decisionsMap[o.decision_audit_id] || {}),
       })) as OutcomeWithDecision[];
     },
-    enabled: !!tenantId,
+    enabled: isReady && !!tenantId,
   });
 
   // Stats

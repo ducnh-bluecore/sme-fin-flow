@@ -1,6 +1,8 @@
 /**
  * ProvisionalExpensesSummary - Shows estimated monthly expenses from baselines/estimates
- * Displays in P&L Report to help with future planning
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries
  */
 import { Info, Calendar, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,8 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/formatters';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -36,7 +37,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 function useProvisionalExpenses() {
-  const { data: tenantId, isLoading: tenantLoading } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
@@ -56,10 +57,7 @@ function useProvisionalExpenses() {
       }
 
       // Fetch baselines (fixed costs)
-      const { data: baselines, error: baselineError } = await supabase
-        .from('expense_baselines')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: baselines, error: baselineError } = await buildSelectQuery('expense_baselines', '*')
         .lte('effective_from', new Date().toISOString().split('T')[0])
         .or(`effective_to.is.null,effective_to.gte.${new Date().toISOString().split('T')[0]}`);
 
@@ -68,10 +66,7 @@ function useProvisionalExpenses() {
       }
 
       // Fetch estimates (variable costs) for next month
-      const { data: estimates, error: estimateError } = await supabase
-        .from('expense_estimates')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data: estimates, error: estimateError } = await buildSelectQuery('expense_estimates', '*')
         .eq('year', nextYear)
         .eq('month', nextMonth);
 
@@ -79,14 +74,14 @@ function useProvisionalExpenses() {
         console.error('Error fetching estimates:', estimateError);
       }
 
-      const fixedCosts: ProvisionalExpense[] = (baselines || []).map((b: any) => ({
+      const fixedCosts: ProvisionalExpense[] = ((baselines || []) as unknown as any[]).map((b: any) => ({
         category: b.category,
         name: b.name,
         monthlyAmount: b.monthly_amount || 0,
         source: 'baseline' as const,
       }));
 
-      const variableCosts: ProvisionalExpense[] = (estimates || []).map((e: any) => ({
+      const variableCosts: ProvisionalExpense[] = ((estimates || []) as unknown as any[]).map((e: any) => ({
         category: e.category,
         name: e.name || categoryLabels[e.category] || e.category,
         monthlyAmount: e.estimated_amount || 0,
@@ -104,7 +99,7 @@ function useProvisionalExpenses() {
         totalMonthly: totalFixed + totalVariable,
       };
     },
-    enabled: !!tenantId && !tenantLoading,
+    enabled: isReady && !!tenantId,
     staleTime: 5 * 60 * 1000,
   });
 }
