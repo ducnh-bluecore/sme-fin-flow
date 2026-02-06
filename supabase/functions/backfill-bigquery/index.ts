@@ -123,7 +123,6 @@ const ORDER_SOURCES = [
       customer_name: 'buyer_username',
       customer_phone: 'recipient_address_phone',
       gross_revenue: 'total_amount',
-      net_revenue: 'escrow_amount',
       payment_method: 'payment_method',
     }
   },
@@ -724,19 +723,13 @@ async function syncProducts(
     const products = rows.map(row => ({
       tenant_id: tenantId,
       sku: row.Ma_hang,
-      barcode: row.Ma_hang, // Use SKU as barcode if no separate field
       name: row.Ten_hang,
       category: row.Nhom_hang,
       brand: row.Thuong_hieu,
       unit: null,
       cost_price: parseFloat(row.Gia_goc || '0'),
-      base_price: parseFloat(row.Gia_goc || '0'),
-      sell_price: parseFloat(row.Gia_ban || '0'),
-      metadata: { 
-        kiotviet_id: row.productid,
-        family_code: row.family_code,
-        stock: parseFloat(row.Ton_kho || '0'),
-      },
+      selling_price: parseFloat(row.Gia_ban || '0'),
+      current_stock: parseFloat(row.Ton_kho || '0'),
     }));
     
     const { error, count } = await supabase
