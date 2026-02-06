@@ -114,7 +114,7 @@ const CUSTOMER_SOURCES: CustomerSource[] = [
 const ORDER_SOURCES = [
   { 
     channel: 'shopee', 
-    dataset: 'olvboutique', 
+    dataset: 'olvboutique_shopee', 
     table: 'shopee_Orders',
     mapping: {
       order_key: 'order_sn',
@@ -129,7 +129,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'lazada',
-    dataset: 'olvboutique',
+    dataset: 'olvboutique_lazada',
     table: 'lazada_Orders',
     mapping: {
       order_key: 'order_id',
@@ -142,7 +142,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'tiktok',
-    dataset: 'olvboutique',
+    dataset: 'olvboutique_tiktokshop',
     table: 'tiktok_Orders',
     mapping: {
       order_key: 'id',
@@ -154,7 +154,7 @@ const ORDER_SOURCES = [
   },
   {
     channel: 'tiki',
-    dataset: 'olvboutique',
+    dataset: 'olvboutique_tiki',
     table: 'tiki_Orders',
     mapping: {
       order_key: 'code',
@@ -595,7 +595,7 @@ const ORDER_ITEM_SOURCES = [
   },
   {
     channel: 'kiotviet',
-    dataset: 'olvboutique_kiotviet',
+    dataset: 'olvboutique',
     table: 'raw_kiotviet_OrderDetails',
     mapping: {
       order_key: 'OrderId',
@@ -709,7 +709,7 @@ async function syncProducts(
       CategoryName, TradeMark, Unit, 
       AvgCostPrice, BasePrice, SellPrice,
       CreatedDate, ModifiedDate
-    FROM \`${projectId}.olvboutique_kiotviet.bdm_master_data_products\`
+    FROM \`${projectId}.olvboutique.bdm_master_data_products\`
     ORDER BY ItemId
     LIMIT ${batchSize}
   `;
