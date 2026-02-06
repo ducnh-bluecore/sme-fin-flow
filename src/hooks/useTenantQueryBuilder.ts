@@ -7,14 +7,21 @@
  * 2. Adds tenant_id filter when using shared DB mode (not provisioned)
  * 3. Skips tenant filter when using schema-per-tenant mode (isolation via search_path)
  * 
+ * SSOT v1.4.2 ENFORCEMENT:
+ * - SCHEMA mode: Rejects tenant_id filters (isolation via search_path)
+ * - RLS mode: REQUIRES tenant_id filter (enforced by this builder)
+ * 
  * Usage:
  * ```ts
- * const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+ * const { buildQuery, tenantId, isReady, getQueryContext } = useTenantQueryBuilder();
  * 
  * // Table name auto-translated, tenant filter auto-applied
  * const { data } = await buildQuery('cdp_orders') // → master_orders if provisioned
  *   .select('*')
  *   .order('created_at');
+ * 
+ * // Get context for debugging
+ * const ctx = getQueryContext(); // { mode: 'SCHEMA' | 'RLS', ... }
  * ```
  */
 
@@ -24,6 +31,23 @@ import { useTenantSupabaseCompat } from './useTenantSupabase';
 import { getTableName, isPlatformTable, isPublicOnlyTable } from '@/lib/tableMapping';
 
 export type TableName = string;
+
+/**
+ * Query context for debugging and mode enforcement
+ * @see docs/SSOT_ENFORCEMENT_SPEC.md
+ */
+export interface QueryContext {
+  /** Current isolation mode */
+  mode: 'SCHEMA' | 'RLS';
+  /** Schema name being queried */
+  schema_name: string;
+  /** Current tenant ID */
+  tenant_id: string;
+  /** Organization ID (for RLS within schema) */
+  org_id: string | null;
+  /** Whether tenant_id filter is auto-applied */
+  auto_filter_applied: boolean;
+}
 
 /**
  * Hook to get tenant-aware query builder
@@ -195,6 +219,34 @@ export function useTenantQueryBuilder() {
     [isSchemaProvisioned]
   );
 
+  /**
+   * Get current query context for debugging and mode verification
+   * @see docs/SSOT_ENFORCEMENT_SPEC.md
+   */
+  const getQueryContext = useCallback((): QueryContext => ({
+    mode: isSchemaProvisioned ? 'SCHEMA' : 'RLS',
+    schema_name: isSchemaProvisioned ? `tenant_${tenantId}` : 'public',
+    tenant_id: tenantId || '',
+    org_id: null, // TODO: Add organization context when needed
+    auto_filter_applied: !isSchemaProvisioned && !!tenantId,
+  }), [isSchemaProvisioned, tenantId]);
+
+  /**
+   * Development mode: warn about query mode
+   * Helps detect incorrect assumptions about tenant isolation
+   */
+  const logQueryMode = useCallback((tableName: string, operation: string) => {
+    if (process.env.NODE_ENV === 'development') {
+      const ctx = getQueryContext();
+      console.debug(
+        `[TenantQuery] ${operation} on "${tableName}"`,
+        `| Mode: ${ctx.mode}`,
+        `| Schema: ${ctx.schema_name}`,
+        ctx.auto_filter_applied ? '| tenant_id filter applied' : ''
+      );
+    }
+  }, [getQueryContext]);
+
   return {
     client,
     tenantId,
@@ -211,6 +263,8 @@ export function useTenantQueryBuilder() {
     callRpc,
     // Helpers
     getActualTableName,
+    getQueryContext,
+    logQueryMode,
   };
 }
 
