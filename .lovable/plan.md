@@ -1,462 +1,410 @@
 
-# PLAN: Test End-to-End BigQuery Sync theo Architecture v1.4.2
+# KẾ HOẠCH TEST TỔNG THỂ: BigQuery → L2 SSOT (10 Master Models)
 
 ## 1. TỔNG QUAN
 
-Test đồng bộ dữ liệu từ BigQuery lên các layers của Supabase theo kiến trúc:
+### 1.1 Mục tiêu
+Test toàn bộ flow sync dữ liệu từ BigQuery vào L2 Master Model (SSOT), sau đó aggregate qua L3 KPI và detect alerts ở L4.
+
+### 1.2 Phạm vi Test
 
 ```text
-BigQuery (Raw Data)
-      │
-      ▼ sync-bigquery / bigquery-query
-L2 MASTER MODEL (SSOT)
-      │ cdp_orders, cdp_order_items
-      │
-      ▼ compute_kpi_facts_daily()
-L3 KPI AGGREGATION
-      │ kpi_facts_daily, kpi_targets
-      │
-      ▼ detect_threshold_breaches()
-L4 ALERT/DECISION
-      │ alert_instances, decision_cards
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              BIGQUERY → L2 → L3 → L4 TEST FLOW                                      │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                      │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐           │
+│  │ BIGQUERY        │    │ L2 MASTER MODEL │    │ L3 KPI LAYER    │    │ L4 ALERT LAYER  │           │
+│  │ SOURCE DATA     │ ─► │ (SSOT)          │ ─► │                 │ ─► │                 │           │
+│  ├─────────────────┤    ├─────────────────┤    ├─────────────────┤    ├─────────────────┤           │
+│  │ Customers 454K  │    │ cdp_customers   │    │ kpi_facts_daily │    │ alert_instances │           │
+│  │ Products 16.7K  │    │ products        │    │ kpi_targets     │    │ decision_cards  │           │
+│  │ Orders 560K     │    │ cdp_orders      │    │ kpi_thresholds  │    │ priority_queue  │           │
+│  │ Refunds 17K     │    │ cdp_refunds     │    │                 │    │                 │           │
+│  │ Payments 468K   │    │ cdp_payments    │    │                 │    │                 │           │
+│  │ Fulfillments    │    │ cdp_fulfillments│    │                 │    │                 │           │
+│  │ Inventory 3.9M  │    │ inventory_moves │    │                 │    │                 │           │
+│  │ Campaigns 2K    │    │ campaigns       │    │                 │    │                 │           │
+│  │ Ad Spend 44K    │    │ ad_spend        │    │                 │    │                 │           │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘           │
+│                                                                                                      │
+│  TOTAL: ~6.9M records → ~350K unique customers + 560K orders + related entities                     │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 2. PREREQUISITE CHECK - COMPLETED ✅
+---
 
-| Component | Status | Result |
-|-----------|--------|--------|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` secret | ✅ Configured | Access to olvboutique_* datasets |
-| `bigquery-query` Edge Function | ✅ Deployed | 20 rows queried successfully |
-| `sync-bigquery` Edge Function | ✅ Deployed | Memory limit hit with 5000 rows |
-| `scheduled-bigquery-sync` Function | ✅ Deployed | Works with smaller batches |
-| `bigquery_data_models` table | ✅ Model Created | shopee_orders → cdp_orders |
-| `bigquery_sync_watermarks` table | ✅ Exists | Ready for incremental sync |
-| `tenants` table | ✅ Test Tenant Created | e2e-bq-test (SMB tier) |
-| `cdp_orders` table | ✅ 7 Orders Synced | 4.1M VND gross revenue |
-| `central_metric_facts` table | ✅ KPI Aggregated | 6 orders, 90% margin |
-| `alert_instances` table | ✅ 2 Alerts Created | Cancellation + Revenue alerts |
+## 2. DATA SOURCE MATRIX
 
-## TEST RESULTS SUMMARY
+| Master Model | BigQuery Source | Records | Dedup Strategy |
+|--------------|-----------------|---------|----------------|
+| **Customers** | raw_kiotviet_Customers + raw_hrv_Customers + BCApp_MemberInfo | 454K → 300-350K | Phone/Email |
+| **Products** | bdm_master_data_products | 16.7K | SKU unique |
+| **Orders** | 5 channels (Shopee/Lazada/TikTok/Tiki/KiotViet) | 560K | channel + order_key |
+| **Order Items** | Từ order data | 1.2M | FK to orders |
+| **Refunds** | shopee_Returns + lazada_ReverseOrders + tiktok_Returns | 17K | refund_key |
+| **Payments** | shopee_Escrows + lazada_FinanceTransactionDetails | 468K | payment_key |
+| **Fulfillments** | shopee_TrackingInfo + lazada_LogisticOrderTraces | 285K | tracking_key |
+| **Inventory** | bdm_kov_xuat_nhap_ton | 3.9M | date + sku + warehouse |
+| **Campaigns** | fb_Ads_Campaigns + tiktok_Ads_Campaigns | 2K | campaign_id |
+| **Ad Spend** | fb_Ads_Insights + tiktok_Ads_Insights | 44K | date + campaign |
 
-```text
-═══════════════════════════════════════════════════════════════════════
-              BIGQUERY SYNC E2E TEST - ARCHITECTURE v1.4.2             
-═══════════════════════════════════════════════════════════════════════
+---
 
-STEP 1: BigQuery Connectivity (L10)
-  ✅ Query executed successfully via bigquery-query
-  ✅ Returned 20 rows from olvboutique_shopee.shopee_Orders
-  ✅ Schema detected: 40+ fields
+## 3. SCHEMA CHANGES REQUIRED
 
-STEP 2: Sync to L2 Master Model (cdp_orders)
-  ✅ 7 orders synced to cdp_orders
-  ✅ Total gross revenue: 4,096,498 VND
-  ✅ Total net revenue: 3,101,398 VND
-  ✅ 1 cancelled order tracked
-
-STEP 3: KPI Aggregation (L3 - central_metric_facts)
-  ✅ Daily channel metrics computed
-  ✅ Revenue: 3,445,998 VND (excluding cancelled)
-  ✅ Margin: 90%
-  ✅ Order count: 6
-
-STEP 4: Alert Detection (L4 - alert_instances)
-  ✅ 2 alerts generated:
-     - Cancellation rate: 14.3% (threshold: 10%)
-     - Revenue threshold: 3.4M VND reached
-
-═══════════════════════════════════════════════════════════════════════
-                    ALL LAYERS VERIFIED ✅
-═══════════════════════════════════════════════════════════════════════
-```
-
-## KNOWN ISSUES
-
-1. **Memory Limit**: scheduled-bigquery-sync hits memory limit with 5000 rows
-   - Workaround: Use smaller batch sizes or manual sync
-   - TODO: Add batch_size parameter support
-
-2. **Dataset Access**: Service account only has access to `olvboutique_*` datasets
-   - Updated data model to use correct dataset
-
-## 3. TEST WORKFLOW
-
-### Phase 1: Setup Test Tenant & BigQuery Config
-
-Tạo tenant và cấu hình BigQuery data model:
+### 3.1 Migration: cdp_customers (Add Customer Profile Fields)
 
 ```sql
--- Step 1.1: Create test tenant
-INSERT INTO tenants (id, name, slug, plan)
-VALUES (
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  'E2E BigQuery Test',
-  'e2e-bq-test',
-  'pro'
-) ON CONFLICT (id) DO NOTHING;
+-- Thêm columns cho customer profile
+ALTER TABLE cdp_customers
+  ADD COLUMN IF NOT EXISTS name TEXT,
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS province TEXT,
+  ADD COLUMN IF NOT EXISTS district TEXT,
+  ADD COLUMN IF NOT EXISTS acquisition_source TEXT,
+  ADD COLUMN IF NOT EXISTS external_ids JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS tags TEXT[],
+  ADD COLUMN IF NOT EXISTS lifetime_value NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS loyalty_points INTEGER DEFAULT 0;
 
--- Step 1.2: Create BigQuery config
-INSERT INTO bigquery_configs (tenant_id, project_id, is_active)
-VALUES (
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  'bluecore-dcp',
-  true
-) ON CONFLICT (tenant_id) DO UPDATE SET is_active = true;
+-- Index cho deduplication
+CREATE INDEX IF NOT EXISTS idx_cdp_customers_phone 
+ON cdp_customers(tenant_id, phone) WHERE phone IS NOT NULL;
 
--- Step 1.3: Create data models for sync
-INSERT INTO bigquery_data_models (
-  tenant_id, model_name, model_label, bigquery_dataset, bigquery_table,
-  primary_key_field, timestamp_field, target_table, is_enabled
-) VALUES 
-  -- Orders model
-  (
-    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-    'shopee_orders',
-    'Shopee Orders',
-    'bluecoredcp_shopee',
-    'shopee_Orders',
-    'order_sn',
-    'create_time',
-    'cdp_orders',
-    true
-  ),
-  -- Order Items model
-  (
-    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-    'shopee_order_items',
-    'Shopee Order Items',
-    'bluecoredcp_shopee',
-    'shopee_OrderItems',
-    'item_id',
-    NULL,
-    'cdp_order_items',
-    true
-  )
-ON CONFLICT (tenant_id, model_name) DO UPDATE SET is_enabled = true;
+CREATE INDEX IF NOT EXISTS idx_cdp_customers_email 
+ON cdp_customers(tenant_id, email) WHERE email IS NOT NULL;
 ```
 
-### Phase 2: Test BigQuery Query (L10)
-
-Test direct query từ BigQuery để verify connectivity:
-
-```typescript
-// Via Edge Function
-POST /functions/v1/bigquery-query
-{
-  "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-  "dataset": "bluecoredcp_shopee",
-  "table": "shopee_Orders",
-  "query_type": "filtered",
-  "columns": ["order_sn", "create_time", "total_amount", "order_status"],
-  "limit": 10,
-  "order_by": [{ "field": "create_time", "direction": "desc" }]
-}
-```
-
-**Expected Result:**
-- `success: true`
-- `row_count: 10`
-- `rows[]` chứa order data từ BigQuery
-
-### Phase 3: Test BigQuery Sync to L2 (Master Model)
-
-Sync data từ BigQuery vào cdp_orders:
-
-```typescript
-// Via Edge Function
-POST /functions/v1/sync-bigquery
-Authorization: Bearer {SERVICE_ROLE_KEY}
-{
-  "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-  "action": "sync_from_models",
-  "batch_size": 100
-}
-```
-
-**Verification:**
-```sql
--- Check synced orders
-SELECT 
-  COUNT(*) as total_orders,
-  SUM(gross_revenue) as total_revenue,
-  MIN(order_at) as first_order,
-  MAX(order_at) as last_order
-FROM cdp_orders
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-
--- Check sync watermarks
-SELECT * FROM bigquery_sync_watermarks
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-```
-
-### Phase 4: Test KPI Aggregation (L3)
-
-Sau khi có data ở L2, chạy KPI aggregation:
+### 3.2 Migration: cdp_orders (Update Unique Constraint)
 
 ```sql
--- Option A: Call function if exists
-SELECT compute_kpi_facts_daily(
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  CURRENT_DATE
+-- Drop old constraint and create new one with channel
+DROP INDEX IF EXISTS idx_cdp_orders_key;
+CREATE UNIQUE INDEX idx_cdp_orders_channel_key 
+ON cdp_orders(tenant_id, channel, order_key);
+```
+
+### 3.3 Migration: bigquery_backfill_jobs (New Table)
+
+```sql
+CREATE TABLE bigquery_backfill_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  model_type TEXT NOT NULL,
+  source_table TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  total_records INTEGER DEFAULT 0,
+  processed_records INTEGER DEFAULT 0,
+  last_processed_date DATE,
+  last_watermark TEXT,
+  error_message TEXT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Option B: Direct aggregation
-INSERT INTO kpi_facts_daily (tenant_id, kpi_id, fact_date, value, grain)
-SELECT
-  tenant_id,
-  (SELECT id FROM kpi_definitions WHERE code = 'REVENUE' LIMIT 1),
-  order_at::date,
-  SUM(net_revenue),
-  'daily'
-FROM cdp_orders
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-GROUP BY tenant_id, order_at::date;
+CREATE INDEX idx_backfill_jobs_tenant_model 
+ON bigquery_backfill_jobs(tenant_id, model_type);
 ```
 
-**Verification:**
-```sql
-SELECT 
-  fact_date,
-  SUM(value) as total_value,
-  COUNT(*) as kpi_count
-FROM kpi_facts_daily
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-GROUP BY fact_date
-ORDER BY fact_date DESC
-LIMIT 10;
-```
+---
 
-### Phase 5: Test Alert Detection (L4)
+## 4. TEST PHASES
 
-Trigger alert detection dựa trên KPI thresholds:
+### Phase 0: Infrastructure Setup
 
-```sql
--- Check if detect function exists
-SELECT detect_threshold_breaches(
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-);
+| Step | Task | Files to Create | Validation |
+|------|------|-----------------|------------|
+| 0.1 | Create test tenant | `bigquery/10-setup-test-tenant.sql` | Tenant exists |
+| 0.2 | Create BigQuery config | `bigquery/11-setup-bigquery-config.sql` | Config active |
+| 0.3 | Apply schema migrations | Migration files | Tables updated |
 
--- Verify alerts
-SELECT * FROM alert_instances
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-ORDER BY created_at DESC
-LIMIT 10;
-```
+### Phase 1: Core Master Models (Priority 1)
 
-## 4. TEST SCRIPT CHI TIẾT
+| Step | Model | Source | Target Records | Time Est. |
+|------|-------|--------|----------------|-----------|
+| 1.1 | Customers (KiotViet) | raw_kiotviet_Customers | 338K | 30 min |
+| 1.2 | Customers (Haravan) | raw_hrv_Customers | 57K | 10 min |
+| 1.3 | Customers (Bluecore) | BCApp_MemberInfo | 53K | 5 min |
+| 1.4 | Customer Dedup | All 3 sources | ~300-350K unique | 15 min |
+| 1.5 | Products | bdm_master_data_products | 16.7K | 5 min |
+| 1.6 | Orders (all channels) | 5 marketplace sources | 560K | 1-2 hr |
 
-### Script 1: Setup (`test-bq-01-setup.sql`)
+### Phase 2: Transaction Models
 
-```sql
--- ============================================================================
--- BIGQUERY SYNC TEST - SETUP
--- ============================================================================
+| Step | Model | Source | Target Records | Time Est. |
+|------|-------|--------|----------------|-----------|
+| 2.1 | Order Items | Derived from orders | 1.2M | 1 hr |
+| 2.2 | Refunds | shopee/lazada/tiktok_Returns | 17K | 5 min |
+| 2.3 | Payments | Escrows + Finance | 468K | 45 min |
+| 2.4 | Fulfillments | Tracking data | 285K | 30 min |
 
--- Cleanup existing test data
-DELETE FROM bigquery_sync_watermarks 
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+### Phase 3: Marketing Models
 
-DELETE FROM bigquery_data_models 
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+| Step | Model | Source | Target Records | Time Est. |
+|------|-------|--------|----------------|-----------|
+| 3.1 | Campaigns | fb/tiktok_Campaigns | 2K | 2 min |
+| 3.2 | Ad Spend Daily | fb/tiktok_Insights | 44K | 10 min |
 
-DELETE FROM cdp_orders 
-WHERE tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+### Phase 4: Inventory (Largest Volume)
 
--- Create tenant
-INSERT INTO tenants (id, name, slug, plan)
-VALUES (
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  'E2E BigQuery Test',
-  'e2e-bq-test',
-  'pro'
-) ON CONFLICT (id) DO UPDATE SET name = 'E2E BigQuery Test';
+| Step | Model | Source | Target Records | Time Est. |
+|------|-------|--------|----------------|-----------|
+| 4.1 | Inventory Movements | bdm_kov_xuat_nhap_ton | 3.9M | 4-5 hr |
 
--- Create BigQuery config
-INSERT INTO bigquery_configs (tenant_id, project_id, is_active)
-VALUES (
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  'bluecore-dcp',
-  true
-) ON CONFLICT (tenant_id) DO UPDATE SET is_active = true;
+### Phase 5: L3 KPI Aggregation
 
--- Create connector integration
-INSERT INTO connector_integrations (
-  id, tenant_id, connector_type, connector_name, status
-) VALUES (
-  '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  'bigquery',
-  'BigQuery - Shopee',
-  'active'
-) ON CONFLICT (id) DO UPDATE SET status = 'active';
+| Step | Task | Function/Query |
+|------|------|----------------|
+| 5.1 | Compute KPI facts | `compute_kpi_facts_daily()` |
+| 5.2 | Set KPI targets | Insert into `kpi_targets` |
+| 5.3 | Define thresholds | Insert into `kpi_thresholds` |
 
--- Create data models
-INSERT INTO bigquery_data_models (
-  tenant_id, model_name, model_label, bigquery_dataset, bigquery_table,
-  primary_key_field, timestamp_field, target_table, is_enabled, sync_frequency_hours
-) VALUES 
-(
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  'shopee_orders',
-  'Shopee Orders',
-  'bluecoredcp_shopee',
-  'shopee_Orders',
-  'order_sn',
-  'create_time',
-  'cdp_orders',
-  true,
-  1
-)
-ON CONFLICT (tenant_id, model_name) DO UPDATE SET is_enabled = true;
+### Phase 6: L4 Alert Detection
 
-SELECT 'Setup completed' as status;
-```
+| Step | Task | Function/Query |
+|------|------|----------------|
+| 6.1 | Detect threshold breaches | `detect_threshold_breaches()` |
+| 6.2 | Generate decision cards | `generate_decision_cards()` |
+| 6.3 | Populate priority queue | `populate_priority_queue()` |
 
-### Script 2: Verify BigQuery Query (`test-bq-02-query.ts`)
+---
 
-```typescript
-// Test via Edge Function
-async function testBigQueryQuery() {
-  const response = await fetch(
-    `${SUPABASE_URL}/functions/v1/bigquery-query`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-        dataset: 'bluecoredcp_shopee',
-        table: 'shopee_Orders',
-        query_type: 'filtered',
-        columns: ['order_sn', 'create_time', 'total_amount'],
-        limit: 5,
-      }),
-    }
-  );
-  
-  const result = await response.json();
-  console.log('Query result:', result);
-  
-  return {
-    success: result.success,
-    row_count: result.row_count,
-    has_schema: result.schema?.length > 0,
-  };
-}
-```
-
-### Script 3: Sync & Verify (`test-bq-03-sync.ts`)
-
-```typescript
-// Trigger sync
-async function testBigQuerySync() {
-  const response = await fetch(
-    `${SUPABASE_URL}/functions/v1/sync-bigquery`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        tenant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-        action: 'sync_from_models',
-        batch_size: 100,
-      }),
-    }
-  );
-  
-  return await response.json();
-}
-
-// Verify sync
-async function verifySyncResults() {
-  const { data: orders } = await supabase
-    .from('cdp_orders')
-    .select('*', { count: 'exact' })
-    .eq('tenant_id', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
-    
-  const { data: watermarks } = await supabase
-    .from('bigquery_sync_watermarks')
-    .select('*')
-    .eq('tenant_id', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
-    
-  return {
-    orders_synced: orders?.length || 0,
-    watermark_status: watermarks?.[0]?.sync_status,
-    last_sync: watermarks?.[0]?.last_sync_at,
-  };
-}
-```
-
-## 5. FILES TO CREATE
-
-| File | Purpose |
-|------|---------|
-| `supabase/e2e-test/bigquery/01-setup.sql` | Setup tenant & config |
-| `supabase/e2e-test/bigquery/02-test-query.sql` | Test BigQuery query |
-| `supabase/e2e-test/bigquery/03-test-sync.sql` | Test sync to L2 |
-| `supabase/e2e-test/bigquery/04-verify-l3.sql` | Verify KPI aggregation |
-| `supabase/e2e-test/bigquery/05-verify-l4.sql` | Verify alert detection |
-| `supabase/e2e-test/bigquery/99-cleanup.sql` | Cleanup test data |
-
-## 6. IMPLEMENTATION STEPS
-
-1. **Create test folder structure** - `supabase/e2e-test/bigquery/`
-2. **Create setup script** - Insert tenant, config, data models
-3. **Test BigQuery connectivity** - Via `bigquery-query` function
-4. **Test sync flow** - Via `sync-bigquery` function
-5. **Verify L2 data** - Check cdp_orders populated
-6. **Run L3 aggregation** - Generate kpi_facts_daily
-7. **Run L4 detection** - Generate alerts if thresholds breached
-8. **Create verification script** - Summary report
-
-## 7. EXPECTED OUTPUT
+## 5. TEST FILES TO CREATE
 
 ```text
-═══════════════════════════════════════════════════════════════════════
-              BIGQUERY SYNC E2E TEST - ARCHITECTURE v1.4.2             
-═══════════════════════════════════════════════════════════════════════
-
-STEP 1: BigQuery Connectivity
-  ✅ Query executed successfully
-  ✅ Returned 5 rows from shopee_Orders
-  ✅ Schema detected: 15 fields
-
-STEP 2: Sync to L2 Master Model
-  ✅ sync-bigquery function called
-  ✅ cdp_orders: 100 records synced
-  ✅ Watermark updated: completed
-
-STEP 3: KPI Aggregation (L3)
-  ✅ kpi_facts_daily: 30 records generated
-  ✅ Revenue metrics computed
-
-STEP 4: Alert Detection (L4)
-  ✅ Threshold check completed
-  ✅ alert_instances: 3 alerts generated
-
-═══════════════════════════════════════════════════════════════════════
-                    ALL LAYERS VERIFIED ✅
-═══════════════════════════════════════════════════════════════════════
+supabase/e2e-test/bigquery/
+├── 10-setup-test-tenant.sql          # Test tenant + BigQuery config
+├── 11-backfill-customers.sql         # Sync 3 customer sources + dedup
+├── 12-backfill-products.sql          # Sync products
+├── 13-backfill-orders.sql            # Sync 5 channel orders
+├── 14-backfill-order-items.sql       # Sync order line items
+├── 15-backfill-transactions.sql      # Refunds + Payments + Fulfillments
+├── 16-backfill-marketing.sql         # Campaigns + Ad Spend
+├── 17-backfill-inventory.sql         # Inventory movements (largest)
+├── 20-verify-l2-integrity.sql        # Verify L2 Master Model
+├── 21-run-l3-aggregation.sql         # Compute L3 KPI facts
+├── 22-run-l4-detection.sql           # Detect alerts
+├── 30-comprehensive-verify.sql       # Full verification report
+└── 99-cleanup.sql                    # Cleanup test data
 ```
 
-## 8. TECHNICAL NOTES
+---
 
-### BigQuery Datasets Available
-- `bluecoredcp_shopee` - Shopee data
-- `bluecoredcp_lazada` - Lazada data
-- `bluecoredcp_tiktokshop` - TikTok data
-- `bluecoredcp_sapo` - Sapo data
+## 6. EDGE FUNCTION: backfill-bigquery
 
-### Key Functions
-- `sync-bigquery` - Main sync function (requires service role key)
-- `bigquery-query` - Query function (anon key OK)
-- `scheduled-bigquery-sync` - Cron-triggered sync
+### 6.1 API Design
 
-### Security
-- `sync-bigquery` validates `Authorization: Bearer {SERVICE_ROLE_KEY}`
-- Tenant isolation via `tenant_id` filter
-- SQL injection prevention in query builder
+```typescript
+// POST /functions/v1/backfill-bigquery
+{
+  "action": "start" | "continue" | "status" | "cancel",
+  "tenant_id": "uuid",
+  "model_type": "customers" | "products" | "orders" | ...,
+  "options": {
+    "source_table": "raw_kiotviet_Customers",
+    "batch_size": 500,
+    "date_from": "2025-01-01",
+    "date_to": "2026-01-31"
+  }
+}
+```
+
+### 6.2 Customer Sync Mode (with Dedup)
+
+```typescript
+// Pseudocode for customer dedup
+async function syncCustomers(tenantId, sources) {
+  const customerMap = new Map(); // phone -> customer data
+  
+  for (const source of sources) {
+    const rows = await queryBigQuery(source.query);
+    
+    for (const row of rows) {
+      const phone = normalizePhone(row.phone);
+      const email = row.email?.toLowerCase();
+      
+      const existingKey = phone || email;
+      
+      if (customerMap.has(existingKey)) {
+        // Merge: keep earliest created_at, sum lifetime_value
+        const existing = customerMap.get(existingKey);
+        existing.external_ids.push({ source: source.name, id: row.id });
+        existing.lifetime_value += row.total_spent || 0;
+      } else {
+        customerMap.set(existingKey, {
+          phone, email,
+          name: row.name,
+          external_ids: [{ source: source.name, id: row.id }],
+          ...
+        });
+      }
+    }
+  }
+  
+  // Upsert to cdp_customers
+  await upsertCustomers(customerMap.values());
+}
+```
+
+---
+
+## 7. EXPECTED VALUES (SUCCESS CRITERIA)
+
+### 7.1 L2 Master Model Counts
+
+| Table | Expected Count | Tolerance |
+|-------|----------------|-----------|
+| cdp_customers | 300,000 - 350,000 | ±5% |
+| products | 16,700 | 0% |
+| cdp_orders | 560,000 | ±2% |
+| cdp_order_items | 1,200,000 | ±5% |
+| cdp_refunds | 17,000 | ±5% |
+| cdp_payments | 468,000 | ±5% |
+| cdp_fulfillments | 285,000 | ±5% |
+| campaigns | 2,000 | ±5% |
+| ad_spend_daily | 44,000 | ±5% |
+| inventory_movements | 3,900,000 | ±5% |
+
+### 7.2 Data Integrity Checks
+
+| Check | Expected Result |
+|-------|-----------------|
+| Orders without customer link | < 5% |
+| Order items orphaned | 0 |
+| Duplicate order_key per channel | 0 |
+| Customer dedup ratio | ~25-35% (454K → 300-350K) |
+| Products with cost_price | > 90% |
+
+### 7.3 L3/L4 Aggregation
+
+| Metric | Expected Range |
+|--------|----------------|
+| KPI facts daily rows | 500 - 800 |
+| Alert instances | 10 - 30 |
+| Priority queue items | 5 - 15 |
+
+---
+
+## 8. VERIFICATION QUERIES
+
+### 8.1 L2 Master Model Verification
+
+```sql
+-- Customer dedup verification
+SELECT 
+  COUNT(*) as total_customers,
+  COUNT(DISTINCT phone) as unique_phones,
+  COUNT(*) FILTER (WHERE jsonb_array_length(external_ids) > 1) as merged_profiles,
+  ROUND(COUNT(*) FILTER (WHERE jsonb_array_length(external_ids) > 1)::numeric / COUNT(*) * 100, 1) as merge_percent
+FROM cdp_customers
+WHERE tenant_id = :tenant_id;
+
+-- Order distribution by channel
+SELECT 
+  channel,
+  COUNT(*) as order_count,
+  SUM(net_revenue) as total_revenue,
+  AVG(net_revenue) as avg_order_value
+FROM cdp_orders
+WHERE tenant_id = :tenant_id
+  AND order_at >= '2025-01-01'
+GROUP BY channel
+ORDER BY order_count DESC;
+
+-- Data integrity: orphaned order items
+SELECT COUNT(*) as orphaned_items
+FROM cdp_order_items oi
+LEFT JOIN cdp_orders o ON o.id = oi.order_id
+WHERE oi.tenant_id = :tenant_id
+  AND o.id IS NULL;
+```
+
+### 8.2 Cross-Layer Verification
+
+```sql
+-- L2 → L3 flow
+SELECT 
+  'L2_TO_L3' as check,
+  (SELECT COUNT(*) FROM cdp_orders WHERE tenant_id = :tenant_id) as l2_orders,
+  (SELECT COUNT(*) FROM kpi_facts_daily WHERE tenant_id = :tenant_id) as l3_facts,
+  CASE 
+    WHEN (SELECT COUNT(*) FROM kpi_facts_daily WHERE tenant_id = :tenant_id) > 0 
+    THEN 'PASS' 
+    ELSE 'FAIL' 
+  END as status;
+```
+
+---
+
+## 9. TIMELINE ESTIMATE
+
+| Phase | Duration | Parallel? |
+|-------|----------|-----------|
+| Phase 0: Setup | 15 min | No |
+| Phase 1: Core Models | 2-3 hr | Customers/Products parallel |
+| Phase 2: Transactions | 2 hr | Sequential (FK deps) |
+| Phase 3: Marketing | 15 min | Parallel |
+| Phase 4: Inventory | 4-5 hr | Independent |
+| Phase 5: L3 Aggregation | 30 min | After L2 |
+| Phase 6: L4 Detection | 15 min | After L3 |
+| Verification | 30 min | After all |
+
+**TOTAL: ~10-12 hours for full sync + verification**
+
+---
+
+## 10. RISK MITIGATION
+
+| Risk | Probability | Mitigation |
+|------|-------------|------------|
+| Memory overflow (3.9M inventory) | High | Chunk by date, 500 records/batch |
+| Customer dedup collision | Medium | Phone normalization, email fallback |
+| Order FK resolution | Medium | Lookup map order_key → UUID |
+| BigQuery rate limits | Low | Exponential backoff, 10s delay |
+| Timeout (Edge Function 150s) | High | Resume capability via watermark |
+
+---
+
+## 11. FILES TO MODIFY/CREATE
+
+### 11.1 Database Migrations
+
+| File | Action | Description |
+|------|--------|-------------|
+| `migrations/xxx_cdp_customers_profile_fields.sql` | CREATE | Add name, phone, email, external_ids |
+| `migrations/xxx_cdp_orders_channel_constraint.sql` | CREATE | Update unique constraint |
+| `migrations/xxx_bigquery_backfill_jobs.sql` | CREATE | Backfill tracking table |
+
+### 11.2 Edge Functions
+
+| File | Action | Description |
+|------|--------|-------------|
+| `functions/backfill-bigquery/index.ts` | CREATE | Main backfill function with resume |
+
+### 11.3 Test Scripts
+
+| File | Action | Description |
+|------|--------|-------------|
+| `e2e-test/bigquery/10-setup-test-tenant.sql` | CREATE | Test tenant setup |
+| `e2e-test/bigquery/11-backfill-customers.sql` | CREATE | Customer sync + dedup |
+| `e2e-test/bigquery/12-backfill-products.sql` | CREATE | Product sync |
+| `e2e-test/bigquery/13-backfill-orders.sql` | CREATE | Order sync (5 channels) |
+| `e2e-test/bigquery/14-backfill-order-items.sql` | CREATE | Order items sync |
+| `e2e-test/bigquery/15-backfill-transactions.sql` | CREATE | Refunds/Payments/Fulfillments |
+| `e2e-test/bigquery/16-backfill-marketing.sql` | CREATE | Campaigns/Ad Spend |
+| `e2e-test/bigquery/17-backfill-inventory.sql` | CREATE | Inventory movements |
+| `e2e-test/bigquery/20-verify-l2-integrity.sql` | CREATE | L2 verification |
+| `e2e-test/bigquery/21-run-l3-aggregation.sql` | CREATE | L3 KPI computation |
+| `e2e-test/bigquery/22-run-l4-detection.sql` | CREATE | L4 alert detection |
+| `e2e-test/bigquery/30-comprehensive-verify.sql` | CREATE | Full verification report |
+
+### 11.4 Frontend Hooks
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/hooks/useBigQueryBackfill.ts` | CREATE | UI hook for triggering backfill |
+| `src/pages/admin/BigQueryBackfill.tsx` | CREATE | Admin UI for monitoring |
