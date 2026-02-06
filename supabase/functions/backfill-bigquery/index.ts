@@ -258,6 +258,7 @@ const ORDER_ITEM_SOURCES = [
       unit_price: 'SubTotal',
       discount: 'Discount',
       total: 'Total',
+      cost_price: 'gia_goc_sp',
     }
   }
 ];
@@ -1108,7 +1109,8 @@ async function syncOrderItems(
         paused = true;
         break;
       }
-      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
+      const mappingValues = Object.values(source.mapping).filter(Boolean);
+      const columns = mappingValues.map(c => `\`${c}\``).join(', ');
       const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
       try {
@@ -1120,22 +1122,36 @@ async function syncOrderItems(
         }
         
         // Transform and insert (no unique constraint on this table)
-        const orderItems = rows.map(row => ({
-          tenant_id: tenantId,
-          integration_id: integrationId,
-          product_id: String(row[source.mapping.item_id] || ''),
-          sku: row[source.mapping.sku],
-          product_name: row[source.mapping.name],
-          qty: source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1,
-          unit_price: parseFloat(row[source.mapping.unit_price] || '0'),
-          original_price: parseFloat(row[source.mapping.unit_price] || '0'),
-          discount_amount: parseFloat(row[source.mapping.discount] || '0'),
-          line_revenue: parseFloat(row[source.mapping.total] || '0'),
-          raw_data: {
-            source_channel: source.channel,
-            source_order_key: String(row[source.mapping.order_key]),
-          },
-        }));
+        const orderItems = rows.map(row => {
+          const qty = source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1;
+          const costPrice = source.mapping.cost_price 
+            ? parseFloat(row[source.mapping.cost_price] || '0') 
+            : 0;
+          const unitCogs = costPrice > 0 ? costPrice : 0;
+          const lineCogs = unitCogs * qty;
+          const lineRevenue = parseFloat(row[source.mapping.total] || '0');
+          
+          return {
+            tenant_id: tenantId,
+            integration_id: integrationId,
+            product_id: String(row[source.mapping.item_id] || ''),
+            sku: row[source.mapping.sku],
+            product_name: row[source.mapping.name],
+            qty,
+            unit_price: parseFloat(row[source.mapping.unit_price] || '0'),
+            original_price: parseFloat(row[source.mapping.unit_price] || '0'),
+            discount_amount: parseFloat(row[source.mapping.discount] || '0'),
+            line_revenue: lineRevenue,
+            unit_cogs: unitCogs > 0 ? unitCogs : null,
+            line_cogs: lineCogs > 0 ? lineCogs : null,
+            line_margin: lineCogs > 0 ? lineRevenue - lineCogs : null,
+            raw_data: {
+              source_channel: source.channel,
+              source_order_key: String(row[source.mapping.order_key]),
+              ...(costPrice > 0 ? { gia_goc_sp: costPrice } : {}),
+            },
+          };
+        });
         
         const { error, count } = await supabase
           .from('cdp_order_items')
