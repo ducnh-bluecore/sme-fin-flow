@@ -42,13 +42,17 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const switchTenantMutation = useSwitchTenant();
   
   // v1.4.1: Session-based tenant context
+  // Pass tenant info as params to avoid circular dependency
   const { 
     isSessionReady, 
     isInitializing: isSessionInitializing,
     sessionInfo, 
     sessionError,
     initSession 
-  } = useTenantSession();
+  } = useTenantSession({
+    activeTenantId: activeTenant?.id ?? null,
+    tenantLoading: isLoadingActive || isLoadingTenants,
+  });
 
   // Auto-fix invalid active tenant (e.g. profile points to a tenant the user no longer has access to)
   useEffect(() => {
