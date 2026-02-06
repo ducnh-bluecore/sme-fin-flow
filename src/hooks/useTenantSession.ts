@@ -30,7 +30,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useTenantContext } from '@/contexts/TenantContext';
 
 export type TenantTier = 'smb' | 'midmarket' | 'enterprise';
 
@@ -60,13 +59,21 @@ export interface UseTenantSessionReturn {
 }
 
 /**
- * Hook to manage tenant session lifecycle
+ * Internal hook for TenantProvider - accepts tenant info as parameters
+ * to avoid circular dependency with TenantContext.
  * 
- * Automatically initializes session when tenant changes.
- * Session persists for the connection lifetime.
+ * NOTE: This hook should ONLY be used inside TenantProvider.
+ * For all other components, use useTenantContext() which provides session info.
  */
-export function useTenantSession(): UseTenantSessionReturn {
-  const { activeTenant, isLoading: tenantLoading } = useTenantContext();
+export interface UseTenantSessionParams {
+  activeTenantId: string | null;
+  tenantLoading: boolean;
+}
+
+export function useTenantSession(params?: UseTenantSessionParams): UseTenantSessionReturn {
+  // Accept tenant info as params to avoid circular dependency with TenantContext
+  const activeTenantId = params?.activeTenantId ?? null;
+  const tenantLoading = params?.tenantLoading ?? false;
   
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -78,7 +85,7 @@ export function useTenantSession(): UseTenantSessionReturn {
    * Initialize tenant session via RPC
    */
   const initSession = useCallback(async () => {
-    if (!activeTenant?.id) {
+    if (!activeTenantId) {
       setIsSessionReady(false);
       setSessionInfo(null);
       return;
@@ -89,7 +96,7 @@ export function useTenantSession(): UseTenantSessionReturn {
 
     try {
       const { data, error } = await supabase.rpc('init_tenant_session', {
-        p_tenant_id: activeTenant.id
+        p_tenant_id: activeTenantId
       });
 
       if (error) {
@@ -127,7 +134,7 @@ export function useTenantSession(): UseTenantSessionReturn {
     } finally {
       setIsInitializing(false);
     }
-  }, [activeTenant?.id]);
+  }, [activeTenantId]);
 
   /**
    * Set current organization within the tenant
@@ -161,7 +168,7 @@ export function useTenantSession(): UseTenantSessionReturn {
   useEffect(() => {
     if (tenantLoading) return;
     
-    if (activeTenant?.id) {
+    if (activeTenantId) {
       initSession();
     } else {
       // No tenant, reset session
@@ -169,12 +176,12 @@ export function useTenantSession(): UseTenantSessionReturn {
       setSessionInfo(null);
       setCurrentOrgId(null);
     }
-  }, [activeTenant?.id, tenantLoading, initSession]);
+  }, [activeTenantId, tenantLoading, initSession]);
 
   // Reset org when tenant changes
   useEffect(() => {
     setCurrentOrgId(null);
-  }, [activeTenant?.id]);
+  }, [activeTenantId]);
 
   return {
     isSessionReady,
