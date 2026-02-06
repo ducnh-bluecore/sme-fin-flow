@@ -3,10 +3,12 @@
  * 
  * @architecture Layer 10 Integration UI
  * Provides granular visibility into which data sources are being synced.
+ * Uses direct Supabase client (not tenant-scoped) since backfill_source_progress
+ * is an admin-level table.
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantQueryBuilder } from './useTenantQueryBuilder';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface SourceProgressRecord {
   id: string;
@@ -25,14 +27,12 @@ export interface SourceProgressRecord {
 }
 
 export function useSourceProgress(jobId: string | null) {
-  const { client, isReady } = useTenantQueryBuilder();
-
   return useQuery({
     queryKey: ['backfill-source-progress', jobId],
     queryFn: async (): Promise<SourceProgressRecord[]> => {
       if (!jobId) return [];
 
-      const { data, error } = await client
+      const { data, error } = await supabase
         .from('backfill_source_progress')
         .select('*')
         .eq('job_id', jobId)
@@ -45,9 +45,9 @@ export function useSourceProgress(jobId: string | null) {
 
       return (data || []) as SourceProgressRecord[];
     },
-    enabled: isReady && !!jobId,
-    refetchInterval: 5000, // Poll every 5 seconds when job is active
-    staleTime: 2000,
+    enabled: !!jobId,
+    refetchInterval: 3000, // Poll every 3 seconds when job is active
+    staleTime: 1000,
   });
 }
 
