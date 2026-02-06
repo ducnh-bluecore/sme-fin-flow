@@ -65,7 +65,13 @@ interface SourceProgress {
 
 const DEFAULT_BATCH_SIZE = 500;
 const MAX_BATCH_SIZE = 1000;
-const MAX_EXECUTION_TIME_MS = 120000; // 2 minutes, leave buffer for 150s limit
+
+// Edge Functions thường bị giới hạn runtime ~60s. Ta chủ động dừng sớm để kịp cập nhật progress.
+const MAX_EXECUTION_TIME_MS = 50_000;
+
+function shouldPause(startTimeMs: number) {
+  return Date.now() - startTimeMs >= MAX_EXECUTION_TIME_MS;
+}
 
 const CUSTOMER_SOURCES: CustomerSource[] = [
   {
@@ -447,8 +453,9 @@ async function syncCustomers(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; date_from?: string }
-): Promise<{ processed: number; created: number; merged: number; sources: SourceProgress[] }> {
+  options: { batch_size?: number; date_from?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; created: number; merged: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   const customerMap = new Map<string, any>(); // phone/email -> customer data
   
@@ -458,7 +465,7 @@ async function syncCustomers(
   
   const sourceErrors: string[] = [];
   const sourceResults: SourceProgress[] = [];
-
+  let paused = false;
   // Initialize source progress
   await initSourceProgress(supabase, jobId, CUSTOMER_SOURCES.map(s => ({
     name: s.name,
@@ -487,6 +494,10 @@ async function syncCustomers(
     let sourceFailed = false;
 
     while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
       // Build a safe SELECT list. Some column names (e.g. "Groups") collide with keywords.
       // We quote both the column AND alias to handle reserved words.
       const selectList = Object.values(source.mapping)
@@ -591,8 +602,8 @@ async function syncCustomers(
       }
     }
 
-    // Mark source as completed if successful
-    if (!sourceFailed) {
+    // Mark source as completed only if finished and not paused
+    if (!sourceFailed && !paused) {
       await updateSourceProgress(supabase, jobId, source.name, {
         status: 'completed',
         processed_records: sourceProcessed,
@@ -604,11 +615,12 @@ async function syncCustomers(
       source_name: source.name,
       dataset: source.dataset,
       table_name: source.table,
-      status: sourceFailed ? 'failed' : 'completed',
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
       total_records: totalRecords,
       processed_records: sourceProcessed,
       last_offset: offset,
     });
+    if (paused) break;
   }
 
   if (totalProcessed === 0 && sourceErrors.length > 0) {
@@ -646,7 +658,7 @@ async function syncCustomers(
     }
   }
   
-  return { processed: totalProcessed, created, merged, sources: sourceResults };
+  return { processed: totalProcessed, created, merged, sources: sourceResults, paused: paused || undefined };
 }
 
 // ============= Orders Sync with Source Progress =============
@@ -658,13 +670,14 @@ async function syncOrders(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string }
-): Promise<{ processed: number; inserted: number; sources: SourceProgress[] }> {
+  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
   const sourceResults: SourceProgress[] = [];
-  
+  let paused = false;
   // Filter to specific source if provided, otherwise all
   const sources = options.source_table
     ? ORDER_SOURCES.filter(s => s.table === options.source_table)
@@ -699,6 +712,10 @@ async function syncOrders(
     let errorMessage = '';
     
     while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
       const columns = Object.values(source.mapping).join(', ');
       let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
       
@@ -779,7 +796,7 @@ async function syncOrders(
       }
     }
     
-    if (!sourceFailed) {
+    if (!sourceFailed && !paused) {
       await updateSourceProgress(supabase, jobId, source.channel, {
         status: 'completed',
         completed_at: new Date().toISOString(),
@@ -790,15 +807,17 @@ async function syncOrders(
       source_name: source.channel,
       dataset: source.dataset,
       table_name: source.table,
-      status: sourceFailed ? 'failed' : 'completed',
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
       total_records: totalRecords,
       processed_records: sourceProcessed,
       last_offset: offset,
       error_message: errorMessage || undefined,
     });
+
+    if (paused) break;
   }
   
-  return { processed: totalProcessed, inserted, sources: sourceResults };
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
 }
 
 // ============= Order Items Sync with Source Progress =============
@@ -810,13 +829,14 @@ async function syncOrderItems(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string }
-): Promise<{ processed: number; inserted: number; sources: SourceProgress[] }> {
+  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
   const sourceResults: SourceProgress[] = [];
-  
+  let paused = false;
   // Filter to specific source if provided, otherwise all
   const sources = options.source_table
     ? ORDER_ITEM_SOURCES.filter(s => s.table === options.source_table)
@@ -850,6 +870,10 @@ async function syncOrderItems(
     let errorMessage = '';
     
     while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
       const columns = Object.values(source.mapping).join(', ');
       const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY ${source.mapping.order_key} LIMIT ${batchSize} OFFSET ${offset}`;
       
@@ -916,7 +940,7 @@ async function syncOrderItems(
       }
     }
     
-    if (!sourceFailed) {
+    if (!sourceFailed && !paused) {
       await updateSourceProgress(supabase, jobId, source.channel, {
         status: 'completed',
         completed_at: new Date().toISOString(),
@@ -927,15 +951,17 @@ async function syncOrderItems(
       source_name: source.channel,
       dataset: source.dataset,
       table_name: source.table,
-      status: sourceFailed ? 'failed' : 'completed',
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
       total_records: totalRecords,
       processed_records: sourceProcessed,
       last_offset: offset,
       error_message: errorMessage || undefined,
     });
+
+    if (paused) break;
   }
   
-  return { processed: totalProcessed, inserted, sources: sourceResults };
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
 }
 
 // ============= Products Sync with Pagination =============
@@ -946,8 +972,9 @@ async function syncProducts(
   projectId: string,
   tenantId: string,
   jobId: string,
-  options: { batch_size?: number }
-): Promise<{ processed: number; inserted: number; sources: SourceProgress[] }> {
+  options: { batch_size?: number },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
@@ -978,8 +1005,12 @@ async function syncProducts(
   let hasMore = true;
   let sourceFailed = false;
   let errorMessage = '';
-  
+  let paused = false;
   while (hasMore) {
+    if (shouldPause(startTimeMs)) {
+      paused = true;
+      break;
+    }
     const query = `
       SELECT 
         productid, Ma_hang, Ten_hang, 
@@ -1059,7 +1090,7 @@ async function syncProducts(
     }
   }
   
-  if (!sourceFailed) {
+  if (!sourceFailed && !paused) {
     await updateSourceProgress(supabase, jobId, source.name, {
       status: 'completed',
       completed_at: new Date().toISOString(),
@@ -1073,12 +1104,13 @@ async function syncProducts(
       source_name: source.name,
       dataset: source.dataset,
       table_name: source.table,
-      status: sourceFailed ? 'failed' : 'completed',
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
       total_records: totalRecords,
       processed_records: totalProcessed,
       last_offset: offset,
       error_message: errorMessage || undefined,
-    }]
+    }],
+    paused: paused || undefined,
   };
 }
 
@@ -1141,6 +1173,7 @@ serve(async (req) => {
   }
 
   const startTime = Date.now();
+  const autoContinue = req.headers.get('x-auto-continue') === '1';
 
   try {
     const params: BackfillRequest = await req.json();
@@ -1245,9 +1278,10 @@ serve(async (req) => {
       switch (params.model_type) {
         case 'customers':
           result = await syncCustomers(
-            supabase, accessToken, projectId, 
+            supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
-            params.options || {}
+            params.options || {},
+            startTime,
           );
           break;
           
@@ -1255,7 +1289,8 @@ serve(async (req) => {
           result = await syncOrders(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
-            params.options || {}
+            params.options || {},
+            startTime,
           );
           break;
           
@@ -1263,7 +1298,8 @@ serve(async (req) => {
           result = await syncProducts(
             supabase, accessToken, projectId,
             params.tenant_id, job.id,
-            params.options || {}
+            params.options || {},
+            startTime,
           );
           break;
           
@@ -1271,7 +1307,8 @@ serve(async (req) => {
           result = await syncOrderItems(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
-            params.options || {}
+            params.options || {},
+            startTime,
           );
           break;
           
@@ -1279,14 +1316,46 @@ serve(async (req) => {
           throw new Error(`Model type not yet implemented: ${params.model_type}`);
       }
       
-      // Update job to completed
-      await updateJobStatus(supabase, job.id, {
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        processed_records: result.processed || 0,
-        total_records: result.sources?.reduce((sum: number, s: SourceProgress) => sum + s.total_records, 0) || result.processed,
-        metadata: result,
-      });
+      const totalRecords = result.sources?.reduce((sum: number, s: SourceProgress) => sum + (s.total_records || 0), 0) || result.processed;
+
+      if (result?.paused) {
+        // Pause before timeout: leave job in pending so it can be resumed safely.
+        await updateJobStatus(supabase, job.id, {
+          status: 'pending',
+          processed_records: result.processed || 0,
+          total_records: totalRecords,
+          metadata: result,
+        });
+
+        // Auto-continue (fire-and-forget) to avoid manual clicking.
+        if (!autoContinue) {
+          const functionUrl = `${supabaseUrl}/functions/v1/backfill-bigquery`;
+          const body = {
+            ...params,
+            action: 'continue',
+          };
+
+          fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${supabaseKey}`,
+              'x-auto-continue': '1',
+            },
+            body: JSON.stringify(body),
+          }).catch((e) => console.error('Auto-continue failed:', e));
+        }
+      } else {
+        // Completed normally
+        await updateJobStatus(supabase, job.id, {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          processed_records: result.processed || 0,
+          total_records: totalRecords,
+          metadata: result,
+        });
+      }
       
     } catch (syncError: any) {
       await updateJobStatus(supabase, job.id, {
