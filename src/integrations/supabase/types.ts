@@ -7839,6 +7839,80 @@ export type Database = {
           },
         ]
       }
+      cdp_payments: {
+        Row: {
+          amount: number | null
+          channel: string | null
+          created_at: string
+          id: string
+          order_key: string | null
+          paid_at: string | null
+          payment_key: string
+          payment_method: string | null
+          payment_status: string | null
+          raw_data: Json | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          order_key?: string | null
+          paid_at?: string | null
+          payment_key: string
+          payment_method?: string | null
+          payment_status?: string | null
+          raw_data?: Json | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          order_key?: string | null
+          paid_at?: string | null
+          payment_key?: string
+          payment_method?: string | null
+          payment_status?: string | null
+          raw_data?: Json | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       cdp_population_changelog: {
         Row: {
           action: string
