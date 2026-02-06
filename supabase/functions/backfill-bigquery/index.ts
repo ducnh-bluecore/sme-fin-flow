@@ -1326,25 +1326,24 @@ serve(async (req) => {
           metadata: result,
         });
 
-        // Auto-continue (fire-and-forget) to avoid manual clicking.
-        if (!autoContinue) {
-          const functionUrl = `${supabaseUrl}/functions/v1/backfill-bigquery`;
-          const body = {
-            ...params,
-            action: 'continue',
-          };
+        // Auto-continue: always fire next chunk regardless of how this one was triggered
+        const functionUrl = `${supabaseUrl}/functions/v1/backfill-bigquery`;
+        const body = {
+          ...params,
+          action: 'continue',
+        };
 
-          fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${supabaseKey}`,
-              'x-auto-continue': '1',
-            },
-            body: JSON.stringify(body),
-          }).catch((e) => console.error('Auto-continue failed:', e));
-        }
+        console.log('Auto-continue: firing next chunk...');
+        fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseKey}`,
+            'x-auto-continue': '1',
+          },
+          body: JSON.stringify(body),
+        }).catch((e) => console.error('Auto-continue failed:', e));
       } else {
         // Completed normally
         await updateJobStatus(supabase, job.id, {
