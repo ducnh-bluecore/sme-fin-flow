@@ -1,253 +1,330 @@
 
-# PLAN: XOA BO LUONG SSOT VIOLATION (external_orders/external_order_items)
 
-## 1. PHAM VI VAN DE
+# PLAN: VIẾT LẠI E2E TEST SUITE THEO ARCHITECTURE v1.4.2
 
-Hien tai codebase co **2 luong data song song** gay ra SSOT violation:
+## 1. VẤN ĐỀ HIỆN TẠI
+
+E2E Test hiện tại sử dụng layer structure **không nhất quán** với Architecture v1.4.2:
 
 ```text
-LUONG SAI (CAN XOA):
+HIỆN TẠI (SAI):
 ┌─────────────────────────────────────────────────────────────────────┐
-│ BigQuery/Connectors → external_orders → Hooks/Views → UI           │
-│                       external_order_items                          │
-│                       (Layer 0 - Staging)                           │
+│ Layer 0-1: Source → products, cdp_customers, cdp_orders            │
+│ Layer 2: Computed → cdp_customer_equity_computed                    │
+│ Layer 3-4: Cross-Module → fdp_locked_costs, control_tower          │
 └─────────────────────────────────────────────────────────────────────┘
 
-LUONG DUNG (GIU LAI):
+ARCHITECTURE v1.4.2 (ĐÚNG):
 ┌─────────────────────────────────────────────────────────────────────┐
-│ BigQuery/Connectors → master_orders → cdp_orders → KPI → UI        │
-│                       master_order_items   (Layer 2)                │
-│                       (Layer 2 - SSOT)                              │
+│ L0: Raw/External → external_orders, external_products (Staging)     │
+│ L1: Foundation → organizations, organization_members, channel_accounts
+│ L1.5: Ingestion → ingestion_batches, data_watermarks               │
+│ L2: Master Model → master_orders, master_customers, master_products│
+│ L2.5: Events → commerce_events, master_campaigns, master_ad_spend  │
+│ L3: KPI → kpi_definitions, kpi_facts_daily, kpi_targets            │
+│ L4: Alert/Decision → alert_instances, decision_cards, priority_queue
+│ L5: AI Query → ai_conversations, ai_messages                        │
+│ L6: Audit → sync_jobs, audit_logs                                   │
+│ L10: BigQuery → bigquery_connections, sync_configs                  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 2. THONG KE FILES CAN XU LY
+### SAI LẦM CHÍNH:
+1. **Đặt Products/Customers vào Layer 0-1** - Đây là Master Model (Layer 2)
+2. **Nhầm cdp_orders là Source** - cdp_orders là CDP view, Master Model là master_orders
+3. **Bỏ qua Layer 1 (Foundation)** - Không test organizations, members
+4. **Bỏ qua Layer 1.5 (Ingestion)** - Không test batches, watermarks
+5. **Bỏ qua Layer 2.5 (Events)** - Không test campaigns, ad_spend
+6. **Đưa control_tower vào Layer 3-4 chung** - Layer 3 là KPI, Layer 4 là Alert riêng
+7. **Còn reference external_orders** - Script 05 tạo external_orders nhưng đã deprecated
 
-### 2.1 HOOKS - TRUC TIEP QUERY external_orders/items (CRITICAL)
+---
 
-| File | Vi pham | Action |
-|------|---------|--------|
-| `src/hooks/useWhatIfRealData.ts` | Line 113-122: Query `external_order_items` cho SKU analysis | Refactor sang `master_order_items` hoac CDP layer |
-| `src/hooks/useMDPSSOT.ts` | Line 103-106: Query `external_order_items` | Refactor sang `master_order_items` |
-| `src/hooks/useMDPData.ts` | Line 298-302: Query `external_order_items` | Refactor sang `master_order_items` |
-| `src/hooks/useEcommerceReconciliation.ts` | Line 118-122, 213-216, 340: Query/Update `external_orders` | GIU LAI - Day la EXCEPTION cho reconciliation workflow (can staging data) |
+## 2. CẤU TRÚC E2E TEST MỚI (v1.4.2 COMPLIANT)
 
-### 2.2 EDGE FUNCTIONS - WRITE TO external_orders (CRITICAL)
-
-| File | Vi pham | Action |
-|------|---------|--------|
-| `supabase/functions/sync-connector/index.ts` | 7 cho upsert vao `external_orders` (lines 275, 485, 768, 954, 1123, 1288, 1498) | Refactor TRUC TIEP vao `master_orders` |
-| `supabase/functions/sync-bigquery/index.ts` | Lines 934, 1351, 1387: Query/Upsert `external_orders`, `external_order_items` | Refactor TRUC TIEP vao `master_orders`, `master_order_items` |
-| `supabase/functions/sync-ecommerce-data/index.ts` | Line 351: Upsert vao `external_orders` | Refactor TRUC TIEP vao `master_orders` |
-| `supabase/functions/batch-import-data/index.ts` | Lines 414, 482, 491: Query/Insert `external_orders`, `external_order_items` | Refactor TRUC TIEP vao `master_orders`, `master_order_items` |
-
-### 2.3 COMPONENTS - REFERENCE external_orders (LOW)
-
-| File | Vi pham | Action |
-|------|---------|--------|
-| `src/components/warehouse/BigQuerySyncManager.tsx` | Lines 85-86: Count `external_orders`, `external_order_items` cho sync status | OK - chi de monitor staging, khong anh huong SSOT |
-| `src/components/warehouse/DataModelManager.tsx` | Line 123-124: TARGET_TABLES config | Update target table names |
-| `src/pages/mdp/DataReadinessPage.tsx` | Lines 149-210: Field descriptions cho `external_orders` | Update de reflect master_orders schema |
-
-### 2.4 SQL MIGRATIONS - VIEWS/FUNCTIONS QUERY external_orders (CRITICAL)
-
-Tim thay **28+ migration files** chua views/functions query tu `external_orders`. Danh sach chinh:
-
-| Migration | Vi pham | Action |
-|-----------|---------|--------|
-| `20260123015130_*.sql` | Nhieu views query `external_orders` | Tao migration moi refactor sang `cdp_orders` |
-| `20260124162201_*.sql` | Views tong hop tu `external_orders` | Tao migration moi refactor |
-| `20260126061703_*.sql` | Function `fdp_get_*` query `external_orders` | Tao migration moi refactor |
-| `20260126062147_*.sql` | RPC query `external_orders` | Tao migration moi refactor |
-| `20260122083605_*.sql` | SKU performance query `external_order_items` | Tao migration moi refactor |
-| `20260117033830_*.sql` | Order items aggregation | Tao migration moi refactor |
-| `20260116111925_*.sql` | Channel daily/monthly views | Tao migration moi refactor |
-
-### 2.5 CONFIG/TYPES (LOW)
-
-| File | Vi pham | Action |
-|------|---------|--------|
-| `src/lib/dataRequirementsMap.ts` | Line 516: tableName = 'external_order_items' | Update sang `master_order_items` |
-| `src/lib/command-center/metric-registry.ts` | Da fix - source_view = 'cdp_orders' | OK - Da SSOT compliant |
-| `src/contexts/LanguageContext.tsx` | Line 3407: Comment reference | Update comment |
-
-## 3. PHAN LOAI MUC DO UU TIEN
-
-### P0: CRITICAL - Anh huong truc tiep SSOT
-
-1. **Edge Functions sync** - Chuyen tu external_orders sang master_orders
-2. **Hooks query external_orders** - Refactor sang master_orders hoac cdp_orders
-3. **SQL views/functions** - Tao migration refactor
-
-### P1: HIGH - Anh huong data flow
-
-4. **DataModelManager** - Update target tables
-5. **DataReadinessPage** - Update field descriptions
-
-### P2: LOW - Documentation/Comments
-
-6. **LanguageContext** - Update comments
-7. **dataRequirementsMap** - Update table references
-
-## 4. IMPLEMENTATION PHASES
-
-### Phase A: Edge Functions (Sync Layer)
-
-**Muc tieu:** Tat ca data tu BigQuery/Connectors vao TRUC TIEP `master_orders`
+### 2.1 File Structure Mới
 
 ```text
-TRUOC:
-sync-bigquery → external_orders → trigger → master_orders
-
-SAU:
-sync-bigquery → master_orders (TRUC TIEP)
+supabase/e2e-test/
+├── README.md                              # Updated architecture docs
+├── expected-values.json                   # Updated layer structure
+│
+├── L0-raw/
+│   └── 00-raw-external-data.sql          # (SKIP - Staging only, no test)
+│
+├── L1-foundation/
+│   ├── 01-create-tenant.sql              # Tenant + connectors
+│   └── 02-organizations.sql              # Organizations, members, roles
+│
+├── L1.5-ingestion/
+│   └── 03-ingestion-batches.sql          # Batches, watermarks, checkpoints
+│
+├── L2-master/
+│   ├── 04-master-products.sql            # 100 SKUs
+│   ├── 05-master-customers.sql           # 500 customers
+│   ├── 06-master-orders.sql              # 5,500 orders
+│   └── 07-master-order-items.sql         # Order line items
+│
+├── L2.5-events/
+│   ├── 08-commerce-events.sql            # Page views, add to cart, checkout
+│   └── 09-marketing-campaigns.sql        # Campaigns, ad accounts, ad spend
+│
+├── L3-kpi/
+│   ├── 10-kpi-definitions.sql            # KPI metadata
+│   ├── 11-run-kpi-aggregation.sql        # [DB-First] Compute kpi_facts_daily
+│   └── 12-kpi-targets.sql                # Targets vs Actual
+│
+├── L4-alert/
+│   ├── 13-alert-rules.sql                # Alert rule definitions
+│   ├── 14-run-alert-detection.sql        # [DB-First] Detect variances
+│   └── 15-decision-cards.sql             # Decision cards, outcomes
+│
+├── verify/
+│   ├── 20-verify-layer-integrity.sql     # Layer-by-layer verification
+│   └── 21-verify-ui-screens.sql          # Screen-by-screen verification
+│
+└── cleanup/
+    └── 99-cleanup-test-data.sql          # Remove test tenant data
 ```
 
-**Files can sua:**
-- `sync-bigquery/index.ts`: Update upsert target tu `external_orders` sang `master_orders`
-- `sync-connector/index.ts`: Update 7 cho upsert
-- `sync-ecommerce-data/index.ts`: Update upsert target
-- `batch-import-data/index.ts`: Update insert targets
-
-### Phase B: Hooks Refactor
-
-**Muc tieu:** Tat ca hooks query tu `cdp_orders`/`master_orders` (Layer 2)
-
-| Hook | Hien tai | Moi |
-|------|----------|-----|
-| useWhatIfRealData | `external_order_items` | `master_order_items` JOIN `master_orders` |
-| useMDPSSOT | `external_order_items` | `master_order_items` |
-| useMDPData | `external_order_items` | `master_order_items` |
-
-### Phase C: SQL Migration
-
-**Muc tieu:** Tao migration file moi de refactor tat ca views/functions
-
-```sql
--- Migration: Fix SSOT - All views query from master_orders/cdp_orders
-
--- 1. Drop old views
-DROP VIEW IF EXISTS v_channel_daily_summary;
-DROP VIEW IF EXISTS v_sku_performance;
--- ...
-
--- 2. Create new views pointing to master_orders
-CREATE OR REPLACE VIEW v_channel_daily_summary AS
-SELECT ... FROM master_orders WHERE ...;
-
-CREATE OR REPLACE VIEW v_sku_performance AS
-SELECT ... FROM master_order_items WHERE ...;
-```
-
-### Phase D: Cleanup Tables (Optional - Sau khi verify)
-
-```sql
--- SAU KHI verify tat ca luong da chuyen sang master_orders
--- Co the xoa external_orders/external_order_items
-
--- WARNING: Chi chay sau khi E2E test thanh cong
--- DROP TABLE external_order_items;
--- DROP TABLE external_orders;
-```
-
-## 5. EXCEPTION - KHONG XOA
-
-| Component | Ly do giu lai |
-|-----------|---------------|
-| `useEcommerceReconciliation.ts` | Reconciliation workflow CAN staging data de match voi marketplace APIs truoc khi confirm vao master |
-| `BigQuerySyncManager.tsx` (count only) | Chi de monitor sync status, khong query business data |
-
-## 6. E2E TEST PLAN ALIGNMENT
-
-Sau khi refactor, data flow cho E2E test se la:
+### 2.2 Layer Flow Diagram Mới
 
 ```text
-Phase 1: BigQuery Query (baseline metrics)
-     ↓
-Phase 2: sync-bigquery → master_orders (TRUC TIEP - khong qua external)
-     ↓
-Phase 3: cdp_run_daily_build() → cdp_customer_equity_computed
-     ↓
-Phase 4: control_tower_aggregate_signals() → priority_queue
-     ↓
-Phase 5: UI Verification
+L1 FOUNDATION (Setup)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ tenant: E2E Test Company                                                      │
+│ organization: OLV Boutique                                                    │
+│ members: owner, admin, analyst                                                │
+│ channel_accounts: Shopee, Lazada, TikTok Shop, Website                        │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+L1.5 INGESTION
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ingestion_batches: 4 batches (1 per channel)                                 │
+│ data_watermarks: 4 watermarks with last_sync timestamps                      │
+│ connector_integrations: 4 active integrations                                │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+L2 MASTER MODEL (SSOT)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ master_products: 100 SKUs (5 categories)                                     │
+│ master_customers: 500 customers (4 tiers)                                    │
+│ master_orders: 5,500 orders (25 months, 4 channels)                          │
+│ master_order_items: ~12,100 items (2.2 items/order)                          │
+│ master_payments: 5,500 payments                                              │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+L2.5 EVENTS & MARKETING
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ commerce_events: ~27,500 events (5 events/order)                             │
+│ master_ad_accounts: 4 accounts (1 per channel)                               │
+│ master_campaigns: 50 campaigns (25 months x 2)                               │
+│ master_ad_spend: 100 spend records                                           │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼ compute_kpi_facts_daily()
+L3 KPI (AGGREGATED)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ kpi_definitions: 20 definitions (Revenue, COGS, Margin, CAC, LTV, etc)       │
+│ kpi_facts_daily: ~760 rows (25 months x 30 days, aggregated)                 │
+│ kpi_targets: 100 targets (20 KPIs x 5 periods)                               │
+│ kpi_thresholds: 60 thresholds (20 KPIs x 3 severity levels)                  │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼ detect_threshold_breaches()
+L4 ALERT & DECISION
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ alert_rules: 15 rules (based on KPI thresholds)                              │
+│ alert_instances: 5-15 active alerts                                          │
+│ decision_cards: 10-20 cards (actionable items)                               │
+│ priority_queue: 5-10 prioritized items                                       │
+│ evidence_logs: Linked evidence for each alert                                │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 7. TECHNICAL DETAILS
+---
 
-### Schema Mapping Can Update
+## 3. CHI TIẾT THAY ĐỔI
+
+### 3.1 README.md Mới
 
 ```text
-external_orders         → master_orders
------------------------------------------
-id                      → id
-tenant_id               → tenant_id  
-external_order_id       → order_key
-order_date              → order_at
-channel                 → channel
-total_amount            → gross_revenue
-net_revenue             → net_revenue (NEW)
-cost_of_goods           → cogs (NEW)
-customer_phone          → customer_id (FK)
-status                  → status
-platform_fee            → platform_fee
-commission_fee          → commission_fee
-shipping_fee            → shipping_fee
+# E2E Test Suite - Bluecore Platform v1.4.2
+
+## Architecture
+
+| Layer | Tables | Script | Purpose |
+|-------|--------|--------|---------|
+| L0 | external_* | SKIP | Staging only, không test |
+| L1 | organizations, members | 01, 02 | Foundation setup |
+| L1.5 | ingestion_batches | 03 | Data pipeline tracking |
+| L2 | master_orders, master_customers | 04-07 | SSOT Master Model |
+| L2.5 | commerce_events, campaigns | 08-09 | Events & Marketing |
+| L3 | kpi_facts_daily, kpi_targets | 10-12 | KPI aggregation |
+| L4 | alert_instances, decision_cards | 13-15 | Control Tower |
 ```
+
+### 3.2 expected-values.json Mới
+
+```json
+{
+  "meta": {
+    "version": "3.0",
+    "architecture": "v1.4.2 10-Layer"
+  },
+  "layer_1_foundation": {
+    "tenants": { "count": 1 },
+    "organizations": { "count": 1 },
+    "organization_members": { "count": 3 },
+    "channel_accounts": { "count": 4 }
+  },
+  "layer_1_5_ingestion": {
+    "ingestion_batches": { "count": 4 },
+    "data_watermarks": { "count": 4 }
+  },
+  "layer_2_master": {
+    "master_products": { "count": 100 },
+    "master_customers": { "count": 500 },
+    "master_orders": { "count": 5500 },
+    "master_order_items": { "count": 12100 }
+  },
+  "layer_2_5_events": {
+    "commerce_events": { "count": 27500 },
+    "master_campaigns": { "count": 50 }
+  },
+  "layer_3_kpi": {
+    "kpi_definitions": { "count": 20 },
+    "kpi_facts_daily": { "count_min": 700 },
+    "kpi_targets": { "count": 100 }
+  },
+  "layer_4_alert": {
+    "alert_instances": { "count_range": [5, 15] },
+    "decision_cards": { "count_range": [10, 20] },
+    "priority_queue": { "count_range": [5, 10] }
+  }
+}
+```
+
+### 3.3 Scripts Thay Đổi
+
+| Old Script | New Script | Thay Đổi |
+|------------|------------|----------|
+| 00-create-test-tenant.sql | L1-foundation/01-create-tenant.sql | Giữ nguyên |
+| 01-products.sql | L2-master/04-master-products.sql | Đổi table: products → master_products |
+| 02-customers.sql | L2-master/05-master-customers.sql | Đổi table: cdp_customers → master_customers |
+| 03-orders.sql | L2-master/06-master-orders.sql | Đổi table: cdp_orders → master_orders |
+| 04-order-items.sql | L2-master/07-master-order-items.sql | Đổi table: cdp_order_items → master_order_items |
+| 05-external-orders.sql | (DELETED) | XÓA - Không còn external_orders flow |
+| 06-run-compute-pipeline.sql | L3-kpi/11-run-kpi-aggregation.sql | Đổi logic: CDP → KPI aggregation |
+| 07-fdp-locked-costs.sql | L3-kpi/12-kpi-targets.sql | Đổi table: fdp_locked_costs → kpi_targets |
+| 08-run-cross-module-sync.sql | L4-alert/14-run-alert-detection.sql | Đổi logic: Cross-module → Alert detection |
+| 09-verify-expected.sql | verify/20-verify-layer-integrity.sql | Rewrite theo layer mới |
+| 10-comprehensive-verify.sql | verify/21-verify-ui-screens.sql | Update table references |
+
+---
+
+## 4. EXPECTED VALUES CHÍNH
+
+### L2 Master Model
+
+| Metric | Expected | Tolerance |
+|--------|----------|-----------|
+| Total Orders | 5,500 | 2% |
+| Total Gross Revenue | ~₫2.7B VND | 10% |
+| Total Net Revenue | ~₫2.35B VND | 10% |
+| COGS % | 53% | 3% |
+| Total Customers | 500 | 0% |
+| Active Customers (90d) | ~350 | 10% |
+
+### L3 KPI
+
+| Metric | Expected | Source |
+|--------|----------|--------|
+| Revenue KPI Facts | 760+ rows | Aggregated from master_orders |
+| AOV Daily | ~₫430K | Computed |
+| Monthly Margin | ~₫380M | Computed |
+
+### L4 Control Tower
+
+| Metric | Expected | Range |
+|--------|----------|-------|
+| Alert Instances | 5-15 | Auto-generated |
+| Decision Cards | 10-20 | Auto-generated |
+| Priority Queue | 5-10 | Highest severity |
+
+---
+
+## 5. KẾ HOẠCH THỰC HIỆN
+
+### Phase 1: Tạo Structure Mới (1h)
+- Tạo folder structure mới
+- Tạo README.md v3.0
+- Tạo expected-values.json v3.0
+
+### Phase 2: Migrate Existing Scripts (2h)
+- L1: 01, 02 (Foundation)
+- L1.5: 03 (Ingestion - NEW)
+- L2: 04-07 (Master Model - migrate from cdp_* to master_*)
+
+### Phase 3: Tạo Scripts Mới (2h)
+- L2.5: 08, 09 (Events & Marketing - NEW)
+- L3: 10-12 (KPI - rewrite từ CDP equity sang KPI facts)
+- L4: 13-15 (Alert - rewrite từ cross-module sang alert detection)
+
+### Phase 4: Verification Scripts (1h)
+- 20-verify-layer-integrity.sql (Layer-by-layer)
+- 21-verify-ui-screens.sql (Screen mapping)
+
+### Phase 5: Delete Old Scripts (0.5h)
+- Xóa 05-external-orders.sql
+- Archive old scripts
+
+### Total Estimated: 6-7 hours
+
+---
+
+## 6. TABLE MAPPING CHI TIẾT
 
 ```text
-external_order_items    → master_order_items
----------------------------------------------
-id                      → id
-external_order_id       → master_order_id
-sku                     → sku
-product_name            → product_name
-quantity                → quantity
-unit_price              → unit_price
-total_amount            → line_total
-unit_cogs               → unit_cogs
-total_cogs              → line_cogs
-gross_profit            → line_margin
+OLD TABLE (E2E cũ)          → NEW TABLE (v1.4.2)
+─────────────────────────────────────────────────
+products                    → master_products
+cdp_customers              → master_customers  
+cdp_orders                 → master_orders
+cdp_order_items            → master_order_items
+external_orders            → (DELETED)
+external_order_items       → (DELETED)
+cdp_customer_equity_computed → kpi_facts_daily (aggregated)
+fdp_locked_costs           → kpi_targets
+cdp_segment_ltv_for_mdp    → kpi_facts_daily (segment)
+cdp_customer_cohort_cac    → kpi_facts_daily (cohort)
+cross_domain_variance_alerts → alert_instances
+control_tower_priority_queue → priority_queue
 ```
 
-### Hooks Query Pattern (SAU REFACTOR)
+---
 
-```typescript
-// TRUOC (SAI)
-const { data } = await client
-  .from('external_order_items')
-  .select('...')
-  .eq('tenant_id', tenantId);
+## 7. VERIFICATION OUTPUT MỚI
 
-// SAU (DUNG)
-const { data } = await buildSelectQuery(
-  'master_order_items', // hoac 'cdp_order_items'
-  'sku, quantity, unit_price, ...'
-)
-  .eq('master_order_id', orderId);
+```text
+═══════════════════════════════════════════════════════════════════════
+                E2E TEST VERIFICATION - ARCHITECTURE v1.4.2             
+═══════════════════════════════════════════════════════════════════════
+
+LAYER       │ TOTAL │ PASSED │ FAILED │ WARNINGS
+────────────┼───────┼────────┼────────┼─────────
+L1_FOUND    │   4   │   4    │   0    │    0
+L1.5_INGEST │   2   │   2    │   0    │    0
+L2_MASTER   │   6   │   6    │   0    │    0
+L2.5_EVENTS │   3   │   3    │   0    │    0
+L3_KPI      │   5   │   5    │   0    │    0
+L4_ALERT    │   4   │   4    │   0    │    0
+────────────┼───────┼────────┼────────┼─────────
+OVERALL     │  24   │  24    │   0    │    0
+
+✅ ALL LAYERS VERIFIED - ARCHITECTURE v1.4.2 COMPLIANT
 ```
 
-## 8. CHECKLIST XAC NHAN
-
-Sau khi hoan thanh, verify:
-
-- [x] `sync-bigquery` ghi truc tiep vao `cdp_orders` (SSOT Layer 2)
-- [x] `sync-connector` ghi truc tiep vao `cdp_orders`
-- [x] `sync-ecommerce-data` ghi truc tiep vao `cdp_orders`
-- [x] `batch-import-data` ghi truc tiep vao `cdp_orders`
-- [x] `useWhatIfRealData` query tu `cdp_order_items` (maps to master_order_items)
-- [x] `useMDPSSOT` query tu `cdp_order_items` (maps to master_order_items)
-- [x] `useMDPData` query tu `cdp_order_items` (maps to master_order_items)
-- [x] Tat ca SQL views query tu `cdp_orders` hoac `master_orders` ✅ 10 functions refactored
-- [ ] E2E test OLV Boutique pass
-- [ ] UI screens hien thi dung data
-
-## 9. ESTIMATED EFFORT
-
-| Phase | Files | Estimated Time |
-|-------|-------|----------------|
-| Phase A: Edge Functions | 4 files | 2-3h |
-| Phase B: Hooks | 3 files | 1-2h |
-| Phase C: SQL Migration | 1 file (consolidate) | 2-3h |
-| Phase D: Testing | - | 2-3h |
-| **Total** | **8+ files** | **7-11h** |
