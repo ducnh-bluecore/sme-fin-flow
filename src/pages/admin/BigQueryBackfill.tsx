@@ -324,7 +324,7 @@ export default function BigQueryBackfillPage() {
                                 </Button>
                               )}
 
-                              {(job.status === 'failed' || job.status === 'running') && (
+                              {(job.status === 'failed' || job.status === 'running' || job.status === 'pending') && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
