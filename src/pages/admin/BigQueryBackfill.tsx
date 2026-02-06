@@ -72,7 +72,7 @@ const MODEL_TYPES: BackfillModelType[] = [
 const E2E_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 export default function BigQueryBackfillPage() {
-  const { startBackfill, cancelBackfill, deleteBackfillJob, isReady, tenantId } = useBigQueryBackfill();
+  const { startBackfill, continueBackfill, cancelBackfill, deleteBackfillJob, isReady, tenantId } = useBigQueryBackfill();
   const { data: jobs, isLoading, refetch } = useAllBackfillJobs();
   
   const [selectedModel, setSelectedModel] = useState<BackfillModelType>('customers');
@@ -321,6 +321,21 @@ export default function BigQueryBackfillPage() {
                                   onClick={() => handleCancelBackfill(job.model_type as BackfillModelType)}
                                 >
                                   <Square className="w-4 h-4" />
+                                </Button>
+                              )}
+
+                              {(job.status === 'failed' || job.status === 'running') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => continueBackfill.mutate({ 
+                                    modelType: job.model_type as BackfillModelType,
+                                    options: { batch_size: 500 },
+                                  })}
+                                  disabled={continueBackfill.isPending}
+                                  title="Continue backfill"
+                                >
+                                  <Play className="w-4 h-4" />
                                 </Button>
                               )}
 
