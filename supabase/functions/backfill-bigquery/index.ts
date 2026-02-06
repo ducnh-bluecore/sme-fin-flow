@@ -161,10 +161,12 @@ const ORDER_SOURCES = [
     dataset: 'olvboutique_tiktokshop',
     table: 'tiktok_Orders',
     mapping: {
-      order_key: 'id',
+      order_key: 'order_id',
       order_at: 'create_time',
-      status: 'status',
-      gross_revenue: 'paid_amount',
+      status: 'order_status',
+      customer_name: 'recipient_address_name',
+      customer_phone: 'recipient_address_phone',
+      gross_revenue: 'payment_total_amount',
       payment_method: 'payment_method_name',
     }
   },
@@ -176,8 +178,8 @@ const ORDER_SOURCES = [
       order_key: 'code',
       order_at: 'created_at',
       status: 'status',
-      customer_name: 'billing_full_name',
-      gross_revenue: 'grand_total',
+      customer_name: 'customer_full_name',
+      gross_revenue: 'invoice_grand_total',
       payment_method: 'payment_method',
     }
   },
@@ -186,14 +188,13 @@ const ORDER_SOURCES = [
     dataset: 'olvboutique',
     table: 'raw_kiotviet_Orders',
     mapping: {
-      order_key: 'Id',
+      order_key: 'OrderId',
       order_at: 'PurchaseDate',
       status: 'Status',
-      customer_id: 'CustomerId',
+      customer_id: 'CusId',
       customer_name: 'CustomerName',
       gross_revenue: 'Total',
-      discount: 'Discount',
-      payment_method: 'PaymentMethodStr',
+      discount: 'discount',
     }
   }
 ];
@@ -731,22 +732,22 @@ async function syncOrders(
         paused = true;
         break;
       }
-      const columns = Object.values(source.mapping).join(', ');
+      const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
       let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
       
       const conditions: string[] = [];
       if (options.date_from) {
-        conditions.push(`DATE(${source.mapping.order_at}) >= '${options.date_from}'`);
+        conditions.push(`DATE(\`${source.mapping.order_at}\`) >= '${options.date_from}'`);
       }
       if (options.date_to) {
-        conditions.push(`DATE(${source.mapping.order_at}) <= '${options.date_to}'`);
+        conditions.push(`DATE(\`${source.mapping.order_at}\`) <= '${options.date_to}'`);
       }
       
       if (conditions.length > 0) {
         query += ` WHERE ${conditions.join(' AND ')}`;
       }
       
-      query += ` ORDER BY ${source.mapping.order_at} LIMIT ${batchSize} OFFSET ${offset}`;
+      query += ` ORDER BY \`${source.mapping.order_at}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
