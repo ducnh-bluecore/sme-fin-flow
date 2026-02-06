@@ -30810,6 +30810,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cdp_truth_snapshot: {
+        Row: {
+          active_customers: number | null
+          at_risk_customers: number | null
+          at_risk_pct: number | null
+          at_risk_value: number | null
+          avg_ltv: number | null
+          ltv_cac_ratio: number | null
+          snapshot_at: string | null
+          tenant_id: string | null
+          total_customers: number | null
+          total_equity_12m: number | null
+          total_equity_24m: number | null
+        }
+        Relationships: []
+      }
       v_cdp_value_distribution: {
         Row: {
           avg_order_value: number | null
@@ -31601,6 +31617,67 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_fdp_truth_snapshot: {
+        Row: {
+          accounts_payable: number | null
+          accounts_receivable: number | null
+          aov: number | null
+          ap_overdue: number | null
+          ar_overdue: number | null
+          cash_conversion_cycle: number | null
+          cash_forecast_7d: number | null
+          cash_in_bank: number | null
+          contribution_margin: number | null
+          contribution_margin_pct: number | null
+          dio: number | null
+          dpo: number | null
+          dso: number | null
+          ebitda: number | null
+          gross_margin_pct: number | null
+          gross_profit: number | null
+          locked_cash_ads: number | null
+          locked_cash_inventory: number | null
+          locked_cash_ops: number | null
+          locked_cash_total: number | null
+          net_revenue: number | null
+          period_end: string | null
+          period_start: string | null
+          runway_months: number | null
+          snapshot_at: string | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -32500,6 +32577,52 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_mdp_truth_snapshot: {
+        Row: {
+          blended_roas: number | null
+          channel_breakdown: Json | null
+          clicks: number | null
+          cpa: number | null
+          ctr_pct: number | null
+          impressions: number | null
+          revenue_attributed: number | null
+          snapshot_at: string | null
+          snapshot_date: string | null
+          tenant_id: string | null
+          total_ad_spend: number | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "promotion_campaigns_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
