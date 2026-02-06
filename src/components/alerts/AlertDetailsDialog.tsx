@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import {
   Dialog,
   DialogContent,
@@ -48,7 +47,7 @@ export function AlertDetailsDialog({
   onOpenChange,
   alert,
 }: AlertDetailsDialogProps) {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<string>('days_of_stock');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -85,10 +84,7 @@ export function AlertDetailsDialog({
     queryKey: ['alert-details-products', tenantId, statusFilter, metricField],
     queryFn: async () => {
       if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('object_calculated_metrics')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('object_calculated_metrics', '*')
         .eq(metricField, statusFilter)
         .order('days_of_stock', { ascending: true })
         .limit(500);
@@ -99,7 +95,7 @@ export function AlertDetailsDialog({
       }
       return data || [];
     },
-    enabled: open && !!tenantId && dataType === 'product',
+    enabled: open && !!tenantId && isReady && dataType === 'product',
   });
 
   // Fetch alert objects (for customers, stores, etc.)
@@ -109,10 +105,7 @@ export function AlertDetailsDialog({
       if (!tenantId || !alert) return [];
       
       // Get related alert instances or objects
-      const { data, error } = await supabase
-        .from('alert_objects')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('alert_objects', '*')
         .eq('object_type', dataType)
         .order('updated_at', { ascending: false })
         .limit(500);
@@ -123,7 +116,7 @@ export function AlertDetailsDialog({
       }
       return data || [];
     },
-    enabled: open && !!tenantId && dataType !== 'product',
+    enabled: open && !!tenantId && isReady && dataType !== 'product',
   });
 
   const isLoading = dataType === 'product' ? productsLoading : objectsLoading;

@@ -17,7 +17,7 @@ import { formatVND, formatVNDCompact } from '@/lib/formatters';
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useTopCustomersAR } from '@/hooks/useTopCustomersAR';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 import {
   Table,
@@ -47,6 +47,7 @@ import {
 export default function AROperations() {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
+  const { buildInsertQuery, tenantId } = useTenantQueryBuilder();
   
   // Date range filter
   const [dateRange, setDateRange] = useState('this_year');
@@ -74,10 +75,12 @@ export default function AROperations() {
     status: 'active'
   });
 
-  // Add customer mutation
+  // Add customer mutation - uses useTenantQueryBuilder for tenant-aware insert
   const addCustomer = useMutation({
     mutationFn: async (data: typeof customerForm) => {
-      const { error } = await supabase.from('customers').insert({
+      if (!tenantId) throw new Error('No tenant selected');
+      
+      const { error } = await buildInsertQuery('customers', {
         name: data.name,
         email: data.email || null,
         phone: data.phone || null,

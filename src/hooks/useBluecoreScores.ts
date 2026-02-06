@@ -535,3 +535,19 @@ function calculateCustomerValueRiskScore(data: CVRSInputData): Omit<BluecoreScor
     valid_until: null,
   };
 }
+
+/**
+ * Main hook for Bluecore Scores
+ * Returns calculated scores in real-time (for now)
+ * Can be switched to use database scores via useBluecoreScoresFromDB
+ */
+export function useBluecoreScores() {
+  const calculatedScores = useBluecoreScoresCalculated();
+  
+  return {
+    data: calculatedScores.data as BluecoreScore[] | undefined,
+    isLoading: calculatedScores.isLoading,
+    isCalculated: true, // Indicates scores are calculated client-side
+    error: calculatedScores.error,
+  };
+}
