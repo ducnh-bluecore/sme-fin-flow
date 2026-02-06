@@ -1,5 +1,12 @@
+/**
+ * useDecisionAnalyses - Decision analysis management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface DecisionAnalysis {
@@ -21,21 +28,15 @@ export interface DecisionAnalysis {
 }
 
 export function useDecisionAnalyses(analysisType?: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['decision-analyses', tenantId, analysisType],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('decision_analyses')
-        .select('*')
+      let query = buildSelectQuery('decision_analyses', '*')
         .order('created_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
 
       if (analysisType) {
         query = query.eq('analysis_type', analysisType);
@@ -43,7 +44,7 @@ export function useDecisionAnalyses(analysisType?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as DecisionAnalysis[];
+      return data as unknown as DecisionAnalysis[];
     },
     enabled: !!tenantId && isReady,
   });
@@ -51,7 +52,7 @@ export function useDecisionAnalyses(analysisType?: string) {
 
 export function useSaveDecisionAnalysis() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, buildInsertQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (analysis: Omit<DecisionAnalysis, 'id' | 'tenant_id' | 'created_at' | 'updated_at' | 'created_by'>) => {
@@ -59,13 +60,10 @@ export function useSaveDecisionAnalysis() {
 
       const { data: { user } } = await client.auth.getUser();
 
-      const { data, error } = await client
-        .from('decision_analyses')
-        .insert({
-          tenant_id: tenantId,
-          created_by: user?.id,
-          ...analysis,
-        })
+      const { data, error } = await buildInsertQuery('decision_analyses', {
+        created_by: user?.id,
+        ...analysis,
+      })
         .select()
         .single();
 
@@ -85,13 +83,11 @@ export function useSaveDecisionAnalysis() {
 
 export function useUpdateDecisionAnalysis() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<DecisionAnalysis> & { id: string }) => {
-      const { data, error } = await client
-        .from('decision_analyses')
-        .update(updates)
+      const { data, error } = await buildUpdateQuery('decision_analyses', updates)
         .eq('id', id)
         .select()
         .single();

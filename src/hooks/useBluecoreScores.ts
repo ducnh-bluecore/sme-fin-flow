@@ -1,5 +1,7 @@
+// ============= Lines 1-500 of 644 total lines =============
+
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useCashRunway } from './useCashRunway';
 import { useMDPData } from './useMDPData';
 
@@ -120,7 +122,7 @@ export const GRADE_CONFIG: Record<ScoreGrade, {
 
 // Hook to fetch CVRS input data from database
 function useCVRSInputData() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cvrs-input-data', tenantId],
@@ -131,46 +133,22 @@ function useCVRSInputData() {
 
       try {
         // Fetch customer metrics from central_metric_facts
-        let customerQuery = client
-          .from('central_metric_facts')
-          .select('grain_id, grain_name, revenue, profit, order_count')
+        const { data: customerFacts } = await buildSelectQuery('central_metric_facts', 'grain_id, grain_name, revenue, profit, order_count')
           .eq('grain_type', 'customer')
           .order('revenue', { ascending: false });
 
-        if (shouldAddTenantFilter) {
-          customerQuery = customerQuery.eq('tenant_id', tenantId);
-        }
-
-        const { data: customerFacts } = await customerQuery;
-
         // Fetch AR aging data
-        let arQuery = client
-          .from('invoices')
-          .select('total_amount, status, due_date')
+        const { data: arData } = await buildSelectQuery('invoices', 'total_amount, status, due_date')
           .in('status', ['pending', 'overdue', 'partial']);
 
-        if (shouldAddTenantFilter) {
-          arQuery = arQuery.eq('tenant_id', tenantId);
-        }
-
-        const { data: arData } = await arQuery;
-
         // Fetch marketing spend for CAC
-        let marketingQuery = client
-          .from('expenses')
-          .select('amount')
+        const { data: marketingExpenses } = await buildSelectQuery('expenses', 'amount')
           .eq('category', 'marketing');
 
-        if (shouldAddTenantFilter) {
-          marketingQuery = marketingQuery.eq('tenant_id', tenantId);
-        }
-
-        const { data: marketingExpenses } = await marketingQuery;
-
         // Calculate metrics
-        const customers = customerFacts || [];
-        const invoices = arData || [];
-        const marketing = marketingExpenses || [];
+        const customers = (customerFacts as any[]) || [];
+        const invoices = (arData as any[]) || [];
+        const marketing = (marketingExpenses as any[]) || [];
 
         const totalCustomers = customers.length || 1;
         const totalRevenue = customers.reduce((sum, c) => sum + (c.revenue || 0), 0);
@@ -196,18 +174,12 @@ function useCVRSInputData() {
         const overdueARPercent = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
 
         // DSO from working_capital_metrics or estimate
-        let wcQuery = client
-          .from('working_capital_metrics')
-          .select('dso_days')
+        const { data: wcData } = await buildSelectQuery('working_capital_metrics', 'dso_days')
           .order('metric_date', { ascending: false })
-          .limit(1);
-
-        if (shouldAddTenantFilter) {
-          wcQuery = wcQuery.eq('tenant_id', tenantId);
-        }
-
-        const { data: wcData } = await wcQuery.maybeSingle();
-        const avgDSO = wcData?.dso_days || 30;
+          .limit(1)
+          .maybeSingle();
+          
+        const avgDSO = (wcData as any)?.dso_days || 30;
 
         // Repeat purchase rate
         const repeatCustomers = customers.filter(c => (c.order_count || 0) > 1).length;
@@ -261,7 +233,7 @@ function getDefaultCVRSData(): CVRSInputData {
 
 // Hook to fetch Bluecore Scores from database
 export function useBluecoreScoresFromDB() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['bluecore-scores', tenantId],
@@ -269,24 +241,16 @@ export function useBluecoreScoresFromDB() {
       if (!tenantId) return [];
 
       // Get the latest score for each type
-      let query = client
-        .from('bluecore_scores')
-        .select('*')
+      const { data, error } = await buildSelectQuery('bluecore_scores', '*')
         .order('calculated_at', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
       // Get unique latest scores by type
       const latestScores: Record<string, BluecoreScore> = {};
-      for (const score of data) {
+      for (const score of (data as unknown as BluecoreScore[])) {
         if (!latestScores[score.score_type]) {
-          latestScores[score.score_type] = score as BluecoreScore;
+          latestScores[score.score_type] = score;
         }
       }
 
@@ -487,137 +451,81 @@ function calculateMarketingAccountabilityScore(
  * 
  * FORMULA (Weighted Average):
  * CVRS = (LTV_CAC_Score × 30%) + (AR_Risk_Score × 25%) + (Retention_Score × 25%) + (Concentration_Score × 20%)
- * 
- * Components:
- * 1. LTV/CAC Ratio Score (30%):
- *    - ≥ 4x: 100 points (Excellent - High customer value)
- *    - 3-4x: 80 points (Good - Healthy acquisition)
- *    - 2-3x: 60 points (Warning - Watch CAC)
- *    - 1-2x: 40 points (Poor - CAC too high)
- *    - < 1x: 20 points (Critical - Losing money per customer)
- * 
- * 2. AR Risk Score (25%):
- *    - Overdue AR < 5%: 100 points (Excellent)
- *    - 5-15%: 70 points (Good)
- *    - 15-30%: 45 points (Warning)
- *    - > 30%: 20 points (Critical - High bad debt risk)
- * 
- * 3. Retention Score (25%):
- *    - Repeat Rate ≥ 40%: 100 points (Excellent)
- *    - 25-40%: 75 points (Good)
- *    - 10-25%: 50 points (Warning)
- *    - < 10%: 25 points (Critical - No retention)
- * 
- * 4. Concentration Score (20%):
- *    - Top 10 < 20% revenue: 100 points (Diversified)
- *    - 20-40%: 70 points (Moderate concentration)
- *    - 40-60%: 45 points (High concentration)
- *    - > 60%: 20 points (Critical dependency)
  */
-function calculateCustomerValueRiskScore(
-  cvrsData: CVRSInputData
-): Omit<BluecoreScore, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
-  const {
-    ltvCacRatio,
-    overdueARPercent,
-    repeatPurchaseRate,
-    concentrationPercent,
-  } = cvrsData;
-
-  // 1. LTV/CAC Ratio Score (30% weight)
-  let ltvCacScore: number;
-  if (ltvCacRatio >= 4) ltvCacScore = 100;
-  else if (ltvCacRatio >= 3) ltvCacScore = 80;
-  else if (ltvCacRatio >= 2) ltvCacScore = 60;
-  else if (ltvCacRatio >= 1) ltvCacScore = 40;
+function calculateCustomerValueRiskScore(data: CVRSInputData): Omit<BluecoreScore, 'id' | 'tenant_id' | 'created_at' | 'updated_at'> {
+  // 1. LTV/CAC Score (30%)
+  let ltvCacScore = 0;
+  if (data.ltvCacRatio >= 4) ltvCacScore = 100;
+  else if (data.ltvCacRatio >= 3) ltvCacScore = 80;
+  else if (data.ltvCacRatio >= 2) ltvCacScore = 60;
+  else if (data.ltvCacRatio >= 1) ltvCacScore = 40;
   else ltvCacScore = 20;
 
-  // 2. AR Risk Score (25% weight)
-  let arRiskScore: number;
-  if (overdueARPercent < 5) arRiskScore = 100;
-  else if (overdueARPercent < 15) arRiskScore = 70;
-  else if (overdueARPercent < 30) arRiskScore = 45;
+  // 2. AR Risk Score (25%)
+  let arRiskScore = 0;
+  if (data.overdueARPercent < 5) arRiskScore = 100;
+  else if (data.overdueARPercent < 10) arRiskScore = 80;
+  else if (data.overdueARPercent < 20) arRiskScore = 60;
+  else if (data.overdueARPercent < 30) arRiskScore = 40;
   else arRiskScore = 20;
 
-  // 3. Retention Score (25% weight)
-  let retentionScore: number;
-  if (repeatPurchaseRate >= 40) retentionScore = 100;
-  else if (repeatPurchaseRate >= 25) retentionScore = 75;
-  else if (repeatPurchaseRate >= 10) retentionScore = 50;
-  else retentionScore = 25;
+  // 3. Retention Score (25%)
+  let retentionScore = 0;
+  if (data.repeatPurchaseRate >= 40) retentionScore = 100;
+  else if (data.repeatPurchaseRate >= 30) retentionScore = 80;
+  else if (data.repeatPurchaseRate >= 20) retentionScore = 60;
+  else if (data.repeatPurchaseRate >= 10) retentionScore = 40;
+  else retentionScore = 20;
 
-  // 4. Concentration Score (20% weight)
-  let concentrationScore: number;
-  if (concentrationPercent < 20) concentrationScore = 100;
-  else if (concentrationPercent < 40) concentrationScore = 70;
-  else if (concentrationPercent < 60) concentrationScore = 45;
+  // 4. Concentration Score (20%)
+  let concentrationScore = 0;
+  if (data.concentrationPercent < 10) concentrationScore = 100;
+  else if (data.concentrationPercent < 20) concentrationScore = 80;
+  else if (data.concentrationPercent < 30) concentrationScore = 60;
+  else if (data.concentrationPercent < 50) concentrationScore = 40;
   else concentrationScore = 20;
 
-  // Weighted final score
-  const finalScore = Math.round(
-    ltvCacScore * 0.30 +
-    arRiskScore * 0.25 +
-    retentionScore * 0.25 +
-    concentrationScore * 0.20
+  // Weighted Average
+  const totalScore = Math.round(
+    (ltvCacScore * 0.3) +
+    (arRiskScore * 0.25) +
+    (retentionScore * 0.25) +
+    (concentrationScore * 0.2)
   );
 
-  // Determine grade
-  let grade: ScoreGrade;
-  if (finalScore >= 80) grade = 'EXCELLENT';
-  else if (finalScore >= 60) grade = 'GOOD';
-  else if (finalScore >= 40) grade = 'WARNING';
-  else grade = 'CRITICAL';
+  let grade: ScoreGrade = 'WARNING';
+  let primaryDriver = 'Customer metrics';
+  let recommendation = 'Improve customer retention';
 
-  // Identify primary driver (lowest scoring component)
-  const components = {
-    ltvCac: { score: ltvCacScore, weight: 0.30, value: ltvCacRatio.toFixed(1) + 'x' },
-    arRisk: { score: arRiskScore, weight: 0.25, value: overdueARPercent.toFixed(1) + '%' },
-    retention: { score: retentionScore, weight: 0.25, value: repeatPurchaseRate.toFixed(1) + '%' },
-    concentration: { score: concentrationScore, weight: 0.20, value: concentrationPercent.toFixed(1) + '%' },
-  };
-
-  // Find weakest component
-  const weakest = Object.entries(components).reduce((min, [key, val]) => 
-    val.score < min.score ? { key, ...val } : min, 
-    { key: 'ltvCac', score: 100, weight: 0, value: '' }
-  );
-
-  // Generate driver message and recommendation
-  let primaryDriver: string;
-  let recommendation: string;
-
-  switch (weakest.key) {
-    case 'ltvCac':
-      primaryDriver = `LTV/CAC = ${cvrsData.ltvCacRatio.toFixed(1)}x`;
-      if (ltvCacScore >= 80) recommendation = 'Unit economics xuất sắc - Scale tự tin';
-      else if (ltvCacScore >= 60) recommendation = 'Có thể scale với monitoring';
-      else recommendation = 'Giảm CAC hoặc tăng LTV trước khi scale';
-      break;
-    case 'arRisk':
-      primaryDriver = `AR quá hạn = ${overdueARPercent.toFixed(0)}%`;
-      if (arRiskScore >= 70) recommendation = 'Rủi ro thu hồi thấp';
-      else recommendation = 'Thắt chặt credit policy, đẩy mạnh thu hồi';
-      break;
-    case 'retention':
-      primaryDriver = `Repeat Rate = ${repeatPurchaseRate.toFixed(0)}%`;
-      if (retentionScore >= 75) recommendation = 'Khách hàng trung thành cao';
-      else recommendation = 'Cải thiện retention marketing & CX';
-      break;
-    case 'concentration':
-      primaryDriver = `Top 10 KH = ${concentrationPercent.toFixed(0)}% doanh thu`;
-      if (concentrationScore >= 70) recommendation = 'Rủi ro tập trung thấp';
-      else recommendation = 'Đa dạng hóa khách hàng để giảm rủi ro';
-      break;
-    default:
-      primaryDriver = 'Customer health assessment';
-      recommendation = 'Tiếp tục theo dõi';
+  if (totalScore >= 85) {
+    grade = 'EXCELLENT';
+    primaryDriver = 'Strong customer value';
+    recommendation = 'Focus on scaling high-value segments';
+  } else if (totalScore >= 70) {
+    grade = 'GOOD';
+    primaryDriver = 'Healthy customer base';
+    recommendation = 'Optimize CAC and retention';
+  } else if (totalScore >= 50) {
+    grade = 'WARNING';
+    primaryDriver = 'Risky customer metrics';
+    recommendation = 'Reduce AR risk and improve retention';
+  } else {
+    grade = 'CRITICAL';
+    primaryDriver = 'High customer risk';
+    recommendation = 'Urgent: Collect AR and stop low-quality acquisition';
   }
 
   return {
     score_type: 'CUSTOMER_VALUE_RISK',
-    score_value: finalScore,
+    score_value: totalScore,
     score_grade: grade,
-    components,
+    components: {
+      ltvCac: ltvCacScore,
+      arRisk: arRiskScore,
+      retention: retentionScore,
+      concentration: concentrationScore,
+      inputs: data,
+    },
     previous_score: null,
     trend: null,
     trend_percent: null,
@@ -625,20 +533,5 @@ function calculateCustomerValueRiskScore(
     recommendation,
     calculated_at: new Date().toISOString(),
     valid_until: null,
-  };
-}
-
-// Combined hook - uses calculated scores if DB is empty
-export function useBluecoreScores() {
-  const dbScores = useBluecoreScoresFromDB();
-  const calculatedScores = useBluecoreScoresCalculated();
-
-  return {
-    data: dbScores.data && dbScores.data.length > 0 
-      ? dbScores.data 
-      : calculatedScores.data || [],
-    isLoading: dbScores.isLoading || calculatedScores.isLoading,
-    error: dbScores.error || calculatedScores.error,
-    isCalculated: !dbScores.data || dbScores.data.length === 0,
   };
 }

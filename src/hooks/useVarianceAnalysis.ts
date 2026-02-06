@@ -1,12 +1,13 @@
 /**
  * Variance Analysis Hook - Refactored
  * 
- * Phase 3: Migrated to useTenantSupabaseCompat for Schema-per-Tenant support
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries.
  * Uses scenario_monthly_plans as the source of budget data.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -54,29 +55,21 @@ export interface VarianceSummary {
 }
 
 export function useVarianceAnalysis(periodType: 'monthly' | 'quarterly' = 'monthly') {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   
   return useQuery({
     queryKey: ['variance-analysis', tenantId, periodType],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('variance_analysis')
-        .select('*')
+      const { data, error } = await buildSelectQuery('variance_analysis', '*')
         .eq('period_type', periodType)
         .order('analysis_period', { ascending: false })
         .order('is_significant', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
       
       if (error) throw error;
       // Map data to handle JSON fields properly
-      return (data || []).map(item => ({
+      return ((data || []) as unknown as any[]).map(item => ({
         ...item,
         variance_drivers: (item.variance_drivers as unknown as VarianceDriver[]) || [],
       })) as VarianceItem[];
@@ -166,7 +159,7 @@ interface PlanRow {
 
 export function useGenerateVarianceAnalysis() {
   const queryClient = useQueryClient();
-  const { client, tenantId, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, shouldAddTenantFilter, buildInsertQuery, buildSelectQuery } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async (periodDate?: Date) => {
@@ -186,19 +179,11 @@ export function useGenerateVarianceAnalysis() {
       const priorYearEnd = endOfMonth(subMonths(targetDate, 12));
       
       // Get primary scenario for budget data
-      let scenarioQuery = client
-        .from('scenarios')
-        .select('id')
+      const { data: scenarios } = await buildSelectQuery('scenarios', 'id')
         .eq('is_primary', true)
         .limit(1);
-
-      if (shouldAddTenantFilter) {
-        scenarioQuery = scenarioQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: scenarios } = await scenarioQuery;
       
-      const primaryScenarioId = scenarios?.[0]?.id;
+      const primaryScenarioId = (scenarios as unknown as any[])?.[0]?.id;
       
       // Get budget from scenario_monthly_plans
       let revenueBudget = 0;
@@ -283,12 +268,12 @@ export function useGenerateVarianceAnalysis() {
       ]);
       
       // Calculate totals
-      const actualRevenue = orders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
-      const actualExpense = expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const priorRevenue = priorOrders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
-      const priorExpense = priorExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const pyRevenue = pyOrders?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
-      const pyExpense = pyExpenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const actualRevenue = (orders as any[])?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
+      const actualExpense = (expenses as any[])?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const priorRevenue = (priorOrders as any[])?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
+      const priorExpense = (priorExpenses as any[])?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const pyRevenue = (pyOrders as any[])?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
+      const pyExpense = (pyExpenses as any[])?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       
       // Use scenario budget or fallback to actuals if no budget
       const finalRevenueBudget = revenueBudget || actualRevenue;
@@ -342,7 +327,6 @@ export function useGenerateVarianceAnalysis() {
         requires_action: r.requires_action,
       }));
       
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await client
         .from('variance_analysis')
         .upsert(insertData as any, {
@@ -414,16 +398,14 @@ function generateVarianceDrivers(category: string, actual: number, budget: numbe
 
 export function useUpdateVarianceAction() {
   const queryClient = useQueryClient();
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async ({ id, actionTaken }: { id: string; actionTaken: string }) => {
-      const { data, error } = await client
-        .from('variance_analysis')
-        .update({ 
-          action_taken: actionTaken,
-          requires_action: false,
-        })
+      const { data, error } = await buildUpdateQuery('variance_analysis', { 
+        action_taken: actionTaken,
+        requires_action: false,
+      })
         .eq('id', id)
         .select()
         .single();

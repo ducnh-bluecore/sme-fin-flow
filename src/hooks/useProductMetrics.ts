@@ -12,7 +12,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface ProductMetric {
@@ -51,27 +51,19 @@ export interface ProductMetricsSummary {
  * Fetch all product metrics (SSOT for SKU profitability)
  */
 export function useProductMetrics() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['product-metrics', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('product_metrics')
-        .select('*')
+      const { data, error } = await buildSelectQuery('product_metrics', '*')
         .order('gross_profit_30d', { ascending: true });
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
-      const metrics: ProductMetric[] = (data || []).map(row => ({
+      const metrics: ProductMetric[] = ((data || []) as unknown as any[]).map(row => ({
         id: row.id,
         sku: row.sku,
         product_name: row.product_name,
@@ -121,7 +113,7 @@ export function useProductMetrics() {
  * Fetch problematic products (margin < 10% or loss-making)
  */
 export function useProblematicProducts() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['problematic-products', tenantId],
@@ -129,25 +121,17 @@ export function useProblematicProducts() {
       if (!tenantId) return [];
 
       // profit_status: 'critical', 'warning', 'healthy'
-      let query = client
-        .from('product_metrics')
-        .select('*')
+      const { data, error } = await buildSelectQuery('product_metrics', '*')
         .or('profit_status.eq.critical,profit_status.eq.warning')
         .order('gross_margin_percent', { ascending: true })
         .limit(50);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching problematic products:', error);
         return [];
       }
 
-      return (data || []).map(row => ({
+      return ((data || []) as unknown as any[]).map(row => ({
         id: row.id,
         sku: row.sku,
         product_name: row.product_name || row.sku,
@@ -172,14 +156,14 @@ export function useProblematicProducts() {
  * Recalculate product metrics using database function
  */
 export function useRecalculateProductMetrics() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { callRpc, tenantId } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (sku?: string) => {
       if (!tenantId) throw new Error('No tenant');
 
-      const { data, error } = await client.rpc('recalculate_product_metrics', {
+      const { data, error } = await callRpc('recalculate_product_metrics', {
         p_tenant_id: tenantId,
         p_sku: sku || null
       });
@@ -203,43 +187,37 @@ export function useRecalculateProductMetrics() {
  * Get single product metric by SKU
  */
 export function useProductMetricBySKU(sku: string) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['product-metric', tenantId, sku],
     queryFn: async () => {
       if (!tenantId || !sku) return null;
 
-      let query = client
-        .from('product_metrics')
-        .select('*')
-        .eq('sku', sku);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.single();
+      const { data, error } = await buildSelectQuery('product_metrics', '*')
+        .eq('sku', sku)
+        .single();
 
       if (error) {
         if (error.code === 'PGRST116') return null; // Not found
         throw error;
       }
 
+      const row = data as unknown as any;
       return {
-        id: data.id,
-        sku: data.sku,
-        product_name: data.product_name,
-        unit_price: Number(data.unit_price || 0),
-        unit_cost: Number(data.unit_cost || 0),
-        gross_margin: Number(data.gross_margin || 0),
-        gross_margin_percent: Number(data.gross_margin_percent || 0),
-        total_quantity_30d: Number(data.total_quantity_30d || 0),
-        gross_profit_30d: Number(data.gross_profit_30d || 0),
-        profit_per_unit: Number(data.profit_per_unit || 0),
-        avg_daily_quantity: Number(data.avg_daily_quantity || 0),
-        is_profitable: data.is_profitable,
-        profit_status: data.profit_status,
+        id: row.id,
+        sku: row.sku,
+        product_name: row.product_name,
+        unit_price: Number(row.unit_price || 0),
+        unit_cost: Number(row.unit_cost || 0),
+        gross_margin: Number(row.gross_margin || 0),
+        gross_margin_percent: Number(row.gross_margin_percent || 0),
+        total_quantity_30d: Number(row.total_quantity_30d || 0),
+        gross_profit_30d: Number(row.gross_profit_30d || 0),
+        profit_per_unit: Number(row.profit_per_unit || 0),
+        avg_daily_quantity: Number(row.avg_daily_quantity || 0),
+        is_profitable: row.is_profitable,
+        profit_status: row.profit_status,
       } as ProductMetric;
     },
     enabled: !!tenantId && !!sku && isReady,
