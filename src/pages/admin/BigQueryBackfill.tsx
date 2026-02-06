@@ -3,6 +3,7 @@
  * 
  * @architecture Layer 10 Integration UI
  * Provides admin interface for triggering and monitoring BigQuery backfill jobs.
+ * Includes expandable rows showing source-level progress.
  */
 
 import { useState } from 'react';
@@ -35,6 +36,11 @@ import {
 } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { 
   Play, 
   Square, 
   RefreshCw, 
@@ -43,8 +49,11 @@ import {
   Clock,
   Loader2,
   Trash2,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { SourceProgressTable } from '@/components/admin/SourceProgressTable';
 
 const MODEL_TYPES: BackfillModelType[] = [
   'customers',
@@ -70,6 +79,7 @@ export default function BigQueryBackfillPage() {
   const [dateFrom, setDateFrom] = useState('2025-01-01');
   const [dateTo, setDateTo] = useState('');
   const [batchSize, setBatchSize] = useState('500');
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   
   // For Super Admin: use fixed tenant if no tenant context
   const effectiveTenantId = tenantId || E2E_TENANT_ID;
@@ -94,6 +104,18 @@ export default function BigQueryBackfillPage() {
     const ok = window.confirm('Xóa job này? (không thể hoàn tác)');
     if (!ok) return;
     deleteBackfillJob.mutate(jobId);
+  };
+
+  const toggleJobExpand = (jobId: string) => {
+    setExpandedJobs(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+      } else {
+        next.add(jobId);
+      }
+      return next;
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -208,7 +230,7 @@ export default function BigQueryBackfillPage() {
         <CardHeader>
           <CardTitle>Backfill Jobs</CardTitle>
           <CardDescription>
-            Recent backfill job history and status
+            Recent backfill job history and status. Click a row to see source-level details.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -220,6 +242,7 @@ export default function BigQueryBackfillPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Progress</TableHead>
@@ -237,73 +260,102 @@ export default function BigQueryBackfillPage() {
                   const duration = job.started_at && job.completed_at
                     ? Math.round((new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) / 1000)
                     : null;
+                  const isExpanded = expandedJobs.has(job.id);
                   
                   return (
-                    <TableRow key={job.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>{MODEL_TYPE_ICONS[job.model_type as BackfillModelType]}</span>
-                          <span className="font-medium">{MODEL_TYPE_LABELS[job.model_type as BackfillModelType]}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(job.status)}</TableCell>
-                      <TableCell className="w-32">
-                        {job.status === 'running' && (
-                          <Progress value={progress} className="h-2" />
-                        )}
-                        {job.status === 'completed' && (
-                          <Progress value={100} className="h-2" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {job.processed_records.toLocaleString()}
-                        {job.total_records > 0 && (
-                          <span className="text-muted-foreground">
-                            {' / '}{job.total_records.toLocaleString()}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {job.started_at 
-                          ? formatDistanceToNow(new Date(job.started_at), { addSuffix: true })
-                          : '-'
-                        }
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {duration !== null ? `${duration}s` : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {job.status === 'running' && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleCancelBackfill(job.model_type as BackfillModelType)}
-                            >
-                              <Square className="w-4 h-4" />
-                            </Button>
-                          )}
+                    <Collapsible key={job.id} asChild open={isExpanded}>
+                      <>
+                        <TableRow 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => toggleJobExpand(job.id)}
+                        >
+                          <TableCell>
+                            <CollapsibleTrigger asChild>
+                              <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </CollapsibleTrigger>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span>{MODEL_TYPE_ICONS[job.model_type as BackfillModelType]}</span>
+                              <span className="font-medium">{MODEL_TYPE_LABELS[job.model_type as BackfillModelType]}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(job.status)}</TableCell>
+                          <TableCell className="w-32">
+                            {job.status === 'running' && (
+                              <Progress value={progress} className="h-2" />
+                            )}
+                            {job.status === 'completed' && (
+                              <Progress value={100} className="h-2" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {job.processed_records.toLocaleString()}
+                            {job.total_records > 0 && (
+                              <span className="text-muted-foreground">
+                                {' / '}{job.total_records.toLocaleString()}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {job.started_at 
+                              ? formatDistanceToNow(new Date(job.started_at), { addSuffix: true })
+                              : '-'
+                            }
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {duration !== null ? `${duration}s` : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              {job.status === 'running' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleCancelBackfill(job.model_type as BackfillModelType)}
+                                >
+                                  <Square className="w-4 h-4" />
+                                </Button>
+                              )}
 
-                          {job.status !== 'running' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteJob(job.id)}
-                              disabled={deleteBackfillJob.isPending}
-                              title="Xóa job"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                              {job.status !== 'running' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteJob(job.id)}
+                                  disabled={deleteBackfillJob.isPending}
+                                  title="Xóa job"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
 
-                          {job.error_message && (
-                            <span className="text-destructive text-xs" title={job.error_message}>
-                              ⚠️
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                              {job.error_message && (
+                                <span className="text-destructive text-xs" title={job.error_message}>
+                                  ⚠️
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        <CollapsibleContent asChild>
+                          <TableRow className="bg-muted/20">
+                            <TableCell colSpan={8} className="p-0">
+                              <div className="p-4">
+                                <h4 className="text-sm font-medium mb-2">Source Progress</h4>
+                                <SourceProgressTable jobId={job.id} />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        </CollapsibleContent>
+                      </>
+                    </Collapsible>
                   );
                 })}
               </TableBody>

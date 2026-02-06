@@ -3,7 +3,7 @@
  * 
  * @architecture Layer 10 → L2 Integration
  * Supports batch backfill with resume capability, customer deduplication,
- * and progress tracking via bigquery_backfill_jobs table.
+ * source progress tracking, and pagination for all model types.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -48,6 +48,17 @@ interface CustomerSource {
   dataset: string;
   table: string;
   mapping: Record<string, string>;
+}
+
+interface SourceProgress {
+  source_name: string;
+  dataset: string;
+  table_name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  total_records: number;
+  processed_records: number;
+  last_offset: number;
+  error_message?: string;
 }
 
 // ============= Constants =============
@@ -181,6 +192,75 @@ const ORDER_SOURCES = [
   }
 ];
 
+const ORDER_ITEM_SOURCES = [
+  {
+    channel: 'shopee',
+    dataset: 'olvboutique_shopee',
+    table: 'shopee_OrderItems',
+    mapping: {
+      order_key: 'order_sn',
+      item_id: 'item_id',
+      sku: 'item_sku',
+      name: 'item_name',
+      quantity: 'model_quantity_purchased',
+      unit_price: 'model_original_price',
+      discount: 'model_discounted_price',
+      total: 'model_discounted_price',
+    }
+  },
+  {
+    channel: 'lazada',
+    dataset: 'olvboutique_lazada',
+    table: 'lazada_OrderItems',
+    mapping: {
+      order_key: 'order_id',
+      item_id: 'order_item_id',
+      sku: 'sku',
+      name: 'name',
+      quantity: 'quantity',
+      unit_price: 'item_price',
+      discount: 'voucher_amount',
+      total: 'paid_price',
+    }
+  },
+  {
+    channel: 'tiktok',
+    dataset: 'olvboutique_tiktokshop',
+    table: 'tiktok_OrderItems',
+    mapping: {
+      order_key: 'order_id',
+      item_id: 'id',
+      sku: 'seller_sku',
+      name: 'product_name',
+      quantity: 'quantity',
+      unit_price: 'original_price',
+      discount: 'platform_discount',
+      total: 'sale_price',
+    }
+  },
+  {
+    channel: 'kiotviet',
+    dataset: 'olvboutique',
+    table: 'raw_kiotviet_OrderDetails',
+    mapping: {
+      order_key: 'OrderId',
+      item_id: 'ProductId',
+      sku: 'ProductCode',
+      name: 'ProductName',
+      quantity: 'Quantity',
+      unit_price: 'Price',
+      discount: 'Discount',
+      total: 'SubTotal',
+    }
+  }
+];
+
+const PRODUCT_SOURCE = {
+  name: 'kiotviet_master',
+  dataset: 'olvboutique',
+  table: 'bdm_master_data_products',
+};
+
 // ============= Auth Functions =============
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -256,6 +336,81 @@ async function queryBigQuery(
   };
 }
 
+// ============= Count Source Records =============
+
+async function countSourceRecords(
+  accessToken: string,
+  projectId: string,
+  dataset: string,
+  table: string,
+  dateColumn?: string,
+  dateFrom?: string
+): Promise<number> {
+  let query = `SELECT COUNT(*) as cnt FROM \`${projectId}.${dataset}.${table}\``;
+  if (dateFrom && dateColumn) {
+    query += ` WHERE DATE(\`${dateColumn}\`) >= '${dateFrom}'`;
+  }
+  
+  try {
+    const { rows } = await queryBigQuery(accessToken, projectId, query);
+    return parseInt(rows[0]?.cnt || '0', 10);
+  } catch (error) {
+    console.error(`Error counting ${table}:`, error);
+    return 0;
+  }
+}
+
+// ============= Source Progress Functions =============
+
+async function initSourceProgress(
+  supabase: any,
+  jobId: string,
+  sources: Array<{ name: string; dataset: string; table: string }>
+): Promise<void> {
+  const records = sources.map(s => ({
+    job_id: jobId,
+    source_name: s.name,
+    dataset: s.dataset,
+    table_name: s.table,
+    status: 'pending',
+    total_records: 0,
+    processed_records: 0,
+    last_offset: 0,
+  }));
+  
+  await supabase.from('backfill_source_progress').upsert(records, {
+    onConflict: 'job_id,source_name',
+  });
+}
+
+async function updateSourceProgress(
+  supabase: any,
+  jobId: string,
+  sourceName: string,
+  updates: Partial<SourceProgress>
+): Promise<void> {
+  await supabase
+    .from('backfill_source_progress')
+    .update(updates)
+    .eq('job_id', jobId)
+    .eq('source_name', sourceName);
+}
+
+async function getSourceProgress(
+  supabase: any,
+  jobId: string,
+  sourceName: string
+): Promise<SourceProgress | null> {
+  const { data } = await supabase
+    .from('backfill_source_progress')
+    .select('*')
+    .eq('job_id', jobId)
+    .eq('source_name', sourceName)
+    .single();
+  
+  return data;
+}
+
 // ============= Phone Normalization =============
 
 function normalizePhone(phone: string | null | undefined): string | null {
@@ -283,7 +438,7 @@ function normalizePhone(phone: string | null | undefined): string | null {
   return null;
 }
 
-// ============= Customer Sync with Dedup =============
+// ============= Customer Sync with Dedup & Source Progress =============
 
 async function syncCustomers(
   supabase: any,
@@ -291,8 +446,9 @@ async function syncCustomers(
   projectId: string,
   tenantId: string,
   integrationId: string,
+  jobId: string,
   options: { batch_size?: number; date_from?: string }
-): Promise<{ processed: number; created: number; merged: number }> {
+): Promise<{ processed: number; created: number; merged: number; sources: SourceProgress[] }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   const customerMap = new Map<string, any>(); // phone/email -> customer data
   
@@ -301,9 +457,29 @@ async function syncCustomers(
   let merged = 0;
   
   const sourceErrors: string[] = [];
+  const sourceResults: SourceProgress[] = [];
+
+  // Initialize source progress
+  await initSourceProgress(supabase, jobId, CUSTOMER_SOURCES.map(s => ({
+    name: s.name,
+    dataset: s.dataset,
+    table: s.table,
+  })));
 
   for (const source of CUSTOMER_SOURCES) {
     console.log(`Processing customer source: ${source.name}`);
+    
+    // Count total records first
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.created_at, options.date_from
+    );
+    
+    await updateSourceProgress(supabase, jobId, source.name, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: new Date().toISOString(),
+    });
 
     let offset = 0;
     let hasMore = true;
@@ -391,6 +567,13 @@ async function syncCustomers(
         }
 
         offset += rows.length;
+        
+        // Update source progress
+        await updateSourceProgress(supabase, jobId, source.name, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+        
         if (rows.length < batchSize) {
           hasMore = false;
         }
@@ -400,14 +583,32 @@ async function syncCustomers(
         sourceErrors.push(`${source.name}: ${msg}`);
         sourceFailed = true;
         hasMore = false;
+        
+        await updateSourceProgress(supabase, jobId, source.name, {
+          status: 'failed',
+          error_message: msg,
+        });
       }
     }
 
-    // If a source fails immediately and produces nothing, keep going to next source;
-    // but if ALL sources fail and we end up with 0 processed, we should fail the job.
-    if (sourceFailed && sourceProcessed === 0) {
-      continue;
+    // Mark source as completed if successful
+    if (!sourceFailed) {
+      await updateSourceProgress(supabase, jobId, source.name, {
+        status: 'completed',
+        processed_records: sourceProcessed,
+        completed_at: new Date().toISOString(),
+      });
     }
+    
+    sourceResults.push({
+      source_name: source.name,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+    });
   }
 
   if (totalProcessed === 0 && sourceErrors.length > 0) {
@@ -445,10 +646,10 @@ async function syncCustomers(
     }
   }
   
-  return { processed: totalProcessed, created, merged };
+  return { processed: totalProcessed, created, merged, sources: sourceResults };
 }
 
-// ============= Orders Sync =============
+// ============= Orders Sync with Source Progress =============
 
 async function syncOrders(
   supabase: any,
@@ -456,22 +657,46 @@ async function syncOrders(
   projectId: string,
   tenantId: string,
   integrationId: string,
+  jobId: string,
   options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string }
-): Promise<{ processed: number; inserted: number }> {
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[] }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
   
   // Filter to specific source if provided, otherwise all
   const sources = options.source_table
     ? ORDER_SOURCES.filter(s => s.table === options.source_table)
     : ORDER_SOURCES;
   
+  // Initialize source progress
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+  
   for (const source of sources) {
     console.log(`Processing orders from: ${source.channel}`);
     
+    // Count total records
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.order_at, options.date_from
+    );
+    
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: new Date().toISOString(),
+    });
+    
     let offset = 0;
     let hasMore = true;
+    let sourceProcessed = 0;
+    let sourceFailed = false;
+    let errorMessage = '';
     
     while (hasMore) {
       const columns = Object.values(source.mapping).join(', ');
@@ -528,86 +753,55 @@ async function syncOrders(
           inserted += count || orders.length;
         }
         
+        sourceProcessed += rows.length;
         totalProcessed += rows.length;
         offset += rows.length;
+        
+        // Update source progress
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
         
         if (rows.length < batchSize) {
           hasMore = false;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error processing ${source.channel} orders:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
         hasMore = false;
+        
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
       }
     }
+    
+    if (!sourceFailed) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+    
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
   }
   
-  return { processed: totalProcessed, inserted };
+  return { processed: totalProcessed, inserted, sources: sourceResults };
 }
 
-// ============= Order Items Sync =============
-
-const ORDER_ITEM_SOURCES = [
-  {
-    channel: 'shopee',
-    dataset: 'olvboutique_shopee',
-    table: 'shopee_OrderItems',
-    mapping: {
-      order_key: 'order_sn',
-      item_id: 'item_id',
-      sku: 'item_sku',
-      name: 'item_name',
-      quantity: 'model_quantity_purchased',
-      unit_price: 'model_original_price',
-      discount: 'model_discounted_price',
-      total: 'model_discounted_price',
-    }
-  },
-  {
-    channel: 'lazada',
-    dataset: 'olvboutique_lazada',
-    table: 'lazada_OrderItems',
-    mapping: {
-      order_key: 'order_id',
-      item_id: 'order_item_id',
-      sku: 'sku',
-      name: 'name',
-      quantity: 'quantity',
-      unit_price: 'item_price',
-      discount: 'voucher_amount',
-      total: 'paid_price',
-    }
-  },
-  {
-    channel: 'tiktok',
-    dataset: 'olvboutique_tiktokshop',
-    table: 'tiktok_OrderItems',
-    mapping: {
-      order_key: 'order_id',
-      item_id: 'id',
-      sku: 'seller_sku',
-      name: 'product_name',
-      quantity: 'quantity',
-      unit_price: 'original_price',
-      discount: 'platform_discount',
-      total: 'sale_price',
-    }
-  },
-  {
-    channel: 'kiotviet',
-    dataset: 'olvboutique',
-    table: 'raw_kiotviet_OrderDetails',
-    mapping: {
-      order_key: 'OrderId',
-      item_id: 'ProductId',
-      sku: 'ProductCode',
-      name: 'ProductName',
-      quantity: 'Quantity',
-      unit_price: 'Price',
-      discount: 'Discount',
-      total: 'SubTotal',
-    }
-  }
-];
+// ============= Order Items Sync with Source Progress =============
 
 async function syncOrderItems(
   supabase: any,
@@ -615,22 +809,45 @@ async function syncOrderItems(
   projectId: string,
   tenantId: string,
   integrationId: string,
+  jobId: string,
   options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string }
-): Promise<{ processed: number; inserted: number }> {
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[] }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
   
   // Filter to specific source if provided, otherwise all
   const sources = options.source_table
     ? ORDER_ITEM_SOURCES.filter(s => s.table === options.source_table)
     : ORDER_ITEM_SOURCES;
   
+  // Initialize source progress
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+  
   for (const source of sources) {
     console.log(`Processing order items from: ${source.channel}`);
     
+    // Count total records
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table
+    );
+    
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: new Date().toISOString(),
+    });
+    
     let offset = 0;
     let hasMore = true;
+    let sourceProcessed = 0;
+    let sourceFailed = false;
+    let errorMessage = '';
     
     while (hasMore) {
       const columns = Object.values(source.mapping).join(', ');
@@ -673,85 +890,196 @@ async function syncOrderItems(
           inserted += count || orderItems.length;
         }
         
+        sourceProcessed += rows.length;
         totalProcessed += rows.length;
         offset += rows.length;
+        
+        // Update source progress
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
         
         if (rows.length < batchSize) {
           hasMore = false;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error processing ${source.channel} order items:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
         hasMore = false;
+        
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
       }
     }
+    
+    if (!sourceFailed) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+    
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
   }
   
-  return { processed: totalProcessed, inserted };
+  return { processed: totalProcessed, inserted, sources: sourceResults };
 }
 
-// ============= Products Sync =============
+// ============= Products Sync with Pagination =============
 
 async function syncProducts(
   supabase: any,
   accessToken: string,
   projectId: string,
   tenantId: string,
+  jobId: string,
   options: { batch_size?: number }
-): Promise<{ processed: number; inserted: number }> {
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[] }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
   
-  // Schema from bdm_master_data_products:
-  // Ma_hang (SKU), Ten_hang (Name), Nhom_hang (Category), Thuong_hieu (Brand)
-  // Gia_ban (Sell Price), Gia_goc (Base/Cost Price), Ton_kho (Stock)
-  // productid (ID), Date (Created)
-  const query = `
-    SELECT 
-      productid, Ma_hang, Ten_hang, 
-      Nhom_hang, Thuong_hieu, 
-      Gia_goc, Gia_ban, Ton_kho,
-      Date, family_code
-    FROM \`${projectId}.olvboutique.bdm_master_data_products\`
-    ORDER BY productid
-    LIMIT ${batchSize}
-  `;
+  const source = PRODUCT_SOURCE;
   
-  try {
-    const { rows } = await queryBigQuery(accessToken, projectId, query);
+  // Initialize source progress
+  await initSourceProgress(supabase, jobId, [{
+    name: source.name,
+    dataset: source.dataset,
+    table: source.table,
+  }]);
+  
+  // Count total records first
+  const totalRecords = await countSourceRecords(
+    accessToken, projectId, source.dataset, source.table
+  );
+  
+  console.log(`Products source has ${totalRecords} total records`);
+  
+  await updateSourceProgress(supabase, jobId, source.name, {
+    status: 'running',
+    total_records: totalRecords,
+    started_at: new Date().toISOString(),
+  });
+  
+  let offset = 0;
+  let hasMore = true;
+  let sourceFailed = false;
+  let errorMessage = '';
+  
+  while (hasMore) {
+    const query = `
+      SELECT 
+        productid, Ma_hang, Ten_hang, 
+        Nhom_hang, Thuong_hieu, 
+        Gia_goc, Gia_ban, Ton_kho,
+        Date, family_code
+      FROM \`${projectId}.${source.dataset}.${source.table}\`
+      ORDER BY productid
+      LIMIT ${batchSize} OFFSET ${offset}
+    `;
     
-    const products = rows.map(row => ({
-      tenant_id: tenantId,
-      sku: row.Ma_hang,
-      name: row.Ten_hang,
-      category: row.Nhom_hang,
-      brand: row.Thuong_hieu,
-      unit: null,
-      cost_price: parseFloat(row.Gia_goc || '0'),
-      selling_price: parseFloat(row.Gia_ban || '0'),
-      current_stock: parseFloat(row.Ton_kho || '0'),
-    }));
-    
-    const { error, count } = await supabase
-      .from('products')
-      .upsert(products, { 
-        onConflict: 'tenant_id,sku',
-        count: 'exact'
+    try {
+      const { rows } = await queryBigQuery(accessToken, projectId, query);
+      
+      if (rows.length === 0) {
+        hasMore = false;
+        break;
+      }
+      
+      const products = rows.map(row => ({
+        tenant_id: tenantId,
+        sku: row.Ma_hang,
+        name: row.Ten_hang,
+        category: row.Nhom_hang,
+        brand: row.Thuong_hieu,
+        unit: null,
+        cost_price: parseFloat(row.Gia_goc || '0'),
+        selling_price: parseFloat(row.Gia_ban || '0'),
+        current_stock: parseFloat(row.Ton_kho || '0'),
+      }));
+      
+      const { error, count } = await supabase
+        .from('products')
+        .upsert(products, { 
+          onConflict: 'tenant_id,sku',
+          count: 'exact'
+        });
+      
+      if (error) {
+        console.error('Product upsert error:', error);
+      } else {
+        inserted += count || products.length;
+      }
+      
+      totalProcessed += rows.length;
+      offset += rows.length;
+      
+      // Update source and job progress
+      await updateSourceProgress(supabase, jobId, source.name, {
+        processed_records: totalProcessed,
+        last_offset: offset,
       });
-    
-    if (error) {
-      console.error('Product upsert error:', error);
-    } else {
-      inserted = count || products.length;
+      
+      await updateJobStatus(supabase, jobId, {
+        processed_records: totalProcessed,
+        total_records: totalRecords,
+        last_watermark: String(offset),
+      });
+      
+      console.log(`Products progress: ${totalProcessed}/${totalRecords}`);
+      
+      if (rows.length < batchSize) {
+        hasMore = false;
+      }
+    } catch (error: any) {
+      console.error('Error syncing products:', error);
+      errorMessage = error?.message || String(error);
+      sourceFailed = true;
+      hasMore = false;
+      
+      await updateSourceProgress(supabase, jobId, source.name, {
+        status: 'failed',
+        error_message: errorMessage,
+      });
+      
+      throw error; // Re-throw to mark job as failed
     }
-    
-    totalProcessed = rows.length;
-  } catch (error) {
-    console.error('Error syncing products:', error);
-    throw error; // Re-throw to mark job as failed
   }
   
-  return { processed: totalProcessed, inserted };
+  if (!sourceFailed) {
+    await updateSourceProgress(supabase, jobId, source.name, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    });
+  }
+  
+  return { 
+    processed: totalProcessed, 
+    inserted,
+    sources: [{
+      source_name: source.name,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : 'completed',
+      total_records: totalRecords,
+      processed_records: totalProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    }]
+  };
 }
 
 // ============= Job Management =============
@@ -865,9 +1193,22 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(5);
       
+      // Also get source progress for each job
+      const jobIds = jobs?.map(j => j.id) || [];
+      const { data: sourceProgress } = await supabase
+        .from('backfill_source_progress')
+        .select('*')
+        .in('job_id', jobIds);
+      
+      // Attach source progress to each job
+      const jobsWithProgress = jobs?.map(j => ({
+        ...j,
+        source_progress: sourceProgress?.filter(sp => sp.job_id === j.id) || [],
+      }));
+      
       return new Response(JSON.stringify({
         success: true,
-        jobs,
+        jobs: jobsWithProgress,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -905,7 +1246,7 @@ serve(async (req) => {
         case 'customers':
           result = await syncCustomers(
             supabase, accessToken, projectId, 
-            params.tenant_id, integrationId,
+            params.tenant_id, integrationId, job.id,
             params.options || {}
           );
           break;
@@ -913,7 +1254,7 @@ serve(async (req) => {
         case 'orders':
           result = await syncOrders(
             supabase, accessToken, projectId,
-            params.tenant_id, integrationId,
+            params.tenant_id, integrationId, job.id,
             params.options || {}
           );
           break;
@@ -921,7 +1262,7 @@ serve(async (req) => {
         case 'products':
           result = await syncProducts(
             supabase, accessToken, projectId,
-            params.tenant_id,
+            params.tenant_id, job.id,
             params.options || {}
           );
           break;
@@ -929,7 +1270,7 @@ serve(async (req) => {
         case 'order_items':
           result = await syncOrderItems(
             supabase, accessToken, projectId,
-            params.tenant_id, integrationId,
+            params.tenant_id, integrationId, job.id,
             params.options || {}
           );
           break;
@@ -943,6 +1284,7 @@ serve(async (req) => {
         status: 'completed',
         completed_at: new Date().toISOString(),
         processed_records: result.processed || 0,
+        total_records: result.sources?.reduce((sum: number, s: SourceProgress) => sum + s.total_records, 0) || result.processed,
         metadata: result,
       });
       
