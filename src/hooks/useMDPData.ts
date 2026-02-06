@@ -290,18 +290,29 @@ export function useMDPData() {
     enabled: !!tenantId,
   });
 
-  // NEW: Fetch REAL order items with COGS
+  // SSOT: Fetch order items from cdp_order_items (maps to master_order_items Layer 2)
   const orderItemsQuery = useQuery({
     queryKey: ['mdp-order-items', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
+      // Query cdp_order_items which maps to master_order_items via tableMapping
       const { data, error } = await supabase
-        .from('external_order_items')
-        .select('external_order_id, sku, quantity, unit_price, total_amount, unit_cogs, total_cogs, gross_profit')
+        .from('cdp_order_items' as any)
+        .select('order_id, sku, quantity, unit_price, line_total, unit_cogs, line_cogs, line_margin')
         .eq('tenant_id', tenantId)
         .limit(100000);
       if (error) throw error;
-      return data || [];
+      // Map columns for backward compatibility with existing code
+      return ((data || []) as any[]).map((d: any) => ({
+        external_order_id: d.order_id || d.master_order_id,
+        sku: d.sku,
+        quantity: d.quantity,
+        unit_price: d.unit_price,
+        total_amount: d.line_total,
+        unit_cogs: d.unit_cogs,
+        total_cogs: d.line_cogs,
+        gross_profit: d.line_margin,
+      }));
     },
     enabled: !!tenantId,
   });
