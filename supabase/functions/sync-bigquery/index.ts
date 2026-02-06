@@ -99,7 +99,7 @@ async function queryBigQuery(accessToken: string, projectId: string, query: stri
   });
 }
 
-// Map BigQuery order data to external_orders schema with new fields
+// Map BigQuery order data to cdp_orders schema (SSOT Layer 2)
 function mapOrderData(row: any, channel: string, integrationId: string, tenantId: string): any {
   const channelLower = channel.toLowerCase();
   
@@ -144,13 +144,13 @@ function mapOrderData(row: any, channel: string, integrationId: string, tenantId
   const grossProfit = netRevenue - totalCogs;
   const netProfit = grossProfit - shippingFee + shippingFeeDiscount;
   
+  // Map to cdp_orders schema (SSOT Layer 2)
   const mapped: any = {
     tenant_id: tenantId,
     integration_id: integrationId,
     channel: channelLower,
-    external_order_id: row.order_id || row.orderId || row.order_sn || row.order_code,
-    order_number: row.order_id || row.orderId || row.order_sn || row.order_code,
-    order_date: row.create_time || row.createTime || row.created_at || row.created_on || new Date().toISOString(),
+    order_key: row.order_id || row.orderId || row.order_sn || row.order_code,
+    order_at: row.create_time || row.createTime || row.created_at || row.created_on || new Date().toISOString(),
     status: mapOrderStatus(row.order_status || row.orderStatus || row.status, channelLower),
     
     // Customer info
@@ -167,52 +167,42 @@ function mapOrderData(row: any, channel: string, integrationId: string, tenantId
     shop_id: shopId,
     shop_name: row.shop_name || row.shopName || row.organization_name,
     
-    // Amounts
-    total_amount: totalAmount,
-    subtotal: subtotal,
+    // Amounts - cdp_orders schema
+    gross_revenue: totalAmount,
+    discount_amount: voucherDiscount + coinDiscount,
+    net_revenue: netRevenue,
+    cogs: totalCogs,
+    gross_margin: grossProfit,
     
-    // Shipping
-    shipping_fee: shippingFee,
-    shipping_fee_discount: shippingFeeDiscount,
-    actual_shipping_fee: parseFloat(row.actual_shipping_fee || row.actual_shipping_cost || 0),
-    
-    // Platform fees - detailed breakdown
+    // Fees
     platform_fee: platformFee,
+    shipping_fee: shippingFee,
     commission_fee: commissionFee,
     payment_fee: paymentFee,
     service_fee: serviceFee,
     total_fees: totalFees,
+    other_fees: 0,
     
-    // Discounts
+    // Additional fields for SSOT
     voucher_discount: voucherDiscount,
-    voucher_seller: parseFloat(row.voucher_seller || row.seller_voucher || 0),
-    voucher_platform: parseFloat(row.voucher_platform || row.platform_voucher || 0),
-    
-    // Revenue & Profit
     seller_income: sellerIncome,
-    cost_of_goods: totalCogs,
-    net_revenue: netRevenue,
-    gross_profit: grossProfit,
-    net_profit: netProfit,
+    
+    // Flags
+    is_discounted: voucherDiscount > 0 || coinDiscount > 0,
+    is_bundle: items.length > 1,
+    currency: 'VND',
     
     // Items
-    items: items,
     item_count: items.length || parseInt(row.item_count || row.itemCount || 1),
     total_quantity: totalQuantity || parseInt(row.total_quantity || row.quantity || 1),
     
     // Payment
     payment_method: row.payment_method || row.paymentMethod || row.payment_type,
-    payment_status: row.payment_status || row.paymentStatus,
-    
-    // Shipping details
-    shipping_carrier: row.shipping_carrier || row.carrier || row.logistics_channel,
-    tracking_number: row.tracking_number || row.trackingNumber || row.tracking_no,
-    shipping_address: row.shipping_address ? (typeof row.shipping_address === 'string' ? JSON.parse(row.shipping_address) : row.shipping_address) : null,
     
     // Timestamps
     last_synced_at: new Date().toISOString(),
     
-    // Raw data for reference
+    // Raw data for debugging
     raw_data: row,
   };
 
@@ -238,29 +228,42 @@ function mapOrderData(row: any, channel: string, integrationId: string, tenantId
   return mapped;
 }
 
-// Map order items from BigQuery
+// Map order items from BigQuery to cdp_order_items schema (SSOT Layer 2)
 function mapOrderItems(orderId: string, items: any[], tenantId: string, integrationId: string, channel: string): any[] {
   if (!Array.isArray(items) || items.length === 0) return [];
   
-  return items.map((item, index) => ({
-    tenant_id: tenantId,
-    external_order_id: orderId,
-    integration_id: integrationId,
-    item_id: item.item_id || item.itemId || item.sku || `${orderId}-${index}`,
-    sku: item.sku || item.model_sku || item.variation_sku || item.product_sku,
-    product_name: item.name || item.item_name || item.product_name,
-    variation_name: item.variation_name || item.variation || item.model_name,
-    quantity: parseInt(item.quantity || item.qty || 1),
-    unit_price: parseFloat(item.item_price || item.price || item.unit_price || 0),
-    original_price: parseFloat(item.original_price || item.item_original_price || 0),
-    discount_amount: parseFloat(item.discount || item.discount_amount || 0),
-    total_amount: parseFloat(item.item_price || item.price || 0) * parseInt(item.quantity || item.qty || 1),
-    cogs: parseFloat(item.cogs || item.cost || item.cost_price || 0),
-    margin: 0, // Will be calculated
-    weight: parseFloat(item.weight || 0),
-    image_url: item.image_url || item.image || item.product_image,
-    raw_data: item,
-  }));
+  return items.map((item, index) => {
+    const qty = parseInt(item.quantity || item.qty || 1);
+    const unitPrice = parseFloat(item.item_price || item.price || item.unit_price || 0);
+    const unitCogs = parseFloat(item.cogs || item.cost || item.cost_price || 0);
+    const lineRevenue = unitPrice * qty;
+    const lineCogs = unitCogs * qty;
+    const lineMargin = lineRevenue - lineCogs;
+    
+    return {
+      tenant_id: tenantId,
+      order_id: orderId, // FK to cdp_orders.id - will be resolved after order insert
+      integration_id: integrationId,
+      product_id: item.item_id || item.itemId || item.sku || `${orderId}-${index}`,
+      sku: item.sku || item.model_sku || item.variation_sku || item.product_sku,
+      product_name: item.name || item.item_name || item.product_name,
+      variation_name: item.variation_name || item.variation || item.model_name,
+      category: item.category || item.category_name || null,
+      qty: qty,
+      unit_price: unitPrice,
+      line_revenue: lineRevenue,
+      line_cogs: lineCogs,
+      line_margin: lineMargin,
+      unit_cogs: unitCogs,
+      original_price: parseFloat(item.original_price || item.item_original_price || 0),
+      discount_amount: parseFloat(item.discount || item.discount_amount || 0),
+      weight: parseFloat(item.weight || 0),
+      image_url: item.image_url || item.image || item.product_image,
+      is_returned: false,
+      return_quantity: 0,
+      raw_data: item,
+    };
+  });
 }
 
 // Map settlement data
@@ -388,42 +391,55 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
     tenant_id: tenantId,
   };
   
-  // Add integration_id for tables that need it (external_order_items does NOT have integration_id column)
-  if (['external_orders', 'external_products', 'channel_settlements', 'channel_fees'].includes(targetTable)) {
+  // Add integration_id for tables that need it
+  if (['cdp_orders', 'external_products', 'channel_settlements', 'channel_fees'].includes(targetTable)) {
     baseData.integration_id = integrationId;
   }
   
-  // Target-specific mapping
+  // Target-specific mapping (SSOT Layer 2)
   switch (targetTable) {
-    case 'external_orders':
+    case 'cdp_orders': {
+      const totalAmount = parseFloat(row.total_amount || row.total_paid_amount || row.escrow_amount || 0);
+      const totalFees = parseFloat(row.total_fees || row.platform_fee || 0) + 
+                        parseFloat(row.commission_fee || row.commission || 0);
+      const cogs = parseFloat(row.cogs || row.cost_of_goods || 0);
+      const netRevenue = parseFloat(row.seller_income || row.escrow_amount || row.actual_amount || 0) || (totalAmount - totalFees);
+      const grossMargin = netRevenue - cogs;
+      
       return {
         ...baseData,
-        external_order_id: String(row[model.primary_key_field] || row.order_id || row.order_sn || row.id || row.code),
-        order_number: row.order_number || row.order_id || row.order_sn || row.code,
+        order_key: String(row[model.primary_key_field] || row.order_id || row.order_sn || row.id || row.code),
         channel: row.channel || model.bigquery_dataset.split('_')[1] || 'unknown',
-        order_date: row[model.timestamp_field] || row.create_time || row.created_at || row.created_on,
+        order_at: row[model.timestamp_field] || row.create_time || row.created_at || row.created_on,
         status: mapOrderStatus(row.order_status || row.status || 'pending', ''),
         customer_name: row.buyer_username || row.customer_name || row.recipient_name,
         customer_phone: row.recipient_phone || row.phone,
-        total_amount: parseFloat(row.total_amount || row.total_paid_amount || row.escrow_amount || 0),
-        subtotal: parseFloat(row.subtotal || row.items_total || 0),
+        gross_revenue: totalAmount,
+        discount_amount: parseFloat(row.voucher_discount || row.discount || 0),
+        net_revenue: netRevenue,
+        cogs: cogs,
+        gross_margin: grossMargin,
+        is_discounted: parseFloat(row.voucher_discount || row.discount || 0) > 0,
+        is_bundle: false,
+        currency: 'VND',
         shipping_fee: parseFloat(row.shipping_fee || row.buyer_paid_shipping_fee || 0),
         platform_fee: parseFloat(row.platform_fee || row.transaction_fee || 0),
         commission_fee: parseFloat(row.commission_fee || row.commission || 0),
         payment_fee: parseFloat(row.payment_fee || 0),
         service_fee: parseFloat(row.service_fee || 0),
-        total_fees: parseFloat(row.total_fees || 0),
+        total_fees: totalFees,
+        other_fees: 0,
         seller_income: parseFloat(row.seller_income || row.escrow_amount || row.actual_amount || 0),
-        cost_of_goods: parseFloat(row.cogs || row.cost_of_goods || 0),
         payment_method: row.payment_method || row.payment_type,
         shop_id: row.shop_id || row.organization_id,
         shop_name: row.shop_name || row.organization_name,
         raw_data: row,
         last_synced_at: new Date().toISOString(),
       };
+    }
       
-    case 'external_order_items': {
-      // Note: external_order_items.external_order_id is a UUID FK (we resolve later in handleModelSync)
+    case 'cdp_order_items': {
+      // Note: cdp_order_items.order_id is a UUID FK (we resolve later in handleModelSync)
       const orderRef =
         row.order_id ||
         row.orderId ||
@@ -437,18 +453,27 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
         row.OrderID ||
         row[model.primary_key_field];
 
+      const qty = parseInt(row.quantity || row.qty || 1);
+      const unitPrice = parseFloat(row.price || row.item_price || row.unit_price || 0);
+      const unitCogs = parseFloat(row.cogs || row.cost || row.cost_price || 0);
+      const lineRevenue = unitPrice * qty;
+      const lineCogs = unitCogs * qty;
+      const lineMargin = lineRevenue - lineCogs;
+
       return {
         ...baseData,
-        // Temporarily store the external order reference (string/number). We'll convert to UUID later.
-        external_order_id: String(orderRef || ''),
-        item_id: String(row.item_id || row.itemId || row.sku || row.id || `${orderRef}-item`),
+        // Temporarily store the order reference (string/number). We'll convert to UUID later.
+        order_id: String(orderRef || ''),
+        product_id: String(row.item_id || row.itemId || row.sku || row.id || `${orderRef}-item`),
         sku: row.sku || row.model_sku || row.seller_sku,
         product_name: row.name || row.product_name || row.item_name,
-        quantity: parseInt(row.quantity || row.qty || 1),
-        unit_price: parseFloat(row.price || row.item_price || row.unit_price || 0),
-        total_amount: parseFloat(row.total || row.subtotal || row.amount || 0),
-        unit_cogs: parseFloat(row.cogs || row.cost || row.cost_price || 0),
-        total_cogs: parseFloat(row.total_cogs || 0),
+        category: row.category || row.category_name || null,
+        qty: qty,
+        unit_price: unitPrice,
+        line_revenue: lineRevenue,
+        line_cogs: lineCogs,
+        line_margin: lineMargin,
+        unit_cogs: unitCogs,
         raw_data: row,
       };
     }
@@ -909,53 +934,53 @@ serve(async (req) => {
           
           // Map data based on target table
           let mappedData: any[] = [];
-          const targetTable = model.target_table || 'external_orders';
+          const targetTable = model.target_table || 'cdp_orders';
           
           for (const row of rows) {
             const mapped = mapGenericData(row, tenant_id, effectiveIntegrationId, targetTable, model);
             if (mapped) mappedData.push(mapped);
           }
 
-          // Special handling: external_order_items.external_order_id is a UUID FK to external_orders.id
+          // Special handling: cdp_order_items.order_id is a UUID FK to cdp_orders.id
           // BigQuery provides an external order reference (string/number). We resolve it to the UUID.
-          if (targetTable === 'external_order_items' && mappedData.length > 0) {
+          if (targetTable === 'cdp_order_items' && mappedData.length > 0) {
             const orderRefs = Array.from(
               new Set(
                 mappedData
-                  .map((x) => String(x.external_order_id || ''))
+                  .map((x) => String(x.order_id || ''))
                   .filter((x) => x.length > 0)
               )
             );
 
-            console.log(`${modelKey}: external_order_items orderRefs unique=${orderRefs.length}`, orderRefs.slice(0, 5));
+            console.log(`${modelKey}: cdp_order_items orderRefs unique=${orderRefs.length}`, orderRefs.slice(0, 5));
 
             if (orderRefs.length > 0) {
               const { data: orders, error: ordersErr } = await supabase
-                .from('external_orders')
-                .select('id,external_order_id')
+                .from('cdp_orders')
+                .select('id,order_key')
                 .eq('tenant_id', tenant_id)
-                .in('external_order_id', orderRefs);
+                .in('order_key', orderRefs);
 
               if (ordersErr) {
-                throw new Error(`Failed to resolve external_order_items order ids: ${ordersErr.message}`);
+                throw new Error(`Failed to resolve cdp_order_items order ids: ${ordersErr.message}`);
               }
 
-              console.log(`${modelKey}: matched external_orders=${orders?.length || 0}`);
+              console.log(`${modelKey}: matched cdp_orders=${orders?.length || 0}`);
 
               const refToUuid = new Map<string, string>();
-              (orders || []).forEach((o: any) => refToUuid.set(String(o.external_order_id), o.id));
+              (orders || []).forEach((o: any) => refToUuid.set(String(o.order_key), o.id));
 
               mappedData = mappedData
                 .map((item) => {
-                  const ref = String(item.external_order_id || '');
+                  const ref = String(item.order_id || '');
                   const uuid = refToUuid.get(ref);
                   if (!uuid) return null;
                   return {
                     ...item,
-                    external_order_id: uuid,
+                    order_id: uuid,
                     raw_data: {
                       ...(item.raw_data || {}),
-                      external_order_ref: ref,
+                      order_key_ref: ref,
                     },
                   };
                 })
@@ -970,14 +995,13 @@ serve(async (req) => {
             continue;
           }
           
-          // Determine conflict key based on target table
+          // Determine conflict key based on target table (SSOT Layer 2)
           // For tables without proper unique constraints, use INSERT only (no upsert)
           const conflictKeys: Record<string, string | null> = {
-            'external_orders': 'tenant_id,integration_id,external_order_id',
-            'external_order_items': 'tenant_id,external_order_id,item_id',
+            'cdp_orders': 'tenant_id,integration_id,order_key',
+            'cdp_order_items': null, // Use INSERT - order_id needs to be resolved first
             'external_products': 'integration_id,external_product_id',
             'customers': null, // Use INSERT only - no unique constraint
-            // channel_settlements has unique (integration_id, settlement_id)
             'channel_settlements': 'integration_id,settlement_id',
             'channel_fees': 'id',
             'bank_transactions': null, // Use INSERT only - no unique constraint
@@ -1337,7 +1361,7 @@ serve(async (req) => {
             });
           }
 
-          // Batch upsert orders
+          // Batch upsert orders to cdp_orders (SSOT Layer 2)
           const UPSERT_BATCH_SIZE = 100;
           
           for (let i = 0; i < mappedOrders.length; i += UPSERT_BATCH_SIZE) {
@@ -1348,9 +1372,9 @@ serve(async (req) => {
             while (retries > 0 && !success) {
               try {
                 const { error } = await supabase
-                  .from('external_orders')
+                  .from('cdp_orders')
                   .upsert(batch, { 
-                    onConflict: 'tenant_id,integration_id,external_order_id',
+                    onConflict: 'tenant_id,integration_id,order_key',
                     ignoreDuplicates: false 
                   });
 
@@ -1378,22 +1402,40 @@ serve(async (req) => {
             }
           }
 
-          // Batch upsert order items
+          // Batch upsert order items to cdp_order_items (SSOT Layer 2)
+          // Note: order_id needs to be resolved to UUID from cdp_orders
           if (sync_items && allOrderItems.length > 0) {
-            for (let i = 0; i < allOrderItems.length; i += UPSERT_BATCH_SIZE) {
-              const batch = allOrderItems.slice(i, i + UPSERT_BATCH_SIZE);
+            // First, get the order UUIDs for the items
+            const orderKeys = [...new Set(mappedOrders.map((o: any) => o.order_key))];
+            const { data: insertedOrders } = await supabase
+              .from('cdp_orders')
+              .select('id, order_key')
+              .eq('tenant_id', tenant_id)
+              .in('order_key', orderKeys);
+            
+            const orderKeyToId = new Map<string, string>();
+            (insertedOrders || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.id));
+            
+            // Map order_id from order_key to UUID
+            const resolvedItems = allOrderItems
+              .map((item: any) => {
+                const orderId = orderKeyToId.get(item.order_id);
+                if (!orderId) return null;
+                return { ...item, order_id: orderId };
+              })
+              .filter(Boolean);
+            
+            for (let i = 0; i < resolvedItems.length; i += UPSERT_BATCH_SIZE) {
+              const batch = resolvedItems.slice(i, i + UPSERT_BATCH_SIZE);
               try {
                 const { error } = await supabase
-                  .from('external_order_items')
-                  .upsert(batch, { 
-                    onConflict: 'tenant_id,external_order_id,item_id',
-                    ignoreDuplicates: false 
-                  });
+                  .from('cdp_order_items')
+                  .insert(batch);
 
                 if (!error) {
                   channelItemsSynced += batch.length;
                 } else {
-                  console.error(`Error upserting items:`, error.message);
+                  console.error(`Error inserting items:`, error.message);
                 }
               } catch (e: any) {
                 console.error(`Exception items batch:`, e?.message || e);
