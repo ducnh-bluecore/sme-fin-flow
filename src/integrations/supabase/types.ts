@@ -2743,6 +2743,62 @@ export type Database = {
         }
         Relationships: []
       }
+      backfill_source_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          dataset: string
+          error_message: string | null
+          id: string
+          job_id: string
+          last_offset: number | null
+          processed_records: number | null
+          source_name: string
+          started_at: string | null
+          status: string | null
+          table_name: string
+          total_records: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          dataset: string
+          error_message?: string | null
+          id?: string
+          job_id: string
+          last_offset?: number | null
+          processed_records?: number | null
+          source_name: string
+          started_at?: string | null
+          status?: string | null
+          table_name: string
+          total_records?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          dataset?: string
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          last_offset?: number | null
+          processed_records?: number | null
+          source_name?: string
+          started_at?: string | null
+          status?: string | null
+          table_name?: string
+          total_records?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backfill_source_progress_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "bigquery_backfill_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           account_name: string | null
