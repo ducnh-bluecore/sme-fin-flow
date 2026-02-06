@@ -1,5 +1,21 @@
-
 # PLAN: Tạo Edge Function `bigquery-query` để Query Raw Data từ BigQuery
+
+## ✅ COMPLETED
+
+**Implementation completed:**
+- ✅ Edge Function: `supabase/functions/bigquery-query/index.ts`
+- ✅ React Hook: `src/hooks/useBigQueryQuery.ts`
+- ✅ Deployed and tested
+
+**Features:**
+- `raw_select`, `filtered`, `aggregated`, `custom_sql` query types
+- SQL injection prevention (identifier validation, value escaping)
+- Operators: eq, neq, gt, gte, lt, lte, like, in, between, is_null, is_not_null
+- Pagination with limit/offset (max 10,000 rows)
+- Caching with configurable TTL (default 15 min)
+- Tenant isolation via `bigquery_configs` table
+
+---
 
 ## 1. MỤC ĐÍCH
 
