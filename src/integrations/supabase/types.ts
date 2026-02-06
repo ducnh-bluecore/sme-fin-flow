@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_spend_daily: {
+        Row: {
+          ad_id: string | null
+          broad_conversions: number | null
+          broad_order_amount: number | null
+          campaign_id: string | null
+          campaign_name: string | null
+          channel: string
+          clicks: number | null
+          conversions: number | null
+          cpc: number | null
+          created_at: string | null
+          ctr: number | null
+          direct_conversions: number | null
+          direct_order_amount: number | null
+          expense: number | null
+          id: string
+          impressions: number | null
+          spend_date: string
+          tenant_id: string
+        }
+        Insert: {
+          ad_id?: string | null
+          broad_conversions?: number | null
+          broad_order_amount?: number | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          channel?: string
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          direct_conversions?: number | null
+          direct_order_amount?: number | null
+          expense?: number | null
+          id?: string
+          impressions?: number | null
+          spend_date: string
+          tenant_id: string
+        }
+        Update: {
+          ad_id?: string | null
+          broad_conversions?: number | null
+          broad_order_amount?: number | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          channel?: string
+          clicks?: number | null
+          conversions?: number | null
+          cpc?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          direct_conversions?: number | null
+          direct_order_amount?: number | null
+          expense?: number | null
+          id?: string
+          impressions?: number | null
+          spend_date?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_spend_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_spend_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ad_spend_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ad_spend_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       adjustment_note_items: {
         Row: {
           adjustment_note_id: string

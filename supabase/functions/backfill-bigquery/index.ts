@@ -417,6 +417,68 @@ const PRODUCT_SOURCE = {
   table: 'bdm_master_data_products',
 };
 
+// Ad Insights: daily aggregated ad spend (no campaign_id, no ad_id - shop-level daily)
+const AD_SPEND_SOURCES = [
+  {
+    channel: 'shopee_ads',
+    dataset: 'olvboutique_shopeeads',
+    table: 'shopeeads_ad_insights',
+    mapping: {
+      spend_date: 'date',
+      // No campaign_id or ad_id in this table - shop-level daily aggregation
+      impressions: 'impression',
+      clicks: 'clicks',
+      expense: 'expense',
+      ctr: 'ctr',
+      direct_conversions: 'direct_conversions',
+      broad_conversions: 'broad_conversions',
+      direct_order: 'direct_order',
+      broad_order: 'broad_order',
+      direct_gmv: 'direct_gmv',
+      broad_gmv: 'broad_gmv',
+    }
+  },
+];
+
+// Campaign Insights: per-campaign per-day metrics
+const CAMPAIGN_SOURCES = [
+  {
+    channel: 'shopee_ads',
+    dataset: 'olvboutique_shopeeads',
+    table: 'shopeeads_campaign_insights',
+    mapping: {
+      campaign_id: 'campaign_id',
+      campaign_name: 'ad_name',
+      campaign_type: 'ad_type',
+      campaign_placement: 'campaign_placement',
+      spend_date: 'date',
+      impressions: 'impression',
+      clicks: 'clicks',
+      expense: 'expense',
+      ctr: 'ctr',
+      cpc: 'cpc',
+      direct_order: 'direct_order',
+      direct_gmv: 'direct_gmv',
+      direct_order_amount: 'direct_order_amount',
+      broad_order: 'broad_order',
+      broad_gmv: 'broad_gmv',
+      broad_order_amount: 'broad_order_amount',
+    }
+  },
+  {
+    channel: 'bluecore',
+    dataset: 'olvboutique',
+    table: 'bc_Campaigns',
+    mapping: {
+      campaign_id: 'Id',
+      campaign_name: 'Name',
+      campaign_type: 'Provider',
+      status: 'Status',
+      created_at: 'CreationTime',
+    }
+  },
+];
+
 // ============= Auth Functions =============
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -1769,6 +1831,302 @@ async function updateJobStatus(
     .eq('id', jobId);
 }
 
+// ============= Ad Spend Sync =============
+
+async function syncAdSpend(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  jobId: string,
+  options: { batch_size?: number; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
+  let paused = false;
+
+  const sources = options.source_table
+    ? AD_SPEND_SOURCES.filter(s => s.table === options.source_table)
+    : AD_SPEND_SOURCES;
+
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of sources) {
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing ad_spend from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
+
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table
+    );
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let hasMore = true;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
+      const uniqueColumns = [...new Set(Object.values(source.mapping))];
+      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
+      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.spend_date}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const adSpendRows = rows.map(row => ({
+          tenant_id: tenantId,
+          channel: source.channel,
+          spend_date: row[source.mapping.spend_date] || null,
+          campaign_id: source.mapping.campaign_id ? String(row[source.mapping.campaign_id] || 'shop_total') : 'shop_total',
+          campaign_name: source.mapping.campaign_name ? (row[source.mapping.campaign_name] || null) : null,
+          ad_id: source.mapping.ad_id ? String(row[source.mapping.ad_id] || 'all') : 'all',
+          impressions: parseInt(row[source.mapping.impressions] || '0', 10),
+          clicks: parseInt(row[source.mapping.clicks] || '0', 10),
+          expense: parseFloat(row[source.mapping.expense] || '0'),
+          ctr: parseFloat(row[source.mapping.ctr] || '0'),
+          cpc: source.mapping.cpc ? parseFloat(row[source.mapping.cpc] || '0') : 0,
+          conversions: parseInt(row[source.mapping.direct_conversions] || '0', 10),
+          direct_order_amount: parseFloat(row[source.mapping.direct_gmv] || '0'),
+          broad_order_amount: parseFloat(row[source.mapping.broad_gmv] || '0'),
+          direct_conversions: parseInt(row[source.mapping.direct_conversions] || '0', 10),
+          broad_conversions: parseInt(row[source.mapping.broad_conversions] || '0', 10),
+        }));
+
+        const { error, count } = await supabase
+          .from('ad_spend_daily')
+          .upsert(adSpendRows, { onConflict: 'tenant_id,channel,spend_date,campaign_id,ad_id', ignoreDuplicates: true })
+          .select('id');
+
+        if (error) {
+          console.error('Ad spend upsert error:', error);
+        } else {
+          inserted += count || adSpendRows.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${source.channel} ad_spend:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
+        hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
+      }
+    }
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
+
+    if (paused) break;
+  }
+
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+}
+
+// ============= Campaigns Sync =============
+
+async function syncCampaigns(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  jobId: string,
+  options: { batch_size?: number; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
+  let paused = false;
+
+  const sources = options.source_table
+    ? CAMPAIGN_SOURCES.filter(s => s.table === options.source_table)
+    : CAMPAIGN_SOURCES;
+
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of sources) {
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing campaigns from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
+
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table
+    );
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let hasMore = true;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
+      const uniqueColumns = [...new Set(Object.values(source.mapping))];
+      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
+      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.campaign_id}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const campaigns = rows.map(row => ({
+          tenant_id: tenantId,
+          campaign_name: row[source.mapping.campaign_name] || 'Unknown',
+          campaign_type: row[source.mapping.campaign_type] || null,
+          channel: source.channel,
+          status: source.mapping.status ? (row[source.mapping.status] || null) : 'active',
+          impressions: source.mapping.impressions ? parseInt(row[source.mapping.impressions] || '0', 10) : null,
+          clicks: source.mapping.clicks ? parseInt(row[source.mapping.clicks] || '0', 10) : null,
+          actual_cost: source.mapping.expense ? parseFloat(row[source.mapping.expense] || '0') : null,
+          ctr: source.mapping.ctr ? parseFloat(row[source.mapping.ctr] || '0') : null,
+          cpc: source.mapping.cpc ? parseFloat(row[source.mapping.cpc] || '0') : null,
+          total_orders: source.mapping.direct_order ? parseInt(row[source.mapping.direct_order] || '0', 10) : null,
+          total_revenue: source.mapping.direct_gmv ? parseFloat(row[source.mapping.direct_gmv] || '0') : null,
+          start_date: source.mapping.spend_date ? row[source.mapping.spend_date] : (source.mapping.created_at ? row[source.mapping.created_at] : null),
+        }));
+
+        // Insert campaigns - use insert since each row is unique (campaign + date combo)
+        const { error, count } = await supabase
+          .from('promotion_campaigns')
+          .insert(campaigns)
+          .select('id');
+
+        if (error) {
+          console.error('Campaign upsert error:', error);
+        } else {
+          inserted += count || campaigns.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${source.channel} campaigns:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
+        hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
+      }
+    }
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
+
+    if (paused) break;
+  }
+
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+}
+
 // ============= Main Handler =============
 
 serve(async (req) => {
@@ -1936,6 +2294,24 @@ serve(async (req) => {
           
         case 'fulfillments':
           result = await syncFulfillments(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId, job.id,
+            params.options || {},
+            startTime,
+          );
+          break;
+          
+        case 'ad_spend':
+          result = await syncAdSpend(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId, job.id,
+            params.options || {},
+            startTime,
+          );
+          break;
+          
+        case 'campaigns':
+          result = await syncCampaigns(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
             params.options || {},
