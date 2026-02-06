@@ -1,11 +1,11 @@
 /**
  * useAlertSettings - Alert settings management
  * 
- * Schema-per-Tenant Ready
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 // Chuẩn hóa severity: critical, warning, info (thay thế high, medium, low)
@@ -70,30 +70,23 @@ const defaultSettings: AlertSettingsInput = {
 };
 
 export function useAlertSettings() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['alert-settings', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      let query = client
-        .from('alert_settings')
-        .select('*');
-
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await buildSelectQuery('alert_settings', '*')
+        .maybeSingle();
 
       if (error) throw error;
       
-      // Return data with proper typing, or null if no settings exist
       if (data) {
+        const row = data as unknown as Record<string, unknown>;
         return {
-          ...data,
-          alert_configs: data.alert_configs as unknown as AlertConfigs,
+          ...row,
+          alert_configs: row.alert_configs as unknown as AlertConfigs,
         } as AlertSettings;
       }
       
@@ -104,7 +97,7 @@ export function useAlertSettings() {
 }
 
 export function useSaveAlertSettings() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -112,19 +105,12 @@ export function useSaveAlertSettings() {
       if (!tenantId) throw new Error('No tenant selected');
 
       // Check if settings exist
-      let checkQuery = client
-        .from('alert_settings')
-        .select('id');
-
-      if (shouldAddTenantFilter) {
-        checkQuery = checkQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: existing } = await checkQuery.maybeSingle();
+      const { data: existing } = await buildSelectQuery('alert_settings', 'id')
+        .maybeSingle();
 
       if (existing) {
         // Update existing
-        let updateQuery = client
+        const { data, error } = await client
           .from('alert_settings')
           .update({
             alert_configs: JSON.parse(JSON.stringify(settings.alert_configs)),
@@ -136,18 +122,15 @@ export function useSaveAlertSettings() {
             notify_immediately: settings.notify_immediately,
             notify_daily_summary: settings.notify_daily_summary,
             notify_weekly_summary: settings.notify_weekly_summary,
-          });
-
-        if (shouldAddTenantFilter) {
-          updateQuery = updateQuery.eq('tenant_id', tenantId);
-        }
-
-        const { data, error } = await updateQuery.select().single();
+          })
+          .eq('tenant_id', tenantId)
+          .select()
+          .single();
 
         if (error) throw error;
         return data;
       } else {
-        // Insert new - use upsert pattern
+        // Insert new
         const insertData = {
           tenant_id: tenantId,
           alert_configs: JSON.parse(JSON.stringify(settings.alert_configs)),

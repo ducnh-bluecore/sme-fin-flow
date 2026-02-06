@@ -1,16 +1,16 @@
-import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
-
 /**
- * Scenario Budget Data Hook
+ * useScenarioBudgetData - Scenario Budget Data Hook
+ * 
  * Fetches budget data from scenario_monthly_plans for use in:
  * - Budget vs Actual page
  * - Variance Analysis page  
  * - Rolling Forecast page
  * 
- * Schema: scenario_monthly_plans has metric_type (revenue, opex, ebitda)
- * and month_1 through month_12 columns for each metric.
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
+
+import { useQuery } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 export interface ScenarioBudgetMonth {
   month: number;
@@ -100,7 +100,7 @@ interface PlanRow {
 }
 
 export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props = {}) {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
   const year = targetYear || new Date().getFullYear();
 
   return useQuery({
@@ -111,16 +111,8 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       }
 
       // Fetch scenarios
-      let scenarioQuery = client
-        .from('scenarios')
-        .select('id, name, is_primary')
+      const { data: scenarios } = await buildSelectQuery('scenarios', 'id, name, is_primary')
         .order('is_primary', { ascending: false });
-
-      if (shouldAddTenantFilter) {
-        scenarioQuery = scenarioQuery.eq('tenant_id', tenantId);
-      }
-
-      const { data: scenarios } = await scenarioQuery;
 
       const scenarioList = scenarios || [];
       
@@ -129,13 +121,12 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       }
 
       // Determine active scenario
-      let activeScenario = scenarioList.find(s => s.id === selectedScenarioId);
+      let activeScenario = (scenarioList as any[]).find(s => s.id === selectedScenarioId);
       if (!activeScenario) {
-        activeScenario = scenarioList.find(s => s.is_primary) || scenarioList[0];
+        activeScenario = (scenarioList as any[]).find(s => s.is_primary) || scenarioList[0];
       }
 
       // Fetch monthly plans for the active scenario
-      // Schema: metric_type = 'revenue' | 'opex' | 'ebitda', month_1 to month_12
       const { data: plans } = await client
         .from('scenario_monthly_plans')
         .select('*')
@@ -149,38 +140,26 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       const opexPlan = planRows.find(p => p.metric_type === 'opex');
       const ebitdaPlan = planRows.find(p => p.metric_type === 'ebitda');
 
-      // Fetch actuals from external_orders and expenses
+      // Fetch actuals
       const startOfYear = `${year}-01-01`;
       const endOfYear = `${year}-12-31`;
 
       // SSOT: Query cdp_orders instead of external_orders
-      // cdp_orders only contains delivered orders, no status filter needed
-      let ordersQuery = client
-        .from('cdp_orders')
-        .select('gross_revenue, order_at')
-        .gte('order_at', startOfYear)
-        .lte('order_at', endOfYear);
+      const [ordersRes, expensesRes] = await Promise.all([
+        buildSelectQuery('cdp_orders', 'gross_revenue, order_at')
+          .gte('order_at', startOfYear)
+          .lte('order_at', endOfYear),
+        buildSelectQuery('expenses', 'amount, expense_date')
+          .gte('expense_date', startOfYear)
+          .lte('expense_date', endOfYear),
+      ]);
 
-      let expensesQuery = client
-        .from('expenses')
-        .select('amount, expense_date')
-        .gte('expense_date', startOfYear)
-        .lte('expense_date', endOfYear);
-
-      if (shouldAddTenantFilter) {
-        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
-        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
-      }
-
-      const [ordersRes, expensesRes] = await Promise.all([ordersQuery, expensesQuery]);
-
-      // Map cdp_orders to legacy format for compatibility
       const rawOrders = ordersRes.data || [];
-      const orders = rawOrders.map(o => ({
-        total_amount: Number((o as any).gross_revenue) || 0,
-        order_date: (o as any).order_at
+      const orders = (rawOrders as any[]).map(o => ({
+        total_amount: Number(o.gross_revenue) || 0,
+        order_date: o.order_at
       }));
-      const expenses = expensesRes.data || [];
+      const expenses = (expensesRes.data || []) as any[];
 
       // Aggregate actuals by month
       const actualsByMonth: Record<number, { revenue: number; opex: number }> = {};
@@ -233,7 +212,7 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
           actualOpex,
           actualEbitda,
           revenueVariance: actualRevenue - plannedRevenue,
-          opexVariance: plannedOpex - actualOpex, // Favorable if spent less
+          opexVariance: plannedOpex - actualOpex,
           ebitdaVariance: actualEbitda - plannedEbitda,
           revenueVariancePct: plannedRevenue > 0 ? ((actualRevenue - plannedRevenue) / plannedRevenue) * 100 : 0,
           opexVariancePct: plannedOpex > 0 ? ((plannedOpex - actualOpex) / plannedOpex) * 100 : 0,
@@ -276,9 +255,7 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       let favorableCount = 0;
       let unfavorableCount = 0;
       ytdMonths.forEach(m => {
-        // Revenue: favorable if actual >= planned
         if (m.revenueVariance >= 0) favorableCount++; else unfavorableCount++;
-        // OPEX: favorable if spent less
         if (m.opexVariance >= 0) favorableCount++; else unfavorableCount++;
       });
 
@@ -308,7 +285,7 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
         monthly,
         quarterly,
         ytd,
-        scenarios: scenarioList
+        scenarios: scenarioList as any
       };
     },
     enabled: !!tenantId && isReady,

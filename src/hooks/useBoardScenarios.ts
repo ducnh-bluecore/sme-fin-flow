@@ -1,5 +1,12 @@
+/**
+ * useBoardScenarios - Board scenario planning hooks
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * @domain Planning/Scenarios
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/board-scenarios`;
 
@@ -69,7 +76,7 @@ interface SimulationResult {
 }
 
 export function useBoardScenarioAuth() {
-  const { client, tenantId } = useTenantSupabaseCompat();
+  const { client, tenantId } = useTenantQueryBuilder();
   
   const getAuthHeaders = async () => {
     const { data: { session } } = await client.auth.getSession();

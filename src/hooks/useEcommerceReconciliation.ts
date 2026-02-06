@@ -9,14 +9,12 @@
  * settlements BEFORE data is finalized into cdp_orders. This is the only
  * legitimate use case for direct staging table access.
  * 
- * This hook is EXCLUDED from ESLint SSOT guardrails.
- * 
- * Flow: external_orders (staging) → reconcile → mark paid → trigger sync → cdp_orders
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 /* eslint-disable no-restricted-syntax */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { toast } from 'sonner';
 
@@ -76,7 +74,6 @@ export interface SettlementRecord {
   platform: string;
 }
 
-// Map channel name to platform identifier
 function mapChannelToPlatform(channel: string | null): string {
   if (!channel) return 'other';
   const lower = channel.toLowerCase();
@@ -87,7 +84,6 @@ function mapChannelToPlatform(channel: string | null): string {
   return 'other';
 }
 
-// Map shipping carrier name
 function mapShippingCarrier(carrier: string | null): string {
   if (!carrier) return 'other';
   const lower = carrier.toLowerCase();
@@ -100,7 +96,6 @@ function mapShippingCarrier(carrier: string | null): string {
   return 'other';
 }
 
-// Map order status from database
 function mapOrderStatus(status: string | null, deliveredAt: string | null, cancelledAt: string | null): string {
   if (cancelledAt) return 'cancelled';
   if (deliveredAt) return 'delivered';
@@ -110,9 +105,9 @@ function mapOrderStatus(status: string | null, deliveredAt: string | null, cance
   return status || 'pending';
 }
 
-// Fetch e-commerce orders from external_orders
+// Fetch e-commerce orders from external_orders (staging - SSOT exception for reconciliation)
 export function useEcommerceOrders() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -123,27 +118,10 @@ export function useEcommerceOrders() {
       let query = client
         .from('external_orders')
         .select(`
-          id,
-          external_order_id,
-          order_number,
-          channel,
-          order_date,
-          delivered_at,
-          cancelled_at,
-          customer_name,
-          customer_phone,
-          shipping_address,
-          items,
-          total_amount,
-          seller_income,
-          platform_fee,
-          commission_fee,
-          status,
-          tracking_number,
-          shipping_carrier,
-          payment_status,
-          fulfillment_status,
-          shipping_fee
+          id, external_order_id, order_number, channel, order_date, delivered_at, cancelled_at,
+          customer_name, customer_phone, shipping_address, items, total_amount, seller_income,
+          platform_fee, commission_fee, status, tracking_number, shipping_carrier, payment_status,
+          fulfillment_status, shipping_fee
         `)
         .gte('order_date', startDateStr)
         .lte('order_date', endDateStr)
@@ -155,17 +133,14 @@ export function useEcommerceOrders() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
-      // Transform to EcommerceOrder format
-      const orders: EcommerceOrder[] = (data || []).map((order, index) => {
+      const orders: EcommerceOrder[] = ((data || []) as any[]).map((order) => {
         const platform = mapChannelToPlatform(order.channel);
         const walletAmount = Number(order.seller_income) || 0;
         const estimatedAmount = Number(order.total_amount) || 0;
         const address = order.shipping_address as { address?: string } | null;
         
-        // Parse items
         const rawItems = (order.items as Array<{ product_name?: string; sku?: string; quantity?: number; price?: number }>) || [];
         const items = rawItems.map((item, idx) => ({
           id: String(idx + 1),
@@ -175,7 +150,6 @@ export function useEcommerceOrders() {
           price: item.price || 0
         }));
 
-        // Create delivery events based on status
         const deliveryEvents: EcommerceOrder['deliveryEvents'] = [];
         if (order.order_date) {
           deliveryEvents.push({
@@ -228,7 +202,7 @@ export function useEcommerceOrders() {
 
 // Transform external_orders to ShippingOrder format (for COD orders)
 export function useShippingOrders() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
@@ -239,25 +213,9 @@ export function useShippingOrders() {
       let query = client
         .from('external_orders')
         .select(`
-          id,
-          external_order_id,
-          order_number,
-          channel,
-          order_date,
-          delivered_at,
-          cancelled_at,
-          customer_name,
-          customer_phone,
-          shipping_address,
-          total_amount,
-          shipping_fee,
-          seller_income,
-          status,
-          tracking_number,
-          shipping_carrier,
-          payment_method,
-          payment_status,
-          fulfillment_status
+          id, external_order_id, order_number, channel, order_date, delivered_at, cancelled_at,
+          customer_name, customer_phone, shipping_address, total_amount, shipping_fee, seller_income,
+          status, tracking_number, shipping_carrier, payment_method, payment_status, fulfillment_status
         `)
         .eq('payment_method', 'cod')
         .gte('order_date', startDateStr)
@@ -270,11 +228,9 @@ export function useShippingOrders() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
-      // Transform to ShippingOrder format
-      const orders: ShippingOrder[] = (data || []).map((order) => {
+      const orders: ShippingOrder[] = ((data || []) as any[]).map((order) => {
         const carrier = mapShippingCarrier(order.shipping_carrier);
         const address = order.shipping_address as { address?: string } | null;
         const codAmount = Number(order.total_amount) || 0;
@@ -283,7 +239,6 @@ export function useShippingOrders() {
         const orderStatus = mapOrderStatus(order.status, order.delivered_at, order.cancelled_at);
         const isDelivered = orderStatus === 'delivered' || orderStatus === 'completed';
 
-        // Create delivery events
         const deliveryEvents: ShippingOrder['deliveryEvents'] = [];
         if (order.order_date) {
           deliveryEvents.push({
@@ -331,47 +286,24 @@ export function useShippingOrders() {
 
 // Fetch channel settlements
 export function useChannelSettlements() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['channel-settlements', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('channel_settlements')
-        .select(`
-          id,
-          settlement_id,
-          period_start,
-          period_end,
-          payout_date,
-          gross_sales,
-          total_orders,
-          total_fees,
-          net_amount,
-          status,
-          is_reconciled,
-          variance_amount,
-          integration_id,
-          connector_integrations (
-            connector_name,
-            connector_type
-          )
-        `)
+      const { data, error } = await buildSelectQuery('channel_settlements', `
+        id, settlement_id, period_start, period_end, payout_date, gross_sales, total_orders,
+        total_fees, net_amount, status, is_reconciled, variance_amount, integration_id,
+        connector_integrations (connector_name, connector_type)
+      `)
         .order('period_end', { ascending: false })
         .limit(50);
 
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-
-      const { data, error } = await query;
-
       if (error) throw error;
 
-      // Transform to SettlementRecord format
-      const settlements: SettlementRecord[] = (data || []).map((s) => {
+      const settlements: SettlementRecord[] = ((data || []) as any[]).map((s) => {
         const integration = s.connector_integrations as { connector_name?: string } | null;
         return {
           id: s.id,
@@ -400,11 +332,10 @@ export function useChannelSettlements() {
 // Mark orders as reconciled
 export function useMarkOrderReconciled() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ orderIds, type }: { orderIds: string[]; type: 'ecommerce' | 'shipping' }) => {
-      // Update payment_status to 'paid' for the orders
       const { error } = await client
         .from('external_orders')
         .update({
@@ -414,7 +345,6 @@ export function useMarkOrderReconciled() {
         .in('id', orderIds);
 
       if (error) throw error;
-
       return { orderIds, type };
     },
     onSuccess: (data) => {
@@ -431,7 +361,7 @@ export function useMarkOrderReconciled() {
 // Mark settlement as reconciled
 export function useMarkSettlementReconciled() {
   const queryClient = useQueryClient();
-  const { client } = useTenantSupabaseCompat();
+  const { client } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ settlementId, varianceNotes }: { settlementId: string; varianceNotes?: string }) => {
@@ -445,7 +375,6 @@ export function useMarkSettlementReconciled() {
         .eq('id', settlementId);
 
       if (error) throw error;
-
       return { settlementId };
     },
     onSuccess: () => {

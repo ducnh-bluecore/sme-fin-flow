@@ -9,11 +9,11 @@
  * - eCommerce pending settlements
  * - Historical transaction patterns
  * 
- * Architecture: DB-First approach - fetches precomputed data where available
+ * Architecture v1.4.1: Uses useTenantQueryBuilder for tenant-aware queries
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useTenantSupabaseCompat } from '@/integrations/supabase/tenantClient';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { useMemo } from 'react';
 import { SalesProjection, calculateSalesInflowForDay } from './useSalesProjection';
 
@@ -50,7 +50,7 @@ export interface ForecastInputs {
   avgDailyOutflow: number;
   historicalDays: number;
   
-  // ✅ NEW: Average daily order revenue from cdp_orders (SSOT fallback)
+  // Average daily order revenue from cdp_orders (SSOT fallback)
   avgDailyOrderRevenue: number;
   
   // Data availability flags
@@ -68,21 +68,15 @@ export interface ForecastInputs {
 }
 
 export function useForecastInputs() {
-  const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
+  const { buildSelectQuery, callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   // Fetch all required data in parallel
   const { data: bankAccounts, isLoading: bankLoading } = useQuery({
     queryKey: ['forecast-bank-accounts', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client
-        .from('bank_accounts')
-        .select('id, current_balance, status')
+      const { data } = await buildSelectQuery('bank_accounts', 'id, current_balance, status')
         .eq('status', 'active');
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data } = await query;
       return data || [];
     },
     enabled: !!tenantId && isReady,
@@ -93,14 +87,8 @@ export function useForecastInputs() {
     queryKey: ['forecast-invoices', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client
-        .from('invoices')
-        .select('id, total_amount, paid_amount, due_date, status')
+      const { data } = await buildSelectQuery('invoices', 'id, total_amount, paid_amount, due_date, status')
         .in('status', ['sent', 'issued', 'overdue', 'partial']);
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data } = await query;
       return data || [];
     },
     enabled: !!tenantId && isReady,
@@ -111,14 +99,8 @@ export function useForecastInputs() {
     queryKey: ['forecast-bills', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client
-        .from('bills')
-        .select('id, total_amount, paid_amount, due_date, status')
+      const { data } = await buildSelectQuery('bills', 'id, total_amount, paid_amount, due_date, status')
         .in('status', ['approved', 'pending', 'partial']);
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data } = await query;
       return data || [];
     },
     enabled: !!tenantId && isReady,
@@ -129,39 +111,26 @@ export function useForecastInputs() {
     queryKey: ['forecast-expenses', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client
-        .from('expenses')
-        .select('id, amount, is_recurring, recurring_period, expense_date, description')
+      const { data } = await buildSelectQuery('expenses', 'id, amount, is_recurring, recurring_period, expense_date, description')
         .eq('is_recurring', true);
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data } = await query;
       return data || [];
     },
     enabled: !!tenantId && isReady,
     staleTime: 60000,
   });
 
-  // ✅ SSOT: Query cdp_orders instead of external_orders (staging)
-  // cdp_orders contains validated, delivered orders - no status filter needed
+  // SSOT: Query cdp_orders instead of external_orders (staging)
   const { data: orders, isLoading: orderLoading } = useQuery({
     queryKey: ['forecast-orders', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      let query = client
-        .from('cdp_orders')
-        .select('id, net_revenue, order_at')
+      const { data } = await buildSelectQuery('cdp_orders', 'id, net_revenue, order_at')
         .limit(50000);
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      const { data } = await query;
-      // Map to expected format: seller_income -> net_revenue, delivered_at -> order_at
-      return (data || []).map(o => ({
+      // Map to expected format
+      return (data || []).map((o: any) => ({
         id: o.id,
         seller_income: o.net_revenue,
-        status: 'delivered', // cdp_orders = validated orders
+        status: 'delivered',
         delivered_at: o.order_at
       }));
     },
@@ -169,24 +138,22 @@ export function useForecastInputs() {
     staleTime: 60000,
   });
 
-  // DB-First: Use RPC to get historical stats (avoids 1000 row limit)
+  // DB-First: Use RPC to get historical stats
   const { data: historicalStats, isLoading: histLoading } = useQuery({
     queryKey: ['forecast-historical-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
       
-      const { data, error } = await client
-        .rpc('get_forecast_historical_stats', { 
-          p_tenant_id: tenantId,
-          p_days: 90
-        });
+      const { data, error } = await callRpc('get_forecast_historical_stats', { 
+        p_tenant_id: tenantId,
+        p_days: 90
+      });
       
       if (error) {
         console.error('[useForecastInputs] RPC error:', error);
         return null;
       }
       
-      // RPC returns array with single row
       return Array.isArray(data) ? data[0] : data;
     },
     enabled: !!tenantId && isReady,
@@ -204,10 +171,10 @@ export function useForecastInputs() {
     in90Days.setDate(in90Days.getDate() + 90);
 
     // Bank balance
-    const bankBalance = (bankAccounts || []).reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
+    const bankBalance = ((bankAccounts || []) as any[]).reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
     
     // AR calculations
-    const arData = (invoices || []).map(inv => ({
+    const arData = ((invoices || []) as any[]).map(inv => ({
       balance: (inv.total_amount || 0) - (inv.paid_amount || 0),
       dueDate: new Date(inv.due_date),
       isOverdue: inv.status === 'overdue' || new Date(inv.due_date) < today,
@@ -220,7 +187,7 @@ export function useForecastInputs() {
     const arDueWithin90 = arData.filter(a => !a.isOverdue && a.dueDate <= in90Days).reduce((sum, a) => sum + a.balance, 0);
 
     // AP calculations
-    const apData = (bills || []).map(bill => ({
+    const apData = ((bills || []) as any[]).map(bill => ({
       balance: (bill.total_amount || 0) - (bill.paid_amount || 0),
       dueDate: new Date(bill.due_date),
     }));
@@ -230,16 +197,14 @@ export function useForecastInputs() {
     const apDueWithin60 = apData.filter(a => a.dueDate <= in60Days).reduce((sum, a) => sum + a.balance, 0);
     const apDueWithin90 = apData.filter(a => a.dueDate <= in90Days).reduce((sum, a) => sum + a.balance, 0);
 
-    // Recurring expenses (monthly) - Only count UNIQUE expense types from most recent month
-    // Group expenses by description/type and take the most recent value for each
+    // Recurring expenses (monthly)
     const expensesByType = new Map<string, number>();
-    const sortedExpenses = [...(expenses || [])].sort((a, b) => {
+    const sortedExpenses = [...((expenses || []) as any[])].sort((a, b) => {
       const dateA = a.expense_date ? new Date(a.expense_date).getTime() : 0;
       const dateB = b.expense_date ? new Date(b.expense_date).getTime() : 0;
-      return dateB - dateA; // Most recent first
+      return dateB - dateA;
     });
     
-    // For each expense type, only keep the most recent value
     for (const exp of sortedExpenses) {
       const key = exp.description || `expense_${exp.id}`;
       if (!expensesByType.has(key)) {
@@ -255,22 +220,23 @@ export function useForecastInputs() {
     
     const monthlyExpenses = Array.from(expensesByType.values()).reduce((sum, amt) => sum + amt, 0);
 
-    // Pending settlements (orders delivered but not yet paid out, typically T+7-14)
+    // Pending settlements
     const fourteenDaysAgo = new Date(today);
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
     
-    const pendingSettlements = (orders || [])
+    const pendingSettlements = ((orders || []) as any[])
       .filter(o => o.delivered_at && new Date(o.delivered_at) > fourteenDaysAgo)
       .reduce((sum, o) => sum + (o.seller_income || 0), 0);
 
-    // ✅ NEW: Calculate average daily order revenue from cdp_orders (90-day average)
-    const totalOrderRevenue = (orders || []).reduce((sum, o) => sum + (o.seller_income || 0), 0);
+    // Calculate average daily order revenue from cdp_orders
+    const totalOrderRevenue = ((orders || []) as any[]).reduce((sum, o) => sum + (o.seller_income || 0), 0);
     const avgDailyOrderRevenue = (orders || []).length > 0 ? totalOrderRevenue / 90 : 0;
 
-    // Historical averages - now from RPC (DB-First with cdp_orders fallback)
-    const totalCredit = Number(historicalStats?.total_credit) || 0;
-    const totalDebit = Number(historicalStats?.total_debit) || 0;
-    const historicalDays = Number(historicalStats?.unique_days) || 1;
+    // Historical averages from RPC
+    const histStats = historicalStats as any;
+    const totalCredit = Number(histStats?.total_credit) || 0;
+    const totalDebit = Number(histStats?.total_debit) || 0;
+    const historicalDays = Number(histStats?.unique_days) || 1;
 
     // Data status
     const hasBankData = (bankAccounts || []).length > 0;
@@ -318,7 +284,7 @@ export function useForecastInputs() {
       avgDailyInflow: totalCredit / historicalDays,
       avgDailyOutflow: totalDebit / historicalDays,
       historicalDays,
-      avgDailyOrderRevenue, // ✅ NEW: From cdp_orders
+      avgDailyOrderRevenue,
       dataStatus: {
         hasBankData,
         hasInvoiceData,
@@ -352,43 +318,34 @@ export function generateForecast(
   
   let balance = inputs.bankBalance;
   
-  // Rule-based method: Collection probability curve (decreases as days past due increase)
+  // Rule-based method: Collection probability curve
   const getCollectionProbability = (daysFromDue: number) => {
-    if (daysFromDue <= 0) return 0.85; // Before due: 85%
-    if (daysFromDue <= 30) return 0.70; // 1-30 days overdue: 70%
-    if (daysFromDue <= 60) return 0.50; // 31-60 days: 50%
-    if (daysFromDue <= 90) return 0.30; // 61-90 days: 30%
-    return 0.10; // >90 days: 10%
+    if (daysFromDue <= 0) return 0.85;
+    if (daysFromDue <= 30) return 0.70;
+    if (daysFromDue <= 60) return 0.50;
+    if (daysFromDue <= 90) return 0.30;
+    return 0.10;
   };
 
-  // Simple method: Fixed 15% AR per week = ~2.14% per day
-  const SIMPLE_DAILY_COLLECTION_RATE = 0.15 / 7; // 15%/week
-
-  // Daily expense rate from recurring
+  const SIMPLE_DAILY_COLLECTION_RATE = 0.15 / 7;
   const dailyRecurringExpense = inputs.recurringExpensesMonthly / 30;
-  
-  // Track remaining AR for simple method
   let remainingAR = inputs.arTotal;
   
   for (let i = 0; i < days; i++) {
     const date = new Date(today);
     date.setDate(date.getDate() + i);
     
-    // Expected inflows
     let inflow = 0;
     
     if (method === 'simple') {
-      // Simple method: Fixed 15% AR/week (~2.14%/day)
       const dailyCollection = remainingAR * SIMPLE_DAILY_COLLECTION_RATE;
       inflow += dailyCollection;
       remainingAR -= dailyCollection;
       
-      // eCommerce settlements
       if (i >= 7 && i <= 21) {
         inflow += inputs.pendingSettlements / 14;
       }
     } else {
-      // Rule-based method: AR collections based on probability
       if (i < 30) {
         inflow += (inputs.arDueWithin30 / 30) * getCollectionProbability(i);
       } else if (i < 60) {
@@ -397,29 +354,23 @@ export function generateForecast(
         inflow += (inputs.arDueWithin90 - inputs.arDueWithin60) / 30 * getCollectionProbability(i - 60);
       }
       
-      // Overdue AR (collect 3% daily with decreasing probability)
       inflow += (inputs.arOverdue * 0.03) * getCollectionProbability(i + 30);
       
-      // eCommerce settlements (typically 7-14 days after delivery)
       if (i >= 7 && i <= 21) {
         inflow += inputs.pendingSettlements / 14;
       }
     }
     
-    // Add projected sales revenue with settlement delay (T+14)
     if (salesProjection) {
       inflow += calculateSalesInflowForDay(salesProjection, i);
     }
     
-    // Add historical average if we don't have specific AR data
     if (!inputs.dataStatus.hasInvoiceData && inputs.dataStatus.hasHistoricalData) {
       inflow = inputs.avgDailyInflow;
     }
 
-    // Expected outflows
     let outflow = 0;
     
-    // AP payments (spread based on due dates)
     if (i < 30) {
       outflow += inputs.apDueWithin30 / 30;
     } else if (i < 60) {
@@ -428,32 +379,25 @@ export function generateForecast(
       outflow += (inputs.apDueWithin90 - inputs.apDueWithin60) / 30;
     }
     
-    // Recurring expenses
     outflow += dailyRecurringExpense;
     
-    // Add historical average if we don't have specific AP data
     if (!inputs.dataStatus.hasBillData && inputs.dataStatus.hasHistoricalData) {
       outflow = inputs.avgDailyOutflow;
     }
 
-    // Update balance
     balance = balance + inflow - outflow;
     
-    // Confidence intervals
     let upperBound: number;
     let lowerBound: number;
 
     if (method === 'simple') {
-      // Simple method: No confidence bands
       upperBound = balance;
       lowerBound = balance;
     } else {
-      // AI method: Widen over time (1.2%/day, max 60%)
       const uncertainty = Math.min(0.6, i * 0.012);
       upperBound = balance * (1 + uncertainty);
       lowerBound = balance * (1 - uncertainty);
 
-      // If balance is negative, math above can invert bounds; normalize.
       if (upperBound < lowerBound) {
         const tmp = upperBound;
         upperBound = lowerBound;
@@ -464,8 +408,6 @@ export function generateForecast(
     forecast.push({
       date: date.toISOString().split('T')[0],
       displayDate: `${date.getDate()}/${date.getMonth() + 1}`,
-      // IMPORTANT: do not clamp negative balances to 0.
-      // Negative cash is a critical signal and must be surfaced.
       balance,
       inflow,
       outflow,

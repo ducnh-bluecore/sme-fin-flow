@@ -32,8 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { 
   useCreditNotes, 
-  useDebitNotes,
-  useInvoiceAdjustments
+  useDebitNotes
 } from '@/hooks/useCreditDebitNotes';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { format } from 'date-fns';
