@@ -348,10 +348,24 @@ async function syncPlatformData(
         integration_id: source.connector_integration_id || 'aaaa0001-0001-0001-0001-000000000001',
       }));
 
+      // Transform to cdp_orders schema (SSOT Layer 2)
+      const cdpOrders = ordersToInsert.map((order: any) => ({
+        tenant_id: order.tenant_id,
+        integration_id: order.integration_id,
+        order_key: order.external_order_id,
+        channel: order.channel,
+        order_at: order.order_date,
+        status: order.status,
+        payment_status: order.payment_status,
+        gross_revenue: order.total_amount || 0,
+        shipping_fee: order.shipping_fee || 0,
+        raw_data: order.raw_data,
+      }));
+
       const { error: insertError } = await supabase
-        .from('external_orders')
-        .upsert(ordersToInsert, { 
-          onConflict: 'external_order_id,tenant_id',
+        .from('cdp_orders')
+        .upsert(cdpOrders, { 
+          onConflict: 'tenant_id,integration_id,order_key',
           ignoreDuplicates: false 
         });
 
