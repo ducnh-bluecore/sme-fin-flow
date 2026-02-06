@@ -17434,6 +17434,77 @@ export type Database = {
           },
         ]
       }
+      kpi_facts_daily: {
+        Row: {
+          comparison_value: number | null
+          created_at: string
+          dimension_type: string
+          dimension_value: string
+          grain_date: string
+          id: string
+          metric_code: string
+          metric_value: number | null
+          period_type: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          comparison_value?: number | null
+          created_at?: string
+          dimension_type?: string
+          dimension_value?: string
+          grain_date: string
+          id?: string
+          metric_code: string
+          metric_value?: number | null
+          period_type?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          comparison_value?: number | null
+          created_at?: string
+          dimension_type?: string
+          dimension_value?: string
+          grain_date?: string
+          id?: string
+          metric_code?: string
+          metric_value?: number | null
+          period_type?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_facts_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_facts_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_facts_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_facts_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       ltv_industry_assumptions: {
         Row: {
           assumptions: Json
@@ -34334,6 +34405,14 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
+      compute_kpi_facts_daily: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       control_tower_aggregate_signals: {
         Args: { p_tenant_id: string }
         Returns: number
@@ -34372,6 +34451,10 @@ export type Database = {
         Returns: number
       }
       detect_real_alerts: { Args: { p_tenant_id: string }; Returns: number }
+      detect_threshold_breaches: {
+        Args: { p_date?: string; p_tenant_id: string }
+        Returns: Json
+      }
       dismiss_insight: {
         Args: {
           p_insight_event_id: string
