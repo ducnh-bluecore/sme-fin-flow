@@ -238,17 +238,18 @@ async function syncHaravanOrders(integration: any, supabase: any, baseUrl: strin
 
     for (const order of orders) {
       try {
-        // Map Haravan order to external_orders
+        // Map Haravan order to cdp_orders (SSOT Layer 2)
+        const grossRevenue = parseFloat(order.total_price || '0');
         const mappedOrder = {
           tenant_id: integration.tenant_id,
           integration_id: integration.id,
-          external_order_id: order.id.toString(),
+          order_key: order.id.toString(),
           order_number: order.order_number?.toString() || order.name,
           channel: 'haravan',
           status: mapHaravanStatus(order.fulfillment_status, order.financial_status),
           payment_status: order.financial_status,
           fulfillment_status: order.fulfillment_status,
-          order_date: order.created_at,
+          order_at: order.created_at,
           customer_name: order.customer?.first_name ? `${order.customer.first_name} ${order.customer.last_name}` : order.shipping_address?.name,
           customer_email: order.customer?.email || order.email,
           customer_phone: order.customer?.phone || order.shipping_address?.phone,
@@ -264,16 +265,15 @@ async function syncHaravanOrders(integration: any, supabase: any, baseUrl: strin
           subtotal: parseFloat(order.subtotal_price || '0'),
           shipping_fee: parseFloat(order.total_shipping_price_set?.shop_money?.amount || '0'),
           item_discount: parseFloat(order.total_discounts || '0'),
-          total_amount: parseFloat(order.total_price || '0'),
+          gross_revenue: grossRevenue,
           payment_method: order.gateway,
           buyer_note: order.note,
           raw_data: order,
-          last_synced_at: new Date().toISOString(),
         };
 
         await supabase
-          .from('external_orders')
-          .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+          .from('cdp_orders')
+          .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
         synced++;
       } catch (e) {
@@ -445,16 +445,18 @@ async function syncShopeeOrders(integration: any, supabase: any, baseUrl: string
 
       for (const order of orders) {
         try {
+          // Map to cdp_orders schema (SSOT Layer 2)
+          const grossRevenue = parseFloat(order.total_amount || '0');
           const mappedOrder = {
             tenant_id: integration.tenant_id,
             integration_id: integration.id,
-            external_order_id: order.order_sn,
+            order_key: order.order_sn,
             order_number: order.order_sn,
             channel: 'shopee',
             status: mapShopeeStatus(order.order_status),
             payment_status: order.order_status === 'COMPLETED' ? 'paid' : 'pending',
             fulfillment_status: order.order_status,
-            order_date: new Date(order.create_time * 1000).toISOString(),
+            order_at: new Date(order.create_time * 1000).toISOString(),
             paid_at: order.pay_time ? new Date(order.pay_time * 1000).toISOString() : null,
             shipped_at: order.ship_by_date ? new Date(order.ship_by_date * 1000).toISOString() : null,
             customer_name: order.recipient_address?.name,
@@ -470,20 +472,19 @@ async function syncShopeeOrders(integration: any, supabase: any, baseUrl: string
             item_count: order.item_list?.reduce((sum: number, item: any) => sum + item.model_quantity_purchased, 0) || 0,
             subtotal: order.item_list?.reduce((sum: number, item: any) => sum + (parseFloat(item.model_discounted_price || item.model_original_price) * item.model_quantity_purchased), 0) || 0,
             shipping_fee: parseFloat(order.actual_shipping_fee || order.estimated_shipping_fee || '0'),
-            platform_fee: 0, // Will be calculated from settlements
+            platform_fee: 0,
             commission_fee: 0,
             voucher_discount: parseFloat(order.voucher_from_seller || '0') + parseFloat(order.voucher_from_shopee || '0'),
-            total_amount: parseFloat(order.total_amount || '0'),
+            gross_revenue: grossRevenue,
             seller_income: parseFloat(order.escrow_amount || '0'),
             payment_method: order.payment_method,
             buyer_note: order.note,
             raw_data: order,
-            last_synced_at: new Date().toISOString(),
           };
 
           await supabase
-            .from('external_orders')
-            .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+            .from('cdp_orders')
+            .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
           synced++;
         } catch (e) {
@@ -734,16 +735,18 @@ async function syncLazadaOrders(integration: any, supabase: any, baseUrl: string
         const itemData = await itemResponse.json();
         const items = itemData.data || [];
 
+        // Map to cdp_orders schema (SSOT Layer 2)
+        const grossRevenue = parseFloat(order.price || '0');
         const mappedOrder = {
           tenant_id: integration.tenant_id,
           integration_id: integration.id,
-          external_order_id: order.order_id.toString(),
+          order_key: order.order_id.toString(),
           order_number: order.order_number,
           channel: 'lazada',
           status: mapLazadaStatus(order.statuses?.[0]),
           payment_status: order.payment_method ? 'paid' : 'pending',
           fulfillment_status: order.statuses?.[0],
-          order_date: order.created_at,
+          order_at: order.created_at,
           customer_name: order.customer_first_name + ' ' + order.customer_last_name,
           shipping_address: order.address_shipping,
           items: items.map((item: any) => ({
@@ -757,16 +760,15 @@ async function syncLazadaOrders(integration: any, supabase: any, baseUrl: string
           subtotal: items.reduce((sum: number, item: any) => sum + parseFloat(item.item_price || '0'), 0),
           shipping_fee: parseFloat(order.shipping_fee || '0'),
           voucher_discount: parseFloat(order.voucher || '0'),
-          total_amount: parseFloat(order.price || '0'),
+          gross_revenue: grossRevenue,
           payment_method: order.payment_method,
           buyer_note: order.remarks,
           raw_data: { order, items },
-          last_synced_at: new Date().toISOString(),
         };
 
         await supabase
-          .from('external_orders')
-          .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+          .from('cdp_orders')
+          .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
         synced++;
       } catch (e) {
@@ -919,16 +921,18 @@ async function syncTikTokOrders(integration: any, supabase: any, baseUrl: string
 
     for (const order of orders) {
       try {
+        // Map to cdp_orders schema (SSOT Layer 2)
+        const grossRevenue = parseFloat(order.payment?.total_amount || '0') / 100;
         const mappedOrder = {
           tenant_id: integration.tenant_id,
           integration_id: integration.id,
-          external_order_id: order.id,
+          order_key: order.id,
           order_number: order.id,
           channel: 'tiktok',
           status: mapTikTokStatus(order.status),
           payment_status: order.payment?.payment_method_name ? 'paid' : 'pending',
           fulfillment_status: order.status,
-          order_date: new Date(order.create_time * 1000).toISOString(),
+          order_at: new Date(order.create_time * 1000).toISOString(),
           customer_name: order.recipient_address?.name,
           customer_phone: order.recipient_address?.phone_number,
           shipping_address: order.recipient_address,
@@ -943,16 +947,15 @@ async function syncTikTokOrders(integration: any, supabase: any, baseUrl: string
           subtotal: parseFloat(order.payment?.sub_total || '0') / 100,
           shipping_fee: parseFloat(order.payment?.shipping_fee || '0') / 100,
           platform_fee: parseFloat(order.payment?.platform_discount || '0') / 100,
-          total_amount: parseFloat(order.payment?.total_amount || '0') / 100,
+          gross_revenue: grossRevenue,
           payment_method: order.payment?.payment_method_name,
           buyer_note: order.buyer_message,
           raw_data: order,
-          last_synced_at: new Date().toISOString(),
         };
 
         await supabase
-          .from('external_orders')
-          .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+          .from('cdp_orders')
+          .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
         synced++;
       } catch (e) {
@@ -1087,16 +1090,18 @@ async function syncSapoOrders(integration: any, supabase: any, baseUrl: string, 
 
     for (const order of orders) {
       try {
+        // Map to cdp_orders schema (SSOT Layer 2)
+        const grossRevenue = order.total_price || 0;
         const mappedOrder = {
           tenant_id: integration.tenant_id,
           integration_id: integration.id,
-          external_order_id: order.id.toString(),
+          order_key: order.id.toString(),
           order_number: order.order_number || order.name,
           channel: 'sapo',
           status: mapSapoStatus(order.status, order.financial_status),
           payment_status: order.financial_status,
           fulfillment_status: order.fulfillment_status,
-          order_date: order.created_on,
+          order_at: order.created_on,
           customer_name: order.billing_address?.full_name || order.customer?.full_name,
           customer_email: order.email,
           customer_phone: order.billing_address?.phone,
@@ -1112,16 +1117,15 @@ async function syncSapoOrders(integration: any, supabase: any, baseUrl: string, 
           subtotal: order.subtotal_price || 0,
           shipping_fee: order.total_shipping_price || 0,
           item_discount: order.total_discounts || 0,
-          total_amount: order.total_price || 0,
+          gross_revenue: grossRevenue,
           payment_method: order.gateway,
           buyer_note: order.note,
           raw_data: order,
-          last_synced_at: new Date().toISOString(),
         };
 
         await supabase
-          .from('external_orders')
-          .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+          .from('cdp_orders')
+          .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
         synced++;
       } catch (e) {
@@ -1256,15 +1260,18 @@ async function syncKiotVietOrders(integration: any, supabase: any, baseUrl: stri
 
     for (const invoice of invoices) {
       try {
+        // Map to cdp_orders schema (SSOT Layer 2)
+        const grossRevenue = invoice.total || 0;
+        const cogs = invoice.invoiceDetails?.reduce((sum: number, item: any) => sum + (item.cost * item.quantity), 0) || 0;
         const mappedOrder = {
           tenant_id: integration.tenant_id,
           integration_id: integration.id,
-          external_order_id: invoice.id.toString(),
+          order_key: invoice.id.toString(),
           order_number: invoice.code,
           channel: 'kiotviet',
           status: mapKiotVietStatus(invoice.status),
           payment_status: invoice.status === 3 ? 'paid' : 'pending',
-          order_date: invoice.createdDate,
+          order_at: invoice.createdDate,
           customer_name: invoice.customerName,
           customer_phone: invoice.customerPhone,
           items: invoice.invoiceDetails?.map((item: any) => ({
@@ -1277,16 +1284,15 @@ async function syncKiotVietOrders(integration: any, supabase: any, baseUrl: stri
           item_count: invoice.invoiceDetails?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
           subtotal: invoice.subTotal || 0,
           item_discount: invoice.discount || 0,
-          total_amount: invoice.total || 0,
-          cost_of_goods: invoice.invoiceDetails?.reduce((sum: number, item: any) => sum + (item.cost * item.quantity), 0) || 0,
+          gross_revenue: grossRevenue,
+          cogs: cogs,
           payment_method: invoice.payments?.[0]?.method,
           raw_data: invoice,
-          last_synced_at: new Date().toISOString(),
         };
 
         await supabase
-          .from('external_orders')
-          .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+          .from('cdp_orders')
+          .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
         synced++;
       } catch (e) {
@@ -1462,15 +1468,17 @@ async function syncWooCommerceOrders(integration: any, supabase: any, baseUrl: s
 
     for (const order of orders) {
       try {
+        // Map to cdp_orders schema (SSOT Layer 2)
+        const grossRevenue = parseFloat(order.total || '0');
         const mappedOrder = {
           tenant_id: integration.tenant_id,
           integration_id: integration.id,
-          external_order_id: order.id.toString(),
+          order_key: order.id.toString(),
           order_number: order.number,
           channel: 'woocommerce',
           status: mapWooCommerceStatus(order.status),
           payment_status: order.date_paid ? 'paid' : 'pending',
-          order_date: order.date_created,
+          order_at: order.date_created,
           paid_at: order.date_paid,
           customer_name: `${order.billing?.first_name || ''} ${order.billing?.last_name || ''}`.trim(),
           customer_email: order.billing?.email,
@@ -1487,16 +1495,15 @@ async function syncWooCommerceOrders(integration: any, supabase: any, baseUrl: s
           subtotal: parseFloat(order.subtotal || '0'),
           shipping_fee: parseFloat(order.shipping_total || '0'),
           item_discount: parseFloat(order.discount_total || '0'),
-          total_amount: parseFloat(order.total || '0'),
+          gross_revenue: grossRevenue,
           payment_method: order.payment_method_title,
           buyer_note: order.customer_note,
           raw_data: order,
-          last_synced_at: new Date().toISOString(),
         };
 
         await supabase
-          .from('external_orders')
-          .upsert(mappedOrder, { onConflict: 'integration_id,external_order_id' });
+          .from('cdp_orders')
+          .upsert(mappedOrder, { onConflict: 'tenant_id,integration_id,order_key' });
 
         synced++;
       } catch (e) {

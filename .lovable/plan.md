@@ -232,8 +232,9 @@ const { data } = await buildSelectQuery(
 Sau khi hoan thanh, verify:
 
 - [x] `sync-bigquery` ghi truc tiep vao `cdp_orders` (SSOT Layer 2)
-- [ ] `sync-connector` ghi truc tiep vao `cdp_orders`
-- [ ] `sync-ecommerce-data` ghi truc tiep vao `cdp_orders`
+- [x] `sync-connector` ghi truc tiep vao `cdp_orders`
+- [x] `sync-ecommerce-data` ghi truc tiep vao `cdp_orders`
+- [x] `batch-import-data` ghi truc tiep vao `cdp_orders`
 - [x] `useWhatIfRealData` query tu `cdp_order_items` (maps to master_order_items)
 - [x] `useMDPSSOT` query tu `cdp_order_items` (maps to master_order_items)
 - [x] `useMDPData` query tu `cdp_order_items` (maps to master_order_items)

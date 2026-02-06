@@ -86,18 +86,19 @@ function generateOrdersForMonth(
         const grossProfit = totalAmount - totalCogs - (totalAmount * platformFeeRate);
         const marginPercent = totalAmount > 0 ? (grossProfit / totalAmount) * 100 : 0;
         
+        // Generate cdp_order_items schema (SSOT Layer 2)
         items.push({
           id: crypto.randomUUID(),
           tenant_id: TENANT_ID,
-          external_order_id: orderId,
+          order_id: orderId, // FK to cdp_orders
           sku: product.external_sku,
           product_name: product.name,
           quantity,
           unit_price: unitPrice,
           unit_cogs: unitCogs,
-          total_amount: totalAmount,
-          total_cogs: totalCogs,
-          gross_profit: grossProfit,
+          line_total: totalAmount,
+          line_cogs: totalCogs,
+          line_margin: grossProfit,
           margin_percent: marginPercent,
           is_returned: status === 'returned',
           created_at: formatDate(orderDate),
@@ -113,18 +114,19 @@ function generateOrdersForMonth(
       const paymentFee = Math.round(orderTotal * 0.015);
       const shippingFee = randomBetween(15000, 45000);
       
+      // Generate cdp_orders schema (SSOT Layer 2)
       orders.push({
         id: orderId,
         tenant_id: TENANT_ID,
         integration_id: INTEGRATION_ID,
-        external_order_id: `EXT-${year}${String(month + 1).padStart(2, '0')}${String(day).padStart(2, '0')}-${String(o + 1).padStart(5, '0')}`,
+        order_key: `EXT-${year}${String(month + 1).padStart(2, '0')}${String(day).padStart(2, '0')}-${String(o + 1).padStart(5, '0')}`,
         order_number: `ORD-${year}${String(month + 1).padStart(2, '0')}${String(day).padStart(2, '0')}-${String(o + 1).padStart(4, '0')}`,
         channel,
         status,
-        order_date: formatDate(orderDate),
-        total_amount: orderTotal,
+        order_at: formatDate(orderDate),
+        gross_revenue: orderTotal,
         subtotal: orderTotal,
-        cost_of_goods: orderCogs,
+        cogs: orderCogs,
         platform_fee: platformFee,
         commission_fee: commissionFee,
         payment_fee: paymentFee,
@@ -411,12 +413,12 @@ serve(async (req) => {
 
     if (action === 'status') {
       const [orders, products, campaigns, invoices, bills, items] = await Promise.all([
-        supabase.from('external_orders').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
+        supabase.from('cdp_orders').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
         supabase.from('external_products').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
         supabase.from('promotion_campaigns').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
         supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
         supabase.from('bills').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
-        supabase.from('external_order_items').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
+        supabase.from('cdp_order_items').select('id', { count: 'exact', head: true }).eq('tenant_id', TENANT_ID),
       ]);
 
       return new Response(JSON.stringify({
@@ -476,19 +478,19 @@ serve(async (req) => {
             ordersPerDay
           );
           
-          // Insert orders in batches
+          // Insert cdp_orders in batches (SSOT Layer 2)
           for (let i = 0; i < orders.length; i += BATCH_SIZE) {
             const batch = orders.slice(i, i + BATCH_SIZE);
-            const { error } = await supabase.from('external_orders').insert(batch);
+            const { error } = await supabase.from('cdp_orders').insert(batch);
             if (error) {
               console.error('Order insert error:', error);
             }
           }
           
-          // Insert items in batches
+          // Insert cdp_order_items in batches (SSOT Layer 2)
           for (let i = 0; i < items.length; i += BATCH_SIZE) {
             const batch = items.slice(i, i + BATCH_SIZE);
-            const { error } = await supabase.from('external_order_items').insert(batch);
+            const { error } = await supabase.from('cdp_order_items').insert(batch);
             if (error) {
               console.error('Item insert error:', error);
             }
