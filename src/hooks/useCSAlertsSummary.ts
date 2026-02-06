@@ -1,8 +1,15 @@
 /**
- * useCSAlertsSummary - Hook for CS Alerts Summary (Admin)
+ * useCSAlertsSummary - Hook for Customer Success Alerts Summary (Admin)
  * 
  * @architecture Schema-per-Tenant v1.4.1
- * Note: CS alerts are platform-level (cross-tenant), uses supabase directly
+ * NOTE: This is a CONTROL PLANE module for platform-level CS operations.
+ * Uses direct supabase client because:
+ * 1. get_cs_alerts_summary() aggregates across ALL tenants
+ * 2. get_all_open_cs_alerts() returns cross-tenant alert list
+ * 3. check_and_create_cs_alerts() is admin-triggered per-tenant
+ * 4. run_cs_alert_checks() is platform-level batch operation
+ * 
+ * These are Customer Success Manager tools, not tenant-facing features.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

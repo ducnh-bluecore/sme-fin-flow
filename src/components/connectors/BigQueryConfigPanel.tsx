@@ -1,3 +1,16 @@
+/**
+ * BigQueryConfigPanel - Connector Configuration for BigQuery
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a CONNECTOR component that manages integration settings.
+ * Uses direct supabase client for:
+ * 1. Profile/tenant lookup (public schema)
+ * 2. connector_integrations table (tenant-specific but uses RLS)
+ * 3. Edge functions for BigQuery operations
+ * 
+ * The actual data sync respects tenant boundaries via integration_id
+ */
+
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 

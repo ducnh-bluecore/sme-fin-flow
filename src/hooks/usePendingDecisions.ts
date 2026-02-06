@@ -1,6 +1,13 @@
+/**
+ * usePendingDecisions - Decision Approval Workflow
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * Uses useTenantQueryBuilder for tenant-aware queries.
+ * decision_analyses is a tenant-specific table.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useActiveTenantId } from './useActiveTenantId';
+import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 
 export interface PendingDecision {
@@ -28,44 +35,39 @@ export interface PendingDecision {
 }
 
 export function usePendingDecisions() {
-  const { data: tenantId } = useActiveTenantId();
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['pending-decisions', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      const { data, error } = await supabase
-        .from('decision_analyses')
-        .select('*')
-        .eq('tenant_id', tenantId)
+      const { data, error } = await buildSelectQuery('decision_analyses', '*')
         .eq('status', 'pending_approval')
         .order('priority', { ascending: true }) // high first
         .order('deadline', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as PendingDecision[];
+      return (data || []) as unknown as PendingDecision[];
     },
-    enabled: !!tenantId,
+    enabled: !!tenantId && isReady,
   });
 }
 
 export function useApproveDecision() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildUpdateQuery, client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async (decisionId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
-      const { data, error } = await supabase
-        .from('decision_analyses')
-        .update({
-          status: 'approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-        })
+      const { data, error } = await buildUpdateQuery('decision_analyses', {
+        status: 'approved',
+        approved_by: user?.id,
+        approved_at: new Date().toISOString(),
+      })
         .eq('id', decisionId)
         .select()
         .single();
@@ -87,20 +89,18 @@ export function useApproveDecision() {
 
 export function useRejectDecision() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildUpdateQuery, client, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ decisionId, reason }: { decisionId: string; reason?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await client.auth.getUser();
 
-      const { data, error } = await supabase
-        .from('decision_analyses')
-        .update({
-          status: 'rejected',
-          rejected_by: user?.id,
-          rejected_at: new Date().toISOString(),
-          rejection_reason: reason,
-        })
+      const { data, error } = await buildUpdateQuery('decision_analyses', {
+        status: 'rejected',
+        rejected_by: user?.id,
+        rejected_at: new Date().toISOString(),
+        rejection_reason: reason,
+      })
         .eq('id', decisionId)
         .select()
         .single();
@@ -122,7 +122,7 @@ export function useRejectDecision() {
 
 export function useSubmitForApproval() {
   const queryClient = useQueryClient();
-  const { data: tenantId } = useActiveTenantId();
+  const { buildUpdateQuery, tenantId } = useTenantQueryBuilder();
 
   return useMutation({
     mutationFn: async ({ 
@@ -136,14 +136,12 @@ export function useSubmitForApproval() {
       deadline?: string;
       impact?: string;
     }) => {
-      const { data, error } = await supabase
-        .from('decision_analyses')
-        .update({
-          status: 'pending_approval',
-          priority,
-          deadline,
-          impact,
-        })
+      const { data, error } = await buildUpdateQuery('decision_analyses', {
+        status: 'pending_approval',
+        priority,
+        deadline,
+        impact,
+      })
         .eq('id', decisionId)
         .select()
         .single();

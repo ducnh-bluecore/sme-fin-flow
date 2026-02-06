@@ -1,3 +1,15 @@
+/**
+ * AdminUsersPage - Platform Admin User Management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a SUPER ADMIN page for platform-level operations.
+ * Uses direct supabase client because:
+ * 1. user_roles table is platform-level (not tenant-specific)
+ * 2. profiles table is in public schema
+ * 3. create-tenant-with-owner Edge Function is admin-only
+ * 4. Cross-tenant visibility required for admin functions
+ */
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';

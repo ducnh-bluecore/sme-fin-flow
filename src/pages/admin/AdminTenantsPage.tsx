@@ -1,3 +1,15 @@
+/**
+ * AdminTenantsPage - Platform Admin Tenant Management
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a SUPER ADMIN page for platform-level operations.
+ * Uses direct supabase client because:
+ * 1. Lists ALL tenants across the platform (cross-tenant query)
+ * 2. CRUD on tenants table requires admin privileges
+ * 3. create-tenant-with-owner Edge Function is admin-only
+ * 4. Schema provisioning is platform-level operation
+ */
+
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';

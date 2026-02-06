@@ -1,3 +1,15 @@
+/**
+ * useTenant - Core Tenant Management Hooks
+ * 
+ * @architecture Schema-per-Tenant v1.4.1
+ * NOTE: This is a CONTROL PLANE module that manages tenant lifecycle.
+ * Uses direct supabase client because:
+ * 1. Tenant operations work on public schema (tenants, tenant_users, profiles)
+ * 2. These are cross-tenant queries for user's tenant list
+ * 3. RLS handles authorization, not schema isolation
+ * 4. create-tenant-self Edge Function is platform-level
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
