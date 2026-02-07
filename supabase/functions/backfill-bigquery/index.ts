@@ -1056,7 +1056,7 @@ async function syncOrderItems(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string },
+  options: { batch_size?: number; date_from?: string; date_to?: string; source_table?: string; },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
@@ -1086,10 +1086,11 @@ async function syncOrderItems(
 
     console.log(`Processing order items from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
     
-    // Count total records
+    // Count total records (with date filter if available via order join)
     const totalRecords = await countSourceRecords(
       accessToken, projectId, source.dataset, source.table
     );
+
     
     await updateSourceProgress(supabase, jobId, source.channel, {
       status: 'running',
@@ -1110,7 +1111,9 @@ async function syncOrderItems(
       }
       const mappingValues = Object.values(source.mapping).filter(Boolean);
       const columns = mappingValues.map(c => `\`${c}\``).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      // Order items tables don't have their own date column, so no BigQuery date filter
+      query += ` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -1120,17 +1123,21 @@ async function syncOrderItems(
           break;
         }
         
-        // Transform and insert (no unique constraint on this table)
-        // COGS is NOT set here - it will be calculated via UPDATE JOIN with products table after all inserts
+        // Transform and upsert (unique constraint on tenant_id, order_id, sku)
+        // COGS is NOT set here - it will be calculated via UPDATE JOIN with products table after all upserts
         const orderItems = rows.map(row => {
           const qty = source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1;
           const lineRevenue = parseFloat(row[source.mapping.total] || '0');
           
+          // Build order_id from source channel + order_key
+          const orderKey = String(row[source.mapping.order_key]);
+          
           return {
             tenant_id: tenantId,
             integration_id: integrationId,
+            order_id: orderKey,
             product_id: String(row[source.mapping.item_id] || ''),
-            sku: row[source.mapping.sku],
+            sku: row[source.mapping.sku] || `unknown_${row[source.mapping.item_id]}`,
             product_name: row[source.mapping.name],
             qty,
             unit_price: parseFloat(row[source.mapping.unit_price] || '0'),
@@ -1139,14 +1146,14 @@ async function syncOrderItems(
             line_revenue: lineRevenue,
             raw_data: {
               source_channel: source.channel,
-              source_order_key: String(row[source.mapping.order_key]),
+              source_order_key: orderKey,
             },
           };
         });
         
         const { error, count } = await supabase
           .from('cdp_order_items')
-          .insert(orderItems)
+          .upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
           .select('id');
         
         if (error) {
@@ -1227,7 +1234,7 @@ async function syncRefunds(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; source_table?: string },
+  options: { batch_size?: number; date_from?: string; source_table?: string },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
@@ -1256,7 +1263,8 @@ async function syncRefunds(
     console.log(`Processing refunds from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
     const totalRecords = await countSourceRecords(
-      accessToken, projectId, source.dataset, source.table
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.refund_at, options.date_from
     );
 
     await updateSourceProgress(supabase, jobId, source.channel, {
@@ -1277,7 +1285,11 @@ async function syncRefunds(
         break;
       }
       const columns = Object.values(source.mapping).map(c => `\`${c}\``).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.refund_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      if (options.date_from && source.mapping.refund_at) {
+        query += ` WHERE DATE(\`${source.mapping.refund_at}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.refund_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -1296,10 +1308,10 @@ async function syncRefunds(
           order_id: null, // Cannot resolve FK without lookup; store in raw_data
         }));
 
-        // Upsert to avoid duplicates (unique on tenant_id + refund_key)
+        // Upsert to update changed data (unique on tenant_id + refund_key)
         const { error, count } = await supabase
           .from('cdp_refunds')
-          .upsert(refunds, { onConflict: 'tenant_id,refund_key', ignoreDuplicates: true })
+          .upsert(refunds, { onConflict: 'tenant_id,refund_key' })
           .select('id');
 
         if (error) {
@@ -1366,7 +1378,7 @@ async function syncPayments(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; source_table?: string },
+  options: { batch_size?: number; date_from?: string; source_table?: string },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
@@ -1395,7 +1407,8 @@ async function syncPayments(
     console.log(`Processing payments from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
     const totalRecords = await countSourceRecords(
-      accessToken, projectId, source.dataset, source.table
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.paid_at, options.date_from
     );
 
     await updateSourceProgress(supabase, jobId, source.channel, {
@@ -1418,7 +1431,11 @@ async function syncPayments(
       // Deduplicate columns (payment_key and order_key often map to the same column)
       const uniqueColumns = [...new Set(Object.values(source.mapping))];
       const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.payment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      if (options.date_from && source.mapping.paid_at) {
+        query += ` WHERE DATE(\`${source.mapping.paid_at}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.payment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -1443,7 +1460,7 @@ async function syncPayments(
 
         const { error, count } = await supabase
           .from('cdp_payments')
-          .upsert(payments, { onConflict: 'tenant_id,payment_key', ignoreDuplicates: true })
+          .upsert(payments, { onConflict: 'tenant_id,payment_key' })
           .select('id');
 
         if (error) {
@@ -1510,7 +1527,7 @@ async function syncFulfillments(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; source_table?: string },
+  options: { batch_size?: number; date_from?: string; source_table?: string },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
@@ -1539,7 +1556,8 @@ async function syncFulfillments(
     console.log(`Processing fulfillments from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
     const totalRecords = await countSourceRecords(
-      accessToken, projectId, source.dataset, source.table
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.shipped_at, options.date_from
     );
 
     await updateSourceProgress(supabase, jobId, source.channel, {
@@ -1561,7 +1579,11 @@ async function syncFulfillments(
       }
       const uniqueColumns = [...new Set(Object.values(source.mapping))];
       const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.fulfillment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      if (options.date_from && source.mapping.shipped_at) {
+        query += ` WHERE DATE(\`${source.mapping.shipped_at}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.fulfillment_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -1584,7 +1606,7 @@ async function syncFulfillments(
 
         const { error, count } = await supabase
           .from('cdp_fulfillments')
-          .upsert(fulfillments, { onConflict: 'tenant_id,fulfillment_key', ignoreDuplicates: true })
+          .upsert(fulfillments, { onConflict: 'tenant_id,fulfillment_key' })
           .select('id');
 
         if (error) {
@@ -1860,7 +1882,7 @@ async function syncAdSpend(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; source_table?: string },
+  options: { batch_size?: number; date_from?: string; source_table?: string },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
@@ -1889,7 +1911,8 @@ async function syncAdSpend(
     console.log(`Processing ad_spend from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
     const totalRecords = await countSourceRecords(
-      accessToken, projectId, source.dataset, source.table
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.spend_date, options.date_from
     );
 
     await updateSourceProgress(supabase, jobId, source.channel, {
@@ -1911,7 +1934,11 @@ async function syncAdSpend(
       }
       const uniqueColumns = [...new Set(Object.values(source.mapping))];
       const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.spend_date}\` LIMIT ${batchSize} OFFSET ${offset}`;
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      if (options.date_from && source.mapping.spend_date) {
+        query += ` WHERE DATE(\`${source.mapping.spend_date}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.spend_date}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -1942,7 +1969,7 @@ async function syncAdSpend(
 
         const { error, count } = await supabase
           .from('ad_spend_daily')
-          .upsert(adSpendRows, { onConflict: 'tenant_id,channel,spend_date,campaign_id,ad_id', ignoreDuplicates: true })
+          .upsert(adSpendRows, { onConflict: 'tenant_id,channel,spend_date,campaign_id,ad_id' })
           .select('id');
 
         if (error) {
@@ -2009,7 +2036,7 @@ async function syncCampaigns(
   tenantId: string,
   integrationId: string,
   jobId: string,
-  options: { batch_size?: number; source_table?: string },
+  options: { batch_size?: number; date_from?: string; source_table?: string },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
@@ -2037,8 +2064,10 @@ async function syncCampaigns(
 
     console.log(`Processing campaigns from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
+    const dateCol = source.mapping.spend_date || source.mapping.created_at;
     const totalRecords = await countSourceRecords(
-      accessToken, projectId, source.dataset, source.table
+      accessToken, projectId, source.dataset, source.table,
+      dateCol, options.date_from
     );
 
     await updateSourceProgress(supabase, jobId, source.channel, {
@@ -2060,7 +2089,12 @@ async function syncCampaigns(
       }
       const uniqueColumns = [...new Set(Object.values(source.mapping))];
       const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
-      const query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\` ORDER BY \`${source.mapping.campaign_id}\` LIMIT ${batchSize} OFFSET ${offset}`;
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      const campaignDateCol = source.mapping.spend_date || source.mapping.created_at;
+      if (options.date_from && campaignDateCol) {
+        query += ` WHERE DATE(\`${campaignDateCol}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.campaign_id}\` LIMIT ${batchSize} OFFSET ${offset}`;
 
       try {
         const { rows } = await queryBigQuery(accessToken, projectId, query);
@@ -2086,10 +2120,10 @@ async function syncCampaigns(
           start_date: source.mapping.spend_date ? row[source.mapping.spend_date] : (source.mapping.created_at ? row[source.mapping.created_at] : null),
         }));
 
-        // Insert campaigns - use insert since each row is unique (campaign + date combo)
+        // Upsert campaigns (unique on tenant_id, channel, campaign_name, start_date)
         const { error, count } = await supabase
           .from('promotion_campaigns')
-          .insert(campaigns)
+          .upsert(campaigns, { onConflict: 'tenant_id,channel,campaign_name,start_date' })
           .select('id');
 
         if (error) {
