@@ -258,7 +258,6 @@ const ORDER_ITEM_SOURCES = [
       unit_price: 'SubTotal',
       discount: 'Discount',
       total: 'Total',
-      cost_price: 'gia_goc_sp',
     }
   }
 ];
@@ -1122,13 +1121,9 @@ async function syncOrderItems(
         }
         
         // Transform and insert (no unique constraint on this table)
+        // COGS is NOT set here - it will be calculated via UPDATE JOIN with products table after all inserts
         const orderItems = rows.map(row => {
           const qty = source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1;
-          const costPrice = source.mapping.cost_price 
-            ? parseFloat(row[source.mapping.cost_price] || '0') 
-            : 0;
-          const unitCogs = costPrice > 0 ? costPrice : 0;
-          const lineCogs = unitCogs * qty;
           const lineRevenue = parseFloat(row[source.mapping.total] || '0');
           
           return {
@@ -1142,13 +1137,9 @@ async function syncOrderItems(
             original_price: parseFloat(row[source.mapping.unit_price] || '0'),
             discount_amount: parseFloat(row[source.mapping.discount] || '0'),
             line_revenue: lineRevenue,
-            unit_cogs: unitCogs > 0 ? unitCogs : null,
-            line_cogs: lineCogs > 0 ? lineCogs : null,
-            line_margin: lineCogs > 0 ? lineRevenue - lineCogs : null,
             raw_data: {
               source_channel: source.channel,
               source_order_key: String(row[source.mapping.order_key]),
-              ...(costPrice > 0 ? { gia_goc_sp: costPrice } : {}),
             },
           };
         });
@@ -1209,6 +1200,19 @@ async function syncOrderItems(
     });
 
     if (paused) break;
+  }
+  
+  // After all sources complete (not paused), UPDATE COGS from master products table (SSOT)
+  if (!paused) {
+    console.log('Calculating COGS from master products table...');
+    const { error: cogsError, count: cogsCount } = await supabase.rpc('update_order_items_cogs', {
+      p_tenant_id: tenantId,
+    });
+    if (cogsError) {
+      console.error('COGS UPDATE error:', cogsError);
+    } else {
+      console.log(`COGS updated for ${cogsCount || 'unknown'} order items from master products`);
+    }
   }
   
   return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };

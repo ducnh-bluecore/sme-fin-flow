@@ -35201,6 +35201,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_order_items_cogs: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       validate_period_date: {
         Args: { p_date: string; p_tenant_id: string }
         Returns: string
