@@ -1,62 +1,125 @@
 
 
-## Lấy COGS từ Master Product thay vì Order Line Items
+## Fix Incremental Sync - Chi sync data moi, khong keo full moi ngay
 
-### Ly do thay doi
+### Hien trang van de
 
-Theo nguyen tac FDP "SINGLE SOURCE OF TRUTH":
-- `products.cost_price` la SSOT cho gia von -- da co 14,056/16,697 san pham (84%) co gia von
-- `gia_goc_sp` trong order line items co the thay doi theo thoi gian, khong nhat quan, hoac bi null
-- Gia von la thuoc tinh cua SAN PHAM, khong phai cua DON HANG
+Sau khi audit toan bo `backfill-bigquery/index.ts`, phat hien **6/10 model types KHONG co date filter** - moi lan chay se scan TOAN BO dataset tu BigQuery:
 
-### Thay doi
+| Model | Co date filter? | Co upsert? | Van de khi chay daily |
+|-------|----------------|------------|----------------------|
+| Orders | CO (`order_at >= date_from`) | CO (upsert) | An toan |
+| Customers | CO (`created_at >= date_from`) | CO (upsert) | An toan |
+| Products | KHONG | CO (upsert) | Scan full 16K records nhung khong duplicate |
+| Order Items | KHONG | KHONG (insert!) | **DUPLICATE moi ngay!** |
+| Refunds | KHONG | CO (ignoreDuplicates) | Scan full, khong update data thay doi |
+| Payments | KHONG | CO (ignoreDuplicates) | Scan full, khong update data thay doi |
+| Fulfillments | KHONG | CO (ignoreDuplicates) | Scan full, khong update data thay doi |
+| Ad Spend | KHONG | CO (ignoreDuplicates) | Scan full, khong update data thay doi |
+| Campaigns | KHONG | KHONG (insert!) | **DUPLICATE moi ngay!** |
+| Inventory | Chua implement | - | - |
 
-#### 1. Revert mapping `gia_goc_sp` trong backfill-bigquery
+### Muc do nguy hiem
 
-Xoa `cost_price: 'gia_goc_sp'` khoi KiotViet ORDER_ITEM_SOURCES mapping. Order items chi luu thong tin ban hang (qty, unit_price, discount, line_revenue).
+1. **CRITICAL**: `order_items` va `campaigns` dung `.insert()` - **se tao ban ghi trung lap moi ngay**
+2. **HIGH**: `refunds/payments/fulfillments` dung `ignoreDuplicates: true` - data cu thay doi se **khong duoc cap nhat**
+3. **MEDIUM**: `products/ad_spend` scan full nhung co upsert nen khong sai data, chi ton tai nguyen
 
-#### 2. Tinh COGS khi sync order items bang cach JOIN voi products
+### Giai phap
 
-Sau khi insert order items, chay mot buoc UPDATE de tinh `unit_cogs`, `line_cogs`, `line_margin` bang cach JOIN voi bang `products` qua truong `sku`:
+#### 1. Them UNIQUE CONSTRAINT cho `cdp_order_items`
 
-```text
-UPDATE cdp_order_items oi
-SET 
-  unit_cogs  = p.cost_price,
-  line_cogs  = p.cost_price * oi.qty,
-  line_margin = oi.line_revenue - (p.cost_price * oi.qty)
-FROM products p
-WHERE p.tenant_id = oi.tenant_id
-  AND p.sku = oi.sku
-  AND p.cost_price > 0;
-```
-
-#### 3. Ap dung cho TAT CA channels
-
-Loi the lon: khong chi KiotViet ma tat ca channels (Shopee, Lazada, TikTok) deu duoc tinh COGS tu cung mot nguon `products.cost_price`. Truoc day chi KiotViet co `gia_goc_sp`, cac channel khac khong co thong tin gia von. Voi cach nay, moi order item co SKU match voi products deu duoc tinh margin.
-
-### Logic flow
+Hien tai `cdp_order_items` khong co unique constraint nen khong the dung upsert.
 
 ```text
-Backfill Order Items (all channels)
-  |
-  v
-INSERT vao cdp_order_items (chi revenue data)
-  |
-  v
-UPDATE JOIN products ON sku = sku
-  -> unit_cogs = products.cost_price
-  -> line_cogs = cost_price * qty  
-  -> line_margin = line_revenue - line_cogs
+-- Xoa duplicate truoc
+DELETE FROM cdp_order_items a USING cdp_order_items b
+WHERE a.id > b.id 
+  AND a.tenant_id = b.tenant_id 
+  AND a.order_id = b.order_id 
+  AND a.sku = b.sku;
+
+-- Them constraint
+ALTER TABLE cdp_order_items 
+ADD CONSTRAINT cdp_order_items_tenant_order_sku_key 
+UNIQUE (tenant_id, order_id, sku);
 ```
 
-### Ket qua mong doi
+#### 2. Doi `order_items` tu `.insert()` sang `.upsert()`
 
-- 84% order items co SKU match se duoc tinh COGS tu master product
-- Thong nhat gia von across ALL channels (Shopee, Lazada, TikTok, KiotViet)
-- FDP co du lieu Gross Margin chinh xac hon
+```text
+// Truoc (SAI):
+.insert(orderItems)
+
+// Sau (DUNG):
+.upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
+```
+
+#### 3. Them date filter cho `syncOrderItems`
+
+Hien tai query BigQuery KHONG co WHERE clause. Can them filter dua tren truong ngay cua order. Vi order_items khong co truong ngay rieng, phai join hoac dung truong `order_key` de loc. Cach kha thi nhat: them truong `order_at` vao mapping va filter theo no.
+
+Tuy nhien cac bang order_items trong BigQuery (bdm_kov_OrderLineItems, shopee_OrderItems, etc.) co the KHONG co truong ngay. Phai kiem tra tung source:
+- KiotViet `bdm_kov_OrderLineItems`: co the co truong `PurchaseDate` hoac khong
+- Shopee/Lazada/TikTok order items: thuong khong co truong ngay rieng
+
+**Giai phap thuc te**: Thay vi filter trong BigQuery, filter SAU KHI query bang cach chi sync order items cho nhung orders da co trong `cdp_orders` voi `order_at >= date_from`. Nhu vay chi can them dieu kien khi insert/upsert.
+
+#### 4. Doi `ignoreDuplicates: false` cho refunds/payments/fulfillments
+
+```text
+// Truoc - bo qua data thay doi:
+.upsert(refunds, { onConflict: 'tenant_id,refund_key', ignoreDuplicates: true })
+
+// Sau - cap nhat data thay doi:
+.upsert(refunds, { onConflict: 'tenant_id,refund_key' })
+```
+
+Tuong tu cho payments va fulfillments.
+
+#### 5. Them date filter cho refunds/payments/fulfillments/ad_spend/campaigns
+
+Them `date_from` vao options cua cac function nay va filter trong BigQuery query:
+- Refunds: filter theo `refund_at` 
+- Payments: filter theo `paid_at`
+- Fulfillments: filter theo `shipped_at`
+- Ad Spend: filter theo `spend_date`
+- Campaigns: can them unique constraint truoc, roi doi sang upsert
+
+#### 6. Campaigns: them unique constraint va doi sang upsert
+
+`promotion_campaigns` hien dung `.insert()` nen se duplicate. Can:
+- Xac dinh unique key (VD: `tenant_id, channel, campaign_name, start_date`)
+- Them constraint
+- Doi sang upsert
+
+#### 7. Toi uu `update_order_items_cogs()`
+
+Them dieu kien chi update items chua co COGS:
+
+```text
+AND (oi.unit_cogs IS NULL OR oi.unit_cogs = 0)
+```
+
+### Thu tu thuc hien
+
+1. Migration: Xoa duplicate + them unique constraint cho `cdp_order_items`
+2. Migration: Them unique constraint cho `promotion_campaigns`  
+3. Migration: Update function `update_order_items_cogs()` them dieu kien `unit_cogs IS NULL`
+4. Code: Sua `syncOrderItems` - doi insert sang upsert
+5. Code: Sua `syncRefunds/Payments/Fulfillments` - bo `ignoreDuplicates`
+6. Code: Sua `syncCampaigns` - doi insert sang upsert
+7. Code: Them date filter cho tat ca cac function con thieu (order_items, refunds, payments, fulfillments, ad_spend, campaigns)
 
 ### Files can sua
 
-1. `supabase/functions/backfill-bigquery/index.ts` -- Xoa `cost_price` mapping, them buoc UPDATE JOIN sau khi insert order items
+1. **Migration SQL moi**: Unique constraints + update COGS function
+2. **`supabase/functions/backfill-bigquery/index.ts`**: Sua 6 function sync
+
+### Ket qua
+
+- Daily sync chi query 2 ngay gan nhat tu BigQuery (thay vi full scan)
+- Data thay doi (refund status, payment status) duoc cap nhat
+- Khong con duplicate order_items va campaigns
+- COGS chi tinh cho items moi, khong re-process toan bo
 
