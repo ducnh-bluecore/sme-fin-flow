@@ -1,128 +1,62 @@
 
 
-## Implement L2 to L3 to L4 Pipeline (KPI Aggregation + Alert Detection)
+## Lấy COGS từ Master Product thay vì Order Line Items
 
-### Hien trang
+### Ly do thay doi
 
-**Data da co o L2 Master Model:**
-- cdp_orders: 1,144,132 records
-- cdp_customers: 310,680 records
-- ad_spend_daily: 449 records
-- promotion_campaigns: 210,462 records
+Theo nguyen tac FDP "SINGLE SOURCE OF TRUTH":
+- `products.cost_price` la SSOT cho gia von -- da co 14,056/16,697 san pham (84%) co gia von
+- `gia_goc_sp` trong order line items co the thay doi theo thoi gian, khong nhat quan, hoac bi null
+- Gia von la thuoc tinh cua SAN PHAM, khong phai cua DON HANG
 
-**Chua co:**
-- Bang `kpi_facts_daily` chua ton tai trong database
-- Chua co DB function `compute_kpi_facts_daily()` va `detect_threshold_breaches()`
-- Chua co Edge Function nao de trigger pipeline nay
+### Thay doi
 
----
+#### 1. Revert mapping `gia_goc_sp` trong backfill-bigquery
 
-### Giai phap: Tao pipeline L2 --> L3 --> L4 hoan chinh
+Xoa `cost_price: 'gia_goc_sp'` khoi KiotViet ORDER_ITEM_SOURCES mapping. Order items chi luu thong tin ban hang (qty, unit_price, discount, line_revenue).
 
-#### Buoc 1: Migration - Tao bang `kpi_facts_daily`
+#### 2. Tinh COGS khi sync order items bang cach JOIN voi products
 
-Tao bang voi cau truc phu hop cho BigQuery data (theo e2e test script 21):
-
-| Column | Type | Mo ta |
-|--------|------|-------|
-| tenant_id | UUID | Tenant isolation |
-| grain_date | DATE | Ngay aggregate |
-| metric_code | TEXT | Ma metric (NET_REVENUE, ORDER_COUNT, AOV, AD_SPEND, ROAS, COGS, GROSS_MARGIN) |
-| dimension_type | TEXT | Loai dimension (channel, total, campaign) |
-| dimension_value | TEXT | Gia tri dimension (shopee, lazada, all_channels) |
-| metric_value | NUMERIC | Gia tri metric |
-| comparison_value | NUMERIC | Gia tri ngay truoc (de tinh % thay doi) |
-| period_type | TEXT | daily / monthly |
-
-- Unique constraint: `(tenant_id, grain_date, metric_code, dimension_type, dimension_value, period_type)`
-- RLS enabled voi tenant isolation
-- Index tren `(tenant_id, grain_date)` va `(tenant_id, metric_code)`
-
-#### Buoc 2: DB Function `compute_kpi_facts_daily()`
-
-Function nay aggregate tu nhieu bang L2:
-
-**Tu cdp_orders:**
-- NET_REVENUE: SUM(net_revenue) theo channel + total
-- ORDER_COUNT: COUNT(*) theo channel + total
-- AOV: AVG(net_revenue) theo channel + total
-- COGS: SUM(cogs) theo channel
-- GROSS_MARGIN: SUM(gross_margin) theo channel
-
-**Tu ad_spend_daily:**
-- AD_SPEND: SUM(expense) theo channel
-- AD_IMPRESSIONS: SUM(impressions) theo channel
-- AD_CLICKS: SUM(clicks) theo channel
-- ROAS: SUM(direct_order_amount) / NULLIF(SUM(expense), 0) theo channel
-
-**Tu cdp_customers:**
-- NEW_CUSTOMERS: COUNT theo ngay dau tien mua hang
-
-Tat ca deu co `comparison_value` = gia tri ngay hom truoc (dung LAG window function)
-
-#### Buoc 3: DB Function `detect_threshold_breaches()`
-
-Phat hien bat thuong tu kpi_facts_daily va ghi vao alert_instances:
-
-- **Revenue Drop >20%**: severity high/critical, impact = so tien mat
-- **Order Count Drop >30%**: severity high/critical
-- **Low AOV <200K VND**: severity medium
-- **Ad ROAS <2.0**: severity high (dang tot tien quang cao)
-- **Ad Spend Spike >50%**: severity medium (chi tieu tang dot bien)
-
-Moi alert co: title, message, impact_amount, suggested_action, severity
-
-#### Buoc 4: Edge Function `compute-kpi-pipeline`
-
-Tao Edge Function de trigger toan bo pipeline tu frontend/cron:
-- Goi `compute_kpi_facts_daily()` cho khoang thoi gian chi dinh
-- Goi `detect_threshold_breaches()` de phat hien alert
-- Tra ve summary (so KPI facts tao, so alerts phat hien)
-- Co the goi tu Admin UI hoac tu cron job
-
-### Chi tiet ky thuat
-
-**Files can tao/sua:**
-
-1. `Migration SQL` - Tao bang kpi_facts_daily + 2 DB functions
-2. `supabase/functions/compute-kpi-pipeline/index.ts` - Edge Function trigger pipeline
-3. `supabase/config.toml` - Them config cho function moi (KHONG SUA, tu dong)
-
-**KPI Metrics duoc aggregate (12 metrics):**
+Sau khi insert order items, chay mot buoc UPDATE de tinh `unit_cogs`, `line_cogs`, `line_margin` bang cach JOIN voi bang `products` qua truong `sku`:
 
 ```text
-TU CDP_ORDERS:
-  NET_REVENUE    - Doanh thu thuan theo channel + total
-  ORDER_COUNT    - So don hang theo channel + total
-  AOV            - Gia tri don trung binh theo channel
-  COGS           - Gia von hang ban theo channel
-  GROSS_MARGIN   - Bien loi nhuan gop theo channel
-
-TU AD_SPEND_DAILY:
-  AD_SPEND       - Chi phi quang cao theo channel
-  AD_IMPRESSIONS - Luot hien thi theo channel
-  ROAS           - Return on Ad Spend theo channel
-
-TU CDP_CUSTOMERS:
-  NEW_CUSTOMERS  - Khach hang moi theo ngay
-
-CROSS-TABLE (Orders + Ad Spend):
-  CPA            - Cost per Acquisition
-  MARKETING_RATIO - Ad Spend / Revenue %
+UPDATE cdp_order_items oi
+SET 
+  unit_cogs  = p.cost_price,
+  line_cogs  = p.cost_price * oi.qty,
+  line_margin = oi.line_revenue - (p.cost_price * oi.qty)
+FROM products p
+WHERE p.tenant_id = oi.tenant_id
+  AND p.sku = oi.sku
+  AND p.cost_price > 0;
 ```
 
-**Alert Rules (5 loai):**
+#### 3. Ap dung cho TAT CA channels
 
-| Rule | Nguong | Severity | Category |
-|------|--------|----------|----------|
-| Revenue Drop | >20% DoD | high/critical | revenue |
-| Order Drop | >30% DoD | high/critical | operations |
-| Low AOV | <200K VND | medium | unit_economics |
-| Low ROAS | <2.0 | high | marketing |
-| Ad Spend Spike | >50% DoD | medium | marketing |
+Loi the lon: khong chi KiotViet ma tat ca channels (Shopee, Lazada, TikTok) deu duoc tinh COGS tu cung mot nguon `products.cost_price`. Truoc day chi KiotViet co `gia_goc_sp`, cac channel khac khong co thong tin gia von. Voi cach nay, moi order item co SKU match voi products deu duoc tinh margin.
+
+### Logic flow
+
+```text
+Backfill Order Items (all channels)
+  |
+  v
+INSERT vao cdp_order_items (chi revenue data)
+  |
+  v
+UPDATE JOIN products ON sku = sku
+  -> unit_cogs = products.cost_price
+  -> line_cogs = cost_price * qty  
+  -> line_margin = line_revenue - line_cogs
+```
 
 ### Ket qua mong doi
 
-- kpi_facts_daily: ~2,000-5,000 rows (150+ ngay x 5 channels x 12 metrics)
-- alert_instances: 20-100 alerts tu du lieu thuc te
-- Pipeline co the chay lai (idempotent) nho UPSERT voi unique constraint
+- 84% order items co SKU match se duoc tinh COGS tu master product
+- Thong nhat gia von across ALL channels (Shopee, Lazada, TikTok, KiotViet)
+- FDP co du lieu Gross Margin chinh xac hon
+
+### Files can sua
+
+1. `supabase/functions/backfill-bigquery/index.ts` -- Xoa `cost_price` mapping, them buoc UPDATE JOIN sau khi insert order items
+
