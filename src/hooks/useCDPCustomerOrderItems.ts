@@ -80,26 +80,12 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
     queryFn: async (): Promise<CustomerOrderItemsData | null> => {
       if (!customerId) return null;
 
-      // Fetch order items with order details
+      // ARCHITECTURE: Hook → View → Table (v_customer_order_items_detail → cdp_order_items + cdp_orders)
       const { data: rawItems, error } = await client
-        .from('cdp_order_items')
-        .select(`
-          id,
-          order_id,
-          product_id,
-          category,
-          qty,
-          unit_price,
-          line_revenue,
-          line_cogs,
-          line_margin,
-          cdp_orders!inner (
-            order_at,
-            channel
-          )
-        `)
-        .eq('cdp_orders.customer_id', customerId)
-        .order('cdp_orders(order_at)', { ascending: false });
+        .from('v_customer_order_items_detail' as any)
+        .select('id, order_id, customer_id, order_at, channel, product_id, category, qty, unit_price, line_revenue, line_cogs, line_margin')
+        .eq('customer_id', customerId)
+        .order('order_at', { ascending: false });
 
       if (error) throw error;
       if (!rawItems || rawItems.length === 0) {
@@ -112,12 +98,12 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
         };
       }
 
-      // Transform raw items
+      // Transform raw items (view already joins orders data)
       const items: OrderItem[] = rawItems.map((item: any) => ({
         id: item.id,
         orderId: item.order_id,
-        orderAt: item.cdp_orders?.order_at || '',
-        channel: item.cdp_orders?.channel || '',
+        orderAt: item.order_at || '',
+        channel: item.channel || '',
         productId: item.product_id || '',
         category: item.category || 'others',
         qty: item.qty || 0,

@@ -95,54 +95,53 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       // SSOT: Get current cash from useCashRunway instead of calculating independently
       const currentCash = cashRunway?.currentCash || 0;
 
-      // Build queries with tenant filter
-      let invoicesQuery = client
-        .from('invoices')
-        .select('id, total_amount, paid_amount, status, due_date')
-        .neq('status', 'paid')
-        .neq('status', 'cancelled');
+      // ARCHITECTURE: Hook → View → Table (all queries go through views)
+      // v_pending_ar → invoices
+      let arQuery = client
+        .from('v_pending_ar' as any)
+        .select('id, total_amount, paid_amount, outstanding, status, due_date');
 
-      let billsQuery = client
-        .from('bills')
-        .select('id, total_amount, paid_amount, status, due_date')
-        .neq('status', 'paid')
-        .neq('status', 'cancelled');
+      // v_pending_ap → bills
+      let apQuery = client
+        .from('v_pending_ap' as any)
+        .select('id, total_amount, paid_amount, outstanding, status, due_date');
 
-      // ARCHITECTURE: Hook → View → Table (v_cash_forecast_orders_weekly → cdp_orders)
+      // v_cash_forecast_orders_weekly → cdp_orders
       let ordersQuery = client
         .from('v_cash_forecast_orders_weekly' as any)
         .select('week_start, weekly_revenue, weekly_orders')
         .gte('week_start', startDateStr)
         .lte('week_start', endDateStr);
 
+      // v_expenses_weekly_by_category → expenses
       let expensesQuery = client
-        .from('expenses')
-        .select('amount, expense_date, category, is_recurring')
-        .gte('expense_date', startDateStr)
-        .lte('expense_date', endDateStr);
+        .from('v_expenses_weekly_by_category' as any)
+        .select('week_start, category, is_recurring, total_amount, expense_count')
+        .gte('week_start', startDateStr)
+        .lte('week_start', endDateStr);
 
       if (shouldAddTenantFilter) {
-        invoicesQuery = invoicesQuery.eq('tenant_id', tenantId);
-        billsQuery = billsQuery.eq('tenant_id', tenantId);
+        arQuery = arQuery.eq('tenant_id', tenantId);
+        apQuery = apQuery.eq('tenant_id', tenantId);
         ordersQuery = ordersQuery.eq('tenant_id', tenantId);
         expensesQuery = expensesQuery.eq('tenant_id', tenantId);
       }
 
       // Fetch historical data for projections (excluding bank_accounts as we use SSOT)
       const [
-        invoicesRes,
-        billsRes,
+        arRes,
+        apRes,
         ordersRes,
         expensesRes
       ] = await Promise.all([
-        invoicesQuery,
-        billsQuery,
+        arQuery,
+        apQuery,
         ordersQuery,
         expensesQuery
       ]);
 
-      const invoices = invoicesRes.data || [];
-      const bills = billsRes.data || [];
+      const arItems = (arRes.data || []) as any[];
+      const apItems = (apRes.data || []) as any[];
       // Map weekly aggregated view data to order format
       const rawOrders = ordersRes.data || [];
       const orders = (rawOrders as any[]).map(o => ({
@@ -150,7 +149,8 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
         order_date: o.week_start,
         status: 'delivered' as const
       }));
-      const expenses = expensesRes.data || [];
+      // Map weekly aggregated expense view data
+      const rawExpenses = (expensesRes.data || []) as any[];
 
       // Calculate averages from historical data
       const daysInPeriod = Math.max(differenceInDays(endDate, startDate), 1);
@@ -158,11 +158,11 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       const totalHistoricalSales = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
       const avgWeeklySales = totalHistoricalSales / weeksOfData;
 
-      // Group expenses by category
+      // Group expenses by category (already aggregated by view)
       const expenseByCategory: Record<string, number> = {};
-      expenses.forEach(e => {
+      rawExpenses.forEach((e: any) => {
         const cat = e.category || 'other';
-        expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (e.amount || 0);
+        expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (Number(e.total_amount) || 0);
       });
 
       const avgWeeklyPayroll = (expenseByCategory['salary'] || 0) / weeksOfData;
@@ -173,13 +173,11 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       const avgWeeklyOther = (expenseByCategory['other'] || 0) / weeksOfData;
       const avgWeeklyExpenses = Object.values(expenseByCategory).reduce((a, b) => a + b, 0) / weeksOfData;
 
-      // Pending collections (AR)
-      const pendingAR = invoices.reduce((sum, inv) => 
-        sum + ((inv.total_amount || 0) - (inv.paid_amount || 0)), 0);
+      // Pending collections (AR) - from v_pending_ar view
+      const pendingAR = arItems.reduce((sum, inv) => sum + (Number(inv.outstanding) || 0), 0);
       
-      // Pending payments (AP)
-      const pendingAP = bills.reduce((sum, bill) => 
-        sum + ((bill.total_amount || 0) - (bill.paid_amount || 0)), 0);
+      // Pending payments (AP) - from v_pending_ap view
+      const pendingAP = apItems.reduce((sum, bill) => sum + (Number(bill.outstanding) || 0), 0);
 
       // Collection rate assumptions based on method
       // AI method: probability-based collection, growth rate
@@ -311,7 +309,7 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
           pendingAR,
           pendingAP,
           historicalOrders: orders.length,
-          historicalExpenses: expenses.length
+          historicalExpenses: rawExpenses.length
         },
         method
       };

@@ -372,6 +372,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
             columns: ["original_invoice_id"]
             isOneToOne: false
@@ -405,6 +412,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
@@ -3845,6 +3859,13 @@ export type Database = {
             referencedColumns: ["invoice_id"]
           },
           {
+            foreignKeyName: "bank_transactions_matched_invoice_id_fkey"
+            columns: ["matched_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bank_transactions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -4315,6 +4336,13 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_items_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
             referencedColumns: ["id"]
           },
           {
@@ -15849,6 +15877,13 @@ export type Database = {
             referencedColumns: ["invoice_id"]
           },
           {
+            foreignKeyName: "external_orders_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "external_orders_internal_order_id_fkey"
             columns: ["internal_order_id"]
             isOneToOne: false
@@ -16750,6 +16785,13 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_assets_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
             referencedColumns: ["id"]
           },
           {
@@ -18306,6 +18348,13 @@ export type Database = {
             referencedColumns: ["invoice_id"]
           },
           {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -18404,6 +18453,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoice_promotions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_promotions_tenant_id_fkey"
@@ -21147,6 +21203,13 @@ export type Database = {
             referencedColumns: ["invoice_id"]
           },
           {
+            foreignKeyName: "orders_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -21506,6 +21569,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payments_tenant_id_fkey"
@@ -23823,6 +23893,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_suggestions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "reconciliation_suggestions_tenant_id_fkey"
@@ -26176,6 +26253,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "supplier_payment_schedules_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "supplier_payment_schedules_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -28119,6 +28203,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vendor_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vendor_payments_journal_entry_id_fkey"
             columns: ["journal_entry_id"]
             isOneToOne: false
@@ -29557,6 +29648,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
             columns: ["original_invoice_id"]
             isOneToOne: false
@@ -29590,6 +29688,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
@@ -29759,6 +29864,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
             columns: ["original_invoice_id"]
             isOneToOne: false
@@ -29792,6 +29904,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
@@ -31051,6 +31170,44 @@ export type Database = {
           },
         ]
       }
+      v_ar_aging_buckets: {
+        Row: {
+          aging_bucket: string | null
+          invoice_count: number | null
+          tenant_id: string | null
+          total_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_audience_customer_summary: {
         Row: {
           avg_order_value: number | null
@@ -31402,6 +31559,46 @@ export type Database = {
           },
           {
             foreignKeyName: "mdp_channel_roi_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_cash_flow_monthly: {
+        Row: {
+          net_flow: number | null
+          period_month: string | null
+          tenant_id: string | null
+          total_inflow: number | null
+          total_outflow: number | null
+          transaction_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -34235,6 +34432,81 @@ export type Database = {
           },
         ]
       }
+      v_customer_order_items_detail: {
+        Row: {
+          category: string | null
+          channel: string | null
+          customer_id: string | null
+          id: string | null
+          line_cogs: number | null
+          line_margin: number | null
+          line_revenue: number | null
+          order_at: string | null
+          order_id: string | null
+          product_id: string | null
+          qty: number | null
+          tenant_id: string | null
+          unit_price: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "cdp_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_customer_research"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_decision_audit_trail: {
         Row: {
           audit_status: string | null
@@ -34657,6 +34929,46 @@ export type Database = {
           },
         ]
       }
+      v_expenses_weekly_by_category: {
+        Row: {
+          category: Database["public"]["Enums"]["expense_category"] | null
+          expense_count: number | null
+          is_recurring: boolean | null
+          tenant_id: string | null
+          total_amount: number | null
+          week_start: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_fdp_finance_summary: {
         Row: {
           avg_order_value: number | null
@@ -34820,6 +35132,27 @@ export type Database = {
           },
         ]
       }
+      v_financial_monthly_summary: {
+        Row: {
+          cogs: number | null
+          depreciation: number | null
+          expense_count: number | null
+          interest_expense: number | null
+          invoice_count: number | null
+          invoice_paid: number | null
+          invoice_revenue: number | null
+          marketing_expense: number | null
+          other_revenue: number | null
+          overdue_invoice_count: number | null
+          paid_invoice_count: number | null
+          period_month: string | null
+          rent_expense: number | null
+          salary_expense: number | null
+          tenant_id: string | null
+          total_expense: number | null
+        }
+        Relationships: []
+      }
       v_financial_ratios_with_targets: {
         Row: {
           actual_value: number | null
@@ -34928,6 +35261,48 @@ export type Database = {
           violations_7d: number | null
         }
         Relationships: []
+      }
+      v_invoice_key_metrics: {
+        Row: {
+          avg_invoice_value: number | null
+          overdue_ar: number | null
+          overdue_count: number | null
+          paid_count: number | null
+          tenant_id: string | null
+          total_amount: number | null
+          total_ar: number | null
+          total_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
       }
       v_invoice_settled_paid: {
         Row: {
@@ -35802,6 +36177,68 @@ export type Database = {
         }
         Relationships: []
       }
+      v_pending_ap: {
+        Row: {
+          aging_bucket: string | null
+          due_date: string | null
+          id: string | null
+          outstanding: number | null
+          paid_amount: number | null
+          status: string | null
+          tenant_id: string | null
+          total_amount: number | null
+        }
+        Insert: {
+          aging_bucket?: never
+          due_date?: string | null
+          id?: string | null
+          outstanding?: never
+          paid_amount?: never
+          status?: string | null
+          tenant_id?: string | null
+          total_amount?: number | null
+        }
+        Update: {
+          aging_bucket?: never
+          due_date?: string | null
+          id?: string | null
+          outstanding?: never
+          paid_amount?: never
+          status?: string | null
+          tenant_id?: string | null
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bills_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_pending_approvals: {
         Row: {
           action: string | null
@@ -35853,6 +36290,85 @@ export type Database = {
           },
           {
             foreignKeyName: "approval_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_pending_ar: {
+        Row: {
+          aging_bucket: string | null
+          customer_id: string | null
+          due_date: string | null
+          id: string | null
+          outstanding: number | null
+          paid_amount: number | null
+          status: string | null
+          tenant_id: string | null
+          total_amount: number | null
+        }
+        Insert: {
+          aging_bucket?: never
+          customer_id?: string | null
+          due_date?: string | null
+          id?: string | null
+          outstanding?: never
+          paid_amount?: never
+          status?: string | null
+          tenant_id?: string | null
+          total_amount?: number | null
+        }
+        Update: {
+          aging_bucket?: never
+          customer_id?: string | null
+          due_date?: string | null
+          id?: string | null
+          outstanding?: never
+          paid_amount?: never
+          status?: string | null
+          tenant_id?: string | null
+          total_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_ar_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -36463,6 +36979,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "adjustment_notes_original_bill_id_fkey"
+            columns: ["original_bill_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ap"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
             columns: ["original_invoice_id"]
             isOneToOne: false
@@ -36496,6 +37019,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_invoice_settled_status"
             referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_pending_ar"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "adjustment_notes_tenant_id_fkey"
