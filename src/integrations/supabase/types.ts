@@ -37670,9 +37670,10 @@ export type Database = {
         }
         Returns: string
       }
-      execute_readonly_query:
-        | { Args: { params: Json; query_text: string }; Returns: Json }
-        | { Args: { params?: Json; query_text: string }; Returns: Json }
+      execute_readonly_query: {
+        Args: { params?: Json; query_text: string }
+        Returns: Json
+      }
       fdp_get_budget_recommendations: {
         Args: { p_lookback_days?: number; p_tenant_id: string }
         Returns: {
