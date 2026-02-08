@@ -1,18 +1,14 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { 
   CDP_QUERYABLE_VIEWS, 
-  CDP_SCHEMA_DESCRIPTIONS,
   validateSQL,
   injectTenantFilter,
   buildSchemaContext,
-  SUGGESTED_QUESTIONS 
 } from '../_shared/cdp-schema.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  // IMPORTANT: must include any custom headers sent by the browser (e.g. x-tenant-id)
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-tenant-id',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-tenant-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface Message {
@@ -25,28 +21,31 @@ interface RequestBody {
   tenantId?: string;
 }
 
-type OpenAIChatResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
-};
-
 function buildSqlGenerationPrompt(schemaContext: string): string {
-  return `Bạn là CDP Query Generator của Bluecore.
+  return `Bạn là Bluecore AI Agent - trợ lý dữ liệu tài chính & khách hàng.
 
 MỤC TIÊU:
-- Chuyển câu hỏi tiếng Việt thành 1 câu SQL SELECT để truy vấn dữ liệu CDP.
+- Chuyển câu hỏi tiếng Việt thành 1 câu SQL SELECT để truy vấn dữ liệu.
 
 RÀNG BUỘC BẮT BUỘC:
 1) CHỈ TRẢ VỀ DUY NHẤT 1 câu SQL (plain text). Không markdown, không giải thích, không JSON.
 2) SQL phải là SELECT.
-3) CHỈ được query các view trong whitelist dưới đây (không được join sang bảng khác):
+3) CHỈ được query các table/view trong whitelist:
 ${CDP_QUERYABLE_VIEWS.map(v => `- ${v}`).join('\n')}
 4) Luôn chọn các cột đúng theo schema mô tả.
- 5) Tuyệt đối KHÔNG dùng 'LIMIT 0'. Nếu câu hỏi không thể trả lời đầy đủ, vẫn trả về một SQL SELECT hợp lệ trên 1 view phù hợp nhất với 'LIMIT 50' để kiểm tra dữ liệu.
+5) Tuyệt đối KHÔNG dùng 'LIMIT 0'. Nếu câu hỏi không thể trả lời đầy đủ, vẫn trả về SQL hợp lệ với 'LIMIT 50'.
+6) Khi query cdp_orders hoặc cdp_order_items: LUÔN thêm LIMIT 100 (trừ khi đã có aggregate).
+7) Cho câu hỏi tổng hợp doanh thu/KPI: ƯU TIÊN dùng kpi_facts_daily thay vì cdp_orders.
 
-QUY TẮC VỀ DATE/TIME (tránh lỗi runtime):
+QUY TẮC VỀ DATE/TIME:
 - Nếu cần dùng mốc tháng mà bạn viết dạng YYYY-MM thì PHẢI chuyển thành ngày hợp lệ: 'YYYY-MM-01'.
- - Khi so sánh theo năm: KHÔNG dùng EXTRACT/DATE_PART. Luôn dùng filter theo khoảng ngày:
-   <date_column> >= 'YYYY-01-01' AND <date_column> < 'YYYY+1-01-01'.
+- Khi so sánh theo năm: KHÔNG dùng EXTRACT/DATE_PART. Luôn dùng filter theo khoảng ngày:
+  <date_column> >= 'YYYY-01-01' AND <date_column> < 'YYYY+1-01-01'.
+
+JOIN GUIDANCE:
+- cdp_orders.customer_id -> cdp_customers.id
+- cdp_order_items.order_id -> cdp_orders.id  
+- cdp_order_items.product_id -> products.id
 
 SCHEMA CONTEXT:
 ${schemaContext}
@@ -54,29 +53,18 @@ ${schemaContext}
 }
 
 function sanitizeGeneratedSql(sql: string): string {
-  // 1) Remove semicolons completely (prevents statement chaining)
   let s = sql.trim().replace(/;/g, '');
-
-  // 2) Fix common invalid date literals like '2023-01' -> '2023-01-01'
-  //    This avoids Postgres: invalid input syntax for type date
   s = s.replace(/'([0-9]{4})-([0-9]{2})'\b/g, "'$1-$2-01'");
-
-  // 3) Reliability: never allow LIMIT 0 (it guarantees empty results and breaks UX)
-  //    If the model tries to "probe" with LIMIT 0, convert to a small safe sample.
   s = s.replace(/\bLIMIT\s+0\b/gi, 'LIMIT 50');
-
   return s.trim();
 }
 
 function rejectSqlThatWillBreakReadonlyValidator(sql: string): { ok: true } | { ok: false; reason: string } {
-  // The database-side read-only validator (inside execute_readonly_query) can mis-parse
-  // expressions like EXTRACT(YEAR FROM cohort_month) and treat the column name as a table.
-  // To keep reliability high, we hard-block these patterns and force date-range filters instead.
   if (/\bEXTRACT\s*\(/i.test(sql)) {
-    return { ok: false, reason: "Không dùng EXTRACT(...). Hãy lọc theo khoảng ngày (>= 'YYYY-01-01' AND < 'YYYY+1-01-01')." };
+    return { ok: false, reason: "Không dùng EXTRACT(...). Hãy lọc theo khoảng ngày." };
   }
   if (/\bDATE_PART\s*\(/i.test(sql)) {
-    return { ok: false, reason: "Không dùng DATE_PART(...). Hãy lọc theo khoảng ngày (>= 'YYYY-01-01' AND < 'YYYY+1-01-01')." };
+    return { ok: false, reason: "Không dùng DATE_PART(...). Hãy lọc theo khoảng ngày." };
   }
   return { ok: true };
 }
@@ -88,17 +76,18 @@ function buildAnswerPrompt(params: {
   sampleRows: unknown;
 }): string {
   const { question, sql, rowCount, sampleRows } = params;
-  return `Bạn là CDP Assistant của Bluecore - hỗ trợ CEO/CFO ra quyết định dựa trên dữ liệu khách hàng.
+  return `Bạn là Bluecore AI Agent - hỗ trợ CEO/CFO ra quyết định dựa trên dữ liệu tài chính & khách hàng.
 
 NHIỆM VỤ:
 - Trả lời câu hỏi bằng tiếng Việt ngắn gọn, quyết định-được (decision-grade).
 - CHỈ dùng số liệu trong "KẾT QUẢ TRUY VẤN".
-- Nếu rowCount = 0 hoặc dữ liệu thiếu: nói rõ "Không có dữ liệu" và nêu rõ view/field nào đang thiếu để trả lời tốt hơn.
+- Nếu rowCount = 0 hoặc dữ liệu thiếu: nói rõ "Không có dữ liệu" và nêu rõ table/field nào đang thiếu.
 
 QUY TẮC:
 1) Không bịa số.
 2) Format tiền VND (triệu, tỷ) nếu có.
 3) Nếu phát hiện rủi ro/giảm giá trị: đề xuất hành động (STOP/INVEST/INVESTIGATE).
+4) Dùng emoji tiêu đề để dễ đọc.
 
 CÂU HỎI:
 ${question}
@@ -112,8 +101,8 @@ KẾT QUẢ TRUY VẤN:
 `;
 }
 
-async function openaiChat(apiKey: string, body: Record<string, unknown>): Promise<Response> {
-  return await fetch('https://api.openai.com/v1/chat/completions', {
+async function lovableAIChat(apiKey: string, body: Record<string, unknown>): Promise<Response> {
+  return await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -123,14 +112,12 @@ async function openaiChat(apiKey: string, body: Record<string, unknown>): Promis
   });
 }
 
-serve(async (req) => {
-  // Handle CORS preflight
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get auth token
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -139,7 +126,6 @@ serve(async (req) => {
       );
     }
 
-    // Parse request
     const { messages, tenantId }: RequestBody = await req.json();
     
     if (!messages || messages.length === 0) {
@@ -149,16 +135,14 @@ serve(async (req) => {
       );
     }
 
-    // Get API key for OpenAI
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate user via Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -173,7 +157,6 @@ serve(async (req) => {
       );
     }
 
-    // Get tenant id (prefer header)
     const headerTenantId = req.headers.get('x-tenant-id') || undefined;
     let activeTenantId = headerTenantId || tenantId;
     if (!activeTenantId) {
@@ -182,7 +165,6 @@ serve(async (req) => {
         .select('active_tenant_id')
         .eq('id', user.id)
         .maybeSingle();
-      
       activeTenantId = profile?.active_tenant_id;
     }
 
@@ -195,16 +177,16 @@ serve(async (req) => {
 
     const schemaContext = buildSchemaContext();
 
-    // 1) Generate SQL (non-stream)
+    // 1) Generate SQL (non-stream) using Lovable AI Gateway
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content || '';
-    const sqlGenResp = await openaiChat(apiKey, {
-      model: 'gpt-4o-mini',
+    const sqlGenResp = await lovableAIChat(apiKey, {
+      model: 'google/gemini-3-flash-preview',
       messages: [
         { role: 'system', content: buildSqlGenerationPrompt(schemaContext) },
         { role: 'user', content: lastUserMessage },
       ],
       temperature: 0.1,
-      max_tokens: 250,
+      max_tokens: 400,
       stream: false,
     });
 
@@ -212,92 +194,64 @@ serve(async (req) => {
       const status = sqlGenResp.status;
       if (status === 429) {
         return new Response(JSON.stringify({ error: 'Quá nhiều request, vui lòng thử lại sau' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       if (status === 402) {
-        return new Response(JSON.stringify({ error: 'Hết credits AI, liên hệ admin' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ error: 'Hết credits AI' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       const t = await sqlGenResp.text();
       console.error('SQL gen error:', status, t);
       return new Response(JSON.stringify({ error: 'Lỗi AI (tạo truy vấn)' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const sqlGenJson = (await sqlGenResp.json()) as OpenAIChatResponse;
-    // LLMs sometimes add trailing semicolons; disallow/strip them to keep RPC safe.
+    const sqlGenJson = await sqlGenResp.json();
     const rawSql = sanitizeGeneratedSql(sqlGenJson.choices?.[0]?.message?.content || '');
     if (!rawSql) {
       return new Response(JSON.stringify({ error: 'AI không tạo được truy vấn' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const readonlyCompat = rejectSqlThatWillBreakReadonlyValidator(rawSql);
     if (!readonlyCompat.ok) {
-      console.warn('[cdp-qa] blocked_sql_incompatible_with_readonly_validator', {
-        tenant: activeTenantId,
-        reason: readonlyCompat.reason,
-        sql_preview: rawSql.slice(0, 220),
-      });
+      console.warn('[cdp-qa] blocked_sql', { tenant: activeTenantId, reason: readonlyCompat.reason, sql: rawSql.slice(0, 220) });
       return new Response(JSON.stringify({ error: `Truy vấn không hợp lệ: ${readonlyCompat.reason}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const { valid, error: sqlError } = validateSQL(rawSql);
     if (!valid) {
-      console.warn('[cdp-qa] invalid_sql', {
-        tenant: activeTenantId,
-        sql_preview: rawSql.slice(0, 220),
-        sqlError,
-      });
+      console.warn('[cdp-qa] invalid_sql', { tenant: activeTenantId, sql: rawSql.slice(0, 220), sqlError });
       return new Response(JSON.stringify({ error: `Truy vấn không hợp lệ: ${sqlError}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const finalSql = injectTenantFilter(rawSql, activeTenantId);
 
-    // 2) Execute query (read-only) and collect sample
+    // 2) Execute query (read-only)
     const { data: rpcResult, error: queryError } = await supabase.rpc('execute_readonly_query', {
       query_text: finalSql,
       params: {},
     });
 
     if (queryError) {
-      console.error('CDP-QA query error:', {
-        ...queryError,
-        tenant: activeTenantId,
-        sql_preview: finalSql.slice(0, 320),
-      });
-      return new Response(JSON.stringify({ error: 'Lỗi truy vấn dữ liệu (read-only query)' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.error('CDP-QA query error:', { ...queryError, tenant: activeTenantId, sql: finalSql.slice(0, 320) });
+      return new Response(JSON.stringify({ error: 'Lỗi truy vấn dữ liệu' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // RPC returns JSONB; PostgREST/Supabase-js can surface it as:
-    // - [{ execute_readonly_query: [...] }] (scalar wrapped)
-    // - [...] (direct array)
-    // - "[...]" (stringified JSON)
-    // - { execute_readonly_query: [...] } (object)
+    // Normalize RPC result
     let normalized: unknown = rpcResult;
     if (typeof normalized === 'string') {
-      try {
-        normalized = JSON.parse(normalized);
-      } catch {
-        // keep as-is; will fall through to empty
-      }
+      try { normalized = JSON.parse(normalized); } catch { /* keep as-is */ }
     }
 
     let safeRows: unknown[] = [];
@@ -319,17 +273,14 @@ serve(async (req) => {
       safeRows = Array.isArray(maybeWrapped) ? maybeWrapped : [normalized];
     }
 
-    // Minimal observability for reliability debugging
-    console.log('[cdp-qa] readonly_query', {
+    console.log('[cdp-qa] query_result', {
       tenant: activeTenantId,
-      sql_preview: finalSql.slice(0, 180),
-      rpc_type: typeof rpcResult,
-      normalized_is_array: Array.isArray(normalized),
+      sql: finalSql.slice(0, 180),
       rowCount: safeRows.length,
     });
     const sampleRows = safeRows.slice(0, 50);
 
-    // 3) Ask AI to answer based on real query results (stream)
+    // 3) Answer with AI (stream)
     const answerPrompt = buildAnswerPrompt({
       question: lastUserMessage,
       sql: finalSql,
@@ -337,41 +288,36 @@ serve(async (req) => {
       sampleRows,
     });
 
-    const aiAnswerResp = await openaiChat(apiKey, {
-      model: 'gpt-4o-mini',
+    const aiAnswerResp = await lovableAIChat(apiKey, {
+      model: 'google/gemini-3-flash-preview',
       messages: [
         { role: 'system', content: answerPrompt },
-        // keep some conversation context for follow-ups
         ...messages.slice(-6),
       ],
       stream: true,
-      max_tokens: 900,
+      max_tokens: 1200,
       temperature: 0.3,
     });
 
     if (!aiAnswerResp.ok) {
       const status = aiAnswerResp.status;
       if (status === 429) {
-        return new Response(JSON.stringify({ error: 'Quá nhiều request, vui lòng thử lại sau' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ error: 'Quá nhiều request' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       if (status === 402) {
-        return new Response(JSON.stringify({ error: 'Hết credits AI, liên hệ admin' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify({ error: 'Hết credits AI' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       const t = await aiAnswerResp.text();
-      console.error('Answer stream error:', status, t);
+      console.error('Answer error:', status, t);
       return new Response(JSON.stringify({ error: 'Lỗi AI (trả lời)' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Return streaming response
     return new Response(aiAnswerResp.body, {
       headers: {
         ...corsHeaders,
