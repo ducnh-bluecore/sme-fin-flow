@@ -9,6 +9,7 @@ import { BigQueryRealtimeDashboard } from '@/components/warehouse/BigQueryRealti
 import { DataModelManager } from '@/components/warehouse/DataModelManager';
 import { BigQuerySchemaManager } from '@/components/warehouse/BigQuerySchemaManager';
 import { BigQuerySyncManager } from '@/components/warehouse/BigQuerySyncManager';
+import { DailySyncHistory } from '@/components/warehouse/DailySyncHistory';
 import { SyncProgressProvider } from '@/contexts/SyncProgressContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -47,14 +48,19 @@ export default function DataWarehousePage() {
 
         {/* Tabs */}
         <SyncProgressProvider>
-          <Tabs defaultValue="sync" className="space-y-6">
+          <Tabs defaultValue="history" className="space-y-6">
             <TabsList>
+              <TabsTrigger value="history">Lịch sử Sync</TabsTrigger>
               <TabsTrigger value="sync">{t('warehouse.tabSync')}</TabsTrigger>
               <TabsTrigger value="realtime">{t('warehouse.tabRealtime')}</TabsTrigger>
               <TabsTrigger value="schema">{t('warehouse.tabSchema')}</TabsTrigger>
               <TabsTrigger value="models">{t('warehouse.tabModels')}</TabsTrigger>
               <TabsTrigger value="config">{t('warehouse.tabConfig')}</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="history">
+              <DailySyncHistory />
+            </TabsContent>
 
             <TabsContent value="sync" forceMount className="data-[state=inactive]:hidden">
               <BigQuerySyncManager />

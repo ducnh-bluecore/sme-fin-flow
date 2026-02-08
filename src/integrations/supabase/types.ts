@@ -11002,6 +11002,63 @@ export type Database = {
           },
         ]
       }
+      daily_sync_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          date_from: string | null
+          error_summary: string | null
+          failed_count: number | null
+          id: string
+          results: Json | null
+          run_type: string
+          started_at: string
+          status: string
+          succeeded_count: number | null
+          tenant_id: string
+          total_duration_ms: number | null
+          total_models: number | null
+          total_records_processed: number | null
+          triggered_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          date_from?: string | null
+          error_summary?: string | null
+          failed_count?: number | null
+          id?: string
+          results?: Json | null
+          run_type?: string
+          started_at?: string
+          status?: string
+          succeeded_count?: number | null
+          tenant_id?: string
+          total_duration_ms?: number | null
+          total_models?: number | null
+          total_records_processed?: number | null
+          triggered_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          date_from?: string | null
+          error_summary?: string | null
+          failed_count?: number | null
+          id?: string
+          results?: Json | null
+          run_type?: string
+          started_at?: string
+          status?: string
+          succeeded_count?: number | null
+          tenant_id?: string
+          total_duration_ms?: number | null
+          total_models?: number | null
+          total_records_processed?: number | null
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       dashboard_kpi_cache: {
         Row: {
           auto_match_rate: number | null
