@@ -466,6 +466,34 @@ const AD_SPEND_SOURCES = [
   },
 ];
 
+// Inventory: daily stock movements from KiotViet
+// Actual BigQuery columns: createdDate, branchId, branchName, productCode, productName,
+// nhap_ncc, nhap_tra, nhap_chuyen, xuat_ban, xuat_chuyen, doanhthuthuan, doanhthuthuan_hoantra
+// Missing: begin_stock, end_stock, cost_amount (not in this table)
+const INVENTORY_SOURCES = [
+  {
+    channel: 'kiotviet',
+    dataset: 'olvboutique',
+    table: 'bdm_kov_xuat_nhap_ton',
+    mapping: {
+      movement_date: 'createdDate',
+      branch_id: 'branchId',
+      branch_name: 'branchName',
+      product_code: 'productCode',
+      product_name: 'productName',
+      begin_stock: null,
+      purchase_qty: 'nhap_ncc',
+      sold_qty: 'xuat_ban',
+      return_qty: 'nhap_tra',
+      transfer_in_qty: 'nhap_chuyen',
+      transfer_out_qty: 'xuat_chuyen',
+      end_stock: null,
+      net_revenue: 'doanhthuthuan',
+      cost_amount: null,
+    }
+  },
+];
+
 // Campaign Insights: per-campaign per-day metrics
 const CAMPAIGN_SOURCES = [
   {
@@ -2249,6 +2277,182 @@ async function syncCampaigns(
   return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
 }
 
+// ============= Inventory Sync =============
+
+async function syncInventory(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  jobId: string,
+  options: { batch_size?: number; date_from?: string; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
+  let paused = false;
+
+  const sources = options.source_table
+    ? INVENTORY_SOURCES.filter(s => s.table === options.source_table)
+    : INVENTORY_SOURCES;
+
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of sources) {
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing inventory from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
+
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.movement_date, options.date_from
+    );
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let hasMore = true;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
+
+      const validColumns = Object.values(source.mapping).filter((v): v is string => v !== null);
+      const uniqueColumns = [...new Set(validColumns)];
+      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      if (options.date_from && source.mapping.movement_date) {
+        query += ` WHERE DATE(\`${source.mapping.movement_date}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.movement_date}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const rawRows = rows.map(row => ({
+          tenant_id: tenantId,
+          channel: source.channel,
+          movement_date: source.mapping.movement_date ? row[source.mapping.movement_date] : null,
+          branch_id: source.mapping.branch_id ? String(row[source.mapping.branch_id] || '') : null,
+          branch_name: source.mapping.branch_name ? row[source.mapping.branch_name] : null,
+          product_code: source.mapping.product_code ? row[source.mapping.product_code] || '' : '',
+          product_name: source.mapping.product_name ? row[source.mapping.product_name] : null,
+          begin_stock: source.mapping.begin_stock ? parseFloat(row[source.mapping.begin_stock] || '0') : 0,
+          purchase_qty: source.mapping.purchase_qty ? parseFloat(row[source.mapping.purchase_qty] || '0') : 0,
+          sold_qty: source.mapping.sold_qty ? parseFloat(row[source.mapping.sold_qty] || '0') : 0,
+          return_qty: source.mapping.return_qty ? parseFloat(row[source.mapping.return_qty] || '0') : 0,
+          transfer_in_qty: source.mapping.transfer_in_qty ? parseFloat(row[source.mapping.transfer_in_qty] || '0') : 0,
+          transfer_out_qty: source.mapping.transfer_out_qty ? parseFloat(row[source.mapping.transfer_out_qty] || '0') : 0,
+          end_stock: source.mapping.end_stock ? parseFloat(row[source.mapping.end_stock] || '0') : 0,
+          net_revenue: source.mapping.net_revenue ? parseFloat(row[source.mapping.net_revenue] || '0') : 0,
+          cost_amount: source.mapping.cost_amount ? parseFloat(row[source.mapping.cost_amount] || '0') : 0,
+        }));
+
+        // Deduplicate within batch: aggregate rows with same unique key
+        const deduped = new Map<string, typeof rawRows[0]>();
+        for (const r of rawRows) {
+          const key = `${r.movement_date}|${r.branch_id}|${r.product_code}`;
+          const existing = deduped.get(key);
+          if (existing) {
+            // Sum numeric fields
+            existing.purchase_qty += r.purchase_qty;
+            existing.sold_qty += r.sold_qty;
+            existing.return_qty += r.return_qty;
+            existing.transfer_in_qty += r.transfer_in_qty;
+            existing.transfer_out_qty += r.transfer_out_qty;
+            existing.net_revenue += r.net_revenue;
+            existing.cost_amount += r.cost_amount;
+          } else {
+            deduped.set(key, { ...r });
+          }
+        }
+        const inventoryRows = Array.from(deduped.values());
+
+        const { error, count } = await supabase
+          .from('inventory_movements')
+          .upsert(inventoryRows, { onConflict: 'tenant_id,movement_date,branch_id,product_code' })
+          .select('id');
+
+        if (error) {
+          console.error('Inventory upsert error:', error);
+        } else {
+          inserted += count || inventoryRows.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${source.channel} inventory:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
+        hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
+      }
+    }
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
+
+    if (paused) break;
+  }
+
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+}
+
 // ============= Main Handler =============
 
 serve(async (req) => {
@@ -2434,6 +2638,15 @@ serve(async (req) => {
           
         case 'campaigns':
           result = await syncCampaigns(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId, job.id,
+            params.options || {},
+            startTime,
+          );
+          break;
+
+        case 'inventory':
+          result = await syncInventory(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
             params.options || {},
