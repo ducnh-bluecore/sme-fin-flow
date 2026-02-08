@@ -103,7 +103,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 2: CDP Daily Build (metrics + equity)
+    // Step 2a: CDP Daily Backfill (optional - for first-time historical build)
+    let cdpBackfillResult = null;
+    const { backfill_cdp_daily = false } = body;
+    if (backfill_cdp_daily) {
+      console.log(`[KPI Pipeline] Backfilling CDP daily metrics ${effectiveStart}..${effectiveEnd}...`);
+      const cdpChunks = getMonthChunks(effectiveStart, effectiveEnd);
+      const backfillErrors: string[] = [];
+      let totalDays = 0;
+      let totalRows = 0;
+
+      for (const chunk of cdpChunks) {
+        console.log(`[KPI Pipeline] CDP backfill chunk ${chunk.start}..${chunk.end}`);
+        const { data, error } = await supabase.rpc("cdp_build_customer_metrics_daily_range", {
+          p_tenant_id: tenant_id,
+          p_start_date: chunk.start,
+          p_end_date: chunk.end,
+        });
+        if (error) {
+          console.error(`[KPI Pipeline] CDP backfill chunk error:`, error.message);
+          backfillErrors.push(`${chunk.start}: ${error.message}`);
+        } else if (data) {
+          totalDays += (data as any).days_processed || 0;
+          totalRows += (data as any).total_rows || 0;
+          console.log(`[KPI Pipeline] CDP backfill chunk done: ${JSON.stringify(data)}`);
+        }
+        if (Date.now() - startMs > 50000) {
+          console.log(`[KPI Pipeline] Time limit approaching, stopping CDP backfill`);
+          break;
+        }
+      }
+      cdpBackfillResult = { days_processed: totalDays, total_rows: totalRows, errors: backfillErrors.length > 0 ? backfillErrors : undefined };
+      console.log(`[KPI Pipeline] CDP backfill complete: ${JSON.stringify(cdpBackfillResult)}`);
+    }
+
+    // Step 2b: CDP Daily Build (metrics + equity, now batched)
     let cdpResult = null;
     const { skip_cdp = false } = body;
     if (!skip_cdp) {
@@ -148,6 +182,7 @@ Deno.serve(async (req) => {
       chunks_processed: chunks.length,
       total_upserted: totalUpserted,
       errors: errors.length > 0 ? errors : undefined,
+      cdp_backfill: cdpBackfillResult,
       cdp_build: cdpResult,
       alert_detection: alertResult,
       summary: { total_kpi_facts: kpiCount, open_alerts: alertCount },

@@ -36359,7 +36359,7 @@ export type Database = {
       }
       cdp_run_daily_all: { Args: { p_as_of_date: string }; Returns: undefined }
       cdp_run_daily_build: {
-        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: Json
       }
       cdp_run_full_daily_pipeline: {
