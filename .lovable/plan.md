@@ -1,88 +1,51 @@
 
+# Sửa Function `compute_central_metrics_snapshot` -- Không thay đổi kết cấu Layer
 
-## Optimize cdp_run_daily_build for 1M+ Orders
+## Nguyên tắc
+- KHÔNG thêm/xóa/đổi tên bảng hay cột nào
+- KHÔNG thay đổi cấu trúc data layer
+- CHỈ sửa logic SQL trong function cho khớp với schema thực tế
 
-### Root Cause
+## 4 lỗi cần sửa trong function
 
-Pipeline has 3 steps, each with a different bottleneck:
+### Lỗi 1: `SUM(gross_profit)` -- cột không tồn tại
+- **Cột thực tế**: `cdp_orders` có `gross_margin`, KHÔNG có `gross_profit`
+- **Sửa**: Đổi dòng 90 thành `COALESCE(SUM(gross_margin), 0)`
+- Nếu `gross_margin = 0` (do cogs chưa sync), fallback: `SUM(net_revenue - COALESCE(cogs, 0))`
 
-| Step | Function | Current Behavior | Problem |
-|------|----------|-----------------|---------|
-| 1 | `cdp_build_customer_metrics_daily` | Processes only 1 day (p_as_of_date) | Works fine daily, but `cdp_customer_metrics_daily` has **0 rows** -- no historical backfill was ever run |
-| 2 | `cdp_build_customer_metrics_rolling` | Aggregates from daily metrics table | **Produces nothing** because daily table is empty |
-| 3 | `cdp_build_customer_equity` | Single query: 310K customers x 1M+ orders | **Timeout** -- massive JOIN with no batching |
-| 4 | MV Refresh (4 views) | `REFRESH MATERIALIZED VIEW CONCURRENTLY` | Depends on rolling data existing |
+### Lỗi 2: `is_first_order = true/false` -- cột không tồn tại
+- **Sửa phần CAC (dòng 252-265)**: Tìm khách mới bằng subquery:
+  ```text
+  Khách có MIN(order_at) nằm trong kỳ = khách mới
+  ```
+- **Sửa phần Repeat Rate (dòng 280-292)**: Tìm khách quay lại bằng:
+  ```text
+  Khách có COUNT(orders) > 1 trong kỳ = khách quay lại
+  ```
 
-The core issue: Step 3 tries to compute equity for all 310K customers in one SQL statement, scanning all 1M+ orders. This exceeds the statement timeout.
+### Lỗi 3: `cdp_customer_equity` -- bảng không tồn tại
+- **Dòng 268-271**: Query LTV từ bảng này sẽ lỗi
+- **Sửa**: Tính LTV inline = `AVG(net_revenue) * AVG(số đơn/khách)` từ `cdp_orders`
 
-Additionally, daily metrics were never backfilled, so rolling/equity have no foundation.
+### Lỗi 4: Hardcoded 90 ngày, bỏ qua tham số
+- **Dòng 82-83**: `v_period_end := CURRENT_DATE; v_period_start := CURRENT_DATE - 90 days`
+- **Sửa**: `v_period_start := p_start_date; v_period_end := p_end_date`
+- Thêm filter `created_at <= v_period_end` cho marketing query (dòng 129-130)
 
-### Solution: 3 Database Changes + 1 Edge Function Update
+## Thay đổi frontend
 
-#### 1. New function: `cdp_build_customer_metrics_daily_range`
+### `src/hooks/useFinanceTruthSnapshot.ts`
+- Thêm flags vào `DataQualityFlags`: `hasCashData`, `hasARData`, `hasAPData`, `hasInventoryData`
+- Logic: dựa trên giá trị snapshot, nếu tất cả = 0 thì đánh dấu "chưa có dữ liệu"
 
-Backfill daily metrics for a date range by looping day-by-day internally.
+### `src/pages/CFODashboard.tsx`
+- Metric thiếu nguồn dữ liệu (Cash, AR, AP, Inventory): hiển thị "Chua co du lieu" thay vì "0"
+- Metric CÓ dữ liệu (Revenue, Orders, Marketing): giữ nguyên
 
-```sql
-CREATE FUNCTION cdp_build_customer_metrics_daily_range(
-  p_tenant_id uuid, p_start_date date, p_end_date date
-) RETURNS jsonb
-```
+## Tổng hợp
 
-- Loops from start to end, calling existing `cdp_build_customer_metrics_daily` per day
-- Returns `{ days_processed, total_rows }`
-- Needed once for historical backfill, then daily runs handle 1 day at a time
-
-#### 2. New function: `cdp_build_customer_equity_batched`
-
-Process equity in batches of ~10,000 customers.
-
-```sql
-CREATE FUNCTION cdp_build_customer_equity_batched(
-  p_tenant_id uuid, p_as_of_date date, p_batch_size int DEFAULT 10000
-) RETURNS jsonb
-```
-
-- Fetches customer IDs in batches using LIMIT/OFFSET
-- Runs the same equity computation logic but filtered to batch of customers
-- Returns `{ total_batches, total_processed }`
-
-#### 3. Replace `cdp_run_daily_build` orchestrator
-
-New version that:
-- Calls daily metrics (single day -- fast)
-- Calls rolling metrics (reads from daily table -- fast if daily exists)
-- Calls `cdp_build_customer_equity_batched` instead of the monolithic version
-- Refreshes MVs at the end
-- Returns same JSON shape for backward compatibility
-
-#### 4. Update Edge Function: `compute-kpi-pipeline`
-
-Add a new option `backfill_cdp_daily = true` that:
-- Calls `cdp_build_customer_metrics_daily_range` for the date range before running the main CDP build
-- Only needed for first-time backfill; daily cron skips this
-
-### Technical Details
-
-**Batch size**: 10,000 customers per batch = ~32 batches for 310K customers. Each batch scans orders with `WHERE customer_id IN (...)` which uses the index efficiently.
-
-**Daily range backfill**: For 1M+ orders spanning ~3 years, this creates ~1,095 daily snapshots. Each day's query is fast (filtered by `order_at::date = date`). Can process ~50 days/second.
-
-**No schema changes**: All changes are function replacements. No new tables or columns needed.
-
-**Backward compatible**: `cdp_run_daily_build` keeps the same signature and return format.
-
-### Migration SQL Summary
-
-1. `CREATE OR REPLACE FUNCTION cdp_build_customer_metrics_daily_range(...)` -- loop wrapper
-2. `CREATE OR REPLACE FUNCTION cdp_build_customer_equity_batched(...)` -- batched equity
-3. `CREATE OR REPLACE FUNCTION cdp_run_daily_build(...)` -- updated orchestrator using batched equity
-
-### Edge Function Change
-
-**File: `supabase/functions/compute-kpi-pipeline/index.ts`**
-
-Add handling for `backfill_cdp_daily` flag:
-- When true: call `cdp_build_customer_metrics_daily_range` in date-range chunks (14-day windows, same pattern as KPI chunking)
-- Then proceed with normal `cdp_run_daily_build` which now uses batched equity
-
+| Thay đổi | Loại | Chi tiết |
+|---|---|---|
+| `compute_central_metrics_snapshot` | Migration SQL | Sửa 4 lỗi logic, KHÔNG đổi schema |
+| `useFinanceTruthSnapshot.ts` | Frontend | Thêm data quality flags |
+| `CFODashboard.tsx` | Frontend | Hiển thị trạng thái "Chưa có dữ liệu" |
