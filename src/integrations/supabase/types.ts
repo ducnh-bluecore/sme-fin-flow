@@ -666,6 +666,39 @@ export type Database = {
           },
         ]
       }
+      ai_dimension_catalog: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          dimension_name: string
+          dimension_type: string
+          id: string
+          possible_values: Json | null
+          source_column: string | null
+          source_table: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          dimension_name: string
+          dimension_type?: string
+          id?: string
+          possible_values?: Json | null
+          source_column?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          dimension_name?: string
+          dimension_type?: string
+          id?: string
+          possible_values?: Json | null
+          source_column?: string | null
+          source_table?: string | null
+        }
+        Relationships: []
+      }
       ai_favorites: {
         Row: {
           category: string | null
