@@ -95,29 +95,27 @@ export function useMDPSSOT(): MDPSSOTResult {
     enabled: !!tenantId && isReady,
   });
 
-  // ============ QUERY: Order Items with COGS (SSOT Layer 2) ============
-  // Uses cdp_order_items which maps to master_order_items via tableMapping
+  // ============ QUERY: Order Items with COGS (via View) ============
+  // ARCHITECTURE: Hook → View → Table (v_mdp_order_items_summary → cdp_order_items)
   const orderItemsQuery = useQuery({
     queryKey: ['mdp-ssot-order-items', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      // SSOT: Query cdp_order_items (maps to master_order_items in tenant schema)
       let query = client
-        .from('cdp_order_items' as any)
-        .select('order_id, sku, quantity, unit_price, line_total, unit_cogs, line_cogs, line_margin')
+        .from('v_mdp_order_items_summary' as any)
+        .select('order_id, sku, qty, unit_price, line_revenue, unit_cogs, line_cogs, line_margin')
         .limit(100000);
       if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
       if (error) throw error;
-      // Map columns for backward compatibility with existing code
       return ((data || []) as any[]).map((d: any) => ({
-        external_order_id: d.order_id || d.master_order_id,
+        external_order_id: d.order_id,
         sku: d.sku,
-        quantity: d.quantity,
+        quantity: d.qty,
         unit_price: d.unit_price,
-        total_amount: d.line_total,
+        total_amount: d.line_revenue,
         unit_cogs: d.unit_cogs,
         total_cogs: d.line_cogs,
         gross_profit: d.line_margin,
@@ -166,32 +164,30 @@ export function useMDPSSOT(): MDPSSOTResult {
     enabled: !!tenantId && isReady,
   });
 
-  // ============ QUERY: Orders for cash tracking ============
+  // ============ QUERY: Orders for cash tracking (via View) ============
+  // ARCHITECTURE: Hook → View → Table (v_revenue_channel_daily → cdp_orders)
   const ordersQuery = useQuery({
     queryKey: ['mdp-ssot-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      // SSOT: Query cdp_orders instead of external_orders
-      // cdp_orders contains validated financial data (all delivered, paid)
       let query = client
-        .from('cdp_orders')
-        .select('id, channel, gross_revenue, order_at')
-        .gte('order_at', startDateStr)
-        .lte('order_at', endDateStr)
-        .limit(50000);
+        .from('v_revenue_channel_daily' as any)
+        .select('channel, order_date, total_gross_revenue, order_count')
+        .gte('order_date', startDateStr)
+        .lte('order_date', endDateStr);
       if (shouldAddTenantFilter && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
       if (error) throw error;
-      // Map columns for compatibility, default: status='delivered', payment_status='paid', shipping_fee=0
-      return (data || []).map(d => ({
-        id: d.id,
+      // Map aggregated view rows to flat order-like format for compatibility
+      return ((data || []) as any[]).map(d => ({
+        id: `${d.channel}-${d.order_date}`,
         channel: d.channel,
         status: 'delivered' as const,
-        total_amount: Number(d.gross_revenue) || 0,
+        total_amount: Number(d.total_gross_revenue) || 0,
         payment_status: 'paid' as const,
-        order_date: d.order_at,
+        order_date: d.order_date,
         shipping_fee: 0
       }));
     },

@@ -205,40 +205,38 @@ export function useGenerateVarianceAnalysis() {
         opexBudget = opexPlan ? Number(opexPlan[monthKey]) || 0 : 0;
       }
       
-      // Build queries with conditional tenant filtering
+      // ARCHITECTURE: Hook → View → Table (v_variance_orders_monthly → cdp_orders)
+      // v_expenses_by_category_monthly → expenses
       let ordersQuery = client
-        .from('cdp_orders')
-        .select('gross_revenue')
-        .gte('order_at', format(periodStart, 'yyyy-MM-dd'))
-        .lte('order_at', format(periodEnd, 'yyyy-MM-dd'));
+        .from('v_variance_orders_monthly' as any)
+        .select('month_start, monthly_revenue')
+        .eq('month_start', format(periodStart, 'yyyy-MM-dd'));
 
       let expensesQuery = client
-        .from('expenses')
-        .select('amount, category')
+        .from('v_expenses_by_category_monthly' as any)
+        .select('total_amount, category')
         .gte('expense_date', format(periodStart, 'yyyy-MM-dd'))
         .lte('expense_date', format(periodEnd, 'yyyy-MM-dd'));
 
       let priorOrdersQuery = client
-        .from('cdp_orders')
-        .select('gross_revenue')
-        .gte('order_at', format(priorPeriodStart, 'yyyy-MM-dd'))
-        .lte('order_at', format(priorPeriodEnd, 'yyyy-MM-dd'));
+        .from('v_variance_orders_monthly' as any)
+        .select('month_start, monthly_revenue')
+        .eq('month_start', format(priorPeriodStart, 'yyyy-MM-dd'));
 
       let priorExpensesQuery = client
-        .from('expenses')
-        .select('amount')
+        .from('v_expenses_by_category_monthly' as any)
+        .select('total_amount')
         .gte('expense_date', format(priorPeriodStart, 'yyyy-MM-dd'))
         .lte('expense_date', format(priorPeriodEnd, 'yyyy-MM-dd'));
 
       let pyOrdersQuery = client
-        .from('cdp_orders')
-        .select('gross_revenue')
-        .gte('order_at', format(priorYearStart, 'yyyy-MM-dd'))
-        .lte('order_at', format(priorYearEnd, 'yyyy-MM-dd'));
+        .from('v_variance_orders_monthly' as any)
+        .select('month_start, monthly_revenue')
+        .eq('month_start', format(priorYearStart, 'yyyy-MM-dd'));
 
       let pyExpensesQuery = client
-        .from('expenses')
-        .select('amount')
+        .from('v_expenses_by_category_monthly' as any)
+        .select('total_amount')
         .gte('expense_date', format(priorYearStart, 'yyyy-MM-dd'))
         .lte('expense_date', format(priorYearEnd, 'yyyy-MM-dd'));
 
@@ -267,13 +265,13 @@ export function useGenerateVarianceAnalysis() {
         pyExpensesQuery,
       ]);
       
-      // Calculate totals
-      const actualRevenue = (orders as any[])?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
-      const actualExpense = (expenses as any[])?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const priorRevenue = (priorOrders as any[])?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
-      const priorExpense = (priorExpenses as any[])?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
-      const pyRevenue = (pyOrders as any[])?.reduce((sum, o) => sum + Number(o.gross_revenue), 0) || 0;
-      const pyExpense = (pyExpenses as any[])?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      // Calculate totals from aggregated view data
+      const actualRevenue = (orders as any[])?.reduce((sum, o) => sum + Number(o.monthly_revenue), 0) || 0;
+      const actualExpense = (expenses as any[])?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0;
+      const priorRevenue = (priorOrders as any[])?.reduce((sum, o) => sum + Number(o.monthly_revenue), 0) || 0;
+      const priorExpense = (priorExpenses as any[])?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0;
+      const pyRevenue = (pyOrders as any[])?.reduce((sum, o) => sum + Number(o.monthly_revenue), 0) || 0;
+      const pyExpense = (pyExpenses as any[])?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0;
       
       // Use scenario budget or fallback to actuals if no budget
       const finalRevenueBudget = revenueBudget || actualRevenue;

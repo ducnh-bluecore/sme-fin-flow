@@ -154,60 +154,61 @@ export function useAudienceData() {
   const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
-  // Fetch orders data for audience analysis
+  // ARCHITECTURE: Hook → View → Table (v_revenue_channel_daily → cdp_orders)
+  // Fetch orders data via aggregated view
   const ordersQuery = useQuery({
     queryKey: ['audience-orders', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
-      // SSOT: Query cdp_orders instead of external_orders
       let query = client
-        .from('cdp_orders')
-        .select('id, customer_id, channel, gross_revenue, net_revenue, cogs, gross_margin, order_at')
-        .gte('order_at', startDateStr)
-        .lte('order_at', endDateStr)
-        .limit(50000);
+        .from('v_audience_customer_summary' as any)
+        .select('customer_id, channel, order_count, total_revenue, total_net_revenue, total_cogs, total_margin, first_order_at, last_order_at, avg_order_value');
       if (shouldAddTenantFilter) {
         query = query.eq('tenant_id', tenantId);
       }
-      const { data, error } = await query;
+      const { data, error } = await query.limit(50000);
       if (error) throw error;
-      // Map cdp_orders to OrderData format for compatibility
-      return (data || []).map(d => ({
-        id: d.id,
-        customer_name: d.customer_id, // customer_id serves as identifier
+      // Map to OrderData-like format for compatibility with existing customer metrics calculation
+      return (data || []).map((d: any) => ({
+        id: d.customer_id,
+        customer_name: d.customer_id,
         customer_email: null,
         customer_phone: d.customer_id,
         channel: d.channel,
-        status: 'delivered', // cdp_orders only has delivered orders
-        total_amount: Number(d.gross_revenue) || 0,
-        payment_status: 'paid', // cdp_orders implies paid
-        order_date: d.order_at,
+        status: 'delivered',
+        total_amount: Number(d.total_revenue) || 0,
+        payment_status: 'paid',
+        order_date: d.last_order_at,
         province_name: null,
         shipping_fee: 0,
         order_discount: 0,
-        cost_of_goods: Number(d.cogs) || 0,
-        net_profit: Number(d.gross_margin) || 0
+        cost_of_goods: Number(d.total_cogs) || 0,
+        net_profit: Number(d.total_margin) || 0,
+        // Extra fields from view for customer-level computation
+        _order_count: Number(d.order_count) || 1,
+        _first_order_at: d.first_order_at,
+        _avg_order_value: Number(d.avg_order_value) || 0,
       })) as OrderData[];
     },
     enabled: isReady,
   });
 
-  // Fetch channel revenue for cost data - use cdp_orders (SSOT)
+  // Fetch channel revenue via aggregated view
   const channelRevenueQuery = useQuery({
     queryKey: ['audience-channel-revenue', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
       if (!tenantId) return [];
       let query = client
-        .from('cdp_orders')
-        .select('channel, net_revenue, order_at')
-        .gte('order_at', startDateStr)
-        .lte('order_at', endDateStr);
+        .from('v_revenue_channel_daily' as any)
+        .select('channel, order_date, total_net_revenue')
+        .gte('order_date', startDateStr)
+        .lte('order_date', endDateStr);
       if (shouldAddTenantFilter) {
         query = query.eq('tenant_id', tenantId);
       }
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []).map(d => ({ ...d, net_revenue: Number(d.net_revenue) || 0 }));
+      return (data || []).map((d: any) => ({ ...d, net_revenue: Number(d.total_net_revenue) || 0 }));
     },
     enabled: isReady,
   });

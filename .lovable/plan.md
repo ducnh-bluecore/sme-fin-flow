@@ -1,114 +1,43 @@
 
-
 # Audit Vi phạm Kiến trúc: Hooks Query Trực tiếp vào Model Tables
 
-## Vấn đề
+## Tiến độ: Batch 1 HOÀN THÀNH
 
-Theo kiến trúc DB-First của Bluecore:
+### Views đã tạo (Migration applied)
+1. `v_revenue_channel_daily` - revenue by channel/date (replaces cdp_orders)
+2. `v_cdp_orders_stats` - count + totals per tenant (replaces cdp_orders count/sum)
+3. `v_mdp_order_items_summary` - order items for MDP (replaces cdp_order_items)
+4. `v_cash_forecast_orders_weekly` - weekly aggregated orders (replaces cdp_orders)
+5. `v_audience_customer_summary` - customer-level metrics (replaces cdp_orders)
+6. `v_variance_orders_monthly` - monthly aggregated orders (replaces cdp_orders)
+7. `v_board_report_invoices` - invoice data for reports (replaces invoices)
+8. `v_expenses_by_category_monthly` - expense aggregation (replaces expenses)
 
-```text
-Hook (Thin Wrapper) --> View / RPC --> Table
-```
+### Hooks đã refactor (Batch 1)
+| Hook | Status | View used |
+|------|--------|-----------|
+| `useRevenuePageData` | ✅ DONE | v_revenue_channel_daily |
+| `useMDPSSOT` (orders) | ✅ DONE | v_revenue_channel_daily |
+| `useMDPSSOT` (order items) | ✅ DONE | v_mdp_order_items_summary |
+| `useWeeklyCashForecast` (orders) | ✅ DONE | v_cash_forecast_orders_weekly |
+| `useCDPSSOT` (orders count) | ✅ DONE | v_cdp_orders_stats |
+| `useCDPLTVEngine.useRealizedRevenue` | ✅ DONE | v_cdp_orders_stats |
+| `useCDPTierData.useCDPRFMData` | ✅ DONE | v_audience_customer_summary |
+| `useVarianceAnalysis` (generate) | ✅ DONE | v_variance_orders_monthly + v_expenses_by_category_monthly |
+| `useAudienceData` | ✅ DONE | v_audience_customer_summary + v_revenue_channel_daily |
 
-Hiện tại **~25+ hooks** đang bypass tầng View/RPC, query thẳng vào bảng model:
+## Còn lại (Batch 2 - ưu tiên thấp hơn)
 
-```text
-Hook --> Table (VI PHAM)
-```
+### Hooks chưa refactor
+| Hook | Tables truy cập | Ghi chú |
+|------|----------------|---------|
+| `useBoardReports` | invoices, expenses, bank_accounts, bank_transactions | Complex - nhiều helper functions |
+| `useWeeklyCashForecast` | invoices, bills | AR/AP queries - vẫn query trực tiếp |
+| `useFinancialAnalysisData` | invoices, expenses | Complex analysis |
+| `useFDPCrossScreenConsistency` | bank_accounts | Consistency check |
+| `useCDPCustomerOrderItems` | cdp_order_items + cdp_orders join | Customer detail page |
 
-## Danh sách vi phạm
-
-### Nhóm 1: Query trực tiếp `cdp_orders` (11 hooks)
-
-| Hook | File | Muc do |
-|------|------|--------|
-| `useAudienceData` | src/hooks/useAudienceData.ts | 2 queries |
-| `useCDPSSOT` | src/hooks/useCDPSSOT.ts | 1 query (count) |
-| `useCDPLTVEngine` | src/hooks/useCDPLTVEngine.ts | 1 query |
-| `useWeeklyCashForecast` | src/hooks/useWeeklyCashForecast.ts | 1 query |
-| `useVarianceAnalysis` | src/hooks/useVarianceAnalysis.ts | 3 queries |
-| `useRevenuePageData` | src/hooks/useRevenuePageData.ts | 1 query |
-| `useCDPTierData` | src/hooks/useCDPTierData.ts | 1 query |
-| `useMDPSSOT` | src/hooks/useMDPSSOT.ts | 1 query |
-| `useMDPData` | src/hooks/useMDPData.ts | 1 query (deprecated) |
-| `useFDPMetrics` | src/hooks/useFDPMetrics.ts | 1 query (deprecated) |
-| `SSOTComplianceDashboard` | src/components/governance/ | 1 query |
-
-### Nhom 2: Query truc tiep `cdp_order_items` (1 hook)
-
-| Hook | File |
-|------|------|
-| `useCDPCustomerOrderItems` | src/hooks/useCDPCustomerOrderItems.ts |
-
-### Nhom 3: Query truc tiep `invoices`, `bills`, `expenses`, `bank_accounts` (~14 hooks)
-
-| Hook | Tables truy cap |
-|------|----------------|
-| `useWeeklyCashForecast` | invoices, bills, expenses |
-| `useAutoMeasureOutcome` | bank_accounts, expenses |
-| `useDashboardData` | invoices |
-| `useExceptions` | invoices |
-| `useFDPMetrics` | invoices, expenses (deprecated) |
-| `useFinancialAnalysisData` | invoices, expenses |
-| `useFDPCrossScreenConsistency` | bank_accounts |
-| `useVarianceAnalysis` | expenses |
-| `useReconciliation` | invoices (mutation - co the chap nhan) |
-| `useBoardReports` | invoices |
-| `TenantStatsCard` | invoices, bills (admin - co the chap nhan) |
-
-### Nhom 4: Query truc tiep `promotion_campaigns` (3 hooks)
-
-| Hook | File |
-|------|------|
-| `useMDPSSOT` | src/hooks/useMDPSSOT.ts |
-| `useMDPData` | src/hooks/useMDPData.ts (deprecated) |
-| `useFDPMetrics` | src/hooks/useFDPMetrics.ts (deprecated) |
-
-## Ke hoach sua
-
-### Buoc 1: Xac dinh Views/RPCs da co san
-
-Kiem tra xem DB da co views nao co the thay the:
-- `fdp_daily_metrics` -- revenue/orders theo ngay
-- `fdp_monthly_metrics` -- revenue/orders theo thang
-- `fdp_sku_summary` -- SKU-level metrics
-- `channel_performance_summary` -- channel metrics
-- `v_cdp_data_quality` -- data quality counts
-- `get_fdp_period_summary` RPC -- period aggregation
-- `compute_central_metrics_snapshot` RPC -- central metrics
-
-### Buoc 2: Tao them Views/RPCs con thieu
-
-Cho cac use case chua co view:
-- `v_weekly_cash_forecast` -- forecast cash inflow/outflow
-- `v_variance_analysis` -- period-over-period comparison
-- `v_audience_channel_summary` -- audience by channel
-- `v_revenue_by_channel_daily` -- revenue breakdown
-
-### Buoc 3: Chuyen hooks thanh thin wrappers
-
-Moi hook chi duoc phep:
-1. Goi View hoac RPC
-2. Map columns sang interface (khong tinh toan)
-3. Return data
-
-### Buoc 4: Ngoai le hop le
-
-Cac truong hop KHONG can sua:
-- **Mutations** (useReconciliation: update invoices) -- ghi du lieu, khong phai doc
-- **Admin/Control Plane** (TenantStatsCard) -- cross-tenant, khong thuoc data plane
-- **Deprecated hooks** (useFDPMetrics, useMDPData) -- se bi xoa, khong can sua
-
-## Thu tu uu tien
-
-1. **Cao**: Hooks SSOT dang active ma van query truc tiep (useMDPSSOT, useRevenuePageData, useWeeklyCashForecast)
-2. **Trung binh**: Hooks analytics (useVarianceAnalysis, useBoardReports, useAudienceData)  
-3. **Thap**: Deprecated hooks (se bi xoa)
-
-## Luu y
-
-- KHONG thay doi cau truc bang/cot
-- CHI tao them Views/RPCs va chuyen hooks sang dung chung
-- Moi View/RPC phai co `tenant_id` filter
-- Performance: Views tren 1.1M rows can index hoac materialized views
-
+### Ngoại lệ (không cần sửa)
+- **Mutations**: useReconciliation (write ops)
+- **Admin**: TenantStatsCard (cross-tenant)
+- **Deprecated**: useFDPMetrics, useMDPData (sẽ bị xóa)

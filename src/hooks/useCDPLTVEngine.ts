@@ -259,9 +259,8 @@ export function useLTVSummary() {
 }
 
 /**
- * Fetch actual realized revenue from cdp_orders (ALL TIME - not just 12 months)
- * This is the REAL revenue already collected from customers, not projected
- * Used to calculate: Còn lại = Equity - Đã thu
+ * Fetch actual realized revenue (via View)
+ * ARCHITECTURE: Hook → View → Table (v_cdp_orders_stats → cdp_orders)
  */
 export function useRealizedRevenue() {
   const { client, tenantId, isReady, shouldAddTenantFilter } = useTenantSupabaseCompat();
@@ -271,23 +270,17 @@ export function useRealizedRevenue() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Get ALL actual revenue from orders (total collected from these customers)
-      // Use order_at (correct column name, not order_date)
-      let query = client.from('cdp_orders').select('net_revenue');
+      let query = client.from('v_cdp_orders_stats' as any).select('total_net_revenue, order_count');
       if (shouldAddTenantFilter) {
         query = query.eq('tenant_id', tenantId);
       }
-      const { data, error } = await query;
+      const { data, error } = await query.maybeSingle();
 
       if (error) throw error;
       
-      const totalRealized = (data || []).reduce((sum, order) => 
-        sum + (order.net_revenue || 0), 0
-      );
-      
       return {
-        realized_revenue: totalRealized,
-        order_count: data?.length || 0
+        realized_revenue: Number((data as any)?.total_net_revenue) || 0,
+        order_count: Number((data as any)?.order_count) || 0,
       };
     },
     enabled: !!tenantId && isReady,

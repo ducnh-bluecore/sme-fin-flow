@@ -108,12 +108,12 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
         .neq('status', 'paid')
         .neq('status', 'cancelled');
 
+      // ARCHITECTURE: Hook → View → Table (v_cash_forecast_orders_weekly → cdp_orders)
       let ordersQuery = client
-        .from('cdp_orders')
-        .select('gross_revenue, order_at')
-        .gte('order_at', startDateStr)
-        .lte('order_at', endDateStr)
-        .limit(50000);
+        .from('v_cash_forecast_orders_weekly' as any)
+        .select('week_start, weekly_revenue, weekly_orders')
+        .gte('week_start', startDateStr)
+        .lte('week_start', endDateStr);
 
       let expensesQuery = client
         .from('expenses')
@@ -143,11 +143,11 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
 
       const invoices = invoicesRes.data || [];
       const bills = billsRes.data || [];
-      // Map cdp_orders to legacy format
+      // Map weekly aggregated view data to order format
       const rawOrders = ordersRes.data || [];
-      const orders = rawOrders.map(o => ({
-        total_amount: Number((o as any).gross_revenue) || 0,
-        order_date: (o as any).order_at,
+      const orders = (rawOrders as any[]).map(o => ({
+        total_amount: Number(o.weekly_revenue) || 0,
+        order_date: o.week_start,
         status: 'delivered' as const
       }));
       const expenses = expensesRes.data || [];
