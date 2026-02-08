@@ -1002,6 +1002,25 @@ async function syncCustomers(
       console.error('Upsert error:', error);
     }
   }
+
+  // Phase 2: Cross-source dedup by email (merge KiotViet phone-keyed + Haravan email-keyed)
+  if (!paused) {
+    try {
+      console.log(`[Phase 2] Running cross-source customer merge for tenant ${tenantId}...`);
+      const { data: mergeResult, error: mergeError } = await supabase
+        .rpc('merge_duplicate_customers', { p_tenant_id: tenantId });
+      
+      if (mergeError) {
+        console.error('Customer merge error:', mergeError);
+      } else {
+        const mergedCount = mergeResult || 0;
+        merged += mergedCount;
+        console.log(`[Phase 2] Merged ${mergedCount} duplicate customers across sources`);
+      }
+    } catch (err) {
+      console.error('Customer merge exception:', err);
+    }
+  }
   
   return { processed: totalProcessed, created, merged, sources: sourceResults, paused: paused || undefined };
 }

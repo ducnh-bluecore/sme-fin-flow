@@ -37143,6 +37143,10 @@ export type Database = {
         }
         Returns: string
       }
+      merge_duplicate_customers: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       migrate_tenant_data: {
         Args: { p_table_name: string; p_tenant_id: string }
         Returns: Json
