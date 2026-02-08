@@ -623,17 +623,18 @@ export function useFinancialAnalysisData(year: number = new Date().getFullYear()
       const operatingCashFlow = totalPaymentsReceived - operatingExpenses + depreciation; // Add back non-cash
       const fcf = operatingCashFlow - estimatedCapex;
       
-      // Calculate net cash from bank transactions
-      const totalInflows = bankTransactions.filter(t => t.transaction_type === 'credit')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
-      const totalOutflows = bankTransactions.filter(t => t.transaction_type === 'debit')
-        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+      // Calculate net cash from cashFlowData (already computed from views)
+      const totalInflows = (cashFlowData || [])
+        .reduce((sum, m) => sum + Math.max(m.net, 0), 0);
+      const totalOutflows = (cashFlowData || [])
+        .reduce((sum, m) => sum + Math.abs(Math.min(m.net, 0)), 0);
       const netCashFlow = totalInflows - totalOutflows;
 
-      // Use net cash flow if bank transactions available, otherwise use FCF estimate
-      const displayFCF = bankTransactions.length > 0 ? netCashFlow : fcf;
+      // Use net cash flow if data available, otherwise use FCF estimate
+      const hasCashFlowData = (cashFlowData || []).length > 0;
+      const displayFCF = hasCashFlowData ? netCashFlow : fcf;
       
-      if (totalRevenue > 0 || bankTransactions.length > 0) {
+      if (totalRevenue > 0 || hasCashFlowData) {
         const fcfMargin = totalRevenue > 0 ? (displayFCF / totalRevenue) * 100 : 0;
         keyInsights.push({
           type: displayFCF > 0 ? 'success' : displayFCF > -totalRevenue * 0.1 ? 'warning' : 'danger',
@@ -666,7 +667,7 @@ export function useFinancialAnalysisData(year: number = new Date().getFullYear()
       const estimatedDebt = totalAP + (interest > 0 ? interest * 12 : 0); // Annualized interest as proxy for debt
       const estimatedEquity = totalProfit > 0 ? totalProfit * 3 : totalRevenue * 0.2; // Rough estimate
       const deRatio = estimatedEquity > 0 ? estimatedDebt / estimatedEquity : 0;
-      const lastYearDebt = (lastYearExpense * 0.15) + (expensesLastYear.filter(e => e.category === 'interest').reduce((s, e) => s + (e.amount || 0), 0) * 12);
+      const lastYearDebt = (lastYearExpense * 0.15) + (interest * 12 * 0.9); // Estimate last year interest ~90% of current
       const lastYearEquity = lastYearProfit > 0 ? lastYearProfit * 3 : lastYearRevenue * 0.2;
       const lastYearDE = lastYearEquity > 0 ? lastYearDebt / lastYearEquity : 0;
 
