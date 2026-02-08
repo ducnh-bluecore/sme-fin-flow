@@ -118,28 +118,87 @@ Deno.serve(async (req) => {
       // Continue to next model - don't stop
     }
 
-    // After order_items, run COGS update
+    // After order_items, run full COGS pipeline
     if (modelType === 'order_items') {
       const cogsStart = Date.now();
       try {
-        console.log(`[daily-sync] Running update_order_items_cogs()...`);
-        const { error } = await supabase.rpc('update_order_items_cogs');
+        console.log(`[daily-sync] Running backfill_cogs_pipeline()...`);
+        const { data: cogsData, error } = await supabase.rpc('backfill_cogs_pipeline', {
+          p_tenant_id: TENANT_ID,
+        });
         const cogsDuration = Date.now() - cogsStart;
-        results['update_cogs'] = {
+        results['cogs_pipeline'] = {
           success: !error,
           duration_ms: cogsDuration,
+          processed: cogsData?.items_updated ?? 0,
           error: error?.message,
         };
-        console.log(`[daily-sync] COGS update done in ${cogsDuration}ms`);
+        if (cogsData) {
+          console.log(`[daily-sync] COGS pipeline done in ${cogsDuration}ms - items: ${cogsData.items_updated}, orders: ${cogsData.orders_updated}`);
+        }
       } catch (err) {
-        results['update_cogs'] = {
+        results['cogs_pipeline'] = {
           success: false,
           duration_ms: Date.now() - cogsStart,
           error: err.message,
         };
-        console.error(`[daily-sync] COGS update FAILED: ${err.message}`);
+        console.error(`[daily-sync] COGS pipeline FAILED: ${err.message}`);
       }
     }
+  }
+
+  // === Post-sync pipeline: KPI recompute + Alert detection ===
+  
+  // Step 2: Recompute KPI facts (2-day lookback)
+  const kpiStart = Date.now();
+  try {
+    const lookbackStart = new Date();
+    lookbackStart.setDate(lookbackStart.getDate() - lookbackDays);
+    console.log(`[daily-sync] Running compute_kpi_facts_daily()...`);
+    const { data: kpiData, error } = await supabase.rpc('compute_kpi_facts_daily', {
+      p_tenant_id: TENANT_ID,
+      p_start_date: lookbackStart.toISOString().split('T')[0],
+      p_end_date: new Date().toISOString().split('T')[0],
+    });
+    const kpiDuration = Date.now() - kpiStart;
+    results['kpi_recompute'] = {
+      success: !error,
+      duration_ms: kpiDuration,
+      processed: kpiData?.rows_upserted ?? 0,
+      error: error?.message,
+    };
+    console.log(`[daily-sync] KPI recompute done in ${kpiDuration}ms`);
+  } catch (err) {
+    results['kpi_recompute'] = {
+      success: false,
+      duration_ms: Date.now() - kpiStart,
+      error: err.message,
+    };
+    console.error(`[daily-sync] KPI recompute FAILED: ${err.message}`);
+  }
+
+  // Step 3: Detect threshold breaches → alerts
+  const alertStart = Date.now();
+  try {
+    console.log(`[daily-sync] Running detect_threshold_breaches()...`);
+    const { data: alertData, error } = await supabase.rpc('detect_threshold_breaches', {
+      p_tenant_id: TENANT_ID,
+    });
+    const alertDuration = Date.now() - alertStart;
+    results['alert_detection'] = {
+      success: !error,
+      duration_ms: alertDuration,
+      processed: alertData?.alerts_created ?? 0,
+      error: error?.message,
+    };
+    console.log(`[daily-sync] Alert detection done in ${alertDuration}ms`);
+  } catch (err) {
+    results['alert_detection'] = {
+      success: false,
+      duration_ms: Date.now() - alertStart,
+      error: err.message,
+    };
+    console.error(`[daily-sync] Alert detection FAILED: ${err.message}`);
   }
 
   const totalDuration = Date.now() - startTime;

@@ -37145,6 +37145,7 @@ export type Database = {
         Args: { p_entry_id: string }
         Returns: boolean
       }
+      backfill_cogs_pipeline: { Args: { p_tenant_id: string }; Returns: Json }
       batch_recalculate_metrics: {
         Args: { p_tenant_id: string }
         Returns: number
@@ -38386,6 +38387,10 @@ export type Database = {
         Returns: string
       }
       sync_budget_actuals: { Args: never; Returns: undefined }
+      sync_order_cogs_from_items: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       track_tenant_event: {
         Args: {
           p_duration_ms?: number
