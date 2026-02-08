@@ -37222,6 +37222,10 @@ export type Database = {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: Json
       }
+      cdp_build_customer_equity_batched: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: Json
+      }
       cdp_build_customer_metrics_daily: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: number
