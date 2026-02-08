@@ -196,7 +196,7 @@ const ORDER_SOURCES = [
       status: 'Status',
       customer_id: 'CusId',
       customer_name: 'CustomerName',
-      customer_phone: 'ContactNumber',
+      customer_phone: 'deliveryContactNumber',
       gross_revenue: 'Total',
       discount: 'discount',
     }
