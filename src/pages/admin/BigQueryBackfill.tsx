@@ -1,9 +1,8 @@
 /**
- * BigQuery Backfill Admin Page
+ * BigQuery Backfill Admin Page - Tab-based Job Management
  * 
  * @architecture Layer 10 Integration UI
- * Provides admin interface for triggering and monitoring BigQuery backfill jobs.
- * Includes expandable rows showing source-level progress.
+ * Jobs split into Active / Completed / Failed tabs for easy monitoring.
  */
 
 import { useState } from 'react';
@@ -19,56 +18,23 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
-import { 
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
+  Collapsible, CollapsibleContent, CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { 
-  Play, 
-  Square, 
-  RefreshCw, 
-  CheckCircle, 
-  XCircle, 
-  Clock,
-  Loader2,
-  Trash2,
-  ChevronDown,
-  ChevronRight,
+  Play, RefreshCw, Loader2, ChevronDown, ChevronRight,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { SourceProgressTable } from '@/components/admin/SourceProgressTable';
+import { BackfillJobTable, getStatusBadge } from '@/components/admin/BackfillJobTable';
 
 const MODEL_TYPES: BackfillModelType[] = [
-  'customers',
-  'products',
-  'orders',
-  'order_items',
-  'refunds',
-  'payments',
-  'fulfillments',
-  'inventory',
-  'campaigns',
-  'ad_spend',
+  'customers', 'products', 'orders', 'order_items', 'refunds',
+  'payments', 'fulfillments', 'inventory', 'campaigns', 'ad_spend',
 ];
 
-// Fixed tenant ID for E2E BigQuery Test tenant
 const E2E_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 export default function BigQueryBackfillPage() {
@@ -79,11 +45,16 @@ export default function BigQueryBackfillPage() {
   const [dateFrom, setDateFrom] = useState('2025-01-01');
   const [dateTo, setDateTo] = useState('');
   const [batchSize, setBatchSize] = useState('500');
-  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [formOpen, setFormOpen] = useState(false);
   
-  // For Super Admin: use fixed tenant if no tenant context
   const effectiveTenantId = tenantId || E2E_TENANT_ID;
   const canStart = !!effectiveTenantId;
+
+  // Filter jobs into categories
+  const allJobs = jobs || [];
+  const activeJobs = allJobs.filter(j => j.status === 'running' || j.status === 'pending');
+  const completedJobs = allJobs.filter(j => j.status === 'completed');
+  const failedJobs = allJobs.filter(j => j.status === 'failed' || j.status === 'cancelled');
 
   const handleStartBackfill = () => {
     startBackfill.mutate({
@@ -96,47 +67,18 @@ export default function BigQueryBackfillPage() {
     });
   };
 
-  const handleCancelBackfill = (modelType: BackfillModelType) => {
-    cancelBackfill.mutate(modelType);
+  const handleCancel = (modelType: BackfillModelType) => cancelBackfill.mutate(modelType);
+  const handleContinue = (modelType: BackfillModelType) => {
+    continueBackfill.mutate({ modelType, options: { batch_size: 500 } });
   };
+  const handleDelete = (jobId: string) => deleteBackfillJob.mutate(jobId);
 
-  const handleDeleteJob = (jobId: string) => {
-    const ok = window.confirm('Xóa job này? (không thể hoàn tác)');
-    if (!ok) return;
-    deleteBackfillJob.mutate(jobId);
-  };
-
-  const toggleJobExpand = (jobId: string) => {
-    setExpandedJobs(prev => {
-      const next = new Set(prev);
-      if (next.has(jobId)) {
-        next.delete(jobId);
-      } else {
-        next.add(jobId);
-      }
-      return next;
-    });
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge variant="default"><CheckCircle className="w-3 h-3 mr-1" /> Completed</Badge>;
-      case 'running':
-        return <Badge variant="secondary"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Running</Badge>;
-      case 'failed':
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>;
-      case 'cancelled':
-        return <Badge variant="outline"><Square className="w-3 h-3 mr-1" /> Cancelled</Badge>;
-      case 'pending':
-        return <Badge variant="outline"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  // Default to active tab if there are active jobs, otherwise completed
+  const defaultTab = activeJobs.length > 0 ? 'active' : 'completed';
 
   return (
     <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">BigQuery Backfill</h1>
@@ -150,256 +92,22 @@ export default function BigQueryBackfillPage() {
         </Button>
       </div>
 
-      {/* Start Backfill Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Start New Backfill</CardTitle>
-          <CardDescription>
-            Select a model type and configure options to start syncing data from BigQuery
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>Model Type</Label>
-              <Select 
-                value={selectedModel} 
-                onValueChange={(v) => setSelectedModel(v as BackfillModelType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MODEL_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {MODEL_TYPE_ICONS[type]} {MODEL_TYPE_LABELS[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Date From</Label>
-              <Input 
-                type="date" 
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Date To (optional)</Label>
-              <Input 
-                type="date" 
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Batch Size</Label>
-              <Input 
-                type="number" 
-                value={batchSize}
-                onChange={(e) => setBatchSize(e.target.value)}
-                min={100}
-                max={1000}
-              />
-            </div>
-          </div>
-          
-          <div className="mt-4">
-            <Button 
-              onClick={handleStartBackfill}
-              disabled={!canStart || startBackfill.isPending}
-            >
-              {startBackfill.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4 mr-2" />
-              )}
-              Start Backfill
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Jobs Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Backfill Jobs</CardTitle>
-          <CardDescription>
-            Recent backfill job history and status. Click a row to see source-level details.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : jobs && jobs.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Records</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobs.map((job) => {
-                  const progress = job.total_records > 0 
-                    ? (job.processed_records / job.total_records) * 100 
-                    : 0;
-                  const duration = job.started_at && job.completed_at
-                    ? Math.round((new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) / 1000)
-                    : null;
-                  const isExpanded = expandedJobs.has(job.id);
-                  
-                  return (
-                    <Collapsible key={job.id} asChild open={isExpanded}>
-                      <>
-                        <TableRow 
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleJobExpand(job.id)}
-                        >
-                          <TableCell>
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                                {isExpanded ? (
-                                  <ChevronDown className="w-4 h-4" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </CollapsibleTrigger>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span>{MODEL_TYPE_ICONS[job.model_type as BackfillModelType]}</span>
-                              <span className="font-medium">{MODEL_TYPE_LABELS[job.model_type as BackfillModelType]}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(job.status)}</TableCell>
-                          <TableCell className="w-32">
-                            {job.status === 'running' && (
-                              <Progress value={progress} className="h-2" />
-                            )}
-                            {job.status === 'completed' && (
-                              <Progress value={100} className="h-2" />
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {job.processed_records.toLocaleString()}
-                            {job.total_records > 0 && (
-                              <span className="text-muted-foreground">
-                                {' / '}{job.total_records.toLocaleString()}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {job.started_at 
-                              ? formatDistanceToNow(new Date(job.started_at), { addSuffix: true })
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {duration !== null ? `${duration}s` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                              {job.status === 'running' && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleCancelBackfill(job.model_type as BackfillModelType)}
-                                >
-                                  <Square className="w-4 h-4" />
-                                </Button>
-                              )}
-
-                              {(job.status === 'failed' || job.status === 'running' || job.status === 'pending') && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => continueBackfill.mutate({ 
-                                    modelType: job.model_type as BackfillModelType,
-                                    options: { batch_size: 500 },
-                                  })}
-                                  disabled={continueBackfill.isPending}
-                                  title="Continue backfill"
-                                >
-                                  <Play className="w-4 h-4" />
-                                </Button>
-                              )}
-
-                              {job.status !== 'running' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteJob(job.id)}
-                                  disabled={deleteBackfillJob.isPending}
-                                  title="Xóa job"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
-
-                              {job.error_message && (
-                                <span className="text-destructive text-xs" title={job.error_message}>
-                                  ⚠️
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        <CollapsibleContent asChild>
-                          <TableRow className="bg-muted/20">
-                            <TableCell colSpan={8} className="p-0">
-                              <div className="p-4">
-                                <h4 className="text-sm font-medium mb-2">Source Progress</h4>
-                                <SourceProgressTable jobId={job.id} />
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        </CollapsibleContent>
-                      </>
-                    </Collapsible>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              No backfill jobs found. Start a new backfill to sync data from BigQuery.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Model Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {MODEL_TYPES.slice(0, 5).map((type) => {
-          const typeJobs = jobs?.filter(j => j.model_type === type) || [];
+      {/* Model Overview Cards - ALL 10 models */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {MODEL_TYPES.map((type) => {
+          const typeJobs = allJobs.filter(j => j.model_type === type);
           const latestJob = typeJobs[0];
-          
+
           return (
             <Card key={type} className="hover:border-primary/50 transition-colors">
-              <CardContent className="pt-4">
+              <CardContent className="pt-4 pb-3">
                 <div className="text-2xl mb-1">{MODEL_TYPE_ICONS[type]}</div>
-                <div className="font-medium">{MODEL_TYPE_LABELS[type]}</div>
-                <div className="text-sm text-muted-foreground">
+                <div className="font-medium text-sm">{MODEL_TYPE_LABELS[type]}</div>
+                <div className="text-xs text-muted-foreground mt-1">
                   {latestJob ? (
                     <>
                       {latestJob.processed_records.toLocaleString()} records
-                      <br />
-                      {getStatusBadge(latestJob.status)}
+                      <div className="mt-1">{getStatusBadge(latestJob.status)}</div>
                     </>
                   ) : (
                     'Not synced'
@@ -410,6 +118,151 @@ export default function BigQueryBackfillPage() {
           );
         })}
       </div>
+
+      {/* Collapsible Start New Backfill */}
+      <Collapsible open={formOpen} onOpenChange={setFormOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Start New Backfill</CardTitle>
+                  <CardDescription>
+                    Select a model and configure sync options
+                  </CardDescription>
+                </div>
+                {formOpen ? (
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Model Type</Label>
+                  <Select 
+                    value={selectedModel} 
+                    onValueChange={(v) => setSelectedModel(v as BackfillModelType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODEL_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {MODEL_TYPE_ICONS[type]} {MODEL_TYPE_LABELS[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date From</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date To (optional)</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Batch Size</Label>
+                  <Input type="number" value={batchSize} onChange={(e) => setBatchSize(e.target.value)} min={100} max={1000} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <Button onClick={handleStartBackfill} disabled={!canStart || startBackfill.isPending}>
+                  {startBackfill.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
+                  )}
+                  Start Backfill
+                </Button>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Tab-based Job Management */}
+      <Card>
+        <CardContent className="pt-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <Tabs defaultValue={defaultTab}>
+              <TabsList>
+                <TabsTrigger value="active" className="gap-2">
+                  Đang chạy
+                  {activeJobs.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                      {activeJobs.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="gap-2">
+                  Hoàn thành
+                  {completedJobs.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                      {completedJobs.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="failed" className="gap-2">
+                  Lỗi
+                  {failedJobs.length > 0 && (
+                    <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
+                      {failedJobs.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="active">
+                <BackfillJobTable
+                  jobs={activeJobs}
+                  onCancel={handleCancel}
+                  onContinue={handleContinue}
+                  onDelete={handleDelete}
+                  isContinuePending={continueBackfill.isPending}
+                  isDeletePending={deleteBackfillJob.isPending}
+                  emptyMessage="Không có job nào đang chạy."
+                />
+              </TabsContent>
+
+              <TabsContent value="completed">
+                <BackfillJobTable
+                  jobs={completedJobs}
+                  onCancel={handleCancel}
+                  onContinue={handleContinue}
+                  onDelete={handleDelete}
+                  isContinuePending={continueBackfill.isPending}
+                  isDeletePending={deleteBackfillJob.isPending}
+                  emptyMessage="Chưa có job nào hoàn thành."
+                />
+              </TabsContent>
+
+              <TabsContent value="failed">
+                <BackfillJobTable
+                  jobs={failedJobs}
+                  onCancel={handleCancel}
+                  onContinue={handleContinue}
+                  onDelete={handleDelete}
+                  isContinuePending={continueBackfill.isPending}
+                  isDeletePending={deleteBackfillJob.isPending}
+                  emptyMessage="Không có job lỗi nào. 🎉"
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
