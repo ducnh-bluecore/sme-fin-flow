@@ -56,9 +56,32 @@ Deno.serve(async (req) => {
     const effectiveStart = start_date || addDays(new Date().toISOString().split("T")[0], -7);
     const effectiveEnd = end_date || new Date().toISOString().split("T")[0];
 
+    const startMs = Date.now();
     console.log(`[KPI Pipeline] tenant=${tenant_id} range=${effectiveStart}..${effectiveEnd}`);
 
-    // Chunk into 14-day windows to avoid statement timeout
+    // Step 0: Link orders to customers in batches
+    const { link_customers = false } = body;
+    let totalLinked = 0;
+    if (link_customers) {
+      console.log(`[KPI Pipeline] Linking orders to customers in batches...`);
+      for (let i = 0; i < 50; i++) {
+        const { data: linked, error: linkError } = await supabase.rpc("link_orders_batch", {
+          p_tenant_id: tenant_id,
+          p_batch_size: 10000,
+        });
+        if (linkError) {
+          console.error(`[KPI Pipeline] Link batch error:`, linkError.message);
+          break;
+        }
+        totalLinked += (linked || 0);
+        console.log(`[KPI Pipeline] Batch ${i+1}: linked ${linked} (total: ${totalLinked})`);
+        if (!linked || linked === 0) break;
+        if (Date.now() - startMs > 50000) { console.log(`[KPI Pipeline] Time limit, pausing link`); break; }
+      }
+      console.log(`[KPI Pipeline] Total linked: ${totalLinked}`);
+    }
+
+    // Step 1: Chunk into 14-day windows to avoid statement timeout
     const chunks = getMonthChunks(effectiveStart, effectiveEnd);
     let totalUpserted = 0;
     const errors: string[] = [];
