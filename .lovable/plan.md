@@ -1,83 +1,79 @@
 
 
-## Hai che do sync BigQuery: Manual (Full) va Tu dong (Incremental)
+## Fix Order Items Sync: UUID Mismatch
 
-### Tong quan
+### Van de
 
-| Che do | Khi nao | Cach chay | Date filter |
-|--------|---------|-----------|-------------|
-| **Manual (Full Backfill)** | Lan dau, hoac khi can re-sync toan bo | Admin bam nut tren UI | Khong co `date_from` - scan full |
-| **Tu dong (Daily Incremental)** | Moi ngay 8h sang | Cron job tu dong | `date_from` = 2 ngay truoc |
+| Field | Expected | Actual |
+|-------|----------|--------|
+| `cdp_order_items.order_id` | UUID (e.g. `7decfad1-ce45-...`) | String (e.g. `"HD123456"`) |
 
-### Nhung gi da co
-
-- `backfill-bigquery`: Function chinh, da ho tro `date_from` trong options, da fix upsert/date filter o buoc truoc
-- `scheduled-bigquery-sync`: Function CU, sai config (target `external_orders`, dataset `menstaysimplicity_shopee`) - **KHONG dung duoc, can xoa**
-- Admin UI tai `/admin/bigquery-backfill`: Giao dien manual backfill da hoat dong
-
-### Can lam
-
-#### 1. Tao Edge Function `daily-bigquery-sync`
-
-Orchestrator moi, goi `backfill-bigquery` lien tiep cho tung model type:
-
+Code hien tai (dong 1138):
 ```text
-daily-bigquery-sync (cron 8h AM)
-  |
-  +-> backfill-bigquery(products, date_from=2d ago)
-  +-> backfill-bigquery(customers, date_from=2d ago)  
-  +-> backfill-bigquery(orders, date_from=2d ago)
-  +-> backfill-bigquery(order_items, date_from=2d ago)
-  +-> RPC: update_order_items_cogs()
-  +-> backfill-bigquery(payments, date_from=2d ago)
-  +-> backfill-bigquery(fulfillments, date_from=2d ago)
-  +-> backfill-bigquery(refunds, date_from=2d ago)
-  +-> backfill-bigquery(ad_spend, date_from=2d ago)
-  +-> backfill-bigquery(campaigns, date_from=2d ago)
+order_id: orderKey  // "HD123456" → PostgreSQL reject vi khong phai UUID
 ```
 
-Logic:
-- Tinh `date_from` = today - 2 ngay (lookback window)
-- Goi tung model type theo thu tu dependency
-- Sau order_items, goi `update_order_items_cogs()` de cap nhat gia von
-- Log ket qua tung buoc va tong thoi gian
-- Neu mot model fail, tiep tuc model tiep theo (khong dung lai)
+Ket qua: Moi batch upsert deu that bai, `inserted: 0`, nhung job van danh dau `completed` vi error chi duoc `console.error` ma khong throw.
 
-#### 2. Thiet lap Cron Job
+### Giai phap
 
-Dung `pg_cron` + `pg_net` de goi function moi ngay:
+Truoc khi upsert vao `cdp_order_items`, can lookup UUID cua order tu bang `cdp_orders` dua tren `order_key` + `channel`.
 
 ```text
-Schedule: '0 1 * * *'  (1:00 AM UTC = 8:00 AM Vietnam)
-Target: POST /functions/v1/daily-bigquery-sync
-Tenant: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+BigQuery rows (order_key: "HD123456", channel: "kiotviet")
+    |
+    v
+Lookup: cdp_orders WHERE order_key = "HD123456" AND channel = "kiotviet"
+    |
+    v
+Get: id = "7decfad1-ce45-4f04-..."
+    |
+    v
+Insert: cdp_order_items.order_id = "7decfad1-ce45-4f04-..."
 ```
-
-#### 3. Xoa function cu `scheduled-bigquery-sync`
-
-Function nay dung config sai, khong tuong thich voi kien truc hien tai. Can xoa de tranh nham lan.
 
 ### Chi tiet ky thuat
 
-#### File tao moi: `supabase/functions/daily-bigquery-sync/index.ts`
+#### 1. Sua `syncOrderItems()` trong `backfill-bigquery/index.ts`
 
-- Su dung `SUPABASE_SERVICE_ROLE_KEY` de goi `backfill-bigquery` noi bo
-- Moi model type duoc goi voi `action: 'start'` va `options.date_from`
-- Timeout-safe: moi model chay doc lap, khong bi anh huong boi model khac
-- Ket qua duoc log va tra ve trong response
+**Thay doi chinh (dong 1126-1156):**
 
-#### Migration SQL: Tao cron job
+- Sau khi fetch batch rows tu BigQuery, thu thap tat ca `orderKey` unique trong batch
+- Query `cdp_orders` de lay map `{channel+order_key → uuid}`
+- Chi tao order items cho nhung order da ton tai trong `cdp_orders`
+- Bo qua (skip) nhung item ma order chua duoc sync (log warning)
 
-- Enable `pg_cron` va `pg_net` extensions (neu chua co)
-- Tao schedule goi `daily-bigquery-sync` luc 1:00 AM UTC
+Logic moi:
 
-#### Xoa: `supabase/functions/scheduled-bigquery-sync/`
+```text
+1. Fetch batch tu BigQuery (500 rows)
+2. Extract unique orderKeys tu batch
+3. Query: SELECT id, order_key FROM cdp_orders 
+   WHERE tenant_id = X AND channel = Y AND order_key IN (...)
+4. Build map: orderKeyToUuid = { "HD123456": "7decfad1-..." }
+5. Transform rows:
+   - order_id = orderKeyToUuid[orderKey]  // UUID thay vi string
+   - Skip neu khong tim thay order (orphan item)
+6. Upsert vao cdp_order_items
+```
 
-- Function cu voi config sai, thay the bang `daily-bigquery-sync`
+#### 2. Xu ly loi tot hon
 
-### Ket qua
+Hien tai khi upsert fail, code chi `console.error` va tiep tuc. Can:
+- Dem so items bi skip (orphan - khong co order tuong ung)
+- Log ro so luong: inserted / skipped / failed
+- Bao cao trong metadata cua job
 
-- **Lan dau**: Admin vao UI, bam "Start Backfill" cho tung model - keo full data
-- **Hang ngay**: Cron tu dong chay luc 8h sang, chi keo 2 ngay gan nhat
-- **Data cu**: Khong bi anh huong, chi update nhung record thay doi trong 2 ngay lookback
+#### 3. Khong thay doi gi khac
+
+- Schema `cdp_order_items` giu nguyen
+- Unique constraint `(tenant_id, order_id, sku)` van hoat dong binh thuong
+- COGS update sau sync van dung
+- Daily sync orchestrator khong can thay doi
+
+### Kiem tra sau fix
+
+- Chay lai backfill order_items cho 1 source nho (vd: TikTok)
+- Verify `cdp_order_items` co data (count > 0)
+- Verify `order_id` la UUID hop le, match voi `cdp_orders.id`
 
