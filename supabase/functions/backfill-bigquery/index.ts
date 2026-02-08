@@ -1927,19 +1927,22 @@ async function getOrCreateJob(
   sourceTable: string
 ): Promise<any> {
   // Check for existing pending/running job
-  const { data: existingJob } = await supabase
+  // IMPORTANT: Use .limit(1) instead of .single() to avoid error when multiple jobs exist
+  const { data: existingJobs } = await supabase
     .from('bigquery_backfill_jobs')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('model_type', modelType)
     .in('status', ['pending', 'running'])
-    .single();
+    .order('created_at', { ascending: true })
+    .limit(1);
   
-  if (existingJob) {
-    return existingJob;
+  if (existingJobs && existingJobs.length > 0) {
+    console.log(`Reusing existing job ${existingJobs[0].id} for ${modelType} (status: ${existingJobs[0].status})`);
+    return existingJobs[0];
   }
   
-  // Create new job
+  // Create new job only if none exists
   const { data: newJob, error } = await supabase
     .from('bigquery_backfill_jobs')
     .insert({
@@ -1955,6 +1958,7 @@ async function getOrCreateJob(
     throw new Error(`Failed to create job: ${error.message}`);
   }
   
+  console.log(`Created new job ${newJob.id} for ${modelType}`);
   return newJob;
 }
 
