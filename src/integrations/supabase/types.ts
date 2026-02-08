@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      _cogs_precomputed: {
+        Row: {
+          order_id: string
+          total_cogs: number
+        }
+        Insert: {
+          order_id: string
+          total_cogs: number
+        }
+        Update: {
+          order_id?: string
+          total_cogs?: number
+        }
+        Relationships: []
+      }
       ad_spend_daily: {
         Row: {
           ad_id: string | null
