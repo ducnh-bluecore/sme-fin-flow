@@ -62,28 +62,33 @@ export interface FeeSummary {
 
 // ==================== ALL REVENUE SOURCES ====================
 
+export interface AllRevenueSummaryRow {
+  source: string;
+  channel: string;
+  total_orders: number;
+  gross_revenue: number;
+  net_revenue: number;
+  cogs: number;
+  gross_profit: number;
+  avg_order_value: number;
+}
+
 export function useAllRevenueData() {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['all-revenue-data', tenantId],
     queryFn: async () => {
-      // Fetch all revenue sources in parallel using useTenantQueryBuilder
-      const [ordersRes, invoicesRes, revenuesRes] = await Promise.all([
-        buildSelectQuery('cdp_orders', 'id, channel, order_at, gross_revenue, net_revenue, cogs, gross_margin')
-          .limit(50000),
-        buildSelectQuery('invoices', 'id, invoice_number, customer_id, issue_date, total_amount, paid_amount, status')
-          .in('status', ['sent', 'paid', 'partial'])
-          .limit(50000),
-        buildSelectQuery('revenues', 'id, description, source, amount, start_date, is_active')
-          .eq('is_active', true),
-      ]);
+      // DB-First: Query pre-aggregated view (~10-15 rows instead of 50k+)
+      const { data, error } = await buildSelectQuery('v_all_revenue_summary', '*');
+      if (error) throw error;
 
-      return {
-        externalOrders: ordersRes.data || [],
-        invoices: invoicesRes.data || [],
-        revenues: revenuesRes.data || [],
-      };
+      const rows = (data || []) as unknown as AllRevenueSummaryRow[];
+      const ecommerce = rows.filter(r => r.source === 'ecommerce');
+      const invoices = rows.filter(r => r.source === 'invoice');
+      const revenues = rows.filter(r => r.source === 'revenue');
+
+      return { ecommerce, invoices, revenues, allRows: rows };
     },
     enabled: !!tenantId && isReady,
     staleTime: 60000,
@@ -98,107 +103,28 @@ export function useChannelPerformance() {
   return useQuery({
     queryKey: ['channel-performance', tenantId],
     queryFn: async () => {
-      // DB-First: Try the new aggregated view first (avoids 1000 row limit)
-      const { data: viewData, error: viewError } = await buildSelectQuery('v_channel_performance', '*');
+      // DB-First: Use pre-aggregated view only (no fallback to raw rows)
+      const { data, error } = await buildSelectQuery('v_channel_performance', '*');
+      if (error) throw error;
 
-      if (!viewError && viewData && viewData.length > 0) {
-        return viewData.map(item => ({
-          connector_name: (item as any).channel || 'Unknown',
-          connector_type: (item as any).channel || 'unknown',
-          shop_name: null,
-          integration_id: '',
-          total_orders: Number((item as any).order_count) || 0,
-          gross_revenue: Number((item as any).gross_revenue) || 0,
-          net_revenue: Number((item as any).net_revenue) || 0,
-          total_fees: Number((item as any).total_fees) || 0,
-          total_cogs: Number((item as any).cogs) || 0,
-          gross_profit: Number((item as any).gross_margin) || 0,
-          avg_order_value: Number((item as any).order_count) > 0 
-            ? Number((item as any).net_revenue) / Number((item as any).order_count) 
-            : 0,
-          cancelled_orders: 0,
-          returned_orders: 0,
-          source: 'ecommerce' as const,
-        })) as ChannelPerformance[];
-      }
-
-      // Fallback: Calculate from raw data
-      const [integrationsRes, ordersRes, feesRes] = await Promise.all([
-        buildSelectQuery('connector_integrations', 'id, connector_name, connector_type, shop_name'),
-        buildSelectQuery('cdp_orders', 'channel, gross_revenue, cogs'),
-        buildSelectQuery('channel_fees', 'integration_id, amount'),
-      ]);
-
-      const integrations = integrationsRes.data || [];
-      const orders = ordersRes.data || [];
-      const fees = feesRes.data || [];
-
-      // Group data by integration
-      const performanceMap = new Map<string, ChannelPerformance>();
-
-      integrations.forEach((integration: any) => {
-        performanceMap.set(integration.id, {
-          connector_name: integration.connector_name,
-          connector_type: integration.connector_type,
-          shop_name: integration.shop_name,
-          integration_id: integration.id,
-          total_orders: 0,
-          gross_revenue: 0,
-          net_revenue: 0,
-          total_fees: 0,
-          total_cogs: 0,
-          gross_profit: 0,
-          avg_order_value: 0,
-          cancelled_orders: 0,
-          returned_orders: 0,
-          source: 'ecommerce' as const,
-        });
-      });
-
-      // Aggregate orders by channel
-      const channelPerfMap = new Map<string, ChannelPerformance>();
-      
-      orders.forEach((order: any) => {
-        const channel = order.channel || 'Unknown';
-        const existing = channelPerfMap.get(channel) || {
-          connector_name: channel,
-          connector_type: channel.toLowerCase(),
-          shop_name: null,
-          integration_id: channel,
-          total_orders: 0,
-          gross_revenue: 0,
-          net_revenue: 0,
-          total_fees: 0,
-          total_cogs: 0,
-          gross_profit: 0,
-          avg_order_value: 0,
-          cancelled_orders: 0,
-          returned_orders: 0,
-          source: 'ecommerce' as const,
-        };
-        
-        existing.total_orders++;
-        existing.gross_revenue += Number(order.gross_revenue) || 0;
-        existing.total_cogs += Number(order.cogs) || 0;
-        
-        channelPerfMap.set(channel, existing);
-      });
-
-      // Calculate net revenue and profit for each channel
-      channelPerfMap.forEach(perf => {
-        perf.net_revenue = perf.gross_revenue - perf.total_fees;
-        perf.gross_profit = perf.net_revenue - perf.total_cogs;
-        perf.avg_order_value = perf.total_orders > 0 ? perf.gross_revenue / perf.total_orders : 0;
-      });
-
-      // Merge with integration-based performance
-      performanceMap.forEach((perf, key) => {
-        if (!channelPerfMap.has(key)) {
-          channelPerfMap.set(key, perf);
-        }
-      });
-
-      return Array.from(channelPerfMap.values());
+      return (data || []).map((item: any) => ({
+        connector_name: item.channel || 'Unknown',
+        connector_type: (item.channel || 'unknown').toLowerCase(),
+        shop_name: null,
+        integration_id: '',
+        total_orders: Number(item.order_count) || 0,
+        gross_revenue: Number(item.gross_revenue) || 0,
+        net_revenue: Number(item.net_revenue) || 0,
+        total_fees: Number(item.total_fees) || 0,
+        total_cogs: Number(item.cogs) || 0,
+        gross_profit: Number(item.gross_margin) || 0,
+        avg_order_value: Number(item.order_count) > 0 
+          ? Number(item.net_revenue) / Number(item.order_count) 
+          : 0,
+        cancelled_orders: 0,
+        returned_orders: 0,
+        source: 'ecommerce' as const,
+      })) as ChannelPerformance[];
     },
     enabled: !!tenantId && isReady,
     staleTime: 60000,
@@ -217,47 +143,26 @@ export function useDailyChannelRevenue(days: number = 90) {
       startDate.setDate(startDate.getDate() - days);
       const startDateStr = startDate.toISOString().split('T')[0];
 
-      // Use cdp_orders (SSOT)
-      const { data: orders, error } = await buildSelectQuery(
-        'cdp_orders', 
-        'order_at, channel, gross_revenue, net_revenue, gross_margin'
+      // DB-First: Use pre-aggregated daily view (max ~450 rows instead of ALL raw orders)
+      const { data, error } = await buildSelectQuery(
+        'v_channel_daily_revenue',
+        'channel, revenue_date, order_count, gross_revenue, net_revenue, cogs, gross_margin'
       )
-        .gte('order_at', startDateStr)
-        .order('order_at', { ascending: true });
+        .gte('revenue_date', startDateStr)
+        .order('revenue_date', { ascending: true });
 
       if (error) throw error;
 
-      // Group by date and channel
-      const dailyMap = new Map<string, DailyRevenue>();
-
-      (orders || []).forEach((order: any) => {
-        const dateStr = order.order_at?.split('T')[0] || '';
-        const channel = order.channel || 'Unknown';
-        const key = `${dateStr}_${channel}`;
-
-        const existing = dailyMap.get(key) || {
-          order_date: dateStr,
-          channel,
-          order_count: 0,
-          gross_revenue: 0,
-          net_revenue: 0,
-          platform_fees: 0,
-          profit: 0,
-          source: 'ecommerce' as const,
-        };
-
-        existing.order_count++;
-        existing.gross_revenue += Number(order.gross_revenue) || 0;
-        existing.net_revenue += Number(order.net_revenue) || 0;
-        existing.platform_fees += 0;
-        existing.profit += Number(order.gross_margin) || 0;
-
-        dailyMap.set(key, existing);
-      });
-
-      return Array.from(dailyMap.values()).sort((a, b) => 
-        a.order_date.localeCompare(b.order_date)
-      );
+      return (data || []).map((row: any) => ({
+        order_date: row.revenue_date,
+        channel: row.channel || 'Unknown',
+        order_count: Number(row.order_count) || 0,
+        gross_revenue: Number(row.gross_revenue) || 0,
+        net_revenue: Number(row.net_revenue) || 0,
+        platform_fees: 0,
+        profit: Number(row.gross_margin) || 0,
+        source: 'ecommerce' as const,
+      })) as DailyRevenue[];
     },
     enabled: !!tenantId && isReady,
     staleTime: 60000,
@@ -272,20 +177,14 @@ export function useOrderStatusSummary() {
   return useQuery({
     queryKey: ['order-status-summary', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('cdp_orders', 'gross_revenue');
+      // DB-First: Use pre-aggregated view (1-2 rows instead of 1.1M)
+      const { data, error } = await buildSelectQuery('v_order_status_summary', '*');
       if (error) throw error;
 
-      // cdp_orders contains only delivered/confirmed orders
-      const statusMap = new Map<string, { count: number; total_amount: number }>();
-      const totalAmount = (data || []).reduce((sum, o: any) => sum + (Number(o.gross_revenue) || 0), 0);
-      statusMap.set('delivered', {
-        count: (data || []).length,
-        total_amount: totalAmount,
-      });
-
-      return Array.from(statusMap.entries()).map(([status, data]) => ({
-        status,
-        ...data,
+      return (data || []).map((row: any) => ({
+        status: row.status,
+        count: Number(row.order_count) || 0,
+        total_amount: Number(row.total_amount) || 0,
       })) as OrderStatusSummary[];
     },
     enabled: !!tenantId && isReady,
@@ -300,18 +199,13 @@ export function useChannelFeesSummary() {
   return useQuery({
     queryKey: ['channel-fees-summary', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('channel_fees', 'fee_type, fee_category, amount');
+      // DB-First: Use pre-aggregated view (5-10 rows instead of ALL fees)
+      const { data, error } = await buildSelectQuery('v_channel_fees_summary', '*');
       if (error) throw error;
 
-      const feeMap = new Map<string, number>();
-      (data || []).forEach((fee: any) => {
-        const type = fee.fee_type || 'other';
-        feeMap.set(type, (feeMap.get(type) || 0) + (fee.amount || 0));
-      });
-
-      return Array.from(feeMap.entries()).map(([type, amount]) => ({
-        fee_type: type,
-        amount,
+      return (data || []).map((row: any) => ({
+        fee_type: row.fee_type,
+        amount: Number(row.total_amount) || 0,
       })) as FeeSummary[];
     },
     enabled: !!tenantId && isReady,
@@ -453,47 +347,49 @@ export function useChannelAnalyticsData() {
   // Combine all channel performance data including invoices and revenues
   const combinedPerformance: ChannelPerformance[] = [...(channelPerformance.data || [])];
 
-  // Add Invoice channel
+  // Add Invoice channel (now from pre-aggregated view)
   if (allRevenue.data?.invoices && allRevenue.data.invoices.length > 0) {
-    const invoices = allRevenue.data.invoices;
-    const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0);
-    const paidAmount = invoices.reduce((sum: number, inv: any) => sum + (inv.paid_amount || 0), 0);
+    const invoiceRows = allRevenue.data.invoices;
+    const totalRevenue = invoiceRows.reduce((sum: number, r) => sum + Number(r.gross_revenue || 0), 0);
+    const paidAmount = invoiceRows.reduce((sum: number, r) => sum + Number(r.net_revenue || 0), 0);
+    const totalOrders = invoiceRows.reduce((sum: number, r) => sum + Number(r.total_orders || 0), 0);
     
     combinedPerformance.push({
       connector_name: 'Hóa đơn B2B',
       connector_type: 'invoice',
       shop_name: null,
       integration_id: 'invoice',
-      total_orders: invoices.length,
+      total_orders: totalOrders,
       gross_revenue: totalRevenue,
       net_revenue: paidAmount,
       total_fees: 0,
       total_cogs: 0,
       gross_profit: paidAmount,
-      avg_order_value: invoices.length > 0 ? totalRevenue / invoices.length : 0,
+      avg_order_value: totalOrders > 0 ? totalRevenue / totalOrders : 0,
       cancelled_orders: 0,
       returned_orders: 0,
       source: 'invoice',
     });
   }
 
-  // Add Other Revenue channel
+  // Add Other Revenue channel (now from pre-aggregated view)
   if (allRevenue.data?.revenues && allRevenue.data.revenues.length > 0) {
-    const revenues = allRevenue.data.revenues;
-    const totalRevenue = revenues.reduce((sum: number, rev: any) => sum + (rev.amount || 0), 0);
+    const revenueRows = allRevenue.data.revenues;
+    const totalRevenue = revenueRows.reduce((sum: number, r) => sum + Number(r.gross_revenue || 0), 0);
+    const totalOrders = revenueRows.reduce((sum: number, r) => sum + Number(r.total_orders || 0), 0);
     
     combinedPerformance.push({
       connector_name: 'Doanh thu khác',
       connector_type: 'revenue',
       shop_name: null,
       integration_id: 'revenue',
-      total_orders: revenues.length,
+      total_orders: totalOrders,
       gross_revenue: totalRevenue,
       net_revenue: totalRevenue,
       total_fees: 0,
       total_cogs: 0,
       gross_profit: totalRevenue,
-      avg_order_value: revenues.length > 0 ? totalRevenue / revenues.length : 0,
+      avg_order_value: totalOrders > 0 ? totalRevenue / totalOrders : 0,
       cancelled_orders: 0,
       returned_orders: 0,
       source: 'revenue',
