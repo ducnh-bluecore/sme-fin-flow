@@ -3,6 +3,7 @@
  * 
  * Calls backfill-bigquery for each model type with a 2-day lookback window.
  * Scheduled via pg_cron at 1:00 AM UTC (8:00 AM Vietnam).
+ * Logs run results to daily_sync_runs table for history tracking.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -37,14 +38,43 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // 2-day lookback
+  // Parse optional body for manual triggers
+  let triggeredBy = 'cron';
+  let lookbackDays = 2;
+  try {
+    const body = await req.json();
+    if (body?.triggered_by) triggeredBy = body.triggered_by;
+    if (body?.lookback_days) lookbackDays = Math.max(1, Math.min(30, body.lookback_days));
+  } catch {
+    // No body = cron trigger, use defaults
+  }
+
+  // Lookback window
   const dateFrom = new Date();
-  dateFrom.setDate(dateFrom.getDate() - 2);
+  dateFrom.setDate(dateFrom.getDate() - lookbackDays);
   const dateFromStr = dateFrom.toISOString().split('T')[0]; // YYYY-MM-DD
 
-  const results: Record<string, { success: boolean; duration_ms: number; error?: string; processed?: number }> = {};
+  // Create run log entry
+  const { data: runLog } = await supabase
+    .from('daily_sync_runs')
+    .insert({
+      tenant_id: TENANT_ID,
+      run_type: triggeredBy === 'manual' ? 'manual_full' : 'daily_incremental',
+      status: 'running',
+      date_from: dateFromStr,
+      total_models: SYNC_SEQUENCE.length,
+      triggered_by: triggeredBy,
+      started_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
 
-  console.log(`[daily-sync] Starting incremental sync with date_from=${dateFromStr}`);
+  const runId = runLog?.id;
+
+  const results: Record<string, { success: boolean; duration_ms: number; error?: string; processed?: number }> = {};
+  let totalProcessed = 0;
+
+  console.log(`[daily-sync] Run ${runId} - Starting incremental sync with date_from=${dateFromStr} (lookback=${lookbackDays}d, trigger=${triggeredBy})`);
 
   for (const modelType of SYNC_SEQUENCE) {
     const modelStart = Date.now();
@@ -67,14 +97,16 @@ Deno.serve(async (req) => {
       }
 
       const duration = Date.now() - modelStart;
+      const processed = data?.result?.processed ?? 0;
+      totalProcessed += processed;
       results[modelType] = {
         success: data?.success ?? true,
         duration_ms: duration,
-        processed: data?.result?.processed ?? 0,
+        processed,
         error: data?.error,
       };
 
-      console.log(`[daily-sync] ${modelType} done in ${duration}ms - processed: ${data?.result?.processed ?? 0}`);
+      console.log(`[daily-sync] ${modelType} done in ${duration}ms - processed: ${processed}`);
     } catch (err) {
       const duration = Date.now() - modelStart;
       results[modelType] = {
@@ -111,18 +143,42 @@ Deno.serve(async (req) => {
   }
 
   const totalDuration = Date.now() - startTime;
+  const succeededCount = Object.values(results).filter(r => r.success).length;
   const failedCount = Object.values(results).filter(r => !r.success).length;
+  const failedModels = Object.entries(results).filter(([, r]) => !r.success).map(([k]) => k);
+
+  const status = failedCount === 0 ? 'completed' : succeededCount === 0 ? 'failed' : 'partial';
+
+  // Update run log
+  if (runId) {
+    await supabase
+      .from('daily_sync_runs')
+      .update({
+        status,
+        total_duration_ms: totalDuration,
+        succeeded_count: succeededCount,
+        failed_count: failedCount,
+        total_records_processed: totalProcessed,
+        results,
+        error_summary: failedModels.length > 0 ? `Failed: ${failedModels.join(', ')}` : null,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', runId);
+  }
 
   const summary = {
     success: failedCount === 0,
+    run_id: runId,
     date_from: dateFromStr,
     total_duration_ms: totalDuration,
     total_models: SYNC_SEQUENCE.length,
+    succeeded_count: succeededCount,
     failed_count: failedCount,
+    total_records_processed: totalProcessed,
     results,
   };
 
-  console.log(`[daily-sync] Completed in ${totalDuration}ms. Failed: ${failedCount}/${SYNC_SEQUENCE.length}`);
+  console.log(`[daily-sync] Run ${runId} completed in ${totalDuration}ms. Status: ${status}. Processed: ${totalProcessed}. Failed: ${failedCount}/${SYNC_SEQUENCE.length}`);
 
   return new Response(JSON.stringify(summary), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
