@@ -130,10 +130,11 @@ export function useCDPRFMData(rfmSegment: string | undefined) {
       const customerIds = customers.map(c => c.id);
       const customerCount = customerIds.length;
 
-      // Get total revenue from orders for these customers
+      // ARCHITECTURE: Hook → View → Table (v_cdp_orders_stats is tenant-level; 
+      // use v_audience_customer_summary for customer-level revenue)
       let orderQuery = client
-        .from('cdp_orders')
-        .select('net_revenue')
+        .from('v_audience_customer_summary' as any)
+        .select('total_net_revenue')
         .in('customer_id', customerIds);
       if (shouldAddTenantFilter) {
         orderQuery = orderQuery.eq('tenant_id', tenantId);
@@ -142,7 +143,7 @@ export function useCDPRFMData(rfmSegment: string | undefined) {
 
       let totalRevenue = 0;
       if (!orderError && orderData) {
-        totalRevenue = orderData.reduce((sum, row) => sum + (Number(row.net_revenue) || 0), 0);
+        totalRevenue = (orderData as any[]).reduce((sum, row) => sum + (Number(row.total_net_revenue) || 0), 0);
       }
 
       // Get equity data for these customers

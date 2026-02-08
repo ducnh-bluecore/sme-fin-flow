@@ -93,17 +93,17 @@ export function useRevenuePageData() {
   });
 
   // Fetch external orders for integrated revenue
+  // ARCHITECTURE: Hook → View → Table (v_revenue_channel_daily → cdp_orders)
   const externalOrdersQuery = useQuery({
     queryKey: ['cdp-orders-revenue', tenantId, start, end],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      // Use cdp_orders (SSOT) instead of external_orders
       let query = client
-        .from('cdp_orders')
-        .select('channel, gross_revenue, order_at')
-        .gte('order_at', start)
-        .lte('order_at', end);
+        .from('v_revenue_channel_daily' as any)
+        .select('channel, order_date, total_gross_revenue, order_count')
+        .gte('order_date', start)
+        .lte('order_date', end);
       
       if (shouldAddTenantFilter) {
         query = query.eq('tenant_id', tenantId);
@@ -112,13 +112,13 @@ export function useRevenuePageData() {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Map to legacy format
-      return (data || []).map(o => ({
-        integration_id: o.channel, // Use channel as pseudo-integration_id
-        total_amount: o.gross_revenue,
+      // Map aggregated view data to legacy format
+      return (data || []).map((o: any) => ({
+        integration_id: o.channel,
+        total_amount: Number(o.total_gross_revenue) || 0,
         status: 'delivered',
         channel: o.channel,
-        order_date: o.order_at,
+        order_date: o.order_date,
       })) as ExternalOrder[];
     },
     enabled: !!tenantId && isReady,

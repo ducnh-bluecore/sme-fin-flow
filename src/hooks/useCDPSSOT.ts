@@ -49,14 +49,19 @@ export function useCDPSSOT(): CDPSSOTResult {
     enabled: isReady,
   });
 
-  // ============ QUERY: Orders count (for data sufficiency check) ============
+  // ============ QUERY: Orders count (via View) ============
+  // ARCHITECTURE: Hook → View → Table (v_cdp_orders_stats → cdp_orders)
   const ordersQuery = useQuery({
     queryKey: ['cdp-ssot-orders-count', tenantId],
     queryFn: async () => {
       if (!tenantId) return { count: 0 };
-      const countResult = await client.from('cdp_orders').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId);
-      if (countResult.error) throw countResult.error;
-      return { count: countResult.count || 0 };
+      const { data, error } = await client
+        .from('v_cdp_orders_stats' as any)
+        .select('order_count')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (error) throw error;
+      return { count: Number((data as any)?.order_count) || 0 };
     },
     enabled: isReady,
   });
