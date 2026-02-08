@@ -1062,6 +1062,7 @@ async function syncOrderItems(
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
   let totalProcessed = 0;
   let inserted = 0;
+  let skipped = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
   // Filter to specific source if provided, otherwise all
@@ -1123,19 +1124,49 @@ async function syncOrderItems(
           break;
         }
         
-        // Transform and upsert (unique constraint on tenant_id, order_id, sku)
-        // COGS is NOT set here - it will be calculated via UPDATE JOIN with products table after all upserts
-        const orderItems = rows.map(row => {
+        // Step 1: Collect unique order keys from this batch
+        const batchOrderKeys = [...new Set(rows.map(row => String(row[source.mapping.order_key])))];
+        
+        // Step 2: Lookup UUIDs from cdp_orders for these order keys
+        // Query in chunks of 200 to avoid URL length limits
+        const orderKeyToUuid: Record<string, string> = {};
+        for (let i = 0; i < batchOrderKeys.length; i += 200) {
+          const chunk = batchOrderKeys.slice(i, i + 200);
+          const { data: orderRows, error: lookupError } = await supabase
+            .from('cdp_orders')
+            .select('id, order_key')
+            .eq('tenant_id', tenantId)
+            .eq('channel', source.channel)
+            .in('order_key', chunk);
+          
+          if (lookupError) {
+            console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
+          } else if (orderRows) {
+            for (const o of orderRows) {
+              orderKeyToUuid[o.order_key] = o.id;
+            }
+          }
+        }
+        
+        // Step 3: Transform rows, skip orphans (orders not yet in cdp_orders)
+        let batchSkipped = 0;
+        const orderItems = [];
+        for (const row of rows) {
+          const orderKey = String(row[source.mapping.order_key]);
+          const resolvedOrderId = orderKeyToUuid[orderKey];
+          
+          if (!resolvedOrderId) {
+            batchSkipped++;
+            continue; // Skip orphan items
+          }
+          
           const qty = source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1;
           const lineRevenue = parseFloat(row[source.mapping.total] || '0');
           
-          // Build order_id from source channel + order_key
-          const orderKey = String(row[source.mapping.order_key]);
-          
-          return {
+          orderItems.push({
             tenant_id: tenantId,
             integration_id: integrationId,
-            order_id: orderKey,
+            order_id: resolvedOrderId, // UUID from cdp_orders
             product_id: String(row[source.mapping.item_id] || ''),
             sku: row[source.mapping.sku] || `unknown_${row[source.mapping.item_id]}`,
             product_name: row[source.mapping.name],
@@ -1148,18 +1179,28 @@ async function syncOrderItems(
               source_channel: source.channel,
               source_order_key: orderKey,
             },
-          };
-        });
+          });
+        }
         
-        const { error, count } = await supabase
-          .from('cdp_order_items')
-          .upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
-          .select('id');
+        skipped += batchSkipped;
+        if (batchSkipped > 0) {
+          console.warn(`[order_items/${source.channel}] Skipped ${batchSkipped} orphan items (no matching order in cdp_orders)`);
+        }
         
-        if (error) {
-          console.error('Order item upsert error:', error);
+        // Step 4: Upsert only valid items
+        if (orderItems.length > 0) {
+          const { error, count } = await supabase
+            .from('cdp_order_items')
+            .upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
+            .select('id');
+          
+          if (error) {
+            console.error('Order item upsert error:', error);
+          } else {
+            inserted += count || orderItems.length;
+          }
         } else {
-          inserted += count || orderItems.length;
+          console.warn(`[order_items/${source.channel}] Batch at offset ${offset}: all ${rows.length} items skipped (no matching orders)`);
         }
         
         sourceProcessed += rows.length;
@@ -1222,7 +1263,8 @@ async function syncOrderItems(
     }
   }
   
-  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+  console.log(`[order_items] Summary: processed=${totalProcessed}, inserted=${inserted}, skipped=${skipped}`);
+  return { processed: totalProcessed, inserted, skipped, sources: sourceResults, paused: paused || undefined };
 }
 
 // ============= Refunds Sync =============
