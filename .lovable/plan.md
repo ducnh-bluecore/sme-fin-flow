@@ -1,57 +1,72 @@
 
 
-## Gom `inventory_snapshots` vao chung model `inventory`
+## Fix Customer Deduplication Logic
 
-### Y tuong
+### Van de hien tai
 
-Thay vi tach 2 model type rieng biet (`inventory` va `inventory_snapshots`), gom tat ca vao 1 model `inventory` duy nhat. Khi chay backfill inventory, he thong se tu dong sync **ca 2 loai**:
-1. `inventory_movements` (KiotViet - xuat nhap ton daily)
-2. `inventory_snapshots` (Lazada, Shopee, TikTok, Tiki - ton kho hien tai)
+Customer merge rate chi 0.4% (1 record merge) thay vi muc tieu 20-30%. Nguyen nhan:
+- KiotViet (217K): canonical_key = phone (0xxx...)
+- Haravan (55K): canonical_key = email (khong co phone)
+- 2 nguon dung 2 loai key khac nhau nen KHONG BAO GIO match
 
-### Thay doi
+### Giai phap: Two-Pass Dedup
 
-#### 1. Edge Function (`backfill-bigquery/index.ts`)
+#### Buoc 1: Sua logic trong Edge Function `backfill-bigquery/index.ts`
 
-- **Xoa** case `inventory_snapshots` rieng trong switch handler
-- **Gop** logic `syncInventorySnapshots` vao cuoi ham `syncInventory`:
-  - Sau khi sync xong `INVENTORY_SOURCES` (KiotViet movements), tiep tuc sync `INVENTORY_SNAPSHOT_SOURCES` (marketplace snapshots) trong cung 1 job
-  - Tat ca sources (ca movements va snapshots) deu duoc track trong `backfill_source_progress` cua cung job_id
-  - Logic pause/resume van hoat dong binh thuong vi moi source co progress rieng
+Thay doi ham `syncCustomers` de thuc hien dedup 2 vong:
+
+**Vong 1 (giu nguyen):** Upsert theo `canonical_key = phone || email` — tao profile co ban.
+
+**Vong 2 (moi):** Sau khi upsert xong tat ca sources, chay merge query:
+- Tim cac cap customer co cung email nhung khac canonical_key (1 ben la phone, 1 ben la email)
+- Merge: gop external_ids, giu phone tu KiotViet, giu email tu Haravan, lay earliest created_at
+- Xoa record trung (giu record co phone lam master)
+
+Logic merge SQL (chay cuoi ham syncCustomers):
 
 ```text
-syncInventory() {
-  // Phase 1: Sync INVENTORY_SOURCES (KiotViet movements) -> inventory_movements
-  for (source of INVENTORY_SOURCES) { ... }
-  
-  // Phase 2: Sync INVENTORY_SNAPSHOT_SOURCES (marketplace) -> inventory_snapshots  
-  for (source of INVENTORY_SNAPSHOT_SOURCES) { ... }
-  
-  // Return combined results
-}
+-- Tim cap trung lap: customer A co phone, customer B co email giong A.email
+-- Merge B vao A: 
+--   A.external_ids = A.external_ids || B.external_ids
+--   A.email = COALESCE(A.email, B.email)
+-- Xoa B
 ```
 
-#### 2. UI - Xoa `inventory_snapshots` khoi danh sach
+#### Buoc 2: Tao database function `merge_duplicate_customers`
 
-- **`src/hooks/useBigQueryBackfill.ts`**: Xoa `inventory_snapshots` khoi `BackfillModelType`, `MODEL_TYPE_LABELS`, `MODEL_TYPE_ICONS`
-- **`src/pages/admin/BigQueryBackfill.tsx`**: Xoa `inventory_snapshots` khoi `MODEL_TYPES` array
-- Cap nhat label `inventory` thanh "Inventory (All Channels)" de the hien no bao gom ca movements va snapshots
+Tao stored function de thuc hien merge an toan:
 
-#### 3. Uu diem
+```text
+merge_duplicate_customers(p_tenant_id uuid)
+  1. Tim tat ca customers co email NOT NULL
+  2. Group by normalized email
+  3. Voi moi group > 1 record:
+     - Chon master = record co phone NOT NULL (uu tien kiotviet)
+     - Merge external_ids tu tat ca records vao master
+     - Cap nhat cdp_orders.customer_id tro ve master
+     - Xoa cac duplicate records
+  4. Return so luong merged
+```
 
-- 1 nut bam duy nhat de sync toan bo ton kho
-- Source progress van hien thi chi tiet tung source (kiotviet, lazada, shopee, tiktok, tiki)
-- Nguoi dung khong can biet su khac biet giua movements va snapshots
-- Dam bao tinh nhat quan: moi lan sync inventory la sync **day du** tat ca kenh
+#### Buoc 3: Cap nhat `useBigQueryBackfill.ts`
 
-### Chi tiet ky thuat
+Khong can thay doi type hay UI — logic merge chay tu dong trong syncCustomers.
 
-**Files thay doi:**
-- `supabase/functions/backfill-bigquery/index.ts`: Gop snapshot sync vao cuoi `syncInventory()`, xoa `case 'inventory_snapshots'`
-- `src/hooks/useBigQueryBackfill.ts`: Xoa type, labels, icons cua `inventory_snapshots`; update label inventory
-- `src/pages/admin/BigQueryBackfill.tsx`: Xoa `inventory_snapshots` khoi MODEL_TYPES
+### Files thay doi
 
-**Logic merge trong `syncInventory`:**
-- Sau vong lap `INVENTORY_SOURCES`, them vong lap `INVENTORY_SNAPSHOT_SOURCES`
-- Moi snapshot source: count records, init progress, fetch chunks, upsert vao `inventory_snapshots` (giu nguyen logic hien tai cua `syncInventorySnapshots`)
-- Tat ca source results gop chung vao 1 mang `sourceResults`
+1. **`supabase/functions/backfill-bigquery/index.ts`**: Them Phase 2 merge logic sau khi upsert xong tat ca customer sources
+2. **Migration SQL**: Tao function `merge_duplicate_customers(uuid)` trong database
+
+### Ket qua ky vong
+
+- KiotViet customers co email (5,451) se match voi Haravan customers cung email
+- Merge rate tang tu 0.4% len ~5-10% (realistic vi chi 5K kiotviet co email)
+- External_ids se chua ca kiotviet + haravan source IDs
+- Khong mat du lieu — chi gop va xoa trung
+
+### Luu y
+
+- Merge chi ap dung cho customers co **cung email** giua cac nguon
+- Merge rate thuc te co the khong dat 20-30% vi kiotviet chi co 5,451 email (2.5% tong)
+- De tang merge rate cao hon, can lam sach du lieu phone cua Haravan tu BigQuery source (hien tai Haravan khong co phone)
 
