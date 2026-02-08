@@ -377,7 +377,7 @@ const FULFILLMENT_SOURCES = [
     mapping: {
       fulfillment_key: 'order_sn',
       order_key: 'order_sn',
-      tracking_number: 'tracking_no',
+      tracking_number: null,
       shipping_carrier: 'shipping_carrier',
       fulfillment_status: 'order_status',
       shipped_at: 'ship_by_date',
@@ -390,8 +390,8 @@ const FULFILLMENT_SOURCES = [
     mapping: {
       fulfillment_key: 'order_id',
       order_key: 'order_id',
-      tracking_number: 'tracking_code',
-      shipping_carrier: 'shipping_provider',
+      tracking_number: null,
+      shipping_carrier: 'delivery_info',
       fulfillment_status: 'statuses',
       shipped_at: 'updated_at',
     }
@@ -406,7 +406,33 @@ const FULFILLMENT_SOURCES = [
       tracking_number: 'tracking_number',
       shipping_carrier: 'shipping_provider',
       fulfillment_status: 'order_status',
-      shipped_at: 'shipping_due_time',
+      shipped_at: 'update_time',
+    }
+  },
+  {
+    channel: 'kiotviet',
+    dataset: 'olvboutique',
+    table: 'raw_kiotviet_Orders',
+    mapping: {
+      fulfillment_key: 'OrderId',
+      order_key: 'OrderId',
+      tracking_number: 'DeliveryCode',
+      shipping_carrier: null,
+      fulfillment_status: 'Status',
+      shipped_at: 'PurchaseDate',
+    }
+  },
+  {
+    channel: 'haravan',
+    dataset: 'olvboutique',
+    table: 'raw_hrv_Orders',
+    mapping: {
+      fulfillment_key: 'OrderId',
+      order_key: 'OrderId',
+      tracking_number: 'TrackingNumber',
+      shipping_carrier: 'ShippingCarrier',
+      fulfillment_status: 'FulfillmentStatus',
+      shipped_at: 'UpdatedAt',
     }
   },
 ];
@@ -1619,8 +1645,8 @@ async function syncFulfillments(
         paused = true;
         break;
       }
-      const uniqueColumns = [...new Set(Object.values(source.mapping))];
-      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
+      const validColumns = [...new Set(Object.values(source.mapping).filter((v): v is string => v !== null))];
+      const columns = validColumns.map(c => `\`${c}\``).join(', ');
       let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
       if (options.date_from && source.mapping.shipped_at) {
         query += ` WHERE DATE(\`${source.mapping.shipped_at}\`) >= '${options.date_from}'`;
@@ -1640,10 +1666,10 @@ async function syncFulfillments(
           fulfillment_key: `${source.channel}:${String(row[source.mapping.fulfillment_key] || '')}`,
           order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
           channel: source.channel,
-          tracking_number: row[source.mapping.tracking_number] || null,
-          shipping_carrier: row[source.mapping.shipping_carrier] || null,
-          fulfillment_status: row[source.mapping.fulfillment_status] || null,
-          shipped_at: row[source.mapping.shipped_at] || null,
+          tracking_number: source.mapping.tracking_number ? row[source.mapping.tracking_number] || null : null,
+          shipping_carrier: source.mapping.shipping_carrier ? row[source.mapping.shipping_carrier] || null : null,
+          fulfillment_status: source.mapping.fulfillment_status ? row[source.mapping.fulfillment_status] || null : null,
+          shipped_at: source.mapping.shipped_at ? row[source.mapping.shipped_at] || null : null,
         }));
 
         const { error, count } = await supabase
