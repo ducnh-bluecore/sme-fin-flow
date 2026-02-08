@@ -119,20 +119,14 @@ export function useForecastInputs() {
     staleTime: 60000,
   });
 
-  // SSOT: Query cdp_orders instead of external_orders (staging)
-  const { data: orders, isLoading: orderLoading } = useQuery({
-    queryKey: ['forecast-orders', tenantId],
+  // DB-First: Use pre-aggregated view instead of pulling 50k raw orders
+  const { data: orderStats, isLoading: orderLoading } = useQuery({
+    queryKey: ['forecast-order-stats', tenantId],
     queryFn: async () => {
-      if (!tenantId) return [];
-      const { data } = await buildSelectQuery('cdp_orders', 'id, net_revenue, order_at')
-        .limit(50000);
-      // Map to expected format
-      return (data || []).map((o: any) => ({
-        id: o.id,
-        seller_income: o.net_revenue,
-        status: 'delivered',
-        delivered_at: o.order_at
-      }));
+      if (!tenantId) return null;
+      const { data } = await buildSelectQuery('v_forecast_order_stats', '*')
+        .maybeSingle();
+      return data as any;
     },
     enabled: !!tenantId && isReady,
     staleTime: 60000,
@@ -220,17 +214,9 @@ export function useForecastInputs() {
     
     const monthlyExpenses = Array.from(expensesByType.values()).reduce((sum, amt) => sum + amt, 0);
 
-    // Pending settlements
-    const fourteenDaysAgo = new Date(today);
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-    
-    const pendingSettlements = ((orders || []) as any[])
-      .filter(o => o.delivered_at && new Date(o.delivered_at) > fourteenDaysAgo)
-      .reduce((sum, o) => sum + (o.seller_income || 0), 0);
-
-    // Calculate average daily order revenue from cdp_orders
-    const totalOrderRevenue = ((orders || []) as any[]).reduce((sum, o) => sum + (o.seller_income || 0), 0);
-    const avgDailyOrderRevenue = (orders || []).length > 0 ? totalOrderRevenue / 90 : 0;
+    // Pending settlements & order stats from pre-aggregated view
+    const pendingSettlements = Number(orderStats?.pending_settlements) || 0;
+    const avgDailyOrderRevenue = Number(orderStats?.avg_daily_revenue) || 0;
 
     // Historical averages from RPC
     const histStats = historicalStats as any;
@@ -243,7 +229,7 @@ export function useForecastInputs() {
     const hasInvoiceData = (invoices || []).length > 0;
     const hasBillData = (bills || []).length > 0;
     const hasExpenseData = (expenses || []).length > 0;
-    const hasOrderData = (orders || []).length > 0;
+    const hasOrderData = !!orderStats && Number(orderStats.total_orders) > 0;
     const hasHistoricalData = historicalDays >= 7;
 
     const missingData: string[] = [];
@@ -280,7 +266,7 @@ export function useForecastInputs() {
       recurringExpensesMonthly: monthlyExpenses,
       expenseCount: (expenses || []).length,
       pendingSettlements,
-      orderCount: (orders || []).length,
+      orderCount: Number(orderStats?.total_orders) || 0,
       avgDailyInflow: totalCredit / historicalDays,
       avgDailyOutflow: totalDebit / historicalDays,
       historicalDays,
@@ -297,7 +283,7 @@ export function useForecastInputs() {
         dataQualityScore: score,
       },
     };
-  }, [bankAccounts, invoices, bills, expenses, orders, historicalStats]);
+  }, [bankAccounts, invoices, bills, expenses, orderStats, historicalStats]);
 
   const isLoading = tenantLoading || bankLoading || invoiceLoading || billLoading || expenseLoading || orderLoading || histLoading;
 

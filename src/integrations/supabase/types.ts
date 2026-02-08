@@ -31170,6 +31170,20 @@ export type Database = {
           },
         ]
       }
+      v_all_revenue_summary: {
+        Row: {
+          avg_order_value: number | null
+          channel: string | null
+          cogs: number | null
+          gross_profit: number | null
+          gross_revenue: number | null
+          net_revenue: number | null
+          source: string | null
+          tenant_id: string | null
+          total_orders: number | null
+        }
+        Relationships: []
+      }
       v_ar_aging_buckets: {
         Row: {
           aging_bucket: string | null
@@ -35244,6 +35258,47 @@ export type Database = {
           },
           {
             foreignKeyName: "central_metrics_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_forecast_order_stats: {
+        Row: {
+          avg_daily_revenue: number | null
+          max_date: string | null
+          min_date: string | null
+          pending_settlements: number | null
+          tenant_id: string | null
+          total_net_revenue: number | null
+          total_orders: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_orders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
