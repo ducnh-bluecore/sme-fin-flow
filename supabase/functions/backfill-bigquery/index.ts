@@ -1973,6 +1973,23 @@ async function updateJobStatus(
     .eq('id', jobId);
 }
 
+// ============= Job Totals from Source Progress =============
+
+async function getJobTotalsFromSources(
+  supabase: any,
+  jobId: string,
+): Promise<{ totalProcessed: number; totalRecords: number }> {
+  const { data } = await supabase
+    .from('backfill_source_progress')
+    .select('processed_records, total_records')
+    .eq('job_id', jobId);
+
+  return {
+    totalProcessed: data?.reduce((s: number, r: any) => s + (r.processed_records || 0), 0) || 0,
+    totalRecords: data?.reduce((s: number, r: any) => s + (r.total_records || 0), 0) || 0,
+  };
+}
+
 // ============= Ad Spend Sync =============
 
 async function syncAdSpend(
@@ -2662,14 +2679,17 @@ serve(async (req) => {
           throw new Error(`Model type not yet implemented: ${params.model_type}`);
       }
       
-      const totalRecords = result.sources?.reduce((sum: number, s: SourceProgress) => sum + (s.total_records || 0), 0) || result.processed;
+      // Get accurate cumulative totals from source progress (source of truth)
+      const sourceTotals = await getJobTotalsFromSources(supabase, job.id);
+      const accurateProcessed = sourceTotals.totalProcessed || result.processed || 0;
+      const accurateTotalRecords = sourceTotals.totalRecords || result.sources?.reduce((sum: number, s: SourceProgress) => sum + (s.total_records || 0), 0) || result.processed;
 
       if (result?.paused) {
         // Pause before timeout: leave job in pending so it can be resumed safely.
         await updateJobStatus(supabase, job.id, {
           status: 'pending',
-          processed_records: result.processed || 0,
-          total_records: totalRecords,
+          processed_records: accurateProcessed,
+          total_records: accurateTotalRecords,
           metadata: result,
         });
 
@@ -2696,8 +2716,8 @@ serve(async (req) => {
         await updateJobStatus(supabase, job.id, {
           status: 'completed',
           completed_at: new Date().toISOString(),
-          processed_records: result.processed || 0,
-          total_records: totalRecords,
+          processed_records: accurateProcessed,
+          total_records: accurateTotalRecords,
           metadata: result,
         });
       }
