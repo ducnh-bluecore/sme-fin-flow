@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
-import { subMonths, subQuarters, subYears, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays } from 'date-fns';
+import { subMonths, subQuarters, subYears, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays, format } from 'date-fns';
 import { INDUSTRY_BENCHMARKS, THRESHOLD_LEVELS } from '@/lib/financial-constants';
 
 export interface FinancialHighlight {
@@ -363,74 +363,63 @@ async function generateFinancialHighlights(
     prevEndDate = endOfYear(subYears(now, 1));
   }
 
-  // Build queries with tenant filtering
-  const invoicesQuery = client
-    .from('invoices')
-    .select('total_amount, status, issue_date')
-    .gte('issue_date', startDate.toISOString())
-    .lte('issue_date', endDate.toISOString())
-    .eq('tenant_id', tenantId);
+  // ARCHITECTURE: Hook → View → Table (all queries via views)
+  // v_financial_monthly_summary → invoices + expenses + revenues
+  const financialSummaryQuery = client
+    .from('v_financial_monthly_summary' as any)
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('period_month', startDate.toISOString().slice(0, 10))
+    .lte('period_month', endDate.toISOString().slice(0, 10));
 
-  const prevInvoicesQuery = client
-    .from('invoices')
-    .select('total_amount, status')
-    .gte('issue_date', prevStartDate.toISOString())
-    .lte('issue_date', prevEndDate.toISOString())
-    .eq('tenant_id', tenantId);
-
-  const expensesQuery = client
-    .from('expenses')
-    .select('amount, category, expense_date')
-    .gte('expense_date', startDate.toISOString())
-    .lte('expense_date', endDate.toISOString())
-    .eq('tenant_id', tenantId);
-
-  const prevExpensesQuery = client
-    .from('expenses')
-    .select('amount')
-    .gte('expense_date', prevStartDate.toISOString())
-    .lte('expense_date', prevEndDate.toISOString())
-    .eq('tenant_id', tenantId);
+  const prevFinancialSummaryQuery = client
+    .from('v_financial_monthly_summary' as any)
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('period_month', prevStartDate.toISOString().slice(0, 10))
+    .lte('period_month', prevEndDate.toISOString().slice(0, 10));
 
   const bankAccountsQuery = client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
 
-  const transactionsQuery = client
-    .from('bank_transactions')
-    .select('amount, transaction_type, transaction_date')
-    .gte('transaction_date', startDate.toISOString())
-    .lte('transaction_date', endDate.toISOString())
-    .eq('tenant_id', tenantId);
+  // v_cash_flow_monthly → bank_transactions
+  const cashFlowQuery = client
+    .from('v_cash_flow_monthly' as any)
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .gte('period_month', startDate.toISOString().slice(0, 10))
+    .lte('period_month', endDate.toISOString().slice(0, 10));
 
   const [
-    { data: invoices },
-    { data: prevInvoices },
-    { data: expenses },
-    { data: prevExpenses },
+    { data: financialData },
+    { data: prevFinancialData },
     { data: bankAccounts },
-    { data: transactions },
+    { data: cashFlowData },
   ] = await Promise.all([
-    invoicesQuery,
-    prevInvoicesQuery,
-    expensesQuery,
-    prevExpensesQuery,
+    financialSummaryQuery,
+    prevFinancialSummaryQuery,
     bankAccountsQuery,
-    transactionsQuery,
+    cashFlowQuery,
   ]);
 
-  const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
-  const collectedRevenue = invoices?.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+  // Aggregate from monthly summary view
+  const months = (financialData || []) as any[];
+  const prevMonths = (prevFinancialData || []) as any[];
+  const cashFlows = (cashFlowData || []) as any[];
+
+  const totalRevenue = months.reduce((sum, m) => sum + (Number(m.invoice_revenue) || 0) + (Number(m.other_revenue) || 0), 0);
+  const collectedRevenue = months.reduce((sum, m) => sum + (Number(m.invoice_paid) || 0), 0);
   const uncollectedRevenue = totalRevenue - collectedRevenue;
   
-  const totalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
-  const cogs = expenses?.filter(exp => exp.category === 'cogs').reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+  const totalExpenses = months.reduce((sum, m) => sum + (Number(m.total_expense) || 0), 0);
+  const cogs = months.reduce((sum, m) => sum + (Number(m.cogs) || 0), 0);
   const opex = totalExpenses - cogs;
   
   const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
-  const cashInflows = transactions?.filter(t => t.transaction_type === 'credit').reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
-  const cashOutflows = transactions?.filter(t => t.transaction_type === 'debit').reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
+  const cashInflows = cashFlows.reduce((sum, cf) => sum + (Number(cf.total_inflow) || 0), 0);
+  const cashOutflows = cashFlows.reduce((sum, cf) => sum + (Number(cf.total_outflow) || 0), 0);
 
-  const prevRevenue = prevInvoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
-  const prevTotalExpenses = prevExpenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+  const prevRevenue = prevMonths.reduce((sum, m) => sum + (Number(m.invoice_revenue) || 0) + (Number(m.other_revenue) || 0), 0);
+  const prevTotalExpenses = prevMonths.reduce((sum, m) => sum + (Number(m.total_expense) || 0), 0);
   const prevNetIncome = prevRevenue - prevTotalExpenses;
 
   const netIncome = totalRevenue - totalExpenses;
@@ -467,12 +456,19 @@ async function generateKeyMetrics(
   startDate?: Date,
   endDate?: Date
 ): Promise<KeyMetric> {
-  // Build queries with tenant filtering
+  // Build queries with tenant filtering - using views where possible
   const kpiCacheQuery = client.from('dashboard_kpi_cache').select('*').eq('tenant_id', tenantId);
 
+  // v_invoice_key_metrics → invoices (pre-aggregated)
+  const invoiceMetricsQuery = client
+    .from('v_invoice_key_metrics' as any)
+    .select('*')
+    .eq('tenant_id', tenantId);
+
+  // v_board_report_invoices for top customers (already refactored in Batch 1)
   let invoicesQuery = client
-    .from('invoices')
-    .select('id, total_amount, status, due_date, customer_id, customers(name)')
+    .from('v_board_report_invoices' as any)
+    .select('id, total_amount, paid_amount, status, due_date, customer_id, customer_name')
     .eq('tenant_id', tenantId);
   if (startDate && endDate) {
     invoicesQuery = invoicesQuery
@@ -482,44 +478,42 @@ async function generateKeyMetrics(
 
   const customersQuery = client.from('customers').select('id, name').eq('tenant_id', tenantId);
 
-  const billsQuery = client
-    .from('bills')
-    .select('id, total_amount, paid_amount, bill_date, due_date, status')
-    .not('status', 'eq', 'cancelled')
+  // v_pending_ap → bills
+  const apQuery = client
+    .from('v_pending_ap' as any)
+    .select('outstanding')
     .eq('tenant_id', tenantId);
 
   const bankAccountsQuery = client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
 
   // Fetch all data in parallel
-  const [kpiCacheRes, invoicesRes, customersRes, billsRes, bankAccountsRes] = await Promise.all([
+  const [kpiCacheRes, invoiceMetricsRes, invoicesRes, customersRes, apRes, bankAccountsRes] = await Promise.all([
     kpiCacheQuery.single(),
+    invoiceMetricsQuery.maybeSingle(),
     invoicesQuery,
     customersQuery,
-    billsQuery,
+    apQuery,
     bankAccountsQuery,
   ]);
 
   const kpiCache = kpiCacheRes.data;
+  const invoiceMetrics = invoiceMetricsRes.data as any;
   const invoices = invoicesRes.data;
   const customers = customersRes.data;
-  const bills = billsRes.data;
+  const apItems = (apRes.data || []) as any[];
   const bankAccounts = bankAccountsRes.data;
 
   const now = new Date();
-  const invoiceCount = invoices?.length || 0;
-  const paidInvoices = invoices?.filter(inv => inv.status === 'paid') || [];
-  const overdueInvoices = invoices?.filter(inv => 
-    inv.status !== 'paid' && inv.due_date && new Date(inv.due_date) < now
-  ) || [];
+  const invoiceCount = Number(invoiceMetrics?.total_count) || invoices?.length || 0;
+  const paidCount = Number(invoiceMetrics?.paid_count) || 0;
+  const overdueCount = Number(invoiceMetrics?.overdue_count) || 0;
 
-  // Use unpaid invoices for AR (consistent with central metrics)
-  const unpaidInvoices = invoices?.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled') || [];
-  const totalAR = unpaidInvoices.reduce((sum, inv) => sum + ((inv.total_amount || 0) - 0), 0);
-  const avgInvoiceValue = invoiceCount > 0 ? (invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0) / invoiceCount : 0;
+  // Use pre-aggregated AR from view
+  const totalAR = Number(invoiceMetrics?.total_ar) || 0;
+  const avgInvoiceValue = Number(invoiceMetrics?.avg_invoice_value) || 0;
 
-  // Use unpaid bills for AP (consistent with central metrics)
-  const unpaidBills = bills?.filter(b => b.status !== 'paid') || [];
-  const totalAP = unpaidBills.reduce((sum, b) => sum + ((b.total_amount || 0) - (b.paid_amount || 0)), 0);
+  // Use v_pending_ap view for AP
+  const totalAP = apItems.reduce((sum, b) => sum + (Number(b.outstanding) || 0), 0);
 
   // Calculate ratios
   const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
@@ -528,11 +522,11 @@ async function generateKeyMetrics(
   const currentRatio = currentLiabilities > 0 ? currentAssets / currentLiabilities : 0;
   const quickRatio = currentLiabilities > 0 ? cashBalance / currentLiabilities : 0;
 
-  // Calculate top customers
+  // Top customers from v_board_report_invoices view
   const customerRevenue: Record<string, { name: string; amount: number }> = {};
-  invoices?.forEach(inv => {
+  invoices?.forEach((inv: any) => {
     const customerId = inv.customer_id;
-    const customerName = (inv.customers as { name: string })?.name || 'Unknown';
+    const customerName = inv.customer_name || 'Unknown';
     if (customerId) {
       if (!customerRevenue[customerId]) {
         customerRevenue[customerId] = { name: customerName, amount: 0 };
@@ -551,10 +545,7 @@ async function generateKeyMetrics(
       percentage: totalCustomerRevenue > 0 ? (c.amount / totalCustomerRevenue) * 100 : 0,
     }));
 
-  // Use kpiCache for all metrics - SSOT approach
-  // The dashboard_kpi_cache is populated by useCentralFinancialMetrics
-  // This ensures consistency with the rest of the application
-  
+  // Use kpiCache for key metrics + pre-aggregated invoice metrics from views
   return {
     dso: kpiCache?.dso || 0,
     dpo: kpiCache?.dpo || 0,
@@ -564,7 +555,7 @@ async function generateKeyMetrics(
     quick_ratio: Number(quickRatio.toFixed(2)),
     debt_ratio: totalAP > 0 && currentAssets > 0 ? Number((totalAP / currentAssets).toFixed(2)) : 0,
     total_ar: kpiCache?.total_ar || totalAR,
-    overdue_ar: kpiCache?.overdue_ar || 0,
+    overdue_ar: kpiCache?.overdue_ar || Number(invoiceMetrics?.overdue_ar) || 0,
     collection_rate: (kpiCache?.total_ar || totalAR) > 0 
       ? (((kpiCache?.total_ar || totalAR) - (kpiCache?.overdue_ar || 0)) / (kpiCache?.total_ar || totalAR)) * 100 
       : 100,
@@ -572,8 +563,8 @@ async function generateKeyMetrics(
       ? (kpiCache?.total_revenue || 0) / (kpiCache?.total_ar || totalAR) 
       : 0,
     invoice_count: invoiceCount,
-    paid_invoice_count: paidInvoices.length,
-    overdue_invoice_count: overdueInvoices.length,
+    paid_invoice_count: paidCount,
+    overdue_invoice_count: overdueCount,
     avg_invoice_value: avgInvoiceValue,
     customer_count: customers?.length || 0,
     top_customers: topCustomers,
@@ -719,32 +710,26 @@ async function generateCashFlowAnalysis(
   customEndDate?: Date
 ): Promise<CashFlowAnalysis> {
   const now = customEndDate || new Date();
-  const monthlyTrend: Array<{ month: string; inflow: number; outflow: number; net: number }> = [];
 
-  for (let i = 5; i >= 0; i--) {
-    const monthStart = startOfMonth(subMonths(now, i));
-    const monthEnd = endOfMonth(subMonths(now, i));
+  // ARCHITECTURE: Hook → View → Table (v_cash_flow_monthly → bank_transactions)
+  const sixMonthsAgo = subMonths(now, 6);
+  const { data: cashFlowData } = await client
+    .from('v_cash_flow_monthly' as any)
+    .select('period_month, total_inflow, total_outflow, net_flow')
+    .eq('tenant_id', tenantId)
+    .gte('period_month', format(startOfMonth(sixMonthsAgo), 'yyyy-MM-dd'))
+    .lte('period_month', format(endOfMonth(now), 'yyyy-MM-dd'))
+    .order('period_month', { ascending: true });
 
-    const { data: transactions } = await client
-      .from('bank_transactions')
-      .select('amount, transaction_type')
-      .gte('transaction_date', monthStart.toISOString())
-      .lte('transaction_date', monthEnd.toISOString())
-      .eq('tenant_id', tenantId);
+  const monthlyTrend = ((cashFlowData || []) as any[]).map((cf: any) => ({
+    month: new Date(cf.period_month).toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' }),
+    inflow: Number(cf.total_inflow) || 0,
+    outflow: Number(cf.total_outflow) || 0,
+    net: Number(cf.net_flow) || 0,
+  }));
 
-    const inflow = transactions?.filter((t: any) => t.transaction_type === 'credit').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0) || 0;
-    const outflow = transactions?.filter((t: any) => t.transaction_type === 'debit').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0) || 0;
-
-    monthlyTrend.push({
-      month: monthStart.toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' }),
-      inflow,
-      outflow,
-      net: inflow - outflow,
-    });
-  }
-
-  const recentInflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.inflow, 0) / 3;
-  const recentOutflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.outflow, 0) / 3;
+  const recentInflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.inflow, 0) / Math.max(monthlyTrend.slice(-3).length, 1);
+  const recentOutflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.outflow, 0) / Math.max(monthlyTrend.slice(-3).length, 1);
   const burnRate = recentOutflow - recentInflow;
 
   const { data: bankAccounts } = await client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
@@ -767,60 +752,40 @@ async function generateARAgingAnalysis(
   client: any,
   tenantId: string
 ): Promise<ARAgingAnalysis> {
-  const now = new Date();
-  
-  const { data: invoices } = await client
-    .from('invoices')
-    .select('id, total_amount, due_date, status')
-    .neq('status', 'paid')
+  // ARCHITECTURE: Hook → View → Table (v_ar_aging_buckets → v_pending_ar → invoices)
+  const { data: agingData } = await client
+    .from('v_ar_aging_buckets' as any)
+    .select('aging_bucket, invoice_count, total_amount')
     .eq('tenant_id', tenantId);
 
-  const buckets = {
-    current: { amount: 0, count: 0 },
-    days_1_30: { amount: 0, count: 0 },
-    days_31_60: { amount: 0, count: 0 },
-    days_61_90: { amount: 0, count: 0 },
-    over_90: { amount: 0, count: 0 },
+  const buckets = (agingData || []) as any[];
+  
+  const getBucket = (name: string) => {
+    const found = buckets.find((b: any) => b.aging_bucket === name);
+    return { amount: Number(found?.total_amount) || 0, count: Number(found?.invoice_count) || 0 };
   };
 
-  invoices?.forEach(inv => {
-    if (!inv.due_date) return;
-    const daysOverdue = differenceInDays(now, new Date(inv.due_date));
-    const amount = inv.total_amount || 0;
+  const current = getBucket('current');
+  const days1_30 = getBucket('overdue_1_30');
+  const days31_60 = getBucket('overdue_31_60');
+  const days61_90 = getBucket('overdue_61_90');
+  const over90 = getBucket('overdue_90_plus');
 
-    if (daysOverdue <= 0) {
-      buckets.current.amount += amount;
-      buckets.current.count++;
-    } else if (daysOverdue <= 30) {
-      buckets.days_1_30.amount += amount;
-      buckets.days_1_30.count++;
-    } else if (daysOverdue <= 60) {
-      buckets.days_31_60.amount += amount;
-      buckets.days_31_60.count++;
-    } else if (daysOverdue <= 90) {
-      buckets.days_61_90.amount += amount;
-      buckets.days_61_90.count++;
-    } else {
-      buckets.over_90.amount += amount;
-      buckets.over_90.count++;
-    }
-  });
-
-  const total = Object.values(buckets).reduce((sum, b) => sum + b.amount, 0);
+  const total = current.amount + days1_30.amount + days31_60.amount + days61_90.amount + over90.amount;
 
   return {
-    current: buckets.current.amount,
-    days_1_30: buckets.days_1_30.amount,
-    days_31_60: buckets.days_31_60.amount,
-    days_61_90: buckets.days_61_90.amount,
-    over_90: buckets.over_90.amount,
+    current: current.amount,
+    days_1_30: days1_30.amount,
+    days_31_60: days31_60.amount,
+    days_61_90: days61_90.amount,
+    over_90: over90.amount,
     total,
     aging_distribution: [
-      { bucket: 'Chưa đến hạn', amount: buckets.current.amount, percentage: total > 0 ? (buckets.current.amount / total) * 100 : 0, count: buckets.current.count },
-      { bucket: '1-30 ngày', amount: buckets.days_1_30.amount, percentage: total > 0 ? (buckets.days_1_30.amount / total) * 100 : 0, count: buckets.days_1_30.count },
-      { bucket: '31-60 ngày', amount: buckets.days_31_60.amount, percentage: total > 0 ? (buckets.days_31_60.amount / total) * 100 : 0, count: buckets.days_31_60.count },
-      { bucket: '61-90 ngày', amount: buckets.days_61_90.amount, percentage: total > 0 ? (buckets.days_61_90.amount / total) * 100 : 0, count: buckets.days_61_90.count },
-      { bucket: 'Trên 90 ngày', amount: buckets.over_90.amount, percentage: total > 0 ? (buckets.over_90.amount / total) * 100 : 0, count: buckets.over_90.count },
+      { bucket: 'Chưa đến hạn', amount: current.amount, percentage: total > 0 ? (current.amount / total) * 100 : 0, count: current.count },
+      { bucket: '1-30 ngày', amount: days1_30.amount, percentage: total > 0 ? (days1_30.amount / total) * 100 : 0, count: days1_30.count },
+      { bucket: '31-60 ngày', amount: days31_60.amount, percentage: total > 0 ? (days31_60.amount / total) * 100 : 0, count: days31_60.count },
+      { bucket: '61-90 ngày', amount: days61_90.amount, percentage: total > 0 ? (days61_90.amount / total) * 100 : 0, count: days61_90.count },
+      { bucket: 'Trên 90 ngày', amount: over90.amount, percentage: total > 0 ? (over90.amount / total) * 100 : 0, count: over90.count },
     ],
   };
 }
