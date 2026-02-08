@@ -92,6 +92,12 @@ export interface DataQualityFlags {
   roasDataSource: 'promotion_campaigns' | 'expenses' | 'unavailable';
   dataCompletenessPercent: number;
   lastComputedAt: string;
+  // Phase 8.3: Source availability flags
+  hasCashData: boolean;
+  hasARData: boolean;
+  hasAPData: boolean;
+  hasInventoryData: boolean;
+  hasExpenseData: boolean;
 }
 
 // Formatted version for UI consumption
@@ -368,11 +374,18 @@ function computeDataQualityFlags(raw: FinanceTruthSnapshot): DataQualityFlags {
     marketingSpend > 0 && marketingRoas > 0 ? 'promotion_campaigns' :
     marketingSpend > 0 ? 'expenses' : 'unavailable';
   
+  // Source availability: if all related fields are 0, source is likely empty
+  const hasCashData = Number(raw.cash_today) > 0;
+  const hasARData = Number(raw.total_ar) > 0 || Number(raw.overdue_ar) > 0;
+  const hasAPData = Number(raw.total_ap) > 0 || Number(raw.overdue_ap) > 0;
+  const hasInventoryData = Number(raw.total_inventory_value) > 0;
+  const hasExpenseData = Number(raw.ebitda) !== Number(raw.gross_profit); // expenses affect EBITDA
+
   let completenessScore = 0;
   if (Number(raw.net_revenue) > 0) completenessScore += 20;
-  if (Number(raw.cash_today) > 0) completenessScore += 20;
-  if (Number(raw.total_ar) >= 0) completenessScore += 15;
-  if (Number(raw.total_ap) >= 0) completenessScore += 15;
+  if (hasCashData) completenessScore += 20;
+  if (hasARData) completenessScore += 15;
+  if (hasAPData) completenessScore += 15;
   if (Number(raw.total_orders) > 0) completenessScore += 15;
   if (marketingRoas > 0) completenessScore += 15;
   
@@ -382,6 +395,11 @@ function computeDataQualityFlags(raw: FinanceTruthSnapshot): DataQualityFlags {
     roasDataSource,
     dataCompletenessPercent: Math.min(completenessScore, 100),
     lastComputedAt: raw.snapshot_at,
+    hasCashData,
+    hasARData,
+    hasAPData,
+    hasInventoryData,
+    hasExpenseData,
   };
 }
 

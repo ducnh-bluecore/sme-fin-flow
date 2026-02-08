@@ -36498,16 +36498,14 @@ export type Database = {
         }
         Returns: number
       }
-      compute_central_metrics_snapshot:
-        | { Args: { p_tenant_id: string }; Returns: string }
-        | {
-            Args: {
-              p_end_date?: string
-              p_start_date?: string
-              p_tenant_id: string
-            }
-            Returns: string
-          }
+      compute_central_metrics_snapshot: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       compute_estimated_actual_impact: {
         Args: {
           p_decision_date: string
