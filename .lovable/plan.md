@@ -1,216 +1,112 @@
 
 
-# Plan Fix Tổng Thể - Data Architecture v1.4.2
+# Customer Equity Calculation - Practical Model
 
-## Bản đồ hiện trạng
+## Data hiện có
 
-```text
-LAYER        TABLE/FUNCTION              DATA STATE          STATUS
-─────────────────────────────────────────────────────────────────────
-L2 Master    cdp_orders                  1,147,699 rows      OK (nhưng cogs=0)
-             cdp_order_items             189,732 rows        OK (nhưng line_cogs=0)
-             cdp_customers               310,000+ rows       OK
-             products                    16,706 rows         OK (84% có cost_price)
-             cdp_refunds                 14,502 rows         OK
-             cdp_fulfillments            326,532 rows        OK
-             cdp_payments                985,324 rows        OK
-             promotion_campaigns         110,687 rows        OK
-             ad_spend_daily              449 rows            OK
-             inventory_movements         890,430 rows        OK
+| Data | Rows | Coverage |
+|------|------|----------|
+| Orders (có customer_id, revenue > 0) | 93,159 | 34,974 customers |
+| Orders có COGS | ~1,434 (linked to customer) | Rất thấp |
+| 1-order customers | 20,311 (58%) | One-time buyers |
+| 2-3 orders | 8,934 (26%) | Light repeaters |
+| 4-10 orders | 4,613 (13%) | Regular |
+| 10+ orders | 1,116 (3%) | Power buyers |
 
-L3 KPI       kpi_facts_daily             8,203 rows          PARTIAL
-             kpi_definitions             0 rows              MISSING
-             kpi_targets                 0 rows              MISSING
-             kpi_thresholds              0 rows              MISSING
+## Vấn đề: COGS coverage thấp ở customer level
 
-L4 Alert     alert_instances             13 rows             PARTIAL
-             alert_rules                 0 rows              MISSING
-             decision_cards              0 rows              MISSING
-             evidence_packs              0 rows              MISSING
+Dù Phase 1 đã fix 89K orders, phần lớn orders có COGS lại thiếu `customer_id` (chưa link). Nên model equity KHÔNG nên phụ thuộc COGS ở customer level mà dùng **tenant-level average margin rate** làm proxy.
 
-L5 AI        ai_metric_definitions       0 rows              MISSING
-             ai_query_templates          10 rows             PARTIAL
-             ai_dimension_catalog        12 rows             OK
+## Model đề xuất: RFM-Weighted Historical Projection
 
-L6 Audit     sync_jobs                   0 rows              MISSING
-             audit_logs                  0 rows              MISSING
-```
+Nguyên tắc:
+- Dùng data thật (revenue, frequency, recency) -- không giả lập
+- Dùng tenant-level margin rate thay vì customer-level COGS (vì coverage thấp)
+- Đánh dấu rõ `equity_is_estimated = true` + lý do
 
-## Vấn đề chí mạng (Critical Chain)
+### Công thức
 
 ```text
-products.cost_price (84% OK)
-       |
-       v
-update_order_items_cogs() --- BUG: dùng p.code (không tồn tại) thay vì p.sku
-       |
-       X  (CHAIN BROKEN)
-       |
-cdp_order_items.line_cogs = 0   (189,732 rows)
-       |
-       v
-cdp_orders.cogs = 0             (1,147,699 rows) 
-       |
-       v
-kpi_facts_daily COGS = 0        (1,239 rows)
-kpi_facts_daily GROSS_MARGIN = 0
-       |
-       v
-v_channel_performance.cogs = 0
-v_all_revenue_summary.cogs = 0
-       |
-       v
-Dashboard: Giá vốn = 0, Lợi nhuận = Doanh thu (SAI)
+Step 1: Tính RFM metrics cho mỗi customer
+  - recency_days = NOW() - last_order_at
+  - frequency_180d = orders trong 180 ngày gần nhất
+  - monetary_180d = SUM(net_revenue) trong 180 ngày
+
+Step 2: Tính retention probability (survival function)
+  - p_active = EXP(-recency_days / avg_inter_purchase_days)
+  - Nếu chỉ có 1 order: p_active = EXP(-recency_days / 180)
+
+Step 3: Tính projected revenue
+  - annual_run_rate = (monetary_180d / 180) * 365
+  - Nếu monetary_180d = 0: dùng lifetime_aov * frequency_yearly_estimate
+  - equity_12m = annual_run_rate * p_active * tenant_margin_rate
+  - equity_24m = equity_12m * (1 + p_active) (giảm dần theo năm 2)
+
+Step 4: Churn risk score
+  - churn_risk = 1 - p_active
+  - risk_level = 'low' (<0.3), 'medium' (0.3-0.7), 'high' (>0.7)
 ```
 
-## Kế hoạch sửa: 6 Phases
-
-### Phase 1: Fix COGS Chain (Critical - Sửa trước hết)
-
-**1A. Fix function `update_order_items_cogs`**
-- Bug: `p.code = oi.sku` -- cột `code` không tồn tại trong bảng `products`
-- Fix: Đổi thành `p.sku = oi.sku`
-- Match rate: 11,800/13,658 unique SKUs (86%) sẽ được cập nhật COGS
-
-**1B. Tạo function `sync_order_cogs_from_items`**
-- Aggregate `SUM(line_cogs)` từ `cdp_order_items` lên `cdp_orders.cogs`
-- Tính `gross_margin = net_revenue - cogs`
-- Chỉ update orders có `cogs IS NULL OR cogs = 0`
-
-**1C. Tạo function `backfill_cogs_pipeline`**
-- Gọi tuần tự: `update_order_items_cogs` -> `sync_order_cogs_from_items`
-- Trả về JSON report: items updated, orders updated, match rate
-
-### Phase 2: Recompute L3 KPI (Sau khi COGS đã có)
-
-**2A. Xóa và tính lại KPI COGS + GROSS_MARGIN**
-- DELETE kpi_facts_daily WHERE metric_code IN ('COGS', 'GROSS_MARGIN')
-- Gọi lại `compute_kpi_facts_daily` cho toàn bộ date range
-- Function này ĐÃ có logic COGS/GROSS_MARGIN (đọc từ `cdp_orders.cogs`), chỉ cần data đúng
-
-### Phase 3: Seed L3 Metadata (kpi_definitions, kpi_targets, kpi_thresholds)
-
-**3A. Seed `kpi_definitions`** - 12 core KPIs
-- NET_REVENUE, GROSS_REVENUE, COGS, GROSS_MARGIN, AOV, ORDER_COUNT
-- AD_SPEND, ROAS, AD_IMPRESSIONS, NEW_CUSTOMERS, REFUND_RATE, RETURN_RATE
-
-**3B. Seed `kpi_thresholds`** - 3 severity per KPI (info/warning/critical)
-- VD: GROSS_MARGIN < 30% = warning, < 20% = critical
-
-**3C. Seed `kpi_targets`** - Monthly targets
-- Dựa trên actual data trung bình * 1.1 (growth target 10%)
-
-### Phase 4: Populate L4 Alert/Decision
-
-**4A. Seed `alert_rules`** - 10-15 rules dựa trên kpi_thresholds
-- VD: "COGS tăng > 5% so với tuần trước", "GROSS_MARGIN < 25%"
-
-**4B. Tạo `evidence_packs`** cho 13 alert_instances hiện có
-- Snapshot data quality tại thời điểm alert
-
-**4C. Chạy `detect_threshold_breaches`** 
-- Tự động tạo decision_cards từ alerts mới phát hiện
-
-### Phase 5: Seed L5 AI Metadata
-
-**5A. Seed `ai_metric_definitions`** - 12 metrics
-- Mapping: metric_code -> table/column -> description -> unit -> format
-- VD: NET_REVENUE -> cdp_orders.net_revenue -> "Doanh thu thuần" -> VND -> currency
-
-**5B. Bổ sung `ai_query_templates`** - Proven SQL patterns
-- Revenue by channel, COGS breakdown, Margin trend, Top SKU by profit
-- Khoảng 10-15 templates phủ các use case phân tích chính
-
-### Phase 6: Integrate vào Daily Sync Pipeline
-
-**6A. Cập nhật `daily-bigquery-sync` orchestrator**
-- Sau khi sync orders + order_items xong -> gọi `backfill_cogs_pipeline`
-- Sau khi COGS xong -> gọi `compute_kpi_facts_daily` (2-day lookback)
-- Sau khi KPI xong -> gọi `detect_threshold_breaches`
-
-**6B. Log mỗi bước vào `sync_jobs`**
-- job_type, started_at, completed_at, status, metadata (rows affected)
-
-## Thứ tự thực hiện (Dependencies)
+### Tenant margin rate
 
 ```text
-Phase 1 (COGS Fix)
-  |
-  v
-Phase 2 (Recompute KPI) -- phụ thuộc Phase 1
-  |
-  v
-Phase 3 (Seed KPI Metadata) -- song song được
-  |
-  v
-Phase 4 (Alert/Decision) -- phụ thuộc Phase 3
-  |
-  v
-Phase 5 (AI Metadata) -- song song với Phase 4
-  |
-  v
-Phase 6 (Daily Pipeline) -- cuối cùng, tích hợp tất cả
+tenant_margin_rate = SUM(gross_margin) / SUM(net_revenue) 
+                     FROM cdp_orders WHERE cogs > 0
+-- Dùng ~89K orders đã có COGS làm sample
+-- Hiện tại: avg margin ~ 14.4% (833,739 / (833,739 + COGS))
 ```
 
-## Chi tiết kỹ thuật
+## Implementation
 
-### Migration 1: Fix COGS Functions
+### Migration: Create function `cdp_build_customer_equity_batched`
+
+SQL function nhận `p_tenant_id` + `p_batch_size`, xử lý theo batch:
+
+1. Tính `tenant_margin_rate` từ orders có COGS
+2. Tính RFM metrics per customer từ `cdp_orders`
+3. Tính `p_active`, `annual_run_rate`, `equity_12m`, `equity_24m`
+4. UPSERT vào `cdp_customer_equity_computed`
+5. Đánh dấu: `equity_is_estimated = true`, `equity_estimation_method = 'rfm_historical_projection_v1'`
+6. Return JSON report (customers processed, avg equity, etc.)
+
+### Batching strategy
+
+- 34,974 customers, batch 5,000 mỗi lần
+- 7 batches, mỗi batch ~3-5s
+- Edge function `run-cogs-pipeline` gọi tuần tự
+
+### Confidence scoring
 
 ```text
--- Drop and recreate update_order_items_cogs
--- FIX: p.code -> p.sku
--- Returns: number of items updated
-
--- New: sync_order_cogs_from_items(p_tenant_id)
--- UPDATE cdp_orders SET cogs = subquery, gross_margin = net_revenue - cogs
--- WHERE cogs IS NULL OR cogs = 0
-
--- New: backfill_cogs_pipeline(p_tenant_id)
--- Calls both functions in sequence, returns JSON report
+confidence = 
+  base_score (30 nếu có >= 1 order)
+  + frequency_bonus (0-25 dựa trên order count)
+  + recency_bonus (0-25 dựa trên recency)
+  + cogs_bonus (20 nếu customer có COGS data)
 ```
 
-### Migration 2: Seed L3 Metadata
+### Data quality flags
 
-```text
--- INSERT INTO kpi_definitions (12 rows)
--- INSERT INTO kpi_thresholds (36 rows = 12 KPIs * 3 severities)
--- INSERT INTO kpi_targets (seed from actual averages)
-```
-
-### Migration 3: Seed L4 Rules + L5 AI Metadata
-
-```text
--- INSERT INTO alert_rules (10-15 rules)
--- INSERT INTO ai_metric_definitions (12 rows)
--- INSERT INTO ai_query_templates (10-15 additional templates)
-```
-
-### Edge Function Update: daily-bigquery-sync
-
-```text
-After sync completion:
-  Step 1: Call backfill_cogs_pipeline(tenant_id)
-  Step 2: Call compute_kpi_facts_daily(tenant_id, lookback_start, today)
-  Step 3: Call detect_threshold_breaches(tenant_id)
-  Step 4: Log to sync_jobs
-```
-
-### Hook Updates (Minimal)
-
-Không cần sửa hook -- các views (`v_channel_performance`, `v_all_revenue_summary`) đã đọc từ `cdp_orders.cogs/gross_margin`. Khi data đúng, views tự đúng.
+Mỗi customer có `data_quality_flags` JSONB:
+- `has_cogs`: boolean
+- `margin_source`: 'customer' | 'tenant_avg'
+- `order_count`: number
+- `data_span_days`: number
 
 ## Kết quả mong đợi
 
-| Metric | Trước | Sau |
-|--------|-------|-----|
-| cdp_order_items.line_cogs > 0 | 0 / 189,732 | ~163,000 / 189,732 (86%) |
-| cdp_orders.cogs > 0 | 0 / 1,147,699 | ~985,000 / 1,147,699 (86%) |
-| kpi_facts_daily COGS | 0 | Actual values |
-| kpi_facts_daily GROSS_MARGIN | 0 | Actual values |
-| kpi_definitions | 0 | 12 |
-| kpi_thresholds | 0 | 36 |
-| alert_rules | 0 | 10-15 |
-| ai_metric_definitions | 0 | 12 |
-| Dashboard COGS | 0 VND | Real COGS |
-| Dashboard Gross Margin | = Revenue (sai) | Revenue - COGS (đúng) |
+| Metric | Value |
+|--------|-------|
+| Customers computed | ~34,974 |
+| Avg equity_12m (repeat buyers) | Actual projected margin |
+| Avg equity_12m (one-time, churned) | ~0 (p_active gần 0) |
+| Coverage | 100% customers có orders |
+| Estimation method | rfm_historical_projection_v1 |
+
+## Lưu ý quan trọng (FDP Manifesto)
+
+- Model KHÔNG fake numbers -- customers inactive 2000+ ngày sẽ có equity gần 0 (đúng thực tế)
+- Dùng `equity_is_estimated = true` cho tất cả (vì dùng tenant margin proxy)
+- Khi customer-level COGS coverage tăng, model tự chuyển sang dùng customer margin
+- 58% customers chỉ có 1 order, recency trung bình 2000+ ngày --> equity sẽ rất thấp (phản ánh đúng thực tế)
 
