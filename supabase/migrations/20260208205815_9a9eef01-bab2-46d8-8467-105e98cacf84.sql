@@ -1,0 +1,6 @@
+
+REFRESH MATERIALIZED VIEW mv_cdp_percentile_value_tiers;
+REFRESH MATERIALIZED VIEW mv_cdp_segment_metrics_rolling;
+REFRESH MATERIALIZED VIEW mv_cdp_cohort_metrics_rolling;
+REFRESH MATERIALIZED VIEW mv_cdp_value_tier_metrics_rolling;
+REFRESH MATERIALIZED VIEW mv_cdp_data_quality_daily;
