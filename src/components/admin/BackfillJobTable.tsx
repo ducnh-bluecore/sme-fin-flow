@@ -32,8 +32,28 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { SourceProgressTable } from '@/components/admin/SourceProgressTable';
+import { formatNumber } from '@/lib/formatters';
+
+function formatDuration(seconds: number | null): string {
+  if (seconds == null) return '-';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function formatStartTime(dateStr: string | null): string {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm} ${hh}:${min}`;
+}
 
 interface BackfillJobTableProps {
   jobs: BackfillJob[];
@@ -98,7 +118,8 @@ export function BackfillJobTable({
           <TableHead>Model</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Progress</TableHead>
-          <TableHead>Records</TableHead>
+          <TableHead>BQ Processed</TableHead>
+          <TableHead>Actual DB</TableHead>
           <TableHead>Started</TableHead>
           <TableHead>Duration</TableHead>
           <TableHead>Actions</TableHead>
@@ -109,9 +130,15 @@ export function BackfillJobTable({
           const progress = job.total_records > 0
             ? (job.processed_records / job.total_records) * 100
             : 0;
-          const duration = job.started_at && job.completed_at
-            ? Math.round((new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) / 1000)
+          const isRunning = job.status === 'running' || job.status === 'pending';
+          const duration = job.started_at
+            ? isRunning
+              ? Math.round((Date.now() - new Date(job.started_at).getTime()) / 1000)
+              : job.completed_at
+                ? Math.round((new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) / 1000)
+                : null
             : null;
+          const actualInserted = (job.metadata as any)?.inserted;
           const isExpanded = expandedJobs.has(job.id);
 
           return (
@@ -148,20 +175,25 @@ export function BackfillJobTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    {job.processed_records.toLocaleString()}
+                    {formatNumber(job.processed_records)}
                     {job.total_records > 0 && (
                       <span className="text-muted-foreground">
-                        {' / '}{job.total_records.toLocaleString()}
+                        {' / '}{formatNumber(job.total_records)}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {job.started_at
-                      ? formatDistanceToNow(new Date(job.started_at), { addSuffix: true })
-                      : '-'}
+                  <TableCell>
+                    {actualInserted != null ? (
+                      <span className={actualInserted < job.processed_records ? 'text-muted-foreground' : ''}>
+                        {formatNumber(actualInserted)}
+                      </span>
+                    ) : '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {duration !== null ? `${duration}s` : '-'}
+                    {formatStartTime(job.started_at)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDuration(duration)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -213,7 +245,7 @@ export function BackfillJobTable({
                 </TableRow>
                 <CollapsibleContent asChild>
                   <TableRow className="bg-muted/20">
-                    <TableCell colSpan={8} className="p-0">
+                    <TableCell colSpan={9} className="p-0">
                       <div className="p-4">
                         <h4 className="text-sm font-medium mb-2">Source Progress</h4>
                         <SourceProgressTable jobId={job.id} />
