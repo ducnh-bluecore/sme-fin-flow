@@ -37114,6 +37114,10 @@ export type Database = {
       }
     }
     Functions: {
+      aggregate_order_cogs_batch: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
+      }
       apply_tenant_migration: {
         Args: {
           p_description?: string
@@ -38176,6 +38180,10 @@ export type Database = {
       mark_alert_false_positive: {
         Args: { p_alert_id: string; p_reason: string; p_tenant_id: string }
         Returns: string
+      }
+      mark_orphan_orders_cogs: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
       }
       mdp_get_churn_signals: {
         Args: { p_min_urgency?: string; p_tenant_id: string }
