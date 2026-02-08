@@ -1,51 +1,114 @@
 
-# Sửa Function `compute_central_metrics_snapshot` -- Không thay đổi kết cấu Layer
 
-## Nguyên tắc
-- KHÔNG thêm/xóa/đổi tên bảng hay cột nào
-- KHÔNG thay đổi cấu trúc data layer
-- CHỈ sửa logic SQL trong function cho khớp với schema thực tế
+# Audit Vi phạm Kiến trúc: Hooks Query Trực tiếp vào Model Tables
 
-## 4 lỗi cần sửa trong function
+## Vấn đề
 
-### Lỗi 1: `SUM(gross_profit)` -- cột không tồn tại
-- **Cột thực tế**: `cdp_orders` có `gross_margin`, KHÔNG có `gross_profit`
-- **Sửa**: Đổi dòng 90 thành `COALESCE(SUM(gross_margin), 0)`
-- Nếu `gross_margin = 0` (do cogs chưa sync), fallback: `SUM(net_revenue - COALESCE(cogs, 0))`
+Theo kiến trúc DB-First của Bluecore:
 
-### Lỗi 2: `is_first_order = true/false` -- cột không tồn tại
-- **Sửa phần CAC (dòng 252-265)**: Tìm khách mới bằng subquery:
-  ```text
-  Khách có MIN(order_at) nằm trong kỳ = khách mới
-  ```
-- **Sửa phần Repeat Rate (dòng 280-292)**: Tìm khách quay lại bằng:
-  ```text
-  Khách có COUNT(orders) > 1 trong kỳ = khách quay lại
-  ```
+```text
+Hook (Thin Wrapper) --> View / RPC --> Table
+```
 
-### Lỗi 3: `cdp_customer_equity` -- bảng không tồn tại
-- **Dòng 268-271**: Query LTV từ bảng này sẽ lỗi
-- **Sửa**: Tính LTV inline = `AVG(net_revenue) * AVG(số đơn/khách)` từ `cdp_orders`
+Hiện tại **~25+ hooks** đang bypass tầng View/RPC, query thẳng vào bảng model:
 
-### Lỗi 4: Hardcoded 90 ngày, bỏ qua tham số
-- **Dòng 82-83**: `v_period_end := CURRENT_DATE; v_period_start := CURRENT_DATE - 90 days`
-- **Sửa**: `v_period_start := p_start_date; v_period_end := p_end_date`
-- Thêm filter `created_at <= v_period_end` cho marketing query (dòng 129-130)
+```text
+Hook --> Table (VI PHAM)
+```
 
-## Thay đổi frontend
+## Danh sách vi phạm
 
-### `src/hooks/useFinanceTruthSnapshot.ts`
-- Thêm flags vào `DataQualityFlags`: `hasCashData`, `hasARData`, `hasAPData`, `hasInventoryData`
-- Logic: dựa trên giá trị snapshot, nếu tất cả = 0 thì đánh dấu "chưa có dữ liệu"
+### Nhóm 1: Query trực tiếp `cdp_orders` (11 hooks)
 
-### `src/pages/CFODashboard.tsx`
-- Metric thiếu nguồn dữ liệu (Cash, AR, AP, Inventory): hiển thị "Chua co du lieu" thay vì "0"
-- Metric CÓ dữ liệu (Revenue, Orders, Marketing): giữ nguyên
+| Hook | File | Muc do |
+|------|------|--------|
+| `useAudienceData` | src/hooks/useAudienceData.ts | 2 queries |
+| `useCDPSSOT` | src/hooks/useCDPSSOT.ts | 1 query (count) |
+| `useCDPLTVEngine` | src/hooks/useCDPLTVEngine.ts | 1 query |
+| `useWeeklyCashForecast` | src/hooks/useWeeklyCashForecast.ts | 1 query |
+| `useVarianceAnalysis` | src/hooks/useVarianceAnalysis.ts | 3 queries |
+| `useRevenuePageData` | src/hooks/useRevenuePageData.ts | 1 query |
+| `useCDPTierData` | src/hooks/useCDPTierData.ts | 1 query |
+| `useMDPSSOT` | src/hooks/useMDPSSOT.ts | 1 query |
+| `useMDPData` | src/hooks/useMDPData.ts | 1 query (deprecated) |
+| `useFDPMetrics` | src/hooks/useFDPMetrics.ts | 1 query (deprecated) |
+| `SSOTComplianceDashboard` | src/components/governance/ | 1 query |
 
-## Tổng hợp
+### Nhom 2: Query truc tiep `cdp_order_items` (1 hook)
 
-| Thay đổi | Loại | Chi tiết |
-|---|---|---|
-| `compute_central_metrics_snapshot` | Migration SQL | Sửa 4 lỗi logic, KHÔNG đổi schema |
-| `useFinanceTruthSnapshot.ts` | Frontend | Thêm data quality flags |
-| `CFODashboard.tsx` | Frontend | Hiển thị trạng thái "Chưa có dữ liệu" |
+| Hook | File |
+|------|------|
+| `useCDPCustomerOrderItems` | src/hooks/useCDPCustomerOrderItems.ts |
+
+### Nhom 3: Query truc tiep `invoices`, `bills`, `expenses`, `bank_accounts` (~14 hooks)
+
+| Hook | Tables truy cap |
+|------|----------------|
+| `useWeeklyCashForecast` | invoices, bills, expenses |
+| `useAutoMeasureOutcome` | bank_accounts, expenses |
+| `useDashboardData` | invoices |
+| `useExceptions` | invoices |
+| `useFDPMetrics` | invoices, expenses (deprecated) |
+| `useFinancialAnalysisData` | invoices, expenses |
+| `useFDPCrossScreenConsistency` | bank_accounts |
+| `useVarianceAnalysis` | expenses |
+| `useReconciliation` | invoices (mutation - co the chap nhan) |
+| `useBoardReports` | invoices |
+| `TenantStatsCard` | invoices, bills (admin - co the chap nhan) |
+
+### Nhom 4: Query truc tiep `promotion_campaigns` (3 hooks)
+
+| Hook | File |
+|------|------|
+| `useMDPSSOT` | src/hooks/useMDPSSOT.ts |
+| `useMDPData` | src/hooks/useMDPData.ts (deprecated) |
+| `useFDPMetrics` | src/hooks/useFDPMetrics.ts (deprecated) |
+
+## Ke hoach sua
+
+### Buoc 1: Xac dinh Views/RPCs da co san
+
+Kiem tra xem DB da co views nao co the thay the:
+- `fdp_daily_metrics` -- revenue/orders theo ngay
+- `fdp_monthly_metrics` -- revenue/orders theo thang
+- `fdp_sku_summary` -- SKU-level metrics
+- `channel_performance_summary` -- channel metrics
+- `v_cdp_data_quality` -- data quality counts
+- `get_fdp_period_summary` RPC -- period aggregation
+- `compute_central_metrics_snapshot` RPC -- central metrics
+
+### Buoc 2: Tao them Views/RPCs con thieu
+
+Cho cac use case chua co view:
+- `v_weekly_cash_forecast` -- forecast cash inflow/outflow
+- `v_variance_analysis` -- period-over-period comparison
+- `v_audience_channel_summary` -- audience by channel
+- `v_revenue_by_channel_daily` -- revenue breakdown
+
+### Buoc 3: Chuyen hooks thanh thin wrappers
+
+Moi hook chi duoc phep:
+1. Goi View hoac RPC
+2. Map columns sang interface (khong tinh toan)
+3. Return data
+
+### Buoc 4: Ngoai le hop le
+
+Cac truong hop KHONG can sua:
+- **Mutations** (useReconciliation: update invoices) -- ghi du lieu, khong phai doc
+- **Admin/Control Plane** (TenantStatsCard) -- cross-tenant, khong thuoc data plane
+- **Deprecated hooks** (useFDPMetrics, useMDPData) -- se bi xoa, khong can sua
+
+## Thu tu uu tien
+
+1. **Cao**: Hooks SSOT dang active ma van query truc tiep (useMDPSSOT, useRevenuePageData, useWeeklyCashForecast)
+2. **Trung binh**: Hooks analytics (useVarianceAnalysis, useBoardReports, useAudienceData)  
+3. **Thap**: Deprecated hooks (se bi xoa)
+
+## Luu y
+
+- KHONG thay doi cau truc bang/cot
+- CHI tao them Views/RPCs va chuyen hooks sang dung chung
+- Moi View/RPC phai co `tenant_id` filter
+- Performance: Views tren 1.1M rows can index hoac materialized views
+
