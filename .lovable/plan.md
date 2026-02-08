@@ -1,53 +1,88 @@
 
 
-## Them cot "Actual DB" va "Thoi gian" vao BackfillJobTable
+## Optimize cdp_run_daily_build for 1M+ Orders
 
-### Thay doi
+### Root Cause
 
-**File: `src/components/admin/BackfillJobTable.tsx`**
+Pipeline has 3 steps, each with a different bottleneck:
 
-#### 1. Them cot "Actual DB" (so record thuc trong database)
+| Step | Function | Current Behavior | Problem |
+|------|----------|-----------------|---------|
+| 1 | `cdp_build_customer_metrics_daily` | Processes only 1 day (p_as_of_date) | Works fine daily, but `cdp_customer_metrics_daily` has **0 rows** -- no historical backfill was ever run |
+| 2 | `cdp_build_customer_metrics_rolling` | Aggregates from daily metrics table | **Produces nothing** because daily table is empty |
+| 3 | `cdp_build_customer_equity` | Single query: 310K customers x 1M+ orders | **Timeout** -- massive JOIN with no batching |
+| 4 | MV Refresh (4 views) | `REFRESH MATERIALIZED VIEW CONCURRENTLY` | Depends on rolling data existing |
 
-Data da co san trong `job.metadata.inserted` - day la so record thuc su duoc ghi vao DB (sau khi dedup). Hien tai chi hien `processed_records` (so dong doc tu BigQuery).
+The core issue: Step 3 tries to compute equity for all 310K customers in one SQL statement, scanning all 1M+ orders. This exceeds the statement timeout.
 
-Them cot moi giua "Records" va "Started":
+Additionally, daily metrics were never backfilled, so rolling/equity have no foundation.
 
-```text
-| Records (BQ)      | Actual DB    |
-| 127,598 / 333,013 | 7,000        |
+### Solution: 3 Database Changes + 1 Edge Function Update
+
+#### 1. New function: `cdp_build_customer_metrics_daily_range`
+
+Backfill daily metrics for a date range by looping day-by-day internally.
+
+```sql
+CREATE FUNCTION cdp_build_customer_metrics_daily_range(
+  p_tenant_id uuid, p_start_date date, p_end_date date
+) RETURNS jsonb
 ```
 
-- "Records" doi label thanh "BQ Processed" de ro rang hon
-- "Actual DB" lay tu `(job.metadata as any)?.inserted ?? '-'`
-- Khi `inserted < processed`, hien mau nhat de chi ra dedup ratio
+- Loops from start to end, calling existing `cdp_build_customer_metrics_daily` per day
+- Returns `{ days_processed, total_rows }`
+- Needed once for historical backfill, then daily runs handle 1 day at a time
 
-#### 2. Cai thien cot "Started" va "Duration"
+#### 2. New function: `cdp_build_customer_equity_batched`
 
-Hien tai:
-- Started: "3 hours ago" (relative, kho tracking)
-- Duration: "1234s" (kho doc khi lon)
+Process equity in batches of ~10,000 customers.
 
-Sau khi sua:
-- Started: hien ca ngay gio tuyet doi, vi du "08/02 17:32"
-- Duration: format thanh "2h 15m 30s" thay vi "8130s"
-- Voi job dang chay: tinh elapsed time tu `started_at` den now()
+```sql
+CREATE FUNCTION cdp_build_customer_equity_batched(
+  p_tenant_id uuid, p_as_of_date date, p_batch_size int DEFAULT 10000
+) RETURNS jsonb
+```
 
-#### 3. Cap nhat colSpan
+- Fetches customer IDs in batches using LIMIT/OFFSET
+- Runs the same equity computation logic but filtered to batch of customers
+- Returns `{ total_batches, total_processed }`
 
-CollapsibleContent colSpan tang tu 8 len 9 (them 1 cot)
+#### 3. Replace `cdp_run_daily_build` orchestrator
 
-### Chi tiet ky thuat
+New version that:
+- Calls daily metrics (single day -- fast)
+- Calls rolling metrics (reads from daily table -- fast if daily exists)
+- Calls `cdp_build_customer_equity_batched` instead of the monolithic version
+- Refreshes MVs at the end
+- Returns same JSON shape for backward compatibility
 
-Chi thay doi 1 file: `src/components/admin/BackfillJobTable.tsx`
+#### 4. Update Edge Function: `compute-kpi-pipeline`
 
-1. Them helper `formatDuration(seconds)` -> "1h 23m 45s" hoac "45s"
-2. Them helper `formatStartTime(dateStr)` -> "08/02 17:32"
-3. Them TableHead "Actual DB"
-4. Them TableCell render `metadata.inserted`
-5. Doi label "Records" thanh "BQ Processed"
-6. Tinh elapsed cho running jobs: `Math.round((Date.now() - started_at) / 1000)`
-7. Cap nhat colSpan tu 8 -> 9
+Add a new option `backfill_cdp_daily = true` that:
+- Calls `cdp_build_customer_metrics_daily_range` for the date range before running the main CDP build
+- Only needed for first-time backfill; daily cron skips this
 
-### Khong can migration SQL
+### Technical Details
 
-Du lieu `metadata.inserted` da co san trong `bigquery_backfill_jobs`. Chi thay doi UI.
+**Batch size**: 10,000 customers per batch = ~32 batches for 310K customers. Each batch scans orders with `WHERE customer_id IN (...)` which uses the index efficiently.
+
+**Daily range backfill**: For 1M+ orders spanning ~3 years, this creates ~1,095 daily snapshots. Each day's query is fast (filtered by `order_at::date = date`). Can process ~50 days/second.
+
+**No schema changes**: All changes are function replacements. No new tables or columns needed.
+
+**Backward compatible**: `cdp_run_daily_build` keeps the same signature and return format.
+
+### Migration SQL Summary
+
+1. `CREATE OR REPLACE FUNCTION cdp_build_customer_metrics_daily_range(...)` -- loop wrapper
+2. `CREATE OR REPLACE FUNCTION cdp_build_customer_equity_batched(...)` -- batched equity
+3. `CREATE OR REPLACE FUNCTION cdp_run_daily_build(...)` -- updated orchestrator using batched equity
+
+### Edge Function Change
+
+**File: `supabase/functions/compute-kpi-pipeline/index.ts`**
+
+Add handling for `backfill_cdp_daily` flag:
+- When true: call `cdp_build_customer_metrics_daily_range` in date-range chunks (14-day windows, same pattern as KPI chunking)
+- Then proceed with normal `cdp_run_daily_build` which now uses batched equity
+
