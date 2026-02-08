@@ -20,6 +20,7 @@ export type BackfillModelType =
   | 'payments'
   | 'fulfillments'
   | 'inventory'
+  | 'inventory_snapshots'
   | 'campaigns'
   | 'ad_spend';
 
@@ -315,6 +316,7 @@ export const MODEL_TYPE_LABELS: Record<BackfillModelType, string> = {
   payments: 'Payments',
   fulfillments: 'Fulfillments',
   inventory: 'Inventory',
+  inventory_snapshots: 'Inventory Snapshots',
   campaigns: 'Campaigns',
   ad_spend: 'Ad Spend',
 };
@@ -328,6 +330,7 @@ export const MODEL_TYPE_ICONS: Record<BackfillModelType, string> = {
   payments: '💳',
   fulfillments: '🚚',
   inventory: '📊',
+  inventory_snapshots: '📸',
   campaigns: '📢',
   ad_spend: '💰',
 };

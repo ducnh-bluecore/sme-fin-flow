@@ -17914,6 +17914,92 @@ export type Database = {
           },
         ]
       }
+      inventory_snapshots: {
+        Row: {
+          available_quantity: number | null
+          channel: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          product_id: string
+          quantity: number | null
+          reserved_quantity: number | null
+          sellable_quantity: number | null
+          sku: string | null
+          snapshot_date: string
+          source_table: string | null
+          tenant_id: string
+          updated_at: string
+          warehouse_id: string | null
+          warehouse_name: string | null
+        }
+        Insert: {
+          available_quantity?: number | null
+          channel: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          product_id: string
+          quantity?: number | null
+          reserved_quantity?: number | null
+          sellable_quantity?: number | null
+          sku?: string | null
+          snapshot_date: string
+          source_table?: string | null
+          tenant_id: string
+          updated_at?: string
+          warehouse_id?: string | null
+          warehouse_name?: string | null
+        }
+        Update: {
+          available_quantity?: number | null
+          channel?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          product_id?: string
+          quantity?: number | null
+          reserved_quantity?: number | null
+          sellable_quantity?: number | null
+          sku?: string | null
+          snapshot_date?: string
+          source_table?: string | null
+          tenant_id?: string
+          updated_at?: string
+          warehouse_id?: string | null
+          warehouse_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inventory_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inventory_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       investments: {
         Row: {
           account_number: string | null
