@@ -37045,6 +37045,11 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: boolean
       }
+      link_orders_batch: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
+      }
+      link_orders_to_customers: { Args: { p_tenant_id: string }; Returns: Json }
       log_audit_event: {
         Args: {
           p_action: string
