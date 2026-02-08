@@ -196,6 +196,7 @@ const ORDER_SOURCES = [
       status: 'Status',
       customer_id: 'CusId',
       customer_name: 'CustomerName',
+      customer_phone: 'ContactNumber',
       gross_revenue: 'Total',
       discount: 'discount',
     }
@@ -1121,7 +1122,8 @@ async function syncOrders(
           order_at: row[source.mapping.order_at],
           status: row[source.mapping.status],
           customer_name: row[source.mapping.customer_name],
-          customer_phone: row[source.mapping.customer_phone],
+          customer_phone: row[source.mapping.customer_phone] || null,
+          buyer_id: row[source.mapping.customer_id] ? String(row[source.mapping.customer_id]) : null,
           gross_revenue: parseFloat(row[source.mapping.gross_revenue] || '0'),
           net_revenue: parseFloat(row[source.mapping.net_revenue] || row[source.mapping.gross_revenue] || '0'),
           currency: 'VND',
