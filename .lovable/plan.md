@@ -1,84 +1,93 @@
 
 
-## Fix Fulfillments: Them KiotViet va Haravan + Sua cot sai
+## Tao table `inventory_movements` va backfill tu BigQuery
 
-### Van de
+### Hien trang
 
-`FULFILLMENT_SOURCES` hien tai chi co 3 source (Shopee, Lazada, TikTok) nhung **thieu 2 source quan trong**:
-- **KiotViet**: Co `raw_kiotviet_Orders` voi truong `DeliveryCode` (ma van don)
-- **Haravan**: Co `raw_hrv_Orders` voi thong tin fulfillment
+| Model | Table | Trang thai |
+|-------|-------|-----------|
+| `campaigns` | `promotion_campaigns` | Da co table + sync function + 0 records (chua chay) |
+| `inventory` | `inventory_movements` | **Chua co table, chua co sync function** |
 
-Ngoai ra, 3 source hien tai cung co **loi mapping cot** (da audit lan truoc).
+`promotion_campaigns` da ton tai va sync function da san sang -- chi can chay backfill. Rieng `inventory_movements` can tao table va viet sync function.
 
-### Thay doi
+---
 
-#### 1. Sua FULFILLMENT_SOURCES (dong 372-412)
+### Buoc 1: Tao table `inventory_movements`
 
-**Them 2 source moi:**
-
-```text
-KiotViet:
-  channel: 'kiotviet'
-  dataset: 'olvboutique'  
-  table: 'raw_kiotviet_Orders'
-  mapping:
-    fulfillment_key: 'OrderId'
-    order_key: 'OrderId'
-    tracking_number: 'DeliveryCode'    (ma van don KiotViet)
-    shipping_carrier: null             (KiotViet khong luu ten hang van chuyen trong truong rieng)
-    fulfillment_status: 'Status'
-    shipped_at: 'PurchaseDate'
-
-Haravan:
-  channel: 'haravan'
-  dataset: 'olvboutique'
-  table: 'raw_hrv_Orders'
-  mapping:
-    fulfillment_key: 'OrderId'
-    order_key: 'OrderId'
-    tracking_number: 'TrackingNumber'   (ma van don Haravan)
-    shipping_carrier: 'ShippingCarrier'
-    fulfillment_status: 'FulfillmentStatus'
-    shipped_at: 'UpdatedAt'
-```
-
-**Sua 3 source cu (fix cot khong ton tai):**
-
-| Source | Truong | Cu (sai) | Moi (dung) |
-|--------|--------|----------|------------|
-| Shopee | tracking_number | `tracking_no` | `null` (khong co cot nay) |
-| Lazada | tracking_number | `tracking_code` | `null` |
-| Lazada | shipping_carrier | `shipping_provider` | `delivery_info` |
-| TikTok | shipped_at | `shipping_due_time` | `update_time` |
-
-#### 2. Sua logic syncFulfillments (dong 1622-1647)
-
-Cap nhat de xu ly mapping co gia tri `null`:
-- Khi mapping value la `null`, **bo cot do ra khoi SELECT query**
-- Trong row mapping, dat gia tri `null` truc tiep thay vi truy xuat tu BigQuery row
-
-Logic moi:
+Chay migration SQL de tao bang voi cau truc phu hop du lieu KiotViet (`bdm_kov_xuat_nhap_ton`):
 
 ```text
-// Loc bo cac mapping co value = null truoc khi tao SELECT
-const validColumns = Object.values(source.mapping).filter(v => v !== null)
-const uniqueColumns = [...new Set(validColumns)]
-const columns = uniqueColumns.map(c => `\`${c}\``).join(', ')
-
-// Trong row mapping:
-tracking_number: source.mapping.tracking_number 
-  ? row[source.mapping.tracking_number] 
-  : null
+inventory_movements (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         uuid NOT NULL,
+  movement_date     date NOT NULL,
+  branch_id         text,
+  branch_name       text,
+  product_code      text NOT NULL,
+  product_name      text,
+  begin_stock       numeric DEFAULT 0,
+  purchase_qty      numeric DEFAULT 0,
+  sold_qty          numeric DEFAULT 0,
+  return_qty        numeric DEFAULT 0,
+  transfer_in_qty   numeric DEFAULT 0,
+  transfer_out_qty  numeric DEFAULT 0,
+  end_stock         numeric DEFAULT 0,
+  net_revenue       numeric DEFAULT 0,
+  cost_amount       numeric DEFAULT 0,
+  channel           varchar DEFAULT 'kiotviet',
+  created_at        timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, movement_date, branch_id, product_code)
+)
 ```
 
-#### 3. Deploy va chay lai
+RLS policy: Service role full access (giong `ad_spend_daily`).
+
+### Buoc 2: Them INVENTORY_SOURCES mapping
+
+Them config vao `supabase/functions/backfill-bigquery/index.ts`:
+
+```text
+INVENTORY_SOURCES = [{
+  channel: 'kiotviet',
+  dataset: 'olvboutique',
+  table: 'bdm_kov_xuat_nhap_ton',
+  mapping: {
+    movement_date:    ten cot ngay trong BigQuery,
+    branch_id:        ten cot ma chi nhanh,
+    branch_name:      ten cot ten chi nhanh,
+    product_code:     ten cot ma san pham,
+    product_name:     ten cot ten san pham,
+    begin_stock:      ten cot ton dau,
+    purchase_qty:     ten cot nhap,
+    sold_qty:         ten cot ban,
+    return_qty:       ten cot tra hang,
+    transfer_in_qty:  ten cot chuyen den,
+    transfer_out_qty: ten cot chuyen di,
+    end_stock:        ten cot ton cuoi,
+    net_revenue:      ten cot doanh thu,
+    cost_amount:      ten cot gia von,
+  }
+}]
+```
+
+**Luu y**: Ten cot BigQuery can xac nhan chinh xac. Se su dung convention KiotViet pho bien. Neu sai, job se fail va can dieu chinh.
+
+### Buoc 3: Viet ham `syncInventory`
+
+Theo dung pattern cua `syncFulfillments` / `syncAdSpend`:
+- Query BigQuery theo batch (LIMIT/OFFSET)
+- Upsert vao `inventory_movements` (conflict on `tenant_id, movement_date, branch_id, product_code`)
+- Ho tro date_from filter va chunked auto-continue
+- Tracking progress qua `backfill_source_progress`
+
+### Buoc 4: Ket noi vao switch case
+
+Them `case 'inventory':` vao main handler (dong ~2444) de goi `syncInventory`.
+
+### Buoc 5: Deploy va chay backfill
 
 1. Deploy edge function `backfill-bigquery`
-2. Xoa job fulfillments cu da fail (`dce0ca9f...`)
-3. Chay lai backfill fulfillments voi date_from: `2025-01-01`
-
-### Luu y
-
-- Can xac nhan ten cot chinh xac cua KiotViet va Haravan tren BigQuery. Cac ten tren (`DeliveryCode`, `TrackingNumber`, `ShippingCarrier`, `FulfillmentStatus`, `UpdatedAt`) dua tren convention cua KiotViet API va Haravan API. Neu ten cot khac, job se fail va can dieu chinh lai.
-- Neu KiotViet/Haravan khong co mot so cot, se dat `null` tuong tu Shopee.
+2. Chay backfill cho `inventory` (date_from: 2025-01-01)
+3. Chay backfill cho `campaigns` (da co san sync function, chi can trigger)
 
