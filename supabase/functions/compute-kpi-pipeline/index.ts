@@ -80,10 +80,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Detect alerts
+    // Step 2: CDP Daily Build (metrics + equity)
+    let cdpResult = null;
+    const { skip_cdp = false } = body;
+    if (!skip_cdp) {
+      console.log(`[KPI Pipeline] Running CDP daily build for ${effectiveEnd}...`);
+      const { data, error } = await supabase.rpc("cdp_run_daily_build", {
+        p_tenant_id: tenant_id,
+        p_as_of_date: effectiveEnd,
+      });
+      if (error) {
+        console.error(`[KPI Pipeline] CDP build error:`, error.message);
+        cdpResult = { error: error.message };
+      } else {
+        cdpResult = data;
+        console.log(`[KPI Pipeline] CDP build done:`, JSON.stringify(data));
+      }
+    }
+
+    // Step 3: Detect alerts
     let alertResult = null;
     if (!skip_alerts) {
-      // Run for last date in range
       const { data, error } = await supabase.rpc("detect_threshold_breaches", {
         p_tenant_id: tenant_id,
         p_date: effectiveEnd,
@@ -108,6 +125,7 @@ Deno.serve(async (req) => {
       chunks_processed: chunks.length,
       total_upserted: totalUpserted,
       errors: errors.length > 0 ? errors : undefined,
+      cdp_build: cdpResult,
       alert_detection: alertResult,
       summary: { total_kpi_facts: kpiCount, open_alerts: alertCount },
     };
