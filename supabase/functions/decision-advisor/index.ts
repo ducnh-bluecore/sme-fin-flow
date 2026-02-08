@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -6,7 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// AI Advisor Prompt Spec - Decision Copilot for Bluecore
 const SYSTEM_PROMPT = `You are Bluecore AI Advisor, a decision-focused advisor for executives.
 Your job is to help users make timely business decisions based on provided Decision Cards.
 You are not a chatbot. You do not do small talk. You do not ask open-ended questions.
@@ -64,13 +62,10 @@ serve(async (req) => {
 
   try {
     const { messages, cardContext, analysisType, userRole = "CEO" } = await req.json();
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
-    }
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Build structured context for the AI
     const now = new Date().toISOString();
     const decisionCard = cardContext ? {
       card_id: cardContext.id || "unknown",
@@ -80,7 +75,7 @@ serve(async (req) => {
       entity_label: cardContext.entity || "Unknown",
       impact_amount: cardContext.impact_amount || 0,
       impact_window_days: 30,
-      deadline_hours_left: cardContext.deadline ? 
+      deadline_hours_left: cardContext.deadline ?
         Math.max(0, (new Date(cardContext.deadline).getTime() - Date.now()) / (1000 * 60 * 60)) : 24,
       recommended_action: cardContext.actions?.[0]?.action_type || "INVESTIGATE",
       facts: cardContext.facts || [],
@@ -89,9 +84,7 @@ serve(async (req) => {
     } : null;
 
     const contextPayload = {
-      user_role: userRole,
-      locale: "vi-VN",
-      now,
+      user_role: userRole, locale: "vi-VN", now,
       decision_cards: decisionCard ? [decisionCard] : [],
       selected_card_id: decisionCard?.card_id,
       company_context: "E-commerce, VND",
@@ -106,46 +99,41 @@ ${analysisType ? `\nAnalysis Type: ${analysisType}` : ''}
 
 IMPORTANT: Always respond with valid JSON following the output schema above.`;
 
-    console.log("Calling OpenAI API with gpt-4o-mini for decision advisor...");
+    console.log("Calling Lovable AI Gateway (gemini-2.5-flash) for decision advisor...");
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: enhancedSystemPrompt },
           ...messages,
         ],
         stream: true,
         max_tokens: 2000,
-        temperature: 0.3, // Lower temperature for more consistent, structured outputs
+        temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
-      
+      console.error("AI gateway error:", response.status, errorText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Vui lòng thử lại sau." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 401) {
-        return new Response(JSON.stringify({ error: "Invalid OpenAI API key." }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Hết credits AI." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
-      return new Response(JSON.stringify({ error: "Lỗi OpenAI API: " + errorText }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Lỗi AI gateway: " + errorText }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -155,8 +143,7 @@ IMPORTANT: Always respond with valid JSON following the output schema above.`;
   } catch (error) {
     console.error("Decision advisor error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

@@ -9,17 +9,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from './useTenantQueryBuilder';
 
 interface FinancialSummary {
-  totalCash: number;
-  totalAR: number;
-  totalOverdue: number;
-  overdueCount: number;
-  totalInvoices: number;
-  totalCustomers: number;
-  unmatchedTransactionsCount: number;
-  matchRate: string;
-  totalRevenue: number;
+  netRevenue: number;
+  orderCount: number;
+  aov: number;
+  grossMarginPct: number;
+  cogs: number;
   totalExpenses: number;
-  netIncome: number;
+  customerCount: number;
 }
 
 interface AIInsightsResponse {

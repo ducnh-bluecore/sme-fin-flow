@@ -134,23 +134,21 @@ export function AIInsightsPanel() {
           {/* Quick Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <QuickStat
-              label="Tiền mặt"
-              value={formatCurrency(data.summary.totalCash)}
+              label="Doanh thu"
+              value={formatCurrency(data.summary.netRevenue)}
               icon={<TrendingUp className="h-4 w-4" />}
             />
             <QuickStat
-              label="Công nợ AR"
-              value={formatCurrency(data.summary.totalAR)}
-              warning={data.summary.totalOverdue > 0}
+              label="Đơn hàng"
+              value={`${data.summary.orderCount}`}
             />
             <QuickStat
-              label="Quá hạn"
-              value={`${data.summary.overdueCount} HĐ`}
-              warning={data.summary.overdueCount > 0}
+              label="AOV"
+              value={formatCurrency(data.summary.aov)}
             />
             <QuickStat
-              label="Match rate"
-              value={data.summary.matchRate}
+              label="Gross Margin"
+              value={`${(data.summary.grossMarginPct || 0).toFixed(1)}%`}
             />
           </div>
 
