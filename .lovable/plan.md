@@ -1,72 +1,73 @@
 
 
-## Fix Customer Deduplication Logic
+## Fix KiotViet Order Backfill: Luu CusId va Phone
 
-### Van de hien tai
+### Van de
 
-Customer merge rate chi 0.4% (1 record merge) thay vi muc tieu 20-30%. Nguyen nhan:
-- KiotViet (217K): canonical_key = phone (0xxx...)
-- Haravan (55K): canonical_key = email (khong co phone)
-- 2 nguon dung 2 loai key khac nhau nen KHONG BAO GIO match
+KiotViet order mapping co `customer_id: 'CusId'` nhung trong ham `syncOrders` (line 1116-1129), chi map `customer_name` va `customer_phone`. KiotViet khong co `customer_phone` trong mapping nen ca 2 truong `CusId` va `phone` deu bi mat.
 
-### Giai phap: Two-Pass Dedup
+Ket qua: 728K KiotViet orders khong the link ve `cdp_customers`.
 
-#### Buoc 1: Sua logic trong Edge Function `backfill-bigquery/index.ts`
+### Giai phap
 
-Thay doi ham `syncCustomers` de thuc hien dedup 2 vong:
+Sua duy nhat 1 file: `supabase/functions/backfill-bigquery/index.ts`
 
-**Vong 1 (giu nguyen):** Upsert theo `canonical_key = phone || email` — tao profile co ban.
+#### Thay doi 1: Them `customer_phone` vao KiotViet ORDER_SOURCES mapping
 
-**Vong 2 (moi):** Sau khi upsert xong tat ca sources, chay merge query:
-- Tim cac cap customer co cung email nhung khac canonical_key (1 ben la phone, 1 ben la email)
-- Merge: gop external_ids, giu phone tu KiotViet, giu email tu Haravan, lay earliest created_at
-- Xoa record trung (giu record co phone lam master)
-
-Logic merge SQL (chay cuoi ham syncCustomers):
+KiotViet orders co cot `ContactNumber` (so dien thoai khach hang). Them vao mapping:
 
 ```text
--- Tim cap trung lap: customer A co phone, customer B co email giong A.email
--- Merge B vao A: 
---   A.external_ids = A.external_ids || B.external_ids
---   A.email = COALESCE(A.email, B.email)
--- Xoa B
+// Line 190-202: KiotViet order source
+mapping: {
+  ...existing fields...
+  customer_phone: 'ContactNumber',   // NEW - phone tu KiotViet
+}
 ```
 
-#### Buoc 2: Tao database function `merge_duplicate_customers`
+**Luu y:** Can verify cot `ContactNumber` co ton tai trong `raw_kiotviet_Orders`. Neu khong co, se dung null va chi luu CusId.
 
-Tao stored function de thuc hien merge an toan:
+#### Thay doi 2: Luu CusId vao `buyer_id` column
+
+Trong ham `syncOrders` (line 1116-1129), them mapping `buyer_id` tu `customer_id` trong source mapping:
 
 ```text
-merge_duplicate_customers(p_tenant_id uuid)
-  1. Tim tat ca customers co email NOT NULL
-  2. Group by normalized email
-  3. Voi moi group > 1 record:
-     - Chon master = record co phone NOT NULL (uu tien kiotviet)
-     - Merge external_ids tu tat ca records vao master
-     - Cap nhat cdp_orders.customer_id tro ve master
-     - Xoa cac duplicate records
-  4. Return so luong merged
+// Line 1116-1129: Transform logic
+const orders = rows.map(row => ({
+  ...existing fields...
+  buyer_id: row[source.mapping.customer_id] 
+    ? String(row[source.mapping.customer_id]) 
+    : null,                                    // NEW - luu CusId vao buyer_id
+  customer_phone: row[source.mapping.customer_phone] || null,  // FIX - ensure not undefined
+}));
 ```
 
-#### Buoc 3: Cap nhat `useBigQueryBackfill.ts`
+Column `buyer_id` (type text) da ton tai trong `cdp_orders` schema, dung de luu external customer ID tu source.
 
-Khong can thay doi type hay UI — logic merge chay tu dong trong syncCustomers.
+### Khong can migration SQL
 
-### Files thay doi
+- Column `buyer_id` va `customer_phone` da co san trong `cdp_orders`
+- Chi can sua code trong edge function
 
-1. **`supabase/functions/backfill-bigquery/index.ts`**: Them Phase 2 merge logic sau khi upsert xong tat ca customer sources
-2. **Migration SQL**: Tao function `merge_duplicate_customers(uuid)` trong database
+### Sau khi deploy
+
+Ban chi can re-backfill KiotViet orders:
+```json
+{
+  "action": "start",
+  "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "model_type": "orders",
+  "options": {
+    "source_table": "raw_kiotviet_Orders",
+    "date_from": "2025-01-01"
+  }
+}
+```
+
+Sau do chay `link_orders_by_customer_key` de link `buyer_id` (CusId) voi `cdp_customers.external_ids` chua kiotviet ID.
 
 ### Ket qua ky vong
 
-- KiotViet customers co email (5,451) se match voi Haravan customers cung email
-- Merge rate tang tu 0.4% len ~5-10% (realistic vi chi 5K kiotviet co email)
-- External_ids se chua ca kiotviet + haravan source IDs
-- Khong mat du lieu — chi gop va xoa trung
-
-### Luu y
-
-- Merge chi ap dung cho customers co **cung email** giua cac nguon
-- Merge rate thuc te co the khong dat 20-30% vi kiotviet chi co 5,451 email (2.5% tong)
-- De tang merge rate cao hon, can lam sach du lieu phone cua Haravan tu BigQuery source (hien tai Haravan khong co phone)
+- 728K KiotViet orders se co `buyer_id` = CusId (vi du: "123456")
+- Customer phone se duoc luu (neu `ContactNumber` ton tai trong BigQuery table)
+- Link rate du kien tang tu 8.3% len ~70-80%
 
