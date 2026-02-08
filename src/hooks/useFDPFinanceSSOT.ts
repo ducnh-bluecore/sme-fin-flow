@@ -115,11 +115,15 @@ export function useFDPFinanceSSOT() {
       }
       
       if (!snapshot) {
-        // Use callRpc which handles tenant context
-        const { data: newSnapshotId, error: computeError } = await callRpc<string>(
-          'compute_central_metrics_snapshot', 
-          { p_tenant_id: tenantId }
-        );
+        // Must pass explicit dates to avoid function signature ambiguity
+        const endDate = new Date().toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const { data: newSnapshotId, error: computeError } = await client
+          .rpc('compute_central_metrics_snapshot' as any, {
+            p_tenant_id: tenantId,
+            p_start_date: startDate,
+            p_end_date: endDate,
+          });
         
         if (computeError) {
           console.error('[useFDPFinanceSSOT] Compute error:', computeError);
@@ -139,9 +143,14 @@ export function useFDPFinanceSSOT() {
       const isStale = snapshotAge > STALE_THRESHOLD_MINUTES * 60 * 1000;
       
       if (isStale) {
-        // Background refresh via RPC
-        callRpc('compute_central_metrics_snapshot', { p_tenant_id: tenantId })
-          .then(() => console.log('[useFDPFinanceSSOT] Background refresh completed'));
+        // Background refresh with explicit dates to avoid ambiguity
+        const refreshEnd = new Date().toISOString().split('T')[0];
+        const refreshStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        client.rpc('compute_central_metrics_snapshot' as any, {
+          p_tenant_id: tenantId,
+          p_start_date: refreshStart,
+          p_end_date: refreshEnd,
+        }).then(() => console.log('[useFDPFinanceSSOT] Background refresh completed'));
       }
       
       return mapSnapshotToSSOT(snapshotRow, tenantId, isStale);
@@ -159,15 +168,18 @@ export function useFDPFinanceSSOT() {
 
 export function useRefreshFDPFinance() {
   const queryClient = useQueryClient();
-  const { tenantId } = useTenantSupabaseCompat();
-  const { callRpc } = useTenantQueryBuilder();
+  const { client, tenantId } = useTenantSupabaseCompat();
   
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await callRpc<string>('compute_central_metrics_snapshot', { 
-        p_tenant_id: tenantId 
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { data, error } = await client.rpc('compute_central_metrics_snapshot' as any, {
+        p_tenant_id: tenantId,
+        p_start_date: startDate,
+        p_end_date: endDate,
       });
       
       if (error) throw error;

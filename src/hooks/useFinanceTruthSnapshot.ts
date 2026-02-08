@@ -197,7 +197,15 @@ export function useFinanceTruthSnapshot() {
       
       // If no snapshot exists, trigger computation
       if (!data) {
-        const { data: newSnapshot, error: computeError } = await callRpc('compute_central_metrics_snapshot', {});
+        // Must pass explicit dates to avoid function signature ambiguity
+        const endDate = new Date().toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const { data: newSnapshot, error: computeError } = await client
+          .rpc('compute_central_metrics_snapshot' as any, {
+            p_tenant_id: tenantId,
+            p_start_date: startDate,
+            p_end_date: endDate,
+          });
         
         if (computeError) {
           console.error('[useFinanceTruthSnapshot] Compute error:', computeError);
@@ -220,9 +228,14 @@ export function useFinanceTruthSnapshot() {
       const isStale = snapshotAge > STALE_THRESHOLD_MINUTES * 60 * 1000;
       
       if (isStale) {
-        // Trigger background refresh (don't await)
-        callRpc('compute_central_metrics_snapshot', {})
-          .then(() => console.log('[useFinanceTruthSnapshot] Background refresh completed'));
+        // Trigger background refresh with explicit dates
+        const endDate = new Date().toISOString().split('T')[0];
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        client.rpc('compute_central_metrics_snapshot' as any, {
+          p_tenant_id: tenantId,
+          p_start_date: startDate,
+          p_end_date: endDate,
+        }).then(() => console.log('[useFinanceTruthSnapshot] Background refresh completed'));
       }
       
       return mapToFormatted(data as unknown as FinanceTruthSnapshot, isStale);
@@ -240,13 +253,19 @@ export function useFinanceTruthSnapshot() {
 
 export function useRefreshFinanceSnapshot() {
   const queryClient = useQueryClient();
-  const { callRpc, tenantId } = useTenantQueryBuilder();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
   
   return useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
       
-      const { data, error } = await callRpc('compute_central_metrics_snapshot', {});
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { data, error } = await client.rpc('compute_central_metrics_snapshot' as any, {
+        p_tenant_id: tenantId,
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
       
       if (error) throw error;
       return data;
