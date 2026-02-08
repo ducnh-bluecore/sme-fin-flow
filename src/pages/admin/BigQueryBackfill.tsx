@@ -64,7 +64,6 @@ const MODEL_TYPES: BackfillModelType[] = [
   'payments',
   'fulfillments',
   'inventory',
-  'inventory_snapshots',
   'campaigns',
   'ad_spend',
 ];
