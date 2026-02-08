@@ -494,6 +494,74 @@ const INVENTORY_SOURCES = [
   },
 ];
 
+// Marketplace inventory snapshot sources (current stock levels, not daily movements)
+const INVENTORY_SNAPSHOT_SOURCES = [
+  {
+    channel: 'lazada',
+    dataset: 'olvboutique_lazada',
+    table: 'lazada_ProductMultiWarehouseInventories',
+    mapping: {
+      product_id: 'item_id',
+      sku: null,
+      warehouse_id: 'warehouseCode',
+      warehouse_name: null,
+      quantity: 'totalQuantity',
+      available_quantity: 'sellableQuantity',
+      reserved_quantity: 'occupyQuantity',
+      sellable_quantity: 'sellableQuantity',
+      snapshot_date: 'dw_timestamp',
+    }
+  },
+  {
+    channel: 'shopee',
+    dataset: 'olvboutique_shopee',
+    table: 'shopee_ProductStocks',
+    mapping: {
+      product_id: 'item_id',
+      sku: 'model_sku',
+      warehouse_id: 'location_id',
+      warehouse_name: null,
+      quantity: 'stock',
+      available_quantity: 'stock',
+      reserved_quantity: null,
+      sellable_quantity: 'stock',
+      snapshot_date: 'dw_timestamp',
+    }
+  },
+  {
+    channel: 'tiktok',
+    dataset: 'olvboutique_tiktokshop',
+    table: 'tiktok_ProductSkuStocks',
+    mapping: {
+      product_id: 'product_id',
+      sku: 'sku_id',
+      warehouse_id: 'warehouse_id',
+      warehouse_name: null,
+      quantity: 'available_stock',
+      available_quantity: 'available_stock',
+      reserved_quantity: null,
+      sellable_quantity: 'available_stock',
+      snapshot_date: 'dw_timestamp',
+    }
+  },
+  {
+    channel: 'tiki',
+    dataset: 'olvboutique_tiki',
+    table: 'tiki_ProductInventories',
+    mapping: {
+      product_id: 'product_id',
+      sku: 'sku',
+      warehouse_id: 'warehouse_id',
+      warehouse_name: null,
+      quantity: 'quantity',
+      available_quantity: 'quantity_available',
+      reserved_quantity: 'quantity_reserved',
+      sellable_quantity: 'quantity_sellable',
+      snapshot_date: 'dw_timestamp',
+    }
+  },
+];
+
 // Campaign Insights: per-campaign per-day metrics
 const CAMPAIGN_SOURCES = [
   {
@@ -2474,6 +2542,164 @@ async function syncInventory(
   return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
 }
 
+// ============= Inventory Snapshots Sync (Marketplace) =============
+
+async function syncInventorySnapshots(
+  supabase: any,
+  accessToken: string,
+  projectId: string,
+  tenantId: string,
+  integrationId: string,
+  jobId: string,
+  options: { batch_size?: number; date_from?: string; source_table?: string },
+  startTimeMs: number,
+): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
+  const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
+  let totalProcessed = 0;
+  let inserted = 0;
+  const sourceResults: SourceProgress[] = [];
+  let paused = false;
+
+  const sources = options.source_table
+    ? INVENTORY_SNAPSHOT_SOURCES.filter(s => s.table === options.source_table)
+    : INVENTORY_SNAPSHOT_SOURCES;
+
+  await initSourceProgress(supabase, jobId, sources.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of sources) {
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed snapshot source: ${source.channel}`);
+      continue;
+    }
+
+    console.log(`Processing inventory snapshots from: ${source.channel} (offset ${savedProgress?.last_offset || 0})`);
+
+    const totalRecords = await countSourceRecords(
+      accessToken, projectId, source.dataset, source.table,
+      source.mapping.snapshot_date, options.date_from
+    );
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let hasMore = true;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
+        break;
+      }
+
+      const validColumns = Object.values(source.mapping).filter((v): v is string => v !== null);
+      const uniqueColumns = [...new Set(validColumns)];
+      const columns = uniqueColumns.map(c => `\`${c}\``).join(', ');
+      let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      if (options.date_from && source.mapping.snapshot_date) {
+        query += ` WHERE DATE(\`${source.mapping.snapshot_date}\`) >= '${options.date_from}'`;
+      }
+      query += ` ORDER BY \`${source.mapping.snapshot_date}\` LIMIT ${batchSize} OFFSET ${offset}`;
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const snapshotRows = rows.map(row => {
+          const m = source.mapping;
+          const snapshotDateRaw = m.snapshot_date ? row[m.snapshot_date] : null;
+          const snapshotDate = snapshotDateRaw ? snapshotDateRaw.split('T')[0] : new Date().toISOString().split('T')[0];
+          
+          return {
+            tenant_id: tenantId,
+            channel: source.channel,
+            product_id: String(m.product_id ? row[m.product_id] || '' : ''),
+            sku: m.sku ? String(row[m.sku] || '') : '',
+            warehouse_id: m.warehouse_id ? String(row[m.warehouse_id] || '') : '',
+            warehouse_name: m.warehouse_name ? row[m.warehouse_name] : null,
+            quantity: m.quantity ? parseInt(row[m.quantity] || '0', 10) : 0,
+            available_quantity: m.available_quantity ? parseInt(row[m.available_quantity] || '0', 10) : 0,
+            reserved_quantity: m.reserved_quantity ? parseInt(row[m.reserved_quantity] || '0', 10) : 0,
+            sellable_quantity: m.sellable_quantity ? parseInt(row[m.sellable_quantity] || '0', 10) : 0,
+            snapshot_date: snapshotDate,
+            source_table: source.table,
+          };
+        });
+
+        const { error, count } = await supabase
+          .from('inventory_snapshots')
+          .upsert(snapshotRows, { onConflict: 'tenant_id,channel,product_id,sku,warehouse_id,snapshot_date' })
+          .select('id');
+
+        if (error) {
+          console.error('Inventory snapshot upsert error:', error);
+        } else {
+          inserted += count || snapshotRows.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error processing ${source.channel} snapshot:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
+        hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
+      }
+    }
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
+      dataset: source.dataset,
+      table_name: source.table,
+      status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
+      total_records: totalRecords,
+      processed_records: sourceProcessed,
+      last_offset: offset,
+      error_message: errorMessage || undefined,
+    });
+
+    if (paused) break;
+  }
+
+  return { processed: totalProcessed, inserted, sources: sourceResults, paused: paused || undefined };
+}
+
 // ============= Main Handler =============
 
 serve(async (req) => {
@@ -2668,6 +2894,15 @@ serve(async (req) => {
 
         case 'inventory':
           result = await syncInventory(
+            supabase, accessToken, projectId,
+            params.tenant_id, integrationId, job.id,
+            params.options || {},
+            startTime,
+          );
+          break;
+
+        case 'inventory_snapshots':
+          result = await syncInventorySnapshots(
             supabase, accessToken, projectId,
             params.tenant_id, integrationId, job.id,
             params.options || {},
