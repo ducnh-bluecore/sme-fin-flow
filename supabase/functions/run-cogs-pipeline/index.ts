@@ -27,69 +27,127 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   let runKpi = false;
+  let runEquity = false;
+  let equityOnly = false;
   try {
     const body = await req.json();
     runKpi = body?.run_kpi === true;
+    runEquity = body?.run_equity === true;
+    equityOnly = body?.equity_only === true;
   } catch { /* defaults */ }
 
+  // Skip COGS phase if equity_only
   let totalUpdated = 0;
   let iterations = 0;
   let completed = false;
 
-  console.log('[cogs] Starting batched COGS aggregate...');
+  if (!equityOnly) {
+    console.log('[cogs] Starting batched COGS aggregate...');
 
-  while (Date.now() - startTime < TIME_LIMIT_MS) {
-    iterations++;
-    try {
-      const { data, error } = await supabase.rpc('aggregate_order_cogs_batch', {
-        p_tenant_id: TENANT_ID,
-        p_batch_size: BATCH_SIZE,
-      });
-      if (error) {
-        console.error(`[cogs] Batch ${iterations} error: ${error.message}`);
+    while (Date.now() - startTime < TIME_LIMIT_MS) {
+      iterations++;
+      try {
+        const { data, error } = await supabase.rpc('aggregate_order_cogs_batch', {
+          p_tenant_id: TENANT_ID,
+          p_batch_size: BATCH_SIZE,
+        });
+        if (error) {
+          console.error(`[cogs] Batch ${iterations} error: ${error.message}`);
+          break;
+        }
+        const updated = data ?? 0;
+        if (updated === 0) { completed = true; break; }
+        totalUpdated += updated;
+        if (iterations % 5 === 0) {
+          console.log(`[cogs] Batch ${iterations}: total ${totalUpdated} orders updated`);
+        }
+      } catch (err) {
+        console.error(`[cogs] Batch ${iterations} error: ${err.message}`);
         break;
       }
-      const updated = data ?? 0;
-      if (updated === 0) { completed = true; break; }
-      totalUpdated += updated;
-      if (iterations % 5 === 0) {
-        console.log(`[cogs] Batch ${iterations}: total ${totalUpdated} orders updated`);
+    }
+
+    console.log(`[cogs] Phase done: ${totalUpdated} orders in ${iterations} batches (${Date.now() - startTime}ms). Completed: ${completed}`);
+
+    // Auto-continue if not done
+    if (!completed && totalUpdated > 0) {
+      console.log('[cogs] Auto-continuing...');
+      try {
+        await supabase.functions.invoke('run-cogs-pipeline', {
+          body: { run_kpi: runKpi, run_equity: runEquity },
+        });
+      } catch (err) {
+        console.error(`[cogs] Auto-continue invoke: ${err.message}`);
       }
-    } catch (err) {
-      console.error(`[cogs] Batch ${iterations} error: ${err.message}`);
-      break;
     }
+
+    // KPI recompute only when fully done
+    if (completed && runKpi) {
+      const t = Date.now();
+      try {
+        const d = new Date(); d.setDate(d.getDate() - 90);
+        console.log('[cogs] Recomputing KPIs...');
+        const { error } = await supabase.rpc('compute_kpi_facts_daily', {
+          p_tenant_id: TENANT_ID,
+          p_start_date: d.toISOString().split('T')[0],
+          p_end_date: new Date().toISOString().split('T')[0],
+        });
+        console.log(`[cogs] KPI done in ${Date.now() - t}ms${error ? ' ERROR: ' + error.message : ''}`);
+      } catch (err) {
+        console.error(`[cogs] KPI error: ${err.message}`);
+      }
+    }
+  } else {
+    completed = true; // Skip COGS phase
   }
 
-  console.log(`[cogs] Phase done: ${totalUpdated} orders in ${iterations} batches (${Date.now() - startTime}ms). Completed: ${completed}`);
+  // Equity computation phase
+  let equityResult = null;
+  if ((completed && runEquity) || equityOnly) {
+    console.log('[equity] Starting customer equity computation...');
+    let equityTotal = 0;
+    let equityBatches = 0;
+    let equityDone = false;
 
-  // Auto-continue if not done
-  if (!completed && totalUpdated > 0) {
-    console.log('[cogs] Auto-continuing...');
-    try {
-      await supabase.functions.invoke('run-cogs-pipeline', {
-        body: { run_kpi: runKpi },
-      });
-    } catch (err) {
-      console.error(`[cogs] Auto-continue invoke: ${err.message}`);
+    while (Date.now() - startTime < TIME_LIMIT_MS - 5000) {
+      equityBatches++;
+      try {
+        const { data, error } = await supabase.rpc('cdp_build_customer_equity_batched', {
+          p_tenant_id: TENANT_ID,
+          p_batch_size: 5000,
+        });
+        if (error) {
+          console.error(`[equity] Batch ${equityBatches} error: ${error.message}`);
+          break;
+        }
+        const processed = data?.customers_processed ?? 0;
+        equityTotal += processed;
+        console.log(`[equity] Batch ${equityBatches}: ${processed} customers (total: ${equityTotal})`);
+        
+        if (processed < 5000) {
+          equityDone = true;
+          break;
+        }
+      } catch (err) {
+        console.error(`[equity] Batch ${equityBatches} error: ${err.message}`);
+        break;
+      }
     }
-  }
 
-  // KPI recompute only when fully done
-  if (completed && runKpi) {
-    const t = Date.now();
-    try {
-      const d = new Date(); d.setDate(d.getDate() - 90);
-      console.log('[cogs] Recomputing KPIs...');
-      const { error } = await supabase.rpc('compute_kpi_facts_daily', {
-        p_tenant_id: TENANT_ID,
-        p_start_date: d.toISOString().split('T')[0],
-        p_end_date: new Date().toISOString().split('T')[0],
-      });
-      console.log(`[cogs] KPI done in ${Date.now() - t}ms${error ? ' ERROR: ' + error.message : ''}`);
-    } catch (err) {
-      console.error(`[cogs] KPI error: ${err.message}`);
+    // Auto-continue equity if not done
+    if (!equityDone && equityTotal > 0) {
+      console.log('[equity] Auto-continuing...');
+      try {
+        await supabase.functions.invoke('run-cogs-pipeline', {
+          body: { equity_only: true },
+        });
+      } catch (err) {
+        console.error(`[equity] Auto-continue invoke: ${err.message}`);
+      }
     }
+
+    equityResult = { customers_processed: equityTotal, batches: equityBatches, completed: equityDone };
+    console.log(`[equity] Phase done: ${equityTotal} customers in ${equityBatches} batches. Completed: ${equityDone}`);
   }
 
   return new Response(JSON.stringify({
@@ -99,6 +157,7 @@ Deno.serve(async (req) => {
     iterations,
     completed,
     auto_continued: !completed && totalUpdated > 0,
+    equity: equityResult,
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
