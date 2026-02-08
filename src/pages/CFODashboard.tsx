@@ -57,12 +57,14 @@ function FinancialSummaryCard({
   label, 
   value, 
   subtext, 
-  variant = 'default' 
+  variant = 'default',
+  noData = false,
 }: { 
   label: string; 
   value: string; 
   subtext?: string;
   variant?: 'default' | 'success' | 'warning' | 'danger';
+  noData?: boolean;
 }) {
   const variantStyles = {
     default: 'text-foreground',
@@ -76,10 +78,14 @@ function FinancialSummaryCard({
       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
         {label}
       </div>
-      <div className={`text-xl font-semibold tabular-nums ${variantStyles[variant]}`}>
-        {value}
-      </div>
-      {subtext && (
+      {noData ? (
+        <div className="text-sm text-muted-foreground/60 italic">Chưa kết nối</div>
+      ) : (
+        <div className={`text-xl font-semibold tabular-nums ${variantStyles[variant]}`}>
+          {value}
+        </div>
+      )}
+      {subtext && !noData && (
         <div className="text-xs text-muted-foreground mt-0.5">{subtext}</div>
       )}
     </div>
@@ -245,20 +251,24 @@ export default function CFODashboard() {
                   label="Cash Today" 
                   value={formatVNDCompact(snapshot?.cashToday || 0)}
                   variant="success"
+                  noData={!snapshot?.dataQuality?.hasCashData}
                 />
                 <FinancialSummaryCard 
                   label="Cash Runway" 
                   value={formatRunway()}
                   variant={getRunwayVariant()}
+                  noData={!snapshot?.dataQuality?.hasCashData}
                 />
                 <FinancialSummaryCard 
                   label="Cash 7-Day" 
                   value={formatVNDCompact(cashNext7Days)}
+                  noData={!snapshot?.dataQuality?.hasCashData}
                 />
                 <FinancialSummaryCard 
                   label="Overdue AR" 
                   value={formatVNDCompact(snapshot?.overdueAR || 0)}
                   variant={snapshot?.overdueAR && snapshot.overdueAR > 0 ? 'warning' : 'default'}
+                  noData={!snapshot?.dataQuality?.hasARData}
                 />
                 <FinancialSummaryCard 
                   label="CM %" 
