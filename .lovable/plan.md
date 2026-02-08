@@ -1,78 +1,53 @@
 
 
-## Redesign BigQuery Backfill Page: Tab-based Job Management
+## Them cot "Actual DB" va "Thoi gian" vao BackfillJobTable
 
-### Van de hien tai
+### Thay doi
 
-Tat ca jobs (running, completed, failed, cancelled, pending) hien thi chung trong 1 table duy nhat. Khi so luong jobs tang len hang tram, se rat kho:
-- Theo doi job nao dang chay
-- Tim job loi de retry
-- Phan biet job cu va moi
+**File: `src/components/admin/BackfillJobTable.tsx`**
 
-### Giai phap: Chia thanh 3 tabs
+#### 1. Them cot "Actual DB" (so record thuc trong database)
 
-```text
-+--------------------------------------------------+
-| [Dang chay (2)]  [Hoan thanh (45)]  [Loi (3)]   |
-+--------------------------------------------------+
-```
+Data da co san trong `job.metadata.inserted` - day la so record thuc su duoc ghi vao DB (sau khi dedup). Hien tai chi hien `processed_records` (so dong doc tu BigQuery).
 
-**Tab 1: Dang chay** (Running + Pending)
-- Chi hien thi jobs dang active (running, pending)
-- Auto-refresh moi 5s
-- Hien thi progress bar noi bat
-- Actions: Cancel, Continue
-
-**Tab 2: Hoan thanh** (Completed)
-- Jobs da sync xong
-- Sap xep theo thoi gian moi nhat
-- Actions: Delete, xem source details
-
-**Tab 3: Loi** (Failed + Cancelled)
-- Jobs can xu ly
-- Hien thi error message ro rang
-- Actions: Retry (Continue), Delete
-
-### Layout moi
+Them cot moi giua "Records" va "Started":
 
 ```text
-+--------------------------------------------------+
-| BigQuery Backfill                      [Refresh]  |
-| Sync data from BigQuery to Master Model          |
-+--------------------------------------------------+
-| Model Overview Cards (5 models)                   |
-| [Customers] [Products] [Orders] [Items] [Refunds] |
-+--------------------------------------------------+
-| Start New Backfill (collapsed by default)          |
-| [Model] [Date From] [Date To] [Batch] [Start]    |
-+--------------------------------------------------+
-| [Dang chay (2)]  [Hoan thanh]  [Loi (3)]         |
-| +----------------------------------------------+ |
-| | Table filtered by tab                        | |
-| +----------------------------------------------+ |
-+--------------------------------------------------+
+| Records (BQ)      | Actual DB    |
+| 127,598 / 333,013 | 7,000        |
 ```
 
-Thay doi:
-- Model Overview Cards di len tren de thay tong quan nhanh
-- "Start New Backfill" form dung Collapsible (gon hon)
-- Job table chia theo tabs voi badge count
+- "Records" doi label thanh "BQ Processed" de ro rang hon
+- "Actual DB" lay tu `(job.metadata as any)?.inserted ?? '-'`
+- Khi `inserted < processed`, hien mau nhat de chi ra dedup ratio
+
+#### 2. Cai thien cot "Started" va "Duration"
+
+Hien tai:
+- Started: "3 hours ago" (relative, kho tracking)
+- Duration: "1234s" (kho doc khi lon)
+
+Sau khi sua:
+- Started: hien ca ngay gio tuyet doi, vi du "08/02 17:32"
+- Duration: format thanh "2h 15m 30s" thay vi "8130s"
+- Voi job dang chay: tinh elapsed time tu `started_at` den now()
+
+#### 3. Cap nhat colSpan
+
+CollapsibleContent colSpan tang tu 8 len 9 (them 1 cot)
 
 ### Chi tiet ky thuat
 
-**File thay doi:** `src/pages/admin/BigQueryBackfill.tsx`
+Chi thay doi 1 file: `src/components/admin/BackfillJobTable.tsx`
 
-1. Import `Tabs, TabsList, TabsTrigger, TabsContent` tu `@/components/ui/tabs`
-2. Tinh `activeJobs`, `completedJobs`, `failedJobs` tu `jobs` array bang filter:
-   - Active: status in ['running', 'pending']
-   - Completed: status === 'completed'
-   - Failed: status in ['failed', 'cancelled']
-3. Tach table render thanh component `JobTable` nhan filtered jobs lam prop
-4. Moi tab hien thi count trong badge (vi du: "Dang chay (2)")
-5. Model Overview Cards chuyen len truoc form, hien thi tat ca 10 models (hien tai chi 5)
-6. "Start New Backfill" card dung Collapsible de gon giao dien
+1. Them helper `formatDuration(seconds)` -> "1h 23m 45s" hoac "45s"
+2. Them helper `formatStartTime(dateStr)` -> "08/02 17:32"
+3. Them TableHead "Actual DB"
+4. Them TableCell render `metadata.inserted`
+5. Doi label "Records" thanh "BQ Processed"
+6. Tinh elapsed cho running jobs: `Math.round((Date.now() - started_at) / 1000)`
+7. Cap nhat colSpan tu 8 -> 9
 
 ### Khong can migration SQL
 
-Chi thay doi UI component, khong thay doi data layer.
-
+Du lieu `metadata.inserted` da co san trong `bigquery_backfill_jobs`. Chi thay doi UI.
