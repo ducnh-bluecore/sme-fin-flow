@@ -54,21 +54,22 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     tenantLoading: isLoadingActive || isLoadingTenants,
   });
 
-  // Auto-fix invalid active tenant (e.g. profile points to a tenant the user no longer has access to)
-  // Track whether we've already attempted a fix to prevent infinite loops
+  // Auto-fix: select tenant when none is active OR active tenant is invalid
   const [hasAttemptedFix, setHasAttemptedFix] = useState(false);
   
   useEffect(() => {
     if (!isAuthenticated) return;
     if (isLoadingActive || isLoadingTenants || switchTenantMutation.isPending) return;
     if (userTenants.length === 0) return;
-    if (hasAttemptedFix) return; // Prevent multiple fix attempts
+    if (hasAttemptedFix) return;
 
     const allowedTenantIds = new Set(userTenants.map((tu) => tu.tenant_id));
     const currentTenantId = activeTenant?.id ?? null;
 
-    // Only switch if current tenant is explicitly invalid AND we have alternatives
-    if (currentTenantId && !allowedTenantIds.has(currentTenantId)) {
+    // Auto-select if: no active tenant OR active tenant is invalid
+    const needsSwitch = !currentTenantId || !allowedTenantIds.has(currentTenantId);
+    
+    if (needsSwitch) {
       const fallbackTenantId = userTenants[0].tenant_id;
       if (fallbackTenantId) {
         setHasAttemptedFix(true);

@@ -121,11 +121,10 @@ export function useSwitchTenant() {
         throw new Error('You do not have access to this tenant');
       }
 
-      // Update active tenant in profile
+      // Upsert active tenant in profile (handles case where profile doesn't exist yet)
       const { error } = await supabase
         .from('profiles')
-        .update({ active_tenant_id: tenantId })
-        .eq('id', user.id);
+        .upsert({ id: user.id, active_tenant_id: tenantId }, { onConflict: 'id' });
 
       if (error) throw error;
       return tenantId;
