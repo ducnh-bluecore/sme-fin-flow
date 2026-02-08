@@ -1,73 +1,107 @@
 
 
-## Fix KiotViet Order Backfill: Luu CusId va Phone
+## Plan: Fix AI Data Layer - Seed Registry + Rewire to SSOT
 
-### Van de
+### Van de hien tai
 
-KiotViet order mapping co `customer_id: 'CusId'` nhung trong ham `syncOrders` (line 1116-1129), chi map `customer_name` va `customer_phone`. KiotViet khong co `customer_phone` trong mapping nen ca 2 truong `CusId` va `phone` deu bi mat.
+AI Layer dang "rong ruot":
+- 4/5 platform registry tables EMPTY (chi co 8 metric definitions)
+- 2 edge functions chinh (`analyze-financial-data`, `analyze-contextual`) doc tu legacy tables (invoices, expenses) thay vi L2/L3 SSOT (cdp_orders 1.14M, kpi_facts_daily 8K)
+- Tat ca edge functions goi OpenAI truc tiep thay vi dung Lovable AI gateway (mien phi, khong can API key)
 
-Ket qua: 728K KiotViet orders khong the link ve `cdp_customers`.
+### Plan 3 buoc
 
-### Giai phap
+#### Buoc 1: Seed Platform Registry (Migration SQL)
 
-Sua duy nhat 1 file: `supabase/functions/backfill-bigquery/index.ts`
+**1a. ai_semantic_models** - Dinh nghia schema cho 4 entities chinh:
 
-#### Thay doi 1: Them `customer_phone` vao KiotViet ORDER_SOURCES mapping
+- **order**: cdp_orders columns (order_key, channel, status, order_at, gross_revenue, net_revenue, customer_name, buyer_id...)
+- **customer**: cdp_customers columns (name, phone, email, acquisition_source, lifetime_value, external_ids...)
+- **product**: products columns (sku, name, selling_price, current_stock, category...)
+- **kpi_fact**: kpi_facts_daily columns (grain_date, metric_code, value, dimension_type, dimension_value, comparison_value...)
 
-KiotViet orders co cot `ContactNumber` (so dien thoai khach hang). Them vao mapping:
+Moi entity gom: columns (ten + kieu + y nghia), relationships (lien ket entity khac), business_rules (validation)
+
+**1b. ai_dimension_catalog** - Seed ~15 dimensions:
+
+- channel (string): shopee, lazada, tiktok_shop, tiki, kiotviet
+- status (string): completed, cancelled, refunded, pending
+- metric_code (string): NET_REVENUE, ORDER_COUNT, AOV, COGS, GROSS_MARGIN, ROAS, CPA...
+- dimension_type (string): channel, total, campaign
+- period_type (string): daily, weekly, monthly
+- acquisition_source (string): kiotviet, haravan, bluecore
+- category (string): revenue, margin, cash, customer, marketing, operations
+
+**1c. ai_query_templates** - Seed ~10 proven SQL patterns:
+
+- "doanh thu theo kenh" -> SELECT from kpi_facts_daily WHERE metric_code='NET_REVENUE' GROUP BY dimension_value
+- "top SKU loi nhuan" -> SELECT from cdp_order_items JOIN products...
+- "khach hang moi theo thang" -> SELECT from cdp_customers WHERE created_at...
+- "ROAS theo campaign" -> SELECT from kpi_facts_daily WHERE metric_code='ROAS'
+- "xu huong doanh thu 30 ngay" -> SELECT from kpi_facts_daily WHERE grain_date >= now() - interval '30 days'
+
+#### Buoc 2: Rewire AI Edge Functions to L2/L3 SSOT
+
+**2a. `analyze-financial-data`** - Thay doi data source:
+
+Hien tai doc:
+- invoices, expenses, bank_accounts, bank_transactions, revenues, customers, payments, cash_forecasts
+
+Sau khi sua doc:
+- kpi_facts_daily (L3 - pre-aggregated metrics: revenue, margin, ROAS)
+- cdp_orders (L2 - raw orders cho drill-down)
+- cdp_customers (L2 - customer metrics)
+- alert_instances (L4 - active alerts)
+
+Loi ich: Data thuc tu 1.14M orders thay vi legacy tables (co the rong hoac khong dong bo)
+
+**2b. `analyze-contextual`** - Tuong tu, rewire sang L2/L3 cho cac context khac nhau:
+
+- profitability -> kpi_facts_daily (GROSS_MARGIN, NET_REVENUE, COGS)
+- revenue -> kpi_facts_daily (NET_REVENUE by channel)
+- expenses -> giu nguyen (expenses table van la SSOT cho chi phi van hanh)
+
+#### Buoc 3: Chuyen sang Lovable AI Gateway (optional nhung recommended)
+
+Thay doi tu:
+```text
+fetch("https://api.openai.com/v1/chat/completions", {
+  headers: { Authorization: "Bearer ${OPENAI_API_KEY}" },
+  body: { model: "gpt-4o-mini" }
+})
+```
+
+Sang:
+```text
+fetch("https://ujteggwzllzbhbwrqsmk.supabase.co/functions/v1/proxy-ai", {
+  // hoac dung Lovable AI gateway truc tiep
+  body: { model: "google/gemini-2.5-flash" }
+})
+```
+
+Loi ich: Khong can OPENAI_API_KEY, mien phi, model manh hon (gemini-2.5-flash > gpt-4o-mini)
+
+### Files thay doi
+
+1. **Migration SQL** (new): Seed ai_semantic_models, ai_dimension_catalog, ai_query_templates
+2. **`supabase/functions/analyze-financial-data/index.ts`**: Rewire sang kpi_facts_daily + cdp_orders
+3. **`supabase/functions/analyze-contextual/index.ts`**: Rewire sang L2/L3 cho relevant contexts
+4. **Optional**: Chuyen 4 functions sang Lovable AI gateway
+
+### Thu tu thuc hien
 
 ```text
-// Line 190-202: KiotViet order source
-mapping: {
-  ...existing fields...
-  customer_phone: 'ContactNumber',   // NEW - phone tu KiotViet
-}
+1. Migration: Seed platform registry (semantic models + dimensions + templates)
+2. Rewire analyze-financial-data -> L2/L3 SSOT
+3. Rewire analyze-contextual -> L2/L3 SSOT
+4. (Optional) Switch to Lovable AI gateway
+5. Test: Goi analyze-financial-data va verify data tu SSOT
 ```
-
-**Luu y:** Can verify cot `ContactNumber` co ton tai trong `raw_kiotviet_Orders`. Neu khong co, se dung null va chi luu CusId.
-
-#### Thay doi 2: Luu CusId vao `buyer_id` column
-
-Trong ham `syncOrders` (line 1116-1129), them mapping `buyer_id` tu `customer_id` trong source mapping:
-
-```text
-// Line 1116-1129: Transform logic
-const orders = rows.map(row => ({
-  ...existing fields...
-  buyer_id: row[source.mapping.customer_id] 
-    ? String(row[source.mapping.customer_id]) 
-    : null,                                    // NEW - luu CusId vao buyer_id
-  customer_phone: row[source.mapping.customer_phone] || null,  // FIX - ensure not undefined
-}));
-```
-
-Column `buyer_id` (type text) da ton tai trong `cdp_orders` schema, dung de luu external customer ID tu source.
-
-### Khong can migration SQL
-
-- Column `buyer_id` va `customer_phone` da co san trong `cdp_orders`
-- Chi can sua code trong edge function
-
-### Sau khi deploy
-
-Ban chi can re-backfill KiotViet orders:
-```json
-{
-  "action": "start",
-  "tenant_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-  "model_type": "orders",
-  "options": {
-    "source_table": "raw_kiotviet_Orders",
-    "date_from": "2025-01-01"
-  }
-}
-```
-
-Sau do chay `link_orders_by_customer_key` de link `buyer_id` (CusId) voi `cdp_customers.external_ids` chua kiotviet ID.
 
 ### Ket qua ky vong
 
-- 728K KiotViet orders se co `buyer_id` = CusId (vi du: "123456")
-- Customer phone se duoc luu (neu `ContactNumber` ton tai trong BigQuery table)
-- Link rate du kien tang tu 8.3% len ~70-80%
+- AI co "hieu biet" ve schema thuc (1.14M orders, 310K customers, 16.7K products)
+- Insights dua tren Financial Truth (FDP Manifesto #2: SINGLE SOURCE OF TRUTH)
+- Khong con "so ao" tu legacy tables
+- Tiet kiem chi phi API (neu dung Lovable AI gateway)
 
