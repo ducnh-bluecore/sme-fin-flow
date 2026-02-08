@@ -17822,6 +17822,98 @@ export type Database = {
           },
         ]
       }
+      inventory_movements: {
+        Row: {
+          begin_stock: number | null
+          branch_id: string | null
+          branch_name: string | null
+          channel: string | null
+          cost_amount: number | null
+          created_at: string | null
+          end_stock: number | null
+          id: string
+          movement_date: string
+          net_revenue: number | null
+          product_code: string
+          product_name: string | null
+          purchase_qty: number | null
+          return_qty: number | null
+          sold_qty: number | null
+          tenant_id: string
+          transfer_in_qty: number | null
+          transfer_out_qty: number | null
+        }
+        Insert: {
+          begin_stock?: number | null
+          branch_id?: string | null
+          branch_name?: string | null
+          channel?: string | null
+          cost_amount?: number | null
+          created_at?: string | null
+          end_stock?: number | null
+          id?: string
+          movement_date: string
+          net_revenue?: number | null
+          product_code: string
+          product_name?: string | null
+          purchase_qty?: number | null
+          return_qty?: number | null
+          sold_qty?: number | null
+          tenant_id: string
+          transfer_in_qty?: number | null
+          transfer_out_qty?: number | null
+        }
+        Update: {
+          begin_stock?: number | null
+          branch_id?: string | null
+          branch_name?: string | null
+          channel?: string | null
+          cost_amount?: number | null
+          created_at?: string | null
+          end_stock?: number | null
+          id?: string
+          movement_date?: string
+          net_revenue?: number | null
+          product_code?: string
+          product_name?: string | null
+          purchase_qty?: number | null
+          return_qty?: number | null
+          sold_qty?: number | null
+          tenant_id?: string
+          transfer_in_qty?: number | null
+          transfer_out_qty?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       investments: {
         Row: {
           account_number: string | null
