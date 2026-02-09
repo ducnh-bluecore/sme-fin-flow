@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2 } from 'lucide-react';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
 import { RebalanceBoardTable } from '@/components/inventory/RebalanceBoardTable';
 import { RebalanceDecisionCard } from '@/components/inventory/RebalanceDecisionCard';
+import { RebalanceConfigPanel } from '@/components/inventory/RebalanceConfigPanel';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useRunRebalance } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
@@ -102,6 +103,10 @@ export default function InventoryAllocationPage() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="config" className="gap-1.5">
+              <Settings2 className="h-3.5 w-3.5" />
+              Cấu hình
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="all">
@@ -127,6 +132,9 @@ export default function InventoryAllocationPage() {
               onReject={handleReject}
               transferType="lateral"
             />
+          </TabsContent>
+          <TabsContent value="config">
+            <RebalanceConfigPanel />
           </TabsContent>
         </Tabs>
       </div>
