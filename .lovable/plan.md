@@ -1,136 +1,176 @@
 
 
-# Hop nhat san pham cung SKU cross-channel
+# Fix Customer Linking: Tu 8.2% len 80%+
 
-## Thuc trang du lieu
+## Van de goc
 
-| Channel | So SP | Co SKU that | Co the match |
-|---------|-------|-------------|--------------|
-| KiotViet | 28,526 | Co (ma noi bo) | Source of truth |
-| Shopee | 3,436 | KHONG (item_sku = NULL) | Chi match bang ten |
-| Tiki | 3,857 | KHONG (dung ID so cua Tiki) | Chi match bang ten |
+1. **800K don KiotViet (2017-2024) thieu buyer_id** vi backfill cu chua map CusId
+2. **Ham link_orders_batch chi match bang ten** - bo qua buyer_id va phone
+3. Du lieu customer day du (311K records voi external_ids va phone) nhung khong duoc su dung
 
-Van de chinh: Shopee va Tiki KHONG LUU seller SKU trong BigQuery. Ca bang `shopee_Products` lan `shopee_OrderItems` deu co `item_sku = NULL` va `model_sku = NULL`.
+## Ke hoach thuc hien
 
-## Giai phap: Product Mapping Table + Name-based Auto-match
+### Buoc 1: Re-backfill don KiotViet de bo sung buyer_id
 
-### Buoc 1: Tao bang `product_channel_mapping`
+Chay lai backfill model `orders` voi date_from = 2017-01-01 de cap nhat truong `buyer_id` (CusId) va `customer_phone` (deliveryContactNumber) cho 800K don cu.
 
-Bang nay lien ket san pham tu cac san khac nhau ve 1 "master product" (KiotViet la goc):
+Code backfill hien tai DA CO mapping dung:
+```
+customer_id: 'CusId',
+customer_phone: 'deliveryContactNumber',
+```
 
+Chi can chay lai backfill la du lieu se duoc cap nhat (upsert).
+
+### Buoc 2: Viet lai ham link_orders_batch
+
+Thay the ham hien tai (chi name match) bang 3-pass strategy:
+
+**Pass 1 - buyer_id match (KiotViet ID)**
 ```text
-product_channel_mapping
-  - id (uuid, PK)
-  - tenant_id (uuid)
-  - master_sku (text) -- SKU KiotViet (source of truth)
-  - channel (text) -- shopee / tiki
-  - channel_product_id (text) -- item_id cua Shopee / product_id cua Tiki
-  - channel_product_name (text) -- ten tren san
-  - match_method (text) -- 'auto_name' / 'manual'
-  - confidence (float) -- do tin cay (0-1)
-  - created_at, updated_at
-  - UNIQUE(tenant_id, channel, channel_product_id)
+cdp_orders.buyer_id = cdp_customers.external_ids[].id 
+WHERE source = 'kiotviet'
 ```
+Du kien match: ~225K don (KiotViet 2025+, sau khi re-backfill se len 800K+)
 
-### Buoc 2: Auto-match bang ten san pham
-
-Logic tu dong:
-1. Lay tat ca san pham KiotViet co ten
-2. Voi moi SP Shopee/Tiki, tim SP KiotViet co ten giong nhat (sau khi loai bo prefix "OLV - ", "OLV-", chuyen lowercase)
-3. Neu ten match chinh xac (sau normalize) => confidence = 1.0
-4. Neu ten chua 1 phan (substring) => confidence = 0.7
-5. Luu ket qua vao `product_channel_mapping`
-
-Vi du matching:
-- Shopee: "OLV - Ao Gigi Black Top" => KiotViet: "Gigi Black Top" (confidence: 1.0)
-- Shopee: "OLV - Dam maxi hoa co yem Odette Fleur Dress" => KiotViet: "Odette Fleur Dress" (confidence: 0.8)
-
-### Buoc 3: Cross-fill cost_price
-
-Sau khi co mapping:
-```sql
-UPDATE products p_target
-SET cost_price = p_kv.cost_price
-FROM product_channel_mapping m
-JOIN products p_kv ON p_kv.sku = m.master_sku 
-  AND p_kv.channel = 'kiotviet' AND p_kv.tenant_id = m.tenant_id
-WHERE p_target.channel = m.channel
-  AND p_target.sku = m.channel_product_id  -- or matching logic
-  AND p_target.tenant_id = m.tenant_id
-  AND p_target.cost_price = 0
-  AND p_kv.cost_price > 0;
+**Pass 2 - Phone match**
+```text
+normalize(cdp_orders.customer_phone) = cdp_customers.canonical_key
 ```
+Du kien match: them ~50K don co phone khong bi mask
 
-### Buoc 4: Cap nhat view `v_top_products_30d`
+**Pass 3 - Name match (giu nguyen logic cu)**
+```text
+exact name match voi unique customer names
+```
+Fallback cho cac don con lai
 
-View se JOIN voi `product_channel_mapping` de:
-- Gop doanh thu cua cung 1 san pham ban tren nhieu kenh
-- Hien thi ten KiotViet (day du) thay vi ten san
+### Buoc 3: Chay linking toan bo
 
-### Buoc 5: Admin UI de review/fix mapping
+Goi ham `link_orders_batch` nhieu lan (batch 5000) cho den khi het don chua link.
 
-Them tab trong trang BigQuery Backfill de:
-- Xem danh sach mapping tu dong (sort theo confidence thap nhat)
-- Cho phep admin sua/xoa mapping sai
-- Cho phep admin map thu cong cac SP chua match duoc
+## Chi tiet ky thuat
 
-## Technical Details
-
-### Migration SQL
+### Migration SQL - Viet lai link_orders_batch
 
 ```sql
-CREATE TABLE IF NOT EXISTS product_channel_mapping (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
-  master_sku text NOT NULL,
-  channel text NOT NULL,
-  channel_product_id text NOT NULL,
-  channel_product_name text,
-  match_method text DEFAULT 'auto_name',
-  confidence float DEFAULT 0,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE(tenant_id, channel, channel_product_id)
-);
+CREATE OR REPLACE FUNCTION link_orders_batch(
+  p_tenant_id uuid, 
+  p_batch_size integer DEFAULT 5000
+) RETURNS integer AS $$
+DECLARE
+  v_linked integer := 0;
+  v_pass integer := 0;
+BEGIN
+  -- Pass 1: Match by buyer_id (KiotViet CusId)
+  WITH batch AS (
+    SELECT o.id as order_id, c.id as customer_id
+    FROM cdp_orders o
+    JOIN cdp_customers c 
+      ON c.tenant_id = o.tenant_id
+      AND c.external_ids @> jsonb_build_array(
+        jsonb_build_object('id', o.buyer_id::bigint, 'source', 'kiotviet')
+      )
+    WHERE o.tenant_id = p_tenant_id
+      AND o.customer_id IS NULL
+      AND o.buyer_id IS NOT NULL 
+      AND o.buyer_id != ''
+      AND o.channel = 'kiotviet'
+    LIMIT p_batch_size
+  )
+  UPDATE cdp_orders o
+  SET customer_id = b.customer_id
+  FROM batch b WHERE o.id = b.order_id;
+  GET DIAGNOSTICS v_pass = ROW_COUNT;
+  v_linked := v_linked + v_pass;
 
-ALTER TABLE product_channel_mapping ENABLE ROW LEVEL SECURITY;
+  -- Pass 2: Match by phone
+  WITH batch AS (
+    SELECT o.id as order_id, c.id as customer_id
+    FROM cdp_orders o
+    JOIN cdp_customers c 
+      ON c.tenant_id = o.tenant_id
+      AND c.canonical_key = regexp_replace(o.customer_phone, '[^0-9]', '', 'g')
+    WHERE o.tenant_id = p_tenant_id
+      AND o.customer_id IS NULL
+      AND o.customer_phone IS NOT NULL
+      AND o.customer_phone !~ '\*'
+      AND length(regexp_replace(o.customer_phone, '[^0-9]', '', 'g')) >= 9
+    LIMIT p_batch_size
+  )
+  UPDATE cdp_orders o
+  SET customer_id = b.customer_id
+  FROM batch b WHERE o.id = b.order_id;
+  GET DIAGNOSTICS v_pass = ROW_COUNT;
+  v_linked := v_linked + v_pass;
+
+  -- Pass 3: Name match (fallback)
+  WITH unique_names AS (
+    SELECT name, (array_agg(id ORDER BY created_at))[1] as customer_id
+    FROM cdp_customers
+    WHERE tenant_id = p_tenant_id
+      AND name IS NOT NULL AND trim(name) != '' AND name !~ '\*'
+    GROUP BY name HAVING COUNT(*) = 1
+  ),
+  batch AS (
+    SELECT o.id as order_id, un.customer_id
+    FROM cdp_orders o
+    JOIN unique_names un ON trim(o.customer_name) = un.name
+    WHERE o.tenant_id = p_tenant_id
+      AND o.customer_id IS NULL
+      AND o.customer_name IS NOT NULL
+      AND o.customer_name !~ '\*'
+    LIMIT p_batch_size
+  )
+  UPDATE cdp_orders o
+  SET customer_id = b.customer_id
+  FROM batch b WHERE o.id = b.order_id;
+  GET DIAGNOSTICS v_pass = ROW_COUNT;
+  v_linked := v_linked + v_pass;
+
+  RETURN v_linked;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-### Edge Function hoac RPC cho auto-match
-
-Tao RPC `auto_match_products`:
-1. Query products KiotViet va Shopee/Tiki
-2. Normalize ten (bo prefix OLV, lowercase, trim)
-3. Tim exact match truoc, roi substring match
-4. Insert vao product_channel_mapping
-
-### Cap nhat `v_top_products_30d`
+### Index can thiet
 
 ```sql
-CREATE OR REPLACE VIEW v_top_products_30d AS
-SELECT 
-  oi.tenant_id,
-  COALESCE(m.master_sku, oi.sku) as sku,
-  COALESCE(p_master.name, p.name, MAX(oi.product_name), oi.sku) as product_name,
-  ...
-FROM cdp_order_items oi
-LEFT JOIN product_channel_mapping m 
-  ON oi.tenant_id = m.tenant_id 
-  AND oi.channel = m.channel 
-  AND oi.sku = m.channel_product_id
-LEFT JOIN products p_master 
-  ON m.master_sku = p_master.sku 
-  AND p_master.channel = 'kiotviet'
-LEFT JOIN products p 
-  ON oi.sku = p.sku AND oi.tenant_id = p.tenant_id
-GROUP BY COALESCE(m.master_sku, oi.sku), ...
-ORDER BY total_revenue DESC;
+-- Index cho buyer_id matching
+CREATE INDEX IF NOT EXISTS idx_cdp_orders_buyer_id 
+  ON cdp_orders(tenant_id, buyer_id) 
+  WHERE buyer_id IS NOT NULL AND customer_id IS NULL;
+
+-- Index cho phone matching  
+CREATE INDEX IF NOT EXISTS idx_cdp_orders_phone_unlinked
+  ON cdp_orders(tenant_id, customer_phone)
+  WHERE customer_id IS NULL AND customer_phone IS NOT NULL;
+
+-- GIN index cho external_ids JSONB search
+CREATE INDEX IF NOT EXISTS idx_cdp_customers_ext_ids
+  ON cdp_customers USING gin(external_ids);
 ```
+
+### Trinh tu thuc hien
+
+1. Tao indexes truoc (de matching nhanh)
+2. Deploy ham link_orders_batch moi
+3. Re-backfill KiotViet orders (2017-2024) de bo sung buyer_id
+4. Chay link_orders_batch nhieu lan cho den khi return 0
+5. Kiem tra ket qua: `SELECT COUNT(*) FILTER (WHERE customer_id IS NOT NULL) FROM cdp_orders`
+
+### Du kien ket qua
+
+- Truoc: 8.2% linked (91.8% unlinked)
+- Sau Pass 1 (buyer_id): +60% KiotViet orders linked
+- Sau Pass 2 (phone): +5-10% them
+- Sau Pass 3 (name): +3-5% them
+- Tong du kien: 70-80% linked
 
 ### Luu y
 
-- Auto-match se khong 100% chinh xac vi ten SP tren san thuong khac KiotViet (them prefix, them size...)
-- Can admin review cac mapping co confidence < 0.9
-- Mapping chi can chay 1 lan + cap nhat incremental khi co SP moi
-- KiotViet la source of truth cho gia von (cost_price), ten chinh thuc, va ma SKU
+- Re-backfill KiotViet orders la buoc ton thoi gian nhat (800K records, nhieu batch)
+- JSONB @> query can GIN index de khong bi slow
+- Phone normalize phai khop voi logic trong backfill-bigquery (regexp_replace bo ky tu dac biet)
+- Marketplace orders (Shopee/TikTok) se kho match hon vi phone bi mask - can giai phap rieng sau
 
