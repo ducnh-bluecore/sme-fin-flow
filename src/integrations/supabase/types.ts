@@ -37632,6 +37632,14 @@ export type Database = {
         Returns: Json
       }
       cleanup_expired_evidence: { Args: never; Returns: number }
+      cleanup_kiotviet_marketplace_orders: {
+        Args: {
+          p_dry_run?: boolean
+          p_order_keys: string[]
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       close_financial_period: {
         Args: { p_period_id: string }
         Returns: boolean
