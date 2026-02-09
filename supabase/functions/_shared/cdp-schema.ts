@@ -189,18 +189,24 @@ export function validateSQL(sql: string): { valid: boolean; error?: string } {
 
 // Inject tenant filter into SQL
 export function injectTenantFilter(sql: string, tenantId: string): string {
+  // Detect first table alias to qualify tenant_id (avoids ambiguity in JOINs)
+  const fromMatch = sql.match(/\bFROM\s+([a-z_][a-z_0-9]*)\s+([a-z_][a-z_0-9]*)?/i);
+  const qualifier = fromMatch?.[2] || fromMatch?.[1] || '';
+  const tenantCol = qualifier ? `${qualifier}.tenant_id` : 'tenant_id';
+  const tenantFilter = `${tenantCol} = '${tenantId}'::uuid`;
+
   const upperSql = sql.toUpperCase();
   
   if (upperSql.includes('WHERE')) {
-    return sql.replace(/WHERE/i, `WHERE tenant_id = '${tenantId}' AND `);
+    return sql.replace(/WHERE/i, `WHERE ${tenantFilter} AND `);
   } else if (upperSql.includes('GROUP BY')) {
-    return sql.replace(/GROUP BY/i, `WHERE tenant_id = '${tenantId}' GROUP BY`);
+    return sql.replace(/GROUP BY/i, `WHERE ${tenantFilter} GROUP BY`);
   } else if (upperSql.includes('ORDER BY')) {
-    return sql.replace(/ORDER BY/i, `WHERE tenant_id = '${tenantId}' ORDER BY`);
+    return sql.replace(/ORDER BY/i, `WHERE ${tenantFilter} ORDER BY`);
   } else if (upperSql.includes('LIMIT')) {
-    return sql.replace(/LIMIT/i, `WHERE tenant_id = '${tenantId}' LIMIT`);
+    return sql.replace(/LIMIT/i, `WHERE ${tenantFilter} LIMIT`);
   } else {
-    return `${sql} WHERE tenant_id = '${tenantId}'`;
+    return `${sql} WHERE ${tenantFilter}`;
   }
 }
 
