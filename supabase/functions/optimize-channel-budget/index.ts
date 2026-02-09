@@ -161,9 +161,9 @@ serve(async (req) => {
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -417,35 +417,36 @@ YÊU CẦU PHÂN TÍCH:
 5. Đề xuất cách cải thiện retention cho các kênh yếu
 6. Ghi chú về độ tin cậy của phân tích dựa trên chất lượng dữ liệu`;
 
-    console.log("Calling OpenAI for optimization analysis with retention focus...");
+    console.log("Calling Claude for optimization analysis with retention focus...");
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "claude-sonnet-4-20250514",
+        system: systemPrompt + "\n\nIMPORTANT: Return ONLY valid JSON, no markdown or explanation.",
         messages: [
-          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        max_tokens: 4096,
         temperature: 0.7,
-        response_format: { type: "json_object" },
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("OpenAI API error:", error);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error("Claude API error:", error);
+      throw new Error(`Claude API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    const content = data.content?.[0]?.text || "";
 
-    console.log("OpenAI response received, tokens used:", data.usage);
+    console.log("Claude response received, input/output tokens:", data.usage);
 
     let optimizationResult;
     try {

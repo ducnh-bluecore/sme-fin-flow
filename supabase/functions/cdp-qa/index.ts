@@ -356,22 +356,101 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
   }
 }
 
-// ─── AI Gateway helper with retry ───────────────────────────────────
+// ─── Claude API helper with retry ───────────────────────────────────
+// Converts OpenAI-style params to Anthropic Messages API format
 async function callAI(apiKey: string, body: Record<string, unknown>, maxRetries = 5): Promise<Response> {
+  // Extract system prompt from messages
+  const messages = (body.messages as any[]) || [];
+  const systemMessages = messages.filter((m: any) => m.role === 'system');
+  const nonSystemMessages = messages.filter((m: any) => m.role !== 'system');
+  const systemPromptText = systemMessages.map((m: any) => m.content).join('\n\n');
+
+  // Convert tool_call / tool messages for Claude format
+  const claudeMessages = convertToClaudeMessages(nonSystemMessages);
+
+  // Build Claude request body
+  const claudeBody: Record<string, unknown> = {
+    model: (body.model as string) || 'claude-sonnet-4-20250514',
+    max_tokens: (body.max_tokens as number) || 8192,
+    temperature: body.temperature as number | undefined,
+    stream: body.stream as boolean | undefined,
+  };
+
+  if (systemPromptText) {
+    claudeBody.system = systemPromptText;
+  }
+
+  claudeBody.messages = claudeMessages;
+
+  // Convert OpenAI tools format to Claude tools format
+  if (body.tools) {
+    claudeBody.tools = (body.tools as any[]).map((t: any) => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters,
+    }));
+    if (body.tool_choice === 'auto') {
+      claudeBody.tool_choice = { type: 'auto' };
+    }
+  }
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(claudeBody),
     });
     if (resp.status !== 429 || attempt === maxRetries) return resp;
-    // Parse Retry-After header if available, otherwise exponential backoff
     const retryAfter = resp.headers.get('retry-after');
-    const waitSec = retryAfter ? Math.min(parseInt(retryAfter, 10) || 5, 30) : Math.min(2 ** attempt * 3, 30); // 3s, 6s, 12s, 24s, 30s
+    const waitSec = retryAfter ? Math.min(parseInt(retryAfter, 10) || 5, 30) : Math.min(2 ** attempt * 3, 30);
     console.warn(`[cdp-qa] 429 rate limit, retry ${attempt + 1}/${maxRetries} in ${waitSec}s`);
     await new Promise(r => setTimeout(r, waitSec * 1000));
   }
   throw new Error('Max retries exceeded');
+}
+
+// Convert OpenAI message format to Claude message format
+function convertToClaudeMessages(messages: any[]): any[] {
+  const result: any[] = [];
+  
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.tool_calls) {
+      // Convert OpenAI tool_calls to Claude tool_use content blocks
+      const content: any[] = [];
+      if (msg.content) {
+        content.push({ type: 'text', text: msg.content });
+      }
+      for (const tc of msg.tool_calls) {
+        let input = {};
+        try { input = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
+        content.push({
+          type: 'tool_use',
+          id: tc.id,
+          name: tc.function.name,
+          input,
+        });
+      }
+      result.push({ role: 'assistant', content });
+    } else if (msg.role === 'tool') {
+      // Convert OpenAI tool response to Claude tool_result
+      result.push({
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: msg.tool_call_id,
+          content: msg.content,
+        }],
+      });
+    } else {
+      result.push({ role: msg.role, content: msg.content });
+    }
+  }
+  
+  return result;
 }
 
 function handleAIError(status: number): Response {
@@ -392,8 +471,8 @@ Deno.serve(async (req) => {
     const { messages, tenantId }: RequestBody = await req.json();
     if (!messages?.length) return new Response(JSON.stringify({ error: 'No messages provided' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const apiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!apiKey) return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    if (!apiKey) return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -426,12 +505,12 @@ Deno.serve(async (req) => {
     while (turnCount < MAX_TURNS) {
       turnCount++;
       const pass1Resp = await callAI(apiKey, {
-        model: 'gpt-4.1',
+        model: 'claude-sonnet-4-20250514',
         messages: conversationMessages,
         tools: TOOL_DEFINITIONS,
         tool_choice: 'auto',
         stream: false,
-        max_tokens: 800,
+        max_tokens: 4096,
         temperature: 0.1,
       });
 
@@ -445,40 +524,42 @@ Deno.serve(async (req) => {
       }
 
       const pass1Data = await pass1Resp.json();
-      const choice = pass1Data.choices?.[0];
-      if (!choice) break;
+      
+      // Claude response format: content is array of blocks
+      const contentBlocks = pass1Data.content || [];
+      const toolUseBlocks = contentBlocks.filter((b: any) => b.type === 'tool_use');
+      const textBlocks = contentBlocks.filter((b: any) => b.type === 'text');
+      const stopReason = pass1Data.stop_reason;
 
-      const toolCalls = choice.message?.tool_calls;
-      if (!toolCalls || toolCalls.length === 0) {
-        // No tools needed — AI wants to answer directly
-        // If we already have tool results, move to Pass 2
-        // If no tool results and AI gave content, use it directly
-        if (allToolResults.length === 0 && choice.message?.content) {
-          // Simple answer (greeting, etc.) — stream it via Pass 2 for consistency
+      if (toolUseBlocks.length === 0) {
+        // No tools needed
+        if (allToolResults.length === 0 && textBlocks.length > 0) {
+          // Simple answer — stream via Pass 2
         }
         break;
       }
 
+      // Build assistant message for conversation history (Claude format)
+      conversationMessages.push({ role: 'assistant', content: contentBlocks });
+
       // Execute tools in parallel
-      conversationMessages.push(choice.message);
-      const toolPromises = toolCalls.map(async (tc: any) => {
-        const toolName = tc.function.name;
-        let toolArgs: Record<string, any> = {};
-        try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
+      const toolPromises = toolUseBlocks.map(async (tb: any) => {
+        const toolName = tb.name;
+        const toolArgs = tb.input || {};
         console.log(`[cdp-qa] Tool call: ${toolName}`, toolArgs);
         const result = await executeTool(supabase, activeTenantId!, toolName, toolArgs);
         allToolResults.push({ name: toolName, result });
-        return { id: tc.id, name: toolName, result };
+        return { id: tb.id, name: toolName, result };
       });
 
       const toolOutputs = await Promise.all(toolPromises);
-      for (const to of toolOutputs) {
-        conversationMessages.push({
-          role: 'tool',
-          tool_call_id: to.id,
-          content: JSON.stringify(to.result),
-        });
-      }
+      // Claude expects tool_result blocks in a single user message
+      const toolResultBlocks = toolOutputs.map(to => ({
+        type: 'tool_result',
+        tool_use_id: to.id,
+        content: JSON.stringify(to.result),
+      }));
+      conversationMessages.push({ role: 'user', content: toolResultBlocks });
     }
 
     // ─── Pass 2: Streaming answer ─────────────────────────────────
@@ -532,7 +613,7 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê số rồi dừng. Người dùn
     }
 
     const pass2Resp = await callAI(apiKey, {
-      model: 'gpt-4.1',
+      model: 'claude-sonnet-4-20250514',
       messages: pass2Messages,
       stream: true,
       max_tokens: 10000,
@@ -553,7 +634,53 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê số rồi dừng. Người dùn
       turns: turnCount,
     });
 
-    return new Response(pass2Resp.body, {
+    // Convert Claude SSE stream to OpenAI-compatible SSE stream for frontend
+    const claudeStream = pass2Resp.body!;
+    const transformedStream = new ReadableStream({
+      async start(controller) {
+        const reader = claudeStream.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let newlineIdx: number;
+            while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+              const line = buffer.slice(0, newlineIdx).trim();
+              buffer = buffer.slice(newlineIdx + 1);
+              
+              if (!line || !line.startsWith('data: ')) continue;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') continue;
+
+              try {
+                const event = JSON.parse(jsonStr);
+                // Claude sends content_block_delta with type text_delta
+                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                  const openaiChunk = {
+                    choices: [{ delta: { content: event.delta.text }, index: 0 }],
+                  };
+                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                } else if (event.type === 'message_stop') {
+                  controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+                }
+              } catch { /* ignore partial JSON */ }
+            }
+          }
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (e) {
+          console.error('[cdp-qa] Stream transform error:', e);
+          controller.close();
+        }
+      }
+    });
+
+    return new Response(transformedStream, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',

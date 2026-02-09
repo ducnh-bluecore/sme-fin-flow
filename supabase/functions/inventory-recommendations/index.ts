@@ -379,9 +379,9 @@ serve(async (req) => {
     
     console.log("Processing alert:", { alertType, alertTitle, alertSeverity, alertCategory, isSingleProduct, productCount: topProducts?.length });
     
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not configured");
     }
 
     // Build context from products data
@@ -407,18 +407,19 @@ serve(async (req) => {
       isSingleProduct === true
     );
 
-    console.log("Alert category detected, calling OpenAI...");
+    console.log("Alert category detected, calling Claude...");
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "claude-sonnet-4-20250514",
+        system: systemPrompt,
         messages: [
-          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         max_tokens: 1500,
@@ -428,24 +429,24 @@ serve(async (req) => {
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Đã vượt quá giới hạn yêu cầu OpenAI, vui lòng thử lại sau." }), {
+        return new Response(JSON.stringify({ error: "Đã vượt quá giới hạn yêu cầu, vui lòng thử lại sau." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 401) {
-        return new Response(JSON.stringify({ error: "API key OpenAI không hợp lệ." }), {
+        return new Response(JSON.stringify({ error: "API key không hợp lệ." }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("OpenAI API error:", response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error("Claude API error:", response.status, errorText);
+      throw new Error(`Claude API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const recommendations = data.choices?.[0]?.message?.content || "Không thể tạo đề xuất.";
+    const recommendations = data.content?.[0]?.text || "Không thể tạo đề xuất.";
 
     console.log("AI recommendations generated successfully for alert type:", alertType);
 

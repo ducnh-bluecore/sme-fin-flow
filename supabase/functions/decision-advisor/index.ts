@@ -63,8 +63,8 @@ serve(async (req) => {
   try {
     const { messages, cardContext, analysisType, userRole = "CEO" } = await req.json();
     
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const now = new Date().toISOString();
     const decisionCard = cardContext ? {
@@ -99,29 +99,31 @@ ${analysisType ? `\nAnalysis Type: ${analysisType}` : ''}
 
 IMPORTANT: Always respond with valid JSON following the output schema above.`;
 
-    console.log("Calling OpenAI API (gpt-4o) for decision advisor...");
+    console.log("Calling Claude API for decision advisor...");
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Filter system messages from user messages
+    const claudeMessages = messages.filter((m: any) => m.role !== 'system');
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: enhancedSystemPrompt },
-          ...messages,
-        ],
+        model: "claude-sonnet-4-20250514",
+        system: enhancedSystemPrompt,
+        messages: claudeMessages,
         stream: true,
-        max_tokens: 2000,
+        max_tokens: 4096,
         temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("Claude API error:", response.status, errorText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Vui lòng thử lại sau." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -132,12 +134,57 @@ IMPORTANT: Always respond with valid JSON following the output schema above.`;
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "Lỗi AI gateway: " + errorText }), {
+      return new Response(JSON.stringify({ error: "Lỗi Claude API: " + errorText }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
+    // Convert Claude SSE stream to OpenAI-compatible format
+    const claudeStream = response.body!;
+    const transformedStream = new ReadableStream({
+      async start(controller) {
+        const reader = claudeStream.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let newlineIdx: number;
+            while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+              const line = buffer.slice(0, newlineIdx).trim();
+              buffer = buffer.slice(newlineIdx + 1);
+              
+              if (!line || !line.startsWith('data: ')) continue;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') continue;
+
+              try {
+                const event = JSON.parse(jsonStr);
+                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                  const openaiChunk = {
+                    choices: [{ delta: { content: event.delta.text }, index: 0 }],
+                  };
+                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+                } else if (event.type === 'message_stop') {
+                  controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+                }
+              } catch { /* ignore */ }
+            }
+          }
+          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (e) {
+          console.error('[decision-advisor] Stream transform error:', e);
+          controller.close();
+        }
+      }
+    });
+
+    return new Response(transformedStream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
