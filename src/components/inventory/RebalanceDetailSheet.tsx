@@ -11,6 +11,8 @@ import {
 import { CheckCircle2, XCircle, Send, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
+import type { StoreMap } from '@/lib/inventory-store-map';
+import { getTierStyle } from '@/lib/inventory-store-map';
 
 interface FCGroup {
   fcId: string;
@@ -31,6 +33,7 @@ interface Props {
   fcGroup: FCGroup | null;
   onApprove: (ids: string[]) => void;
   onReject: (ids: string[]) => void;
+  storeMap?: StoreMap;
 }
 
 const priorityColors: Record<string, string> = {
@@ -39,7 +42,7 @@ const priorityColors: Record<string, string> = {
   P3: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
 };
 
-export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, onReject }: Props) {
+export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, onReject, storeMap = {} }: Props) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const [confirmApproveOpen, setConfirmApproveOpen] = useState(false);
@@ -109,6 +112,8 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                 <TableRow>
                   <TableHead className="text-xs">Từ</TableHead>
                   <TableHead className="text-xs">Đến</TableHead>
+                  <TableHead className="text-xs">KV</TableHead>
+                  <TableHead className="text-xs">Tier</TableHead>
                   <TableHead className="text-xs text-right">SL</TableHead>
                   <TableHead className="text-xs">Cover</TableHead>
                   <TableHead className="text-xs">Lý do</TableHead>
@@ -125,6 +130,15 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                     <TableCell className="text-xs">
                       <div>{s.to_location_name}</div>
                       <div className="text-muted-foreground">{s.to_location_type}</div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{storeMap[s.to_location]?.region || '-'}</TableCell>
+                    <TableCell className="text-xs">
+                      {(() => {
+                        const tier = storeMap[s.to_location]?.tier;
+                        if (!tier) return '-';
+                        const ts = getTierStyle(tier);
+                        return <Badge variant="outline" className={cn("text-[9px]", ts.bg, ts.text)}>{tier}</Badge>;
+                      })()}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono font-bold">{s.qty}</TableCell>
                     <TableCell className="text-xs">

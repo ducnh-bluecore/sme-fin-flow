@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, ChevronRight, Timer, Pause, Eye, TrendingUp } from 'lucide-react';
+import { Package, ChevronRight, Timer, Pause, Eye, TrendingUp, MapPin } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 import { RebalanceDetailSheet } from './RebalanceDetailSheet';
+import type { StoreMap } from '@/lib/inventory-store-map';
+import { getTierStyle } from '@/lib/inventory-store-map';
 
 interface Props {
   suggestions: RebalanceSuggestion[];
   onApprove: (ids: string[]) => void;
   onReject: (ids: string[]) => void;
+  storeMap?: StoreMap;
 }
 
 interface FCGroup {
@@ -69,7 +73,7 @@ function groupByFC(suggestions: RebalanceSuggestion[]): FCGroup[] {
       totalNetBenefit: items.reduce((s, i) => s + (i.net_benefit || 0), 0),
       avgWeeksCover: items.reduce((s, i) => s + (i.to_weeks_cover || 0), 0) / items.length,
       stockoutCount,
-      avgVelocity: 0, // would need demand data for real velocity
+      avgVelocity: 0,
     });
   });
 
@@ -79,10 +83,41 @@ function groupByFC(suggestions: RebalanceSuggestion[]): FCGroup[] {
   });
 }
 
-export function InventoryFCDecisionCards({ suggestions, onApprove, onReject }: Props) {
+function getRegionSummary(suggestions: RebalanceSuggestion[], storeMap: StoreMap): string {
+  const regionCounts = new Map<string, number>();
+  for (const s of suggestions) {
+    const region = storeMap[s.to_location]?.region || 'Khác';
+    regionCounts.set(region, (regionCounts.get(region) || 0) + 1);
+  }
+  return Array.from(regionCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([r, c]) => `${r} (${c})`)
+    .join(' • ');
+}
+
+export function InventoryFCDecisionCards({ suggestions, onApprove, onReject, storeMap = {} }: Props) {
   const [selectedFC, setSelectedFC] = useState<FCGroup | null>(null);
+  const [filterRegion, setFilterRegion] = useState<string>('all');
+
   const pendingSuggestions = suggestions.filter(s => s.status === 'pending');
-  const groups = groupByFC(pendingSuggestions);
+
+  // Get unique regions from suggestions' destinations
+  const regions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of pendingSuggestions) {
+      const region = storeMap[s.to_location]?.region;
+      if (region) set.add(region);
+    }
+    return Array.from(set).sort();
+  }, [pendingSuggestions, storeMap]);
+
+  // Filter by region
+  const filteredSuggestions = useMemo(() => {
+    if (filterRegion === 'all') return pendingSuggestions;
+    return pendingSuggestions.filter(s => storeMap[s.to_location]?.region === filterRegion);
+  }, [pendingSuggestions, filterRegion, storeMap]);
+
+  const groups = groupByFC(filteredSuggestions);
 
   if (groups.length === 0) {
     return (
@@ -94,14 +129,31 @@ export function InventoryFCDecisionCards({ suggestions, onApprove, onReject }: P
 
   return (
     <>
+      {/* Region Filter */}
+      {regions.length > 1 && (
+        <div className="flex items-center gap-2 mb-3">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <Select value={filterRegion} onValueChange={setFilterRegion}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Khu vực" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả khu vực</SelectItem>
+              {regions.map(r => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="space-y-3">
         {groups.map((group) => {
           const pConfig = PRIORITY_CONFIG[group.highestPriority] || PRIORITY_CONFIG.P3;
           const rec = RECOMMENDATION[group.highestPriority] || RECOMMENDATION.P3;
           const RecIcon = rec.icon;
-
-          // Cost of delay estimate: revenue at risk / 48h
           const hourlyLoss = group.totalRevenue > 0 ? group.totalRevenue / 48 : 0;
+          const regionSummary = Object.keys(storeMap).length > 0 ? getRegionSummary(group.suggestions, storeMap) : '';
 
           return (
             <Card
@@ -134,6 +186,13 @@ export function InventoryFCDecisionCards({ suggestions, onApprove, onReject }: P
                     <p className="text-sm text-muted-foreground mt-0.5">
                       Đề xuất chuyển {group.totalQty.toLocaleString()} units • {group.suggestions.length} transfers
                     </p>
+                    {/* Region summary */}
+                    {regionSummary && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{regionSummary}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-right shrink-0">
@@ -165,6 +224,27 @@ export function InventoryFCDecisionCards({ suggestions, onApprove, onReject }: P
                     <p className="text-[10px] text-muted-foreground">Transfers</p>
                   </div>
                 </div>
+
+                {/* Destination store tier badges */}
+                {Object.keys(storeMap).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {group.suggestions.slice(0, 5).map(s => {
+                      const meta = storeMap[s.to_location];
+                      if (!meta?.tier) return null;
+                      const ts = getTierStyle(meta.tier);
+                      return (
+                        <Badge key={s.id} variant="outline" className={cn("text-[10px] font-normal gap-1", ts.bg, ts.text)}>
+                          {s.to_location_name} • {meta.tier}
+                        </Badge>
+                      );
+                    })}
+                    {group.suggestions.length > 5 && (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        +{group.suggestions.length - 5} khác
+                      </Badge>
+                    )}
+                  </div>
+                )}
 
                 {/* Bottom Row */}
                 <div className="flex items-center gap-3 pt-2 border-t border-border/50">
@@ -204,6 +284,7 @@ export function InventoryFCDecisionCards({ suggestions, onApprove, onReject }: P
         fcGroup={selectedFC}
         onApprove={onApprove}
         onReject={onReject}
+        storeMap={storeMap}
       />
     </>
   );

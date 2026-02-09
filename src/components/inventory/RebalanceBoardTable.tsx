@@ -8,13 +8,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Check, X, HelpCircle, Download, ChevronRight, ChevronDown, Search, Edit2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportRebalanceToExcel } from '@/lib/inventory-export';
+import { cn } from '@/lib/utils';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
+import type { StoreMap } from '@/lib/inventory-store-map';
+import { getTierStyle } from '@/lib/inventory-store-map';
 
 interface Props {
   suggestions: RebalanceSuggestion[];
   onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
   transferType?: 'push' | 'lateral' | 'all';
+  storeMap?: StoreMap;
 }
 
 const priorityColors: Record<string, string> = {
@@ -44,18 +48,29 @@ function HeaderWithTooltip({ label, tooltip }: { label: string; tooltip: string 
   );
 }
 
-export function RebalanceBoardTable({ suggestions, onApprove, onReject, transferType = 'all' }: Props) {
+export function RebalanceBoardTable({ suggestions, onApprove, onReject, transferType = 'all', storeMap = {} }: Props) {
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterRegion, setFilterRegion] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const regions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of suggestions) {
+      const region = storeMap[s.to_location]?.region;
+      if (region) set.add(region);
+    }
+    return Array.from(set).sort();
+  }, [suggestions, storeMap]);
 
   const filtered = useMemo(() => {
     let result = transferType === 'all' ? suggestions : suggestions.filter(s => s.transfer_type === transferType);
     if (filterPriority !== 'all') result = result.filter(s => s.priority === filterPriority);
     if (filterStatus !== 'all') result = result.filter(s => s.status === filterStatus);
+    if (filterRegion !== 'all') result = result.filter(s => storeMap[s.to_location]?.region === filterRegion);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(s =>
@@ -65,7 +80,7 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
       );
     }
     return result;
-  }, [suggestions, transferType, filterPriority, filterStatus, searchQuery]);
+  }, [suggestions, transferType, filterPriority, filterStatus, filterRegion, searchQuery, storeMap]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, RebalanceSuggestion[]>();
@@ -195,6 +210,15 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
+          {regions.length > 1 && (
+            <Select value={filterRegion} onValueChange={setFilterRegion}>
+              <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Khu vực" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả KV</SelectItem>
+                {regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <div className="relative flex-1 min-w-[150px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input placeholder="Tìm SP hoặc kho..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-8 pl-8 text-xs" />
@@ -214,6 +238,8 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                 {showTypeCol && <TableHead className="w-20"><HeaderWithTooltip label="Loại" tooltip="Push: Từ kho tổng. Lateral: Giữa các kho." /></TableHead>}
                 <TableHead><HeaderWithTooltip label="Sản phẩm" tooltip="Tên sản phẩm (Family Code)" /></TableHead>
                 <TableHead><HeaderWithTooltip label="Đến" tooltip="Kho/store đích" /></TableHead>
+                <TableHead><HeaderWithTooltip label="KV" tooltip="Khu vực" /></TableHead>
+                <TableHead><HeaderWithTooltip label="Tier" tooltip="Hạng cửa hàng" /></TableHead>
                 <TableHead className="text-right"><HeaderWithTooltip label="SL" tooltip="Số lượng đề xuất chuyển" /></TableHead>
                 <TableHead><HeaderWithTooltip label="Cover" tooltip="Cover trước → sau (tuần)" /></TableHead>
                 {showCostCols && (
@@ -233,7 +259,7 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                 const groupQty = items.reduce((s, x) => s + (editedQty[x.id] ?? x.qty), 0);
                 const groupRevenue = items.reduce((s, x) => s + x.potential_revenue_gain, 0);
                 const groupPending = items.filter(x => x.status === 'pending');
-                const totalCols = 6 + (showTypeCol ? 1 : 0) + (showCostCols ? 2 : 0) + 3;
+                const totalCols = 8 + (showTypeCol ? 1 : 0) + (showCostCols ? 2 : 0) + 3;
 
                 return (
                   <React.Fragment key={groupName}>
@@ -267,6 +293,15 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                           <TableCell>
                             <div className="text-sm">{s.to_location_name}</div>
                             <div className="text-xs text-muted-foreground">{s.to_location_type}</div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{storeMap[s.to_location]?.region || '-'}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              const tier = storeMap[s.to_location]?.tier;
+                              if (!tier) return <span className="text-xs text-muted-foreground">-</span>;
+                              const ts = getTierStyle(tier);
+                              return <Badge variant="outline" className={cn("text-[10px]", ts.bg, ts.text)}>{tier}</Badge>;
+                            })()}
                           </TableCell>
                           <TableCell className="text-right">
                             {s.status === 'pending' ? (
