@@ -113,6 +113,7 @@ const navItems: NavItem[] = [
     icon: Package,
     children: [
       { labelKey: 'nav.inventoryAging', href: '/inventory-aging' },
+      { labelKey: 'nav.inventoryAllocation', href: '/inventory-allocation' },
       { labelKey: 'nav.promotionROI', href: '/promotion-roi' },
       { labelKey: 'nav.supplierPayments', href: '/supplier-payments' },
     ],

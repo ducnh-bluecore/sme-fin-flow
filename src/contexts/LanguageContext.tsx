@@ -62,6 +62,7 @@ const vi: Record<string, string> = {
   'nav.cashConversion': 'Cash Conversion Cycle',
   'nav.retailOps': 'Vận hành bán lẻ',
   'nav.inventoryAging': 'Tuổi tồn kho',
+  'nav.inventoryAllocation': 'Phân bổ & Cân bằng',
   'nav.promotionROI': 'ROI Khuyến mãi',
   'nav.supplierPayments': 'Thanh toán NCC',
 
@@ -1804,6 +1805,13 @@ const en: Record<string, string> = {
   'nav.channelAnalytics': 'Channel Analytics',
   'nav.unitEconomics': 'Unit Economics',
   'nav.mdp': 'Marketing Data Platform',
+
+  'nav.retailOps': 'Retail Operations',
+  'nav.inventoryAging': 'Inventory Aging',
+  'nav.inventoryAllocation': 'Allocation & Rebalance',
+  'nav.promotionROI': 'Promotion ROI',
+  'nav.supplierPayments': 'Supplier Payments',
+  'nav.cashFlowDirect': 'Direct Cash Flow',
 
   'nav.dataHub': 'Data Hub',
   'nav.dataCenter': 'Data Center',
