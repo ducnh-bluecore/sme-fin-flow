@@ -20,7 +20,16 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json().catch(() => ({}));
-    const { tenant_id, batch_size = 5000, dry_run = true } = body;
+    const { 
+      tenant_id, 
+      batch_size = 500, 
+      dry_run = true,
+      start_offset = 0,          // resume from previous run
+      cumulative_deleted = 0,     // carry over totals
+      cumulative_items_deleted = 0,
+      cumulative_batches = 0,
+      invocation = 1,
+    } = body;
 
     if (!tenant_id) {
       return new Response(
@@ -29,7 +38,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get BigQuery credentials from env
     const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
       return new Response(
@@ -41,19 +49,19 @@ Deno.serve(async (req) => {
     const projectId = sa.project_id;
 
     const startMs = Date.now();
-    const MAX_TIME = 50000;
+    const MAX_TIME = 50000; // 50s safety margin
     let totalDeleted = 0;
     let totalItemsDeleted = 0;
     let batchNum = 0;
-    let offset = 0;
+    let offset = start_offset;
+    let completed = false;
     const idsCondition = MARKETPLACE_IDS.map(id => `'${id}'`).join(',');
 
-    console.log(`[Cleanup] Starting KiotViet dedup. dry_run=${dry_run}, batch_size=${batch_size}`);
+    console.log(`[Cleanup] Invocation #${invocation}, offset=${offset}, dry_run=${dry_run}, batch_size=${batch_size}`);
 
     const token = await getAccessToken(sa);
 
     while (Date.now() - startMs < MAX_TIME) {
-      // Query BigQuery for marketplace OrderIds
       const sql = `SELECT CAST(\`OrderId\` AS STRING) as order_id 
         FROM \`${projectId}.olvboutique.raw_kiotviet_Orders\` 
         WHERE CAST(\`SaleChannelId\` AS STRING) IN (${idsCondition})
@@ -63,7 +71,8 @@ Deno.serve(async (req) => {
       const bqResult = await queryBigQuery(projectId, sql, token);
       
       if (!bqResult.rows || bqResult.rows.length === 0) {
-        console.log(`[Cleanup] No more rows at offset ${offset}`);
+        console.log(`[Cleanup] No more rows at offset ${offset}. ALL DONE!`);
+        completed = true;
         break;
       }
 
@@ -74,7 +83,6 @@ Deno.serve(async (req) => {
         console.log(`[Cleanup] DRY RUN batch ${batchNum}: would delete ${orderIds.length} orders (offset ${offset})`);
         totalDeleted += orderIds.length;
       } else {
-        // Use RPC for efficient bulk delete
         const { data: result, error } = await supabase.rpc('cleanup_kiotviet_marketplace_orders', {
           p_tenant_id: tenant_id,
           p_order_keys: orderIds,
@@ -83,7 +91,9 @@ Deno.serve(async (req) => {
 
         if (error) {
           console.error(`[Cleanup] RPC error batch ${batchNum}:`, error.message);
-          break;
+          // Still advance offset to avoid infinite loop
+          offset += batch_size;
+          continue;
         }
 
         const deleted = result?.orders_deleted || 0;
@@ -96,24 +106,61 @@ Deno.serve(async (req) => {
       offset += batch_size;
       
       if (bqResult.rows.length < batch_size) {
-        console.log(`[Cleanup] Last batch reached`);
+        console.log(`[Cleanup] Last batch reached. ALL DONE!`);
+        completed = true;
         break;
       }
     }
 
+    const grandTotalDeleted = cumulative_deleted + totalDeleted;
+    const grandTotalItems = cumulative_items_deleted + totalItemsDeleted;
+    const grandBatches = cumulative_batches + batchNum;
+
+    // Auto-continue if not completed and not dry_run
+    if (!completed && !dry_run) {
+      console.log(`[Cleanup] Time limit reached. Auto-continuing from offset ${offset}...`);
+      
+      // Fire-and-forget self-invocation
+      const selfUrl = `${supabaseUrl}/functions/v1/cleanup-kiotviet-dedup`;
+      fetch(selfUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+          "x-auto-continue": "true",
+        },
+        body: JSON.stringify({
+          tenant_id,
+          batch_size,
+          dry_run: false,
+          start_offset: offset,
+          cumulative_deleted: grandTotalDeleted,
+          cumulative_items_deleted: grandTotalItems,
+          cumulative_batches: grandBatches,
+          invocation: invocation + 1,
+        }),
+      }).catch(err => console.error("[Cleanup] Auto-continue fetch error:", err));
+    }
+
     const result = {
       success: true,
+      completed,
       dry_run,
-      batches_processed: batchNum,
-      total_orders_deleted: totalDeleted,
-      total_items_deleted: totalItemsDeleted,
+      invocation,
+      batches_this_run: batchNum,
+      total_batches: grandBatches,
+      deleted_this_run: totalDeleted,
+      items_deleted_this_run: totalItemsDeleted,
+      grand_total_orders_deleted: grandTotalDeleted,
+      grand_total_items_deleted: grandTotalItems,
+      next_offset: completed ? null : offset,
       elapsed_ms: Date.now() - startMs,
-      message: dry_run 
-        ? `DRY RUN: Would delete ${totalDeleted} marketplace orders from kiotviet channel` 
-        : `Deleted ${totalDeleted} orders and ${totalItemsDeleted} order items`,
+      message: completed
+        ? `COMPLETED: Deleted ${grandTotalDeleted} orders and ${grandTotalItems} items total across ${grandBatches} batches`
+        : `Invocation #${invocation} done. Deleted ${totalDeleted} this run (${grandTotalDeleted} total). Auto-continuing...`,
     };
 
-    console.log(`[Cleanup] Done:`, JSON.stringify(result));
+    console.log(`[Cleanup] Result:`, JSON.stringify(result));
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -179,6 +226,7 @@ function arrayBufferToBase64Url(buf: ArrayBuffer): string {
   for (const b of bytes) str += String.fromCharCode(b);
   return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
+
 async function queryBigQuery(projectId: string, sql: string, token: string): Promise<any> {
   const resp = await fetch(
     `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`,
