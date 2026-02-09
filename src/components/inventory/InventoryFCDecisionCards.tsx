@@ -65,7 +65,7 @@ function groupByFC(suggestions: RebalanceSuggestion[]): FCGroup[] {
 
     groups.push({
       fcId,
-      fcName: items[0].fc_name || fcId,
+      fcName: items.find(i => i.fc_name)?.fc_name || fcId,
       highestPriority,
       suggestions: items,
       totalQty: items.reduce((s, i) => s + i.qty, 0),
