@@ -343,13 +343,21 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
   }
 }
 
-// ─── AI Gateway helper ──────────────────────────────────────────────
-async function callAI(apiKey: string, body: Record<string, unknown>): Promise<Response> {
-  return await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+// ─── AI Gateway helper with retry ───────────────────────────────────
+async function callAI(apiKey: string, body: Record<string, unknown>, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (resp.status !== 429 || attempt === maxRetries) return resp;
+    const waitSec = Math.min(2 ** attempt * 2, 16); // 2s, 4s, 8s, 16s
+    console.warn(`[cdp-qa] 429 rate limit, retry ${attempt + 1}/${maxRetries} in ${waitSec}s`);
+    await new Promise(r => setTimeout(r, waitSec * 1000));
+  }
+  // unreachable but TypeScript needs it
+  throw new Error('Max retries exceeded');
 }
 
 function handleAIError(status: number): Response {
