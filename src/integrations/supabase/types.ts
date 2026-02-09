@@ -22719,6 +22719,7 @@ export type Database = {
           avg_daily_sales: number | null
           brand: string | null
           category: string | null
+          channel: string | null
           cost_price: number | null
           created_at: string | null
           current_stock: number | null
@@ -22745,6 +22746,7 @@ export type Database = {
           avg_daily_sales?: number | null
           brand?: string | null
           category?: string | null
+          channel?: string | null
           cost_price?: number | null
           created_at?: string | null
           current_stock?: number | null
@@ -22771,6 +22773,7 @@ export type Database = {
           avg_daily_sales?: number | null
           brand?: string | null
           category?: string | null
+          channel?: string | null
           cost_price?: number | null
           created_at?: string | null
           current_stock?: number | null
@@ -36767,6 +36770,7 @@ export type Database = {
         Row: {
           category: string | null
           order_count: number | null
+          product_channel: string | null
           product_name: string | null
           sku: string | null
           tenant_id: string | null
