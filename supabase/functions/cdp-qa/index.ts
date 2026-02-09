@@ -451,7 +451,20 @@ Deno.serve(async (req) => {
 
       pass2Messages.push({
         role: 'system',
-        content: `DỮ LIỆU ĐÃ TRUY VẤN (dùng để trả lời, KHÔNG bịa thêm):\n\n${toolSummary}`,
+        content: `DỮ LIỆU ĐÃ TRUY VẤN (dùng để trả lời, KHÔNG bịa thêm):
+
+${toolSummary}
+
+## YÊU CẦU PHÂN TÍCH BẮT BUỘC (KHÔNG được chỉ liệt kê số):
+1. **TỔNG QUAN**: Tóm tắt con số chính (tổng, trung bình)
+2. **TREND**: Xu hướng tăng/giảm qua các kỳ? Tốc độ thay đổi?
+3. **ANOMALY**: Tháng/kỳ nào bất thường? Tăng/giảm đột biến bao nhiêu %?
+4. **SO SÁNH**: Peak vs trough, so sánh đầu kỳ vs cuối kỳ
+5. **ROOT CAUSE**: Nguyên nhân có thể (mùa vụ, campaign, kênh)?
+6. **ĐỀ XUẤT**: Hành động cụ thể (SCALE/STOP/INVESTIGATE) dựa trên phân tích
+7. **CHART**: Nếu data có nhiều data points, kèm chart block
+
+KHÔNG BAO GIỜ chỉ liệt kê số rồi dừng. Phải có phân tích sâu.`,
       });
     }
 
