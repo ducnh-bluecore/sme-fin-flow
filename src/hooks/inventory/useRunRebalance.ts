@@ -35,11 +35,11 @@ export function useRunAllocate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (runType: 'V1' | 'V2' | 'both' = 'both') => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const response = await supabase.functions.invoke('inventory-allocation-engine', {
-        body: { tenant_id: tenantId, user_id: user?.id, action: 'allocate' },
+        body: { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: runType },
       });
 
       if (response.error) throw response.error;
@@ -47,7 +47,9 @@ export function useRunAllocate() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['inv-allocation'] });
-      toast.success(`Đã tạo ${data.recommendations} đề xuất phân bổ (${data.total_units} units)`);
+      const v1 = data.v1_count ?? 0;
+      const v2 = data.v2_count ?? 0;
+      toast.success(`Đã tạo ${data.total_recommendations} đề xuất (V1: ${v1}, V2: ${v2}, ${data.total_units} units)`);
     },
     onError: (error: any) => {
       toast.error(`Lỗi: ${error.message}`);
