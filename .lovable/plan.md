@@ -1,142 +1,107 @@
 
 
-# Xu ly trung don KiotViet - Marketplace Dedup
+# Them kha nang ve bieu do cho AI Agent
 
-## Van de phat hien
+## Van de hien tai
 
-KiotViet la he thong POS tong, dong bo don hang tu tat ca kenh ban (Shopee, Lazada, TikTok, Tiki, Haravan) ve chung mot bang `raw_kiotviet_Orders`. Hien tai backfill do tat ca 1.07M don vao channel `kiotviet` ma khong phan biet don KiotViet goc (ban tai cua hang) va don san do ve.
+AI Agent tra ve markdown text thuan qua SSE streaming. Khi AI muon trinh bay du lieu dang bang (nhu bang hieu suat theo thang), no chi co the dung markdown table — khong the ve chart.
 
-Dong thoi, cac san (Shopee, Lazada, TikTok, Tiki) cung duoc sync rieng tu dataset cua tung san.
+## Giai phap
 
-**Ket qua: Don hang tu san bi dem 2 lan** — 1 lan trong `kiotviet`, 1 lan trong kenh goc.
+Dung mot quy uoc don gian: AI se tra ve JSON chart data trong code block dac biet (```chart ... ```). Frontend se phan tich (parse) noi dung markdown, phat hien cac block nay va render thanh bieu do Recharts thay vi hien thi JSON.
 
-### Quy mo anh huong
-
-| Kenh | Don hang rieng | Revenue rieng | Trung trong KiotViet? |
-|------|---------------|---------------|----------------------|
-| KiotViet (tat ca) | 1,068,958 | 1,136B VND | Bao gom ca don san |
-| Shopee | 115,067 | 61.6B | Can xac minh |
-| Lazada | 39,932 | 23.1B | Rat co the trung |
-| TikTok | 20,129 | 9.7B | Rat co the trung |
-| Tiki | 281 | 141M | Rat co the trung |
-
-Uoc tinh don trung: **~100-175k don**, revenue bi dem doi: **~60-94B VND**
-
-### Tai sao chua the xac dinh chinh xac?
-
-- `SaleChannelId` (truong trong BigQuery phan biet kenh) **KHONG duoc extract** trong mapping hien tai
-- `raw_data` JSONB **KHONG duoc luu** (0/1.07M records co raw_data)
-- `OrderCode` (co prefix `DHLZD_`, `DHHRV-`, v.v.) **KHONG duoc sync**, chi sync `OrderId` (so thuan)
-- Khong co cach nao tu database hien tai phan biet don KiotViet goc vs don san do ve
-
-## Giai phap 3 buoc
-
-### Buoc 1: Them `SaleChannelId` + `OrderCode` vao mapping BigQuery
-
-Cap nhat `ORDER_SOURCES` cho KiotViet trong `backfill-bigquery/index.ts`:
+### Kien truc
 
 ```text
-Truoc:
-  mapping: {
-    order_key: 'OrderId',
-    order_at: 'PurchaseDate',
-    status: 'Status',
-    customer_id: 'CusId',
-    customer_name: 'CustomerName',
-    customer_phone: 'deliveryContactNumber',
-    gross_revenue: 'Total',
-    discount: 'discount',
-  }
-
-Sau:
-  mapping: {
-    order_key: 'OrderId',
-    order_at: 'PurchaseDate',
-    status: 'Status',
-    customer_id: 'CusId',
-    customer_name: 'CustomerName',
-    customer_phone: 'deliveryContactNumber',
-    gross_revenue: 'Total',
-    discount: 'discount',
-    sale_channel_id: 'SaleChannelId',  // MỚI
-    order_code: 'OrderCode',            // MỚI
-  }
+AI Response (markdown)
+  |
+  v
+Parse message content
+  |
+  +---> Text thuong --> ReactMarkdown (nhu cu)
+  |
+  +---> ```chart {...} ``` --> ChartRenderer component (Recharts)
 ```
 
-Luu vao `raw_data` JSONB de truy vet:
+### Chi tiet ky thuat
+
+**1. Tao component `AIChartRenderer`** (`src/components/ai/AIChartRenderer.tsx`)
+
+Nhan JSON config va render bieu do tuong ung:
+
 ```text
-raw_data: {
-  SaleChannelId: "5389",
-  OrderCode: "DHHRV-123456"
+Supported chart types:
+- bar: BarChart (don hang, doanh thu theo thang)
+- line: LineChart (trend theo thoi gian)
+- composed: ComposedChart (bar + line ket hop)
+- pie: PieChart (phan bo theo kenh)
+
+JSON format:
+{
+  "type": "bar" | "line" | "composed" | "pie",
+  "title": "Tieu de bieu do",
+  "data": [{ "label": "T01", "value": 55960, ... }],
+  "series": [
+    { "key": "value", "name": "Doanh thu", "type": "bar", "color": "#3b82f6" }
+  ],
+  "xKey": "label",
+  "yFormat": "vnd" | "percent" | "number",
+  "height": 300
 }
 ```
 
-### Buoc 2: Logic loc don trung khi sync
+Component su dung `ResponsiveContainer`, `XAxis`, `YAxis`, `Tooltip`, `Legend` tu Recharts, va `chartFormatters` tu he thong chart hien co.
 
-Trong ham `syncOrders`, them buoc loc sau khi transform:
+**2. Tao component `AIMessageContent`** (`src/components/ai/AIMessageContent.tsx`)
 
-```text
-Voi moi batch KiotViet orders:
-  1. Doc SaleChannelId tu BigQuery
-  2. Tao mapping SaleChannelId -> kenh:
-     - 0 hoac NULL -> kiotviet (don goc)
-     - 5389, 277489 -> haravan
-     - 38485, 1000000081 -> lazada
-     - 238790 -> tiktokshop
-     - (can xac minh them cho Shopee, Tiki)
-  3. Chi giu cac don co SaleChannelId = 0/NULL (don KiotViet thuc su)
-  4. Don tu san -> BO QUA (da co tu dataset rieng cua san)
-```
+Thay the `ReactMarkdown` truc tiep trong AIAgentTestPage:
+- Split noi dung message thanh cac segment (text va chart)
+- Regex detect: ` ```chart\n{...}\n``` `
+- Text segments -> `ReactMarkdown`
+- Chart segments -> parse JSON -> `AIChartRenderer`
+- Xu ly JSON loi -> fallback hien thi code block
 
-### Buoc 3: Migration lam sach don trung hien co
+**3. Cap nhat system prompt trong `cdp-qa/index.ts`**
 
-Sau khi xac dinh duoc SaleChannelId mapping chinh xac tu BigQuery:
+Them huong dan cho AI biet cach tra ve chart data:
 
 ```text
-Buoc 3a: Query BigQuery de lay danh sach OrderId co SaleChannelId != 0
-Buoc 3b: Xoa hoac danh dau cac order_key tuong ung trong cdp_orders WHERE channel = 'kiotviet'
-Buoc 3c: Chay lai compute_kpi_facts_daily de cap nhat KPI
-Buoc 3d: Chay lai detect_threshold_breaches de cap nhat alerts
+## CHART OUTPUT
+Khi du lieu phu hop de ve bieu do, tra ve JSON trong block ```chart:
+- Bar chart: so sanh theo thang, theo kenh
+- Line chart: trend theo thoi gian
+- Composed: bar + line ket hop
+- Pie: phan bo ty le
+
+Format:
+  ```chart
+  {"type":"bar","title":"...","data":[...],"series":[...],"xKey":"label","yFormat":"vnd"}
+  ```
+
+Luu y:
+- Van kem phan tich text truoc/sau chart
+- Moi chart toi da 12-15 data points
+- Luon co title va don vi
 ```
 
-## Truoc khi implement: Can xac minh tu BigQuery
+**4. Cap nhat `AIAgentTestPage.tsx`**
 
-Truoc khi code, can chay 1 query BigQuery de xac nhan:
+Thay `<ReactMarkdown>{msg.content}</ReactMarkdown>` bang `<AIMessageContent content={msg.content} />`
 
-```text
-SELECT SaleChannelId, COUNT(*) as cnt
-FROM olvboutique.raw_kiotviet_Orders
-GROUP BY SaleChannelId
-ORDER BY cnt DESC
-```
+### Files thay doi
 
-Query nay se cho biet:
-- Bao nhieu kenh ban do ve KiotViet
-- SaleChannelId nao la "don goc" (thuong la 0 hoac NULL)
-- So luong chinh xac don bi trung
+| File | Hanh dong |
+|------|-----------|
+| `src/components/ai/AIChartRenderer.tsx` | Tao moi - render Recharts tu JSON config |
+| `src/components/ai/AIMessageContent.tsx` | Tao moi - parse message, tach text vs chart blocks |
+| `src/pages/AIAgentTestPage.tsx` | Sua - dung AIMessageContent thay ReactMarkdown |
+| `supabase/functions/cdp-qa/index.ts` | Sua - them chart instructions vao system prompt |
 
-## Thu tu thuc hien
+### Uu diem
 
-1. **Query BigQuery** xac minh SaleChannelId distribution (dung edge function `bigquery-query`)
-2. **Cap nhat mapping** trong `backfill-bigquery/index.ts` - them SaleChannelId, OrderCode
-3. **Them logic loc** trong syncOrders - chi sync don KiotViet goc
-4. **Chay backfill lai** cho kiotviet orders voi mapping moi
-5. **Lam sach data cu** - xoa/danh dau don trung
-6. **Recompute KPIs** - `compute_kpi_facts_daily` cho toan bo giai doan
-
-## Rui ro
-
-| Rui ro | Muc do | Giam thieu |
-|--------|--------|------------|
-| Xoa nham don KiotViet goc | Cao | Query BigQuery xac minh truoc, backup truoc khi xoa |
-| SaleChannelId mapping sai | Trung binh | Cross-check OrderCode prefix voi SaleChannelId |
-| KPI bi giam dot ngot | Du kien | Giam do bo don trung, la dung - can thong bao user |
-| Shopee chua co SaleChannelId | Can kiem tra | Neu Shopee khong do qua KiotViet thi khong anh huong |
-
-## Anh huong du kien
-
-- **Doanh thu KiotViet giam**: Tu ~1,136B xuong con ~900-1,000B (bo don san)
-- **Tong doanh thu he thong giam**: ~60-94B (phan bi dem doi)
-- **KPI chinh xac hon**: Net Revenue, Order Count, AOV deu phan anh dung hon
-- **Customer linking se cai thien**: Bot don trung = bot nhieu customer
+- Khong can thay doi SSE streaming logic
+- AI tu quyet dinh khi nao nen ve chart
+- Fallback an toan: neu JSON loi, hien thi raw code block
+- Su dung lai design system hien co (colors, formatters)
+- Responsive, dark mode compatible
 
