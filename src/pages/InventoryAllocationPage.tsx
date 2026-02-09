@@ -23,8 +23,8 @@ export default function InventoryAllocationPage() {
   const runRebalance = useRunRebalance();
   const approveRebalance = useApproveRebalance();
 
-  const handleApprove = (ids: string[]) => {
-    approveRebalance.mutate({ suggestionIds: ids, action: 'approved' });
+  const handleApprove = (ids: string[], editedQty?: Record<string, number>) => {
+    approveRebalance.mutate({ suggestionIds: ids, action: 'approved', editedQty });
   };
 
   const handleReject = (ids: string[]) => {
