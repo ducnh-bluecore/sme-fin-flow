@@ -1,117 +1,101 @@
 
 
-# Fix: Knowledge Snapshot thiếu tên sản phẩm
+# Fix: Daily Sync Incremental + Multi-Channel Products
 
-## Vấn đề
+## 3 Van de chinh
 
-Khi hỏi "Top 10 sản phẩm bán chạy nhất", AI chỉ hiển thị mã SKU (SER00130, SP020502...) mà không có tên sản phẩm. Nguyên nhân:
+### 1. Daily job khong incremental - keo het data tu dau
+- `syncProducts`: KHONG nhan `date_from` param --> moi lan chay daily sync deu pull 16,706 products
+- `syncOrderItems`: Comment ghi ro "no date filter" --> keo 2.2M items moi ngay thay vi chi 2 ngay gan nhat
+- Cac model khac (orders, payments, fulfillments, refunds, ad_spend) DA co date filter hoat dong tot
 
-1. Các SKU bắt đầu bằng SER*, SP*, SCT* (chiếm phần lớn doanh thu) **không tồn tại** trong bảng `products`
-2. Cột `product_name` trong `cdp_order_items` cũng NULL cho các SKU này (dữ liệu KiotViet backfill bị thiếu)
-3. Hàm `buildTopProducts` chỉ JOIN với bảng `products` qua SKU, nên không tìm được tên
+### 2. Products chi keo tu 1 source KiotViet
+- Hien tai chi co `PRODUCT_SOURCE = { table: 'bdm_master_data_products' }` (1 source duy nhat)
+- Thieu san pham tu: Shopee, Lazada, TikTok, Tiki
+- Khach hang mua tren san nhung san pham khong ton tai trong bang `products`
 
-## Giải pháp (2 bước)
+### 3. Sai ten bang source KiotViet
+- Dang dung `bdm_master_data_products` (bang BDM da transform)
+- Nen dung `raw_kiotviet_Products` (bang raw goc) de nhat quan voi cac model khac (raw_kiotviet_Orders, raw_kiotviet_Customers...)
 
-### Bước 1: Cải thiện `buildTopProducts` để lấy tên từ mọi nguồn có thể
+---
 
-Sửa `supabase/functions/build-knowledge-snapshots/index.ts`:
+## Giai phap
 
-- Khi query `cdp_order_items`, thêm cột `product_name` vào SELECT
-- Khi aggregate, ưu tiên: `products.name` > `cdp_order_items.product_name` > SKU code
-- Đồng thời tăng limit query lên (hiện tại chỉ lấy 1000 items, không đủ đại diện cho toàn bộ dữ liệu 190K+ items)
+### Buoc 1: Chuyen Products sang multi-source (nhu Orders)
 
-### Bước 2: Backfill tên sản phẩm cho các SKU bị thiếu
+Thay `PRODUCT_SOURCE` (1 source) bang `PRODUCT_SOURCES` (nhieu source):
 
-Tạo một RPC hoặc migration để cập nhật `product_name` trong `cdp_order_items` từ BigQuery source (bảng `bdm_kov_OrderLineItems` có cột `Productname`). Việc này đảm bảo các lần build snapshot sau đều có tên.
+```text
+PRODUCT_SOURCES = [
+  { channel: 'kiotviet', dataset: 'olvboutique', table: 'raw_kiotviet_Products' }
+  { channel: 'shopee', dataset: 'olvboutique_shopee', table: 'shopee_Products' }
+  { channel: 'lazada', dataset: 'olvboutique_lazada', table: 'lazada_Products' }
+  { channel: 'tiktok', dataset: 'olvboutique_tiktokshop', table: 'tiktok_Products' }
+  { channel: 'tiki', dataset: 'olvboutique_tiki', table: 'tiki_Products' }
+]
+```
+
+Moi source se co mapping rieng (ten cot khac nhau tuy platform).
+
+### Buoc 2: Them date_from vao syncProducts
+
+- Them `date_from` vao options type cua `syncProducts`
+- Dung cot ngay phu hop de filter incremental (vd: `Date` cho KiotViet, `dw_timestamp` cho marketplace)
+- Daily job chi keo products thay doi trong 2 ngay gan nhat
+
+### Buoc 3: Them date filter cho syncOrderItems
+
+- Order items tu Shopee/Lazada/TikTok co the JOIN voi orders table de filter theo ngay
+- Hoac dung cot `dw_timestamp` (BigQuery watermark) neu co
+- KiotViet order items: dung `OrderId` lien ket voi orders da co date filter
+
+### Buoc 4: Them cot `channel` vao bang products
+
+- Hien tai `products` unique constraint la `(tenant_id, sku)`
+- Can them `channel` de phan biet cung SKU tu nhieu san
+- Update constraint thanh `(tenant_id, channel, sku)`
+
+---
 
 ## Technical Details
 
-### File: `supabase/functions/build-knowledge-snapshots/index.ts`
+### File thay doi: `supabase/functions/backfill-bigquery/index.ts`
 
-**Thay đổi hàm `buildTopProducts` (dòng 77-121):**
+**1. Thay PRODUCT_SOURCE bang PRODUCT_SOURCES (dong 444-448):**
 
-1. Query `cdp_order_items` thêm cột `product_name`:
-```typescript
-.select('sku, product_name, qty, line_revenue')
-```
+Khai bao mang sources voi mapping cho tung channel. Can xac nhan ten cot chinh xac tu BigQuery cho tung san (Shopee, Lazada, TikTok, Tiki) - co the can chay `bigquery-query` de verify column names.
 
-2. Thay đổi logic aggregate để lưu product_name từ order items:
-```typescript
-skuAgg[item.sku] = {
-  qty: 0, revenue: 0,
-  name: prod?.name || item.product_name || item.sku,  // thêm fallback
-  category: prod?.category || 'N/A',
-};
-```
+**2. Viet lai syncProducts (dong 1857-2011):**
 
-3. Thay vì lấy 1000 items (chỉ cover ~0.5% data), dùng approach khác: query aggregate trực tiếp từ DB bằng RPC hoặc view để lấy top products chính xác hơn.
+- Chuyen tu single-source sang multi-source loop (giong syncOrders)
+- Them `date_from` vao options
+- Them source progress tracking cho tung channel
+- Mapping rieng cho tung source
 
-### New migration: Tạo view `v_top_products_30d`
+**3. Cap nhat syncOrderItems (dong 1198-1414):**
 
-Tạo một view pre-aggregated trong DB để `buildTopProducts` không cần scan toàn bộ order items:
+- Them logic date filter: dung BigQuery date column hoac filter theo order date
+- Cho daily incremental chi keo items cua orders trong 2 ngay gan nhat
+
+### Migration: Them channel vao products table
 
 ```sql
-CREATE OR REPLACE VIEW v_top_products_30d AS
-SELECT 
-  oi.tenant_id,
-  oi.sku,
-  COALESCE(p.name, MAX(oi.product_name), oi.sku) as product_name,
-  COALESCE(p.category, MAX(oi.category)) as category,
-  SUM(oi.qty) as total_qty,
-  SUM(oi.line_revenue) as total_revenue,
-  COUNT(DISTINCT oi.order_id) as order_count
-FROM cdp_order_items oi
-LEFT JOIN products p ON oi.sku = p.sku AND oi.tenant_id = p.tenant_id
-WHERE oi.line_revenue > 0
-GROUP BY oi.tenant_id, oi.sku, p.name, p.category
-ORDER BY total_revenue DESC;
+-- Them cot channel
+ALTER TABLE products ADD COLUMN IF NOT EXISTS channel text DEFAULT 'kiotviet';
+
+-- Drop constraint cu
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_tenant_id_sku_key;
+
+-- Tao constraint moi
+ALTER TABLE products ADD CONSTRAINT products_tenant_channel_sku_key 
+  UNIQUE (tenant_id, channel, sku);
 ```
 
-### Thay đổi `buildTopProducts` dùng view mới:
+### Luu y quan trong
 
-```typescript
-async function buildTopProducts(supabase, tenantId) {
-  const { data: rows } = await supabase
-    .from('v_top_products_30d')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .limit(20);
-  
-  // Format trực tiếp từ view - không cần JOIN thủ công
-  const top20 = (rows || []).map((r, i) => ({
-    rank: i + 1,
-    sku: r.sku,
-    name: r.product_name,
-    category: r.category,
-    qty: r.total_qty,
-    revenue: r.total_revenue,
-    orderCount: r.order_count,
-  }));
-  
-  const lines = top20.map(p => 
-    `${p.rank}. ${p.name} (${p.sku}): ${fmtNum(p.qty)} sp, ${fmtVND(p.revenue)}, ${p.orderCount} đơn`
-  );
-  const summary_text = `=== TOP 20 SẢN PHẨM (theo doanh thu) ===\n${lines.join('\n')}`;
-  
-  return { snapshot_type: 'top_products', data: { top20 }, summary_text };
-}
-```
-
-### Kết quả mong đợi
-
-Thay vì:
-```
-1. 22207100 - 22207100: 11 đơn, 270.8 triệu
-2. SER00130 - SER00130: 10 đơn, 221.9 triệu
-```
-
-Sẽ hiển thị:
-```
-1. Hàng bán Franchise (22207100): 11 sp, 270.8 triệu, 11 đơn
-2. SER00130 (SER00130): 10 sp, 221.9 triệu  -- vẫn hiện SKU nếu chưa có tên
-```
-
-### Lưu ý: Dữ liệu gốc thiếu tên
-
-Nhiều SKU bắt đầu bằng SER*/SP*/SCT* (likely dịch vụ/service từ KiotViet) không có `product_name` trong cả `cdp_order_items` lẫn `products`. Để fix triệt để, cần backfill tên từ BigQuery source (`bdm_kov_OrderLineItems.Productname`) - đây là bước riêng ngoài scope fix này.
+- Can verify ten bang san pham tren BigQuery cho tung san (shopee_Products, lazada_Products...) bang cach chay query kham pha truoc
+- Mapping cot (ten, gia, SKU) khac nhau tuy platform
+- View `v_top_products_30d` van hoat dong vi JOIN qua SKU, khong phu thuoc channel
+- Daily sync sau fix se chi mat vai giay thay vi hang gio
 
