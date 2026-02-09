@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import AIChartRenderer, { type AIChartConfig } from './AIChartRenderer';
 
 interface Segment {
@@ -33,7 +34,7 @@ export default function AIMessageContent({ content }: { content: string }) {
   const segments = parseSegments(content);
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none">
+    <div className="prose prose-sm dark:prose-invert max-w-none [&_table]:w-full [&_table]:border-collapse [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:border [&_th]:border-border [&_td]:px-3 [&_td]:py-1.5 [&_td]:text-sm [&_td]:border [&_td]:border-border [&_tr:nth-child(even)]:bg-muted/30">
       {segments.map((seg, i) => {
         if (seg.type === 'chart') {
           try {
@@ -50,7 +51,7 @@ export default function AIMessageContent({ content }: { content: string }) {
             </pre>
           );
         }
-        return <ReactMarkdown key={i}>{seg.content}</ReactMarkdown>;
+        return <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>;
       })}
     </div>
   );

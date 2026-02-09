@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
-  ComposedChart, PieChart, Pie, Cell,
+  ComposedChart, PieChart, Pie, Cell, LabelList,
   XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from 'recharts';
 import { CHART_PALETTE, CHART_CONFIG, chartFormatters } from '@/components/charts';
@@ -69,10 +69,19 @@ export default function AIChartRenderer({ config }: { config: AIChartConfig }) {
         {series.length > 1 && <Legend />}
         {series.map((s, i) => {
           const seriesType = type === 'composed' ? (s.type || 'bar') : type;
+          const showLabel = data.length <= 15;
           if (seriesType === 'line') {
-            return <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={colors[i]} strokeWidth={2} dot={false} />;
+            return (
+              <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={colors[i]} strokeWidth={2} dot={{ r: 3 }}>
+                {showLabel && <LabelList dataKey={s.key} position="top" formatter={(v: number) => fmt(v)} style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }} />}
+              </Line>
+            );
           }
-          return <Bar key={s.key} dataKey={s.key} name={s.name} fill={colors[i]} radius={[4, 4, 0, 0]} />;
+          return (
+            <Bar key={s.key} dataKey={s.key} name={s.name} fill={colors[i]} radius={[4, 4, 0, 0]}>
+              {showLabel && <LabelList dataKey={s.key} position="top" formatter={(v: number) => fmt(v)} style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }} />}
+            </Bar>
+          );
         })}
       </ChartComponent>
     );
