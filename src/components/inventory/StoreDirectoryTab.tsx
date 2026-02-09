@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Store, TrendingUp, Package, Clock, Layers } from 'lucide-react';
+import { Search, Store, TrendingUp, Package, Clock, Layers, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { getTierStyle } from '@/lib/inventory-store-map';
+
+const AVG_UNIT_PRICE = 250000; // VND - from constraint registry default
+const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
 
 interface StoreMetrics {
   id: string;
@@ -22,6 +25,7 @@ interface StoreMetrics {
   total_on_hand: number;
   total_available: number;
   avg_woc: number;
+  est_revenue: number;
 }
 
 function useStoreMetrics() {
@@ -102,10 +106,10 @@ function useStoreMetrics() {
           total_on_hand: pos?.onHand || 0,
           total_available: pos?.available || 0,
           avg_woc: pos ? (pos.wocSum / (pos.wocCount || 1)) : 0,
+          est_revenue: (demand?.totalSold || 0) * AVG_UNIT_PRICE,
         };
       });
   }, [storesQuery.data, demandQuery.data, positionsQuery.data]);
-
   return {
     data: metrics,
     isLoading: storesQuery.isLoading || demandQuery.isLoading || positionsQuery.isLoading,
@@ -118,6 +122,12 @@ const TIER_ACCENT: Record<string, { border: string; gradient: string; badge: str
   B: { border: 'border-amber-500/40', gradient: 'from-amber-500/10 to-transparent', badge: 'bg-amber-500 text-white', text: 'text-amber-400' },
   C: { border: 'border-muted', gradient: 'from-muted/50 to-transparent', badge: 'bg-muted text-muted-foreground', text: 'text-muted-foreground' },
 };
+
+function formatRevenue(v: number): string {
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)} tỷ`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} triệu`;
+  return v.toLocaleString() + 'đ';
+}
 
 function getTierAccent(tier: string) {
   return TIER_ACCENT[tier?.toUpperCase()] || TIER_ACCENT.C;
@@ -165,8 +175,17 @@ function StoreCard({ store }: { store: StoreMetrics }) {
           </div>
         </div>
 
+        {/* Revenue highlight */}
+        <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+          <DollarSign className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <div className="flex-1">
+            <div className="text-sm font-bold font-mono">{formatRevenue(store.est_revenue)}</div>
+            <div className="text-[10px] text-muted-foreground">Doanh thu ước tính</div>
+          </div>
+        </div>
+
         {/* Metrics grid */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-1 border-t border-border/50">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
           <MetricItem
             icon={TrendingUp}
             label="Đã bán"
@@ -219,7 +238,7 @@ export function StoreDirectoryTab() {
   const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState<string>('all');
   const [filterRegion, setFilterRegion] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('total_sold');
+  const [sortBy, setSortBy] = useState<string>('tier');
 
   const regions = useMemo(() => {
     const set = new Set(stores.map(s => s.region));
@@ -236,6 +255,13 @@ export function StoreDirectoryTab() {
     if (filterRegion !== 'all') result = result.filter(s => s.region === filterRegion);
 
     result.sort((a, b) => {
+      if (sortBy === 'tier') {
+        const ta = TIER_ORDER[a.tier] ?? 99, tb = TIER_ORDER[b.tier] ?? 99;
+        return ta !== tb ? ta - tb : b.est_revenue - a.est_revenue;
+      }
+      if (sortBy === 'avg_woc') {
+        return a.avg_woc - b.avg_woc; // low WoC first
+      }
       const av = (a as any)[sortBy], bv = (b as any)[sortBy];
       if (typeof av === 'string') return (av as string).localeCompare(bv as string);
       return (bv as number) - (av as number);
@@ -296,7 +322,8 @@ export function StoreDirectoryTab() {
         <Select value={sortBy} onValueChange={setSortBy}>
           <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="total_sold">Doanh thu cao</SelectItem>
+            <SelectItem value="tier">Theo Tier</SelectItem>
+            <SelectItem value="est_revenue">Doanh thu cao</SelectItem>
             <SelectItem value="avg_velocity">Velocity cao</SelectItem>
             <SelectItem value="total_on_hand">Tồn kho nhiều</SelectItem>
             <SelectItem value="avg_woc">WoC thấp</SelectItem>
