@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Store, ArrowUpDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Search, Store, TrendingUp, Package, Clock, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
@@ -26,12 +24,9 @@ interface StoreMetrics {
   avg_woc: number;
 }
 
-type SortKey = 'store_name' | 'tier' | 'region' | 'total_sold' | 'avg_velocity' | 'total_on_hand' | 'avg_woc' | 'active_fcs';
-
 function useStoreMetrics() {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
 
-  // Fetch stores
   const storesQuery = useQuery({
     queryKey: ['inv-store-directory-stores', tenantId],
     queryFn: async () => {
@@ -45,28 +40,20 @@ function useStoreMetrics() {
     enabled: isReady,
   });
 
-  // Fetch demand aggregates
   const demandQuery = useQuery({
     queryKey: ['inv-store-directory-demand', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_state_demand',
-        'store_id, total_sold, sales_velocity, fc_id'
-      ).limit(1000);
+      const { data, error } = await buildSelectQuery('inv_state_demand', 'store_id, total_sold, sales_velocity, fc_id').limit(1000);
       if (error) throw error;
       return data as any[];
     },
     enabled: isReady,
   });
 
-  // Fetch position aggregates
   const positionsQuery = useQuery({
     queryKey: ['inv-store-directory-positions', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_state_positions',
-        'store_id, on_hand, available, weeks_of_cover, fc_id'
-      ).limit(1000);
+      const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, on_hand, available, weeks_of_cover, fc_id').limit(1000);
       if (error) throw error;
       return data as any[];
     },
@@ -125,13 +112,114 @@ function useStoreMetrics() {
   };
 }
 
+const TIER_ACCENT: Record<string, { border: string; gradient: string; badge: string; text: string }> = {
+  S: { border: 'border-purple-500/40', gradient: 'from-purple-500/10 to-transparent', badge: 'bg-purple-500 text-white', text: 'text-purple-400' },
+  A: { border: 'border-blue-500/40', gradient: 'from-blue-500/10 to-transparent', badge: 'bg-blue-500 text-white', text: 'text-blue-400' },
+  B: { border: 'border-amber-500/40', gradient: 'from-amber-500/10 to-transparent', badge: 'bg-amber-500 text-white', text: 'text-amber-400' },
+  C: { border: 'border-muted', gradient: 'from-muted/50 to-transparent', badge: 'bg-muted text-muted-foreground', text: 'text-muted-foreground' },
+};
+
+function getTierAccent(tier: string) {
+  return TIER_ACCENT[tier?.toUpperCase()] || TIER_ACCENT.C;
+}
+
+function MetricItem({ icon: Icon, label, value, sub, className }: { icon: any; label: string; value: string; sub?: string; className?: string }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <div className="min-w-0">
+        <div className={cn("text-sm font-semibold font-mono leading-tight", className)}>{value}</div>
+        <div className="text-[10px] text-muted-foreground leading-tight">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function StoreCard({ store }: { store: StoreMetrics }) {
+  const accent = getTierAccent(store.tier);
+
+  return (
+    <div className={cn(
+      "relative rounded-xl border bg-card overflow-hidden transition-all hover:shadow-md hover:scale-[1.01]",
+      accent.border
+    )}>
+      {/* Tier gradient accent */}
+      <div className={cn("absolute inset-0 bg-gradient-to-br pointer-events-none", accent.gradient)} />
+
+      <div className="relative p-4 space-y-3">
+        {/* Header: Tier badge + Store name */}
+        <div className="flex items-start gap-3">
+          <div className={cn(
+            "w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black shrink-0 shadow-sm",
+            accent.badge
+          )}>
+            {store.tier}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-sm leading-tight truncate">{store.store_name}</h3>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-muted-foreground font-mono">{store.store_code}</span>
+              <span className="text-[10px] text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground">{store.region}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metrics grid */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 pt-1 border-t border-border/50">
+          <MetricItem
+            icon={TrendingUp}
+            label="Đã bán"
+            value={store.total_sold.toLocaleString()}
+          />
+          <MetricItem
+            icon={Package}
+            label="Tồn kho"
+            value={store.total_on_hand.toLocaleString()}
+          />
+          <MetricItem
+            icon={Clock}
+            label="Avg WoC"
+            value={`${store.avg_woc.toFixed(1)}w`}
+            className={cn(
+              store.avg_woc < 2 && 'text-red-400',
+              store.avg_woc >= 2 && store.avg_woc < 4 && 'text-amber-400',
+              store.avg_woc >= 4 && 'text-emerald-400',
+            )}
+          />
+          <MetricItem
+            icon={Layers}
+            label="FC hoạt động"
+            value={String(store.active_fcs)}
+          />
+        </div>
+
+        {/* Velocity bar */}
+        <div className="pt-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-muted-foreground">Velocity</span>
+            <span className={cn("text-xs font-semibold font-mono", accent.text)}>
+              {(store.avg_velocity * 100).toFixed(1)}%
+            </span>
+          </div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn("h-full rounded-full transition-all", accent.badge.split(' ')[0])}
+              style={{ width: `${Math.min(100, store.avg_velocity * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StoreDirectoryTab() {
   const { data: stores, isLoading } = useStoreMetrics();
   const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState<string>('all');
   const [filterRegion, setFilterRegion] = useState<string>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('total_sold');
-  const [sortAsc, setSortAsc] = useState(false);
+  const [sortBy, setSortBy] = useState<string>('total_sold');
 
   const regions = useMemo(() => {
     const set = new Set(stores.map(s => s.region));
@@ -148,19 +236,13 @@ export function StoreDirectoryTab() {
     if (filterRegion !== 'all') result = result.filter(s => s.region === filterRegion);
 
     result.sort((a, b) => {
-      const av = a[sortKey], bv = b[sortKey];
-      if (typeof av === 'string') return sortAsc ? (av as string).localeCompare(bv as string) : (bv as string).localeCompare(av as string);
-      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number);
+      const av = (a as any)[sortBy], bv = (b as any)[sortBy];
+      if (typeof av === 'string') return (av as string).localeCompare(bv as string);
+      return (bv as number) - (av as number);
     });
     return result;
-  }, [stores, search, filterTier, filterRegion, sortKey, sortAsc]);
+  }, [stores, search, filterTier, filterRegion, sortBy]);
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else { setSortKey(key); setSortAsc(false); }
-  };
-
-  // Summary
   const summary = useMemo(() => {
     const tierCounts: Record<string, number> = {};
     stores.forEach(s => { tierCounts[s.tier] = (tierCounts[s.tier] || 0) + 1; });
@@ -173,7 +255,7 @@ export function StoreDirectoryTab() {
 
   return (
     <div className="space-y-4">
-      {/* Summary badges */}
+      {/* Summary */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Store className="h-4 w-4" />
@@ -195,126 +277,42 @@ export function StoreDirectoryTab() {
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm cửa hàng..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 h-9"
-          />
+          <Input placeholder="Tìm cửa hàng..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9" />
         </div>
         <Select value={filterTier} onValueChange={setFilterTier}>
-          <SelectTrigger className="w-[120px] h-9">
-            <SelectValue placeholder="Tier" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Tier" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả Tier</SelectItem>
-            {['S', 'A', 'B', 'C'].map(t => (
-              <SelectItem key={t} value={t}>Tier {t}</SelectItem>
-            ))}
+            {['S', 'A', 'B', 'C'].map(t => <SelectItem key={t} value={t}>Tier {t}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterRegion} onValueChange={setFilterRegion}>
-          <SelectTrigger className="w-[160px] h-9">
-            <SelectValue placeholder="Khu vực" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[160px] h-9"><SelectValue placeholder="Khu vực" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả KV</SelectItem>
-            {regions.map(r => (
-              <SelectItem key={r} value={r}>{r}</SelectItem>
-            ))}
+            {regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="total_sold">Doanh thu cao</SelectItem>
+            <SelectItem value="avg_velocity">Velocity cao</SelectItem>
+            <SelectItem value="total_on_hand">Tồn kho nhiều</SelectItem>
+            <SelectItem value="avg_woc">WoC thấp</SelectItem>
+            <SelectItem value="store_name">Tên A-Z</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs w-[200px]">
-                <SortButton label="Cửa hàng" sortKey="store_name" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs w-[60px]">
-                <SortButton label="Tier" sortKey="tier" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs w-[100px]">
-                <SortButton label="Khu vực" sortKey="region" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <SortButton label="Tồn kho" sortKey="total_on_hand" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <SortButton label="Đã bán" sortKey="total_sold" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <SortButton label="Velocity" sortKey="avg_velocity" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <SortButton label="Avg WoC" sortKey="avg_woc" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <SortButton label="FC actives" sortKey="active_fcs" current={sortKey} asc={sortAsc} onClick={handleSort} />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map(s => {
-              const ts = getTierStyle(s.tier);
-              return (
-                <TableRow key={s.id}>
-                  <TableCell className="text-sm">
-                    <div className="font-medium">{s.store_name}</div>
-                    <div className="text-xs text-muted-foreground">{s.store_code}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={cn("text-[10px]", ts.bg, ts.text)}>{s.tier}</Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{s.region}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{s.total_on_hand.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{s.total_sold.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {(s.avg_velocity * 100).toFixed(1)}%
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    <span className={cn(
-                      s.avg_woc < 2 && 'text-red-400',
-                      s.avg_woc >= 2 && s.avg_woc < 4 && 'text-amber-400',
-                      s.avg_woc >= 4 && 'text-emerald-400',
-                    )}>
-                      {s.avg_woc.toFixed(1)}w
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">{s.active_fcs}</TableCell>
-                </TableRow>
-              );
-            })}
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  Không tìm thấy cửa hàng
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      {/* Card grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filtered.map(s => <StoreCard key={s.id} store={s} />)}
       </div>
-    </div>
-  );
-}
 
-function SortButton({ label, sortKey, current, asc, onClick }: {
-  label: string; sortKey: SortKey; current: SortKey; asc: boolean; onClick: (k: SortKey) => void;
-}) {
-  const isActive = current === sortKey;
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className={cn("h-auto p-0 font-medium text-xs hover:bg-transparent", isActive && "text-foreground")}
-      onClick={() => onClick(sortKey)}
-    >
-      {label}
-      <ArrowUpDown className={cn("ml-1 h-3 w-3", isActive ? 'opacity-100' : 'opacity-40')} />
-    </Button>
+      {filtered.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">Không tìm thấy cửa hàng</div>
+      )}
+    </div>
   );
 }
