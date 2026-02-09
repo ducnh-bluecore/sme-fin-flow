@@ -1,13 +1,15 @@
+import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Check, X, HelpCircle } from 'lucide-react';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 
 interface Props {
   suggestions: RebalanceSuggestion[];
-  onApprove: (ids: string[]) => void;
+  onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
   transferType?: 'push' | 'lateral' | 'all';
 }
@@ -42,9 +44,20 @@ function HeaderWithTooltip({ label, tooltip }: { label: string; tooltip: string 
 }
 
 export function RebalanceBoardTable({ suggestions, onApprove, onReject, transferType = 'all' }: Props) {
+  const [editedQty, setEditedQty] = useState<Record<string, number>>({});
+
   const filtered = transferType === 'all' 
     ? suggestions 
     : suggestions.filter(s => s.transfer_type === transferType);
+
+  const getDisplayQty = (s: RebalanceSuggestion) => editedQty[s.id] ?? s.qty;
+  const isEdited = (s: RebalanceSuggestion) => s.id in editedQty && editedQty[s.id] !== s.qty;
+
+  const handleApprove = (id: string) => {
+    const edited: Record<string, number> = {};
+    if (id in editedQty) edited[id] = editedQty[id];
+    onApprove([id], Object.keys(edited).length > 0 ? edited : undefined);
+  };
 
   if (filtered.length === 0) {
     return (
@@ -79,13 +92,13 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                 <HeaderWithTooltip label="Đến" tooltip="Kho/store đích — nơi đang thiếu hàng cần bổ sung." />
               </TableHead>
               <TableHead className="text-right">
-                <HeaderWithTooltip label="SL" tooltip="Số lượng đề xuất chuyển (tính theo đơn vị sản phẩm)." />
+                <HeaderWithTooltip label="SL" tooltip="Số lượng đề xuất chuyển. Có thể chỉnh sửa trước khi duyệt." />
               </TableHead>
               <TableHead>
-                <HeaderWithTooltip label="Cover trước" tooltip="Số tuần tồn kho tại nguồn → đích TRƯỚC khi chuyển. Dựa trên tốc độ bán trung bình." />
+                <HeaderWithTooltip label="Cover trước" tooltip="Số tuần tồn kho tại nguồn → đích TRƯỚC khi chuyển." />
               </TableHead>
               <TableHead>
-                <HeaderWithTooltip label="Cover sau" tooltip="Số tuần tồn kho dự kiến tại đích SAU khi chuyển. Mục tiêu: cân bằng giữa các điểm." />
+                <HeaderWithTooltip label="Cover sau" tooltip="Số tuần tồn kho dự kiến tại đích SAU khi chuyển." />
               </TableHead>
               {(transferType === 'lateral' || transferType === 'all') && (
                 <>
@@ -93,15 +106,15 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                     <HeaderWithTooltip label="Chi phí VC" tooltip="Chi phí vận chuyển ước tính cho lần chuyển hàng này." />
                   </TableHead>
                   <TableHead className="text-right">
-                    <HeaderWithTooltip label="Net benefit" tooltip="Lợi ích ròng = Doanh thu tiềm năng − Chi phí vận chuyển. Chỉ đề xuất khi > 0." />
+                    <HeaderWithTooltip label="Net benefit" tooltip="Lợi ích ròng = Doanh thu tiềm năng − Chi phí vận chuyển." />
                   </TableHead>
                 </>
               )}
               <TableHead className="text-right">
-                <HeaderWithTooltip label="Revenue" tooltip="Doanh thu tiềm năng nếu hàng được bán tại điểm đích thay vì nằm ở nguồn." />
+                <HeaderWithTooltip label="Revenue" tooltip="Doanh thu tiềm năng nếu hàng được bán tại điểm đích." />
               </TableHead>
               <TableHead>
-                <HeaderWithTooltip label="Trạng thái" tooltip="Pending: Chờ duyệt. Approved: Đã duyệt. Rejected: Đã từ chối. Executed: Đã thực hiện." />
+                <HeaderWithTooltip label="Trạng thái" tooltip="Pending: Chờ duyệt. Approved: Đã duyệt. Rejected: Đã từ chối." />
               </TableHead>
               <TableHead className="w-24">Hành động</TableHead>
             </TableRow>
@@ -132,7 +145,24 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                   <div className="text-sm">{s.to_location_name}</div>
                   <div className="text-xs text-muted-foreground">{s.to_location_type}</div>
                 </TableCell>
-                <TableCell className="text-right font-mono font-bold">{s.qty}</TableCell>
+                <TableCell className="text-right">
+                  {s.status === 'pending' ? (
+                    <div className="flex items-center justify-end gap-1.5">
+                      {isEdited(s) && (
+                        <span className="text-xs text-muted-foreground line-through">{s.qty}</span>
+                      )}
+                      <Input
+                        type="number"
+                        value={getDisplayQty(s)}
+                        onChange={e => setEditedQty(prev => ({ ...prev, [s.id]: Number(e.target.value) || 0 }))}
+                        className="h-7 w-20 text-right font-mono font-bold text-sm"
+                        min={0}
+                      />
+                    </div>
+                  ) : (
+                    <span className="font-mono font-bold">{s.qty}</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <span className="text-xs">
                     {s.from_weeks_cover?.toFixed(1)}w → {s.to_weeks_cover?.toFixed(1)}w
@@ -164,7 +194,7 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                 <TableCell>
                   {s.status === 'pending' && (
                     <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => onApprove([s.id])}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => handleApprove(s.id)}>
                         <Check className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => onReject([s.id])}>

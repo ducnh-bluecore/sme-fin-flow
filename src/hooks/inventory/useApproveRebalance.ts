@@ -8,15 +8,26 @@ export function useApproveRebalance() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ suggestionIds, action }: { suggestionIds: string[]; action: 'approved' | 'rejected' }) => {
+    mutationFn: async ({ suggestionIds, action, editedQty }: { 
+      suggestionIds: string[]; 
+      action: 'approved' | 'rejected';
+      editedQty?: Record<string, number>;
+    }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
       for (const id of suggestionIds) {
-        const { error } = await buildUpdateQuery('inv_rebalance_suggestions', {
+        const updateData: Record<string, any> = {
           status: action,
           approved_by: user?.id,
           approved_at: new Date().toISOString(),
-        }).eq('id', id);
+        };
+
+        // If user edited qty before approving, update it
+        if (action === 'approved' && editedQty && id in editedQty) {
+          updateData.qty = editedQty[id];
+        }
+
+        const { error } = await buildUpdateQuery('inv_rebalance_suggestions', updateData).eq('id', id);
         
         if (error) throw error;
       }
