@@ -136,6 +136,26 @@ v_cdp_data_quality: Chất lượng dữ liệu CDP
 ⚠️ QUAN TRỌNG: Khi dùng query_database, PHẢI dùng ĐÚNG tên cột như liệt kê ở trên. KHÔNG đoán tên cột.
 Với query_database, dùng tenant_id = '${tenantId}'
 
+## PHÂN LOẠI METRIC — BẮT BUỘC TUÂN THỦ TRƯỚC KHI PHÂN TÍCH
+
+Trước khi phân tích, XÁC ĐỊNH loại metric:
+
+CUMULATIVE (cộng dồn được): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
+- Tổng = SUM tất cả kỳ
+- Trung bình = SUM / số kỳ
+- So sánh = tổng kỳ này vs tổng kỳ trước
+
+AVERAGE/RATIO (không cộng dồn): AOV, ROAS, GROSS_MARGIN, CM_PERCENT
+- KHÔNG BAO GIỜ cộng dồn hoặc tính "tổng"
+- Trung bình = weighted average (theo ORDER_COUNT hoặc AD_SPEND)
+- AOV trung bình = Tổng Revenue / Tổng Orders, KHÔNG phải trung bình các AOV tháng
+- ROAS = Tổng Revenue / Tổng Ad Spend
+- So sánh = giá trị kỳ này vs kỳ trước (không tổng)
+
+SNAPSHOT (thời điểm): INVENTORY, CASH_POSITION, CUSTOMER_COUNT
+- Chỉ lấy giá trị mới nhất, không cộng dồn
+- So sánh = hiện tại vs kỳ trước
+
 ## QUY TẮC PHÂN TÍCH
 1. SO SÁNH: Tăng/giảm bao nhiêu % so với kỳ trước?
 2. NGUYÊN NHÂN: Nếu biến động > 10%, xác định kênh/sản phẩm gây ra
@@ -459,16 +479,33 @@ Dưới đây là dữ liệu đã truy vấn từ database. Hãy dùng dữ li�
 
 ${toolSummary}
 
-BẮT BUỘC TUÂN THỦ FORMAT SAU:
-1. 📊 TỔNG QUAN: Tóm tắt con số chính (tổng cả năm, trung bình tháng)
-2. 📈 XU HƯỚNG: Tăng hay giảm qua các kỳ? MoM growth rate?
-3. ⚠️ BẤT THƯỜNG: Tháng nào đột biến? Tăng/giảm bao nhiêu % so với trung bình?
-4. 🔍 SO SÁNH: Peak (tháng cao nhất) vs Trough (tháng thấp nhất), chênh lệch bao nhiêu?
-5. 💡 NGUYÊN NHÂN: Giả thuyết về nguyên nhân (mùa vụ, campaign, kênh bán hàng?)
-6. 🎯 ĐỀ XUẤT: Hành động cụ thể CEO/CFO cần làm
-7. Nếu data có >= 3 data points, PHẢI kèm chart block
+BẮT BUỘC TUÂN THỦ:
 
-TUYỆT ĐỐI KHÔNG được chỉ liệt kê từng dòng số rồi dừng. Người dùng cần PHÂN TÍCH, không cần đọc số.`,
+1. XÁC ĐỊNH loại metric (cumulative/average/snapshot) rồi áp dụng cách tính ĐÚNG theo quy tắc PHÂN LOẠI METRIC ở system prompt.
+2. KHÔNG ÁP DỤNG CÙNG MỘT TEMPLATE CHO MỌI CÂU HỎI.
+
+Với CUMULATIVE metrics (Revenue, Orders, Ad Spend, COGS):
+- Tổng kỳ, tăng trưởng MoM, tháng đỉnh/đáy, nguyên nhân
+
+Với AVERAGE/RATIO metrics (AOV, ROAS, Margin):
+- KHÔNG BAO GIỜ tính "tổng AOV" hay "tổng ROAS" — vô nghĩa
+- Weighted average qua kỳ (AOV = Tổng Revenue / Tổng Orders)
+- Xu hướng lên/xuống và ý nghĩa kinh doanh
+- VD: AOV giảm + Orders tăng = bán rẻ hơn nhưng nhiều hơn → margin bị ảnh hưởng?
+
+Với SNAPSHOT metrics (Inventory, Cash):
+- Giá trị hiện tại và thay đổi so với kỳ trước
+
+3. PHÂN TÍCH CROSS-DOMAIN (quan trọng nhất):
+- Revenue tăng nhưng AOV giảm → đang bán rẻ?
+- Orders tăng nhưng Margin giảm → chi phí tăng?
+- ROAS tốt nhưng cash chậm → rủi ro dòng tiền?
+
+4. KẾT LUẬN phải là HÀNH ĐỘNG cụ thể cho CEO/CFO, không phải tóm tắt số.
+
+5. Nếu data có >= 3 data points, PHẢI kèm chart block.
+
+TUYỆT ĐỐI KHÔNG được chỉ liệt kê số rồi dừng. Người dùng cần PHÂN TÍCH và HÀNH ĐỘNG.`,
       });
     }
 
@@ -477,7 +514,7 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê từng dòng số rồi dừng. 
       messages: pass2Messages,
       stream: true,
       max_tokens: 10000,
-      temperature: 0.3,
+      temperature: 0.4,
     });
 
     if (!pass2Resp.ok) {
