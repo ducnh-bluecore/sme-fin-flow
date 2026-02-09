@@ -2,7 +2,7 @@ import { corsHeaders } from '../_shared/auth.ts';
 
 /**
  * What-If Chat Function
- * Uses Anthropic Claude API. Auth optional.
+ * Uses Lovable AI Gateway (google/gemini-2.5-pro). Auth optional.
  */
 
 Deno.serve(async (req) => {
@@ -12,8 +12,8 @@ Deno.serve(async (req) => {
 
   try {
     const { messages, scenarioContext } = await req.json();
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const systemPrompt = `Bạn là trợ lý AI phân tích What-If tài chính. Trả lời NGẮN GỌN theo cấu trúc sau:
 
@@ -34,20 +34,21 @@ ${scenarioContext ? JSON.stringify(scenarioContext, null, 2) : 'Chưa có kịch
 - Nếu thiếu data: nói rõ cần gì, không đoán mò
 - Emoji tiêu đề giúp dễ đọc`;
 
-    // Convert messages: filter out system, keep user/assistant
-    const claudeMessages = messages.filter((m: any) => m.role !== 'system');
+    // Filter out system messages, keep user/assistant
+    const chatMessages = messages.filter((m: any) => m.role !== 'system');
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        system: systemPrompt,
-        messages: claudeMessages,
+        model: "google/gemini-2.5-pro",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...chatMessages,
+        ],
         stream: true,
         max_tokens: 4096,
       }),
@@ -65,58 +66,14 @@ ${scenarioContext ? JSON.stringify(scenarioContext, null, 2) : 'Chưa có kịch
         });
       }
       const errorText = await response.text();
-      console.error("Claude API error:", response.status, errorText);
+      console.error("AI gateway error:", response.status, errorText);
       return new Response(JSON.stringify({ error: "Lỗi AI gateway" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Convert Claude SSE stream to OpenAI-compatible format
-    const claudeStream = response.body!;
-    const transformedStream = new ReadableStream({
-      async start(controller) {
-        const reader = claudeStream.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            let newlineIdx: number;
-            while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-              const line = buffer.slice(0, newlineIdx).trim();
-              buffer = buffer.slice(newlineIdx + 1);
-              
-              if (!line || !line.startsWith('data: ')) continue;
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === '[DONE]') continue;
-
-              try {
-                const event = JSON.parse(jsonStr);
-                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-                  const openaiChunk = {
-                    choices: [{ delta: { content: event.delta.text }, index: 0 }],
-                  };
-                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
-                } else if (event.type === 'message_stop') {
-                  controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-                }
-              } catch { /* ignore partial JSON */ }
-            }
-          }
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (e) {
-          console.error('[whatif-chat] Stream transform error:', e);
-          controller.close();
-        }
-      }
-    });
-
-    return new Response(transformedStream, {
+    // Lovable AI returns OpenAI-compatible SSE — pass through directly
+    return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {
