@@ -1,7 +1,8 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Check, X, HelpCircle } from 'lucide-react';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 
 interface Props {
@@ -24,6 +25,22 @@ const statusColors: Record<string, string> = {
   executed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
 };
 
+function HeaderWithTooltip({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function RebalanceBoardTable({ suggestions, onApprove, onReject, transferType = 'all' }: Props) {
   const filtered = transferType === 'all' 
     ? suggestions 
@@ -39,98 +56,128 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-16">Ưu tiên</TableHead>
-            {transferType === 'all' && <TableHead className="w-20">Loại</TableHead>}
-            <TableHead>Family Code</TableHead>
-            <TableHead>Từ</TableHead>
-            <TableHead>Đến</TableHead>
-            <TableHead className="text-right">SL</TableHead>
-            <TableHead>Cover trước</TableHead>
-            <TableHead>Cover sau</TableHead>
-            {(transferType === 'lateral' || transferType === 'all') && (
-              <>
-                <TableHead className="text-right">Chi phí VC</TableHead>
-                <TableHead className="text-right">Net benefit</TableHead>
-              </>
-            )}
-            <TableHead className="text-right">Revenue</TableHead>
-            <TableHead>Trạng thái</TableHead>
-            <TableHead className="w-24">Hành động</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filtered.map((s) => (
-            <TableRow key={s.id}>
-              <TableCell>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${priorityColors[s.priority] || ''}`}>
-                  {s.priority}
-                </span>
-              </TableCell>
+    <TooltipProvider delayDuration={200}>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">
+                <HeaderWithTooltip label="Ưu tiên" tooltip="P1: Sắp hết hàng (< 0.5 tuần). P2: Cover thấp (< 2 tuần). P3: Tối ưu phân bổ." />
+              </TableHead>
               {transferType === 'all' && (
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">
-                    {s.transfer_type === 'push' ? 'Push' : 'Lateral'}
-                  </Badge>
-                </TableCell>
+                <TableHead className="w-20">
+                  <HeaderWithTooltip label="Loại" tooltip="Push: Từ kho tổng xuống store. Lateral: Chuyển ngang giữa các kho/store." />
+                </TableHead>
               )}
-              <TableCell className="font-medium text-sm">{s.fc_name || s.fc_id}</TableCell>
-              <TableCell>
-                <div className="text-sm">{s.from_location_name}</div>
-                <div className="text-xs text-muted-foreground">{s.from_location_type}</div>
-              </TableCell>
-              <TableCell>
-                <div className="text-sm">{s.to_location_name}</div>
-                <div className="text-xs text-muted-foreground">{s.to_location_type}</div>
-              </TableCell>
-              <TableCell className="text-right font-mono font-bold">{s.qty}</TableCell>
-              <TableCell>
-                <span className="text-xs">
-                  {s.from_weeks_cover?.toFixed(1)}w → {s.to_weeks_cover?.toFixed(1)}w
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className="text-xs text-emerald-600 font-medium">
-                  {s.balanced_weeks_cover?.toFixed(1)}w
-                </span>
-              </TableCell>
+              <TableHead>
+                <HeaderWithTooltip label="Sản phẩm" tooltip="Tên sản phẩm (Family Code) — nhóm các SKU cùng mẫu, khác size." />
+              </TableHead>
+              <TableHead>
+                <HeaderWithTooltip label="Từ" tooltip="Kho/store nguồn — nơi đang thừa hàng hoặc kho tổng." />
+              </TableHead>
+              <TableHead>
+                <HeaderWithTooltip label="Đến" tooltip="Kho/store đích — nơi đang thiếu hàng cần bổ sung." />
+              </TableHead>
+              <TableHead className="text-right">
+                <HeaderWithTooltip label="SL" tooltip="Số lượng đề xuất chuyển (tính theo đơn vị sản phẩm)." />
+              </TableHead>
+              <TableHead>
+                <HeaderWithTooltip label="Cover trước" tooltip="Số tuần tồn kho tại nguồn → đích TRƯỚC khi chuyển. Dựa trên tốc độ bán trung bình." />
+              </TableHead>
+              <TableHead>
+                <HeaderWithTooltip label="Cover sau" tooltip="Số tuần tồn kho dự kiến tại đích SAU khi chuyển. Mục tiêu: cân bằng giữa các điểm." />
+              </TableHead>
               {(transferType === 'lateral' || transferType === 'all') && (
                 <>
-                  <TableCell className="text-right text-sm">
-                    {s.logistics_cost_estimate ? `${(s.logistics_cost_estimate / 1_000_000).toFixed(1)}M` : '-'}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-medium text-emerald-600">
-                    {s.net_benefit ? `+${(s.net_benefit / 1_000_000).toFixed(1)}M` : '-'}
-                  </TableCell>
+                  <TableHead className="text-right">
+                    <HeaderWithTooltip label="Chi phí VC" tooltip="Chi phí vận chuyển ước tính cho lần chuyển hàng này." />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <HeaderWithTooltip label="Net benefit" tooltip="Lợi ích ròng = Doanh thu tiềm năng − Chi phí vận chuyển. Chỉ đề xuất khi > 0." />
+                  </TableHead>
                 </>
               )}
-              <TableCell className="text-right text-sm">
-                +{(s.potential_revenue_gain / 1_000_000).toFixed(1)}M
-              </TableCell>
-              <TableCell>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${statusColors[s.status] || ''}`}>
-                  {s.status}
-                </span>
-              </TableCell>
-              <TableCell>
-                {s.status === 'pending' && (
-                  <div className="flex gap-1">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => onApprove([s.id])}>
-                      <Check className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => onReject([s.id])}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </TableCell>
+              <TableHead className="text-right">
+                <HeaderWithTooltip label="Revenue" tooltip="Doanh thu tiềm năng nếu hàng được bán tại điểm đích thay vì nằm ở nguồn." />
+              </TableHead>
+              <TableHead>
+                <HeaderWithTooltip label="Trạng thái" tooltip="Pending: Chờ duyệt. Approved: Đã duyệt. Rejected: Đã từ chối. Executed: Đã thực hiện." />
+              </TableHead>
+              <TableHead className="w-24">Hành động</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((s) => (
+              <TableRow key={s.id}>
+                <TableCell>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${priorityColors[s.priority] || ''}`}>
+                    {s.priority}
+                  </span>
+                </TableCell>
+                {transferType === 'all' && (
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {s.transfer_type === 'push' ? 'Push' : 'Lateral'}
+                    </Badge>
+                  </TableCell>
+                )}
+                <TableCell className="font-medium text-sm max-w-[180px] truncate" title={s.fc_name || s.fc_id}>
+                  {s.fc_name || s.fc_id}
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{s.from_location_name}</div>
+                  <div className="text-xs text-muted-foreground">{s.from_location_type}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{s.to_location_name}</div>
+                  <div className="text-xs text-muted-foreground">{s.to_location_type}</div>
+                </TableCell>
+                <TableCell className="text-right font-mono font-bold">{s.qty}</TableCell>
+                <TableCell>
+                  <span className="text-xs">
+                    {s.from_weeks_cover?.toFixed(1)}w → {s.to_weeks_cover?.toFixed(1)}w
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs text-emerald-600 font-medium">
+                    {s.balanced_weeks_cover?.toFixed(1)}w
+                  </span>
+                </TableCell>
+                {(transferType === 'lateral' || transferType === 'all') && (
+                  <>
+                    <TableCell className="text-right text-sm">
+                      {s.logistics_cost_estimate ? `${(s.logistics_cost_estimate / 1_000_000).toFixed(1)}M` : '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-medium text-emerald-600">
+                      {s.net_benefit ? `+${(s.net_benefit / 1_000_000).toFixed(1)}M` : '-'}
+                    </TableCell>
+                  </>
+                )}
+                <TableCell className="text-right text-sm">
+                  +{(s.potential_revenue_gain / 1_000_000).toFixed(1)}M
+                </TableCell>
+                <TableCell>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${statusColors[s.status] || ''}`}>
+                    {s.status}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  {s.status === 'pending' && (
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => onApprove([s.id])}>
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => onReject([s.id])}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </TooltipProvider>
   );
 }
