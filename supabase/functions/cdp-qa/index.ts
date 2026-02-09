@@ -443,38 +443,40 @@ Deno.serve(async (req) => {
     // Build Pass 2 messages: system + user messages + tool context summary
     const pass2Messages: any[] = [{ role: 'system', content: systemPrompt }];
 
+    // Add user messages first
+    pass2Messages.push(...userMessages);
+
     if (allToolResults.length > 0) {
-      // Inject tool results as a system context message
+      // Inject tool results + analysis instructions AFTER user messages (last position = highest priority for GPT)
       const toolSummary = allToolResults.map(tr =>
         `[${tr.name}] source=${tr.result.source}, rows=${tr.result.rows}${tr.result.period ? `, period=${tr.result.period}` : ''}${tr.result.note ? `, note=${tr.result.note}` : ''}\nData: ${JSON.stringify(tr.result.data)}`
       ).join('\n\n');
 
       pass2Messages.push({
-        role: 'system',
-        content: `DỮ LIỆU ĐÃ TRUY VẤN (dùng để trả lời, KHÔNG bịa thêm):
+        role: 'user',
+        content: `[HỆ THỐNG - KHÔNG HIỂN THỊ CHO NGƯỜI DÙNG]
+Dưới đây là dữ liệu đã truy vấn từ database. Hãy dùng dữ liệu này để trả lời câu hỏi phía trên.
 
 ${toolSummary}
 
-## YÊU CẦU PHÂN TÍCH BẮT BUỘC (KHÔNG được chỉ liệt kê số):
-1. **TỔNG QUAN**: Tóm tắt con số chính (tổng, trung bình)
-2. **TREND**: Xu hướng tăng/giảm qua các kỳ? Tốc độ thay đổi?
-3. **ANOMALY**: Tháng/kỳ nào bất thường? Tăng/giảm đột biến bao nhiêu %?
-4. **SO SÁNH**: Peak vs trough, so sánh đầu kỳ vs cuối kỳ
-5. **ROOT CAUSE**: Nguyên nhân có thể (mùa vụ, campaign, kênh)?
-6. **ĐỀ XUẤT**: Hành động cụ thể (SCALE/STOP/INVESTIGATE) dựa trên phân tích
-7. **CHART**: Nếu data có nhiều data points, kèm chart block
+BẮT BUỘC TUÂN THỦ FORMAT SAU:
+1. 📊 TỔNG QUAN: Tóm tắt con số chính (tổng cả năm, trung bình tháng)
+2. 📈 XU HƯỚNG: Tăng hay giảm qua các kỳ? MoM growth rate?
+3. ⚠️ BẤT THƯỜNG: Tháng nào đột biến? Tăng/giảm bao nhiêu % so với trung bình?
+4. 🔍 SO SÁNH: Peak (tháng cao nhất) vs Trough (tháng thấp nhất), chênh lệch bao nhiêu?
+5. 💡 NGUYÊN NHÂN: Giả thuyết về nguyên nhân (mùa vụ, campaign, kênh bán hàng?)
+6. 🎯 ĐỀ XUẤT: Hành động cụ thể CEO/CFO cần làm
+7. Nếu data có >= 3 data points, PHẢI kèm chart block
 
-KHÔNG BAO GIỜ chỉ liệt kê số rồi dừng. Phải có phân tích sâu.`,
+TUYỆT ĐỐI KHÔNG được chỉ liệt kê từng dòng số rồi dừng. Người dùng cần PHÂN TÍCH, không cần đọc số.`,
       });
     }
-
-    pass2Messages.push(...userMessages);
 
     const pass2Resp = await callAI(apiKey, {
       model: 'gpt-4o',
       messages: pass2Messages,
       stream: true,
-      max_tokens: 2000,
+      max_tokens: 4000,
       temperature: 0.3,
     });
 
