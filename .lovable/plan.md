@@ -1,184 +1,128 @@
 
 
-# Inventory Allocation Engine -- Cap nhat: De xuat 2 chieu (Kho tong + Kho con)
+# Build UX Phase 2: Hero Header, FC Decision Cards, Detail Sheet, Simulation, Audit Log
 
-## Yeu cau bo sung
+## Tong quan
 
-He thong phai de xuat chuyen hang theo **2 luong**:
-
-1. **Kho tong (CNTT) ra kho con/store** -- Push allocation (phan bo tu nguon chinh)
-2. **Giua cac kho con voi nhau** -- Lateral rebalancing (can bang ngang)
+Nang cap trang Inventory Allocation Engine tu dang "bang data co ban" len "Decision-first UX" theo dung manifesto Bluecore. 5 phan chinh can build.
 
 ---
 
-## Thiet ke Location Model
+## 1. Hero Header (Urgency Banner)
 
-### Bang `inv_stores` -- bo sung `location_type`
+Tao component `InventoryHeroHeader.tsx`:
 
-```text
-location_type ENUM:
-  - 'central_warehouse'  (kho tong / CNTT)
-  - 'sub_warehouse'      (kho vung / kho nhanh)
-  - 'store'              (cua hang)
-```
-
-Moi location co `tier`, `capacity`, `region` -- giup engine biet uu tien va rang buoc khoang cach.
+- Gradient banner (giong Decision Center hien tai)
+- Dynamic urgency message dua tren du lieu:
+  - Co shortage: "37 stores dang thieu hang, uoc tinh mat 420M neu khong xu ly trong 48h" (text do, pulse dot)
+  - OK: "Tat ca stores deu du hang. Khong can hanh dong." (text xanh)
+- Icon lon + tieu de "Inventory Allocation Engine"
+- Tinh urgency tu `suggestions` data: dem P1, tinh tong revenue at risk
 
 ---
 
-## 2 loai de xuat trong bang `inv_rebalance_suggestions`
+## 2. Decision Cards per Family Code
 
-Them cot `transfer_type`:
+Thay the hoac bo sung ben canh Board Table bang danh sach **Decision Cards theo tung FC**:
 
-```text
-transfer_type ENUM:
-  - 'push'      -- tu kho tong/sub_warehouse xuong store
-  - 'lateral'   -- giua cac store hoac sub_warehouse voi nhau
-```
+Tao component `InventoryFCDecisionCards.tsx`:
 
-### Schema day du cua `inv_rebalance_suggestions`:
-
-```text
-tenant_id, suggestion_id (uuid PK), run_id (FK),
-transfer_type ('push' | 'lateral'),
-fc_id, fc_name,
-from_location, from_location_name, from_location_type,
-to_location, to_location_name, to_location_type,
-qty,
-reason,
-from_weeks_cover, to_weeks_cover, balanced_weeks_cover,
-priority (P1/P2/P3),
-potential_revenue_gain,
-logistics_cost_estimate,
-net_benefit (= potential_revenue_gain - logistics_cost),
-status (pending/approved/rejected/executed),
-approved_by, approved_at
-```
+- Moi card dai dien 1 FC can action (group suggestions theo `fc_id`)
+- Card co:
+  - Border-left mau theo priority cao nhat (do P1, vang P2, xanh P3)
+  - Gradient background nhe
+  - Inline key facts: sales velocity, weeks of cover, stockout count, qty de xuat
+  - Recommendation badge: STOP (do) / INVESTIGATE (vang) / OPTIMIZE (xanh)
+  - Cost of delay estimate
+  - Nut "Chi tiet" -> mo Detail Sheet
+- Sort theo priority roi net_benefit
 
 ---
 
-## Logic Engine -- 2 pha
+## 3. Detail Sheet (Slide-out tu phai)
 
-### Pha 1: Push Allocation (Kho tong ra store)
+Tao component `RebalanceDetailSheet.tsx` su dung Sheet component san co:
 
-```text
-1. Lay ton kho kho tong (location_type = 'central_warehouse')
-2. Tinh available_to_push = on_hand - reserved - safety_stock_cntt
-3. Voi moi FC co hang trong kho tong:
-   a. Tim tat ca store dang thieu (weeks_cover < min_cover_weeks)
-   b. Xep hang store theo priority_score
-   c. Greedy allocate tu kho tong xuong store
-   d. Dung khi available_to_push <= 0 hoac min_cntt constraint
-4. Ghi ket qua voi transfer_type = 'push'
-```
+**Panel tren: Allocation Detail**
+- Bang chi tiet: Store nao nhan, bao nhieu units, ly do (reason text)
+- Impact metrics: from_weeks_cover -> balanced_weeks_cover
 
-### Pha 2: Lateral Rebalancing (Giua cac kho con)
+**Panel giua: Evidence / Snapshot**
+- Demand data: sales velocity, forecast
+- Inventory state: on_hand, reserved, available
+- Constraint version dang dung
 
-```text
-1. SAU KHI push xong, con store nao van thieu?
-2. Tim store THUA cung FC (weeks_cover > threshold_high, e.g. > 6 tuan)
-3. Tim store THIEU cung FC (weeks_cover < threshold_low, e.g. < 1 tuan)
-4. Ghep cap store_thua -> store_thieu:
-   a. Uu tien cung region (giam chi phi van chuyen)
-   b. qty = min(surplus - safety_stock, shortage)
-   c. Chi chuyen khi net_benefit > 0 (revenue gain > logistics cost)
-5. Ghi ket qua voi transfer_type = 'lateral'
-```
-
-Thu tu quan trong: **Push truoc, Lateral sau** -- vi kho tong la nguon chinh, chi can bang ngang khi kho tong khong du.
+**Panel duoi: Actions**
+- 3 nut lon:
+  - "Duyet & Thuc thi" -> confirm dialog -> approve
+  - "Chinh sua qty" -> cho phep sua qty truoc khi approve (future phase)
+  - "Tu choi" -> ghi ly do -> reject
+- Su dung hook `useApproveRebalance` hien co
 
 ---
 
-## Frontend -- Daily Rebalance Board
+## 4. Simulation / What-If Tab
 
-### Layout co 2 tab/section:
+Tao component `RebalanceSimulationTab.tsx`:
 
-```text
-+--------------------------------------------------+
-| Daily Rebalance Board            [Chay Quet]      |
-+--------------------------------------------------+
-| [Summary Cards: 4 KPIs]                          |
-|  - Push: X units | Lateral: Y units              |
-|  - Revenue tiep can: +Z | Stores shortage: N     |
-+--------------------------------------------------+
-| Tab: [Tu kho tong] | [Giua cac kho]  | [Tat ca]  |
-+--------------------------------------------------+
-
-Tab "Tu kho tong" (Push):
-| FC | Kho tong | -> Store | SL | Ly do | Cover | Revenue | Action |
-
-Tab "Giua cac kho" (Lateral):
-| FC | Store thua | -> Store thieu | SL | Ly do | Cover truoc/sau | Chi phi VC | Net benefit | Action |
-
-Tab "Tat ca":
-| Gop ca 2 loai, sort theo priority |
-```
-
-### Decision Card (CEO view):
-
-```text
-+--------------------------------------------------+
-| De xuat chia hang hom nay                         |
-|                                                    |
-| Push: 420 units tu CNTT -> 12 stores              |
-| Lateral: 180 units giua 8 cap store               |
-| Projected revenue: +28.5M                         |
-| Stockout risk giam: -23%                           |
-|                                                    |
-| [Duyet tat ca P1]  [Xem chi tiet]  [Tu choi]     |
-+--------------------------------------------------+
-```
+- User chon 1 FC tu dropdown
+- Hien thi 2 cot so sanh: "Giu nguyen" vs "Chuyen X units"
+- Metrics: Revenue du kien, Stockout risk, Overstock risk, Weeks of cover
+- Highlight xanh/do cho tung metric thay doi
+- Logic tinh toan chay local (client-side) dua tren data hien co tu `inv_state_positions` va `inv_state_demand`
+- Can them hook `useInventoryPositions` va `useInventoryDemand` de fetch data cho simulation
 
 ---
 
-## Constraint bo sung cho lateral
+## 5. Audit Log Tab
 
-Them constraint moi trong `inv_constraint_registry`:
+Tao component `RebalanceAuditLog.tsx`:
+
+- Fetch tu bang `inv_allocation_audit_log` (da co trong DB)
+- Hien thi timeline doc:
+  - Ai approve, luc nao
+  - Action type (approved/rejected/executed)
+  - FC + qty + from/to
+  - Snapshot reference
+- Can them hook `useAllocationAuditLog`
+
+---
+
+## 6. Cap nhat Page Layout
+
+Refactor `InventoryAllocationPage.tsx`:
+
+- Them Hero Header phia tren cung
+- Chuyen Summary Cards xuong duoi Hero
+- Them Decision Cards view (co toggle giua Card view va Table view)
+- Them 2 tab moi: "Mo phong" (Simulation) va "Lich su" (Audit Log)
+
+Tab structure moi:
 
 ```text
-- min_lateral_net_benefit: 500000    (chi chuyen khi loi > 500K)
-- max_lateral_distance: 'same_region' (uu tien cung vung)
-- lateral_enabled: true               (bat/tat lateral)
-- push_priority_over_lateral: true    (push truoc, lateral sau)
+[Tat ca] [Tu kho tong] [Giua cac kho] [Mo phong] [Lich su] [Cau hinh]
 ```
-
----
-
-## Thay doi so voi plan truoc
-
-| Hang muc | Truoc | Sau |
-|----------|-------|-----|
-| `inv_stores` | Khong co `location_type` | Them `location_type` (central/sub/store) |
-| `inv_rebalance_suggestions` | Khong phan biet loai | Them `transfer_type` (push/lateral) + `logistics_cost` + `net_benefit` |
-| Engine logic | 1 pha (rebalance chung) | 2 pha: Push truoc, Lateral sau |
-| Frontend | 1 bang | 3 tab: Push / Lateral / Tat ca |
-| Constraints | Khong co lateral rules | Them `min_lateral_net_benefit`, `lateral_enabled` |
-
----
-
-## Tong hop toan bo bang can tao (13 bang)
-
-1. `inv_stores` (voi location_type)
-2. `inv_family_codes`
-3. `inv_sku_fc_mapping`
-4. `inv_state_positions`
-5. `inv_state_demand`
-6. `inv_constraint_registry`
-7. `inv_allocation_runs`
-8. `inv_allocation_recommendations`
-9. `inv_allocation_audit_log`
-10. `inv_transfer_orders`
-11. `inv_rebalance_runs`
-12. `inv_rebalance_suggestions` (voi transfer_type, logistics_cost, net_benefit)
-13. Edge function: `inventory-allocation-engine` (2 endpoint: /allocate va /rebalance)
 
 ---
 
 ## Thu tu build
 
-1. Database migration -- 13 bang + RLS + indexes
-2. Edge function `inventory-allocation-engine` (Push + Lateral logic)
-3. Frontend hooks (9 hooks)
-4. Page `/inventory-allocation` voi 2 tab chinh: Allocation + Rebalance Board
-5. Route + Sidebar registration
+1. `InventoryHeroHeader.tsx` - Hero banner voi urgency logic
+2. `InventoryFCDecisionCards.tsx` - Cards per FC voi priority styling
+3. `RebalanceDetailSheet.tsx` - Slide-out detail panel
+4. `useInventoryPositions.ts` + `useInventoryDemand.ts` - Hooks cho simulation data
+5. `RebalanceSimulationTab.tsx` - What-if comparison
+6. `useAllocationAuditLog.ts` - Hook fetch audit data
+7. `RebalanceAuditLog.tsx` - Timeline component
+8. Refactor `InventoryAllocationPage.tsx` - Tich hop tat ca components moi
+
+---
+
+## Ky thuat
+
+- Tat ca components moi su dung design patterns hien co (Card, Sheet, Badge, Tooltip)
+- Tham khao `DecisionCardExpanded` va `DecisionWorkflowCard` cho styling consistency
+- Khong can them bang DB moi -- su dung 12 bang da co
+- Khong can update edge function -- data da du
+- 2 hooks moi (`useInventoryPositions`, `useInventoryDemand`) dung `useTenantQueryBuilder` pattern hien co
 
