@@ -412,7 +412,7 @@ Deno.serve(async (req) => {
     while (turnCount < MAX_TURNS) {
       turnCount++;
       const pass1Resp = await callAI(apiKey, {
-        model: 'gpt-4o',
+        model: 'gpt-4.1',
         messages: conversationMessages,
         tools: TOOL_DEFINITIONS,
         tool_choice: 'auto',
@@ -518,7 +518,7 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê số rồi dừng. Người dùn
     }
 
     const pass2Resp = await callAI(apiKey, {
-      model: 'gpt-4o',
+      model: 'gpt-4.1',
       messages: pass2Messages,
       stream: true,
       max_tokens: 10000,
