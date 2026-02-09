@@ -120,6 +120,7 @@ const DecisionCenterPage = lazy(() => import("./pages/DecisionCenterPage"));
 
 // New retail CFO modules
 const InventoryAgingPage = lazy(() => import("./pages/InventoryAgingPage"));
+const InventoryAllocationPage = lazy(() => import("./pages/InventoryAllocationPage"));
 const PromotionROIPage = lazy(() => import("./pages/PromotionROIPage"));
 const SupplierPaymentsPage = lazy(() => import("./pages/SupplierPaymentsPage"));
 const CashFlowDirectPage = lazy(() => import("./pages/CashFlowDirectPage"));
@@ -635,6 +636,7 @@ const AppRoutes = () => {
         <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
         <Route path="/decision-center" element={<DecisionCenterPage />} />
         <Route path="/inventory-aging" element={<InventoryAgingPage />} />
+        <Route path="/inventory-allocation" element={<InventoryAllocationPage />} />
         <Route path="/promotion-roi" element={<PromotionROIPage />} />
         <Route path="/supplier-payments" element={<SupplierPaymentsPage />} />
         <Route path="/cash-flow-direct" element={<CashFlowDirectPage />} />
