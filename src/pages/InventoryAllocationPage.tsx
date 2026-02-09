@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2 } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
 import { RebalanceBoardTable } from '@/components/inventory/RebalanceBoardTable';
@@ -11,7 +12,7 @@ import { RebalanceConfigPanel } from '@/components/inventory/RebalanceConfigPane
 import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulationTab';
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
-import { useRunRebalance } from '@/hooks/inventory/useRunRebalance';
+import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 
 export default function InventoryAllocationPage() {
@@ -21,6 +22,7 @@ export default function InventoryAllocationPage() {
   const { data: latestRun } = useLatestRebalanceRun();
   const { data: suggestions = [], isLoading } = useRebalanceSuggestions(latestRun?.id);
   const runRebalance = useRunRebalance();
+  const runAllocate = useRunAllocate();
   const approveRebalance = useApproveRebalance();
 
   const handleApprove = (ids: string[], editedQty?: Record<string, number>) => {
@@ -31,6 +33,10 @@ export default function InventoryAllocationPage() {
     approveRebalance.mutate({ suggestionIds: ids, action: 'rejected' });
   };
 
+  const isRunning = runRebalance.isPending || runAllocate.isPending;
+
+  const showViewToggle = ['all', 'v1', 'v2', 'push', 'lateral'].includes(activeTab);
+
   return (
     <>
       <Helmet>
@@ -39,7 +45,6 @@ export default function InventoryAllocationPage() {
       </Helmet>
 
       <div className="space-y-6">
-        {/* Hero Header */}
         <InventoryHeroHeader suggestions={suggestions} />
 
         {/* Action Bar */}
@@ -53,8 +58,7 @@ export default function InventoryAllocationPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* View Toggle */}
-            {(activeTab === 'all' || activeTab === 'push' || activeTab === 'lateral') && (
+            {showViewToggle && (
               <div className="flex items-center border rounded-md">
                 <Button
                   variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
@@ -74,21 +78,40 @@ export default function InventoryAllocationPage() {
                 </Button>
               </div>
             )}
-            <Button
-              onClick={() => runRebalance.mutate()}
-              disabled={runRebalance.isPending}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${runRebalance.isPending ? 'animate-spin' : ''}`} />
-              {runRebalance.isPending ? 'Đang quét...' : 'Chạy Quét'}
-            </Button>
+
+            {/* Run Dropdown: V1, V2, V1+V2, Rebalance */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={isRunning} className="gap-2">
+                  <RefreshCw className={`h-4 w-4 ${isRunning ? 'animate-spin' : ''}`} />
+                  {isRunning ? 'Đang chạy...' : 'Chạy Engine'}
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => runAllocate.mutate('V1')} className="gap-2">
+                  <Layers className="h-4 w-4" />
+                  V1: Phủ nền theo BST
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => runAllocate.mutate('V2')} className="gap-2">
+                  <Target className="h-4 w-4" />
+                  V2: Chia theo nhu cầu CH
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => runAllocate.mutate('both')} className="gap-2">
+                  <Package className="h-4 w-4" />
+                  V1 + V2 (đầy đủ)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => runRebalance.mutate()} className="gap-2">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Rebalance (cân bằng)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        {/* Summary Cards */}
         <RebalanceSummaryCards suggestions={suggestions} />
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all" className="gap-1.5">
@@ -96,6 +119,14 @@ export default function InventoryAllocationPage() {
               {suggestions.length > 0 && (
                 <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{suggestions.length}</span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="v1" className="gap-1.5">
+              <Layers className="h-3.5 w-3.5" />
+              V1: Phủ nền
+            </TabsTrigger>
+            <TabsTrigger value="v2" className="gap-1.5">
+              <Target className="h-3.5 w-3.5" />
+              V2: Nhu cầu
             </TabsTrigger>
             <TabsTrigger value="push" className="gap-1.5">
               <Package className="h-3.5 w-3.5" />
@@ -119,54 +150,51 @@ export default function InventoryAllocationPage() {
             </TabsTrigger>
           </TabsList>
 
+          {/* All suggestions */}
           <TabsContent value="all">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards
-                suggestions={suggestions}
-                onApprove={handleApprove}
-                onReject={handleReject}
-              />
+              <InventoryFCDecisionCards suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} />
             ) : (
-              <RebalanceBoardTable
-                suggestions={suggestions}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                transferType="all"
-              />
+              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" />
             )}
           </TabsContent>
+
+          {/* V1: Phủ nền — filter by reason starting with "V1:" */}
+          <TabsContent value="v1">
+            {viewMode === 'cards' ? (
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} />
+            ) : (
+              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" />
+            )}
+          </TabsContent>
+
+          {/* V2: Nhu cầu — filter by reason starting with "V2:" */}
+          <TabsContent value="v2">
+            {viewMode === 'cards' ? (
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} />
+            ) : (
+              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" />
+            )}
+          </TabsContent>
+
+          {/* Push from CW */}
           <TabsContent value="push">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards
-                suggestions={suggestions.filter(s => s.transfer_type === 'push')}
-                onApprove={handleApprove}
-                onReject={handleReject}
-              />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} />
             ) : (
-              <RebalanceBoardTable
-                suggestions={suggestions}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                transferType="push"
-              />
+              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" />
             )}
           </TabsContent>
+
+          {/* Lateral */}
           <TabsContent value="lateral">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards
-                suggestions={suggestions.filter(s => s.transfer_type === 'lateral')}
-                onApprove={handleApprove}
-                onReject={handleReject}
-              />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} />
             ) : (
-              <RebalanceBoardTable
-                suggestions={suggestions}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                transferType="lateral"
-              />
+              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" />
             )}
           </TabsContent>
+
           <TabsContent value="simulation">
             <RebalanceSimulationTab suggestions={suggestions} />
           </TabsContent>

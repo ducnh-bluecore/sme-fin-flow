@@ -17735,9 +17735,11 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          constraint_checks: Json | null
           created_at: string
           current_on_hand: number | null
           current_weeks_cover: number | null
+          explain_text: string | null
           fc_id: string
           fc_name: string | null
           id: string
@@ -17749,6 +17751,7 @@ export type Database = {
           run_id: string
           sales_velocity: number | null
           sku: string | null
+          stage: string
           status: string
           store_id: string
           store_name: string | null
@@ -17757,9 +17760,11 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          constraint_checks?: Json | null
           created_at?: string
           current_on_hand?: number | null
           current_weeks_cover?: number | null
+          explain_text?: string | null
           fc_id: string
           fc_name?: string | null
           id?: string
@@ -17771,6 +17776,7 @@ export type Database = {
           run_id: string
           sales_velocity?: number | null
           sku?: string | null
+          stage?: string
           status?: string
           store_id: string
           store_name?: string | null
@@ -17779,9 +17785,11 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          constraint_checks?: Json | null
           created_at?: string
           current_on_hand?: number | null
           current_weeks_cover?: number | null
+          explain_text?: string | null
           fc_id?: string
           fc_name?: string | null
           id?: string
@@ -17793,6 +17801,7 @@ export type Database = {
           run_id?: string
           sales_velocity?: number | null
           sku?: string | null
+          stage?: string
           status?: string
           store_id?: string
           store_name?: string | null
@@ -17859,6 +17868,7 @@ export type Database = {
           error_message: string | null
           id: string
           run_date: string
+          run_type: string
           snapshot_id: string | null
           started_at: string | null
           status: string
@@ -17874,6 +17884,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           run_date?: string
+          run_type?: string
           snapshot_id?: string | null
           started_at?: string | null
           status?: string
@@ -17889,6 +17900,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           run_date?: string
+          run_type?: string
           snapshot_id?: string | null
           started_at?: string | null
           status?: string
@@ -17920,6 +17932,68 @@ export type Database = {
           },
           {
             foreignKeyName: "inv_allocation_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      inv_collections: {
+        Row: {
+          air_date: string | null
+          collection_code: string
+          collection_name: string
+          created_at: string
+          id: string
+          is_new_collection: boolean
+          season: string | null
+          tenant_id: string
+        }
+        Insert: {
+          air_date?: string | null
+          collection_code: string
+          collection_name: string
+          created_at?: string
+          id?: string
+          is_new_collection?: boolean
+          season?: string | null
+          tenant_id: string
+        }
+        Update: {
+          air_date?: string | null
+          collection_code?: string
+          collection_name?: string
+          created_at?: string
+          id?: string
+          is_new_collection?: boolean
+          season?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_collections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_collections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_collections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_collections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -17998,11 +18072,13 @@ export type Database = {
       inv_family_codes: {
         Row: {
           category: string | null
+          collection_id: string | null
           created_at: string
           fc_code: string
           fc_name: string
           id: string
           is_active: boolean
+          is_core_hero: boolean
           metadata: Json | null
           season: string | null
           subcategory: string | null
@@ -18011,11 +18087,13 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          collection_id?: string | null
           created_at?: string
           fc_code: string
           fc_name: string
           id?: string
           is_active?: boolean
+          is_core_hero?: boolean
           metadata?: Json | null
           season?: string | null
           subcategory?: string | null
@@ -18024,11 +18102,13 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          collection_id?: string | null
           created_at?: string
           fc_code?: string
           fc_name?: string
           id?: string
           is_active?: boolean
+          is_core_hero?: boolean
           metadata?: Json | null
           season?: string | null
           subcategory?: string | null
@@ -18036,6 +18116,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "inv_family_codes_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "inv_collections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inv_family_codes_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -18291,6 +18378,7 @@ export type Database = {
           fc_id: string
           id: string
           is_active: boolean
+          is_core_hero: boolean
           size: string | null
           sku: string
           tenant_id: string
@@ -18301,6 +18389,7 @@ export type Database = {
           fc_id: string
           id?: string
           is_active?: boolean
+          is_core_hero?: boolean
           size?: string | null
           sku: string
           tenant_id: string
@@ -18311,6 +18400,7 @@ export type Database = {
           fc_id?: string
           id?: string
           is_active?: boolean
+          is_core_hero?: boolean
           size?: string | null
           sku?: string
           tenant_id?: string
@@ -18357,13 +18447,17 @@ export type Database = {
         Row: {
           avg_daily_sales: number
           created_at: string
+          customer_orders_qty: number
           fc_id: string
+          forecast_week_qty: number | null
           id: string
+          lost_sales_qty: number
           period_end: string
           period_start: string
           sales_velocity: number
           sku: string | null
           store_id: string
+          store_orders_qty: number
           tenant_id: string
           total_sold: number
           trend: string | null
@@ -18372,13 +18466,17 @@ export type Database = {
         Insert: {
           avg_daily_sales?: number
           created_at?: string
+          customer_orders_qty?: number
           fc_id: string
+          forecast_week_qty?: number | null
           id?: string
+          lost_sales_qty?: number
           period_end: string
           period_start: string
           sales_velocity?: number
           sku?: string | null
           store_id: string
+          store_orders_qty?: number
           tenant_id: string
           total_sold?: number
           trend?: string | null
@@ -18387,13 +18485,17 @@ export type Database = {
         Update: {
           avg_daily_sales?: number
           created_at?: string
+          customer_orders_qty?: number
           fc_id?: string
+          forecast_week_qty?: number | null
           id?: string
+          lost_sales_qty?: number
           period_end?: string
           period_start?: string
           sales_velocity?: number
           sku?: string | null
           store_id?: string
+          store_orders_qty?: number
           tenant_id?: string
           total_sold?: number
           trend?: string | null
@@ -18456,6 +18558,7 @@ export type Database = {
           safety_stock: number
           sku: string | null
           snapshot_date: string
+          snapshot_id: string | null
           store_id: string
           tenant_id: string
           updated_at: string
@@ -18472,6 +18575,7 @@ export type Database = {
           safety_stock?: number
           sku?: string | null
           snapshot_date?: string
+          snapshot_id?: string | null
           store_id: string
           tenant_id: string
           updated_at?: string
@@ -18488,6 +18592,7 @@ export type Database = {
           safety_stock?: number
           sku?: string | null
           snapshot_date?: string
+          snapshot_id?: string | null
           store_id?: string
           tenant_id?: string
           updated_at?: string
@@ -18531,6 +18636,88 @@ export type Database = {
           },
           {
             foreignKeyName: "inv_state_positions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      inv_state_size_integrity: {
+        Row: {
+          created_at: string
+          fc_id: string
+          id: string
+          is_full_size_run: boolean
+          missing_sizes: Json | null
+          snapshot_date: string
+          store_id: string | null
+          tenant_id: string
+          total_sizes_available: number
+          total_sizes_expected: number
+        }
+        Insert: {
+          created_at?: string
+          fc_id: string
+          id?: string
+          is_full_size_run?: boolean
+          missing_sizes?: Json | null
+          snapshot_date?: string
+          store_id?: string | null
+          tenant_id: string
+          total_sizes_available?: number
+          total_sizes_expected?: number
+        }
+        Update: {
+          created_at?: string
+          fc_id?: string
+          id?: string
+          is_full_size_run?: boolean
+          missing_sizes?: Json | null
+          snapshot_date?: string
+          store_id?: string | null
+          tenant_id?: string
+          total_sizes_available?: number
+          total_sizes_expected?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_state_size_integrity_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "inv_family_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_size_integrity_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "inv_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_size_integrity_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_size_integrity_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_state_size_integrity_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_state_size_integrity_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
