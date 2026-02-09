@@ -39,12 +39,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const path = url.pathname.split("/").pop();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const { tenant_id, user_id } = body;
+    const { tenant_id, user_id, action } = body;
 
     if (!tenant_id) {
       return new Response(JSON.stringify({ error: "tenant_id required" }), {
@@ -53,14 +51,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (path === "rebalance") {
+    if (action === "rebalance") {
       return await handleRebalance(supabase, tenant_id, user_id);
-    } else if (path === "allocate") {
+    } else if (action === "allocate") {
       return await handleAllocate(supabase, tenant_id, user_id);
     }
 
-    return new Response(JSON.stringify({ error: "Unknown endpoint. Use /rebalance or /allocate" }), {
-      status: 404,
+    return new Response(JSON.stringify({ error: "Unknown action. Use action: 'rebalance' or 'allocate'" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
