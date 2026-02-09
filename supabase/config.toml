@@ -2,3 +2,6 @@ project_id = "ujteggwzllzbhbwrqsmk"
 
 [functions.build-knowledge-snapshots]
 verify_jwt = false
+
+[functions.cdp-qa]
+verify_jwt = false
