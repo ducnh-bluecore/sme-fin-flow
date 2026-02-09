@@ -1,58 +1,84 @@
 
+# Fix AI Agent: Phân tích thông minh theo bản chất metric
 
-# Chuyen tat ca AI functions sang OpenAI API truc tiep
+## Vấn đề gốc
 
-## Muc tieu
-Chuyen tat ca Edge Functions AI tu Lovable AI Gateway (`ai.gateway.lovable.dev`) sang goi truc tiep OpenAI API (`api.openai.com`) su dung `OPENAI_API_KEY` da duoc luu.
+Pass 2 prompt hiện tại ép AI vào template cứng 7 bước cho MỌI loại metric. Điều này gây ra:
 
-## Cac file can sua
+1. **Lỗi toán học**: AOV (Average Order Value) bị cộng dồn rồi chia trung bình -- vô nghĩa. AOV = 459K/12 = 38,250 VND là sai hoàn toàn.
+2. **Phân tích rập khuôn**: Revenue, AOV, ROAS... đều ra cùng một format, không có insight thật.
 
-### 1. `supabase/functions/cdp-qa/index.ts`
-- Doi ham `callAI()` tu Lovable Gateway sang OpenAI API truc tiep
-- URL: `https://ai.gateway.lovable.dev/v1/chat/completions` -> `https://api.openai.com/v1/chat/completions`
-- API key: `LOVABLE_API_KEY` -> `OPENAI_API_KEY`
-- Model: `google/gemini-3-flash-preview` -> `gpt-4o` (ca Pass 1 va Pass 2)
+## Giải pháp
 
-### 2. `supabase/functions/whatif-chat/index.ts`
-- Doi URL gateway sang OpenAI API truc tiep
-- Doi API key sang `OPENAI_API_KEY`
-- Model: `google/gemini-2.5-flash` -> `gpt-4o`
+Thay prompt cứng nhắc bằng **Metric Intelligence Layer** -- dạy AI phân biệt bản chất metric trước khi phân tích.
 
-### 3. `supabase/functions/decision-advisor/index.ts`
-- Doi URL gateway sang OpenAI API truc tiep
-- Doi API key sang `OPENAI_API_KEY`
-- Model: `google/gemini-2.5-flash` -> `gpt-4o`
+### Thay đổi trong `supabase/functions/cdp-qa/index.ts`
 
-## Chi tiet thay doi ky thuat
+**1. Thêm Metric Classification vào System Prompt (buildSystemPrompt)**
 
-### Ham `callAI()` trong cdp-qa (dong 322-328):
+Bổ sung phần quy tắc phân loại metric:
+
 ```
-// TRUOC
-fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-  headers: { 'Authorization': `Bearer ${apiKey}` },
-})
-// apiKey = Deno.env.get('LOVABLE_API_KEY')
+## PHÂN LOẠI METRIC -- BẮT BUỘC TUÂN THỦ
 
-// SAU
-fetch('https://api.openai.com/v1/chat/completions', {
-  headers: { 'Authorization': `Bearer ${apiKey}` },
-})
-// apiKey = Deno.env.get('OPENAI_API_KEY')
+Trước khi phân tích, XÁC ĐỊNH loại metric:
+
+CUMULATIVE (cộng dồn được): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
+- Tổng = SUM tất cả kỳ
+- Trung bình = SUM / số kỳ  
+- So sánh = tổng kỳ này vs tổng kỳ trước
+
+AVERAGE/RATIO (không cộng dồn): AOV, ROAS, GROSS_MARGIN, CM_PERCENT
+- KHÔNG BAO GIỜ cộng dồn hoặc tính "tổng"
+- Trung bình = weighted average (theo ORDER_COUNT hoặc AD_SPEND)
+- AOV trung bình = Tổng Revenue / Tổng Orders, KHÔNG phải trung bình các AOV tháng
+- ROAS = Tổng Revenue / Tổng Ad Spend
+- So sánh = giá trị kỳ này vs kỳ trước (không tổng)
+
+SNAPSHOT (thời điểm): INVENTORY, CASH_POSITION, CUSTOMER_COUNT
+- Chỉ lấy giá trị mới nhất, không cộng dồn
+- So sánh = hiện tại vs kỳ trước
 ```
 
-### Model mapping:
-- Pass 1 (cdp-qa): `google/gemini-3-flash-preview` -> `gpt-4o`
-- Pass 2 (cdp-qa): `google/gemini-3-flash-preview` -> `gpt-4o`
-- whatif-chat: `google/gemini-2.5-flash` -> `gpt-4o`
-- decision-advisor: `google/gemini-2.5-flash` -> `gpt-4o`
+**2. Nâng cấp Pass 2 Analysis Prompt (dòng 455-472)**
 
-### Loi ich
-- Toc do nhanh hon (khong qua gateway trung gian)
-- Dung truc tiep model GPT-4o ma ban da co API key
-- Khong bi gioi han rate limit cua Lovable AI Gateway
+Thay template 7 bước cứng nhắc bằng hướng dẫn phân tích linh hoạt:
 
-## Ghi chu
-- SSE streaming format cua OpenAI tuong thich voi code hien tai (vi Lovable Gateway cung dung OpenAI-compatible format)
-- Khong can thay doi frontend code
-- Tat ca 3 edge functions se duoc deploy lai sau khi sua
+```
+BẮT BUỘC TUÂN THỦ:
 
+1. XÁC ĐỊNH loại metric (cumulative/average/snapshot) -> áp dụng cách tính ĐÚNG
+2. KHÔNG ÁP DỤNG CÙNG MỘT TEMPLATE CHO MỌI CÂU HỎI
+
+Với CUMULATIVE metrics (Revenue, Orders):
+- Tổng kỳ, tăng trưởng MoM, tháng đỉnh/đáy, nguyên nhân
+
+Với AVERAGE/RATIO metrics (AOV, ROAS, Margin):
+- KHÔNG tính "tổng AOV" -- vô nghĩa
+- Weighted average qua kỳ
+- Xu hướng lên/xuống và ý nghĩa kinh doanh
+- VD: AOV giảm + Orders tăng = bán rẻ hơn nhưng nhiều hơn -> margin bị ảnh hưởng?
+
+Với SNAPSHOT metrics (Inventory, Cash):
+- Giá trị hiện tại và thay đổi so với kỳ trước
+
+3. PHÂN TÍCH CROSS-DOMAIN (quan trọng nhất):
+- Revenue tăng nhưng AOV giảm -> đang bán rẻ?
+- Orders tăng nhưng Margin giảm -> chi phí tăng?
+- ROAS tốt nhưng cash chậm -> rủi ro dòng tiền?
+
+4. KẾT LUẬN phải là HÀNH ĐỘNG cụ thể cho CEO/CFO, không phải tóm tắt số
+
+5. Chart nếu >= 3 data points
+```
+
+**3. Tăng temperature Pass 2 lên 0.4**
+
+Từ 0.3 lên 0.4 để cho phép suy luận linh hoạt hơn thay vì lặp template.
+
+## Kết quả mong đợi
+
+- AOV sẽ được báo cáo đúng: "AOV trung bình 2025: ~459K VND/đơn" thay vì "Tổng AOV: 459K, Trung bình: 38K"
+- Mỗi loại metric có cách phân tích riêng phù hợp bản chất
+- Phân tích cross-domain: AOV giảm + Revenue tăng = đang bán nhiều hơn nhưng rẻ hơn
+- Đề xuất hành động dựa trên suy luận, không phải fill-in-the-blank
