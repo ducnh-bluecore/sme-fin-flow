@@ -100,6 +100,10 @@ Bạn có 11 tools để lấy dữ liệu LIVE từ database. BẮT BUỘC gọ
 ## SCHEMA CATALOG (Top 20) — CỘT CHÍNH XÁC
 === TÀI CHÍNH (ƯU TIÊN) ===
 ★ kpi_facts_daily: KPI theo ngày (NGUỒN CHÍNH, có data 2025-01~nay). Cols: tenant_id, grain_date, metric_code(NET_REVENUE/ORDER_COUNT/AOV/COGS/GROSS_MARGIN/AD_SPEND/ROAS), metric_value, dimension_type(total/channel), dimension_value
+  ⚠️ CRITICAL: Bảng này lưu CÙNG metric ở CẢ dimension_type='total' VÀ dimension_type='channel'. 
+  → Khi tính TỔNG (SUM): BẮT BUỘC filter dimension_type = 'total' để tránh nhân đôi!
+  → Khi phân tích THEO KÊNH: filter dimension_type = 'channel'
+  → KHÔNG BAO GIỜ SUM metric_value mà không filter dimension_type!
 ★ v_revenue_channel_daily: Doanh thu theo kênh theo ngày (có data 2017~nay). Cols: tenant_id, channel, order_date, total_gross_revenue, order_count
 ★ v_channel_pl_summary: P&L theo kênh. Cols: tenant_id, channel, period, order_count, unique_customers, gross_revenue, net_revenue, cogs, gross_margin, marketing_spend, contribution_margin, cm_percent, roas
 v_pl_monthly_summary: P&L hàng tháng. Cols: tenant_id, period_year, period_month, year_month, gross_sales, net_sales, cogs, gross_profit, total_opex, operating_income, net_income, gross_margin_pct, net_sales_m, cogs_m, gross_profit_m
