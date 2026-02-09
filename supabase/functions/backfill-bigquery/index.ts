@@ -441,11 +441,92 @@ const FULFILLMENT_SOURCES = [
   },
 ];
 
-const PRODUCT_SOURCE = {
-  name: 'kiotviet_master',
-  dataset: 'olvboutique',
-  table: 'bdm_master_data_products',
-};
+const PRODUCT_SOURCES = [
+  {
+    channel: 'kiotviet',
+    dataset: 'olvboutique',
+    table: 'raw_kiotviet_Product',
+    mapping: {
+      product_id: 'id',
+      sku: 'code',
+      name: 'name',
+      category: 'categoryName',
+      brand: 'tradeMarkName',
+      cost_price: 'basePrice',
+      selling_price: 'basePrice',
+      current_stock: null,
+      date_col: 'modifiedDate',
+    }
+  },
+  {
+    channel: 'shopee',
+    dataset: 'olvboutique_shopee',
+    table: 'shopee_Products',
+    mapping: {
+      product_id: 'item_id',
+      sku: 'item_sku',
+      name: 'item_name',
+      category: 'category_id',
+      brand: 'original_brand_name',
+      cost_price: null,
+      selling_price: 'price_info_original_price',
+      current_stock: 'total_available_stock',
+      date_col: 'dw_timestamp',
+    }
+  },
+  {
+    // Lazada: main product table has no SKU/price - use lazada_ProductSKU instead
+    channel: 'lazada',
+    dataset: 'olvboutique_lazada',
+    table: 'lazada_ProductSKU',
+    useCustomQuery: true,
+    mapping: {
+      product_id: 'item_id',
+      sku: 'SellerSku',
+      name: null, // Will JOIN with lazada_Products for name
+      category: 'primary_category',
+      brand: null,
+      cost_price: null,
+      selling_price: 'price',
+      current_stock: 'quantity',
+      date_col: 'dw_timestamp',
+    }
+  },
+  {
+    // TikTok: SKU/price in tiktok_ProductSkus, name in tiktok_Products
+    channel: 'tiktok',
+    dataset: 'olvboutique_tiktokshop',
+    table: 'tiktok_ProductSkus',
+    useCustomQuery: true,
+    mapping: {
+      product_id: 'product_id',
+      sku: 'seller_sku',
+      name: null, // Will JOIN with tiktok_Products for name
+      category: null,
+      brand: null,
+      cost_price: null,
+      selling_price: 'original_price',
+      current_stock: null,
+      date_col: 'dw_timestamp',
+    }
+  },
+  {
+    channel: 'tiki',
+    dataset: 'olvboutique_tiki',
+    table: 'tiki_Products',
+    mapping: {
+      product_id: 'product_id',
+      sku: 'sku',
+      name: 'name',
+      category: null,
+      brand: 'brand_value',
+      cost_price: null,
+      selling_price: 'price',
+      current_stock: null,
+      date_col: 'dw_timestamp',
+    }
+  },
+] as const;
 
 // Ad Insights: daily aggregated ad spend (no campaign_id, no ad_id - shop-level daily)
 const AD_SPEND_SOURCES = [
@@ -1259,7 +1340,19 @@ async function syncOrderItems(
       const mappingValues = Object.values(source.mapping).filter(Boolean);
       const columns = mappingValues.map(c => `\`${c}\``).join(', ');
       let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
-      // Order items tables don't have their own date column, so no BigQuery date filter
+      // Incremental: filter order items by joining with orders that have date >= date_from
+      if (options.date_from) {
+        // Use subquery to filter items belonging to recent orders only
+        const orderSource = ORDER_SOURCES.find(os => os.channel === source.channel);
+        if (orderSource) {
+          const orderDateCol = orderSource.mapping.order_at;
+          query += ` WHERE \`${source.mapping.order_key}\` IN (
+            SELECT \`${orderSource.mapping.order_key}\` 
+            FROM \`${projectId}.${orderSource.dataset}.${orderSource.table}\`
+            WHERE \`${orderDateCol}\` >= '${options.date_from}'
+          )`;
+        }
+      }
       query += ` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
       try {
@@ -1860,152 +1953,236 @@ async function syncProducts(
   projectId: string,
   tenantId: string,
   jobId: string,
-  options: { batch_size?: number },
+  options: { batch_size?: number; date_from?: string; date_to?: string },
   startTimeMs: number,
 ): Promise<{ processed: number; inserted: number; sources: SourceProgress[]; paused?: boolean }> {
   const batchSize = options.batch_size || DEFAULT_BATCH_SIZE;
-  let totalProcessed = 0; // Will be set after reading saved progress
+  let totalProcessed = 0;
   let inserted = 0;
-  
-  const source = PRODUCT_SOURCE;
-  
-  // Initialize source progress
-  await initSourceProgress(supabase, jobId, [{
-    name: source.name,
-    dataset: source.dataset,
-    table: source.table,
-  }]);
-  
-  // Read saved progress to resume
-  const savedProgress = await getSourceProgress(supabase, jobId, source.name);
-  if (savedProgress?.status === 'completed') {
-    console.log(`Skipping completed source: ${source.name}`);
-    return { processed: savedProgress.processed_records, inserted: 0, sources: [], paused: false };
-  }
-
-  // Count total records first
-  const totalRecords = await countSourceRecords(
-    accessToken, projectId, source.dataset, source.table
-  );
-  
-  console.log(`Products source has ${totalRecords} total records (resuming from offset ${savedProgress?.last_offset || 0})`);
-  
-  await updateSourceProgress(supabase, jobId, source.name, {
-    status: 'running',
-    total_records: totalRecords,
-    started_at: savedProgress?.started_at || new Date().toISOString(),
-  });
-  
-  let offset = savedProgress?.last_offset || 0;
-  totalProcessed = savedProgress?.processed_records || 0;
-  let hasMore = true;
-  let sourceFailed = false;
-  let errorMessage = '';
+  const sourceResults: SourceProgress[] = [];
   let paused = false;
-  while (hasMore) {
-    if (shouldPause(startTimeMs)) {
-      paused = true;
-      break;
+
+  // Initialize source progress for all channels
+  await initSourceProgress(supabase, jobId, PRODUCT_SOURCES.map(s => ({
+    name: s.channel,
+    dataset: s.dataset,
+    table: s.table,
+  })));
+
+  for (const source of PRODUCT_SOURCES) {
+    // Read saved progress to resume
+    const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
+    if (savedProgress?.status === 'completed') {
+      console.log(`Skipping completed source: ${source.channel}`);
+      continue;
     }
-    const query = `
-      SELECT 
-        productid, Ma_hang, Ten_hang, 
-        Nhom_hang, Thuong_hieu, 
-        Gia_goc, Gia_ban, Ton_kho,
-        Date, family_code
-      FROM \`${projectId}.${source.dataset}.${source.table}\`
-      ORDER BY productid
-      LIMIT ${batchSize} OFFSET ${offset}
-    `;
-    
+
+    console.log(`Processing products from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
+
+    // Count total records
+    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${source.table}\``;
+    if (options.date_from && source.mapping.date_col) {
+      countQuery += ` WHERE \`${source.mapping.date_col}\` >= '${options.date_from}'`;
+    }
+    let totalRecords = 0;
     try {
-      const { rows } = await queryBigQuery(accessToken, projectId, query);
-      
-      if (rows.length === 0) {
-        hasMore = false;
+      const { rows: countRows } = await queryBigQuery(accessToken, projectId, countQuery);
+      totalRecords = parseInt(countRows[0]?.cnt || '0', 10);
+    } catch (e: any) {
+      console.warn(`Failed to count ${source.channel} products: ${e.message}`);
+      // If table doesn't exist, skip this source
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'skipped',
+        error_message: `Table not found or count failed: ${e.message}`,
+      });
+      sourceResults.push({
+        source_name: source.channel,
+        dataset: source.dataset,
+        table_name: source.table,
+        status: 'skipped',
+        total_records: 0,
+        processed_records: 0,
+        last_offset: 0,
+        error_message: e.message,
+      });
+      continue;
+    }
+
+    console.log(`${source.channel} products: ${totalRecords} total records`);
+
+    await updateSourceProgress(supabase, jobId, source.channel, {
+      status: 'running',
+      total_records: totalRecords,
+      started_at: savedProgress?.started_at || new Date().toISOString(),
+    });
+
+    let offset = savedProgress?.last_offset || 0;
+    let sourceProcessed = savedProgress?.processed_records || 0;
+    let hasMore = true;
+    let sourceFailed = false;
+    let errorMessage = '';
+
+    while (hasMore) {
+      if (shouldPause(startTimeMs)) {
+        paused = true;
         break;
       }
+
+      // Build query based on source type
+      let query: string;
       
-      const products = rows.map(row => ({
-        tenant_id: tenantId,
-        sku: row.Ma_hang,
-        name: row.Ten_hang,
-        category: row.Nhom_hang,
-        brand: row.Thuong_hieu,
-        unit: null,
-        cost_price: parseFloat(row.Gia_goc || '0'),
-        selling_price: parseFloat(row.Gia_ban || '0'),
-        current_stock: parseFloat(row.Ton_kho || '0'),
-      }));
-      
-      const { error, count } = await supabase
-        .from('products')
-        .upsert(products, { 
-          onConflict: 'tenant_id,sku',
-          count: 'exact'
-        });
-      
-      if (error) {
-        console.error('Product upsert error:', error);
+      if (source.channel === 'lazada') {
+        // Lazada: JOIN ProductSKU with Products for name
+        query = `SELECT s.\`SellerSku\`, s.\`item_id\`, s.\`price\`, s.\`quantity\`, s.\`primary_category\`, p.\`name\`
+          FROM \`${projectId}.${source.dataset}.lazada_ProductSKU\` s
+          LEFT JOIN \`${projectId}.${source.dataset}.lazada_Products\` p ON s.\`item_id\` = p.\`item_id\``;
+        if (options.date_from) {
+          query += ` WHERE s.\`dw_timestamp\` >= '${options.date_from}'`;
+        }
+        query += ` ORDER BY s.\`item_id\` LIMIT ${batchSize} OFFSET ${offset}`;
+      } else if (source.channel === 'tiktok') {
+        // TikTok: JOIN ProductSkus with Products for name
+        query = `SELECT s.\`seller_sku\`, s.\`product_id\`, s.\`original_price\`, p.\`product_name\`
+          FROM \`${projectId}.${source.dataset}.tiktok_ProductSkus\` s
+          LEFT JOIN \`${projectId}.${source.dataset}.tiktok_Products\` p ON s.\`product_id\` = p.\`product_id\``;
+        if (options.date_from) {
+          query += ` WHERE s.\`dw_timestamp\` >= '${options.date_from}'`;
+        }
+        query += ` ORDER BY s.\`product_id\` LIMIT ${batchSize} OFFSET ${offset}`;
       } else {
-        inserted += count || products.length;
+        // Standard: build from mapping
+        const selectCols = Object.entries(source.mapping)
+          .filter(([k, v]) => v !== null && k !== 'date_col')
+          .map(([_, v]) => `\`${v}\``)
+          .join(', ');
+        query = `SELECT ${selectCols} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+        if (options.date_from && source.mapping.date_col) {
+          query += ` WHERE \`${source.mapping.date_col}\` >= '${options.date_from}'`;
+        }
+        query += ` ORDER BY \`${source.mapping.product_id}\` LIMIT ${batchSize} OFFSET ${offset}`;
       }
-      
-      totalProcessed += rows.length;
-      offset += rows.length;
-      
-      // Update source and job progress
-      await updateSourceProgress(supabase, jobId, source.name, {
-        processed_records: totalProcessed,
-        last_offset: offset,
-      });
-      
-      await updateJobStatus(supabase, jobId, {
-        processed_records: totalProcessed,
-        total_records: totalRecords,
-        last_watermark: String(offset),
-      });
-      
-      console.log(`Products progress: ${totalProcessed}/${totalRecords}`);
-      
-      if (rows.length < batchSize) {
+
+      try {
+        const { rows } = await queryBigQuery(accessToken, projectId, query);
+
+        if (rows.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        let products: any[];
+        if (source.channel === 'lazada') {
+          products = rows.map(row => ({
+            tenant_id: tenantId,
+            channel: 'lazada',
+            sku: String(row.SellerSku || `unknown_${row.item_id}`),
+            name: row.name || null,
+            category: row.primary_category || null,
+            brand: null,
+            unit: null,
+            cost_price: 0,
+            selling_price: parseFloat(row.price || '0'),
+            current_stock: parseFloat(row.quantity || '0'),
+          }));
+        } else if (source.channel === 'tiktok') {
+          products = rows.map(row => ({
+            tenant_id: tenantId,
+            channel: 'tiktok',
+            sku: String(row.seller_sku || `unknown_${row.product_id}`),
+            name: row.product_name || null,
+            category: null,
+            brand: null,
+            unit: null,
+            cost_price: 0,
+            selling_price: parseFloat(row.original_price || '0'),
+            current_stock: 0,
+          }));
+        } else {
+          products = rows.map(row => ({
+            tenant_id: tenantId,
+            channel: source.channel,
+            sku: String(row[source.mapping.sku!] || `unknown_${row[source.mapping.product_id]}`),
+            name: source.mapping.name ? row[source.mapping.name] : null,
+            category: source.mapping.category ? row[source.mapping.category] : null,
+            brand: source.mapping.brand ? row[source.mapping.brand] : null,
+            unit: null,
+            cost_price: source.mapping.cost_price ? parseFloat(row[source.mapping.cost_price] || '0') : 0,
+            selling_price: source.mapping.selling_price ? parseFloat(row[source.mapping.selling_price] || '0') : 0,
+            current_stock: source.mapping.current_stock ? parseFloat(row[source.mapping.current_stock] || '0') : 0,
+          }));
+        }
+
+        const { error, count } = await supabase
+          .from('products')
+          .upsert(products, {
+            onConflict: 'tenant_id,channel,sku',
+            count: 'exact'
+          });
+
+        if (error) {
+          console.error(`Product upsert error (${source.channel}):`, error);
+        } else {
+          inserted += count || products.length;
+        }
+
+        sourceProcessed += rows.length;
+        totalProcessed += rows.length;
+        offset += rows.length;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          processed_records: sourceProcessed,
+          last_offset: offset,
+        });
+
+        await updateJobStatus(supabase, jobId, {
+          processed_records: totalProcessed,
+          total_records: totalRecords,
+          last_watermark: String(offset),
+        });
+
+        console.log(`Products [${source.channel}] progress: ${sourceProcessed}/${totalRecords}`);
+
+        if (rows.length < batchSize) {
+          hasMore = false;
+        }
+      } catch (error: any) {
+        console.error(`Error syncing ${source.channel} products:`, error);
+        errorMessage = error?.message || String(error);
+        sourceFailed = true;
         hasMore = false;
+
+        await updateSourceProgress(supabase, jobId, source.channel, {
+          status: 'failed',
+          error_message: errorMessage,
+        });
       }
-    } catch (error: any) {
-      console.error('Error syncing products:', error);
-      errorMessage = error?.message || String(error);
-      sourceFailed = true;
-      hasMore = false;
-      
-      await updateSourceProgress(supabase, jobId, source.name, {
-        status: 'failed',
-        error_message: errorMessage,
-      });
-      
-      throw error; // Re-throw to mark job as failed
     }
-  }
-  
-  if (!sourceFailed && !paused) {
-    await updateSourceProgress(supabase, jobId, source.name, {
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-    });
-  }
-  
-  return { 
-    processed: totalProcessed, 
-    inserted,
-    sources: [{
-      source_name: source.name,
+
+    if (!sourceFailed && !paused) {
+      await updateSourceProgress(supabase, jobId, source.channel, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    }
+
+    sourceResults.push({
+      source_name: source.channel,
       dataset: source.dataset,
       table_name: source.table,
       status: sourceFailed ? 'failed' : paused ? 'running' : 'completed',
       total_records: totalRecords,
-      processed_records: totalProcessed,
+      processed_records: sourceProcessed,
       last_offset: offset,
       error_message: errorMessage || undefined,
-    }],
+    });
+
+    if (paused) break;
+  }
+
+  return {
+    processed: totalProcessed,
+    inserted,
+    sources: sourceResults,
     paused: paused || undefined,
   };
 }
