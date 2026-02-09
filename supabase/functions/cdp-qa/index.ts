@@ -320,7 +320,7 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
 
 // ─── AI Gateway helper ──────────────────────────────────────────────
 async function callAI(apiKey: string, body: Record<string, unknown>): Promise<Response> {
-  return await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  return await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -345,8 +345,8 @@ Deno.serve(async (req) => {
     const { messages, tenantId }: RequestBody = await req.json();
     if (!messages?.length) return new Response(JSON.stringify({ error: 'No messages provided' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const apiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!apiKey) return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!apiKey) return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
     while (turnCount < MAX_TURNS) {
       turnCount++;
       const pass1Resp = await callAI(apiKey, {
-        model: 'google/gemini-3-flash-preview',
+        model: 'gpt-4o',
         messages: conversationMessages,
         tools: TOOL_DEFINITIONS,
         stream: false,
@@ -452,7 +452,7 @@ Deno.serve(async (req) => {
     pass2Messages.push(...userMessages);
 
     const pass2Resp = await callAI(apiKey, {
-      model: 'google/gemini-3-flash-preview',
+      model: 'gpt-4o',
       messages: pass2Messages,
       stream: true,
       max_tokens: 2000,
