@@ -1,17 +1,20 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Warehouse, Store, AlertTriangle, CheckCircle2, XCircle, Zap, Leaf } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ArrowRight, Warehouse, Store, AlertTriangle, CheckCircle2, XCircle, Zap, Leaf, ChevronsUpDown, Check, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useInventoryPositions } from '@/hooks/inventory/useInventoryPositions';
 import { useInventoryDemand } from '@/hooks/inventory/useInventoryDemand';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useConstraintRegistry } from '@/hooks/inventory/useConstraintRegistry';
+import { useFamilyCodes } from '@/hooks/inventory/useFamilyCodes';
 
 interface Props {
   suggestions: RebalanceSuggestion[];
@@ -41,6 +44,7 @@ function getConstraintBool(constraints: any[], key: string, valueKey: string, fa
 export function RebalanceSimulationTab({ suggestions }: Props) {
   const { data: stores = [] } = useInventoryStores();
   const { data: constraints = [] } = useConstraintRegistry();
+  const { data: allFCs = [] } = useFamilyCodes();
 
   // Extract constraint values
   const minCoverWeeks = getConstraintValue(constraints, 'min_cover_weeks', 'weeks', 2);
@@ -48,15 +52,12 @@ export function RebalanceSimulationTab({ suggestions }: Props) {
   const seasonalFactor = getConstraintValue(constraints, 'seasonal_safety_factor', 'factor', 1.0);
   const minNetBenefit = getConstraintValue(constraints, 'min_lateral_net_benefit', 'amount', 500000);
 
-  const uniqueFCs = useMemo(() => {
-    const map = new Map<string, string>();
-    suggestions.forEach(s => map.set(s.fc_id, s.fc_name || s.fc_id));
-    return Array.from(map.entries());
-  }, [suggestions]);
-
   const [selectedFC, setSelectedFC] = useState('');
+  const [fcOpen, setFcOpen] = useState(false);
   const [fromStoreId, setFromStoreId] = useState('');
   const [toStoreId, setToStoreId] = useState('');
+
+  const selectedFCData = allFCs.find(fc => fc.id === selectedFC);
   const [transferQty, setTransferQty] = useState(200);
 
   const { data: positions = [] } = useInventoryPositions(selectedFC || undefined);
@@ -256,17 +257,51 @@ export function RebalanceSimulationTab({ suggestions }: Props) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label className="text-xs">Chọn Family Code</Label>
-              <Select value={selectedFC} onValueChange={(v) => { setSelectedFC(v); setFromStoreId(''); setToStoreId(''); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn sản phẩm..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {uniqueFCs.map(([id, name]) => (
-                    <SelectItem key={id} value={id}>{name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs flex items-center gap-1"><Search className="h-3 w-3" /> Chọn Family Code</Label>
+              <Popover open={fcOpen} onOpenChange={setFcOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={fcOpen}
+                    className="w-full justify-between font-normal h-10"
+                  >
+                    {selectedFCData
+                      ? <span className="truncate">{selectedFCData.fc_name} <span className="text-muted-foreground text-xs">({selectedFCData.fc_code})</span></span>
+                      : <span className="text-muted-foreground">Tìm theo tên SP hoặc mã FC...</span>
+                    }
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Tìm tên sản phẩm hoặc mã FC..." />
+                    <CommandList>
+                      <CommandEmpty>Không tìm thấy sản phẩm</CommandEmpty>
+                      <CommandGroup className="max-h-[300px] overflow-auto">
+                        {allFCs.map((fc) => (
+                          <CommandItem
+                            key={fc.id}
+                            value={`${fc.fc_name} ${fc.fc_code}`}
+                            onSelect={() => {
+                              setSelectedFC(fc.id);
+                              setFromStoreId('');
+                              setToStoreId('');
+                              setFcOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedFC === fc.id ? "opacity-100" : "opacity-0")} />
+                            <div className="flex flex-col">
+                              <span className="text-sm">{fc.fc_name}</span>
+                              <span className="text-xs text-muted-foreground">{fc.fc_code} • {fc.category || 'N/A'}{fc.is_core_hero ? ' • ⭐ Core/Hero' : ''}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label className="text-xs flex items-center gap-1"><Warehouse className="h-3 w-3" /> Kho nguồn (Từ)</Label>
@@ -338,6 +373,63 @@ export function RebalanceSimulationTab({ suggestions }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Inventory Overview for selected FC */}
+      {selectedFC && positions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              📦 Tồn kho theo kho — {selectedFCData?.fc_name || selectedFC}
+              {selectedFCData?.is_core_hero && <Badge variant="outline" className="text-[10px]">⭐ Core/Hero</Badge>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+              {positions.map(p => {
+                const store = stores.find(s => s.id === p.store_id);
+                const demandData = demand.find(d => d.store_id === p.store_id);
+                return (
+                  <div key={p.id} className={cn(
+                    "rounded-md border p-2 text-xs space-y-0.5",
+                    p.on_hand === 0 && "border-destructive/40 bg-destructive/5",
+                    p.on_hand > 0 && p.on_hand <= 3 && "border-amber-500/40 bg-amber-500/5"
+                  )}>
+                    <div className="font-medium truncate">{store?.store_name || p.store_id.slice(0, 8)}</div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tồn:</span>
+                      <span className={cn("font-medium", p.on_hand === 0 && "text-destructive")}>{p.on_hand}</span>
+                    </div>
+                    {p.reserved > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Giữ:</span>
+                        <span>{p.reserved}</span>
+                      </div>
+                    )}
+                    {demandData && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Bán/ngày:</span>
+                        <span>{demandData.sales_velocity?.toFixed(1) || '0'}</span>
+                      </div>
+                    )}
+                    {p.weeks_of_cover != null && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">WoC:</span>
+                        <span className={cn(
+                          (p.weeks_of_cover || 0) < 2 && "text-destructive",
+                          (p.weeks_of_cover || 0) >= 2 && (p.weeks_of_cover || 0) < 4 && "text-amber-500",
+                        )}>{(p.weeks_of_cover || 0).toFixed(1)}w</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {positions.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Không có dữ liệu tồn kho cho FC này</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Two-way Comparison */}
       {simulation && (
