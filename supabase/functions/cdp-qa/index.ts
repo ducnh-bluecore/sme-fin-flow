@@ -95,16 +95,16 @@ Bạn có 11 tools để lấy dữ liệu LIVE từ database. Hãy gọi tool p
 - Câu hỏi cross-domain (tại sao doanh thu giảm?): gọi 2-3 tools
 - Chào hỏi / câu hỏi chung: không cần tool
 
-## SCHEMA CATALOG (Top 20)
+## SCHEMA CATALOG (Top 20) — CỘT CHÍNH XÁC
 === TÀI CHÍNH ===
-kpi_facts_daily: KPI theo ngày (NET_REVENUE, ORDER_COUNT, AOV, COGS, GROSS_MARGIN, AD_SPEND, ROAS). Keys: grain_date, metric_code, dimension_type, dimension_value
-v_channel_pl_summary: P&L theo kênh (revenue/cogs/margin/fee). 41 rows
-v_fdp_truth_snapshot: Snapshot sự thật tài chính. 1 row
-v_financial_monthly_summary: Tổng hợp tài chính hàng tháng
-v_pl_monthly_summary: P&L tổng hợp hàng tháng
+kpi_facts_daily: KPI theo ngày. Cols: tenant_id, grain_date, metric_code(NET_REVENUE/ORDER_COUNT/AOV/COGS/GROSS_MARGIN/AD_SPEND/ROAS), metric_value, dimension_type(total/channel), dimension_value
+v_pl_monthly_summary: P&L hàng tháng. Cols: tenant_id, period_year, period_month, year_month, gross_sales, net_sales, cogs, gross_profit, total_opex, operating_income, net_income, gross_margin_pct, net_sales_m, cogs_m, gross_profit_m
+v_financial_monthly_summary: Tổng hợp tài chính hàng tháng. Cols: tenant_id, period_month(date), invoice_revenue, invoice_paid, invoice_count, total_expense, cogs, salary_expense, marketing_expense
+v_channel_pl_summary: P&L theo kênh. Cols: tenant_id, channel, period, order_count, unique_customers, gross_revenue, net_revenue, cogs, gross_margin, marketing_spend, contribution_margin, cm_percent, roas
+v_fdp_truth_snapshot: Snapshot tài chính. Cols: tenant_id, snapshot_at, period_start, period_end, net_revenue, gross_profit, gross_margin_pct, contribution_margin, aov, total_orders
 
 === ĐƠN HÀNG ===
-v_channel_daily_revenue: Doanh thu kênh theo ngày. ~1,100 rows
+v_channel_daily_revenue: Doanh thu kênh theo ngày. Cols: tenant_id, channel, revenue_date, order_count, gross_revenue, net_revenue, cogs, gross_margin, avg_order_value
 v_variance_orders_monthly: Biến động đơn hàng theo tháng
 v_base_order_metrics: Metrics cơ bản đơn hàng
 
@@ -128,6 +128,7 @@ v_mdp_platform_ads_summary: Tổng hợp quảng cáo theo nền tảng
 alert_instances: Cảnh báo đang mở
 v_cdp_data_quality: Chất lượng dữ liệu CDP
 
+⚠️ QUAN TRỌNG: Khi dùng query_database, PHẢI dùng ĐÚNG tên cột như liệt kê ở trên. KHÔNG đoán tên cột.
 Với query_database, dùng tenant_id = '${tenantId}'
 
 ## QUY TẮC PHÂN TÍCH
