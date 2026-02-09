@@ -1,103 +1,68 @@
 
 
-# Nang cap 3 phan: Mo phong, Board Table (chinh de xuat), Cau hinh nang cao
+# Nang cap Mo phong What-If: Validation thong minh + De xuat hanh dong
 
-## Van de hien tai
+## Van de hien tai (nhu screenshot)
 
-### 1. Mo phong (Simulation Tab)
-- Chi co "Chon Family Code" + "So units chuyen" -- **thieu kho nguon va kho dich**
-- Khong co kich ban cu the: chuyen tu dau, den dau
-- Ket qua mo phong kg co y nghia vi thieu context dia diem
-
-### 2. Board Table (Push / Lateral tabs)
-- Khi duyet de xuat, user chi co nut Approve/Reject -- **khong chinh duoc qty truoc khi duyet**
-- CEO/CFO can co kha nang dieu chinh so luong de xuat truoc khi bam "Duyet"
-
-### 3. Cau hinh (Config Panel)
-- Chi co 5 nguong so va 3 toggle co ban
-- **Thieu cac cau hinh nang cao** nhu:
-  - Co tinh theo toc do ban cua kho dich khong?
-  - Co tinh ty trong doanh thu cua catalog/dong SP?
-  - Trong so uu tien: customer orders vs sales velocity vs store tier
-  - He so an toan theo mua (seasonal safety factor)
+1. **Kho nguon chi co 96 units nhung user nhap 200** -- he thong van cho phep va bao "+70M revenue" -- **SAI va nguy hiem**
+2. **Kho dich se co 29 tuan cover** -- overstock nghiem trong nhung khong co canh bao
+3. **Thieu yeu to mua** -- seasonal_safety_factor da co trong DB nhung chua duoc ap dung vao simulation
+4. **Thieu de xuat NEN/KHONG NEN** -- CEO phai tu suy luan thay vi he thong noi thang
 
 ---
 
 ## Giai phap
 
-### Phan 1: Mo phong -- Them kho nguon + kho dich
+### 1. Validation "kho nguon khong du hang"
 
-Cap nhat `RebalanceSimulationTab.tsx`:
+- Neu `transferQty > fromPosition.on_hand`: hien canh bao do **"Khong kha thi: Kho nguon chi co X units"**
+- Tu dong cap `transferQty` toi da = `on_hand - safety_stock` (de goi y so hop ly)
+- Hien thi **qty kha dung** (available = on_hand - reserved - safety_stock) ben canh dropdown kho nguon
 
-- Them 2 dropdown moi:
-  - **Kho nguon** (From): Dropdown cac store/warehouse tu `inv_stores`
-  - **Kho dich** (To): Dropdown cac store tu `inv_stores`
-- Khi chon kho nguon + kho dich + FC + qty:
-  - Hien thi ton kho hien tai cua ca 2 diem (on_hand, weeks_cover)
-  - Tinh toan mo phong: kho nguon giam qty, kho dich tang qty
-  - So sanh truoc/sau cho ca 2 dia diem
-- Chuyen bang so sanh tu 2 cot thanh chi tiet hon:
-  - Kho nguon: cover truoc -> cover sau
-  - Kho dich: cover truoc -> cover sau
-  - Revenue impact, stockout risk thay doi
-- Su dung hook `useInventoryStores` de lay danh sach kho
-- Su dung `useInventoryPositions` va `useInventoryDemand` de lay data theo store_id + fc_id
+### 2. Canh bao overstock kho dich
 
-### Phan 2: Board Table -- Cho phep chinh qty truoc khi duyet
+- Neu `toCoverAfter > max_cover_weeks` (tu constraint registry, mac dinh 6 tuan): hien badge vang **"Overstock risk: X tuan cover > nguong Y tuan"**
+- Tinh **overstock cost** = (toCoverAfter - max_cover_weeks) * toVelocity * 7 * avg_unit_cost -- tien bi khoa trong ton kho thua
 
-Cap nhat `RebalanceBoardTable.tsx`:
+### 3. Ap dung seasonal_safety_factor
 
-- Cot "SL" (qty) chuyen tu text thanh **Input editable** khi status = 'pending'
-- Luu gia tri chinh sua vao local state
-- Khi bam Approve, gui qty da chinh (khong phai qty goc)
-- Hien thi qty goc ben canh de so sanh (e.g. "200 -> 150")
-- Truyen qty da chinh qua callback `onApprove(ids, editedQty)`
+- Fetch `seasonal_safety_factor` tu `useConstraintRegistry`
+- Nhan safety_stock va nguong cover voi factor nay
+- Hien thi dong: "He so mua: 1.5x (cao diem)" hoac "He so mua: 1.0x (binh thuong)"
 
-Cap nhat `useApproveRebalance` hook:
-- Nhan them `edited_qty` param
-- Update `qty` trong bang `inv_rebalance_suggestions` khi approve
+### 4. De xuat NEN / KHONG NEN / CAN NHAC
 
-### Phan 3: Cau hinh nang cao
-
-Them cac constraint moi vao DB (`inv_constraint_registry`):
-
-| constraint_key | Loai | Mo ta |
-|---|---|---|
-| `use_destination_velocity` | boolean | Tinh phan bo dua tren toc do ban cua kho dich |
-| `use_catalog_revenue_weight` | boolean | Tinh ty trong doanh thu catalog cua dong SP khi xep hang uu tien |
-| `velocity_lookback_days` | number | So ngay nhin lai de tinh toc do ban (7/14/30) |
-| `seasonal_safety_factor` | number | He so an toan theo mua (nhan voi safety stock, e.g. 1.5x) |
-| `priority_weight_customer_orders` | number | Trong so uu tien: don hang khach dat (0-100) |
-| `priority_weight_sales_velocity` | number | Trong so uu tien: toc do ban (0-100) |
-| `priority_weight_store_tier` | number | Trong so uu tien: hang store (0-100) |
-| `max_transfer_pct` | number | % ton kho toi da duoc chuyen di tu 1 store (e.g. 50%) |
-
-Cap nhat `RebalanceConfigPanel.tsx`:
-- Them section "Logic phan bo nang cao" voi cac constraint moi
-- Nhom thanh 3 card:
-  1. **Nguong & Tham so** (giu nguyen 5 cai cu)
-  2. **Logic phan bo nang cao** (velocity, catalog weight, seasonal, priority weights)
-  3. **Bat/Tat tinh nang** (giu nguyen 3 cai cu)
-- Moi constraint co tooltip giai thich y nghia kinh doanh
-
-Cap nhat `CONSTRAINT_META` trong `RebalanceConfigPanel.tsx` de map 8 constraint moi.
-
----
-
-## Database migration
-
-Them 8 dong moi vao `inv_constraint_registry` voi gia tri mac dinh hop ly:
+Logic phan loai:
 
 ```text
-use_destination_velocity: { enabled: true }
-use_catalog_revenue_weight: { enabled: false }
-velocity_lookback_days: { days: 14 }
-seasonal_safety_factor: { factor: 1.0 }
-priority_weight_customer_orders: { weight: 50 }
-priority_weight_sales_velocity: { weight: 30 }
-priority_weight_store_tier: { weight: 20 }
-max_transfer_pct: { pct: 60 }
+KHONG NEN (do):
+  - transferQty > fromOnHand (khong du hang)
+  - fromCoverAfter < min_cover_weeks (kho nguon xuong duoi nguong)
+  - toCoverAfter > max_cover_weeks * 1.5 (overstock qua muc)
+
+CAN NHAC (vang):
+  - fromCoverAfter < min_cover_weeks * seasonal_factor
+  - toCoverAfter > max_cover_weeks (overstock nhe)
+  - revenue gain < min_lateral_net_benefit
+
+NEN CHUYEN (xanh):
+  - Tat ca dieu kien an toan
+  - Revenue gain > 0
+  - Kho dich thuc su thieu hang (toCoverBefore < min_cover_weeks)
 ```
+
+Hien thi thanh **Verdict Card** lon o cuoi:
+- Mau do/vang/xanh
+- Dong chu chinh: "KHONG NEN chuyen 200 units"
+- Ly do cu the: "Kho OLV chi co 96 units, se ve am (-104). Kho dich se thua 29 tuan hang."
+- De xuat thay the: "Nen chuyen toi da 50 units de giu kho nguon >= 2 tuan cover"
+
+### 5. Suggested optimal qty
+
+- Tu dong tinh `optimalQty` sao cho:
+  - fromCoverAfter >= min_cover_weeks * seasonal_factor
+  - toCoverAfter <= max_cover_weeks
+- Hien thi nut "Ap dung de xuat: X units" de user 1-click thay doi
 
 ---
 
@@ -105,21 +70,16 @@ max_transfer_pct: { pct: 60 }
 
 | File | Thay doi |
 |------|---------|
-| `src/components/inventory/RebalanceSimulationTab.tsx` | Them dropdown kho nguon/dich, tinh toan 2 chieu |
-| `src/components/inventory/RebalanceBoardTable.tsx` | Editable qty input, truyen qty da chinh khi approve |
-| `src/components/inventory/RebalanceConfigPanel.tsx` | Them 8 constraint nang cao, nhom thanh 3 card |
-| `src/hooks/inventory/useApproveRebalance.ts` | Nhan them edited_qty param |
-| `src/pages/InventoryAllocationPage.tsx` | Cap nhat handleApprove signature |
-| DB migration | Insert 8 constraint moi |
+| `RebalanceSimulationTab.tsx` | Toan bo logic moi: validation, overstock warning, seasonal factor, verdict card, optimal qty |
+
+Khong can them file moi, khong can migration -- chi refactor component hien tai va su dung constraint data da co.
 
 ---
 
-## Thu tu build
+## Chi tiet ky thuat
 
-1. DB migration -- insert 8 constraint moi
-2. `RebalanceSimulationTab.tsx` -- them kho nguon/dich + tinh toan 2 chieu
-3. `RebalanceBoardTable.tsx` -- editable qty
-4. `useApproveRebalance.ts` -- ho tro edited_qty
-5. `InventoryAllocationPage.tsx` -- cap nhat prop types
-6. `RebalanceConfigPanel.tsx` -- them 8 constraint nang cao
+- Fetch constraints tu `useConstraintRegistry()` de lay: `min_cover_weeks`, `max_cover_weeks`, `seasonal_safety_factor`, `min_lateral_net_benefit`
+- Tinh `availableToTransfer = on_hand - reserved - (safety_stock * seasonal_factor)`
+- Revenue calculation can fix: hien tai dang dung `potential_revenue_gain` tu suggestion -- nen tinh = `min(transferQty, shortage_at_dest) * avg_revenue_per_unit`
+- Verdict logic chay sau khi tinh simulation, output enum: 'recommended' | 'caution' | 'not_recommended'
 
