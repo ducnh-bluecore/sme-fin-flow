@@ -1,84 +1,184 @@
 
-# Fix AI Agent: Phân tích thông minh theo bản chất metric
 
-## Vấn đề gốc
+# Inventory Allocation Engine -- Cap nhat: De xuat 2 chieu (Kho tong + Kho con)
 
-Pass 2 prompt hiện tại ép AI vào template cứng 7 bước cho MỌI loại metric. Điều này gây ra:
+## Yeu cau bo sung
 
-1. **Lỗi toán học**: AOV (Average Order Value) bị cộng dồn rồi chia trung bình -- vô nghĩa. AOV = 459K/12 = 38,250 VND là sai hoàn toàn.
-2. **Phân tích rập khuôn**: Revenue, AOV, ROAS... đều ra cùng một format, không có insight thật.
+He thong phai de xuat chuyen hang theo **2 luong**:
 
-## Giải pháp
+1. **Kho tong (CNTT) ra kho con/store** -- Push allocation (phan bo tu nguon chinh)
+2. **Giua cac kho con voi nhau** -- Lateral rebalancing (can bang ngang)
 
-Thay prompt cứng nhắc bằng **Metric Intelligence Layer** -- dạy AI phân biệt bản chất metric trước khi phân tích.
+---
 
-### Thay đổi trong `supabase/functions/cdp-qa/index.ts`
+## Thiet ke Location Model
 
-**1. Thêm Metric Classification vào System Prompt (buildSystemPrompt)**
+### Bang `inv_stores` -- bo sung `location_type`
 
-Bổ sung phần quy tắc phân loại metric:
-
-```
-## PHÂN LOẠI METRIC -- BẮT BUỘC TUÂN THỦ
-
-Trước khi phân tích, XÁC ĐỊNH loại metric:
-
-CUMULATIVE (cộng dồn được): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
-- Tổng = SUM tất cả kỳ
-- Trung bình = SUM / số kỳ  
-- So sánh = tổng kỳ này vs tổng kỳ trước
-
-AVERAGE/RATIO (không cộng dồn): AOV, ROAS, GROSS_MARGIN, CM_PERCENT
-- KHÔNG BAO GIỜ cộng dồn hoặc tính "tổng"
-- Trung bình = weighted average (theo ORDER_COUNT hoặc AD_SPEND)
-- AOV trung bình = Tổng Revenue / Tổng Orders, KHÔNG phải trung bình các AOV tháng
-- ROAS = Tổng Revenue / Tổng Ad Spend
-- So sánh = giá trị kỳ này vs kỳ trước (không tổng)
-
-SNAPSHOT (thời điểm): INVENTORY, CASH_POSITION, CUSTOMER_COUNT
-- Chỉ lấy giá trị mới nhất, không cộng dồn
-- So sánh = hiện tại vs kỳ trước
+```text
+location_type ENUM:
+  - 'central_warehouse'  (kho tong / CNTT)
+  - 'sub_warehouse'      (kho vung / kho nhanh)
+  - 'store'              (cua hang)
 ```
 
-**2. Nâng cấp Pass 2 Analysis Prompt (dòng 455-472)**
+Moi location co `tier`, `capacity`, `region` -- giup engine biet uu tien va rang buoc khoang cach.
 
-Thay template 7 bước cứng nhắc bằng hướng dẫn phân tích linh hoạt:
+---
 
-```
-BẮT BUỘC TUÂN THỦ:
+## 2 loai de xuat trong bang `inv_rebalance_suggestions`
 
-1. XÁC ĐỊNH loại metric (cumulative/average/snapshot) -> áp dụng cách tính ĐÚNG
-2. KHÔNG ÁP DỤNG CÙNG MỘT TEMPLATE CHO MỌI CÂU HỎI
+Them cot `transfer_type`:
 
-Với CUMULATIVE metrics (Revenue, Orders):
-- Tổng kỳ, tăng trưởng MoM, tháng đỉnh/đáy, nguyên nhân
-
-Với AVERAGE/RATIO metrics (AOV, ROAS, Margin):
-- KHÔNG tính "tổng AOV" -- vô nghĩa
-- Weighted average qua kỳ
-- Xu hướng lên/xuống và ý nghĩa kinh doanh
-- VD: AOV giảm + Orders tăng = bán rẻ hơn nhưng nhiều hơn -> margin bị ảnh hưởng?
-
-Với SNAPSHOT metrics (Inventory, Cash):
-- Giá trị hiện tại và thay đổi so với kỳ trước
-
-3. PHÂN TÍCH CROSS-DOMAIN (quan trọng nhất):
-- Revenue tăng nhưng AOV giảm -> đang bán rẻ?
-- Orders tăng nhưng Margin giảm -> chi phí tăng?
-- ROAS tốt nhưng cash chậm -> rủi ro dòng tiền?
-
-4. KẾT LUẬN phải là HÀNH ĐỘNG cụ thể cho CEO/CFO, không phải tóm tắt số
-
-5. Chart nếu >= 3 data points
+```text
+transfer_type ENUM:
+  - 'push'      -- tu kho tong/sub_warehouse xuong store
+  - 'lateral'   -- giua cac store hoac sub_warehouse voi nhau
 ```
 
-**3. Tăng temperature Pass 2 lên 0.4**
+### Schema day du cua `inv_rebalance_suggestions`:
 
-Từ 0.3 lên 0.4 để cho phép suy luận linh hoạt hơn thay vì lặp template.
+```text
+tenant_id, suggestion_id (uuid PK), run_id (FK),
+transfer_type ('push' | 'lateral'),
+fc_id, fc_name,
+from_location, from_location_name, from_location_type,
+to_location, to_location_name, to_location_type,
+qty,
+reason,
+from_weeks_cover, to_weeks_cover, balanced_weeks_cover,
+priority (P1/P2/P3),
+potential_revenue_gain,
+logistics_cost_estimate,
+net_benefit (= potential_revenue_gain - logistics_cost),
+status (pending/approved/rejected/executed),
+approved_by, approved_at
+```
 
-## Kết quả mong đợi
+---
 
-- AOV sẽ được báo cáo đúng: "AOV trung bình 2025: ~459K VND/đơn" thay vì "Tổng AOV: 459K, Trung bình: 38K"
-- Mỗi loại metric có cách phân tích riêng phù hợp bản chất
-- Phân tích cross-domain: AOV giảm + Revenue tăng = đang bán nhiều hơn nhưng rẻ hơn
-- Đề xuất hành động dựa trên suy luận, không phải fill-in-the-blank
+## Logic Engine -- 2 pha
+
+### Pha 1: Push Allocation (Kho tong ra store)
+
+```text
+1. Lay ton kho kho tong (location_type = 'central_warehouse')
+2. Tinh available_to_push = on_hand - reserved - safety_stock_cntt
+3. Voi moi FC co hang trong kho tong:
+   a. Tim tat ca store dang thieu (weeks_cover < min_cover_weeks)
+   b. Xep hang store theo priority_score
+   c. Greedy allocate tu kho tong xuong store
+   d. Dung khi available_to_push <= 0 hoac min_cntt constraint
+4. Ghi ket qua voi transfer_type = 'push'
+```
+
+### Pha 2: Lateral Rebalancing (Giua cac kho con)
+
+```text
+1. SAU KHI push xong, con store nao van thieu?
+2. Tim store THUA cung FC (weeks_cover > threshold_high, e.g. > 6 tuan)
+3. Tim store THIEU cung FC (weeks_cover < threshold_low, e.g. < 1 tuan)
+4. Ghep cap store_thua -> store_thieu:
+   a. Uu tien cung region (giam chi phi van chuyen)
+   b. qty = min(surplus - safety_stock, shortage)
+   c. Chi chuyen khi net_benefit > 0 (revenue gain > logistics cost)
+5. Ghi ket qua voi transfer_type = 'lateral'
+```
+
+Thu tu quan trong: **Push truoc, Lateral sau** -- vi kho tong la nguon chinh, chi can bang ngang khi kho tong khong du.
+
+---
+
+## Frontend -- Daily Rebalance Board
+
+### Layout co 2 tab/section:
+
+```text
++--------------------------------------------------+
+| Daily Rebalance Board            [Chay Quet]      |
++--------------------------------------------------+
+| [Summary Cards: 4 KPIs]                          |
+|  - Push: X units | Lateral: Y units              |
+|  - Revenue tiep can: +Z | Stores shortage: N     |
++--------------------------------------------------+
+| Tab: [Tu kho tong] | [Giua cac kho]  | [Tat ca]  |
++--------------------------------------------------+
+
+Tab "Tu kho tong" (Push):
+| FC | Kho tong | -> Store | SL | Ly do | Cover | Revenue | Action |
+
+Tab "Giua cac kho" (Lateral):
+| FC | Store thua | -> Store thieu | SL | Ly do | Cover truoc/sau | Chi phi VC | Net benefit | Action |
+
+Tab "Tat ca":
+| Gop ca 2 loai, sort theo priority |
+```
+
+### Decision Card (CEO view):
+
+```text
++--------------------------------------------------+
+| De xuat chia hang hom nay                         |
+|                                                    |
+| Push: 420 units tu CNTT -> 12 stores              |
+| Lateral: 180 units giua 8 cap store               |
+| Projected revenue: +28.5M                         |
+| Stockout risk giam: -23%                           |
+|                                                    |
+| [Duyet tat ca P1]  [Xem chi tiet]  [Tu choi]     |
++--------------------------------------------------+
+```
+
+---
+
+## Constraint bo sung cho lateral
+
+Them constraint moi trong `inv_constraint_registry`:
+
+```text
+- min_lateral_net_benefit: 500000    (chi chuyen khi loi > 500K)
+- max_lateral_distance: 'same_region' (uu tien cung vung)
+- lateral_enabled: true               (bat/tat lateral)
+- push_priority_over_lateral: true    (push truoc, lateral sau)
+```
+
+---
+
+## Thay doi so voi plan truoc
+
+| Hang muc | Truoc | Sau |
+|----------|-------|-----|
+| `inv_stores` | Khong co `location_type` | Them `location_type` (central/sub/store) |
+| `inv_rebalance_suggestions` | Khong phan biet loai | Them `transfer_type` (push/lateral) + `logistics_cost` + `net_benefit` |
+| Engine logic | 1 pha (rebalance chung) | 2 pha: Push truoc, Lateral sau |
+| Frontend | 1 bang | 3 tab: Push / Lateral / Tat ca |
+| Constraints | Khong co lateral rules | Them `min_lateral_net_benefit`, `lateral_enabled` |
+
+---
+
+## Tong hop toan bo bang can tao (13 bang)
+
+1. `inv_stores` (voi location_type)
+2. `inv_family_codes`
+3. `inv_sku_fc_mapping`
+4. `inv_state_positions`
+5. `inv_state_demand`
+6. `inv_constraint_registry`
+7. `inv_allocation_runs`
+8. `inv_allocation_recommendations`
+9. `inv_allocation_audit_log`
+10. `inv_transfer_orders`
+11. `inv_rebalance_runs`
+12. `inv_rebalance_suggestions` (voi transfer_type, logistics_cost, net_benefit)
+13. Edge function: `inventory-allocation-engine` (2 endpoint: /allocate va /rebalance)
+
+---
+
+## Thu tu build
+
+1. Database migration -- 13 bang + RLS + indexes
+2. Edge function `inventory-allocation-engine` (Push + Lateral logic)
+3. Frontend hooks (9 hooks)
+4. Page `/inventory-allocation` voi 2 tab chinh: Allocation + Rebalance Board
+5. Route + Sidebar registration
+
