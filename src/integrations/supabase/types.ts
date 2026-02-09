@@ -18802,6 +18802,71 @@ export type Database = {
           },
         ]
       }
+      inv_tier_history: {
+        Row: {
+          avg_velocity: number | null
+          calculated_at: string
+          id: string
+          new_tier: string | null
+          old_tier: string | null
+          rank_pct: number | null
+          store_id: string
+          tenant_id: string
+          total_sold: number | null
+        }
+        Insert: {
+          avg_velocity?: number | null
+          calculated_at?: string
+          id?: string
+          new_tier?: string | null
+          old_tier?: string | null
+          rank_pct?: number | null
+          store_id: string
+          tenant_id: string
+          total_sold?: number | null
+        }
+        Update: {
+          avg_velocity?: number | null
+          calculated_at?: string
+          id?: string
+          new_tier?: string | null
+          old_tier?: string | null
+          rank_pct?: number | null
+          store_id?: string
+          tenant_id?: string
+          total_sold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_tier_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_tier_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_tier_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_tier_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       inv_transfer_orders: {
         Row: {
           created_at: string
@@ -39070,6 +39135,18 @@ export type Database = {
         Returns: string
       }
       fdp_push_ar_to_cdp: { Args: { p_tenant_id: string }; Returns: number }
+      fn_auto_tier_stores: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          avg_velocity: number
+          new_tier: string
+          old_tier: string
+          rank_pct: number
+          store_id: string
+          store_name: string
+          total_sold: number
+        }[]
+      }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
