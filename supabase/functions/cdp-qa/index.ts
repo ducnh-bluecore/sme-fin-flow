@@ -98,17 +98,20 @@ Bạn có 11 tools để lấy dữ liệu LIVE từ database. BẮT BUỘC gọ
 - LUÔN LUÔN gọi tool khi người dùng hỏi về số liệu, KPI, doanh thu, chi phí, sản phẩm, khách hàng.
 
 ## SCHEMA CATALOG (Top 20) — CỘT CHÍNH XÁC
-=== TÀI CHÍNH ===
-kpi_facts_daily: KPI theo ngày. Cols: tenant_id, grain_date, metric_code(NET_REVENUE/ORDER_COUNT/AOV/COGS/GROSS_MARGIN/AD_SPEND/ROAS), metric_value, dimension_type(total/channel), dimension_value
+=== TÀI CHÍNH (ƯU TIÊN) ===
+★ kpi_facts_daily: KPI theo ngày (NGUỒN CHÍNH, có data 2025-01~nay). Cols: tenant_id, grain_date, metric_code(NET_REVENUE/ORDER_COUNT/AOV/COGS/GROSS_MARGIN/AD_SPEND/ROAS), metric_value, dimension_type(total/channel), dimension_value
+★ v_revenue_channel_daily: Doanh thu theo kênh theo ngày (có data 2017~nay). Cols: tenant_id, channel, order_date, total_gross_revenue, order_count
+★ v_channel_pl_summary: P&L theo kênh. Cols: tenant_id, channel, period, order_count, unique_customers, gross_revenue, net_revenue, cogs, gross_margin, marketing_spend, contribution_margin, cm_percent, roas
 v_pl_monthly_summary: P&L hàng tháng. Cols: tenant_id, period_year, period_month, year_month, gross_sales, net_sales, cogs, gross_profit, total_opex, operating_income, net_income, gross_margin_pct, net_sales_m, cogs_m, gross_profit_m
-v_financial_monthly_summary: Tổng hợp tài chính hàng tháng. Cols: tenant_id, period_month(date), invoice_revenue, invoice_paid, invoice_count, total_expense, cogs, salary_expense, marketing_expense
-v_channel_pl_summary: P&L theo kênh. Cols: tenant_id, channel, period, order_count, unique_customers, gross_revenue, net_revenue, cogs, gross_margin, marketing_spend, contribution_margin, cm_percent, roas
 v_fdp_truth_snapshot: Snapshot tài chính. Cols: tenant_id, snapshot_at, period_start, period_end, net_revenue, gross_profit, gross_margin_pct, contribution_margin, aov, total_orders
+⚠️ v_financial_monthly_summary: KHÔNG DÙNG — view này hiện tại TRỐNG, không có data.
 
 === ĐƠN HÀNG ===
 v_channel_daily_revenue: Doanh thu kênh theo ngày. Cols: tenant_id, channel, revenue_date, order_count, gross_revenue, net_revenue, cogs, gross_margin, avg_order_value
 v_variance_orders_monthly: Biến động đơn hàng theo tháng
 v_base_order_metrics: Metrics cơ bản đơn hàng
+
+ƯU TIÊN: Khi hỏi doanh thu theo tháng, dùng kpi_facts_daily (GROUP BY date_trunc('month', grain_date)) hoặc v_revenue_channel_daily (GROUP BY date_trunc('month', order_date)). KHÔNG dùng v_financial_monthly_summary.
 
 === KHÁCH HÀNG ===
 v_cdp_ltv_summary: Tổng hợp LTV (segments, at-risk). ⚠️ linking 7.6%
