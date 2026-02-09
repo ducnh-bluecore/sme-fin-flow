@@ -229,7 +229,7 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
         .eq('dimension_type', 'total')
         .gte('grain_date', fromDate)
         .order('grain_date', { ascending: false })
-        .limit(200);
+        .limit(1000);
       if (error) return { data: null, source: 'kpi_facts_daily', rows: 0, note: `Error: ${error.message}` };
       return { data, source: 'kpi_facts_daily', rows: data.length, period: `${days} ngày gần nhất` };
     }
