@@ -1,134 +1,142 @@
 
 
-# CDP-QA v2: 2-Pass Optimized AI Agent
+# Xu ly trung don KiotViet - Marketplace Dedup
 
-## Tong quan
+## Van de phat hien
 
-Viet lai duy nhat 1 Edge Function (`cdp-qa/index.ts`) + 1 migration SQL mo rong allowlist. Frontend KHONG DOI.
+KiotViet la he thong POS tong, dong bo don hang tu tat ca kenh ban (Shopee, Lazada, TikTok, Tiki, Haravan) ve chung mot bang `raw_kiotviet_Orders`. Hien tai backfill do tat ca 1.07M don vao channel `kiotviet` ma khong phan biet don KiotViet goc (ban tai cua hang) va don san do ve.
 
-## Pham vi thay doi
+Dong thoi, cac san (Shopee, Lazada, TikTok, Tiki) cung duoc sync rieng tu dataset cua tung san.
 
-| File | Hanh dong | Anh huong |
-|------|-----------|-----------|
-| `supabase/functions/cdp-qa/index.ts` | Viet lai hoan toan | Chi rieng file nay |
-| Migration SQL | Mo rong `execute_readonly_query` allowlist: them `v_*` | Chi READ, khong thay doi data |
-| `supabase/config.toml` | Them `[functions.cdp-qa]` verify_jwt = false | Da co san pattern nay |
-| `src/hooks/useCDPQA.ts` | **KHONG DOI** | Tuong thich 100% |
-| Frontend pages | **KHONG DOI** | Tuong thich 100% |
-| Data layers (L2/L3/L4) | **KHONG DOI** | Chi doc, khong ghi |
+**Ket qua: Don hang tu san bi dem 2 lan** — 1 lan trong `kiotviet`, 1 lan trong kenh goc.
 
-## Buoc 1: Migration SQL
+### Quy mo anh huong
 
-Mo rong allowlist cua `execute_readonly_query` tu 14 items co dinh sang: giu danh sach bang L2/L3/L4 + tu dong cho phep tat ca view `v_*` (120+ views).
+| Kenh | Don hang rieng | Revenue rieng | Trung trong KiotViet? |
+|------|---------------|---------------|----------------------|
+| KiotViet (tat ca) | 1,068,958 | 1,136B VND | Bao gom ca don san |
+| Shopee | 115,067 | 61.6B | Can xac minh |
+| Lazada | 39,932 | 23.1B | Rat co the trung |
+| TikTok | 20,129 | 9.7B | Rat co the trung |
+| Tiki | 281 | 141M | Rat co the trung |
 
-```text
-Logic moi:
-  IF v_table NOT IN ('cdp_orders','cdp_customers','cdp_order_items','products',
-    'kpi_facts_daily','alert_instances','cdp_customer_equity_computed',
-    'expenses','invoices','bank_transactions','ad_spend_daily')
-  AND v_table NOT LIKE 'v\_%'   -- cho phep tat ca views
-  THEN RAISE EXCEPTION
-```
+Uoc tinh don trung: **~100-175k don**, revenue bi dem doi: **~60-94B VND**
 
-Khong thay doi gi khac trong function (van giu SELECT-only, 30s timeout, uuid auto-cast).
+### Tai sao chua the xac dinh chinh xac?
 
-## Buoc 2: Config
+- `SaleChannelId` (truong trong BigQuery phan biet kenh) **KHONG duoc extract** trong mapping hien tai
+- `raw_data` JSONB **KHONG duoc luu** (0/1.07M records co raw_data)
+- `OrderCode` (co prefix `DHLZD_`, `DHHRV-`, v.v.) **KHONG duoc sync**, chi sync `OrderId` (so thuan)
+- Khong co cach nao tu database hien tai phan biet don KiotViet goc vs don san do ve
 
-Them vao `supabase/config.toml`:
-```text
-[functions.cdp-qa]
-verify_jwt = false
-```
+## Giai phap 3 buoc
 
-## Buoc 3: Viet lai `cdp-qa/index.ts` (~450 dong)
+### Buoc 1: Them `SaleChannelId` + `OrderCode` vao mapping BigQuery
 
-### Cau truc tong the
+Cap nhat `ORDER_SOURCES` cho KiotViet trong `backfill-bigquery/index.ts`:
 
 ```text
-1. CORS + Auth + Tenant resolution (giu nguyen logic cu)
-2. TOOL_DEFINITIONS: 10 fixed tools + 1 query_database
-3. executeTool(): switch/case goi Supabase queries
-4. SYSTEM_PROMPT: vai tro + schema catalog (top 20) + analysis rules + business rules
-5. 2-pass flow:
-   Pass 1: non-streaming, AI chon tools (max 2 turns)
-   Pass 2: streaming, AI phan tich + tra loi
+Truoc:
+  mapping: {
+    order_key: 'OrderId',
+    order_at: 'PurchaseDate',
+    status: 'Status',
+    customer_id: 'CusId',
+    customer_name: 'CustomerName',
+    customer_phone: 'deliveryContactNumber',
+    gross_revenue: 'Total',
+    discount: 'discount',
+  }
+
+Sau:
+  mapping: {
+    order_key: 'OrderId',
+    order_at: 'PurchaseDate',
+    status: 'Status',
+    customer_id: 'CusId',
+    customer_name: 'CustomerName',
+    customer_phone: 'deliveryContactNumber',
+    gross_revenue: 'Total',
+    discount: 'discount',
+    sale_channel_id: 'SaleChannelId',  // MỚI
+    order_code: 'OrderCode',            // MỚI
+  }
 ```
 
-### 11 Tools
+Luu vao `raw_data` JSONB de truy vet:
+```text
+raw_data: {
+  SaleChannelId: "5389",
+  OrderCode: "DHHRV-123456"
+}
+```
 
-| # | Tool | Data source |
-|---|------|-------------|
-| 1 | `get_revenue_kpis` | kpi_facts_daily (NET_REVENUE, ORDER_COUNT, AOV) |
-| 2 | `get_profitability` | kpi_facts_daily (COGS, GROSS_MARGIN) |
-| 3 | `get_channel_breakdown` | kpi_facts_daily dimension=channel |
-| 4 | `get_marketing_kpis` | kpi_facts_daily (AD_SPEND, ROAS) |
-| 5 | `get_top_products` | v_top_products_30d |
-| 6 | `get_inventory_health` | products (stock > 0) |
-| 7 | `get_active_alerts` | alert_instances status=open |
-| 8 | `get_customer_overview` | v_cdp_ltv_summary |
-| 9 | `get_cohort_analysis` | v_cdp_ltv_by_cohort |
-| 10 | `get_channel_pl` | v_channel_pl_summary |
-| 11 | `query_database` | execute_readonly_query RPC (bat ky view v_*) |
+### Buoc 2: Logic loc don trung khi sync
 
-### System Prompt (gom 5 phan)
-
-**1. Vai tro**: Bluecore AI Analyst cho CEO/CFO, tra loi bang tieng Viet
-
-**2. Schema Catalog** (top 20 views pin trong prompt):
-- Tai chinh: kpi_facts_daily, v_channel_pl_summary, v_fdp_truth_snapshot, v_financial_monthly_summary, v_pl_monthly_summary
-- Don hang: v_channel_daily_revenue, v_variance_orders_monthly, v_base_order_metrics
-- Khach hang: v_cdp_ltv_summary, v_cdp_ltv_by_cohort, v_cdp_ltv_by_source, v_cdp_rfm_segment_summary, v_cdp_customer_research, v_cdp_equity_overview
-- San pham: v_top_products_30d, v_cdp_product_benchmark
-- Marketing: v_mdp_ceo_snapshot, v_mdp_platform_ads_summary
-- Alerts: alert_instances, v_cdp_data_quality
-
-**3. Analysis Rules**: So sanh %, tim nguyen nhan, cross-check (revenue vs margin), anomaly detection
-
-**4. Business Rules (FDP/MDP/CT)**: Revenue di kem COGS, marketing do bang Contribution Margin, SKU am margin => STOP
-
-**5. Data Reliability**: Customer linking 7.6% warning, expenses=0 warning, cash=0 warning
-
-### Luong 2-Pass
+Trong ham `syncOrders`, them buoc loc sau khi transform:
 
 ```text
-Request -> Auth -> Tenant
-  |
-  v
-Pass 1 (non-streaming, google/gemini-3-flash-preview):
-  messages[-6] + system_prompt + tool_definitions
-  -> AI returns tool_calls
-  -> executeTool() cho moi call
-  -> Neu AI goi them tool (turn 2): execute tiep
-  -> Max 2 turns, sau do bat buoc sang Pass 2
-  |
-  v
-Pass 2 (streaming, google/gemini-3-flash-preview):
-  messages[-6] + system_prompt + tool_results (inject vao context)
-  -> Stream ve client (SSE format, tuong thich useCDPQA.ts)
+Voi moi batch KiotViet orders:
+  1. Doc SaleChannelId tu BigQuery
+  2. Tao mapping SaleChannelId -> kenh:
+     - 0 hoac NULL -> kiotviet (don goc)
+     - 5389, 277489 -> haravan
+     - 38485, 1000000081 -> lazada
+     - 238790 -> tiktokshop
+     - (can xac minh them cho Shopee, Tiki)
+  3. Chi giu cac don co SaleChannelId = 0/NULL (don KiotViet thuc su)
+  4. Don tu san -> BO QUA (da co tu dataset rieng cua san)
 ```
 
-### executeTool() - Logic tung tool
+### Buoc 3: Migration lam sach don trung hien co
 
-Moi fixed tool = 1 Supabase query don gian, tra ve JSON + metadata:
-- `get_revenue_kpis(days)`: SELECT tu kpi_facts_daily, filter metric_code, group by grain_date
-- `get_channel_breakdown(days)`: SELECT tu kpi_facts_daily, filter dimension_type=channel
-- `query_database(sql)`: Goi execute_readonly_query RPC, inject tenant_id vao SQL
+Sau khi xac dinh duoc SaleChannelId mapping chinh xac tu BigQuery:
 
-Tat ca tool results deu kem: `{ data: [...], source: "table_name", rows: N, period: "..." }`
+```text
+Buoc 3a: Query BigQuery de lay danh sach OrderId co SaleChannelId != 0
+Buoc 3b: Xoa hoac danh dau cac order_key tuong ung trong cdp_orders WHERE channel = 'kiotviet'
+Buoc 3c: Chay lai compute_kpi_facts_daily de cap nhat KPI
+Buoc 3d: Chay lai detect_threshold_breaches de cap nhat alerts
+```
 
-## Kiem tra truoc khi deploy
+## Truoc khi implement: Can xac minh tu BigQuery
 
-- Frontend `useCDPQA.ts` gui POST voi `{ messages }` va nhan SSE stream -> KHONG DOI
-- Edge function van tra ve `text/event-stream` -> KHONG DOI
-- Auth flow (Bearer token + x-tenant-id) -> KHONG DOI
+Truoc khi code, can chay 1 query BigQuery de xac nhan:
 
-## Rui ro va giam thieu
+```text
+SELECT SaleChannelId, COUNT(*) as cnt
+FROM olvboutique.raw_kiotviet_Orders
+GROUP BY SaleChannelId
+ORDER BY cnt DESC
+```
+
+Query nay se cho biet:
+- Bao nhieu kenh ban do ve KiotViet
+- SaleChannelId nao la "don goc" (thuong la 0 hoac NULL)
+- So luong chinh xac don bi trung
+
+## Thu tu thuc hien
+
+1. **Query BigQuery** xac minh SaleChannelId distribution (dung edge function `bigquery-query`)
+2. **Cap nhat mapping** trong `backfill-bigquery/index.ts` - them SaleChannelId, OrderCode
+3. **Them logic loc** trong syncOrders - chi sync don KiotViet goc
+4. **Chay backfill lai** cho kiotviet orders voi mapping moi
+5. **Lam sach data cu** - xoa/danh dau don trung
+6. **Recompute KPIs** - `compute_kpi_facts_daily` cho toan bo giai doan
+
+## Rui ro
 
 | Rui ro | Muc do | Giam thieu |
 |--------|--------|------------|
-| AI chon sai tool | Trung binh | Tool descriptions ro rang + top 20 catalog |
-| Tool-calling loop | Thap | Hard limit 2 turns |
-| Dynamic SQL sai | Trung binh | execute_readonly_query da co SELECT-only + allowlist + 30s timeout |
-| Latency tang | Nhe (+1-2s) | Pass 1 non-streaming nhanh, Pass 2 stream ngay |
-| Gateway khong ho tro tool-calling | Can kiem tra | Fallback: parse JSON tu AI response thay vi native tool_calls |
+| Xoa nham don KiotViet goc | Cao | Query BigQuery xac minh truoc, backup truoc khi xoa |
+| SaleChannelId mapping sai | Trung binh | Cross-check OrderCode prefix voi SaleChannelId |
+| KPI bi giam dot ngot | Du kien | Giam do bo don trung, la dung - can thong bao user |
+| Shopee chua co SaleChannelId | Can kiem tra | Neu Shopee khong do qua KiotViet thi khong anh huong |
+
+## Anh huong du kien
+
+- **Doanh thu KiotViet giam**: Tu ~1,136B xuong con ~900-1,000B (bo don san)
+- **Tong doanh thu he thong giam**: ~60-94B (phan bi dem doi)
+- **KPI chinh xac hon**: Net Revenue, Order Count, AOV deu phan anh dung hon
+- **Customer linking se cai thien**: Bot don trung = bot nhieu customer
 
