@@ -42,11 +42,11 @@ QUY TẮC VỀ DATE/TIME:
 - Khi so sánh theo năm: KHÔNG dùng EXTRACT/DATE_PART. Luôn dùng filter theo khoảng ngày:
   <date_column> >= 'YYYY-01-01' AND <date_column> < 'YYYY+1-01-01'.
 
-JOIN GUIDANCE (luôn cast ::uuid khi JOIN khác bảng):
-- cdp_orders.customer_id::uuid = cdp_customers.id
-- cdp_order_items.order_id::uuid = cdp_orders.id  
-- cdp_order_items.product_id::uuid = products.id
-- Lý do: một số cột lưu dạng text, cần cast sang uuid để tránh lỗi type mismatch.
+JOIN GUIDANCE (quan trọng - tránh lỗi type mismatch):
+- cdp_orders.customer_id = cdp_customers.id::text
+- cdp_order_items.order_id = cdp_orders.id::text  
+- cdp_order_items.product_id = products.id::text
+- Lý do: các cột FK lưu dạng text, cần cast cột UUID sang text (KHÔNG cast text sang uuid vì có thể không hợp lệ).
 
 SCHEMA CONTEXT:
 ${schemaContext}
