@@ -343,7 +343,6 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
 
     case 'query_database': {
       let sql = args.sql || '';
-      // Inject tenant_id if placeholder present
       sql = sql.replace(/<TENANT_ID>/g, tenantId);
       const { data, error } = await supabase.rpc('execute_readonly_query', { query_text: sql });
       if (error) return { data: null, source: 'execute_readonly_query', rows: 0, note: `SQL Error: ${error.message}` };
@@ -356,53 +355,26 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
   }
 }
 
-// ─── Claude API helper with retry ───────────────────────────────────
-// Converts OpenAI-style params to Anthropic Messages API format
+// ─── Lovable AI Gateway helper with retry ───────────────────────────
+const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
 async function callAI(apiKey: string, body: Record<string, unknown>, maxRetries = 5): Promise<Response> {
-  // Extract system prompt from messages
-  const messages = (body.messages as any[]) || [];
-  const systemMessages = messages.filter((m: any) => m.role === 'system');
-  const nonSystemMessages = messages.filter((m: any) => m.role !== 'system');
-  const systemPromptText = systemMessages.map((m: any) => m.content).join('\n\n');
-
-  // Convert tool_call / tool messages for Claude format
-  const claudeMessages = convertToClaudeMessages(nonSystemMessages);
-
-  // Build Claude request body
-  const claudeBody: Record<string, unknown> = {
-    model: (body.model as string) || 'claude-sonnet-4-20250514',
-    max_tokens: (body.max_tokens as number) || 8192,
-    temperature: body.temperature as number | undefined,
-    stream: body.stream as boolean | undefined,
-  };
-
-  if (systemPromptText) {
-    claudeBody.system = systemPromptText;
-  }
-
-  claudeBody.messages = claudeMessages;
-
-  // Convert OpenAI tools format to Claude tools format
-  if (body.tools) {
-    claudeBody.tools = (body.tools as any[]).map((t: any) => ({
-      name: t.function.name,
-      description: t.function.description,
-      input_schema: t.function.parameters,
-    }));
-    if (body.tool_choice === 'auto') {
-      claudeBody.tool_choice = { type: 'auto' };
-    }
-  }
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch(AI_GATEWAY_URL, {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(claudeBody),
+      body: JSON.stringify({
+        model: body.model || 'google/gemini-2.5-pro',
+        messages: body.messages,
+        tools: body.tools,
+        tool_choice: body.tool_choice,
+        stream: body.stream,
+        max_tokens: body.max_tokens,
+        temperature: body.temperature,
+      }),
     });
     if (resp.status !== 429 || attempt === maxRetries) return resp;
     const retryAfter = resp.headers.get('retry-after');
@@ -411,46 +383,6 @@ async function callAI(apiKey: string, body: Record<string, unknown>, maxRetries 
     await new Promise(r => setTimeout(r, waitSec * 1000));
   }
   throw new Error('Max retries exceeded');
-}
-
-// Convert OpenAI message format to Claude message format
-function convertToClaudeMessages(messages: any[]): any[] {
-  const result: any[] = [];
-  
-  for (const msg of messages) {
-    if (msg.role === 'assistant' && msg.tool_calls) {
-      // Convert OpenAI tool_calls to Claude tool_use content blocks
-      const content: any[] = [];
-      if (msg.content) {
-        content.push({ type: 'text', text: msg.content });
-      }
-      for (const tc of msg.tool_calls) {
-        let input = {};
-        try { input = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
-        content.push({
-          type: 'tool_use',
-          id: tc.id,
-          name: tc.function.name,
-          input,
-        });
-      }
-      result.push({ role: 'assistant', content });
-    } else if (msg.role === 'tool') {
-      // Convert OpenAI tool response to Claude tool_result
-      result.push({
-        role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: msg.tool_call_id,
-          content: msg.content,
-        }],
-      });
-    } else {
-      result.push({ role: msg.role, content: msg.content });
-    }
-  }
-  
-  return result;
 }
 
 function handleAIError(status: number): Response {
@@ -471,8 +403,8 @@ Deno.serve(async (req) => {
     const { messages, tenantId }: RequestBody = await req.json();
     if (!messages?.length) return new Response(JSON.stringify({ error: 'No messages provided' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!apiKey) return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!apiKey) return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -494,6 +426,7 @@ Deno.serve(async (req) => {
     const userMessages = messages.slice(-6);
 
     // ─── Pass 1: Tool-calling (non-streaming, max 2 turns) ────────
+    // Lovable AI uses OpenAI-compatible format natively — no conversion needed
     let conversationMessages: any[] = [
       { role: 'system', content: systemPrompt },
       ...userMessages,
@@ -505,7 +438,7 @@ Deno.serve(async (req) => {
     while (turnCount < MAX_TURNS) {
       turnCount++;
       const pass1Resp = await callAI(apiKey, {
-        model: 'claude-sonnet-4-20250514',
+        model: 'google/gemini-2.5-pro',
         messages: conversationMessages,
         tools: TOOL_DEFINITIONS,
         tool_choice: 'auto',
@@ -519,58 +452,50 @@ Deno.serve(async (req) => {
         if (pass1Resp.status === 429 || pass1Resp.status === 402) return errResp;
         const t = await pass1Resp.text();
         console.error('[cdp-qa] Pass 1 error:', pass1Resp.status, t);
-        // Fallback: skip tool-calling, go direct to Pass 2
         break;
       }
 
       const pass1Data = await pass1Resp.json();
-      
-      // Claude response format: content is array of blocks
-      const contentBlocks = pass1Data.content || [];
-      const toolUseBlocks = contentBlocks.filter((b: any) => b.type === 'tool_use');
-      const textBlocks = contentBlocks.filter((b: any) => b.type === 'text');
-      const stopReason = pass1Data.stop_reason;
+      const choice = pass1Data.choices?.[0];
+      const assistantMsg = choice?.message;
 
-      if (toolUseBlocks.length === 0) {
+      if (!assistantMsg?.tool_calls?.length) {
         // No tools needed
-        if (allToolResults.length === 0 && textBlocks.length > 0) {
-          // Simple answer — stream via Pass 2
-        }
         break;
       }
 
-      // Build assistant message for conversation history (Claude format)
-      conversationMessages.push({ role: 'assistant', content: contentBlocks });
+      // Add assistant message with tool_calls to conversation
+      conversationMessages.push(assistantMsg);
 
       // Execute tools in parallel
-      const toolPromises = toolUseBlocks.map(async (tb: any) => {
-        const toolName = tb.name;
-        const toolArgs = tb.input || {};
+      const toolPromises = assistantMsg.tool_calls.map(async (tc: any) => {
+        const toolName = tc.function.name;
+        let toolArgs = {};
+        try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
         console.log(`[cdp-qa] Tool call: ${toolName}`, toolArgs);
         const result = await executeTool(supabase, activeTenantId!, toolName, toolArgs);
         allToolResults.push({ name: toolName, result });
-        return { id: tb.id, name: toolName, result };
+        return { id: tc.id, name: toolName, result };
       });
 
       const toolOutputs = await Promise.all(toolPromises);
-      // Claude expects tool_result blocks in a single user message
-      const toolResultBlocks = toolOutputs.map(to => ({
-        type: 'tool_result',
-        tool_use_id: to.id,
-        content: JSON.stringify(to.result),
-      }));
-      conversationMessages.push({ role: 'user', content: toolResultBlocks });
+      // Add tool results as tool messages (OpenAI format)
+      for (const to of toolOutputs) {
+        conversationMessages.push({
+          role: 'tool',
+          tool_call_id: to.id,
+          content: JSON.stringify(to.result),
+        });
+      }
     }
 
     // ─── Pass 2: Streaming answer ─────────────────────────────────
-    // Build Pass 2 messages: system + user messages + tool context summary
-    const pass2Messages: any[] = [{ role: 'system', content: systemPrompt }];
-
-    // Add user messages first
-    pass2Messages.push(...userMessages);
+    const pass2Messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...userMessages,
+    ];
 
     if (allToolResults.length > 0) {
-      // Inject tool results + analysis instructions AFTER user messages (last position = highest priority for GPT)
       const toolSummary = allToolResults.map(tr =>
         `[${tr.name}] source=${tr.result.source}, rows=${tr.result.rows}${tr.result.period ? `, period=${tr.result.period}` : ''}${tr.result.note ? `, note=${tr.result.note}` : ''}\nData: ${JSON.stringify(tr.result.data)}`
       ).join('\n\n');
@@ -613,7 +538,7 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê số rồi dừng. Người dùn
     }
 
     const pass2Resp = await callAI(apiKey, {
-      model: 'claude-sonnet-4-20250514',
+      model: 'google/gemini-2.5-pro',
       messages: pass2Messages,
       stream: true,
       max_tokens: 10000,
@@ -634,53 +559,8 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê số rồi dừng. Người dùn
       turns: turnCount,
     });
 
-    // Convert Claude SSE stream to OpenAI-compatible SSE stream for frontend
-    const claudeStream = pass2Resp.body!;
-    const transformedStream = new ReadableStream({
-      async start(controller) {
-        const reader = claudeStream.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            let newlineIdx: number;
-            while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-              const line = buffer.slice(0, newlineIdx).trim();
-              buffer = buffer.slice(newlineIdx + 1);
-              
-              if (!line || !line.startsWith('data: ')) continue;
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === '[DONE]') continue;
-
-              try {
-                const event = JSON.parse(jsonStr);
-                // Claude sends content_block_delta with type text_delta
-                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-                  const openaiChunk = {
-                    choices: [{ delta: { content: event.delta.text }, index: 0 }],
-                  };
-                  controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
-                } else if (event.type === 'message_stop') {
-                  controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-                }
-              } catch { /* ignore partial JSON */ }
-            }
-          }
-          controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (e) {
-          console.error('[cdp-qa] Stream transform error:', e);
-          controller.close();
-        }
-      }
-    });
-
-    return new Response(transformedStream, {
+    // Lovable AI returns OpenAI-compatible SSE — pass through directly
+    return new Response(pass2Resp.body, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',

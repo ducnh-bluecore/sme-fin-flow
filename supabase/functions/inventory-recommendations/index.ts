@@ -379,9 +379,9 @@ serve(async (req) => {
     
     console.log("Processing alert:", { alertType, alertTitle, alertSeverity, alertCategory, isSingleProduct, productCount: topProducts?.length });
     
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     // Build context from products data
@@ -407,19 +407,18 @@ serve(async (req) => {
       isSingleProduct === true
     );
 
-    console.log("Alert category detected, calling Claude...");
+    console.log("Alert category detected, calling Lovable AI...");
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        system: systemPrompt,
+        model: "google/gemini-2.5-pro",
         messages: [
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
         max_tokens: 1500,
@@ -434,19 +433,19 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 401) {
-        return new Response(JSON.stringify({ error: "API key không hợp lệ." }), {
-          status: 401,
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Hết credits AI." }), {
+          status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("Claude API error:", response.status, errorText);
-      throw new Error(`Claude API error: ${response.status}`);
+      console.error("AI gateway error:", response.status, errorText);
+      throw new Error(`AI gateway error: ${response.status}`);
     }
 
     const data = await response.json();
-    const recommendations = data.content?.[0]?.text || "Không thể tạo đề xuất.";
+    const recommendations = data.choices?.[0]?.message?.content || "Không thể tạo đề xuất.";
 
     console.log("AI recommendations generated successfully for alert type:", alertType);
 
